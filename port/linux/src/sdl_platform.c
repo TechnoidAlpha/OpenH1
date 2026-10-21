@@ -1271,6 +1271,27 @@ static void menu_cursor_fit(void)
 		SDL_DestroySurface(points);
 	SDL_DestroySurface(pixels);
 }
+
+/* A controller's buttons or sticks, used while a menu is up, hide the
+cursor, and the mouse moved or clicked shows it again, so a player on a
+controller has no arrow left over the menus; a menu opened while the
+controller was used last opens without it
+(platform_ui_pointer_set_active). */
+static BOOL menu_cursor_controller;
+
+static void menu_cursor_controller_used(BOOL in_menus)
+{
+	menu_cursor_controller = TRUE;
+	if (in_menus && SDL_CursorVisible())
+		SDL_HideCursor();
+}
+
+static void menu_cursor_mouse_used(BOOL in_menus)
+{
+	menu_cursor_controller = FALSE;
+	if (in_menus && !SDL_CursorVisible())
+		SDL_ShowCursor();
+}
 #endif
 
 BOOL platform_video_initialize(unsigned long width, unsigned long height)
@@ -2551,6 +2572,13 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
 #ifndef HALO_ANDROID
+#ifndef HALO_GUEST
+			/* (not the warps: to the middle as a menu opens, and back to
+			where the mouse is held without relative mode) */
+			if (input_state.ui_pointer ? event.motion.x != ui_pointer.x || event.motion.y != ui_pointer.y :
+				!mouse_warp_capture || (int)event.motion.x != mouse_warp_x || (int)event.motion.y != mouse_warp_y)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (scoreboard_pointer_active)
 			{
 				scoreboard_pointer.x = event.motion.x;
@@ -2594,6 +2622,10 @@ void platform_pump_events(void)
 			input_presses++;
 			if (event.button.down)
 				movie_skip_presses++;
+#if !defined(HALO_ANDROID) && !defined(HALO_GUEST)
+			if (event.button.down)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
@@ -2773,6 +2805,10 @@ void platform_pump_events(void)
 		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 		case SDL_EVENT_GAMEPAD_BUTTON_UP:
 			input_presses++;
+#if !defined(HALO_ANDROID) && !defined(HALO_GUEST)
+			if (event.gbutton.down)
+				menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			break;
 		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 			if (event.gaxis.axis < SDL_GAMEPAD_AXIS_COUNT)
@@ -2784,6 +2820,11 @@ void platform_pump_events(void)
 				if (beyond != input_axis_beyond[event.gaxis.axis])
 					input_presses++;
 				input_axis_beyond[event.gaxis.axis] = beyond;
+#if !defined(HALO_ANDROID) && !defined(HALO_GUEST)
+				/* (a stick or trigger past its rest) */
+				if (beyond)
+					menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			}
 			break;
 		case SDL_EVENT_GAMEPAD_REMOVED:
@@ -2893,6 +2934,10 @@ void platform_ui_pointer_set_active(BOOL active)
 	memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
 	pthread_mutex_unlock(&input_lock);
 	platform_mouse_capture(!active && !input_state.mouse_released);
+#if !defined(HALO_ANDROID) && !defined(HALO_GUEST)
+	if (active && menu_cursor_controller)
+		SDL_HideCursor();
+#endif
 	if (active)
 	{
 		int width, height;
