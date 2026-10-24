@@ -1711,6 +1711,17 @@ static void hud_button_style_row_show(struct widget_instance *list)
 	row->visible = index >= 0 && index < setting->value_count && !strcmp(setting->values[index], "true");
 }
 
+/* Mouse's Menu Cursor (display.menu_cursor), hidden while VR Setup's row is
+there (the game in the headset, whose menus have no desktop pointer): that
+row takes its room on the page (tools/port_settings.py) */
+static void menu_cursor_row_show(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_menu_cursor", 0);
+
+	if (row)
+		row->visible = !named(list, "op_vr_setup", 0);
+}
+
 /* Video's Frame Rate Limit, shown while VSync shows OFF (Defaults too):
 with vsync on, the display paces the frames and the limit does nothing;
 the rows below close the gap (settings_rows_pack) */
@@ -2902,6 +2913,7 @@ static void settings_page_update(struct widget_instance *list)
 	video_rows_show(list);
 	hud_button_style_row_show(list);
 	max_fps_row_show(list);
+	menu_cursor_row_show(list);
 	settings_rows_show(list);
 	discord_account_show(list);
 	hdr_display_show(list);
