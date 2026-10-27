@@ -93,6 +93,8 @@ their handlers open opens.
 #include "text/unicode.h"
 
 #include "halo_menus.h"
+#include "controller_buttons.h"
+#include "controller_remap.h"
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
 #include "game_modes.h"
@@ -3523,6 +3525,8 @@ static void controls_update(struct widget_instance *list)
 			controls_screen.capturing_control != NONE ? 2 : focused_row ? 1 : 0;
 	}
 }
+
+#include "controller_remap_menu.inl"
 
 /* ---------- Mods (the main menu's: tools/port_settings.py's _mods), laid
 out as the lobby is: the mods folder's mods, a row each (op_mod_<n>), as a
@@ -10341,6 +10345,8 @@ boolean pc_menu_event_function_invoke(
 
 		if (!name)
 			return FALSE;
+		if (!strncmp(name, "port controller ", 16))
+			return pad_editor_event(widget, name);
 		if (!strcmp(name, "main menu quit game"))
 		{
 			platform_request_quit();
@@ -10925,6 +10931,8 @@ void pc_menu_game_data_function_invoke(
 		settings_page_update(widget);
 	else if (!strcmp(name, "controls update menu"))
 		controls_update(widget);
+	else if (!strcmp(name, "port controller update"))
+		pad_editor_update(widget);
 	else if (!strcmp(name, "port mods update"))
 		mods_update(widget);
 	else if (!strcmp(name, "port training update"))

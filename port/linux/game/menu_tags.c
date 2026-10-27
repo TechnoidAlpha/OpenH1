@@ -513,6 +513,9 @@ static char const *const port_function_names[] =
 	"port map vote open", "port map vote choose",
 	/* (Basic Training's chapters: menu_functions.c's training_*) */
 	"port training chapter", "port training open",
+	/* (Gamepad Setup's Button Remapping: controller_remap_menu.inl) */
+	"port controller init", "port controller close", "port controller defaults", "port controller save",
+	"port controller bind", "port controller left", "port controller right",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -559,6 +562,8 @@ static char const *const port_game_data_input_names[] =
 	"port map vote update",
 	/* (Basic Training's chapters) */
 	"port training update",
+	/* (Gamepad Setup's Button Remapping) */
+	"port controller update",
 };
 
 static struct
