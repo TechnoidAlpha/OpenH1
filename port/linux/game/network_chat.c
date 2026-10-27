@@ -56,6 +56,7 @@ mutes. The host's welcome to OpenCE players is a notice too
 (network_welcome.c), which an OpenH1 machine does not show.
 */
 
+#include "controller_remap.h"
 #include "cseries.h"
 #include "cseries/errors.h"
 #include "memory/data.h"
@@ -290,7 +291,9 @@ static short chat_newest_line;
 static struct
 {
 	boolean active;
-	short channel;
+	short channel, controller;
+	long player;
+	boolean physical;
 	char text[CHAT_TEXT_SIZE];
 } chat_input;
 
@@ -302,6 +305,7 @@ touchscreen (its keys tapped) */
 static struct
 {
 	boolean open;
+	unsigned long opening_buttons;
 	/* the key picked */
 	short row;
 	short column;
@@ -1641,12 +1645,14 @@ void network_chat_handle_down(
 
 /* ---------- typing */
 
-/* the first local player's (absolute index), who speaks; NONE */
+/* The editor's owner, or the first local player for direct commands; NONE. */
 static short chat_speaker(
-	void)
+	boolean typed)
 {
-	short local_player_index = local_player_get_next(NONE);
+	short local_player_index = typed && chat_input.active ? controller_remap_local_player(chat_input.controller) : local_player_get_next(NONE);
 	long player_index = local_player_index != NONE ? local_player_get_player_index(local_player_index) : NONE;
+	/* A departing player's unfinished line must never become somebody else's. */
+	if (typed && chat_input.active && player_index != chat_input.player) return NONE;
 
 	return player_index != NONE ? (short)DATUM_INDEX_TO_ABSOLUTE_INDEX(player_index) : NONE;
 }
@@ -1656,12 +1662,13 @@ client sends one unchecked, as a changed build could, for the host to refuse) */
 static void chat_send(
 	short channel,
 	char const *typed,
-	boolean checked)
+	boolean checked,
+	boolean from_editor)
 {
 	char text[CHAT_TEXT_SIZE];
 	char name[CHAT_TEXT_SIZE];
 	short minutes;
-	short player_index = chat_speaker();
+	short player_index = chat_speaker(from_editor);
 	char const *refused;
 
 	if (player_index == NONE || !chat_text_clean(text, typed, CHAT_TEXT_SIZE))
@@ -1752,7 +1759,7 @@ void network_chat_say(
 	char const *text)
 {
 	if (chat_network_game() && game_in_progress() && channel >= 0 && channel < NUMBER_OF_CHAT_CHANNELS)
-		chat_send(channel, text, TRUE);
+		chat_send(channel, text, TRUE, FALSE);
 }
 
 void network_chat_say_unchecked(
@@ -1760,17 +1767,23 @@ void network_chat_say_unchecked(
 	char const *text)
 {
 	if (chat_network_game() && game_in_progress() && channel >= 0 && channel < NUMBER_OF_CHAT_CHANNELS)
-		chat_send(channel, text, FALSE);
+		chat_send(channel, text, FALSE, FALSE);
 }
 
 static void chat_input_begin(
-	short channel)
+	short channel, short controller, boolean physical)
 {
 	struct key_stroke key;
+	short local = controller < 0 ? local_player_get_next(NONE) : controller_remap_local_player(controller);
+	long player = local != NONE ? local_player_get_player_index(local) : NONE;
+	if (player == NONE) return;
 
 	csmemset(&chat_input, 0, sizeof(chat_input));
 	chat_input.active = TRUE;
 	chat_input.channel = channel;
+	chat_input.controller = player_get(player)->local_player_index;
+	chat_input.player = player;
+	chat_input.physical = physical;
 	/* (the keys pressed before) */
 	while (input_get_key(&key))
 		;
@@ -1781,6 +1794,7 @@ static void chat_input_end(
 {
 	chat_input.active = FALSE;
 	chat_keyboard.open = FALSE;
+	chat_keyboard.opening_buttons = 0;
 	chat_keyboard.drawn = FALSE;
 }
 
@@ -1824,7 +1838,7 @@ static void chat_keyboard_press(
 		chat_input_delete();
 		break;
 	default:
-		chat_send(chat_input.channel, chat_input.text, TRUE);
+		chat_send(chat_input.channel, chat_input.text, TRUE, TRUE);
 		chat_input_end();
 		break;
 	}
@@ -1852,7 +1866,7 @@ static void chat_keyboard_update(
 	}
 	if (TEST_FLAG(pressed, HALO_CHAT_PAD_START))
 	{
-		chat_send(chat_input.channel, chat_input.text, TRUE);
+		chat_send(chat_input.channel, chat_input.text, TRUE, TRUE);
 		chat_input_end();
 		return;
 	}
@@ -1888,7 +1902,7 @@ static void chat_keyboard_update(
 		chat_keyboard.shift = !chat_keyboard.shift;
 	/* (a tap on a key presses it; elsewhere it closes the keyboard, as the
 	touch controls, B among them, hide while it is up: touch_input.c) */
-	if (chat_input.active && halo_chat_taps(&x, &y) && chat_keyboard.drawn)
+	if (chat_input.active && chat_input.controller == 0 && halo_chat_taps(&x, &y) && chat_keyboard.drawn)
 	{
 		if (chat_keyboard_key_at((real)(x * 1000.0f - chat_keyboard.left) / (real)(chat_keyboard.right - chat_keyboard.left),
 			(real)(y * 1000.0f - chat_keyboard.top) / (real)(chat_keyboard.bottom - chat_keyboard.top),
@@ -1938,15 +1952,38 @@ static void chat_host_update_rates(
 	}
 }
 
+/* The command's opening press is not navigation, even when bound to B,
+ * a channel direction or a key-repeat direction. */
+static unsigned long chat_keyboard_buttons(unsigned long buttons)
+{
+	chat_keyboard.opening_buttons &= buttons;
+	return buttons & ~chat_keyboard.opening_buttons;
+}
+
 void network_chat_update(
 	void)
 {
 	unsigned long held;
 	unsigned long pressed;
-	unsigned long pad = halo_chat_pad_buttons();
+	unsigned long pad = chat_keyboard_buttons(halo_chat_pad_buttons());
 	unsigned long pad_pressed = pad & ~chat_keyboard.held;
 	unsigned long now = system_milliseconds();
+	short port, requested_port = NONE, requested_channel = _chat_channel_everyone;
+	unsigned int chat_mask = (1u << PAD_CHAT) | (1u << PAD_TEAM_CHAT) | (1u << PAD_VEHICLE_CHAT);
 	struct key_stroke key;
+
+	/* Drain every port even while typing, so another player's press is not
+	 * replayed after this line closes. Keyboard and touch keep their path. */
+	for (port = 0; port < 4; port++)
+	{
+		unsigned int actions = controller_remap_pressed(port, chat_mask);
+		if (actions && requested_port == NONE)
+		{
+			requested_port = port;
+			requested_channel = actions & (1u << PAD_CHAT) ? _chat_channel_everyone :
+				actions & (1u << PAD_TEAM_CHAT) ? _chat_channel_team : _chat_channel_vehicle;
+		}
+	}
 
 	chat_keyboard.held = pad;
 	/* (the host's settings: a client's as the host sends them in each game;
@@ -1994,7 +2031,8 @@ void network_chat_update(
 		vote_keys_held = vote_keys;
 		vote_pad_held = vote_pad;
 	}
-	if (!chat_network_game() || !game_in_progress() || chat_speaker() == NONE || !chat_shown() || chat_hidden())
+	if (!chat_network_game() || !game_in_progress() || chat_speaker(TRUE) == NONE || !chat_shown() || chat_hidden() ||
+		(chat_input.active && chat_input.physical && !controller_remap_connected(chat_input.controller)))
 	{
 		chat_input_end();
 		chat_actions_held = 0;
@@ -2008,7 +2046,7 @@ void network_chat_update(
 		chat_actions_held = held;
 		/* (or the controller's D-pad Up, the touch controls' too, which opens
 		the on-screen keyboard) */
-		if ((pressed || TEST_FLAG(pad_pressed, HALO_CHAT_PAD_UP)) && !console_is_active())
+		if ((pressed || requested_port != NONE || TEST_FLAG(pad_pressed, HALO_CHAT_PAD_UP)) && !console_is_active())
 		{
 			/* (no typing where the host has the chat off: it says so, once a
 			while) */
@@ -2022,10 +2060,14 @@ void network_chat_update(
 				}
 			}
 			else if (pressed)
-				chat_input_begin(TEST_FLAG(pressed, HALO_KEYBOARD_CHAT) ? _chat_channel_everyone : _chat_channel_team);
+				chat_input_begin(TEST_FLAG(pressed, HALO_KEYBOARD_CHAT) ? _chat_channel_everyone : _chat_channel_team, NONE, FALSE);
 			else
 			{
-				chat_input_begin(_chat_channel_everyone);
+				chat_input_begin(requested_channel, requested_port, requested_port != NONE);
+				if (!chat_input.active) return;
+				chat_keyboard.opening_buttons = requested_port != NONE ?
+					halo_chat_pad_buttons_for_port(chat_input.controller) : halo_chat_pad_buttons();
+				chat_keyboard.held = 0;
 				chat_keyboard.open = TRUE;
 				error(_error_log, "chat: the on-screen keyboard opened");
 				chat_keyboard.row = 1;
@@ -2052,7 +2094,7 @@ void network_chat_update(
 			break;
 		case _key_return:
 		case _keypad_enter:
-			chat_send(chat_input.channel, chat_input.text, TRUE);
+			chat_send(chat_input.channel, chat_input.text, TRUE, TRUE);
 			chat_input_end();
 			break;
 		/* (to everyone, the team, the vehicle, in turn) */
@@ -2085,6 +2127,11 @@ void network_chat_update(
 			break;
 		}
 	}
+}
+
+short network_chat_controller(void)
+{
+	return chat_input.active && chat_keyboard.open ? chat_input.controller : NONE;
 }
 
 boolean network_chat_typing(
@@ -2549,7 +2596,8 @@ void network_chat_draw(
 {
 	long font_index = hud_get_font_index();
 	unsigned long now = system_milliseconds();
-	boolean speaker = local_player_index == local_player_get_next(NONE);
+	boolean speaker = chat_input.active ? local_player_index == controller_remap_local_player(chat_input.controller) :
+		local_player_index == local_player_get_next(NONE);
 	boolean typing = speaker && chat_input.active && !console_is_active();
 	boolean touch = chat_touch_layout();
 	rectangle2d window = render.camera.window_bounds;

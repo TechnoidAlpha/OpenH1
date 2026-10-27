@@ -52,6 +52,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
 #include "cseries/cseries.h"
 #include "bink/bink_playback.h"
 #include "cseries/errors.h"
@@ -944,6 +945,8 @@ static void input_abstraction_state_from_gamepad(
 			error(_error_silent, "unknown joystick preset");
 			break;
 	}
+	/* port: digital movement bindings are independent of stick presets. */
+	controller_remap_movement((short)controller_index, &state->forward_movement, &state->strafe);
 
 	return;
 }

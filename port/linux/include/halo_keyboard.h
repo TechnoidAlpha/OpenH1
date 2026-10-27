@@ -99,6 +99,8 @@ enum halo_chat_pad_button
 };
 
 unsigned long halo_chat_pad_buttons(void);
+/* Raw physical snapshot: suppress the button which opened controller chat. */
+unsigned long halo_chat_pad_buttons_for_port(short port);
 
 /* the scoreboard's player menu by controller and keyboard (source/game/
 game_engine.c): each frame a local player's scoreboard shows its player menu

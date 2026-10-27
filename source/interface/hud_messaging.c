@@ -1812,7 +1812,7 @@ void hud_messaging_update(
 								draw_string_set_indents(line_cursor.x0 - line_bounds.x0, 0);
 								draw_unicode_string_compute_bounds(
 									&line_bounds,
-									L"<no button icon>",
+									(icon_index == CONTROLLER_REMAP_UNBOUND ? L"UNBOUND" : L"<no button icon>") /* port: explicit cleared controller action */,
 									&text_bounds,
 									&line_cursor);
 								line_cursor.x0 -= 3;
@@ -1822,7 +1822,7 @@ void hud_messaging_update(
 									NULL,
 									NULL,
 									0,
-									L"<no button icon>");
+									(icon_index == CONTROLLER_REMAP_UNBOUND ? L"UNBOUND" : L"<no button icon>") /* port: explicit cleared controller action */);
 								line_bounds.y0 = line_cursor.y0;
 							}
 						}
