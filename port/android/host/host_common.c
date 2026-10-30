@@ -240,6 +240,32 @@ uint32_t host_make_boot(const struct host_environment *environment, const char *
 /* (display.astc_textures' default, as port_config.c's) */
 char host_astc_textures[16] = "auto";
 
+/* debug.host_environment: "NAME=value NAME=value", set in the host's own
+environment before the guest starts, for the switches the renderer reads
+only from the environment (HALO_VULKAN_DISCARDS, HALO_VULKAN_TRANSIENT,
+HALO_VULKAN_FRAME_LOG), which an app has no other way to be given */
+static void host_apply_environment(toml_datum_t setting)
+{
+	char text[512], *entry, *rest;
+
+	if (setting.type != TOML_STRING)
+		return;
+	snprintf(text, sizeof(text), "%s", setting.u.s);
+	for (entry = strtok_r(text, " \t", &rest); entry; entry = strtok_r(NULL, " \t", &rest))
+	{
+		char *equals = strchr(entry, '=');
+
+		if (!equals || equals == entry)
+		{
+			host_logf(HOST_LOG_WARN, "debug.host_environment: %s is not NAME=value, left out", entry);
+			continue;
+		}
+		*equals = 0;
+		setenv(entry, equals + 1, 1);
+		host_logf(HOST_LOG_INFO, "debug.host_environment: %s=%s", entry, equals + 1);
+	}
+}
+
 void host_apply_debug_settings(const char *path, const char *hashes_reason)
 {
 	toml_result_t result = toml_parse_file_ex(path);
@@ -258,6 +284,7 @@ void host_apply_debug_settings(const char *path, const char *hashes_reason)
 			memory_watch = watch.u.boolean ? 1 : 0;
 		if (astc.type == TOML_STRING)
 			snprintf(host_astc_textures, sizeof(host_astc_textures), "%s", astc.u.s);
+		host_apply_environment(toml_seek(result.toptab, "debug.host_environment"));
 		toml_free(result);
 	}
 	if (getenv("HALO_ASTC_TEXTURES") && *getenv("HALO_ASTC_TEXTURES"))

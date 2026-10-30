@@ -1942,6 +1942,11 @@ static const struct config_setting config_settings[] =
 		"protection; false compares page contents once a frame instead, which is\n"
 		"slower. Under ARM translation (the x86 emulator) the app always compares\n"
 		"contents. Read by the host from the file (port/android/host/host_common.c)." },
+	{ "debug.host_environment", _config_string, "\"\"", "HALO_HOST_ENVIRONMENT", _environment_value, _platform_android | _platform_guest,
+		"NAME=value pairs, separated by spaces, that the host puts in its own\n"
+		"environment before the game starts: the renderer's switches that only\n"
+		"the environment gives (HALO_VULKAN_DISCARDS=1). Read by the host from\n"
+		"the file (port/android/host/host_common.c)." },
 #ifdef HALO_PROFILE
 	{ "debug.profile_record", _config_boolean, "false", "HALO_PROFILE_RECORD", _environment_value, _platform_all,
 		"Record a profile with no command (configure.py --profile builds): from\n"
