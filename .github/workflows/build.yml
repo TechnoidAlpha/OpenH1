@@ -331,7 +331,7 @@ jobs:
       - name: Start the tests
         run: |
           PATH="$(python3 tools/guest_toolchain.py --cache "$CI_GUEST_LLVM_CACHE"):$PATH"
-          (python3 -m pytest -q -rs -n auto --dist loadfile --durations=10 tools/test_host_units.py tools/test_guest_image_check.py tools/test_check_host_imports.py tools/test_host_syscall.py tools/test_guest_layout.py tools/test_linux_guest_build.py tools/test_build_errors.py tools/test_guest_toolchain.py tools/test_linux_port.py tools/test_join_page.py tools/test_linux_package.py tools/test_install_layout.py tools/test_android_asm_convert.py tools/test_guest_asm_cache.py tools/test_guest_branch_relax.py tools/test_host_watch_hash.py tools/test_touch_menu.py tools/harness tools/test_net_compare.py tools/test_loading_ring.py tools/test_preparation.py tools/test_progress_ownership.py \
+          (python3 -m pytest -q -rs -n auto --dist loadfile --durations=10 tools/test_host_units.py tools/test_guest_image_check.py tools/test_check_host_imports.py tools/test_host_syscall.py tools/test_guest_layout.py tools/test_linux_guest_build.py tools/test_build_errors.py tools/test_guest_toolchain.py tools/test_linux_port.py tools/test_join_page.py tools/test_linux_package.py tools/test_install_layout.py tools/test_android_asm_convert.py tools/test_guest_asm_cache.py tools/test_guest_branch_relax.py tools/test_host_watch_hash.py tools/test_touch_menu.py tools/harness tools/test_controller_remap.py tools/test_controller_remap_context.py tools/test_net_compare.py tools/test_loading_ring.py tools/test_preparation.py tools/test_progress_ownership.py \
             > "$RUNNER_TEMP/tests.log" 2>&1 && status=0 || status=$?; echo "$status" > "$RUNNER_TEMP/tests.status") < /dev/null > /dev/null 2>&1 &
 
       - name: Debug
