@@ -278,22 +278,31 @@ static struct
 	long down_time;
 } crouch_toggles[MAXIMUM_GAMEPADS];
 
-static boolean crouch_toggles_on(
+/* port: input.crouch ("toggle") and input.crouch_walk, read again when the
+settings change */
+static struct
+{
+	unsigned long read_at;
+	boolean toggle;
+	boolean walk;
+} crouch_settings = { (unsigned long)-1, FALSE, FALSE };
+
+static void crouch_settings_read(
 	void)
 {
 	extern const char *config_string(const char *name);
+	extern int config_boolean(const char *name);
 	extern unsigned long config_changes(void);
-	static boolean on;
-	static unsigned long read_at = (unsigned long)-1;
 
-	if (read_at != config_changes())
+	if (crouch_settings.read_at != config_changes())
 	{
 		const char *value = config_string("input.crouch");
 
-		read_at = config_changes();
-		on = value && !strcmp(value, "toggle");
+		crouch_settings.read_at = config_changes();
+		crouch_settings.toggle = value && !strcmp(value, "toggle");
+		crouch_settings.walk = config_boolean("input.crouch_walk") != 0;
 	}
-	return on;
+	return;
 }
 
 void input_abstraction_crouch_release(
@@ -305,7 +314,9 @@ void input_abstraction_crouch_release(
 }
 
 /* port: crouch after every device has been read: input.crouch's toggle,
-then any crouch kept below the stand-up push (crouch_walk) */
+then, with input.crouch_walk, any crouch kept below the stand-up push
+(crouch_walk); without it a full push stands a crouched controller's
+player up, as Halo did */
 static void crouch_controls_update(
 	long controller_index,
 	struct game_input_state *state)
@@ -313,7 +324,8 @@ static void crouch_controls_update(
 	boolean down = state->buttons[_game_control_crouch] != 0;
 	boolean jump_down = state->buttons[_game_control_jump] != 0;
 
-	if (crouch_toggles_on())
+	crouch_settings_read();
+	if (crouch_settings.toggle)
 	{
 		long now = (long)system_milliseconds();
 
@@ -346,7 +358,7 @@ static void crouch_controls_update(
 	}
 	crouch_toggles[controller_index].down = down;
 	crouch_toggles[controller_index].jump_down = jump_down;
-	if (state->buttons[_game_control_crouch])
+	if (state->buttons[_game_control_crouch] && crouch_settings.walk)
 		crouch_walk(&state->forward_movement, &state->strafe);
 	return;
 }
@@ -392,6 +404,12 @@ static void keyboard_controls_apply(
 
 		if (halo_linux_touch_move((short)controller_index, &forward, &strafe))
 		{
+			/* port: crouched (the touch Crouch tapped on, or any crouch
+			held), below the full stick's 0.98 whatever input.crouch_walk
+			is, a full diagonal too: a full push stood the player up while
+			it lasted */
+			if (state->buttons[_game_control_crouch])
+				crouch_walk(&forward, &strafe);
 			state->forward_movement = forward;
 			state->strafe = strafe;
 		}

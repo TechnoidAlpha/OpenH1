@@ -771,8 +771,12 @@ static const struct config_setting config_settings[] =
 		"A controller's or the keys' Crouch: \"hold\" crouches while it is held,\n"
 		"as Halo did; \"toggle\" crouches at a tap until Crouch is pressed again,\n"
 		"Jump is pressed, a vehicle's seat is taken or the player dies, and still\n"
-		"crouches while held. Either way a full push of the stick keeps the\n"
-		"player crouched (Halo stood a player up at one)." },
+		"crouches while held." },
+	{ "input.crouch_walk", _config_boolean, "false", "HALO_CROUCH_WALK", _environment_value, _platform_all,
+		"true: a crouched player stays crouched at a full push of a controller's\n"
+		"stick, walking at a crouch's speed; false: a full push stands them up,\n"
+		"as Halo did. The touch controls always stay crouched, and the keys walk\n"
+		"crouched as before." },
 	{ "input.mouse_sensitivity", _config_real, "5.73", "HALO_MOUSE_SENSITIVITY", _environment_value, _platform_desktop,
 		"How far the view turns for the mouse's movement, on " CONFIG_MOUSE_MARK " scale:\n"
 		"0.022 degrees a count of the mouse times this, with no acceleration,\n"

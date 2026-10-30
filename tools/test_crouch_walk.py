@@ -1,7 +1,8 @@
 """Crouch in source/input/input_abstraction.c, compiled alone: a crouched
 player's move stays below the 0.98 that stands a grounded biped up
 (source/game/player_control.c), a full diagonal of a stick too
-(crouch_walk), and input.crouch "toggle" keeps a tapped crouch on
+(crouch_walk): the touch controls' always, a controller's with
+input.crouch_walk; and input.crouch "toggle" keeps a tapped crouch on
 (crouch_controls_update)."""
 import shutil
 import subprocess
@@ -38,11 +39,17 @@ static unsigned long system_milliseconds(void)
     return (unsigned long)now_ms;
 }
 static const char *crouch_setting = "toggle";
+static int crouch_walk_setting = 1;
 static unsigned long setting_changes = 1;
 const char *config_string(const char *name)
 {
     assert(!strcmp(name, "input.crouch"));
     return crouch_setting;
+}
+int config_boolean(const char *name)
+{
+    assert(!strcmp(name, "input.crouch_walk"));
+    return crouch_walk_setting;
 }
 unsigned long config_changes(void)
 {
@@ -153,3 +160,47 @@ int main(void)
     return 0;
 }
 """)
+
+
+def test_crouch_walk_setting(tmp_path):
+    compile_and_run(tmp_path, "crouch_walk_setting", r"""
+static real pushed(int crouch)
+{
+    struct game_input_state state;
+
+    memset(&state, 0, sizeof(state));
+    state.buttons[_game_control_crouch] = (byte)crouch;
+    state.forward_movement = 1.f;
+    state.strafe = 0.f;
+    crouch_controls_update(0, &state);
+    return state.forward_movement;
+}
+
+int main(void)
+{
+    crouch_setting = "hold";
+    /* input.crouch_walk off (the default): a controller's full push is
+    left whole, so Halo stands the crouched player up, as it did */
+    crouch_walk_setting = 0;
+    setting_changes++;
+    assert(pushed(1) == 1.f);
+    /* on: kept below the stand-up push */
+    crouch_walk_setting = 1;
+    setting_changes++;
+    assert(fabsf(pushed(1) - 0.97f) < 1e-5f);
+    /* standing: never changed */
+    assert(pushed(0) == 1.f);
+    return 0;
+}
+""")
+
+
+def test_touch_crouch_walk_always():
+    """The touch controls' stick keeps a crouch whatever input.crouch_walk
+    is (the #258 fix): the touch move is brought below the stand-up push
+    before crouch_controls_update, by crouch_walk, under no setting."""
+    text = (ROOT / "source/input/input_abstraction.c").read_text()
+    start = text.index("if (halo_linux_touch_move(")
+    branch = text[start:text.index("state->forward_movement = forward;", start)]
+    assert "crouch_walk(&forward, &strafe);" in branch
+    assert "crouch_settings" not in branch and "crouch_walk_setting" not in branch
