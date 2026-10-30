@@ -9,7 +9,7 @@
         android:shortcutLongLabel="@string/shortcut_backup_long">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.openh1.openh1"
+            android:targetPackage="com.openh1.openh1.fixtest"
             android:targetClass="com.halo.decomp.BackupActivity" />
     </shortcut>
 </shortcuts>

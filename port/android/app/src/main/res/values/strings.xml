@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">OpenH1</string>
+    <string name="app_name">OpenH1 Dev</string>
     <string name="shortcut_backup_short">Back up saves</string>
     <string name="shortcut_backup_long">Back up saves and settings</string>
 </resources>
