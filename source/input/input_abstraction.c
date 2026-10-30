@@ -242,6 +242,115 @@ static void keyboard_hold_ticks(
 	return;
 }
 
+/* port: a crouched player's move kept below the full stick's 0.98 that
+stands a grounded biped up (player_control.c): its length brought down to
+0.97, a full diagonal's too (the touch controls' stick gives a square's,
+up to 1.41 long) */
+static void crouch_walk(
+	real *forward,
+	real *strafe)
+{
+	real length = square_root(*forward * *forward + *strafe * *strafe);
+
+	if (length > 0.97f)
+	{
+		*forward *= 0.97f / length;
+		*strafe *= 0.97f / length;
+	}
+	return;
+}
+
+/* port: input.crouch "toggle": a crouch let go within CROUCH_TAP_MS of
+its press stays on until crouch is pressed again (that press stands up),
+Jump is pressed, or the player dies or takes a seat
+(input_abstraction_crouch_release); one held longer crouches while it is
+held, as "hold" does. The touch controls' own toggle holds the button for
+as long as it is on, so it is a hold here, unchanged */
+#define CROUCH_TAP_MS 300
+
+static struct
+{
+	boolean latched;
+	/* the press that stood a latched crouch up: no crouch until let go */
+	boolean standing;
+	boolean down;
+	boolean jump_down;
+	long down_time;
+} crouch_toggles[MAXIMUM_GAMEPADS];
+
+static boolean crouch_toggles_on(
+	void)
+{
+	extern const char *config_string(const char *name);
+	extern unsigned long config_changes(void);
+	static boolean on;
+	static unsigned long read_at = (unsigned long)-1;
+
+	if (read_at != config_changes())
+	{
+		const char *value = config_string("input.crouch");
+
+		read_at = config_changes();
+		on = value && !strcmp(value, "toggle");
+	}
+	return on;
+}
+
+void input_abstraction_crouch_release(
+	long controller_index)
+{
+	if (controller_index >= 0 && controller_index < MAXIMUM_GAMEPADS)
+		crouch_toggles[controller_index].latched = FALSE;
+	return;
+}
+
+/* port: crouch after every device has been read: input.crouch's toggle,
+then any crouch kept below the stand-up push (crouch_walk) */
+static void crouch_controls_update(
+	long controller_index,
+	struct game_input_state *state)
+{
+	boolean down = state->buttons[_game_control_crouch] != 0;
+	boolean jump_down = state->buttons[_game_control_jump] != 0;
+
+	if (crouch_toggles_on())
+	{
+		long now = (long)system_milliseconds();
+
+		if (down && !crouch_toggles[controller_index].down)
+		{
+			crouch_toggles[controller_index].standing = crouch_toggles[controller_index].latched;
+			crouch_toggles[controller_index].latched = FALSE;
+			crouch_toggles[controller_index].down_time = now;
+		}
+		else if (!down && crouch_toggles[controller_index].down)
+		{
+			if (!crouch_toggles[controller_index].standing &&
+				now - crouch_toggles[controller_index].down_time < CROUCH_TAP_MS)
+			{
+				crouch_toggles[controller_index].latched = TRUE;
+			}
+			crouch_toggles[controller_index].standing = FALSE;
+		}
+		if (jump_down && !crouch_toggles[controller_index].jump_down)
+			crouch_toggles[controller_index].latched = FALSE;
+		if (crouch_toggles[controller_index].standing)
+			state->buttons[_game_control_crouch] = 0;
+		else if (crouch_toggles[controller_index].latched && !down)
+			state->buttons[_game_control_crouch] = 1;
+	}
+	else
+	{
+		crouch_toggles[controller_index].latched = FALSE;
+		crouch_toggles[controller_index].standing = FALSE;
+	}
+	crouch_toggles[controller_index].down = down;
+	crouch_toggles[controller_index].jump_down = jump_down;
+	if (state->buttons[_game_control_crouch])
+		crouch_walk(&state->forward_movement, &state->strafe);
+	return;
+}
+
 /* the keys held as a game input state's (the keyboard's ticks counted as
 keyboard_controls_update counted them) */
 static void keyboard_controls_apply(
@@ -283,14 +392,6 @@ static void keyboard_controls_apply(
 
 		if (halo_linux_touch_move((short)controller_index, &forward, &strafe))
 		{
-			/* port: crouched (the touch Crouch tapped on, or any crouch
-			held), below the full stick's 0.98 too, as the keys' crouch
-			walk above: a full push stood the player up while it lasted */
-			if (state->buttons[_game_control_crouch])
-			{
-				forward *= 0.97f;
-				strafe *= 0.97f;
-			}
 			state->forward_movement = forward;
 			state->strafe = strafe;
 		}
@@ -850,6 +951,7 @@ void input_abstraction_update(
 			player_look_pitch_rate[controller_index] = input_abstraction_globals.player_control_preferences[controller_index].pitch_rate;
 			input_abstraction_state_from_gamepad(controller_index, gamepad, state);
 			keyboard_controls_update(controller_index, state);
+			crouch_controls_update(controller_index, state); /* port */
 			input_abstraction_globals.controller_available[controller_index] = TRUE;
 		}
 		else

@@ -79,6 +79,10 @@ boolean input_abstraction_port_substep_state(
 	short controller_index,
 	struct game_input_state *state,
 	real *primary_trigger);
+/* port: a crouch tapped on with input.crouch "toggle" stands up: at
+death, in a vehicle's seat (player_control.c) */
+void input_abstraction_crouch_release(
+	long controller_index);
 
 /* ---------- globals */
 

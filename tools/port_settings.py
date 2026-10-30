@@ -514,6 +514,14 @@ PAGES = {
             ("CONTROLLER ›", None, _page_screen(*CONTROLLER),
              "The look sensitivity and inversion, the button and stick layouts, and vibration, kept in your player "
              "profile.", None),
+            # (input.crouch: the controller's and the keys'; input.touch_crouch: the touch controls')
+            ("CROUCH", "input.crouch", [("HOLD", "hold"), ("TOGGLE", "toggle")],
+             "Hold crouches while the button is held, as Halo did. Toggle crouches at a tap until you press it "
+             "again, jump, take a seat or die; holding it still crouches while held.|A full push of the stick "
+             "keeps you crouched either way.", None),
+            ("TOUCH CROUCH", "input.touch_crouch", [("TOGGLE", "toggle"), ("HOLD", "hold")],
+             "The touch controls' Crouch. Toggle crouches at a tap until the next tap, a jump, a seat or death; "
+             "Hold crouches while your finger is on it.", "touch"),
             (SECTION, "KEYBOARD"),
             ("KEY BINDINGS ›", None, _page_screen(*KEY_BINDINGS),
              "The keys and mouse buttons for each action, two for each.", None),

@@ -1652,6 +1652,14 @@ static void get_local_player_input_blob(
 					}
 				}
 
+				/* port: a crouch tapped on (input.crouch "toggle") stands up at
+				death and in a vehicle's seat */
+				if (player->unit_index == NONE ||
+					(unit_get(player->unit_index)->object.parent_object_index != NONE &&
+					unit_get(player->unit_index)->unit.parent_seat_index != NONE))
+				{
+					input_abstraction_crouch_release(gamepad_index);
+				}
 				if (player->unit_index != NONE)
 				{
 					struct biped_datum *biped = biped_try_and_get(player->unit_index);

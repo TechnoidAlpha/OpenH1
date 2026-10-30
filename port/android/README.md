@@ -324,8 +324,8 @@ controls' scene (`port/linux/game/touch_game.c`, `TouchContext.java`):
 - Crouch is tapped on and off by default, not held: it sits under the left
   thumb beside the stick, so a tap crouches until Crouch is tapped again,
   Jump is pressed, a vehicle's seat is taken or the player dies, and the
-  button shows held meanwhile. The setting `input.touch_crouch` makes it a
-  button to hold instead.
+  button shows held meanwhile. Settings, Controls, Touch Crouch
+  (`input.touch_crouch`) makes it a button to hold instead.
 - Each button press gives a short, light tap of the vibrator, with the
   vibration on ("General"), on top of the game's own rumble.
 

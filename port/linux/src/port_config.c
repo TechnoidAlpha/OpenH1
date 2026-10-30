@@ -767,6 +767,12 @@ static const struct config_setting config_settings[] =
 		"The touch controls' Crouch: \"toggle\" crouches at a tap until Crouch\n"
 		"is tapped again, Jump is pressed, a vehicle's seat is taken or the\n"
 		"player dies; \"hold\" crouches while it is held." },
+	{ "input.crouch", _config_string, "\"hold\"", "HALO_CROUCH", _environment_value, _platform_all,
+		"A controller's or the keys' Crouch: \"hold\" crouches while it is held,\n"
+		"as Halo did; \"toggle\" crouches at a tap until Crouch is pressed again,\n"
+		"Jump is pressed, a vehicle's seat is taken or the player dies, and still\n"
+		"crouches while held. Either way a full push of the stick keeps the\n"
+		"player crouched (Halo stood a player up at one)." },
 	{ "input.mouse_sensitivity", _config_real, "5.73", "HALO_MOUSE_SENSITIVITY", _environment_value, _platform_desktop,
 		"How far the view turns for the mouse's movement, on " CONFIG_MOUSE_MARK " scale:\n"
 		"0.022 degrees a count of the mouse times this, with no acceleration,\n"
@@ -3165,6 +3171,7 @@ static const struct
 	{ "audio.voice_chat", { "push_to_talk", "open_mic", "off", NULL }, NULL },
 	{ "input.touch_controls", { "auto", "on", "off", NULL }, NULL },
 	{ "input.touch_crouch", { "toggle", "hold", NULL }, NULL },
+	{ "input.crouch", { "hold", "toggle", NULL }, NULL },
 	{ "input.button_prompts", { "auto", "controller", "keyboard", NULL }, NULL },
 	{ "input.zoom_sensitivity", { "cs2", "halo", NULL }, "cs2" },
 	{ "game.console_log", { "important", "all", "none", NULL }, NULL },
