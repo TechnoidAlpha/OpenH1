@@ -72,6 +72,8 @@ write_config() {
 	{
 		echo "[display]"
 		echo "anti_aliasing = \"$1\""
+		# timing runs unpaced, as #302 measured: a paced GPU clocks down instead
+		[ "$3" = timing ] && echo "vsync = false"
 		echo ""
 		echo "[debug]"
 		echo "gpu_stats = true"
@@ -82,7 +84,7 @@ write_config() {
 		if [ "$3" = pictures ]; then
 			echo "frame_time = 0.0166667"
 			echo "screenshot_directory = \"$SHOTS\""
-			echo "screenshot_every = 30"
+			echo "screenshot_every = 60"
 			echo "screenshot_from = 3.0"
 			echo "screenshot_until = 20.0"
 		fi
@@ -127,10 +129,10 @@ run() {
 	if [ "$4" = pictures ]; then
 		( cd "$SHOTS" && md5sum *.bmp 2>/dev/null ) > "$dir/shots.md5"
 		say "  $(wc -l < "$dir/shots.md5") screenshots"
-		# a few kept to look at (every fourth)
+		# a few kept to look at (every other one, about 17 MB each)
 		i=0
 		for f in $(ls "$SHOTS" | sort); do
-			[ $((i % 4)) = 0 ] && cp "$SHOTS/$f" "$dir/"
+			[ $((i % 2)) = 0 ] && cp "$SHOTS/$f" "$dir/"
 			i=$((i + 1))
 		done
 	fi
@@ -183,7 +185,7 @@ plan_discards() {
 			printf "%-7s %-9s %-6s %-13s %-18s %s\n" "$aa" "$d" "$rr" "$g" "$b" "$w"
 		done
 		echo
-		echo "Pictures (frame_time fixed, a shot every 30 frames from 3 s to 20 s):"
+		echo "Pictures (frame_time fixed, a shot every 60 frames from 3 s to 20 s):"
 		compare_shots p-smaa-d0 p-smaa-d1
 		compare_shots p-msaa4x-d0 p-msaa4x-d1
 		echo
