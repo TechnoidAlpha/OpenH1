@@ -243,6 +243,10 @@ void cache_slot_source_load(short slot);
 void cache_slot_source_record(short slot, const char *map_path);
 void cache_slot_source_forget(short slot);
 int cache_slot_source_matches(short slot, const char *map_path);
+/* the deflection of a stick (0 the left, 1 the right) read as none, of
+32767: input.left_stick_dead_zone and input.right_stick_dead_zone, else the
+game's own (port/linux/src/xinput_sdl.c) */
+short halo_stick_dead_range(short stick);
 /* the mouse in the menus (source/interface/ui_widget.c) */
 #include "halo_ui_pointer.h"
 
