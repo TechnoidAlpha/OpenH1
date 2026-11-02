@@ -2577,6 +2577,10 @@ static boolean hdr_display_panel(struct widget_instance *row, wchar_t *value, wc
 	return TRUE;
 }
 
+/* (the server browsers' Filters page's SEARCH: below) */
+static void browser_search_show(struct widget_instance *list);
+static boolean browser_search_panel(struct widget_instance *row, wchar_t *value);
+
 /* the panel's name, value and words for a row of the page (the others':
 FALSE) */
 static boolean discord_account_panel(struct widget_instance *row, wchar_t *name, wchar_t *value,
@@ -2801,6 +2805,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 		discord_account_panel(row, name, value, &help);
 		/* (the display's peak: its words of the display now) */
 		hdr_display_panel(row, value, &help);
+		/* (the browsers' SEARCH: its words) */
+		browser_search_panel(row, value);
 		/* (Button Remapping's: a button being taken, a replacement asked) */
 		if (pad_editor_page(screen_of(list)))
 			pad_editor_panel(row, name, value, &help);
@@ -2910,6 +2916,7 @@ static void settings_page_update(struct widget_instance *list)
 	sim_rate_row_show(list);
 	settings_each(screen, setting_stash);
 	settings_sliders_show(list);
+	browser_search_show(list);
 	settings_rows_pack(list, tab != NONE);
 	settings_focus_shown(list);
 	settings_tabs_show(list, tab);
@@ -4698,6 +4705,109 @@ static void settings_sliders_default(struct widget_instance *screen)
 	}
 }
 
+/* ---- the server browsers' Filters page (tools/port_settings.py's
+BROWSER_FILTERS, its rows the network.browser_* settings): opened by the
+browsers' FILTERS (the left trigger; "port browser filters", which starts
+it with no change kept: its OK writes its own, as a page of Settings' does)
+or by Settings' Online. Its SEARCH row's words are typed into its value
+("port browser search": A, Start or a click begins, Enter keeps, Escape
+forgets), a change kept as a spinner's is. The browser reads them all again
+as it opens (browser_filters_read) */
+
+#define BROWSER_SEARCH_SETTING "network.browser_search"
+#define BROWSER_SEARCH_TEXT 32
+
+/* "port browser filters": not Join by Link's, whose games are not filtered */
+static boolean browser_filters_open(void)
+{
+	if (multiplayer.mode == _multiplayer_mode_direct_link)
+		return FALSE;
+	if (text_field_editing(NULL))
+		text_field_end(FALSE);
+	settings_pending_clear();
+	ui_play_audio_feedback_sound(SOUND_FORWARD);
+	return TRUE;
+}
+
+/* (the words typed: a change kept, or none if they are the setting's) */
+static void browser_search_typed(char const *text)
+{
+	char current[BROWSER_SEARCH_TEXT] = "";
+
+	setting_text(BROWSER_SEARCH_SETTING, current, sizeof(current), FALSE);
+	if (!strcmp(current, text))
+		settings_pending_remove(BROWSER_SEARCH_SETTING);
+	else
+		settings_pending_set(BROWSER_SEARCH_SETTING, text);
+}
+
+/* "port browser search" (its row's A: begins, or ends) */
+static boolean browser_search_edit(struct widget_instance *row)
+{
+	char text[BROWSER_SEARCH_TEXT] = "";
+
+	if (text_field_editing(row))
+	{
+		text_field_end(TRUE);
+		return TRUE;
+	}
+	if (text_field_editing(NULL))
+		text_field_end(TRUE);
+	settings_value(BROWSER_SEARCH_SETTING, text, sizeof(text));
+	text_field_begin(row, text, BROWSER_SEARCH_TEXT - 1, browser_search_typed);
+	return TRUE;
+}
+
+/* SEARCH's value as its row and the panel show it: the words, or OFF */
+static void browser_search_text(char *text, unsigned int size)
+{
+	text[0] = 0;
+	settings_value(BROWSER_SEARCH_SETTING, text, size);
+	if (!text[0])
+		snprintf(text, size, "OFF");
+}
+
+/* (each frame of a page) SEARCH's value, the words typed while they are;
+typing whose row lost the focus keeps what was typed */
+static void browser_search_show(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_browser_search", 0);
+	struct widget_instance *value = row ? named(row, "browser_search_value", 0) : NULL;
+	char text[BROWSER_SEARCH_TEXT];
+
+	if (!value)
+		return;
+	if (text_field_editing(row) && list->focused_child != row)
+		text_field_end(TRUE);
+	browser_search_text(text, sizeof(text));
+	text_field_show(value, text, text_field_editing(row));
+}
+
+/* the SEARCH row's panel: its words (the others': FALSE) */
+static boolean browser_search_panel(struct widget_instance *row, wchar_t *value)
+{
+	char text[BROWSER_SEARCH_TEXT];
+	short index;
+
+	if (!row->name || strcmp(row->name, "op_browser_search"))
+		return FALSE;
+	browser_search_text(text, sizeof(text));
+	for (index = 0; text[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		value[index] = (wchar_t)(unsigned char)text[index];
+	value[index] = 0;
+	return TRUE;
+}
+
+/* "port settings defaults": no words searched for (what is typed forgotten) */
+static void browser_search_default(struct widget_instance *screen)
+{
+	if (!named(screen, "op_browser_search", 0))
+		return;
+	if (text_field_editing(NULL))
+		text_field_end(FALSE);
+	browser_search_typed("");
+}
+
 /* ---- the menu */
 
 /* "mp type set mode": the item's (by its name) */
@@ -5903,6 +6013,7 @@ static void lobby_browser_update(struct widget_instance *list);
 static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,
 	boolean *widget_deleted);
 static void browser_prompts_show(struct widget_instance *list);
+static void browser_filters_refresh(void);
 
 /* "gamespy screen init": the mode's title and parts; the games' client */
 static boolean browser_initialize(struct widget_instance *screen, struct event_record *event,
@@ -5915,6 +6026,8 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	short index;
 
 	server_browser_initialize(screen);
+	/* (the filters as Filters left them: browser_filters_read, below) */
+	browser_filters_refresh();
 	for (index = 0; index < NUMBEROF(titles); index++)
 		visible_set(named(screen, titles[index], 0), !strcmp(titles[index], title));
 	/* (the tabs and their prompts, but for Join by Link's list, whose games
@@ -6249,6 +6362,13 @@ struct browser_sort_entry
 	boolean coop;
 	/* a dedicated server's */
 	boolean dedicated;
+	/* what the filters see of it (browser_filters_show): its most players
+	(0: not known), its game engine (0: co-op's none), its password, and
+	its map's name as the rows show it */
+	short maximum_players;
+	short engine_type;
+	boolean locked;
+	wchar_t map_shown[ROW_TEXT_LENGTH];
 };
 
 static short browser_sort_column = _browser_sort_players;
@@ -6365,6 +6485,125 @@ static boolean browser_tab_lists_offline(void)
 	return browser_tab == _browser_tab_all || browser_tab == _browser_tab_favorites;
 }
 
+/* ---- the browsers' filters (the Filters page, tools/port_settings.py's
+BROWSER_FILTERS: the network.browser_* settings, read as a list opens and
+kept): full games, empty ones and those with a password listed or not, only
+the games whose ping is under a limit (one whose ping is not known is
+listed: a local network game's, a master server's dedicated server's, one
+being timed), the gametypes listed (a co-op game has none: CO-OP is its
+tab), and words a game's name or map must have. The server browser's and
+the local network's lists are filtered, not Join by Link's, whose games are
+the invites taken. Nothing is sent: the lists' own */
+
+#define BROWSER_SEARCH_LENGTH 31
+#define BROWSER_ALL_ENGINES 0x3E
+
+struct browser_filters
+{
+	boolean show_full, show_empty, show_password;
+	/* milliseconds; 0: any */
+	short maximum_ping;
+	/* a bit for each game engine listed (1 << 1 CTF to 1 << 5 Race) */
+	short engines;
+	char search[BROWSER_SEARCH_LENGTH + 1];
+};
+
+static struct browser_filters browser_filters = { TRUE, TRUE, TRUE, 0, BROWSER_ALL_ENGINES, "" };
+/* whether the list being ordered is filtered, and how many of the games its
+tab lists the filters hid */
+static boolean browser_filtering;
+static short browser_filtered_count;
+
+/* whether text has the words, in any case (ASCII's) */
+static boolean browser_text_has(wchar_t const *text, char const *words)
+{
+	short start, index;
+
+	for (start = 0; text[start]; start++)
+	{
+		for (index = 0; words[index] && text[start + index]; index++)
+		{
+			int x = text[start + index] >= 'a' && text[start + index] <= 'z' ? text[start + index] - 32 :
+				text[start + index];
+			int y = words[index] >= 'a' && words[index] <= 'z' ? words[index] - 32 : words[index];
+
+			if (x != y)
+				break;
+		}
+		if (!words[index])
+			return TRUE;
+	}
+	return !words[0];
+}
+
+/* whether the filters list the game */
+static boolean browser_filters_show(struct browser_filters const *filters, struct browser_sort_entry const *entry)
+{
+	wchar_t text[ROW_TEXT_LENGTH];
+	short index;
+
+	if (!filters->show_full && entry->maximum_players > 0 && entry->players >= entry->maximum_players)
+		return FALSE;
+	if (!filters->show_empty && entry->players <= 0)
+		return FALSE;
+	if (!filters->show_password && entry->locked)
+		return FALSE;
+	if (filters->maximum_ping > 0 && entry->ping >= 0 && entry->ping >= filters->maximum_ping)
+		return FALSE;
+	if (entry->engine_type >= 1 && entry->engine_type <= 5 && !(filters->engines & (1 << entry->engine_type)))
+		return FALSE;
+	if (!filters->search[0])
+		return TRUE;
+	/* (its name, its map as shown (Blood Gulch), and its map's own name
+	(bloodgulch)) */
+	for (index = 0; entry->name[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		text[index] = (wchar_t)(unsigned char)entry->name[index];
+	text[index] = 0;
+	if (browser_text_has(text, filters->search) || browser_text_has(entry->map_shown, filters->search))
+		return TRUE;
+	for (index = 0; entry->map[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		text[index] = (wchar_t)(unsigned char)entry->map[index];
+	text[index] = 0;
+	return browser_text_has(text, filters->search);
+}
+
+/* the filters as the settings have them (the words without the spaces
+around them) */
+static void browser_filters_read(struct browser_filters *filters)
+{
+	static char const *const engines[] =
+	{
+		NULL, "network.browser_show_ctf", "network.browser_show_slayer", "network.browser_show_oddball",
+		"network.browser_show_king", "network.browser_show_race",
+	};
+	char text[BROWSER_SEARCH_LENGTH + 1];
+	char const *search = config_string("network.browser_search");
+	short index, length;
+
+	filters->show_full = config_boolean("network.browser_show_full") != 0;
+	filters->show_empty = config_boolean("network.browser_show_empty") != 0;
+	filters->show_password = config_boolean("network.browser_show_password") != 0;
+	filters->maximum_ping = (short)PIN(config_integer("network.browser_ping"), 0, 9999);
+	filters->engines = 0;
+	for (index = 1; index < (short)NUMBEROF(engines); index++)
+	{
+		if (config_boolean(engines[index]))
+			filters->engines |= (short)(1 << index);
+	}
+	for (search = search ? search : ""; *search == ' '; search++)
+	{
+	}
+	snprintf(text, sizeof(text), "%s", search);
+	for (length = (short)strlen(text); length > 0 && text[length - 1] == ' '; length--)
+		text[length - 1] = 0;
+	snprintf(filters->search, sizeof(filters->search), "%s", text);
+}
+
+static void browser_filters_refresh(void)
+{
+	browser_filters_read(&browser_filters);
+}
+
 /* the order of the games found: the favorites first, then the others, those
 the tab shows, each part sorted by the column chosen; into `order`,
 returning how many */
@@ -6375,6 +6614,7 @@ static short browser_favorites_order(short const *favorite_of, struct browser_so
 	short written = 0;
 
 	browser_found_favorites = 0;
+	browser_filtered_count = 0;
 	for (pass = 0; pass < 2; pass++)
 	{
 		short start = written;
@@ -6382,7 +6622,12 @@ static short browser_favorites_order(short const *favorite_of, struct browser_so
 
 		for (index = 0; index < count; index++)
 		{
-			if ((favorite_of[index] != NONE) == (pass == 0) && browser_tab_shows(&entries[index], pass == 0))
+			if ((favorite_of[index] != NONE) != (pass == 0) || !browser_tab_shows(&entries[index], pass == 0))
+				continue;
+			/* (those the filters hide counted, for the words over the list) */
+			if (browser_filtering && !browser_filters_show(&browser_filters, &entries[index]))
+				browser_filtered_count++;
+			else
 				order[written++] = index;
 		}
 		/* (each part sorted, alike ones kept in the order found) */
@@ -6498,9 +6743,9 @@ static boolean browser_tab_choose(short tab)
 /* the words in the list's place while it has no rows: what it shows, why
 there are none and what to do (the mode's, multiplayer.mode; the tab's;
 the server browser's: internet play off, or its list, still being looked
-for, newer games it cannot join), into text */
+for, newer games it cannot join; the games its filters hid), into text */
 static void browser_empty_text(short mode, short tab, boolean online, boolean public_lobby, boolean looking,
-	int newer, wchar_t *text, short size)
+	int newer, short filtered, wchar_t *text, short size)
 {
 	static wchar_t const *const kinds[NUMBER_OF_BROWSER_TABS] =
 	{
@@ -6519,6 +6764,11 @@ static void browser_empty_text(short mode, short tab, boolean online, boolean pu
 		usnprintf(text, size - 1, L"The server browser is off\r\n(network.public_lobby).");
 	else if (server_browser && looking)
 		usnprintf(text, size - 1, L"Looking for public games...");
+	else if (filtered > 0)
+	{
+		usnprintf(text, size - 1, L"%d %s hidden by your filters.\r\nChoose FILTERS to change them.", filtered,
+			filtered == 1 ? L"game is" : L"games are");
+	}
 	else if (tab == _browser_tab_favorites)
 	{
 		usnprintf(text, size - 1, server_browser ? L"None of your favorites is online.\r\n%s" :
@@ -6991,13 +7241,14 @@ static void browser_status_text(struct browser_row const *row, wchar_t *text, sh
 }
 
 /* the footer's prompts for the list's mode: REFRESH the server browser's,
-PASTE LINK Join by Link's in its place */
+PASTE LINK Join by Link's in its place; FILTERS but Join by Link's */
 static void browser_prompts_show(struct widget_instance *list)
 {
 	struct widget_instance *bar = named(list, "join_game_button_bar", 0);
 
 	menu_prompts_show(bar, "prompt_refresh", multiplayer.mode == _multiplayer_mode_server_browser);
 	menu_prompts_show(bar, "prompt_paste", multiplayer.mode == _multiplayer_mode_direct_link);
+	menu_prompts_show(bar, "prompt_filters", multiplayer.mode != _multiplayer_mode_direct_link);
 }
 
 /* what the list shows above its rows: its tabs, the sort, its games and
@@ -7040,6 +7291,13 @@ static void browser_header_show(struct widget_instance *list, short games, long 
 	}
 	usnprintf(text, NUMBEROF(text) - 1, L"%d %s    %ld %s", games, games == 1 ? L"GAME" : L"GAMES", players,
 		players == 1 ? L"PLAYER" : L"PLAYERS");
+	/* (and how many the filters hide) */
+	if (browser_filtering && browser_filtered_count > 0)
+	{
+		short length = (short)ustrlen(text);
+
+		usnprintf(text + length, NUMBEROF(text) - 1 - length, L"    %d HIDDEN", browser_filtered_count);
+	}
 	text[NUMBEROF(text) - 1] = 0;
 	text_set(named(screen, "browser_counts", 0), text);
 	visible_set(named(screen, "browser_empty", 0), rows == 0);
@@ -7441,8 +7699,16 @@ static short lobby_browser_favorites(short count)
 		entries[index].dedicated = game->dedicated != 0;
 		settings_wide_copy(entries[index].mode, game_kind_name(game->engine_type, game->kind, FALSE),
 			BROWSER_MODE_LENGTH);
+		entries[index].maximum_players = game->maximum_player_count;
+		entries[index].engine_type = (short)game->engine_type;
+		entries[index].locked = game->locked != 0;
+		/* (the map's name as shown, for the words searched for alone) */
+		entries[index].map_shown[0] = 0;
+		if (browser_filters.search[0])
+			map_display_name(game->map, entries[index].map_shown);
 	}
 	browser_favorites_match(favorites, count, favorite_of, "net:");
+	browser_filtering = TRUE;
 	listed = browser_favorites_order(favorite_of, entries, count, order);
 	for (index = 0; index < listed; index++)
 		ordered[index] = lobby_browser.games[order[index]];
@@ -7697,7 +7963,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			players += lobby_browser.games[index].player_count;
 		browser_empty_text(multiplayer.mode, browser_tab, config_boolean("network.online"),
 			config_boolean("network.public_lobby"), now - lobby_browser.begin_time < LOBBY_BROWSER_LOOK_TIME,
-			p2p_lobby_newer_games(), text, NUMBEROF(text));
+			p2p_lobby_newer_games(), browser_filtered_count, text, NUMBEROF(text));
 		browser_header_show(list, lobby_browser.count, players, rows, text);
 	}
 	browser_focus(list, browser_chosen_row());
@@ -7911,9 +8177,17 @@ static short local_browser_favorites(struct widget_instance *list)
 		entries[index].dedicated = advertised_dedicated(game);
 		settings_wide_copy(entries[index].mode, game_kind_name(game->engine_type, favorites[index].kind, FALSE),
 			BROWSER_MODE_LENGTH);
+		entries[index].maximum_players = game->maximum_player_count;
+		entries[index].engine_type = (short)game->engine_type;
+		entries[index].locked = FALSE;
+		entries[index].map_shown[0] = 0;
+		if (browser_filters.search[0])
+			game_map_name(game, entries[index].map_shown);
 	}
 	browser_favorites_match(favorites, multiplayer.game_count, favorite_of,
 		multiplayer.mode == _multiplayer_mode_lan ? "lan:" : NULL);
+	/* (Join by Link's games are the invites taken: never hidden) */
+	browser_filtering = multiplayer.mode != _multiplayer_mode_direct_link;
 	multiplayer.game_count = browser_favorites_order(favorite_of, entries, multiplayer.game_count, order);
 	for (index = 0; index < multiplayer.game_count; index++)
 		multiplayer.games[index] = games[order[index]];
@@ -8019,7 +8293,8 @@ static void browser_update(struct widget_instance *list)
 		multiplayer.mode == _multiplayer_mode_direct_link ? L"JOIN BY LINK" : L"LOCAL NETWORK", text);
 	for (index = 0; index < multiplayer.game_count; index++)
 		players += multiplayer.games[index]->player_count;
-	browser_empty_text(multiplayer.mode, browser_tab, TRUE, TRUE, FALSE, 0, text, NUMBEROF(text));
+	browser_empty_text(multiplayer.mode, browser_tab, TRUE, TRUE, FALSE, 0, browser_filtered_count, text,
+		NUMBEROF(text));
 	browser_header_show(list, multiplayer.game_count, players, rows, text);
 	browser_focus(list, browser_chosen_row());
 }
@@ -10485,6 +10760,14 @@ boolean pc_menu_event_function_invoke(
 		{
 			return browser_refresh(widget, controller, widget_deleted);
 		}
+		else if (!strcmp(name, "port browser filters"))
+		{
+			return browser_filters_open();
+		}
+		else if (!strcmp(name, "port browser search"))
+		{
+			return browser_search_edit(widget);
+		}
 		else if (!strcmp(name, "gamespy back handler") && text_field_editing(NULL))
 		{
 			text_field_end(FALSE);
@@ -10659,6 +10942,7 @@ boolean pc_menu_event_function_invoke(
 		{
 			settings_each(screen_of(widget), setting_default_show);
 			settings_sliders_default(screen_of(widget));
+			browser_search_default(screen_of(widget));
 			pad_editor_defaults(screen_of(widget));
 		}
 		else if (!strncmp(name, "port slider ", 12))

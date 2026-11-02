@@ -4348,9 +4348,9 @@ X as E (the delete of Load Game, Profiles and the gametypes), or in a server
 browser as Tab (its sort: halo_keyboard_browser_keys_active), Y as F (their
 favorite), LB and RB (the white and black buttons, Settings' and the
 browsers' tabs) as Q and E, the right trigger (Multiplayer's and the
-browsers' refresh) as R, back as F1;
-NULL for the others (the D-pad, which the arrow keys press, Start, the left
-trigger and the sticks), drawn as the controller's */
+browsers' refresh) as R, the left trigger (the browsers' Filters) as L, back
+as F1; NULL for the others (the D-pad, which the arrow keys press, Start and
+the sticks), drawn as the controller's */
 static char const *ui_widget_port_menu_key(
 	short icon_type)
 {
@@ -4366,6 +4366,8 @@ static char const *ui_widget_port_menu_key(
 		return "E";
 	case _icon_right_trigger:
 		return "R";
+	case _icon_left_trigger:
+		return "L";
 	case _icon_y_button:
 		return "F";
 	case _icon_white_button:

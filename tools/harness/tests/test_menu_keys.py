@@ -23,6 +23,8 @@ NEGATIVE_CONTROLS = {
     # Tab as X (delete) in the Profiles screen, as the browsers'
     "tab-deletes": ("keyboard", ("(browser ? k[SDL_SCANCODE_TAB] : k[SDL_SCANCODE_E])", "k[SDL_SCANCODE_TAB]"),
                     "browser"),
+    # the browsers' Filters (the left trigger) drawn as L, which presses nothing
+    "l-not-left-trigger": ("keyboard", ("analog(k[SDL_SCANCODE_L])", "analog(0)"), "keys"),
     "escape-not-b": ("keyboard", ("k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE]", "k[SDL_SCANCODE_BACKSPACE]"),
                      "keys"),
 }
@@ -41,7 +43,7 @@ def generated(fault=None):
             keyboard = mutated(keyboard, *change)
     names = set(re.findall(r"SDL_SCANCODE_\w+", keyboard + function(inputs, "typing_gamepad")))
     names |= {"SDL_SCANCODE_RETURN", "SDL_SCANCODE_ESCAPE", "SDL_SCANCODE_E", "SDL_SCANCODE_F", "SDL_SCANCODE_Q",
-              "SDL_SCANCODE_F1"}
+              "SDL_SCANCODE_L", "SDL_SCANCODE_F1"}
     config = "\n".join(re.findall(r"^#define XINPUT_GAMEPAD_\w+ [^\n]+", read("port/include/xdk/xdk_xbox.h"), re.M))
     config += "\nenum {" + ", ".join(sorted(names)) + ", TEST_SCANCODE_COUNT};\n"
     config += enum_with(widgets, "_icon_a_button") + "\n"
