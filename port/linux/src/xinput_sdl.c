@@ -208,6 +208,13 @@ short halo_stick_dead_range(short stick)
 	return ranges[stick ? 1 : 0];
 }
 
+/* whether a controller's look turns the other way side to side
+(input.invert_look_horizontal; the profile's INVERT LOOK is up and down) */
+int halo_look_horizontal_inverted(void)
+{
+	return config_boolean("input.invert_look_horizontal");
+}
+
 /* radians of yaw and pitch for the mouse motion since the last call: each
 count turns the view 0.022 degrees times the sensitivity, as CS2's does
 (mouse_sensitivity.h); the game adds these to the facing change of the
@@ -2396,6 +2403,34 @@ static int controller_port(HANDLE device)
 	return -1;
 }
 
+/* what OpenH1's overlays read of a port's pad as it is, whatever its button
+layout (input.controller_p1 to p4: controller_remap_reserve): the scoreboard's
+D-pad and X while it offers its player menu, all of it while it holds the
+controls (scoreboard_pad_port_hold's, not counted as a reading); a vote's
+D-pad left and right, a Discord ask's up and down (the first controller's) */
+static unsigned int remap_reserved(int port)
+{
+	struct scoreboard_pad *pad = &scoreboard_pads[port];
+	struct platform_input_state input;
+	unsigned int reserved = 0;
+	int hold;
+
+	platform_input_read(&input, FALSE);
+	pthread_mutex_lock(&scoreboard_pad_lock);
+	hold = input.menus || pad->readings > SCOREBOARD_PAD_READINGS ? HALO_SCOREBOARD_PAD_FREE : pad->hold;
+	pthread_mutex_unlock(&scoreboard_pad_lock);
+	if (hold == HALO_SCOREBOARD_PAD_HOLDS)
+		return CONTROLLER_REMAP_RESERVE_ALL;
+	if (hold == HALO_SCOREBOARD_PAD_OFFERED)
+		reserved |= CONTROLLER_REMAP_RESERVE_X | CONTROLLER_REMAP_RESERVE_DPAD_UP | CONTROLLER_REMAP_RESERVE_DPAD_DOWN |
+			CONTROLLER_REMAP_RESERVE_DPAD_LEFT | CONTROLLER_REMAP_RESERVE_DPAD_RIGHT;
+	if (port == 0 && network_vote_pad_open())
+		reserved |= CONTROLLER_REMAP_RESERVE_DPAD_LEFT | CONTROLLER_REMAP_RESERVE_DPAD_RIGHT;
+	if (port == 0 && discord_ask_serial())
+		reserved |= CONTROLLER_REMAP_RESERVE_DPAD_UP | CONTROLLER_REMAP_RESERVE_DPAD_DOWN;
+	return reserved;
+}
+
 /* reads a controller's state; for port 0 the keyboard, mouse, debug input
 and touchscreen are merged into the first gamepad's; runs on the game's main
 thread (touch_input_gamepad relies on it); returns ERROR_SUCCESS or
@@ -2424,6 +2459,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	/* Keep the opening chat press so even B can open it without immediately closing it. */
 	chat_pad_record((short)port, &physical);
 	chat_physical_pad[port] = chat_pad[port];
+	controller_remap_reserve((short)port, remap_reserved(port));
 	captured = controller_remap_input((short)port, &physical, port_gamepad(gamepads, count, port) != NULL);
 	if (port == 0)
 	{

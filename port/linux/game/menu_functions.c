@@ -1896,6 +1896,9 @@ static void sim_rate_row_show(struct widget_instance *list)
 	}
 }
 
+/* (Controller's Button Remapping, a page of Settings') */
+#include "controller_remap_menu.inl"
+
 /* ---------- Settings' tabs and pages (tools/port_settings.py's PAGES)
 
 "port settings begin" (the main menu's and the pause menu's SETTINGS) forgets
@@ -2106,9 +2109,17 @@ static boolean settings_function(char const *name, struct widget_instance *widge
 	{
 		settings_each(screen, setting_stash);
 		settings_pending_write(FALSE);
+		pad_editor_save(screen);
 	}
 	else if (!strcmp(name, "page cancel"))
 	{
+		/* (Button Remapping's button being taken, or its replacement
+		asked: dropped, the page kept) */
+		if (!pad_editor_cancel(screen))
+		{
+			*result = FALSE;
+			return TRUE;
+		}
 		settings_pending = settings_snapshot;
 	}
 	else if (!strcmp(name, "new profile"))
@@ -2758,6 +2769,9 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 		help = settings_row_help(label);
 		/* (the Discord account's page: its words of the state now) */
 		discord_account_panel(row, name, value, &help);
+		/* (Button Remapping's: a button being taken, a replacement asked) */
+		if (pad_editor_page(screen_of(list)))
+			pad_editor_panel(row, name, value, &help);
 		row_spinner = spinner;
 		/* (Quality: CLASSIC or ENHANCED framed, neither for CUSTOM) */
 		if (!strcmp(row->name, "op_graphics") && spinner)
@@ -2858,6 +2872,7 @@ static void settings_page_update(struct widget_instance *list)
 	max_fps_row_show(list);
 	settings_rows_show(list);
 	discord_account_show(list);
+	pad_editor_update(list);
 	graphics_preset_show(list);
 	sim_rate_row_show(list);
 	settings_each(screen, setting_stash);
@@ -3525,8 +3540,6 @@ static void controls_update(struct widget_instance *list)
 			controls_screen.capturing_control != NONE ? 2 : focused_row ? 1 : 0;
 	}
 }
-
-#include "controller_remap_menu.inl"
 
 /* ---------- Mods (the main menu's: tools/port_settings.py's _mods), laid
 out as the lobby is: the mods folder's mods, a row each (op_mod_<n>), as a
@@ -10613,6 +10626,7 @@ boolean pc_menu_event_function_invoke(
 		{
 			settings_each(screen_of(widget), setting_default_show);
 			settings_sliders_default(screen_of(widget));
+			pad_editor_defaults(screen_of(widget));
 		}
 		else if (!strncmp(name, "port slider ", 12))
 		{
@@ -10931,8 +10945,6 @@ void pc_menu_game_data_function_invoke(
 		settings_page_update(widget);
 	else if (!strcmp(name, "controls update menu"))
 		controls_update(widget);
-	else if (!strcmp(name, "port controller update"))
-		pad_editor_update(widget);
 	else if (!strcmp(name, "port mods update"))
 		mods_update(widget);
 	else if (!strcmp(name, "port training update"))

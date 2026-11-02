@@ -99,13 +99,6 @@ enum
 	NUMBER_OF_JOYSTICK_CONTROLS,
 };
 
-/* port: input_xbox.c's GAMEPAD_STICK_DEAD_RANGE, for a sub-step's reading
-(input_abstraction_port_substep_state) */
-enum
-{
-	SUBSTEP_GAMEPAD_STICK_DEAD_RANGE = 9000,
-};
-
 enum
 {
 	_vehicle_type_human_plane = 3,
@@ -945,6 +938,10 @@ static void input_abstraction_state_from_gamepad(
 			error(_error_silent, "unknown joystick preset");
 			break;
 	}
+	/* port: the look's side to side inverted (input.invert_look_horizontal),
+	whichever stick or D-pad turns */
+	if (halo_look_horizontal_inverted())
+		state->yaw = -state->yaw;
 	/* port: digital movement bindings are independent of stick presets. */
 	controller_remap_movement((short)controller_index, &state->forward_movement, &state->strafe);
 
@@ -1101,10 +1098,11 @@ boolean input_abstraction_port_substep_state(
 		else if (!*ticks)
 			*ticks = 1;
 	}
-	gamepad.sticks[_gamepad_stick_left].x = fix_dead_zone(pad.sThumbLX, SUBSTEP_GAMEPAD_STICK_DEAD_RANGE);
-	gamepad.sticks[_gamepad_stick_left].y = fix_dead_zone(pad.sThumbLY, SUBSTEP_GAMEPAD_STICK_DEAD_RANGE);
-	gamepad.sticks[_gamepad_stick_right].x = fix_dead_zone(pad.sThumbRX, SUBSTEP_GAMEPAD_STICK_DEAD_RANGE);
-	gamepad.sticks[_gamepad_stick_right].y = fix_dead_zone(pad.sThumbRY, SUBSTEP_GAMEPAD_STICK_DEAD_RANGE);
+	/* (each stick's dead range as input_xbox.c's: halo_stick_dead_range) */
+	gamepad.sticks[_gamepad_stick_left].x = fix_dead_zone(pad.sThumbLX, halo_stick_dead_range(_gamepad_stick_left));
+	gamepad.sticks[_gamepad_stick_left].y = fix_dead_zone(pad.sThumbLY, halo_stick_dead_range(_gamepad_stick_left));
+	gamepad.sticks[_gamepad_stick_right].x = fix_dead_zone(pad.sThumbRX, halo_stick_dead_range(_gamepad_stick_right));
+	gamepad.sticks[_gamepad_stick_right].y = fix_dead_zone(pad.sThumbRY, halo_stick_dead_range(_gamepad_stick_right));
 	input_abstraction_state_from_gamepad(controller_index, &gamepad, state);
 	keyboard_controls_apply(controller_index, halo_keyboard_actions(controller_index), state);
 	*primary_trigger = primary_trigger_pull(controller_index, &gamepad);

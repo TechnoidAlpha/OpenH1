@@ -26,6 +26,10 @@ static struct
     unsigned char layout[CONTROLLER_REMAP_ACTIONS], targets[CONTROLLER_REMAP_ACTIONS];
 } remap_ports[4];
 
+/* The physical buttons each port's overlays read as they are, whatever the
+ * layout: controller_remap_reserve. */
+static unsigned int remap_reserved[4];
+
 void controller_remap_input_reset(void)
 {
     controller_remap_capture_end();
@@ -90,6 +94,11 @@ int controller_remap_capture_poll(int *button)
     *button = capture.button;
     controller_remap_capture_end();
     return result;
+}
+
+void controller_remap_reserve(short port, unsigned int buttons)
+{
+    if (port >= 0 && port < 4) remap_reserved[port] = buttons;
 }
 
 int controller_remap_input(short port, XINPUT_GAMEPAD *pad, int connected)
@@ -173,15 +182,24 @@ int controller_remap_input(short port, XINPUT_GAMEPAD *pad, int connected)
         /* While the player controls an available free camera, its switch
          * owns its button. The rest of the debug layout is inactive. */
         if (context == 2 && i < PAD_CAMERA_FASTER && button == layout[PAD_CAMERA_SWITCH]) continue;
-        if ((held & ~remap_ports[port].blocked) & (1u << button)) actions |= 1u << i;
+        if ((held & ~remap_ports[port].blocked & ~remap_reserved[port]) & (1u << button)) actions |= 1u << i;
     }
     remap_ports[port].pressed |= actions & ~remap_ports[port].held;
     remap_ports[port].held = actions;
     if (controller_remap_pressed(port, 1u << PAD_SCREENSHOT)) platform_screenshot_request();
     if (custom)
     {
+        XINPUT_GAMEPAD physical = *pad;
         memset(pad->bAnalogButtons, 0, sizeof(pad->bAnalogButtons));
         pad->wButtons &= XINPUT_GAMEPAD_START;
+        /* An overlay's buttons pass through as they are (a vote's D-pad,
+         * the scoreboard's), so that it reads and takes them as with the
+         * profile's layout; they press no action meanwhile. */
+        for (i = 0; i < 8; i++)
+        {
+            if (remap_reserved[port] & (1u << i)) pad->bAnalogButtons[i] = physical.bAnalogButtons[i];
+            if (remap_reserved[port] & (1u << (8 + i))) pad->wButtons |= physical.wButtons & digital_masks[i];
+        }
         for (i = 0; i < CONTROLLER_REMAP_GAME_ACTIONS; i++)
             if (actions & (1u << i))
             {

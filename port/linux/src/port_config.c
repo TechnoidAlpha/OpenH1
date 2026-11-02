@@ -240,17 +240,6 @@ static const struct config_setting config_settings[] =
 		"High-res gameplay controller buttons: classic uses plain Xbox faces;\n"
 		"gems uses shaded Xbox faces; menu_gems uses the menu's button art.\n"
 		"Requires display.high_res_hud." },
-	{ "input.controller_p1", _config_string, "\"\"", "HALO_CONTROLLER_P1", _environment_value, _platform_all,
-		"P1 custom controller layout; empty uses the profile. Edit in Gamepads >\n"
-		"Button Remapping. v2: stores 25 physical-button names, including unbound.\n"
-		"Gameplay and debug camera have separate bindings. Old ten-action layouts\n"
-		"are accepted. See docs/reading/controller_remapping.md for the full order." },
-	{ "input.controller_p2", _config_string, "\"\"", "HALO_CONTROLLER_P2", _environment_value, _platform_all,
-		"P2 custom controller buttons, same format as controller_p1. Empty uses the profile." },
-	{ "input.controller_p3", _config_string, "\"\"", "HALO_CONTROLLER_P3", _environment_value, _platform_all,
-		"P3 custom controller buttons, same format as controller_p1. Empty uses the profile." },
-	{ "input.controller_p4", _config_string, "\"\"", "HALO_CONTROLLER_P4", _environment_value, _platform_all,
-		"P4 custom controller buttons, same format as controller_p1. Empty uses the profile." },
 	{ "display.high_res_text", _config_boolean, "true", "HALO_HIGH_RES_TEXT", _environment_value, _platform_all,
 		"Draw the menus' and HUD's text with the fonts in port/assets/fonts\n"
 		"(Overpass) at the resolution the game draws at, and the menus' titles\n"
@@ -868,6 +857,18 @@ static const struct config_setting config_settings[] =
 		"the Xbox; \"keyboard\" always the keys. In VR (but \"controller\"):\n"
 		"what presses it on the controllers in the hands, as the runtime names\n"
 		"it (\"A Button\", \"Right Hand Trigger\"), or the gesture that does." },
+	{ "input.controller_p1", _config_string, "\"\"", "HALO_CONTROLLER_P1", _environment_value, _platform_all,
+		"P1 custom controller layout; empty uses the profile's preset. Edit in\n"
+		"Settings > Controls > Controller > Button Remapping. v2: 25 physical\n"
+		"button names, unbound among them; gameplay and the debug camera have\n"
+		"separate bindings. Old ten-action layouts are accepted. See\n"
+		"docs/controller_remapping.md for the full order." },
+	{ "input.controller_p2", _config_string, "\"\"", "HALO_CONTROLLER_P2", _environment_value, _platform_all,
+		"P2 custom controller buttons, same format as controller_p1. Empty uses the profile." },
+	{ "input.controller_p3", _config_string, "\"\"", "HALO_CONTROLLER_P3", _environment_value, _platform_all,
+		"P3 custom controller buttons, same format as controller_p1. Empty uses the profile." },
+	{ "input.controller_p4", _config_string, "\"\"", "HALO_CONTROLLER_P4", _environment_value, _platform_all,
+		"P4 custom controller buttons, same format as controller_p1. Empty uses the profile." },
 	{ "input.left_stick_dead_zone", _config_integer, "-1", "HALO_LEFT_STICK_DEAD_ZONE", _environment_value, _platform_all,
 		"How far the controller's left stick moves before it moves the player,\n"
 		"in percent of its travel (0 to 50): lower for finer control, higher for\n"
@@ -876,6 +877,11 @@ static const struct config_setting config_settings[] =
 	{ "input.right_stick_dead_zone", _config_integer, "-1", "HALO_RIGHT_STICK_DEAD_ZONE", _environment_value, _platform_all,
 		"How far the controller's right stick moves before it turns the view, in\n"
 		"percent of its travel (0 to 50); -1 for the game's own (27%)." },
+	{ "input.invert_look_horizontal", _config_boolean, "false", "HALO_INVERT_LOOK_HORIZONTAL", _environment_value,
+		_platform_all,
+		"A controller's look turns the other way: pushing the stick that looks to\n"
+		"the right turns the view left. The profile's INVERT LOOK is the up and\n"
+		"down; this is the side to side, for every controller." },
 
 	/* the keyboard and mouse's own controls (port/linux/src/xinput_sdl.c) */
 	{ "controls.move_forward", _config_string, "\"W\"", "HALO_KEY_MOVE_FORWARD", _environment_value, _platform_all,

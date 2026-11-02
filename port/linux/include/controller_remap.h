@@ -51,6 +51,16 @@ void controller_remap_prompt(short port, struct game_input_preferences *preferen
 struct _XINPUT_GAMEPAD;
 int controller_remap_input(short port, struct _XINPUT_GAMEPAD *pad, int connected);
 void controller_remap_merge(struct _XINPUT_GAMEPAD const *source, struct _XINPUT_GAMEPAD *target);
+/* The physical buttons OpenH1's overlays read of a port's pad while they
+ * are up (port/linux/src/xinput_sdl.c's remap_reserved): bits of the game's
+ * button indices, which a custom layout passes through untranslated. */
+#define CONTROLLER_REMAP_RESERVE_X (1u << 2)
+#define CONTROLLER_REMAP_RESERVE_DPAD_UP (1u << 8)
+#define CONTROLLER_REMAP_RESERVE_DPAD_DOWN (1u << 9)
+#define CONTROLLER_REMAP_RESERVE_DPAD_LEFT (1u << 10)
+#define CONTROLLER_REMAP_RESERVE_DPAD_RIGHT (1u << 11)
+#define CONTROLLER_REMAP_RESERVE_ALL 0xFFFFu
+void controller_remap_reserve(short port, unsigned int buttons);
 void controller_remap_capture_begin(short port);
 int controller_remap_capture_poll(int *button);
 void controller_remap_capture_end(void);

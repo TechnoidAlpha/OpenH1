@@ -357,6 +357,12 @@
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/controls_setup/header_key_bindings">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/controls_setup/header_key_bindings.png" width="512" height="64"/>
 	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/header_button_remapping">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/header_button_remapping.png" width="512" height="64"/>
+	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/header_dead_zones">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/header_dead_zones.png" width="512" height="64"/>
+	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/header_gamepad_setup">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/header_gamepad_setup.png" width="512" height="64"/>
 	</bitmap>

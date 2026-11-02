@@ -43,7 +43,7 @@ void controller_device_read(void *handle, struct controller_device *device)
     if (!gamepad) return;
     device->type = SDL_GetGamepadType(gamepad);
     device->family = controller_family_from_type((SDL_GamepadType)device->type);
-#ifndef HALO_ARM64_GUEST
+#ifndef HALO_GUEST
     {
         char const *name = SDL_GetGamepadName(gamepad);
         device->instance = SDL_GetGamepadID(gamepad);
@@ -52,7 +52,10 @@ void controller_device_read(void *handle, struct controller_device *device)
         snprintf(device->name, sizeof(device->name), "%s", name ? name : "Unknown controller");
     }
 #else
-    /* The guest's SDL bridge exposes the family but not a device name. */
+    /* The guest's SDL bridge exposes the family but not a device name
+     * (port/android/guest/runtime/guest_sdl.c): the host's handle, which
+     * stays the same while the pad is open, tells one pad from another. */
+    device->instance = (unsigned int)(unsigned long)gamepad;
     snprintf(device->name, sizeof(device->name), "%s",
         device->family == CONTROLLER_XBOX ? "Xbox controller" :
         device->family == CONTROLLER_PLAYSTATION ? "PlayStation controller" :

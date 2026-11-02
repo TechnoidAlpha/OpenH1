@@ -2,12 +2,33 @@
 from pathlib import Path
 import json
 import re
+import shutil
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
 
-from test_hud_button_style import run_c
+import pytest
+
 from harness import function
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def run_c(tmp_path, code):
+    """compiles the code as the game's 32-bit C (gnu89) and runs it"""
+    compiler = shutil.which('clang')
+    if not compiler:
+        pytest.skip('clang required')
+    source = tmp_path / 'remap.c'
+    binary = tmp_path / 'remap.exe'
+    source.write_text(code)
+    target = ['--target=i686-pc-windows-msvc'] if sys.platform == 'win32' else ['-m32']
+    result = subprocess.run([compiler, *target, '-std=gnu89', '-O1', str(source), '-o', str(binary)],
+                            capture_output=True, text=True)
+    if result.returncode and 'm32' in ' '.join(target) and 'cannot find' in result.stderr:
+        pytest.skip('a 32-bit C library required (gcc-multilib)')
+    assert result.returncode == 0, result.stderr
+    subprocess.run([str(binary)], check=True, timeout=10)
 
 
 def source(path):
@@ -229,35 +250,40 @@ int main(void) {
 ''')
 
 
-def test_generated_controller_submenu_and_stock_keyboard_menu():
+def test_generated_remapping_and_dead_zone_pages():
+    """Settings > Controls > Controller's two new pages, as tools/port_settings.py
+    writes them, their handlers registered and their files embedded"""
     import port_settings
     files = port_settings.settings_files()
     prefix = port_settings.PE.replace('/', '.')
-    generated = files[prefix + '.controller_remapping.xml']
-    root = ET.fromstring('\n'.join(generated))
-    registered = (ROOT/'port/linux/game/menu_tags.c').read_text()
-    for event in root.iter('on'):
+    manifest = json.loads((ROOT / 'port/assets/menus/menus.json').read_text())['files']
+    registered = (ROOT / 'port/linux/game/menu_tags.c').read_text()
+    remapping = ET.fromstring('\n'.join(files[prefix + '.gamepad_setup.button_remapping.xml']))
+    names = {widget.get('name').rsplit('/', 1)[1]: widget for widget in remapping.iter('widget')}
+    assert {'op_remap_player', 'op_remap_group'} <= set(names)
+    assert all(f'op_pad_{n}' in names for n in range(1, port_settings.REMAP_ROWS + 1))
+    for event in remapping.iter('on'):
         if event.get('run', '').startswith('port controller '):
-            assert '"'+event.get('run')+'"' in registered
-    help_widgets = [widget for widget in root.iter('widget') if widget.get('name', '').endswith('/help')]
-    assert help_widgets and all('string_list' not in widget.attrib for widget in help_widgets)
-    widgets = {widget.get('name'): widget for widget in root.iter('widget')}
-    options = next(widget for name, widget in widgets.items() if name.endswith('/options_menu'))
-    rows = [child for child in options.findall('child') if '/op_' in child.get('widget', '')]
-    row_bottom = max(int(row.get('y')) + int(widgets[row.get('widget')].get('height')) for row in rows)
-    button_bar = next(child for child in options.findall('child') if child.get('widget', '').endswith('/button_bar'))
-    help_widget = help_widgets[0]
-    assert row_bottom < int(help_widget.get('top'))
-    assert int(help_widget.get('height')) >= 4 * 21  # Four full-size help lines.
-    assert int(help_widget.get('top')) + int(help_widget.get('height')) <= int(button_bar.get('y'))
-    assert 'ce/' + prefix + '.controller_remapping.xml' in json.loads(
-        (ROOT / 'port/assets/menus/menus.json').read_text())['files']
-    parent = ET.fromstring('\n'.join(files[prefix + '.gamepad_setup.xml']))
-    assert any('controller_remapping_screen' in event.get('open', '') for event in parent.iter('on'))
-    assert any(widget.get('name', '').endswith('/pad_player') and widget.get('strings') == 'P1|P2|P3|P4'
-               for widget in root.iter('widget'))
-    for filename in (prefix + '.controller_remapping.xml', prefix + '.gamepad_setup.xml', prefix + '.controls_setup.xml'):
+            assert '"' + event.get('run') + '"' in registered
+    # (an action's row: A takes a button, X clears, left and right step)
+    events = {event.get('event'): event.get('run') for event in names['op_pad_1'].iter('on')}
+    assert events['a'] == 'port controller bind' and events['x'] == 'port controller clear'
+    assert events['left'] == 'port controller left' and events['right'] == 'port controller right'
+    # (the most actions a group shows fit the rows)
+    menu = (ROOT / 'port/linux/game/controller_remap_menu.inl').read_text()
+    groups = [int(n) for n in re.search(r'pad_action_groups\[[^]]*\] = \{([^}]*)\}', menu).group(1).split(',')]
+    assert max(groups.count(group) for group in set(groups)) <= port_settings.REMAP_ROWS
+    dead_zones = '\n'.join(files[prefix + '.gamepad_setup.dead_zones.xml'])
+    assert 'setting="input.left_stick_dead_zone"' in dead_zones and 'setting="input.right_stick_dead_zone"' in dead_zones
+    controller = '\n'.join(files[prefix + '.gamepad_setup.xml'])
+    assert 'button_remapping_screen' in controller and 'dead_zones_screen' in controller
+    assert 'setting="input.invert_look_horizontal"' in controller
+    for name in ('gamepad_setup.xml', 'gamepad_setup.button_remapping.xml', 'gamepad_setup.dead_zones.xml'):
+        filename = prefix + '.' + name
+        assert 'ce/' + filename in manifest
         assert (ROOT / 'port/assets/menus/ce' / filename).read_text() == '\n'.join(files[filename])
+    for page in ('button_remapping', 'dead_zones'):
+        assert f'ce/port/{port_settings.PE}/gamepad_setup/{page}/header_{page}.png' in manifest
 
 
 def test_profile_fallback_context_and_viewport_prompt_mapping(tmp_path):
@@ -307,22 +333,22 @@ def test_pending_editor_save_cancel_defaults_and_replace(tmp_path):
 #define NONE -1
 #define TRUE 1
 #define FALSE 0
+#define NUMBEROF(a) (sizeof(a) / sizeof((a)[0]))
+#define ROW_TEXT_LENGTH 64
+#define ustrncpy wcsncpy
 typedef int boolean;
 struct widget_instance {
- char const *name;short local_player_index;int visible;
+ char const *name;short local_player_index;int visible,type;long definition_tag_index,creation_time;
  struct widget_instance *parent,*child,*next,*focused_child;
- struct {struct {short selected_index;struct widget_instance *extended_description;} list;} parameters;
+ struct {wchar_t *text;} text_box;
 };
-static struct widget_instance screen,player_spinner,group_spinner,row;
+static struct widget_instance screen,player_row,group_row,row;
 static struct widget_instance *screen_of(struct widget_instance *w){return &screen;}
 static struct widget_instance *named(struct widget_instance *w,char const *name,int n) {
- if(!strcmp(name,"pad_player"))return &player_spinner;
- if(!strcmp(name,"pad_group"))return &group_spinner;return 0;
+ if(!strcmp(name,"op_remap_player"))return &player_row;return 0;
 }
 static short controller_of(struct widget_instance *w){return w->local_player_index;}
 static void text_set(struct widget_instance *w,wchar_t const *t){}
-static void text_set_length(struct widget_instance *w,wchar_t const *t,short length){}
-static void focus_row(struct widget_instance *w,int n){}
 static int capture_button,capture_result,capture_port=-1;
 void controller_device_get(short port,struct controller_device *d){memset(d,0,sizeof(*d));}
 void controller_remap_capture_begin(short port){capture_port=port;}
@@ -331,28 +357,32 @@ int controller_remap_capture_poll(int *button){int r=capture_result;*button=capt
 void controller_remap_profile(short port,unsigned char *b){
  static unsigned char const normal[10]={0,4,2,3,1,5,6,7,14,15};controller_remap_defaults(b);memcpy(b,normal,10);
 }
-''' + source('port/linux/game/controller_remap_menu.inl') + r'''
+''' + source('port/linux/game/controller_remap_menu.inl').replace('->parameters.text_box.text', '->text_box.text') + r'''
 int main(void) {
- unsigned char b[25];screen.local_player_index=1;row.name="op_pad_1";row.parent=&screen;
- pad_editor_event(&screen,"port controller init");assert(player_spinner.parameters.list.selected_index==1);
+ unsigned char b[25];
+ screen.local_player_index=1;screen.creation_time=1;row.name="op_pad_1";row.parent=&screen;
+ player_row.name="op_remap_player";player_row.parent=&screen;
+ pad_editor_update(&screen);assert(pad_editor.shown_port==1 && pad_editor.shown_group==0);
+ pad_editor_event(&player_row,"port controller left");assert(pad_editor.shown_port==0);
+ pad_editor_event(&player_row,"port controller right");assert(pad_editor.shown_port==1);
+ /* (MOVEMENT's first action is JUMP; right steps A to B, which MELEE has) */
  pad_editor_event(&row,"port controller right");assert(pad_editor.proposed==0 && pad_editor.buttons[1][0]==0 && !*settings[1]);
- assert(!pad_editor_event(&screen,"port controller cancel") && pad_editor.proposed==NONE);
+ assert(!pad_editor_cancel(&screen) && pad_editor.proposed==NONE);
  pad_editor_event(&row,"port controller clear");assert(pad_editor.buttons[1][0]==255);
- pad_editor_event(&screen,"port controller close");pad_editor_event(&screen,"port controller init");
+ assert(pad_editor_cancel(&screen));screen.creation_time=2;pad_editor_update(&screen);
  assert(pad_editor.buttons[1][0]==0 && !pad_editor.custom[1]); /* Cancel discarded. */
  pad_editor_event(&row,"port controller bind");assert(capture_port==1);
  capture_button=5;capture_result=1;pad_editor_update(&screen);
  assert(pad_editor.proposed==0 && pad_editor.buttons[1][0]==0);
  pad_editor_event(&row,"port controller bind");
  assert(pad_editor.buttons[1][0]==5 && pad_editor.buttons[1][5]==255);
- assert(pad_editor_event(&screen,"port controller save"));
+ assert(pad_editor_save(&screen));
  assert(controller_remap_read(1,b) && b[0]==5 && !*settings[0] && !*settings[2]);
- pad_editor_event(&screen,"port controller defaults");assert(!pad_editor.custom[1] && *settings[1]);
- pad_editor_event(&screen,"port controller save");assert(!*settings[1]);
+ pad_editor_defaults(&screen);assert(!pad_editor.custom[1] && *settings[1]);
+ pad_editor_save(&screen);assert(!*settings[1]);
  return 0;
 }
 ''')
-
 
 
 def test_all_upstream_presets_and_dpad_action_translation(tmp_path):
@@ -492,7 +522,6 @@ def test_chat_owner_identity_and_per_port_hold_over(tmp_path):
 #define DATUM_INDEX_TO_ABSOLUTE_INDEX(p) ((p)&65535)
 typedef int boolean;
 static struct {boolean active,physical;short channel,controller;long player;char text[256];} chat_input;
-static short chat_scroll;
 static struct {int open;unsigned long opening_buttons;} chat_keyboard;
 static struct {short local_player_index;} players[4]={{0},{1},{2},{3}};
 static long occupants[4]={0x10004,0x20005,0x30006,0x40007};
@@ -510,7 +539,7 @@ static unsigned char chat_held_analog[4];
 int main(void) {
  XINPUT_GAMEPAD p0={0},p2={0};
  assert(chat_speaker(TRUE)==4);
- chat_scroll=3;chat_input_begin(1,2,TRUE);chat_keyboard.open=1;assert(!chat_scroll);
+ chat_input_begin(1,2,TRUE);chat_keyboard.open=1;
  assert(chat_speaker(TRUE)==6 && chat_speaker(FALSE)==4 && chat_input.channel==1 && network_chat_controller()==2);
  chat_keyboard.opening_buttons=255;
  assert(!chat_keyboard_buttons(255) && !chat_keyboard_buttons(128));
@@ -518,7 +547,7 @@ int main(void) {
  p0.bAnalogButtons[0]=255;p2.bAnalogButtons[0]=255;
  chat_pad_hold_over(0,&p0);chat_pad_hold_over(2,&p2);
  assert(p0.bAnalogButtons[0]==255 && !p2.bAnalogButtons[0]);
- chat_scroll=4;chat_input_end();assert(!chat_scroll);p2.bAnalogButtons[0]=255;chat_pad_hold_over(2,&p2);assert(!p2.bAnalogButtons[0]);
+ chat_input_end();p2.bAnalogButtons[0]=255;chat_pad_hold_over(2,&p2);assert(!p2.bAnalogButtons[0]);
  chat_pad_hold_over(2,&p2);p2.bAnalogButtons[0]=255;chat_pad_hold_over(2,&p2);assert(p2.bAnalogButtons[0]==255);
  chat_input_begin(2,3,TRUE);assert(chat_speaker(TRUE)==7 && chat_input.channel==2);
  occupants[3]=0x50007;assert(chat_speaker(TRUE)==NONE); /* New player, same slot. */
@@ -528,3 +557,41 @@ int main(void) {
 '''
     code=code.replace('struct {int open;unsigned long opening_buttons;} chat_keyboard;', 'struct {int open,drawn;unsigned long opening_buttons;} chat_keyboard;')
     run_c(tmp_path,code)
+
+
+def test_reserved_overlay_buttons_pass_through_a_custom_layout(tmp_path):
+    """OpenH1's overlays (a vote's D-pad, the scoreboard's) read the pad as it
+    is while they are up: a custom layout passes those buttons through and
+    presses no action with them; a remapped action still fires from its button"""
+    run_c(tmp_path, COMMON + POLICY + INPUT + source('port/linux/src/controller_remap_input.c') + r'''
+int main(void) {
+ XINPUT_GAMEPAD pad={0}; unsigned char b[25]; char text[512];
+ /* jump on B, strafing on the D-pad (the defaults) */
+ controller_remap_profile(0,b);controller_remap_assign(b,PAD_JUMP,1);
+ controller_remap_format(b,text,sizeof(text));config_write("input.controller_p1",text);
+ controller_remap_input(0,&pad,1);
+ /* B jumps: the profile's jump button, A, is pressed, and B is not */
+ pad.bAnalogButtons[1]=200;controller_remap_input(0,&pad,1);
+ assert(pad.bAnalogButtons[0]==200 && !pad.bAnalogButtons[1]);
+ /* the D-pad's left strafes, not passed on as the D-pad */
+ memset(&pad,0,sizeof(pad));pad.wButtons=XINPUT_GAMEPAD_DPAD_LEFT;controller_remap_input(0,&pad,1);
+ assert(!(pad.wButtons&XINPUT_GAMEPAD_DPAD_LEFT) && (controller_remap_held(0)&(1u<<PAD_LEFT)));
+ /* a vote: its D-pad left and right pass through, and strafe no more */
+ memset(&pad,0,sizeof(pad));controller_remap_input(0,&pad,1);
+ controller_remap_reserve(0,CONTROLLER_REMAP_RESERVE_DPAD_LEFT|CONTROLLER_REMAP_RESERVE_DPAD_RIGHT);
+ pad.wButtons=XINPUT_GAMEPAD_DPAD_LEFT;controller_remap_input(0,&pad,1);
+ assert((pad.wButtons&XINPUT_GAMEPAD_DPAD_LEFT) && !(controller_remap_held(0)&(1u<<PAD_LEFT)));
+ /* B still jumps meanwhile */
+ pad.bAnalogButtons[1]=255;pad.wButtons=0;controller_remap_input(0,&pad,1);assert(pad.bAnalogButtons[0]==255);
+ /* the scoreboard holding the controls: everything as it is */
+ controller_remap_reserve(0,CONTROLLER_REMAP_RESERVE_ALL);
+ memset(&pad,0,sizeof(pad));pad.bAnalogButtons[1]=255;pad.bAnalogButtons[2]=99;pad.wButtons=XINPUT_GAMEPAD_DPAD_UP;
+ controller_remap_input(0,&pad,1);
+ assert(pad.bAnalogButtons[1]==255 && pad.bAnalogButtons[2]==99 && !pad.bAnalogButtons[0] &&
+  pad.wButtons==XINPUT_GAMEPAD_DPAD_UP && !controller_remap_held(0));
+ /* let go: the layout again */
+ controller_remap_reserve(0,0);memset(&pad,0,sizeof(pad));controller_remap_input(0,&pad,1);
+ pad.bAnalogButtons[1]=255;controller_remap_input(0,&pad,1);assert(pad.bAnalogButtons[0]==255 && !pad.bAnalogButtons[1]);
+ return 0;
+}
+''')

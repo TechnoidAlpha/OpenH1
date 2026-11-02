@@ -82,8 +82,10 @@ never offered in a network game.
 #include "text/font_group.h"
 #include "text/unicode.h"
 #include "math/real_math.h"
+#include "input/input_abstraction.h"
 
 #include "bots.h"
+#include "controller_remap.h"
 #include "game_modes.h"
 #include "basic_training.h"
 
@@ -1085,6 +1087,8 @@ static void basic_training_setup(
 	}
 }
 
+static short basic_training_step_button(struct basic_training_step const *step);
+
 /* the step begins: its set up, what is seen from now; the button it names
 buzzed in its hand */
 static void basic_training_step_begin(
@@ -1100,9 +1104,10 @@ static void basic_training_step_begin(
 #ifdef HALO_VR
 	if (step->button != NONE && halo_vr_running())
 	{
-		boolean left_hand = step->button == _training_button_left_bumper ||
-			step->button == _training_button_left_trigger || step->button == _training_button_left_stick ||
-			step->button == _training_button_left_grip;
+		short button = basic_training_step_button(step);
+		boolean left_hand = button == _training_button_left_bumper ||
+			button == _training_button_left_trigger || button == _training_button_left_stick ||
+			button == _training_button_left_grip;
 
 		if (halo_vr_left_handed())
 			left_hand = !left_hand;
@@ -1437,9 +1442,34 @@ void basic_training_note_grip(
 	basic_training.two_handed = two_handed;
 }
 
+/* the button that does a step's action on the player's layout: the steps
+name the default layout's (A jumps, X reloads, the right trigger fires),
+which the player's profile's preset moves, and out of the headset their own
+layout too (input.controller_p1: controller_remap_prompt, as the HUD's
+prompts); the controllers in the hands keep the profile's, which no layout
+changes. The sticks are their moving and looking, kept */
+static short basic_training_layout_button(
+	short button)
+{
+	/* the game controls on the default layout's A, B, X, Y, black and
+	white, and the triggers (input_abstraction.c's) */
+	static short const controls[] = { 0, 4, 2, 3, 1, 5, 6, 7 };
+	struct game_input_preferences preferences;
+	short local_player_index = local_player_get_next(NONE);
+
+	if (button < 0 || button >= (short)NUMBEROF(controls) || local_player_index == NONE)
+		return button;
+	input_abstraction_get_local_player_preferences(local_player_index, &preferences);
+#ifdef HALO_VR
+	if (!halo_vr_running())
+#endif
+		controller_remap_prompt(local_player_index, &preferences);
+	return preferences.game_control_to_xbox_buttons[controls[button]];
+}
+
 /* the step's button as it is pressed: a grenade is thrown with the left
 grip's swing in the headset (vr.grenade_throw "gesture" or "both"), and its
-words then; the left trigger by button */
+words then; else the button the player's layout throws one with */
 static short basic_training_step_button(
 	struct basic_training_step const *step)
 {
@@ -1450,14 +1480,19 @@ static short basic_training_step_button(
 		return _training_button_left_grip;
 	}
 #endif
-	return step->button;
+	return basic_training_layout_button(step->button);
 }
 
 static char const *basic_training_step_words(
 	struct basic_training_step const *step)
 {
-	if (step->check == _training_check_grenade && basic_training_step_button(step) == _training_button_left_trigger)
-		return "Grenade: pull %s to throw one.";
+	short button = basic_training_step_button(step);
+
+	if (step->check == _training_check_grenade && button != _training_button_left_grip)
+	{
+		return button == _training_button_left_trigger || button == _training_button_right_trigger ?
+			"Grenade: pull %s to throw one." : "Grenade: press %s to throw one.";
+	}
 	return step->words;
 }
 
@@ -1885,6 +1920,12 @@ static void basic_training_button_name(
 	};
 
 	name[0] = 0;
+	/* (an action the player's layout leaves without a button) */
+	if (button == CONTROLLER_REMAP_UNBOUND)
+	{
+		snprintf(name, size, "%s", "its button (unbound: Settings > Controls > Controller)");
+		return;
+	}
 #ifdef HALO_VR
 	if (halo_vr_running() && halo_vr_button_name(button, name, (unsigned long)size))
 		return;
