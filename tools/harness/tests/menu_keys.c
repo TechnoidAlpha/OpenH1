@@ -51,6 +51,7 @@ static int scancode(char const *name)
 		{ "F1", SDL_SCANCODE_F1 },
 		{ "Tab", SDL_SCANCODE_TAB },
 		{ "R", SDL_SCANCODE_R },
+		{ "L", SDL_SCANCODE_L },
 	};
 	size_t index;
 
@@ -74,6 +75,7 @@ static boolean pressed(XINPUT_GAMEPAD const *pad, short icon)
 	case _icon_black_button: return pad->bAnalogButtons[XINPUT_GAMEPAD_BLACK] != 0;
 	case _icon_white_button: return pad->bAnalogButtons[XINPUT_GAMEPAD_WHITE] != 0;
 	case _icon_right_trigger: return pad->bAnalogButtons[XINPUT_GAMEPAD_RIGHT_TRIGGER] != 0;
+	case _icon_left_trigger: return pad->bAnalogButtons[XINPUT_GAMEPAD_LEFT_TRIGGER] != 0;
 	case _icon_back_button: return (pad->wButtons & XINPUT_GAMEPAD_BACK) != 0;
 	case _icon_start_button: return (pad->wButtons & XINPUT_GAMEPAD_START) != 0;
 	default: return FALSE;
@@ -158,10 +160,9 @@ int main(int argc, char **argv)
 	}
 	CASE("unnamed")
 	{
-		/* (the D-pad, Start, the triggers and the sticks keep the
-		controller's) */
+		/* (the D-pad, Start and the sticks keep the controller's) */
 		CHECK(!ui_widget_port_menu_key(_icon_dpad_up) && !ui_widget_port_menu_key(_icon_start_button) &&
-			!ui_widget_port_menu_key(_icon_left_trigger) && !ui_widget_port_menu_key(_icon_left_thumb),
+			!ui_widget_port_menu_key(_icon_left_thumb),
 			"a button the keyboard has no menu key for named one");
 		return 0;
 	}

@@ -944,7 +944,7 @@ static boolean lobby_board_click(struct widget_instance *widget, short controlle
 	if (!blue || !blue->visible)
 		return TRUE;
 	return lobby_board_team(widget, controller,
-		(short)(x >= settings_slider_track_x(blue) - LOBBY_BOARD_COLUMN_GAP / 2 ? 1 : 0));
+		(short)(x >= widget_screen_x(blue) - LOBBY_BOARD_COLUMN_GAP / 2 ? 1 : 0));
 }
 
 /* "port lobby invite" (Y, COPY INVITE's prompt): a message with the

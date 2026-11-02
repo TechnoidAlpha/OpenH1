@@ -11,6 +11,7 @@
 		<on event="x" run="port browser sort"/>
 		<on event="y" run="port browser favorite"/>
 		<on event="right_trigger" run="port browser refresh"/>
+		<on event="left_trigger" run="port browser filters" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/header_join_game"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/browser_counts"/>
 		<child widget="main_menu/settings/tab_prompt_previous" x="24" y="76" platform="pointer"/>
@@ -28,7 +29,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/header_lan" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/join_game/header_local_network">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/browser_counts" type="text" controller="1" left="420" top="46" width="192" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="106 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/browser_counts" type="text" controller="1" left="372" top="46" width="240" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="106 0" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/browser_columns_line" controller="1" left="28" top="118" width="404" height="4" bitmap="main_menu/parts/line_404" wide="-106 144">
 	</widget>
@@ -409,6 +410,7 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/prompt_refresh" x="156" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/prompt_paste" x="156" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/prompt_sort" x="304" y="1"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/prompt_filters" x="408" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/prompt_back" x="516" y="1"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/prompt_favorite" type="text" width="124" height="24" wide="-106 0" bitmap="main_menu/parts/item_124x24" text="%y-button FAVORITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
@@ -429,6 +431,11 @@
 	<widget name="main_menu/multiplayer_type_select/join_game/prompt_sort" type="text" width="100" height="24" wide="106 0" bitmap="main_menu/parts/item_100x24" text="%x-button SORT" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port browser sort"/>
 		<on event="start" run="port browser sort"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/prompt_filters" type="text" width="100" height="24" wide="106 0" bitmap="main_menu/parts/item_100x24" text="%left-trigger FILTERS" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="port browser filters" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen"/>
+		<on event="start" run="port browser filters" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">

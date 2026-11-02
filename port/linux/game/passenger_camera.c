@@ -9,6 +9,7 @@ and the deterministic camera used for shooting keeps its original view.
 
 #include "cseries.h"
 #include "passenger_camera.h"
+#include "view_fov.h"
 #include "camera/director.h"
 #include "cutscene/cinematics.h"
 #include "game/game_engine.h"
@@ -151,6 +152,7 @@ boolean passenger_camera_reticle_begin(short local_player_index, long weapon_ind
 	real_vector3d direction, ray;
 	real_point2d screen;
 	struct collision_result collision;
+	real reticle_scale;
 
 	reticle_active = FALSE;
 	if (!passenger_camera_enabled(local_player_index) ||
@@ -168,8 +170,14 @@ boolean passenger_camera_reticle_begin(short local_player_index, long weapon_ind
 		point_from_line3d(&origin, &direction, 128.0f, &target);
 	if (!render_camera_world_to_screen(&render.camera, &render.frustum, &target, &screen))
 		return FALSE;
-	reticle_offset.x = screen.x - (render.camera.window_bounds.x0 + render.camera.window_bounds.x1) * 0.5f;
-	reticle_offset.y = screen.y - (render.camera.window_bounds.y0 + render.camera.window_bounds.y1) * 0.5f;
+	/* (where the shot lands in the drawn view: hud_draw.c scales the reticle
+	about the view's centre with display.fov, offset and all, so the offset
+	is given at the HUD's own size to land there) */
+	reticle_scale = render_fov_reticle_scale(local_player_index);
+	reticle_offset.x = (screen.x - (render.camera.window_bounds.x0 + render.camera.window_bounds.x1) * 0.5f) /
+		reticle_scale;
+	reticle_offset.y = (screen.y - (render.camera.window_bounds.y0 + render.camera.window_bounds.y1) * 0.5f) /
+		reticle_scale;
 	reticle_active = TRUE;
 	return TRUE;
 }
