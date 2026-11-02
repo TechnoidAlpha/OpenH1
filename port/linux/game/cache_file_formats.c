@@ -337,6 +337,13 @@ Xbox's 102 (ui_widget_event_handler_functions.c), which this build has not */
 #define MULTIPLAYER_PAUSE_LIST_NAME "ui\\shell\\multiplayer_game\\pause_game\\mp_pause_list"
 #define MULTIPLAYER_PAUSE_RESUME_NAME "resume_game_button"
 #define MULTIPLAYER_PAUSE_QUIT_NAME "quit_netgame_button"
+/* the campaign's pause menu's lists, and the Xbox's four items of its own
+(single player's: co-op's are named coop_) */
+#define SOLO_PAUSE_FOLDER "ui\\shell\\solo_game\\pause_game\\"
+#define SOLO_PAUSE_RESUME_NAME "resume_game_button"
+#define SOLO_PAUSE_REVERT_NAME "restart_at_save_point_button"
+#define SOLO_PAUSE_RESTART_NAME "restart_level_button"
+#define SOLO_PAUSE_QUIT_NAME "quit_to_main_menu_button"
 #define UNICODE_STRING_LIST_BYTES 0x0C
 #define UNICODE_STRING_LIST_STRINGS_OFFSET 0x00
 #define SCORE_KEY_PLACEHOLDER_CHARACTERS 4
@@ -3572,22 +3579,47 @@ static int tag_name_item_is(
 	return !strcmp(last ? last + 1 : name, item);
 }
 
+/* whether a pause list's row is one of the Xbox's: 1, or 2 for the campaign
+one's REVERT TO SAVED; else 0 */
+static int pause_list_item(
+	struct load_state const *state,
+	uint8_t const *child,
+	int solo)
+{
+	uint32_t handle = read_u32(child + TAG_REFERENCE_INDEX_OFFSET);
+	char const *name = custom_edition_cache_tag_name(state->tag_cache, state->used_bytes, (int32_t)(handle & 0xFFFF));
+
+	if (!solo)
+		return tag_name_item_is(name, MULTIPLAYER_PAUSE_RESUME_NAME) || tag_name_item_is(name, MULTIPLAYER_PAUSE_QUIT_NAME);
+	if (tag_name_item_is(name, SOLO_PAUSE_REVERT_NAME))
+		return 2;
+	return tag_name_item_is(name, SOLO_PAUSE_RESUME_NAME) || tag_name_item_is(name, SOLO_PAUSE_RESTART_NAME) ||
+		tag_name_item_is(name, SOLO_PAUSE_QUIT_NAME);
+}
+
 /* Halo PC's multiplayer pause menu has its game options and settings
 between the Xbox's resume and quit, and they open screens of Halo PC's
 functions (none here, widget_pc_functions_clear). The list keeps the Xbox's
-two, moved to the middle of its box of rows. */
-static void multiplayer_pause_list_convert(
+two, moved to the middle of its box of rows. Its campaign pause menu has
+SAVE LAST CHECKPOINT and CHANGE SETTINGS among the Xbox's resume, revert,
+restart and quit, which run Halo PC's functions too: that list keeps the
+Xbox's four, from its first row, as the Xbox's pause menu has them (to which
+port/linux/game/menu_tags.c adds SETTINGS). */
+static void pause_list_convert(
 	struct load_state const *state,
 	uint32_t widget_offset,
+	int solo,
 	struct custom_edition_conversion_report *report)
 {
 	uint8_t *block = state->tag_cache + widget_offset + UI_WIDGET_CHILD_WIDGETS_OFFSET;
 	int32_t child_count;
 	uint32_t children_offset;
 	uint8_t *children;
+	int16_t first;
 	int16_t row;
 	int32_t child_index;
 	int32_t kept = 0;
+	int reverts = 0;
 
 	if (!loaded_block_get(
 			block,
@@ -3602,32 +3634,40 @@ static void multiplayer_pause_list_convert(
 	}
 	children = state->tag_cache + children_offset;
 	/* (the rows' spacing, from the first two) */
-	row = (int16_t)(read_s16(children + UI_WIDGET_CHILD_BYTES + UI_WIDGET_CHILD_VERTICAL_OFFSET) -
-		read_s16(children + UI_WIDGET_CHILD_VERTICAL_OFFSET));
+	first = read_s16(children + UI_WIDGET_CHILD_VERTICAL_OFFSET);
+	row = (int16_t)(read_s16(children + UI_WIDGET_CHILD_BYTES + UI_WIDGET_CHILD_VERTICAL_OFFSET) - first);
+	for (child_index = 0; child_index < child_count; child_index++)
+	{
+		int item = pause_list_item(state, children + (uint32_t)child_index * UI_WIDGET_CHILD_BYTES, solo);
+
+		kept += item != 0;
+		reverts += item == 2;
+	}
+	/* (a campaign list is the one with REVERT TO SAVED, as menu_tags.c finds
+	it) */
+	if (kept == 0 || kept == child_count || (solo && !reverts))
+	{
+		return;
+	}
+	kept = 0;
 	for (child_index = 0; child_index < child_count; child_index++)
 	{
 		uint8_t *child = children + (uint32_t)child_index * UI_WIDGET_CHILD_BYTES;
-		uint32_t handle = read_u32(child + TAG_REFERENCE_INDEX_OFFSET);
-		char const *name = custom_edition_cache_tag_name(state->tag_cache, state->used_bytes, (int32_t)(handle & 0xFFFF));
 
-		if (name && (tag_name_item_is(name, MULTIPLAYER_PAUSE_RESUME_NAME) || tag_name_item_is(name, MULTIPLAYER_PAUSE_QUIT_NAME)))
+		if (pause_list_item(state, child, solo))
 		{
 			if (kept != child_index)
 				memmove(children + (uint32_t)kept * UI_WIDGET_CHILD_BYTES, child, UI_WIDGET_CHILD_BYTES);
 			kept++;
 		}
 	}
-	if (kept == 0 || kept == child_count)
-	{
-		return;
-	}
 	for (child_index = 0; child_index < kept; child_index++)
 	{
 		write_u16(children + (uint32_t)child_index * UI_WIDGET_CHILD_BYTES + UI_WIDGET_CHILD_VERTICAL_OFFSET,
-			(uint16_t)(row * (child_index + (child_count - kept) / 2)));
+			(uint16_t)(solo ? first + row * child_index : row * (child_index + (child_count - kept) / 2)));
 	}
 	write_u32(block + TAG_BLOCK_COUNT_OFFSET, (uint32_t)kept);
-	report->pause_menu_trimmed = 1;
+	report->pause_menu_trimmed |= solo ? 2 : 1;
 
 	return;
 }
@@ -3849,9 +3889,13 @@ enum cache_file_status custom_edition_cache_convert(
 		if (group_tag == UI_WIDGET_DEFINITION_GROUP_TAG &&
 			tag_cache_offset(&state, read_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET), UI_WIDGET_DEFINITION_BYTES, &offset))
 		{
+			char const *name = custom_edition_cache_tag_name(tag_cache, loaded_bytes, tag_index);
+
 			widget_pc_functions_clear(&state, offset, report);
-			if (!strcmp(custom_edition_cache_tag_name(tag_cache, loaded_bytes, tag_index), MULTIPLAYER_PAUSE_LIST_NAME))
-				multiplayer_pause_list_convert(&state, offset, report);
+			if (!strcmp(name, MULTIPLAYER_PAUSE_LIST_NAME))
+				pause_list_convert(&state, offset, 0, report);
+			else if (!strncmp(name, SOLO_PAUSE_FOLDER, strlen(SOLO_PAUSE_FOLDER)))
+				pause_list_convert(&state, offset, 1, report);
 		}
 		if (!shader_type)
 		{

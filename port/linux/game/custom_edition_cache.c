@@ -761,7 +761,9 @@ static boolean custom_edition_cache_tags_convert(
 			_error_silent,
 			"custom edition: %ld menu event handlers of Halo PC's own functions run none%s",
 			(long)conversion.widget_functions_cleared,
-			conversion.pause_menu_trimmed ? "; the multiplayer pause menu is the Xbox's resume and quit" : "");
+			(conversion.pause_menu_trimmed & 1) ? "; the multiplayer pause menu is the Xbox's resume and quit" :
+			(conversion.pause_menu_trimmed & 2) ? "; the campaign pause menu is the Xbox's resume, revert, restart and quit" :
+			"");
 	}
 
 	return custom_edition_cache_tags_validate(tag_cache, report) &&
