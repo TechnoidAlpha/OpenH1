@@ -83,6 +83,10 @@ symbols in this file:
 #include <math.h>
 #include <string.h>
 
+/* port: the high-res HUD's texture of some of a bitmap's sprites (the
+reticle's warnings), port/linux/game/hud_hires_tags.c */
+struct bitmap_data const *hud_hires_sprite_bitmap(struct bitmap_data const *bitmap, short sequence_index);
+
 #ifdef HALO_VR
 /* port/linux/game/vr_scope.c: a scope's view is shown in the VR mode,
 raised to an eye or smart-linked (a window about the reticle), showing
@@ -1348,7 +1352,9 @@ static void crosshairs_draw(
 												(short)(render.camera.window_bounds.y1 - render.camera.window_bounds.y0),
 												&placement);
 											hud_draw_bitmap(
-												bitmap,
+												/* port: drawn from the high-res HUD's texture of its
+												sprite where there is one */
+												sequence ? hud_hires_sprite_bitmap(bitmap, item->sequence_index) : bitmap,
 												&absolute_placement,
 												&placement,
 												sequence ?

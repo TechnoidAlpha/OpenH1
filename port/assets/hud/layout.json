@@ -3001,6 +3001,340 @@
    ]
   },
   {
+   "name": "hud_reticle_warnings__0",
+   "tag": "ui\\hud\\bitmaps\\combined\\hud_reticle_warnings",
+   "bitmap": 0,
+   "width": 128,
+   "height": 128,
+   "format": "a8y8",
+   "scale": 8,
+   "crc": 1728930376,
+   "sprites": [
+    {
+     "sequence": 0,
+     "cell": [
+      0,
+      27,
+      49,
+      54
+     ],
+     "crc": 2423881216
+    },
+    {
+     "sequence": 1,
+     "cell": [
+      42,
+      79,
+      86,
+      94
+     ],
+     "crc": 2652943294
+    },
+    {
+     "sequence": 2,
+     "cell": [
+      0,
+      54,
+      42,
+      79
+     ],
+     "crc": 2376355353
+    },
+    {
+     "sequence": 3,
+     "cell": [
+      77,
+      27,
+      105,
+      52
+     ],
+     "crc": 3274054007
+    },
+    {
+     "sequence": 4,
+     "cell": [
+      49,
+      27,
+      77,
+      52
+     ],
+     "crc": 2735032343
+    },
+    {
+     "sequence": 5,
+     "cell": [
+      42,
+      54,
+      102,
+      78
+     ],
+     "crc": 878392916
+    },
+    {
+     "sequence": 6,
+     "cell": [
+      56,
+      0,
+      106,
+      27
+     ],
+     "crc": 3934059736
+    },
+    {
+     "sequence": 7,
+     "cell": [
+      0,
+      79,
+      42,
+      103
+     ],
+     "crc": 2826631279
+    },
+    {
+     "sequence": 10,
+     "cell": [
+      0,
+      0,
+      56,
+      27
+     ],
+     "crc": 4179104997
+    },
+    {
+     "sequence": 8,
+     "cell": [
+      106,
+      0,
+      117,
+      7
+     ],
+     "crc": 1878546369
+    }
+   ],
+   "cells": [
+    {
+     "xbox": [
+      0,
+      27,
+      49,
+      54
+     ],
+     "svg": "warning__Overpass-750__Low_Battery.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      385,
+      212
+     ],
+     "kind": "alpha",
+     "score": 0.956
+    },
+    {
+     "xbox": [
+      42,
+      79,
+      86,
+      94
+     ],
+     "svg": "warning__Overpass-750__Reload.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      346,
+      118
+     ],
+     "kind": "alpha",
+     "score": 0.981
+    },
+    {
+     "xbox": [
+      0,
+      54,
+      42,
+      79
+     ],
+     "svg": "warning__Overpass-750__No_Ammo.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      330,
+      197
+     ],
+     "kind": "alpha",
+     "score": 0.986
+    },
+    {
+     "xbox": [
+      77,
+      27,
+      105,
+      52
+     ],
+     "svg": "warning__Overpass-750__Low_Fuel.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      220,
+      197
+     ],
+     "kind": "alpha",
+     "score": 0.981
+    },
+    {
+     "xbox": [
+      49,
+      27,
+      77,
+      52
+     ],
+     "svg": "warning__Overpass-750__No_Fuel.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      220,
+      197
+     ],
+     "kind": "alpha",
+     "score": 0.974
+    },
+    {
+     "xbox": [
+      42,
+      54,
+      102,
+      78
+     ],
+     "svg": "warning__Overpass-750__No_Grenades.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      472,
+      189
+     ],
+     "kind": "alpha",
+     "score": 0.97
+    },
+    {
+     "xbox": [
+      56,
+      0,
+      106,
+      27
+     ],
+     "svg": "warning__Overpass-750__No_Weapon.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      393,
+      212
+     ],
+     "kind": "alpha",
+     "score": 0.987
+    },
+    {
+     "xbox": [
+      0,
+      79,
+      42,
+      103
+     ],
+     "svg": "warning__Overpass-750__Low_Ammo.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      330,
+      189
+     ],
+     "kind": "alpha",
+     "score": 0.983
+    },
+    {
+     "xbox": [
+      0,
+      0,
+      56,
+      27
+     ],
+     "svg": "warning__Overpass-750__Battery_Depleted.svg",
+     "source_scale": 7.86178,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      440,
+      212
+     ],
+     "kind": "alpha",
+     "score": 0.963
+    },
+    {
+     "xbox": [
+      106,
+      0,
+      117,
+      7
+     ],
+     "svg": "hud_reticle_warnings__0__shape_8.svg",
+     "source_scale": 10,
+     "source": [
+      0,
+      0
+     ],
+     "clip": [
+      0,
+      0,
+      110,
+      70
+     ],
+     "kind": "alpha",
+     "score": 0.905
+    }
+   ]
+  },
+  {
    "name": "hud_health_base__0",
    "tag": "ui\\hud\\bitmaps\\hud_health_base",
    "bitmap": 0,
