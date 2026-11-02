@@ -149,6 +149,10 @@ mouse's motion after INPUT_MOUSE_STILL_NS still; the frame's wait for the
 clock ends at one (platform_video_swap). Each gamepad axis's last side of
 its threshold, any gamepad's */
 static unsigned long input_presses;
+/* the presses that skip a Bink movie (platform_movie_skip_pressed), under
+input_lock: a key down (not F11's or F12's, which work the window), a mouse
+button or a finger down; and how many were seen */
+static unsigned long movie_skip_presses, movie_skip_presses_seen;
 static Uint64 input_mouse_moved_ns;
 static unsigned char input_axis_beyond[SDL_GAMEPAD_AXIS_COUNT];
 #define INPUT_AXIS_PRESSED 16000
@@ -2402,6 +2406,9 @@ void platform_pump_events(void)
 		case SDL_EVENT_KEY_UP:
 			if (!event.key.repeat)
 				input_presses++;
+			if (event.key.down && !event.key.repeat && event.key.scancode != SDL_SCANCODE_F11 &&
+				event.key.scancode != SDL_SCANCODE_F12)
+				movie_skip_presses++;
 			if (event.key.scancode < SDL_SCANCODE_COUNT)
 			{
 				input_state.keys[event.key.scancode] = event.key.down;
@@ -2483,6 +2490,8 @@ void platform_pump_events(void)
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
 			input_presses++;
+			if (event.button.down)
+				movie_skip_presses++;
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
@@ -2628,6 +2637,8 @@ void platform_pump_events(void)
 		case SDL_EVENT_FINGER_MOTION:
 		case SDL_EVENT_FINGER_UP:
 		case SDL_EVENT_FINGER_CANCELED:
+			if (event.type == SDL_EVENT_FINGER_DOWN)
+				movie_skip_presses++;
 			touch_input_event(event.type, &event.tfinger);
 			break;
 #endif
@@ -2707,6 +2718,17 @@ void platform_pump_events(void)
 	pthread_mutex_unlock(&input_lock);
 	looked_at_clipboard = TRUE;
 	platform_invite_clipboard(look_at_clipboard);
+}
+
+int platform_movie_skip_pressed(void)
+{
+	int pressed;
+
+	pthread_mutex_lock(&input_lock);
+	pressed = movie_skip_presses != movie_skip_presses_seen;
+	movie_skip_presses_seen = movie_skip_presses;
+	pthread_mutex_unlock(&input_lock);
+	return pressed;
 }
 
 void platform_menus_set_active(BOOL active)

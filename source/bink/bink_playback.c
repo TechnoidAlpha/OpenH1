@@ -1045,5 +1045,9 @@ static boolean bink_query_analog_controller_buttons(
 		}
 	}
 
+	/* port: a key, a mouse button or a touch skips it too */
+	if (platform_movie_skip_pressed())
+		button_pressed= TRUE;
+
 	return button_pressed;
 }

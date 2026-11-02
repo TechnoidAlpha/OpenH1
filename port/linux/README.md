@@ -960,6 +960,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.match_timer` | `false` | `HALO_MATCH_TIMER` | `true`: a multiplayer game draws its clock at the bottom right, counting up from the game's first tick, which the items' respawn periods count from too: a weapon is back on the map at every multiple of its period on the clock. Campaign and co-op have none. MATCH TIMER in Settings > Interface, under Multiplayer. |
 | `display.text_chat` | `true` | `HALO_TEXT_CHAT` | Show the text chat of network games (Settings > Network Setup > Multiplayer HUD > TEXT CHAT). `false` hides its lines, and its keys and a controller's D-pad Up open nothing. Refer to "Text chat". |
 | `display.chat_style` | `"colors"` | `HALO_CHAT_STYLE` | The text chat's colours (Settings > Network Setup > Multiplayer HUD > CHAT TEXT): `"colors"`, the player's name in their team's colour and the text a pale blue; `"white"`, all of it white, as Custom Edition. |
+| `display.movies` | `false` | `HALO_MOVIES` | `true`: the game plays the Xbox's Bink movies from the game data's `bink` folder (`bink/intro.bik` as it starts, `attract1.bik` to `attract3.bik` on a main menu left idle, `credits.bik` after the campaign; the language's own, `intro_de.bik` and the rest, first), decoded by FFmpeg's Bink decoders in the game (`port/linux/src/bink_ffmpeg.c`, `port/third_party/ffmpeg`). Any button or key skips the intro. No movies ship with OpenH1: they come from your own copy of the Xbox game's disc, and a missing one is skipped. `false` (the default) goes straight to the menus. STARTUP MOVIES in Settings > Interface, under Movies. |
 | `display.scoreboard_team_layout` | `"teams"` | `HALO_SCOREBOARD_TEAM_LAYOUT` | How the multiplayer scoreboard (hold BACK, or tab) lists a team game's players. `"teams"`: a column for each team, red on the left and blue on the right. `"score"`: all the players in order of score. With more players than fit, the mouse wheel and Page Up / Page Down scroll the scoreboard. |
 | `display.scoreboard_background` | `true` | `HALO_SCOREBOARD_BACKGROUND` | `true`: the multiplayer scoreboard (hold BACK, or tab) has a panel behind its text, for clearer text. |
 | `display.scoreboard_background_color` | `"6, 20, 48, 190"` (the menus' dark blue) | `HALO_SCOREBOARD_BACKGROUND_COLOR` | The color of the scoreboard's panel: `"red, green, blue, alpha"`, each from `0` to `255`. Alpha `0` is see-through, `255` is solid. |
@@ -5923,7 +5924,7 @@ does; making the eye images from the four layers cost 0.2 ms more there.
 | Memory | The port reserves the Xbox memory at `0x80000000`. Thus the game gets the fixed addresses that it expects. |
 | Saved games | The Xbox `UDATA` layout, with SHA-1 signatures. |
 | Networking | Winsock on BSD sockets. System link on a local network and on the internet. |
-| Bink video | Not available. The game skips the movies. |
+| Bink video | The Bink SDK's calls (`src/bink_movie.c`) over FFmpeg's Bink demuxer and decoders (`src/bink_ffmpeg.c`, `port/third_party/ffmpeg`, LGPL 2.1 or later), in the game, when `display.movies` is on: the frames into the linear texture `bink/bink_playback.c` draws, the audio as a DirectSound stream. Off (the default), or without the movie files, which OpenH1 does not ship, the game skips the movies. |
 
 ## How the port operates
 
