@@ -123,7 +123,7 @@
 		<string text="Your legs when you look down, moving as you run: your body as the others see it."/>
 		<string text="Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or from your seat. Behind, the weapon cannot zoom."/>
 		<string text=""/>
-		<string text="Your shield's flare on your first-person arms too, as on your body."/>
+		<string text="When your shield takes a hit, its flare shows on your first-person arms too, as on your body, and fades as it does there. A full, untouched shield shows nothing."/>
 		<string text="Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its own."/>
 	</strings>
 </menus>
