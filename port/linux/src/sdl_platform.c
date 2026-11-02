@@ -752,36 +752,82 @@ static BOOL platform_display_size(SDL_DisplayID display, long *width, long *heig
 	return TRUE;
 }
 
+/* whether fullscreen can set the display's refresh rate: on Windows, and
+on an X server's display of its own; not on Wayland or XWayland (whose
+modes are pretended, the display's own kept), nor under gamescope, nor on
+macOS, iOS or Android, whose displays stay at their own rate */
+int platform_refresh_rates_settable(void)
+{
+#ifdef HALO_MACOS
+	return 0;
+#else
+	const char *driver;
+	const char *wayland = getenv("WAYLAND_DISPLAY");
+	const char *gamescope = getenv("GAMESCOPE_WAYLAND_DISPLAY");
+
+	if (!platform_sdl_initialize() || !(driver = SDL_GetCurrentVideoDriver()))
+		return 0;
+	if (!strcmp(driver, "windows"))
+		return 1;
+	return !strcmp(driver, "x11") && !(wayland && wayland[0]) && !(gamescope && gamescope[0]);
+#endif
+}
+
+/* display.refresh_rate where fullscreen can set it, else 0: the display's
+own */
+static float platform_refresh_rate_setting(void)
+{
+	double rate = config_real("display.refresh_rate");
+
+	return rate > 0.0 && rate < 1000.0 && platform_refresh_rates_settable() ? (float)rate : 0.0f;
+}
+
 /* the window's fullscreen kind (display.mode): borderless, a window over
 the whole desktop (SDL's fullscreen without a mode), or fullscreen, the
 display taken at display.resolution's mode (the one nearest it), else at its
-desktop one. F11 switches to the kind set. */
+desktop one, at display.refresh_rate's rate (the nearest the display has at
+that size), else at the desktop's. F11 switches to the kind set. */
 static void platform_fullscreen_kind_apply(void)
 {
 	static int applied = -1;
 	static long applied_width, applied_height;
+	static float applied_rate;
 	int exclusive = platform_display_mode() == _display_mode_fullscreen ? 1 : 0;
 	long width = 0, height = 0;
+	float rate = 0.0f;
 	SDL_DisplayID display;
 	SDL_DisplayMode closest;
-	const SDL_DisplayMode *mode = NULL;
+	const SDL_DisplayMode *mode = NULL, *desktop;
 
 	if (!platform_window)
 		return;
 	if (exclusive)
+	{
 		platform_resolution_setting(&width, &height);
-	if (exclusive == applied && width == applied_width && height == applied_height)
+		rate = platform_refresh_rate_setting();
+	}
+	if (exclusive == applied && width == applied_width && height == applied_height && rate == applied_rate)
 		return;
 	applied = exclusive;
 	applied_width = width;
 	applied_height = height;
+	applied_rate = rate;
 	display = SDL_GetDisplayForWindow(platform_window);
 	if (exclusive && display)
 	{
-		if (width && SDL_GetClosestFullscreenDisplayMode(display, (int)width, (int)height, 0.0f, false, &closest))
+		desktop = SDL_GetDesktopDisplayMode(display);
+		if (width && SDL_GetClosestFullscreenDisplayMode(display, (int)width, (int)height, rate, false, &closest))
 			mode = &closest;
+		else if (!width && rate > 0.0f && desktop &&
+			SDL_GetClosestFullscreenDisplayMode(display, desktop->w, desktop->h, rate, true, &closest))
+		{
+			mode = &closest;
+		}
 		else
-			mode = SDL_GetDesktopDisplayMode(display);
+			mode = desktop;
+		if (mode && rate > 0.0f)
+			platform_log("display: fullscreen at %dx%d, %.2f Hz (display.refresh_rate %.2f)", mode->w, mode->h,
+				mode->refresh_rate, rate);
 	}
 	SDL_SetWindowFullscreenMode(platform_window, mode);
 }
@@ -938,6 +984,45 @@ int platform_display_resolutions(long *widths, long *heights, int maximum)
 	return count;
 }
 
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	SDL_DisplayID display;
+	SDL_DisplayMode **modes;
+	int mode_count = 0, count = 0, index, place;
+	long rate;
+
+	if (maximum < 1 || !platform_refresh_rates_settable())
+		return 0;
+	display = platform_window ? SDL_GetDisplayForWindow(platform_window) : 0;
+	if (!display)
+		display = SDL_GetPrimaryDisplay();
+	modes = display ? SDL_GetFullscreenDisplayModes(display, &mode_count) : NULL;
+	for (index = 0; modes && index <= mode_count; index++)
+	{
+		/* (then the one set, though this display has no such rate, so that
+		Video Setup shows it) */
+		rate = index < mode_count ? (long)(modes[index]->refresh_rate + 0.5f) :
+			(long)(config_real("display.refresh_rate") + 0.5);
+		if (rate < 24 || rate >= 1000)
+			continue;
+		for (place = 0; place < count && rates[place] != rate; place++)
+		{
+		}
+		if (place == count && count < maximum)
+			rates[count++] = rate;
+	}
+	SDL_free(modes);
+	/* highest first */
+	for (index = 1; index < count; index++)
+	{
+		rate = rates[index];
+		for (place = index; place > 0 && rates[place - 1] < rate; place--)
+			rates[place] = rates[place - 1];
+		rates[place] = rate;
+	}
+	return count;
+}
+
 /* Video Setup's window sizes, by shape (4:3, 16:10, 16:9, 21:9), each from
 the smallest */
 static const short platform_window_sizes_offered[][2] =
@@ -1026,6 +1111,19 @@ int platform_window_sizes(long *widths, long *heights, int maximum)
 {
 	(void)widths;
 	(void)heights;
+	(void)maximum;
+	return 0;
+}
+
+/* (Android's display keeps its own rate: no Refresh Rate row) */
+int platform_refresh_rates_settable(void)
+{
+	return 0;
+}
+
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	(void)rates;
 	(void)maximum;
 	return 0;
 }
