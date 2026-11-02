@@ -1547,7 +1547,7 @@ time, its budget before the latch the frame is for */
 static void display_wait(uint64_t *start)
 {
 	struct timespec until;
-	uint64_t start_time, now;
+	uint64_t start_time, now, budget, extra;
 
 	if (!render.display_paced)
 		return;
@@ -1577,14 +1577,18 @@ static void display_wait(uint64_t *start)
 	}
 	if (render.ring->error || !render.display_paced)
 		return;
+	/* (and the time the guest says the next frame takes more than its
+	frames do, a load zone's switch: its start so much earlier, within a
+	refresh) */
+	extra = (uint64_t)__atomic_load_n(&render.ring->frame_extra_microseconds, __ATOMIC_RELAXED) * 1000ull;
+	budget = frame_pacing_budget(&render.costs, render.period) + (extra < render.period ? extra : render.period);
 	start_time = frame_pacing_start_time(render.latch, render.period,
-		render.ring->frames_submitted - render.frames_taken, frame_pacing_budget(&render.costs, render.period));
+		render.ring->frames_submitted - render.frames_taken, budget);
 	now = monotonic_nanoseconds();
 	/* (the refresh the next frame is for: host_render_stream_frame_displayed
 	tells a miss by it) */
 	{
 		uint32_t next = render.ring->frames_submitted + 1;
-		uint64_t budget = frame_pacing_budget(&render.costs, render.period);
 
 		render.targets[next % 8].frame = next;
 		render.targets[next % 8].target = start_time ? start_time + budget : 0;

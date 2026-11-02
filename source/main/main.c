@@ -711,6 +711,7 @@ void vr_seat_test_update(void);
 void vr_death_test_update(void);
 #endif
 #include "server_director.h" /* port: port/linux/game/server_director.c */
+#include "load_zone.h" /* port: port/linux/game/load_zone.c */
 
 /* ---------- prototypes */
 
@@ -1109,6 +1110,7 @@ void main_switch_structure_bsp(
 	}
 	main_globals.switch_to_structure_bsp_index = structure_bsp_index;
 	hud_load(TRUE);
+	load_zone_switch_requested(); /* port: its frame started early enough (port/linux/game/load_zone.c) */
 	return;
 }
 
@@ -2221,9 +2223,11 @@ static void main_save_map_private(
 static void main_switch_to_structure_bsp_private(
 	void)
 {
+	load_zone_switch_begin(); /* port: (port/linux/game/load_zone.c) */
 	scenario_switch_structure_bsp(main_globals.switch_to_structure_bsp_index);
 	main_globals.switch_to_structure_bsp_index = NONE;
 	hud_load(0);
+	load_zone_switch_end(); /* port */
 	return;
 }
 

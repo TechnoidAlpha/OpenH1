@@ -6012,9 +6012,15 @@ map loads, under its loading screen, and kept in memory as it was read
 tens of megabytes), with its culling's buckets
 (`game/structure_culling.c`), and its materials' shaders and pipelines are
 made with the first structure's (`display.prepare_shaders`), so that a
-switch copies the structure back and reconnects the objects to it. On a
-Ryzen 9 5900X (Vulkan) a switch takes 2 to 5 ms of the frame, where it took
-20 to 30 ms, and 550 to 730 ms more the first time into each structure.
+switch copies the structure back and reconnects the objects to it. The
+objects' memory pool checks only the ends of its list in a release build
+(`memory/memory_pool.c`), not every block at each allocation, so a switch
+placing hundreds of scenery objects (b30's 674) takes 1 ms, not 4. And the
+host is told of a switch from the frame it is asked for in
+(`game/load_zone.c`, `xgpu_backend_frame_extra`), so that the frame it is
+made in starts early enough for its refresh. On a Ryzen 9 5900X (Vulkan) a
+switch takes 1.4 to 2.6 ms of the frame, where it took 20 to 30 ms, and 550
+to 730 ms more the first time into each structure.
 `debug.bsp_switch_test` times the switches.
 
 The loading panel uses Paul Hontz's redraw of the retail loading picture
@@ -6356,6 +6362,7 @@ Other changes:
 | `render/render.c`, `rasterizer/xbox/rasterizer_xbox_decals.c` | The frames are counted from the map's start, as the game state's caches stamp them: the menus' and the loading's frames, as many as the loading took, made two runs of one game differ. |
 | `scenario/scenario.c` | A location's last field is set, not left as the stack had it. The wind steps once a tick, at the tick's end, not by the frames' time. |
 | `scenario/scenario.c`, `cache/cache_files.c` | A load zone shows no loading screen and does not hitch: as a scenario loads, every structure BSP of it is read and checked, and kept as read (`game/structure_bsp_cache.c`) with its culling's buckets (`game/structure_culling.c`); a switch to one copies it back instead of reading and checking it again. |
+| `memory/memory_pool.c`, `main/main.c` | A release build checks the memory pool's first and last blocks, and a block's neighbours, instead of walking every block at each allocation and lookup (the checked build still walks them); a load zone's switch tells the host its frame's extra time (`game/load_zone.c`). |
 | `sound/sound_manager.c`, `sound/sound_definitions.c` | The sounds' random choices take a seed of their own. The speakers' mouths are not moved from the mixer's place in the sound. |
 | `sound/game_sound.c`, `units/unit_dialogue.c` | The speakers' mouths move in the ticks, from the permutation the game picks at the speech's start and the ticks since. A unit does not keep the sound manager's index of its speech, and a scripted sound's time ends when it is stopped, whether or not the mixer played it. |
 | `main/main.c` | Each frame can run a set time (`debug.frame_time`). |

@@ -107,7 +107,10 @@ struct xgpu_stream_ring
 	uint32_t display_headroom;
 	uint32_t display_white;
 	uint32_t display_white_reported;
-	uint32_t pad;
+	/* the guest's, with each frame: microseconds more than its frames take
+	that the next frame will (a load zone's switch in it): the host starts
+	that frame so much earlier (display_wait) */
+	uint32_t frame_extra_microseconds;
 };
 
 enum

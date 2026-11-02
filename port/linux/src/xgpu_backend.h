@@ -647,6 +647,14 @@ struct xgpu_vr_frame
 void xgpu_backend_vr_compose(const struct xgpu_vr_frame *frame);
 void xgpu_backend_vr_submit(const struct xgpu_vr_frame *frame, BOOL screenshot);
 
+/* The time the frame after the one being written will take more than the
+frames do (a load zone's switch, which it begins with), told with this
+frame and each after it until 0, or XGPU_FRAME_EXTRA_FRAMES of them (a
+switch put off while a tick's sub-steps run, or not made): the host starts
+that frame so much earlier, so that it is on screen at its refresh all the
+same. */
+#define XGPU_FRAME_EXTRA_FRAMES 4
+void xgpu_backend_frame_extra(unsigned long microseconds);
 /* Acknowledged loading ownership change, before map storage is reused. */
 void xgpu_backend_loading(int active);
 int xgpu_backend_loading_owned(void);
