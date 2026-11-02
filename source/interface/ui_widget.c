@@ -4796,6 +4796,29 @@ boolean ui_widgets_active_for_local_player(
 	return result;
 }
 
+/* port: whether a screen made for no one player is up (its
+local_player_index NONE: the main menu's, a network game's postgame and
+pregame screens, an error), which any controller drives: a controller's own
+button layout then gives way to the stock buttons
+(port/linux/game/controller_remap_game.c) */
+boolean ui_widgets_port_active_for_everyone(
+	void)
+{
+	long widget_index;
+
+	if (!widget_globals.initialized)
+		return FALSE;
+	for (widget_index = 0; widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; widget_index++)
+	{
+		if (widget_globals.active_widgets[widget_index] &&
+			widget_globals.active_widgets[widget_index]->local_player_index == NONE)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 void display_error(
 	short error_code,
 	short local_player_index,

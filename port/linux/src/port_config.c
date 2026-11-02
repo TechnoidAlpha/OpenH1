@@ -865,9 +865,9 @@ static const struct config_setting config_settings[] =
 		"it (\"A Button\", \"Right Hand Trigger\"), or the gesture that does." },
 	{ "input.controller_p1", _config_string, "\"\"", "HALO_CONTROLLER_P1", _environment_value, _platform_all,
 		"P1 custom controller layout; empty uses the profile's preset. Edit in\n"
-		"Settings > Controls > Controller > Button Remapping. v2: 25 physical\n"
+		"Settings > Controls > Controller > Button Remapping. v3: 26 physical\n"
 		"button names, unbound among them; gameplay and the debug camera have\n"
-		"separate bindings. Old ten-action layouts are accepted. See\n"
+		"separate bindings. Old ten-action and v2 layouts are accepted. See\n"
 		"docs/controller_remapping.md for the full order." },
 	{ "input.controller_p2", _config_string, "\"\"", "HALO_CONTROLLER_P2", _environment_value, _platform_all,
 		"P2 custom controller buttons, same format as controller_p1. Empty uses the profile." },
