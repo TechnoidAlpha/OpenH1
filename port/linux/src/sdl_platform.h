@@ -43,6 +43,10 @@ void halo_input_name(int input, char *name, size_t size);
 for the menus */
 void halo_input_shown_name(const char *binding, char *shown, size_t size);
 
+/* whether a key, a mouse button or a finger went down since it was last
+asked: what skips a Bink movie besides a controller's buttons (also declared
+for the game in halo_linux_source_fixups.h) */
+int platform_movie_skip_pressed(void);
 /* whether a menu is up (halo_ui_pointer_update, every frame) */
 void platform_menus_set_active(BOOL active);
 /* rebinding a control (Settings > Controls Setup): from now the next key,

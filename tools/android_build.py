@@ -33,7 +33,8 @@ from .guest_toolchain import LLVM_VERSION, guest_toolchain
 from .build_common import (LINUX_PROFILE, MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUPNPC_DIR, MUSL_MATH_DIR, OWN_CODE_ERRORS,
                            PLATFORM_SEMANTICS_HEADER, QUIET_OWN_CODE_FLAGS, SEMANTICS_HEADER, STB_VORBIS_SOURCE,
                            XDK_INCLUDE, compile_launcher, configuration_defines, download, game_defines_and_includes,
-                           game_sources, miniupnpc_sources, musl_math_sources, opus_cflags, opus_sources,
+                           FFMPEG_CALLER, ffmpeg_cflags, ffmpeg_sources, game_sources, miniupnpc_sources,
+                           musl_math_sources, opus_cflags, opus_sources,
                            PROFILE_GENERATE_FLAGS, pgo_mode, pgo_profile, profile_use_flags, updater_defines,
                            xdk_headers)
 from . import check_host_imports
@@ -581,6 +582,9 @@ def generate_guest_image(n: Writer, sln: Any, config: Dict[str, Any], *, arch: G
     for source in sorted((LINUX_DIR / "src").glob("*.c")):
         if (source.name.startswith("posix_") and source.name not in guest_posix) or source.name in guest_host_only:
             continue
+        # (with FFmpeg's headers, below)
+        if source.name == FFMPEG_CALLER:
+            continue
         # (the build's number: the updater's, and a dedicated server's
         # --version and status)
         if source.name in ("updater.c", "server_mode.c") and updater_cflags:
@@ -605,6 +609,12 @@ def generate_guest_image(n: Writer, sln: Any, config: Dict[str, Any], *, arch: G
     # library
     for source in opus_sources():
         objects.append(guest_object(source, " ".join([opus_cflags(guest_abi), *libc_includes])))
+    # the Bink movies' decoders (port/third_party/ffmpeg), and the platform
+    # layer's file that calls them, with the guest's ABI and C library
+    for source in ffmpeg_sources():
+        objects.append(guest_object(source, " ".join([ffmpeg_cflags(guest_abi), *libc_includes])))
+    objects.append(guest_object(LINUX_DIR / "src" / FFMPEG_CALLER, " ".join([
+        ffmpeg_cflags(guest_abi, QUIET_OWN_CODE_FLAGS), profile_flags, *libc_includes])))
     # internet play's signatures, for public games' listings
     # (port/third_party/monocypher; p2p_crypto.c)
     for name in ("monocypher.c", "monocypher-ed25519.c"):

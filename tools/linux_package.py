@@ -76,6 +76,9 @@ def notices(platform: str) -> List[Tuple[Path, str]]:
         # voice chat's codec (port/third_party/opus), in every build, whose
         # BSD license asks binaries to carry its notice
         (ROOT / "port/third_party/opus/COPYING", "opus-COPYING.txt"),
+        # the Bink movies' decoders (port/third_party/ffmpeg), in every
+        # build, whose LGPL asks copies to carry it
+        (ROOT / "port/third_party/ffmpeg/COPYING.LGPLv2.1", "ffmpeg-COPYING.LGPLv2.1.txt"),
         # voice chat's speaker icons (port/assets/icons/lucide, drawn into
         # the menus' bitmaps), whose ISC license asks copies to carry its
         # notice

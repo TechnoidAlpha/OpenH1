@@ -725,7 +725,9 @@ assembly of the port is necessary:
 
 ## Limits
 
-- Bink video is not available. The game skips the movies.
+- The Xbox's Bink movies play only with `display.movies` on and the files
+  in the data root's `bink` folder (`port/linux/README.md`); otherwise the
+  game skips them.
 - The device must let the app reserve the fixed guest addresses, from
   `0x80000000` to `0xa4000000`. If ART uses them, the app shows a message
   (refer to "The fixed addresses").

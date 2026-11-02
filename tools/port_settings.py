@@ -696,6 +696,11 @@ PAGES = {
              "Draws a dark panel behind the scoreboard, for clearer text.", None),
             ("MATCH TIMER", "display.match_timer", ON_OFF,
              "Draws a clock at the bottom right in multiplayer, counting up from the start of the game.", None),
+            # (port/linux/src/bink_ffmpeg.c)
+            (SECTION, "MOVIES"),
+            ("STARTUP MOVIES", "display.movies", ON_OFF,
+             "Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu, from "
+             "the bink folder of your game data. Any button skips the intro.", None),
             # (the text chat's: port/linux/game/network_chat.c)
             (SECTION, "CHAT"),
             ("TEXT CHAT", "display.text_chat", [("SHOW", "true"), ("HIDE", "false")],

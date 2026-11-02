@@ -63,6 +63,7 @@ LICENSES = {
     "Overpass-OFL.txt": "port/assets/fonts/Overpass-OFL.txt",
     "expat-COPYING.txt": "port/third_party/expat/COPYING",
     "opus-COPYING.txt": "port/third_party/opus/COPYING",
+    "ffmpeg-COPYING.LGPLv2.1.txt": "port/third_party/ffmpeg/COPYING.LGPLv2.1",
     "lucide-LICENSE.txt": "port/assets/icons/lucide/LICENSE",
 }
 # the files an install never writes over (the player's)

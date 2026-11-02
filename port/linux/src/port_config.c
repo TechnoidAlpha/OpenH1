@@ -269,6 +269,11 @@ static const struct config_setting config_settings[] =
 		"from the game's first tick, which the items' respawn periods count from\n"
 		"too: a weapon is back on the map at every multiple of its period on the\n"
 		"clock." },
+	{ "display.movies", _config_boolean, "false", "HALO_MOVIES", _environment_value, _platform_all,
+		"Play the Xbox's Bink movies from the game data's bink folder: the intro\n"
+		"as the game starts, the attract movies on an idle main menu and the\n"
+		"credits. Any button or key skips the intro. Off goes straight to the\n"
+		"menus." },
 	{ "display.scoreboard_team_layout", _config_string, "\"teams\"", "HALO_SCOREBOARD_TEAM_LAYOUT", _environment_value,
 		_platform_all,
 		"How the scoreboard lists a team game's players: \"teams\" in a column for\n"
