@@ -220,9 +220,9 @@ static const struct config_setting config_settings[] =
 		"VR mode) the vehicle and the view from it are drawn as its newest\n"
 		"step left it: not a tick (33 ms) behind." },
 	{ "display.fov", _config_real, "0.0", "HALO_FOV", _environment_value, _platform_all,
-		"The first-person view's field of view on foot, in degrees across at\n"
-		"16:9 (20 to 150); 0 keeps the stock view. Vehicles, cinematics and\n"
-		"scripted cameras keep their own." },
+		"The view's field of view on foot and in vehicles, in degrees across\n"
+		"at 16:9 (20 to 150); 0 keeps the stock view. Cinematics and scripted\n"
+		"cameras keep their own." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"
