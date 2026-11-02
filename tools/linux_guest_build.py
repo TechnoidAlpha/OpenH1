@@ -197,7 +197,7 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
     try:
         fetch_third_party(third_party)
     except (subprocess.CalledProcessError, OSError, RuntimeError) as error:
-        raise RuntimeError(f"cannot fetch musl or SDL3 ({error})") from error
+        raise RuntimeError(f"cannot fetch musl, SDL3 or FFmpeg ({error})") from error
     try:
         fetch_vulkan_headers(vulkan_headers)
     except (RuntimeError, OSError) as error:

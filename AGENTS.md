@@ -95,8 +95,9 @@ python tools/ci_build.py linux_x86_64 release   # what CI builds
   `%fs`/`%gs` (`tools/guest_image_check.py`, run by the build). The host
   calls guest code only through `host_call_guest`, which passes arguments
   zero-extended. Each target configures only on its own processor, whose
-  default build it is; `configure.py` downloads musl, SDL3 and the Vulkan
-  headers (OpenXR's with `--vr`) into `build/<name>/third_party`. The
+  default build it is; `configure.py` downloads musl, SDL3, FFmpeg (the
+  Bink movies' decoders, `tools/ffmpeg_fetch.py`) and the Vulkan headers
+  (OpenXR's with `--vr`) into `build/<name>/third_party`. The
   renderer is Vulkan's, in the host (`port/linux/vulkan`, `HALO_VULKAN`,
   `tools/vulkan_build.py`), which draws the guest's frames from the
   renderer's command stream (`port/linux/src/xgpu_stream_encode.c`).

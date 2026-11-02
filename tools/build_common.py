@@ -215,26 +215,23 @@ def opus_cflags(abi: str) -> str:
                                                             ("include", "celt", "silk", "silk/float")), "-w"])
 
 
-# the Xbox's Bink movies' decoders (port/third_party/ffmpeg; display.movies,
-# port/linux/src/bink_ffmpeg.c): FFmpeg's plain C, its files as sources.txt
-# lists them, configured by its config folder (tools/ffmpeg_vendor.py)
+# the Xbox's Bink movies' decoders (display.movies, port/linux/src/bink_ffmpeg.c):
+# FFmpeg's plain C, fetched at configure time with its configuration
+# (tools/ffmpeg_fetch.py), its files as port/third_party/ffmpeg/sources.txt
+# lists them
 FFMPEG_DIR = Path("port/third_party/ffmpeg")
 FFMPEG_DEFINES = ("-DHAVE_AV_CONFIG_H", "-D_GNU_SOURCE")
 # (the platform layer's file that calls it, compiled with its headers)
 FFMPEG_CALLER = "bink_ffmpeg.c"
 
 
-def ffmpeg_sources() -> List[Path]:
-    """FFmpeg's sources (port/third_party/ffmpeg/sources.txt)"""
-    return [FFMPEG_DIR / line.strip() for line in (FFMPEG_DIR / "sources.txt").read_text().splitlines()
-            if line.strip()]
-
-
-def ffmpeg_cflags(abi: str, warnings: Sequence[str] = ("-w",)) -> str:
-    """the flags FFmpeg's sources build with, on the platform layer's ABI;
-    its caller's with its own code's warnings"""
-    return " ".join([abi, "-std=gnu17", "-O2", *FFMPEG_DEFINES, f"-I{FFMPEG_DIR}/config", f"-I{FFMPEG_DIR}",
-                     f"-I{FFMPEG_DIR}/compat/atomics/dummy",
+def ffmpeg_cflags(abi: str, tree: Path, warnings: Sequence[str] = ("-w",)) -> str:
+    """the flags FFmpeg's sources (in tree, tools/ffmpeg_fetch.py) build
+    with, on the platform layer's ABI; its caller's with its own code's
+    warnings. (Its file names, in its assertions' messages, are the
+    release's, wherever the build keeps it.)"""
+    return " ".join([abi, "-std=gnu17", "-O2", *FFMPEG_DEFINES, f"-I{tree}/config", f"-I{tree}",
+                     f"-I{tree}/compat/atomics/dummy", f"-ffile-prefix-map={tree}={tree.name}",
                      *warnings])
 
 

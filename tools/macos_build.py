@@ -266,7 +266,7 @@ def generate_apple_build(n: Writer, sln: Any, target: ApplePlatform) -> Optional
         # or a developer's install updates)
         sparkle = fetch_sparkle(third_party) if name == "macos" else None
     except (subprocess.CalledProcessError, OSError, RuntimeError) as error:
-        print(f"{name} build disabled: cannot fetch musl or SDL3 ({error})", file=sys.stderr)
+        print(f"{name} build disabled: cannot fetch musl, SDL3 or FFmpeg ({error})", file=sys.stderr)
         return None
     config: Dict[str, Any] = json.loads(config_path.read_text(encoding="utf-8"))
 

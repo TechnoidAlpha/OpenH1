@@ -33,11 +33,12 @@ from .guest_toolchain import LLVM_VERSION, guest_toolchain
 from .build_common import (LINUX_PROFILE, MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUPNPC_DIR, MUSL_MATH_DIR, OWN_CODE_ERRORS,
                            PLATFORM_SEMANTICS_HEADER, QUIET_OWN_CODE_FLAGS, SEMANTICS_HEADER, STB_VORBIS_SOURCE,
                            XDK_INCLUDE, compile_launcher, configuration_defines, download, game_defines_and_includes,
-                           FFMPEG_CALLER, ffmpeg_cflags, ffmpeg_sources, game_sources, miniupnpc_sources,
+                           FFMPEG_CALLER, ffmpeg_cflags, game_sources, miniupnpc_sources,
                            musl_math_sources, opus_cflags, opus_sources,
                            PROFILE_GENERATE_FLAGS, pgo_mode, pgo_profile, profile_use_flags, updater_defines,
                            xdk_headers)
 from . import check_host_imports
+from .ffmpeg_fetch import fetch_ffmpeg, ffmpeg_sources, ffmpeg_tree
 from .embed_assets import hud_assets_build, hud_configure_inputs, server_ui_build
 from .linux_package import ROOT as REPO_ROOT, notices as release_notices
 from .ninja_syntax import Writer
@@ -225,9 +226,10 @@ def check_sdl_commit(directory: Path) -> None:
 
 
 def fetch_third_party(third_party: Path = THIRD_PARTY) -> None:
-    """Download musl and SDL3 (configure time, once). musl's archive is
-    checked against MUSL_SHA256 before it is unpacked; a failed download
-    raises RuntimeError, and a failed clone CalledProcessError."""
+    """Download musl, SDL3 and FFmpeg (configure time, once). musl's archive
+    is checked against MUSL_SHA256 before it is unpacked (FFmpeg's against
+    FFMPEG_SHA256: tools/ffmpeg_fetch.py); a failed download raises
+    RuntimeError, and a failed clone CalledProcessError."""
     musl_dir = third_party / f"musl-{MUSL_VERSION}"
     sdl_dir = third_party / "SDL3"
     third_party.mkdir(parents=True, exist_ok=True)
@@ -274,6 +276,8 @@ def fetch_third_party(third_party: Path = THIRD_PARTY) -> None:
     if reverse.returncode != 0:
         subprocess.run(["git", "-C", str(sdl_dir), "checkout", "--", SDL_WAYLAND_REFERENCE_FILE], check=True)
         subprocess.run(["git", "-C", str(sdl_dir), "apply", str(SDL_WAYLAND_REFERENCE_PATCH.resolve())], check=True)
+    # the Bink movies' decoders (display.movies)
+    fetch_ffmpeg(third_party)
 
 
 def _musl_sources(musl_dir: Path = MUSL_DIR) -> List[Path]:
@@ -609,12 +613,14 @@ def generate_guest_image(n: Writer, sln: Any, config: Dict[str, Any], *, arch: G
     # library
     for source in opus_sources():
         objects.append(guest_object(source, " ".join([opus_cflags(guest_abi), *libc_includes])))
-    # the Bink movies' decoders (port/third_party/ffmpeg), and the platform
-    # layer's file that calls them, with the guest's ABI and C library
-    for source in ffmpeg_sources():
-        objects.append(guest_object(source, " ".join([ffmpeg_cflags(guest_abi), *libc_includes])))
+    # the Bink movies' decoders (FFmpeg's, fetched: tools/ffmpeg_fetch.py),
+    # and the platform layer's file that calls them, with the guest's ABI and
+    # C library
+    ffmpeg_dir = ffmpeg_tree(third_party)
+    for source in ffmpeg_sources(ffmpeg_dir):
+        objects.append(guest_object(source, " ".join([ffmpeg_cflags(guest_abi, ffmpeg_dir), *libc_includes])))
     objects.append(guest_object(LINUX_DIR / "src" / FFMPEG_CALLER, " ".join([
-        ffmpeg_cflags(guest_abi, QUIET_OWN_CODE_FLAGS), profile_flags, *libc_includes])))
+        ffmpeg_cflags(guest_abi, ffmpeg_dir, QUIET_OWN_CODE_FLAGS), profile_flags, *libc_includes])))
     # internet play's signatures, for public games' listings
     # (port/third_party/monocypher; p2p_crypto.c)
     for name in ("monocypher.c", "monocypher-ed25519.c"):
@@ -710,7 +716,7 @@ def generate_android_build(n: Writer, sln: Any) -> None:
         fetch_third_party()
         fetch_vulkan_headers(vulkan_headers)
     except (subprocess.CalledProcessError, OSError, RuntimeError) as error:
-        print(f"Android build disabled: cannot fetch musl/SDL3 or the Vulkan headers ({error})", file=sys.stderr)
+        print(f"Android build disabled: cannot fetch musl, SDL3, FFmpeg or the Vulkan headers ({error})", file=sys.stderr)
         return
     import json
     config: Dict[str, Any] = json.loads(config_path.read_text(encoding="utf-8"))
