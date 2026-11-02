@@ -324,8 +324,8 @@ struct custom_edition_conversion_report
 	name the Xbox button */
 	int32_t score_hint_converted;
 	/* widget event handlers that ran Halo PC's own functions, made to run
-	none, and 1 when the multiplayer pause menu was made the Xbox's resume
-	and quit */
+	none, and the pause menus made the Xbox's: 1, the multiplayer one's
+	resume and quit; 2, the campaign one's resume, revert, restart and quit */
 	int32_t widget_functions_cleared;
 	int32_t pause_menu_trimmed;
 	/* the Halo PC behaviours the map relies on (enum

@@ -397,7 +397,7 @@ class Map:
                  font_style_reference=NONE, pitch_ranges=1, bsp_sizes=(0x1000,), sound_compression=1,
                  model=None, bsp_material=None, shaders=(), animation_overlay=None,
                  weapon_hud=None, hud_bitmap_flags=None, in_map_bitmap=None, strings_name="test\\strings",
-                 strings=("hello", "world!"), name=b"test", tags_checksum=0):
+                 strings=("hello", "world!"), name=b"test", tags_checksum=0, widgets=()):
         self.bsp_sizes = bsp_sizes
         # the header's name and the tag data's checksum, by which Chimera's
         # map list knows a map
@@ -415,6 +415,9 @@ class Map:
         self.in_map_bitmap = in_map_bitmap
         self.strings_name = strings_name
         self.strings = strings
+        # widget definitions: (name, the names of their children, each a
+        # widget of its own), their children 30 apart from 10
+        self.widgets = widgets
         self.addresses = {}
         # OpenSauce's header (its signature, version 1 and these flags) where a
         # Custom Edition cache has padding, when not None
@@ -467,6 +470,12 @@ class Map:
             tags.append(("antr", "test\\animations", False))
         if self.weapon_hud is not None:
             tags.append(("wphi", "test\\weapon hud", False))
+        widget_names = []
+        for name, children in self.widgets:
+            for widget_name in (name, *children):
+                if widget_name not in widget_names:
+                    widget_names.append(widget_name)
+        tags += [("DeLa", name, False) for name in widget_names]
         # further structure BSPs go last, so the indices above never move
         bsp_tag_indices = [1] + [len(tags) + extra for extra in range(len(self.bsp_sizes) - 1)]
         tags += [("sbsp", f"test\\bsp {extra + 2}", False) for extra in range(len(self.bsp_sizes) - 1)]
@@ -560,6 +569,21 @@ class Map:
                 tag_data.u16(address_of["test\\in map bitmap"] + 6, self.hud_bitmap_flags)
                 hud_bitmap_index = [name for _, name, _ in tags].index("test\\in map bitmap")
             address_of["test\\weapon hud"] = add_weapon_hud(tag_data, self.weapon_hud, hud_bitmap_index)
+        widget_children = dict(self.widgets)
+        for name in widget_names:
+            widget = tag_data.reserve(0x3EC)
+            children = widget_children.get(name, ())
+            if children:
+                child_block = tag_data.reserve(0x50 * len(children))
+                tag_data.block(widget + 0x3E0, len(children), child_block)
+                for child_index, child_name in enumerate(children):
+                    child = child_block + child_index * 0x50
+                    tag_index = [tag_name for _, tag_name, _ in tags].index(child_name)
+                    tag_data.u32(child, code("DeLa"))
+                    tag_data.u32(child + 0x0C, ((salt + tag_index) << 16) | tag_index)
+                    tag_data.u16(child + 0x36, 10 + 30 * child_index)
+                address_of[name + " children"] = child_block
+            address_of[name] = widget
         for tag_index, (group_name, name, external) in enumerate(tags):
             if name in address_of:
                 tag_data.u32(instances + tag_index * 0x20 + 0x14, address_of[name])
@@ -1424,6 +1448,69 @@ def test_seeded_corruption_never_crashes_the_loader(report_tool, tmp_path):
         for type_name in resource_maps:
             (folder / f"{type_name}.map").write_bytes(targets[type_name])
         run_report(report_tool, folder / "test.map")
+
+
+# ---------- the pause menus made the Xbox's
+
+SOLO_PAUSE = "ui\\shell\\solo_game\\pause_game\\"
+# Halo PC's campaign pause list (as a Custom Edition map has it), with the
+# Xbox's four rows among SAVE LAST CHECKPOINT and CHANGE SETTINGS
+PC_SOLO_PAUSE_ROWS = ("resume_game_button", "save_checkpoint_button", "restart_at_save_point_button",
+                      "restart_level_button", "change_settings_button", "quit_to_main_menu_button")
+
+
+def pause_rows(cache, tags, list_name):
+    """The names of the list's rows after conversion, and their offsets."""
+    count = u32_at(tags, cache.addresses[list_name] + 0x3E0)
+    children = cache.addresses[list_name + " children"]
+    names = {index: name for name, index in cache.tag_indices.items()}
+    rows = [names[u32_at(tags, children + index * 0x50 + 0x0C) & 0xFFFF] for index in range(count)]
+    offsets = [s16_at(tags, children + index * 0x50 + 0x36) for index in range(count)]
+    return [row.rsplit("\\", 1)[1] for row in rows], offsets
+
+
+def test_the_campaign_pause_list_keeps_the_xbox_rows(report_tool, tmp_path):
+    """Issue #418: a Custom Edition campaign map's pause menu is the Xbox's
+    four rows, from the first row's place, so the port's SETTINGS makes it
+    the stock maps' five (port/linux/game/menu_tags.c)."""
+    list_name = SOLO_PAUSE + "pause_list"
+    cache = Map(widgets=[(list_name, [SOLO_PAUSE + row for row in PC_SOLO_PAUSE_ROWS])])
+    returncode, report, tags = converted(report_tool, cache, tmp_path)
+    assert returncode == 0 and report["convert"] == "ok"
+    assert report["pause_menu_trimmed"] == "2"
+    rows, offsets = pause_rows(cache, tags, list_name)
+    assert rows == ["resume_game_button", "restart_at_save_point_button", "restart_level_button",
+                    "quit_to_main_menu_button"]
+    assert offsets == [10, 40, 70, 100]
+
+
+@pytest.mark.parametrize("list_name, rows", [
+    # the Xbox's own list: nothing to take out
+    (SOLO_PAUSE + "pause_list", ("resume_game_button", "restart_at_save_point_button", "restart_level_button",
+                                 "quit_to_main_menu_button")),
+    # co-op's, whose rows are its own
+    (SOLO_PAUSE + "coop_pause_list", ("coop_restart_at_save_point_button", "coop_restart_level_button",
+                                      "coop_quit_to_main_menu_button")),
+    # a widget of the folder that is not the list (no REVERT TO SAVED)
+    (SOLO_PAUSE + "pause_game", ("pause_dialog_bkd", "resume_game_button", "mission_objective_text")),
+    # a list elsewhere with the same rows
+    ("ui\\shell\\main_menu\\some_list", PC_SOLO_PAUSE_ROWS),
+])
+def test_other_lists_keep_their_rows(report_tool, tmp_path, list_name, rows):
+    folder = list_name.rsplit("\\", 1)[0] + "\\"
+    cache = Map(widgets=[(list_name, [folder + row for row in rows])])
+    returncode, report, tags = converted(report_tool, cache, tmp_path)
+    assert returncode == 0 and report["pause_menu_trimmed"] == "0"
+    assert pause_rows(cache, tags, list_name) == (list(rows), [10 + 30 * index for index in range(len(rows))])
+
+
+def test_the_multiplayer_pause_list_keeps_resume_and_quit_centred(report_tool, tmp_path):
+    list_name = "ui\\shell\\multiplayer_game\\pause_game\\mp_pause_list"
+    rows = ("resume_game_button", "game_options_button", "change_settings_button", "quit_netgame_button")
+    cache = Map(widgets=[(list_name, ["ui\\shell\\multiplayer_game\\pause_game\\" + row for row in rows])])
+    returncode, report, tags = converted(report_tool, cache, tmp_path)
+    assert returncode == 0 and report["pause_menu_trimmed"] == "1"
+    assert pause_rows(cache, tags, list_name) == (["resume_game_button", "quit_netgame_button"], [30, 60])
 
 
 # ---------- real maps, when present (never committed)
