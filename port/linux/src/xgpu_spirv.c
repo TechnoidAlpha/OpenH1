@@ -607,6 +607,20 @@ static unsigned int fclamp(struct module *m, int count, unsigned int x, float lo
 	return ext3(m, GLSL_F_CLAMP, vector_type(m, count), x, constant_splat(m, count, low), constant_splat(m, count, high));
 }
 
+/* a vec4 with each channel that is not a number, or is infinite, made 0:
+the NV2A computed none, and a GPU draws one as anything (black, white,
+blocks). By its bits, which no driver's fast arithmetic takes to be
+finite. */
+static unsigned int finite4(struct module *m, unsigned int v)
+{
+	unsigned int exponent = constant_uint(m, 0x7f800000u);
+	unsigned int mask = intern(m, OP_CONSTANT_COMPOSITE, TRUE, 5,
+		(const unsigned int[]){ m->t_uv4, exponent, exponent, exponent, exponent });
+	unsigned int bits = op2(m, OP_BITWISE_AND, m->t_uv4, op1(m, OP_BITCAST, m->t_uv4, v), mask);
+
+	return op3(m, OP_SELECT, m->t_v4, op2(m, OP_I_EQUAL, m->t_bv4, bits, mask), constant_splat(m, 4, 0.0f), v);
+}
+
 static unsigned int saturate(struct module *m, int count, unsigned int x)
 {
 	return fclamp(m, count, x, 0.0f, 1.0f);
@@ -1776,11 +1790,12 @@ BOOL xgpu_spirv_vertex_shader(const struct xgpu_vertex_program *program, unsigne
 		store(&m, position_out, position);
 	}
 	store(&m, point_size_out, extract(&m, state.outputs[OUT_PTS], 0));
-	store(&m, color_outs[0], saturate(&m, 4, state.outputs[OUT_D0]));
-	store(&m, color_outs[1], saturate(&m, 4, state.outputs[OUT_D1]));
+	/* (the colours, coordinates and fog finite: finite4) */
+	store(&m, color_outs[0], saturate(&m, 4, finite4(&m, state.outputs[OUT_D0])));
+	store(&m, color_outs[1], saturate(&m, 4, finite4(&m, state.outputs[OUT_D1])));
 	for (slot = 0; slot < 4; slot++)
-		store(&m, color_outs[2 + slot], state.outputs[OUT_T0 + slot]);
-	store(&m, fog_out, extract(&m, state.outputs[OUT_FOG], 0));
+		store(&m, color_outs[2 + slot], finite4(&m, state.outputs[OUT_T0 + slot]));
+	store(&m, fog_out, extract(&m, finite4(&m, state.outputs[OUT_FOG]), 0));
 	if (world_normal_out)
 		store(&m, world_normal_out, world_normal);
 	if (world_position_out)
@@ -3442,7 +3457,8 @@ BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const str
 	effect_zsprite_fade) */
 	if (zsprite_hidden)
 		discard_if(&m, zsprite_hidden);
-	store(&m, color_out, result);
+	/* (finite: finite4) */
+	store(&m, color_out, finite4(&m, result));
 	/* else its depth, no farther than the card: the conservative depth's
 	promise, so that the depth test before the shader keeps what it can (on
 	reversed depth, 1 - it and no nearer than the card's reversed) */
