@@ -944,7 +944,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.prepare_shaders` | `true` | `HALO_PREPARE_SHADERS` | `true`: as a map loads, its first frame is drawn unseen through every shader its tags hold, in each way the game's code draws them, with its other structures' materials too, so that the renderer makes their shaders and pipelines during the loading screen, not in play nor at a load zone (a structure with materials its first could not stand in for draws those at its own first frame) (`port/assets/render/README.md`, "A map's enumeration"). `false`: each is made the first time a draw needs it, which the draw waits for. |
 | `display.interpolation` | `true` | `HALO_INTERPOLATION` | `true`: one frame for each refresh of the display. `false`: 30 frames each second, as on the Xbox. Refer to "Frame rate". |
 | `display.direct_camera` | `true` | `HALO_DIRECT_CAMERA` | `true`: in first person, on foot, the view points where the player aims in each frame, not where the last tick left it; and (not in the VR mode) the view stands where the newest step left the player, and the gun and hands show the newest step's pose (a shot, a step, a reload seen 33 ms sooner). In a vehicle's seat (first or third person, not in the VR mode) the vehicle, its riders and the view from it are drawn as the vehicle's newest step left it, the view aimed where the player aims. On Android and iOS too, with the touch controls' swipe and gyroscope. Refer to "Frame rate". |
-| `display.fov` | `0.0` | `HALO_FOV` | The first-person view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Refer to "Field of view". |
+| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot and in vehicles, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Refer to "Field of view". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. Refer to "Field of view". |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
 | `display.passenger_third_person` | `false` | `HALO_PASSENGER_THIRD_PERSON` | Third-person view for the Warthog's passenger and the Scorpion's four passengers. Uses the gunner's camera on the Warthog and the driver's on the Scorpion, within the passenger's firing arc. Smooth entry and exit; weapon zoom is disabled while riding. The reticle follows the shot's centre ray. Local view only. In the campaign and co-op only: not in multiplayer, where seeing around the vehicle would be an advantage. Never in VR, which stays in first person in every seat. |
@@ -1914,8 +1914,10 @@ keeps the stock view. `config.toml` takes any angle from 20 to 150.
 
 - An angle is across the screen at 16:9. Another shape keeps the same
   angle up and down, as the stock view does.
-- The field of view applies on foot in first person only. Vehicles, death,
-  cinematics and scripted cameras keep their own view.
+- The field of view applies on foot and in vehicles, in first and third
+  person, entering and leaving a seat too, so the view and the reticle keep
+  their size as you get in and out. Death, cinematics and scripted cameras
+  keep their own view.
 - A scope's zoom levels keep their stock view: the extra width fades out as
   the zoom comes in. A view narrower than the stock one narrows the zoom
   too.

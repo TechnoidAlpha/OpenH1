@@ -513,7 +513,7 @@ PAGES = {
              "uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) "
              "is shown in step with the display, as V-Sync shows it.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
-             "How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
+             "How wide you see, on foot and in vehicles, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
              "more around you.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],

@@ -259,7 +259,7 @@
 		<string text="The window's size: 4:3 first, then 16:10, 16:9 and 21:9. Its edges can also be dragged."/>
 		<string text="Shows each frame at a refresh of the display: even motion that never tears, at the display's refresh rate. On Linux and the Steam Deck each frame starts just in time for its refresh, so it adds almost no input lag; it is on in the Steam Deck's Game Mode."/>
 		<string text="The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) is shown in step with the display, as V-Sync shows it."/>
-		<string text="How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows more around you."/>
+		<string text="How wide you see, on foot and in vehicles, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows more around you."/>
 		<string text="Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under it and the touch controls below it. Auto turns with the device."/>
 		<string text="Where the picture sits on a screen taller than it, its shape, and the frame around it in portrait."/>
 		<string text="Your weapon's field of view and whether it is drawn, your legs and arms, your shield's color, and the view from a vehicle's passenger seat."/>
