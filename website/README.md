@@ -90,20 +90,12 @@ Rules for the content:
   Windows, the Mac, the Steam Deck and Android for now.
 - Every claim is in this repository's READMEs. Check a new one there first.
 - Every picture or clip is a real capture of the game in OpenH1, captioned
-  with what it compares. Sound follows the same rule: a clip's audio is the
-  game's own mix, recorded from OpenH1 (`debug.audio_record`), captioned
-  with what it compares, never re-mixed or sweetened. The one drawing is the
-  3D audio's head, whose caption says its sound is the browser's, not the
-  game's. No Microsoft or Halo branding, logos or art.
+  with what it compares. The one drawing is the 3D audio's head, whose
+  caption says its sound is the browser's, not the game's. No Microsoft or
+  Halo branding, logos or art.
 - The footer keeps the credit to OpenCE and the disclaimer: an unofficial
   fan project, not endorsed by or affiliated with Microsoft; Halo is
-  Microsoft's trademark; no game data included. Beside it, the notice
-  Microsoft's Game Content Usage Rules
-  (https://www.xbox.com/en-US/developers/rules) ask for, linked to them:
-  "Halo © Microsoft Corporation. OpenH1 was created under Microsoft's "Game
-  Content Usage Rules" using assets from Halo, and it is not endorsed by or
-  affiliated with Microsoft." The page's game captures, pictures and sound
-  alike, are used under those rules.
+  Microsoft's trademark; no game data included.
 
 ## Get your maps
 
