@@ -993,6 +993,16 @@ static void light_port_rank_describe(
 	*intensity = MAX(light->color.red, MAX(light->color.green, light->color.blue));
 }
 
+/* port: how far a light let go of is through its transition, so many ticks
+after it was let go: a light of no transition (the Scorpion's cannon's) is
+at its end as it is made, not 0/0 (a colour not a number) */
+static real light_port_transition_fraction(
+	real elapsed,
+	real duration)
+{
+	return duration > 0.0f ? MAX(elapsed, 0.0f) / duration : 1.0f;
+}
+
 void lights_preprocess_scene(
 	void)
 {
@@ -1140,13 +1150,13 @@ void lights_preprocess_scene(
 			behind the tick's that the objects are, as it fades: not a step
 			a tick) */
 			real drawn_elapsed = (real)(current_time - light->parent_light_index) - render_interpolation_ticks_behind();
-			/* port: a light of no transition (the Scorpion's shell's) is at
-			its end as it is made, not 0/0 (a colour not a number) */
-			real duration = definition->transition_duration > 0.0f ? definition->transition_duration : 0.0f;
 
+			/* port: (light_port_transition_fraction) */
 			intensity = (1.0f - transition_function_evaluate(
 				definition->falloff_function,
-				duration > 0.0f ? (real)(current_time - light->parent_light_index) / duration : 1.0f))
+				light_port_transition_fraction(
+					(real)(current_time - light->parent_light_index),
+					definition->transition_duration)))
 				* light->intensity_scale;
 			rgb_colors_interpolate(
 				&light->color,
@@ -1156,7 +1166,7 @@ void lights_preprocess_scene(
 				intensity);
 			drawn_intensity = (1.0f - transition_function_evaluate(
 				definition->falloff_function,
-				duration > 0.0f ? MAX(drawn_elapsed, 0.0f) / duration : 1.0f))
+				light_port_transition_fraction(drawn_elapsed, definition->transition_duration)))
 				* light->intensity_scale;
 			rgb_colors_interpolate(
 				&drawn_color,
