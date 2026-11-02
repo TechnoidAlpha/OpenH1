@@ -612,6 +612,9 @@ static struct
 	long map_strings;
 	/* a network co-op game's map's: its pause menu gets FRIENDLY FIRE too */
 	boolean coop;
+	/* a game map's font for the menus' fonts it has not by name (a Custom
+	Edition map's protected names): its pause menu's, else NONE */
+	long map_font;
 } build;
 
 /* ---------- the wide layout of the port's own screens
@@ -1456,8 +1459,34 @@ static long font_tag(char const *font, char const *file, long line)
 	char const *path = !strcmp(font, "large") ? "ui\\large_ui" :
 		!strcmp(font, "small") ? "ui\\small_ui" :
 		!strcmp(font, "terminal") ? "ui\\interstate" : font;
+	long index = map_tag(FONT_TAG, path, file, line);
 
-	return map_tag(FONT_TAG, path, file, line);
+	return index == NONE && build.game_map ? build.map_font : index;
+}
+
+/* the font of the game map's pause menu's RESUME GAME, else NONE */
+static long pause_menu_font(void)
+{
+	static char const *const buttons[] =
+	{
+		"ui\\shell\\solo_game\\pause_game\\resume_game_button",
+		"ui\\shell\\multiplayer_game\\pause_game\\resume_game_button",
+	};
+	long button;
+
+	for (button = 0; button < NUMBEROF(buttons); button++)
+	{
+		long index = tag_loaded(UI_WIDGET_DEFINITION_TAG, buttons[button]);
+
+		if (index != NONE)
+		{
+			struct ui_widget_definition const *definition = tag_get(UI_WIDGET_DEFINITION_TAG, index);
+
+			if (definition->text_font.index != NONE)
+				return definition->text_font.index;
+		}
+	}
+	return NONE;
 }
 
 static void *widget_build(long widget_index)
@@ -2480,6 +2509,7 @@ void menu_tags_loaded(
 	build.campaign = campaign && game_connection() == _game_connection_local &&
 		!network_game_is_active() && !game_is_cooperative();
 	build.coop = coop;
+	build.map_font = game_map ? pause_menu_font() : NONE;
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
 	build.text_tags = malloc((widget_count + 1) * sizeof(long));
