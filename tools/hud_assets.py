@@ -8,6 +8,7 @@ ladder, which its weapon's folder holds), laid out as the Xbox maps' sheets:
     python tools/hud_assets.py reticles --map assets/maps/bloodgulch.map \\
         --reticles ../halo-pc-restored/HUD2_left_reticles
     python tools/hud_assets.py pictures --map assets/maps/bloodgulch.map --hek ../halopc-restored
+    python tools/hud_assets.py warnings --map assets/maps/bloodgulch.map
     python tools/hud_assets.py build
     python tools/hud_assets.py thresholds  # update only discrete segment data
     python tools/hud_assets.py check --map assets/maps/bloodgulch.map --out /tmp/hud_check
@@ -46,14 +47,21 @@ pictures: the message icons' pictures (PICTURES: the weapons' and the
     on its own texels (a sprite's "crc"), so that another language's maps,
     whose text differs, draw them too. Updates layout.json's message icon
     entries only; run it after layout, which leaves them out.
+warnings: sets the reticle's warnings (WARNINGS: "Reload", "Low Ammo",
+    "Battery Depleted" and the others), which no redraw has, in the HUD's
+    text's font, each line fitted to the map's, and draws the sheet's plain
+    shapes (SHAPES) as polygons, into port/assets/hud/svg; a texture of
+    those sprites alone, each checked on its own texels, as the pictures'
+    are. Updates layout.json's warning entries only; run it after layout.
 build: renders port/assets/hud/svg and art with layout.json into
     port/assets/hud/*.png (committed; the builds embed them).
 check: compares each PNG, reduced to the tag's size, with the map's bitmap
     (only its sprites' cells, for a texture that stands for some sprites)
     and writes side-by-side images into --out.
 
-Needs rsvg-convert, Pillow, NumPy and SciPy (pictures, build of the
-pictures alone, and check: Pillow and NumPy).
+Needs rsvg-convert, Pillow, NumPy and SciPy, and fontTools for the labels
+and warnings (pictures, build of the pictures alone, and check: Pillow and
+NumPy).
 """
 
 import argparse
@@ -185,6 +193,38 @@ PICTURES = {
         1: (7, 8, 11),    # flamethrower, assault rifle, plasma rifle
         2: (10, 12),      # needler, shotgun
         3: (23,),         # skull
+    },
+}
+
+# the warnings beside the reticle (the weapons' crosshairs of their reload,
+# low and no ammunition, battery, fuel and grenade states), by the sequence
+# each is, its lines: no redraw has them (the PC sheet's are in UNUSED), so
+# they are set in the HUD's text's font (port/assets/fonts: Overpass, which
+# follows the maps' Interstate), each line where the map's is, at the size,
+# weight and spacing between glyphs that match the map's best, the same for
+# all; each checked on its own cell's texels, so that another language's
+# maps draw theirs as the map has them
+WARNINGS = {
+    HUD + "combined\\hud_reticle_warnings": {
+        0: ("Low", "Battery"),
+        1: ("Reload",),
+        2: ("No", "Ammo"),
+        3: ("Low", "Fuel"),
+        4: ("No", "Fuel"),
+        5: ("No", "Grenades"),
+        6: ("No", "Weapon"),
+        7: ("Low", "Ammo"),
+        10: ("Battery", "Depleted"),
+    },
+}
+WARNING_FONTS = (Path("port/assets/fonts/Overpass-750.ttf"), Path("port/assets/fonts/Overpass-900.ttf"))
+WARNING_SPACINGS = (-4, -2, 0, 2, 4, 6)
+# the same sheets' pictures that are plain shapes, by sequence: polygons in
+# the Xbox texels of their cell (the arrow, a texel wider on each side each
+# row down)
+SHAPES = {
+    HUD + "combined\\hud_reticle_warnings": {
+        8: ((5.5, 1), (10.5, 6), (0.5, 6)),
     },
 }
 
@@ -624,9 +664,10 @@ def extent(alpha: np.ndarray) -> tuple:
     return xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
 
 
-def text_svg(font: Path, text: str, spacing: float = 0) -> str:
-    """text's outlines in a font, as an SVG (an em of 100 units), for a
-    label that has no redraw: the glyphs as the font draws them, set with
+def text_outlines(font: Path, text: str, spacing: float = 0) -> tuple:
+    """text's outlines in a font, an em of 100 units, the line's top (the
+    font's ascent) at 0: (the paths, an SVG group's contents in the font's
+    units; the transform from those; the line's width and height), set with
     its advances and spacing (in hundredths of an em) between them."""
     from fontTools.pens.svgPathPen import SVGPathPen
     from fontTools.ttLib import TTFont
@@ -643,19 +684,26 @@ def text_svg(font: Path, text: str, spacing: float = 0) -> str:
         paths.append(f'<path transform="translate({x:g} 0)" d="{pen.getCommands()}"/>')
         x += face["hmtx"][name][0] + (spacing / scale if index + 1 < len(text) else 0)
     ascent, descent = face["hhea"].ascent, face["hhea"].descent
-    width, height = x * scale, (ascent - descent) * scale
+    return ("\n".join(paths), f"scale({scale:g} {-scale:g}) translate(0 {-ascent})",
+            x * scale, (ascent - descent) * scale)
+
+
+def text_svg(font: Path, text: str, spacing: float = 0) -> str:
+    """text's outlines in a font, as an SVG (an em of 100 units), for a
+    label that has no redraw: the glyphs as the font draws them, set with
+    its advances and spacing (in hundredths of an em) between them."""
+    paths, transform, width, height = text_outlines(font, text, spacing)
     return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.2f}" height="{height:.2f}" '
             f'viewBox="0 0 {width:.2f} {height:.2f}">\n'
             f'<!-- "{text}" in {font.name} -->\n'
-            f'<g fill="#ffffff" transform="scale({scale:g} {-scale:g}) translate(0 {-ascent})">\n'
-            + "\n".join(paths) + "\n</g>\n</svg>\n")
+            f'<g fill="#ffffff" transform="{transform}">\n'
+            + paths + "\n</g>\n</svg>\n")
 
 
 def fit_reticle(svg: Path, alpha: np.ndarray) -> tuple:
     """The size and place at which a redraw best matches an Xbox cell's
     alpha: (likeness, redraw units per Xbox texel, the redraw's point at the
     cell's corner)."""
-    height, width = alpha.shape
     target = soften(alpha / 255.0)
 
     def drawn(zoom):
@@ -671,19 +719,31 @@ def fit_reticle(svg: Path, alpha: np.ndarray) -> tuple:
     for factor in FIT_SCALES:
         per_texel = units * factor
         zoom = FIT_TEXELS / per_texel
-        render = drawn(zoom)
-        box = extent(render)
-        # (centred on the Xbox shape's centre, then moved by eighths of a texel)
-        centre = ((box[0] + box[2]) / 2 - (xbox_box[0] + xbox_box[2]) / 2 * FIT_TEXELS,
-                  (box[1] + box[3]) / 2 - (xbox_box[1] + xbox_box[3]) / 2 * FIT_TEXELS)
-        for dy in range(-FIT_TEXELS * 3 // 2, FIT_TEXELS * 3 // 2 + 1):
-            for dx in range(-FIT_TEXELS * 3 // 2, FIT_TEXELS * 3 // 2 + 1):
-                at = (round(centre[0]) + dx, round(centre[1]) + dy)
-                reduced = window(render, at[0], at[1], width * FIT_TEXELS, height * FIT_TEXELS).reshape(
-                    height, FIT_TEXELS, width, FIT_TEXELS).mean(axis=(1, 3))
-                score = likeness(soften(reduced), target)
-                if score > best[0]:
-                    best = (score, per_texel, [at[0] / zoom, at[1] / zoom])
+        score, corner = place(drawn(zoom), alpha, target, zoom)
+        if score > best[0]:
+            best = (score, per_texel, corner)
+    return best
+
+
+def place(render: np.ndarray, alpha: np.ndarray, target: np.ndarray, zoom: float) -> tuple:
+    """Where a redraw's render (its alpha, FIT_TEXELS texels to an Xbox
+    texel; zoom times its units) best matches an Xbox cell's alpha (target:
+    softened): (likeness, the redraw's point at the cell's corner)."""
+    height, width = alpha.shape
+    box = extent(render)
+    xbox_box = extent(alpha)
+    best = (-2.0, [0.0, 0.0])
+    # (centred on the Xbox shape's centre, then moved by eighths of a texel)
+    centre = ((box[0] + box[2]) / 2 - (xbox_box[0] + xbox_box[2]) / 2 * FIT_TEXELS,
+              (box[1] + box[3]) / 2 - (xbox_box[1] + xbox_box[3]) / 2 * FIT_TEXELS)
+    for dy in range(-FIT_TEXELS * 3 // 2, FIT_TEXELS * 3 // 2 + 1):
+        for dx in range(-FIT_TEXELS * 3 // 2, FIT_TEXELS * 3 // 2 + 1):
+            at = (round(centre[0]) + dx, round(centre[1]) + dy)
+            reduced = window(render, at[0], at[1], width * FIT_TEXELS, height * FIT_TEXELS).reshape(
+                height, FIT_TEXELS, width, FIT_TEXELS).mean(axis=(1, 3))
+            score = likeness(soften(reduced), target)
+            if score > best[0]:
+                best = (score, [at[0] / zoom, at[1] / zoom])
     return best
 
 
@@ -850,6 +910,142 @@ def pictures(arguments) -> None:
                 # (after its folder's)
                 folder = tag.rsplit("\\", 1)[0]
                 entries.insert(max(i for i, e in enumerate(entries) if e["tag"].startswith(folder)) + 1, entry)
+    LAYOUT.write_text(json.dumps(description, indent=1) + "\n")
+
+
+# ---------- the reticle's warnings
+
+
+def text_lines(alpha: np.ndarray, count: int) -> list:
+    """The rows [top, bottom) of each of a cell's count lines of text: its
+    covered rows parted at their emptiest row near each line's share of
+    them (one line's descender may touch the next line)."""
+    rows = alpha.sum(axis=1)
+    covered = np.nonzero(rows)[0]
+    top, bottom = int(covered[0]), int(covered[-1]) + 1
+    edges = [top]
+    for line in range(1, count):
+        middle = top + (bottom - top) * line / count
+        reach = (bottom - top) / (3 * count)
+        first, last = int(middle - reach), int(middle + reach) + 1
+        edges.append(first + int(rows[first:last].argmin()))
+    edges.append(bottom)
+    return [[edges[i], edges[i + 1]] for i in range(count)]
+
+
+def place_line(font: Path, text: str, spacing: float, per_texel: float, alpha: np.ndarray) -> tuple:
+    """Where a line of text, per_texel of its units to an Xbox texel, best
+    matches a band of a cell's alpha: (likeness, its point at the band's
+    corner)."""
+    with tempfile.TemporaryDirectory() as directory:
+        svg = Path(directory) / "line.svg"
+        svg.write_text(text_svg(font, text, spacing))
+        zoom = FIT_TEXELS / per_texel
+        render = render_svg(svg, zoom)[..., 3].astype(float) / 255
+    return place(render, alpha, soften(alpha / 255.0), zoom)
+
+
+def warnings(arguments) -> None:
+    xbox_map = XboxMap(Path(arguments.map))
+    description = json.loads(LAYOUT.read_text())
+    entries = description["assets"]
+    for tag, sequences in WARNINGS.items():
+        group = xbox_map.bitmap_group(tag)
+        shapes = SHAPES.get(tag, {})
+        bitmaps = {group["sequences"][sequence][0][0] for sequence in list(sequences) + list(shapes)}
+        if len(bitmaps) != 1:
+            sys.exit(f"{tag}: its warnings are on more than one bitmap")
+        index = bitmaps.pop()
+        bitmap = group["bitmaps"][index]
+        width, height = bitmap["width"], bitmap["height"]
+        xbox = decode_bitmap(bitmap)
+        name = tag[len(HUD):].replace("combined\\", "").replace("\\", "__").replace(" ", "_") + f"__{index}"
+        # (each line's band of its cell's rows, a row more each side)
+        lines = []
+        for sequence, texts in sorted(sequences.items()):
+            if len(group["sequences"][sequence]) != 1:
+                sys.exit(f"{name}: sequence {sequence} is not one sprite")
+            cell = pixel_rectangle(group["sequences"][sequence][0], width, height)
+            alpha = xbox[cell[1]:cell[3], cell[0]:cell[2], 3]
+            for text, (top, bottom) in zip(texts, text_lines(alpha, len(texts))):
+                top, bottom = max(top - 1, 0), min(bottom + 1, alpha.shape[0])
+                lines.append((sequence, text, top, alpha[top:bottom].astype(float)))
+        # (the size: the lines' own, fitted freely, the middle one; then the
+        # font and spacing that match them all best at it, and the size again)
+        sizes = []
+        with tempfile.TemporaryDirectory() as directory:
+            for _, text, _, alpha in lines:
+                svg = Path(directory) / "line.svg"
+                svg.write_text(text_svg(WARNING_FONTS[0], text))
+                sizes.append(fit_reticle(svg, alpha)[1])
+        per_texel = float(np.median(sizes))
+
+        def fitted(font, spacing, per_texel):
+            placed = [place_line(font, text, spacing, per_texel, alpha) for _, text, _, alpha in lines]
+            return float(np.mean([score for score, _ in placed])), placed
+
+        best = max(((fitted(font, spacing, per_texel)[0], font, spacing)
+                    for font in WARNING_FONTS for spacing in WARNING_SPACINGS), key=lambda found: found[0])
+        _, font, spacing = best
+        refined = []
+        for factor in np.linspace(0.94, 1.06, 13):
+            found, found_placed = fitted(font, spacing, per_texel * factor)
+            refined.append((found, per_texel * factor, found_placed))
+        score, per_texel, placed = max(refined, key=lambda found: found[0])
+        print(f"{name}: {font.name}, spacing {spacing}, {per_texel:.4f} units a texel, likeness {score:.3f}")
+        sprites, laid = [], []
+        for sequence, texts in sorted(sequences.items()):
+            cell = pixel_rectangle(group["sequences"][sequence][0], width, height)
+            cell_width, cell_height = (cell[2] - cell[0]) * per_texel, (cell[3] - cell[1]) * per_texel
+            groups, scores = [], []
+            for (line_sequence, text, top, _), (line_score, corner) in zip(lines, placed):
+                if line_sequence != sequence:
+                    continue
+                scores.append(line_score)
+                paths, transform, _, _ = text_outlines(font, text, spacing)
+                groups.append(f'<g fill="#ffffff" transform="translate({-corner[0]:.4f} '
+                              f'{top * per_texel - corner[1]:.4f}) {transform}">\n{paths}\n</g>')
+                print(f"{name} {cell} (sequence {sequence}): \"{text}\", likeness {line_score:.3f}")
+            svg = f"warning__{font.stem}__{'_'.join(texts)}.svg"
+            (ASSETS / "svg" / svg).write_text(
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{cell_width:.2f}" height="{cell_height:.2f}" '
+                f'viewBox="0 0 {cell_width:.2f} {cell_height:.2f}">\n'
+                f'<!-- "{" ".join(texts)}" in {font.name}, spacing {spacing}, {per_texel:.5f} units a texel -->\n'
+                + "\n".join(groups) + "\n</svg>\n")
+            sprites.append({"sequence": sequence, "cell": cell, "crc": cell_crc(bitmap, cell)})
+            laid.append({"xbox": cell, "svg": svg, "source_scale": round(per_texel, 5), "source": [0, 0],
+                         "clip": [0, 0, round(cell_width), round(cell_height)], "kind": "alpha",
+                         "score": round(float(np.mean(scores)), 3)})
+        for sequence, points in sorted(shapes.items()):
+            cell = pixel_rectangle(group["sequences"][sequence][0], width, height)
+            # (ten units a texel)
+            svg = f"{name}__shape_{sequence}.svg"
+            (ASSETS / "svg" / svg).write_text(
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{(cell[2] - cell[0]) * 10}" '
+                f'height="{(cell[3] - cell[1]) * 10}" viewBox="0 0 {(cell[2] - cell[0]) * 10} '
+                f'{(cell[3] - cell[1]) * 10}">\n<polygon fill="#ffffff" points="'
+                + " ".join(f"{x * 10:g},{y * 10:g}" for x, y in points) + '"/>\n</svg>\n')
+            alpha = xbox[cell[1]:cell[3], cell[0]:cell[2], 3].astype(float)
+            reduced = render_svg(ASSETS / "svg" / svg, FIT_TEXELS / 10)[..., 3].astype(float).reshape(
+                alpha.shape[0], FIT_TEXELS, alpha.shape[1], FIT_TEXELS).mean(axis=(1, 3))
+            sprites.append({"sequence": sequence, "cell": cell, "crc": cell_crc(bitmap, cell)})
+            laid.append({"xbox": cell, "svg": svg, "source_scale": 10, "source": [0, 0],
+                         "clip": [0, 0, (cell[2] - cell[0]) * 10, (cell[3] - cell[1]) * 10], "kind": "alpha",
+                         "score": round(overlap(reduced, alpha), 3)})
+            print(f"{name} {cell} (sequence {sequence}): a polygon, overlap {laid[-1]['score']:.2f}")
+        entry = {"name": name, "tag": tag, "bitmap": index, "width": width, "height": height,
+                 "format": FORMATS[bitmap["format"]], "scale": SCALE,
+                 "crc": zlib.crc32(bitmap["pixels"][:level0_size(bitmap)]),
+                 # (the sprites it stands for, each checked on its own cell's
+                 # texels: hud_hires.h)
+                 "sprites": sprites, "cells": laid}
+        old = next((e for e in entries if e["name"] == name), None)
+        if old is not None:
+            entries[entries.index(old)] = entry
+        else:
+            # (after its folder's)
+            folder = tag.rsplit("\\", 1)[0]
+            entries.insert(max(i for i, e in enumerate(entries) if e["tag"].startswith(folder)) + 1, entry)
     LAYOUT.write_text(json.dumps(description, indent=1) + "\n")
 
 
@@ -1081,6 +1277,8 @@ def main() -> None:
     command = commands.add_parser("pictures")
     command.add_argument("--map", required=True)
     command.add_argument("--hek", required=True)
+    command = commands.add_parser("warnings")
+    command.add_argument("--map", required=True)
     command = commands.add_parser("build")
     command.add_argument("names", nargs="*", help="only these textures (as layout.json names them)")
     commands.add_parser("thresholds")
@@ -1088,8 +1286,8 @@ def main() -> None:
     command.add_argument("--map", required=True)
     command.add_argument("--out", required=True)
     arguments = parser.parse_args()
-    {"layout": layout, "reticles": reticles, "pictures": pictures, "build": build, "thresholds": thresholds,
-     "check": check}[arguments.command](arguments)
+    {"layout": layout, "reticles": reticles, "pictures": pictures, "warnings": warnings, "build": build,
+     "thresholds": thresholds, "check": check}[arguments.command](arguments)
 
 
 if __name__ == "__main__":
