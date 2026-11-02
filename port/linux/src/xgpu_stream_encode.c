@@ -678,7 +678,7 @@ void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4
 		record_body->corners[index] = (int32_t)corners[index];
 }
 
-void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white)
+void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white, int ui_nits)
 {
 	struct xgpu_stream_hdr *record_body;
 
@@ -689,6 +689,7 @@ void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_whi
 	record_body->mode = (uint32_t)mode;
 	record_body->paper_white_nits = (uint32_t)paper_white_nits;
 	record_body->paper_white = (uint32_t)paper_white;
+	record_body->ui_nits = (uint32_t)ui_nits;
 }
 
 void xgpu_backend_picture_top(int top)
@@ -726,6 +727,22 @@ BOOL xgpu_backend_display_hdr(float *headroom)
 	if (value >= 1.0f && value < 1000.0f)
 		*headroom = value;
 	return __atomic_load_n(&stream.ring->display_hdr, __ATOMIC_ACQUIRE) != 0;
+}
+
+/* (and display_white, display_white_reported) */
+BOOL xgpu_backend_display_white(float *nits)
+{
+	uint32_t bits;
+	float value;
+
+	*nits = 0.0f;
+	if (!stream.open)
+		return FALSE;
+	bits = __atomic_load_n(&stream.ring->display_white, __ATOMIC_ACQUIRE);
+	memcpy(&value, &bits, sizeof(value));
+	if (value > 0.0f && value < 100000.0f)
+		*nits = value;
+	return __atomic_load_n(&stream.ring->display_white_reported, __ATOMIC_ACQUIRE) != 0;
 }
 
 /* ---------- render targets */

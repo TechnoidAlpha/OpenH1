@@ -156,10 +156,12 @@ void host_render_stream_display_paced(int paced)
 	(void)paced;
 }
 
-void host_render_stream_display_hdr(int hdr, float headroom)
+void host_render_stream_display_hdr(int hdr, float headroom, float white_nits, int white_reported)
 {
 	(void)hdr;
 	(void)headroom;
+	(void)white_nits;
+	(void)white_reported;
 }
 
 uint64_t host_render_stream_frame_input(void)
@@ -2027,6 +2029,17 @@ static void test_stream_hdr(void)
 		host_metal_hdr_frame(&frame);
 		CHECK(frame.paper_white == 4.0f && frame.peak == 1.0f, "paper white past the headroom: %.3f",
 			(double)frame.paper_white);
+		/* the UI's white: paper white's by default; in nits over paper
+		white's; no brighter than the headroom */
+		CHECK(frame.ui == 1.0f, "the UI at paper white: %.3f", (double)frame.ui);
+		state = (struct xgpu_stream_hdr){ 0, 1, XGPU_HDR_MODE_FAITHFUL, 200, 100, 120 };
+		backend->hdr(NULL, &state);
+		host_metal_hdr_frame(&frame);
+		CHECK(fabsf(frame.ui - 0.6f) < 1e-6f, "the UI at 120 nits over 200: %.3f", (double)frame.ui);
+		state = (struct xgpu_stream_hdr){ 0, 1, XGPU_HDR_MODE_FAITHFUL, 200, 100, 500 };
+		backend->hdr(NULL, &state);
+		host_metal_hdr_frame(&frame);
+		CHECK(frame.ui == 2.0f, "the UI no brighter than the headroom: %.3f", (double)frame.ui);
 	}
 	state = (struct xgpu_stream_hdr){ 0, 0, 0, 0, 100 };
 	backend->hdr(NULL, &state);

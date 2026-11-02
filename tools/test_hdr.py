@@ -247,6 +247,80 @@ int main(void)
 		CHECK(bright[0] > 2.4999f && bright[0] < 2.5001f, "EDR: at most the peak times paper white: %.5f", bright[0]);
 		CHECK(pq_white[0] > 0.5805f && pq_white[0] < 0.5809f, "PQ: 203 nits is 0.5807: %.5f", pq_white[0]);
 	}
+	{
+		/* the UI's white (display.hdr_ui_nits): paper white's by default (0),
+		exactly, the encoding as it was; in nits over paper white's; never
+		past the display's peak; the 3D view's light over it, so that the
+		view is shown as it was and the UI at its own nits */
+		struct xgpu_hdr_frame same = { F, XGPU_HDR_OUTPUT_EXTENDED_LINEAR, 2.0f, 4.0f, 0.0f };
+		struct xgpu_hdr_frame one = { F, XGPU_HDR_OUTPUT_EXTENDED_LINEAR, 2.0f, 4.0f, 1.0f };
+		struct xgpu_hdr_frame dim = { F, XGPU_HDR_OUTPUT_EXTENDED_LINEAR, 2.0f, 4.0f, 0.6f };
+		struct xgpu_hdr_frame pq = { F, XGPU_HDR_OUTPUT_PQ, 203.0f / 10000.0f, 4.0f, 2.0f };
+		float a[3] = { 1.0f, 0.5f, 0.2f }, b[3] = { 1.0f, 0.5f, 0.2f }, hud[3] = { 1.0f, 1.0f, 1.0f },
+			view[3] = { 0.8f, 0.4f, 1.0f }, shown[3], glow[3] = { XGPU_HDR_CEILING_HUD_VALUE, 1.0f, 1.0f },
+			pq_hud[3] = { 1.0f, 1.0f, 1.0f }, pq_glow[3] = { XGPU_HDR_CEILING_HUD_VALUE, 1.0f, 1.0f };
+		int channel;
+
+		CHECK(xgpu_hdr_ui_white(0.0f, 2.0f, 8.0f) == 1.0f, "0: paper white's");
+		CHECK(xgpu_hdr_ui_white(2.0f, 2.0f, 8.0f) == 1.0f, "the UI's nits paper white's: 1");
+		CHECK(xgpu_hdr_ui_white(1.2f, 2.0f, 8.0f) == 0.6f, "120 nits over 200: %.3f", xgpu_hdr_ui_white(1.2f, 2.0f, 8.0f));
+		CHECK(xgpu_hdr_ui_white(5.0f, 2.0f, 4.0f) == 2.0f, "the UI's ceiling the display's peak: %.3f",
+			xgpu_hdr_ui_white(5.0f, 2.0f, 4.0f));
+		CHECK(xgpu_hdr_ui_white(500.0f / 203.0f, 1.0f, 8.0f) * 203.0f > 499.9f, "500 nits over a 203-nit paper white");
+		xgpu_hdr_encode(a, &same);
+		xgpu_hdr_encode(b, &one);
+		CHECK(a[0] == b[0] && a[1] == b[1] && a[2] == b[2], "the default (0) is paper white's, exactly");
+		xgpu_hdr_encode(hud, &dim);
+		CHECK(fabsf(hud[0] - 1.2f) < 1e-5f, "the HUD's white at 120 nits (EDR 1.2): %.5f", hud[0]);
+		/* (the view: tone mapped, put over the UI's white, encoded, as it
+		would be at paper white's) */
+		for (channel = 0; channel < 3; channel++)
+			shown[channel] = view[channel];
+		xgpu_hdr_encode(shown, &one);
+		xgpu_hdr_to_ui(view, dim.ui);
+		CHECK(view[2] > 1.0f, "the view's white past the frame's 1.0 under a dimmer UI: %.4f", view[2]);
+		xgpu_hdr_encode(view, &dim);
+		for (channel = 0; channel < 3; channel++)
+			CHECK(fabsf(view[channel] - shown[channel]) < 1e-4f, "the view as it was, channel %d: %.5f, %.5f", channel,
+				view[channel], shown[channel]);
+		/* (the HUD's glows keep their ratio above the UI's white; nothing
+		past the peak) */
+		xgpu_hdr_encode(glow, &dim);
+		CHECK(fabsf(glow[0] / 1.2f - 1.5f) < 1e-3f, "a HUD glow 1.5 times the UI's white: %.4f", glow[0] / 1.2f);
+		xgpu_hdr_encode(pq_hud, &pq);
+		xgpu_hdr_encode(pq_glow, &pq);
+		CHECK(pq_hud[0] > 0.6537f && pq_hud[0] < 0.6547f, "PQ: the UI at 406 nits: %.5f", pq_hud[0]);
+		CHECK(pq_glow[0] > pq_hud[0], "PQ: its glow past it, under the peak: %.5f", pq_glow[0]);
+	}
+	{
+		/* the display as Video Setup and the log show it */
+		struct xgpu_hdr_display reported = { 1, 800.0f / 203.0f, 203.0f, 1 };
+		struct xgpu_hdr_display edr = { 1, 16.0f, XGPU_HDR_EDR_WHITE_NITS, 0 };
+		struct xgpu_hdr_display sdr = { 0, 1.0f, 203.0f, 1 };
+		char text[200];
+
+		xgpu_hdr_display_text(&reported, XGPU_HDR_DISPLAY_VALUE, text, sizeof(text));
+		CHECK(!strcmp(text, "800 NITS"), "the row's value: %s", text);
+		xgpu_hdr_display_text(&reported, XGPU_HDR_DISPLAY_WORDS, text, sizeof(text));
+		CHECK(!strncmp(text, "Display peak 800 nits, SDR white 203 nits, as the system reports them.", 70),
+			"the panel's words: %s", text);
+		xgpu_hdr_display_text(&reported, XGPU_HDR_DISPLAY_LOG, text, sizeof(text));
+		CHECK(!strcmp(text, "hdr: display peak 800 nits, SDR white 203 nits, from the system"), "the log: %s", text);
+		xgpu_hdr_display_text(&edr, XGPU_HDR_DISPLAY_VALUE, text, sizeof(text));
+		CHECK(!strcmp(text, "1600 NITS"), "EDR's value: %s", text);
+		xgpu_hdr_display_text(&edr, XGPU_HDR_DISPLAY_WORDS, text, sizeof(text));
+		CHECK(!strncmp(text, "Display peak 1600 nits. SDR white not reported: using 100 nits.", 63),
+			"EDR's words: %s", text);
+		xgpu_hdr_display_text(&edr, XGPU_HDR_DISPLAY_LOG, text, sizeof(text));
+		CHECK(!strcmp(text, "hdr: display peak 1600 nits, SDR white not reported, using 100 nits (headroom 16.00)"),
+			"EDR's log: %s", text);
+		xgpu_hdr_display_text(&sdr, XGPU_HDR_DISPLAY_VALUE, text, sizeof(text));
+		CHECK(!strcmp(text, "SDR"), "an SDR display's value: %s", text);
+		xgpu_hdr_display_text(&sdr, XGPU_HDR_DISPLAY_LOG, text, sizeof(text));
+		CHECK(!strcmp(text, "hdr: the display reports no HDR"), "an SDR display's log: %s", text);
+		xgpu_hdr_display_text(&reported, XGPU_HDR_DISPLAY_VALUE, text, 4);
+		CHECK(!strcmp(text, "800"), "cut to its room: %s", text);
+	}
 	/* paper white: display.hdr_paper_white_nits, else the system's white
 	times display.hdr_paper_white's percent (a config before the nits) */
 	CHECK(xgpu_hdr_paper_white_nits(300, 50, 203.0f) == 300.0f, "paper white in nits, the percent not read");

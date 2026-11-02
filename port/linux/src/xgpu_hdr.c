@@ -40,6 +40,8 @@ the game reads as a blend factor (the specular passes, the fog screens), is
 never let past 1.
 */
 
+#include <stdio.h>
+
 #include "xgpu_backend.h"
 #include "xgpu_hdr.h"
 
@@ -253,7 +255,7 @@ const char xgpu_hdr_functions_source[] =
 	"{\n"
 	"\tif (hdr.z < 0.5)\n"
 	"\t\treturn clamp(value, 0.0, 1.0);\n"
-	"\tvec3 light = min(hdr_linear(value), vec3(hdr.y)) * hdr.x;\n"
+	"\tvec3 light = min(hdr_linear(value) * (hdr.w > 0.0 ? hdr.w : 1.0), vec3(hdr.y)) * hdr.x;\n"
 	"\tif (hdr.z < 2.5)\n"
 	"\t\treturn light;\n"
 	"\tvec3 wide = mat3(0.627404, 0.069097, 0.016391, 0.329283, 0.919540, 0.088013, 0.043313, 0.011362, 0.895595) * light;\n"
@@ -263,16 +265,20 @@ const char xgpu_hdr_functions_source[] =
 
 /* the tone map over a window's 3D view, in place: the pixel it draws over
 read as the pass's input (Metal's programmable blending), its colour
-written (the game's destination alpha kept) */
+written (the game's destination alpha kept), its light over the UI's
+white (over paper white's: xgpu_hdr_to_ui) */
 static const char tone_map_source[] =
 	"layout(input_attachment_index = 0, set = 2, binding = 0) uniform subpassInput frame_input;\n"
-	"/* the mode, the peak */\n"
+	"/* the mode, the peak, the UI's white */\n"
 	"uniform vec4 hdr;\n"
 	"out vec4 result;\n"
 	"\n"
 	"void main()\n"
 	"{\n"
-	"\tresult = vec4(hdr_tone_map(subpassLoad(frame_input).rgb, hdr.x, hdr.y), 1.0);\n"
+	"\tvec3 mapped = hdr_tone_map(subpassLoad(frame_input).rgb, hdr.x, hdr.y);\n"
+	"\tif (hdr.z > 0.0 && hdr.z != 1.0)\n"
+	"\t\tmapped = hdr_encoded(hdr_linear(mapped) / hdr.z);\n"
+	"\tresult = vec4(mapped, 1.0);\n"
 	"}\n";
 
 /* the encoding of the frame for the display, as it is drawn into the
@@ -282,7 +288,7 @@ static const char encode_source[] =
 	"uniform sampler2D color_texture;\n"
 	"/* the viewport: x, y, 1 / width, 1 / height */\n"
 	"uniform vec4 metrics;\n"
-	"/* paper white, the peak, the output */\n"
+	"/* paper white, the peak, the output, the UI's white */\n"
 	"uniform vec4 hdr;\n"
 	"out vec4 result;\n"
 	"\n"
@@ -291,6 +297,46 @@ static const char encode_source[] =
 	"\tvec2 position = (gl_FragCoord.xy - metrics.xy) * metrics.zw;\n"
 	"\tresult = vec4(hdr_encode(textureLod(color_texture, position, 0.0).rgb, hdr), 1.0);\n"
 	"}\n";
+
+/* ---------- the display */
+
+void xgpu_hdr_display_text(const struct xgpu_hdr_display *display, int kind, char *text, unsigned int size)
+{
+	float headroom = display->headroom >= 1.0f ? display->headroom : 1.0f;
+	float white = display->white_nits > 0.0f ? display->white_nits : XGPU_HDR_REFERENCE_WHITE_NITS;
+	int peak = (int)(headroom * white + 0.5f), nits = (int)(white + 0.5f);
+
+	if (!size)
+		return;
+	if (!display->hdr)
+	{
+		snprintf(text, size, "%s", kind == XGPU_HDR_DISPLAY_VALUE ? "SDR" :
+			kind == XGPU_HDR_DISPLAY_WORDS ? "The display reports no HDR: it shows the game in SDR." :
+			"hdr: the display reports no HDR");
+		return;
+	}
+	switch (kind)
+	{
+	case XGPU_HDR_DISPLAY_VALUE:
+		snprintf(text, size, "%d NITS", peak);
+		break;
+	case XGPU_HDR_DISPLAY_WORDS:
+		if (display->white_reported)
+			snprintf(text, size, "Display peak %d nits, SDR white %d nits, as the system reports them. Paper white "
+				"and UI brightness go no brighter than the peak.", peak, nits);
+		else
+			snprintf(text, size, "Display peak %d nits. SDR white not reported: using %d nits. Paper white and UI "
+				"brightness go no brighter than the peak.", peak, nits);
+		break;
+	default:
+		if (display->white_reported)
+			snprintf(text, size, "hdr: display peak %d nits, SDR white %d nits, from the system", peak, nits);
+		else
+			snprintf(text, size, "hdr: display peak %d nits, SDR white not reported, using %d nits (headroom "
+				"%.2f)", peak, nits, (double)headroom);
+		break;
+	}
+}
 
 /* (the generators read them out of this file's text; nothing here draws
 with them) */

@@ -94,18 +94,21 @@ void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4
 /* display.hdr (xgpu_hdr.h): the frame drawn in HDR (the back buffer
 RGBA16F) or not from now on, the mode (XGPU_HDR_MODE_*) and paper white
 (in nits; 0: the system's SDR white, in percent of it:
-xgpu_hdr_paper_white_nits); a window's 3D view in the back buffer
-tone mapped over its corners (as xgpu_backend_anti_alias's); and the
-display, as the backend last looked (answered now, from what the backend
-writes where the front end reads it: the stream's ring): whether it shows
-HDR, and its headroom */
-void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white);
+xgpu_hdr_paper_white_nits) and the UI's white (in nits; 0: paper
+white's); a window's 3D view in the back buffer tone mapped over its
+corners (as xgpu_backend_anti_alias's); and the display, as the backend
+last looked (answered now, from what the backend writes where the front end
+reads it: the stream's ring): whether it shows HDR, and its headroom; its
+SDR white in nits, and whether the system reported it (else it is the one
+the encoding takes) */
+void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white, int ui_nits);
 /* display.picture_position: the presented picture letterboxed this many
 pixels from the top of a window taller than it (no lower than its bottom),
 or centered (-1), from the next present on */
 void xgpu_backend_picture_top(int top);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
 BOOL xgpu_backend_display_hdr(float *headroom);
+BOOL xgpu_backend_display_white(float *nits);
 
 /* ---------- render targets
 

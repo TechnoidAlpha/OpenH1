@@ -597,14 +597,14 @@ static struct
 	where the instance has VK_EXT_swapchain_colorspace and the options an
 	encode. */
 	uint32_t window_hdr, window_sdr_white, window_headroom, window_hdr_changed;
-	int hdr_active, hdr_mode, hdr_paper_white_nits, hdr_paper_white;
+	int hdr_active, hdr_mode, hdr_paper_white_nits, hdr_paper_white, hdr_ui_nits;
 	unsigned int surface_hdr;
 	int hdr_output;
 	int display_hdr_told, display_window_told;
 	unsigned int display_surface_told;
-	float display_headroom_told;
+	float display_headroom_told, display_white_told;
 	int colorspaces, hdr_metadata;
-	void (*display_hdr)(int hdr, float headroom);
+	void (*display_hdr)(int hdr, float headroom, float white_nits, int white_reported);
 	struct xgpu_vulkan_image *(*encode)(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 		uint8_t format);
 
@@ -4843,11 +4843,13 @@ static void display_hdr_tell(void)
 		headroom = 1.0f;
 	/* (the host is told where HDR or the headroom changed; the log is also
 	written where only the reason for it did) */
-	told = hdr != vk.display_hdr_told || headroom != vk.display_headroom_told;
+	told = hdr != vk.display_hdr_told || headroom != vk.display_headroom_told ||
+		sdr_white_nits() != vk.display_white_told;
 	if (!told && window == vk.display_window_told && vk.surface_hdr == vk.display_surface_told)
 		return;
 	vk.display_hdr_told = hdr;
 	vk.display_headroom_told = headroom;
+	vk.display_white_told = sdr_white_nits();
 	vk.display_window_told = window;
 	vk.display_surface_told = vk.surface_hdr;
 	snprintf(outputs, sizeof(outputs), "%s%s%s",
@@ -4870,7 +4872,8 @@ static void display_hdr_tell(void)
 		host_logf(HOST_LOG_INFO, "vulkan: the display does not show HDR (no HDR state from the window system, "
 			"no HDR output on the surface)");
 	if (told && vk.display_hdr)
-		vk.display_hdr(hdr, headroom);
+		vk.display_hdr(hdr, headroom, sdr_white_nits(),
+			float_of(__atomic_load_n(&vk.window_sdr_white, __ATOMIC_ACQUIRE)) > 1.0f);
 }
 
 void xgpu_vulkan_window_hdr(int enabled, float sdr_white, float headroom)
@@ -4922,12 +4925,13 @@ static void rectangle_turned(int quarter_turns, uint32_t window_width, uint32_t 
 	}
 }
 
-void xgpu_vulkan_hdr_state(int active, int mode, int paper_white_nits, int paper_white)
+void xgpu_vulkan_hdr_state(int active, int mode, int paper_white_nits, int paper_white, int ui_nits)
 {
 	vk.hdr_active = active != 0;
 	vk.hdr_mode = mode == XGPU_HDR_MODE_PUNCHY ? XGPU_HDR_MODE_PUNCHY : XGPU_HDR_MODE_FAITHFUL;
 	vk.hdr_paper_white_nits = paper_white_nits > 0 ? paper_white_nits : 0;
 	vk.hdr_paper_white = paper_white > 0 ? paper_white : 100;
+	vk.hdr_ui_nits = ui_nits > 0 ? ui_nits : 0;
 	/* (the swapchain made again where its output changes) */
 	if (vk.swapchain && hdr_output_choose() != vk.hdr_output)
 		vk.swapchain_stale = 1;
@@ -4984,6 +4988,7 @@ void xgpu_vulkan_hdr_frame(struct xgpu_hdr_frame *frame)
 	frame->output = XGPU_HDR_OUTPUT_SDR;
 	frame->paper_white = 1.0f;
 	frame->peak = 1.0f;
+	frame->ui = 1.0f;
 	if (vk.hdr_output == XGPU_HDR_OUTPUT_SDR)
 		return;
 	setting = paper_white_setting(headroom);
@@ -4992,6 +4997,9 @@ void xgpu_vulkan_hdr_frame(struct xgpu_hdr_frame *frame)
 	frame->output = vk.hdr_output;
 	frame->paper_white = vk.hdr_output == XGPU_HDR_OUTPUT_SCRGB ? nits / 80.0f : nits / 10000.0f;
 	frame->peak = headroom / setting;
+	/* (the UI's white over the system's SDR white as paper white's is: on
+	Linux relative to the compositor's, no brighter than the display) */
+	frame->ui = xgpu_hdr_ui_white((float)vk.hdr_ui_nits / sdr_white_nits(), setting, headroom);
 }
 
 /* the swapchain's HDR metadata (VK_EXT_hdr_metadata, where the device has

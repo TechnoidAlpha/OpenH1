@@ -246,10 +246,13 @@ the frame reached the screen with its input time
 host_render_stream_latency: nanoseconds of CLOCK_MONOTONIC, the game's. */
 void host_render_stream_display_paced(int paced);
 /* display.hdr: the display shows HDR (xgpu_hdr.h's XGPU_HDR_DISPLAY_HEADROOM),
-and its headroom now (1 for none), for the guest to read between frames
-(the ring's display_hdr and display_headroom: any thread, at any time,
-before or while a stream is open) */
-void host_render_stream_display_hdr(int hdr, float headroom);
+its headroom (1 for none: now, or the display's potential, its peak), and
+its SDR white in nits (the system's,
+white_reported, or the one the encoding takes where it gives none), for the
+guest to read between frames (the ring's display_hdr, display_headroom,
+display_white and display_white_reported: any thread, at any time, before
+or while a stream is open) */
+void host_render_stream_display_hdr(int hdr, float headroom, float white_nits, int white_reported);
 uint64_t host_render_stream_frame_input(void);
 void host_render_stream_frame_taken(void);
 /* the display has latched a refresh's frame (taken one or not) at latch;

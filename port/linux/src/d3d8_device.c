@@ -178,10 +178,10 @@ frames (halo_screen_commit): the back buffer is made again when it changes. */
 static struct
 {
 	/* the frame is drawn in HDR; display.hdr_mode,
-	display.hdr_paper_white_nits and display.hdr_paper_white as last sent to
-	the backend (sent: once at least) */
+	display.hdr_paper_white_nits, display.hdr_paper_white and
+	display.hdr_ui_nits as last sent to the backend (sent: once at least) */
 	BOOL active, sent;
-	int mode, paper_white_nits, paper_white;
+	int mode, paper_white_nits, paper_white, ui_nits;
 	/* the game's renderer's category, and what its code says of the draws
 	(halo_hdr_category, halo_hdr_draw_kind) */
 	int category, kind;
@@ -190,9 +190,13 @@ static struct
 	BOOL view;
 	/* the draws' target is the HDR back buffer (bind_targets) */
 	BOOL target;
-	/* the display's state, last logged */
+	/* the display's state, last logged; its peak and SDR white, last
+	logged, and the frames since (a change logged once it has held a
+	moment: a Mac's headroom follows its brightness as it is slid) */
 	int display_logged;
-} hdr = { FALSE, FALSE, 0, 0, -1, 0, FALSE, FALSE, -1 };
+	char display_text[160];
+	int display_text_frames;
+} hdr = { FALSE, FALSE, 0, 0, -1, 0, 0, FALSE, FALSE, -1 };
 
 static int hdr_back_buffer_format(void)
 {
@@ -1749,6 +1753,24 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	return 1;
 }
 
+/* the display's peak and SDR white as the backend last said them, as text
+of a kind (XGPU_HDR_DISPLAY_*: Video Setup's DISPLAY PEAK row, its panel,
+the log); FALSE where no renderer draws HDR */
+static BOOL hdr_display_text(int kind, char *text, unsigned int size)
+{
+	struct xgpu_hdr_display display;
+
+	if (size)
+		text[0] = 0;
+	if (!device.gl_ready || !xgpu_backend_capabilities.hdr)
+		return FALSE;
+	memset(&display, 0, sizeof(display));
+	display.hdr = xgpu_backend_display_hdr(&display.headroom) != FALSE;
+	display.white_reported = xgpu_backend_display_white(&display.white_nits) != FALSE;
+	xgpu_hdr_display_text(&display, kind, text, size);
+	return TRUE;
+}
+
 /* (between frames: halo_screen_commit) the settings and the display as
 they are now; the back buffer made again if the frame is drawn otherwise */
 static void hdr_read(void)
@@ -1757,6 +1779,7 @@ static void hdr_read(void)
 	BOOL display = FALSE, active = FALSE;
 	int setting = hdr_setting(), paper_white = (int)config_integer("display.hdr_paper_white");
 	int paper_white_nits = (int)config_integer("display.hdr_paper_white_nits");
+	int ui_nits = (int)config_integer("display.hdr_ui_nits");
 	int mode = config_string("display.hdr_mode") && !strcmp(config_string("display.hdr_mode"), "punchy") ?
 		XGPU_HDR_MODE_PUNCHY : XGPU_HDR_MODE_FAITHFUL;
 
@@ -1785,10 +1808,29 @@ static void hdr_read(void)
 		paper_white = 100;
 	paper_white = paper_white < XGPU_HDR_PAPER_WHITE_LEAST ? XGPU_HDR_PAPER_WHITE_LEAST :
 		paper_white > XGPU_HDR_PAPER_WHITE_MOST ? XGPU_HDR_PAPER_WHITE_MOST : paper_white;
+	/* (display.hdr_ui_nits: 0, paper white's) */
+	ui_nits = ui_nits <= 0 ? 0 : ui_nits < XGPU_HDR_UI_NITS_LEAST ? XGPU_HDR_UI_NITS_LEAST :
+		ui_nits > XGPU_HDR_UI_NITS_MOST ? XGPU_HDR_UI_NITS_MOST : ui_nits;
 	if (hdr.display_logged != (display ? 1 : 0) && xgpu_backend_capabilities.hdr)
 	{
 		platform_log("display: %s (headroom %.2f)", display ? "HDR" : "SDR", headroom);
 		hdr.display_logged = display ? 1 : 0;
+	}
+	if (xgpu_backend_capabilities.hdr)
+	{
+		/* (the peak and SDR white Video Setup shows, logged at the start
+		and as they change) */
+		char text[sizeof(hdr.display_text)];
+
+		hdr_display_text(XGPU_HDR_DISPLAY_LOG, text, sizeof(text));
+		if (hdr.display_text_frames < 1000)
+			hdr.display_text_frames++;
+		if (strcmp(text, hdr.display_text) && (!hdr.display_text[0] || hdr.display_text_frames >= 30))
+		{
+			platform_log("%s", text);
+			snprintf(hdr.display_text, sizeof(hdr.display_text), "%s", text);
+			hdr.display_text_frames = 0;
+		}
 	}
 	if (active != hdr.active)
 	{
@@ -1798,14 +1840,20 @@ static void hdr_read(void)
 		render_targets_evict();
 	}
 	if (!hdr.sent || mode != hdr.mode || paper_white_nits != hdr.paper_white_nits || paper_white != hdr.paper_white ||
-		active != hdr.active)
+		ui_nits != hdr.ui_nits || active != hdr.active)
 	{
-		xgpu_backend_hdr(active, mode, paper_white_nits, paper_white);
+		xgpu_backend_hdr(active, mode, paper_white_nits, paper_white, ui_nits);
 		hdr.sent = TRUE;
 		hdr.mode = mode;
 		hdr.paper_white_nits = paper_white_nits;
 		hdr.paper_white = paper_white;
+		hdr.ui_nits = ui_nits;
 	}
+}
+
+int halo_hdr_display_text(int words, char *text, unsigned int size)
+{
+	return hdr_display_text(words ? XGPU_HDR_DISPLAY_WORDS : XGPU_HDR_DISPLAY_VALUE, text, size);
 }
 
 /* takes up the display's shape and resolution, or the window's, if they

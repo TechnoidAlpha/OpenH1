@@ -108,6 +108,11 @@ most and least */
 #define XGPU_HDR_PAPER_WHITE_NITS_MOST 500
 #define XGPU_HDR_PAPER_WHITE_LEAST 50
 #define XGPU_HDR_PAPER_WHITE_MOST 250
+/* display.hdr_ui_nits: the brightness of what is drawn over the tone mapped
+view (the HUD, the menus, the screen flashes) in nits, these at most and
+least (0: paper white's) */
+#define XGPU_HDR_UI_NITS_LEAST 80
+#define XGPU_HDR_UI_NITS_MOST 500
 /* the system's SDR white in nits where it gives none: BT.2408's reference
 white (Vulkan's, without SDL's), and EDR's 1.0 as macOS's reference modes
 show it (Metal's: macOS and iOS give no nits, their SDR white following the
@@ -122,6 +127,19 @@ static inline float xgpu_hdr_paper_white_nits(int nits, int percent, float syste
 	if (nits > 0)
 		return (float)nits;
 	return system_white * (float)(percent > 0 ? percent : 100) / 100.0f;
+}
+
+/* the UI's white over paper white (xgpu_hdr_frame.ui), in any one
+unit: display.hdr_ui_nits's (ui, 0 for paper white's), paper white's as
+the encoding has it (no brighter than the display), and the display's
+peak; the UI no brighter than the peak either */
+static inline float xgpu_hdr_ui_white(float ui, float paper_white, float peak)
+{
+	if (!(ui > 0.0f) || !(paper_white > 0.0f))
+		return 1.0f;
+	if (peak > 0.0f && ui > peak)
+		ui = peak;
+	return ui / paper_white;
 }
 
 /* a display shows HDR (display.hdr "auto" turns it on) when its potential
@@ -234,13 +252,17 @@ and what the backend's display says. Paper white and the peak are linear
 light: paper white in the output's units (over the system's SDR white for
 EDR, xgpu_hdr_paper_white_nits over XGPU_HDR_EDR_WHITE_NITS; nits over 80
 for scRGB; nits over 10 000 for PQ), the peak in paper whites (the display's headroom over paper
-white: 1 for SDR) */
+white: 1 for SDR). ui is the UI's white over paper white
+(display.hdr_ui_nits: 1, or 0, for paper white's; 1 for SDR): the frame's
+1.0 is the UI's white, the tone map leaves the 3D view in it (its light
+over ui), and the encoding takes the frame's light times it. */
 struct xgpu_hdr_frame
 {
 	int mode;
 	int output;
 	float paper_white;
 	float peak;
+	float ui;
 };
 
 
@@ -373,12 +395,25 @@ static inline void xgpu_hdr_tone_map(float rgb[3], int mode, float peak)
 		rgb[channel] = xgpu_hdr_encoded(light[channel] * hue * (1.0f - clipped) + sdr[channel] * brightened * clipped);
 }
 
+/* the 3D view's tone mapped colour (xgpu_hdr_tone_map's) in the frame's
+values, in place, where the UI's white is not paper white: its light over
+the UI's white (xgpu_hdr_frame.ui; 0 or 1, as it is) */
+static inline void xgpu_hdr_to_ui(float rgb[3], float ui)
+{
+	int channel;
+
+	if (!(ui > 0.0f) || ui == 1.0f)
+		return;
+	for (channel = 0; channel < 3; channel++)
+		rgb[channel] = xgpu_hdr_encoded(xgpu_hdr_linear(rgb[channel]) / ui);
+}
+
 /* the encoding of one pixel's colour (the frame's values after the tone
-map and the HUD) for the display, in place: linear, at most the peak,
-times paper white (and PQ's primaries and curve) */
+map and the HUD) for the display, in place: linear, times the UI's white,
+at most the peak, times paper white (and PQ's primaries and curve) */
 static inline void xgpu_hdr_encode(float rgb[3], const struct xgpu_hdr_frame *frame)
 {
-	float light[3];
+	float light[3], ui = frame->ui > 0.0f ? frame->ui : 1.0f;
 	int channel;
 
 	for (channel = 0; channel < 3; channel++)
@@ -388,7 +423,7 @@ static inline void xgpu_hdr_encode(float rgb[3], const struct xgpu_hdr_frame *fr
 			rgb[channel] = rgb[channel] < 0.0f ? 0.0f : rgb[channel] > 1.0f ? 1.0f : rgb[channel];
 			continue;
 		}
-		light[channel] = fminf(xgpu_hdr_linear(rgb[channel]), frame->peak) * frame->paper_white;
+		light[channel] = fminf(xgpu_hdr_linear(rgb[channel]) * ui, frame->peak) * frame->paper_white;
 	}
 	if (frame->output == XGPU_HDR_OUTPUT_SDR)
 		return;
@@ -504,6 +539,34 @@ whose constants are its colours, a bit each, in the bits above 8
 #define HALO_HDR_KIND_SELF_ILLUMINATION 64
 #define HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(stages) ((stages) << 8)
 #endif
+
+/* ---------- the display, as the menus and the log show it (xgpu_hdr.c) */
+
+/* what the backend says of its display (xgpu_backend_display_hdr): whether
+it shows HDR, its headroom over its SDR white now, and that white in nits:
+the system's (reported), or, where it gives none, the one the encoding
+takes (XGPU_HDR_REFERENCE_WHITE_NITS on Vulkan, XGPU_HDR_EDR_WHITE_NITS on
+Metal) */
+struct xgpu_hdr_display
+{
+	int hdr;
+	float headroom;
+	float white_nits;
+	int white_reported;
+};
+
+/* xgpu_hdr_display_text's texts: Video Setup's DISPLAY PEAK row's value
+("800 NITS"), its panel's words, the log's line */
+enum
+{
+	XGPU_HDR_DISPLAY_VALUE,
+	XGPU_HDR_DISPLAY_WORDS,
+	XGPU_HDR_DISPLAY_LOG,
+};
+
+/* the display's peak (its headroom times its SDR white) and SDR white, as
+text of a kind (XGPU_HDR_DISPLAY_*) */
+void xgpu_hdr_display_text(const struct xgpu_hdr_display *display, int kind, char *text, unsigned int size);
 
 /* the tag (nv2a_pixel_shader_key.hdr) of a draw into the HDR back buffer */
 unsigned short xgpu_hdr_classify(const struct xgpu_hdr_draw *draw);

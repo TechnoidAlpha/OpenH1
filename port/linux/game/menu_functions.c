@@ -2534,6 +2534,36 @@ static void discord_account_show(struct widget_instance *list)
 	}
 }
 
+/* each frame of Advanced Graphics' list: the DISPLAY PEAK row's value,
+the display's peak as the backend says it now (it follows the window to
+another display, and the system's brightness) */
+static void hdr_display_show(struct widget_instance *list)
+{
+	struct widget_instance *value = named(list, "hdr_display_value", 0);
+	char text[ROW_TEXT_LENGTH];
+
+	if (!value)
+		return;
+	halo_hdr_display_text(0, text, sizeof(text));
+	discord_text_set(value, text);
+}
+
+/* the DISPLAY PEAK row's panel: its value and words, the display's peak and
+SDR white now (the others': FALSE) */
+static boolean hdr_display_panel(struct widget_instance *row, wchar_t *value, wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	char text[SETTINGS_PANEL_TEXT_LENGTH];
+
+	if (!row->name || strcmp(row->name, "op_hdr_display") || !halo_hdr_display_text(0, text, sizeof(text)))
+		return FALSE;
+	discord_widen(text, value, ROW_TEXT_LENGTH);
+	halo_hdr_display_text(1, text, sizeof(text));
+	discord_widen(text, words, SETTINGS_PANEL_TEXT_LENGTH);
+	*help = words;
+	return TRUE;
+}
+
 /* the panel's name, value and words for a row of the page (the others':
 FALSE) */
 static boolean discord_account_panel(struct widget_instance *row, wchar_t *name, wchar_t *value,
@@ -2756,6 +2786,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 		help = settings_row_help(label);
 		/* (the Discord account's page: its words of the state now) */
 		discord_account_panel(row, name, value, &help);
+		/* (the display's peak: its words of the display now) */
+		hdr_display_panel(row, value, &help);
 		row_spinner = spinner;
 		/* (Quality: CLASSIC or ENHANCED framed, neither for CUSTOM) */
 		if (!strcmp(row->name, "op_graphics") && spinner)
@@ -2856,6 +2888,7 @@ static void settings_page_update(struct widget_instance *list)
 	max_fps_row_show(list);
 	settings_rows_show(list);
 	discord_account_show(list);
+	hdr_display_show(list);
 	graphics_preset_show(list);
 	sim_rate_row_show(list);
 	settings_each(screen, setting_stash);
