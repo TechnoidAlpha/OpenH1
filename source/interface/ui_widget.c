@@ -1419,6 +1419,11 @@ static boolean ui_widget_port_key_label_text(
 	boolean named,
 	wchar_t *keyed,
 	long length);
+static boolean ui_widget_port_key_legend_text(
+	struct widget_instance *label,
+	wchar_t *keyed,
+	long length,
+	short *shift);
 static boolean ui_widget_port_key_icon_hidden(
 	struct widget_instance *widget);
 static void widget_instance_initialize(
@@ -5650,6 +5655,7 @@ static void widget_instance_render_text_box(
 	/* port: (ui_widget_port_key_label_text) */
 	wchar_t keyed[256];
 	wchar_t named[256];
+	short key_shift;
 
 	if (definition->text_label_string_list.index != NONE)
 	{
@@ -5827,6 +5833,15 @@ static void widget_instance_render_text_box(
 			if (end != SHORT_MIN && text_bounds.x1 > end - 6)
 				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + 6 - end));
 		}
+		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
+	}
+	/* port: the key of a button pictured just left of the words (the
+	legends' "(B) =CANCEL"), drawn where the picture was, the words after
+	it (ui_widget_port_key_legend_text) */
+	else if (ui_widget_port_key_legend_text(widget, keyed, NUMBEROF(keyed), &key_shift))
+	{
+		if (justification == _text_justification_left)
+			bounds.x0 = (short)(bounds.x0 + key_shift);
 		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
 	}
 	else if (string_has_icons_to_draw(*text))
@@ -6504,7 +6519,94 @@ static boolean ui_widget_port_key_label_text(
 	return TRUE;
 }
 
-/* whether the picture is left out, its key drawn in its words */
+/* a widget's left in its parent, as widget_instance_render_recursive
+places it */
+static short ui_widget_port_left_in_parent(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+
+	return (short)(definition->bounds.x0 + widget->horizontal_offset +
+		ui_widget_port_anchor_offset(definition->flags) +
+		ui_widget_port_wide_offset(widget->definition_tag_index));
+}
+
+/* the words a picture of a button stands just left of, in its row: the
+Xbox's legends of a picture and its words each ("(B) =CANCEL (A) =SELECT",
+ui\shell\main_menu\button_key_sm, under the campaign's pause menu), a text
+box among the picture's siblings; else NULL */
+static struct widget_instance *ui_widget_port_key_icon_legend(
+	struct widget_instance *icon)
+{
+	struct ui_widget_definition *icon_definition = ui_widget_definition_get(icon->definition_tag_index);
+	struct widget_instance *sibling;
+	short right = (short)(ui_widget_port_left_in_parent(icon) +
+		icon_definition->bounds.x1 - icon_definition->bounds.x0);
+	short top = (short)(icon_definition->bounds.y0 + icon->vertical_offset);
+	short bottom = (short)(icon_definition->bounds.y1 + icon->vertical_offset);
+
+	for (sibling = icon->parent ? icon->parent->child : NULL; sibling; sibling = sibling->next)
+	{
+		struct ui_widget_definition *definition;
+		short left;
+
+		if (sibling->type != _ui_widget_type_text_box)
+			continue;
+		definition = ui_widget_definition_get(sibling->definition_tag_index);
+		left = ui_widget_port_left_in_parent(sibling);
+		if (left >= right - 2 && left <= right + 8 &&
+			definition->bounds.y0 + sibling->vertical_offset < bottom &&
+			definition->bounds.y1 + sibling->vertical_offset > top)
+		{
+			return sibling;
+		}
+	}
+
+	return NULL;
+}
+
+/* the words of a legend with the key of the button pictured left of them
+before them, as its icon ("%b-button=CANCEL", which
+draw_string_and_hack_in_icons draws as the menus' key), and in *shift how
+far left of the words the picture begins; FALSE where they are drawn as
+they are */
+static boolean ui_widget_port_key_legend_text(
+	struct widget_instance *label,
+	wchar_t *keyed,
+	long length,
+	short *shift)
+{
+	wchar_t const *text = label->parameters.text_box.text;
+	struct widget_instance *icon;
+	wchar_t const *parts[3];
+	long used = 0;
+	long part;
+
+	for (icon = label->parent ? label->parent->child : NULL; icon; icon = icon->next)
+	{
+		if (ui_widget_port_key_icon_key(icon) && ui_widget_port_key_icon_legend(icon) == label)
+			break;
+	}
+	if (!icon || !text)
+		return FALSE;
+	parts[0] = L"%";
+	parts[1] = icon_names[ui_mouse_key_button(icon)];
+	parts[2] = text;
+	for (part = 0; part < NUMBEROF(parts); part++)
+	{
+		wchar_t const *letter;
+
+		for (letter = parts[part]; *letter && used < length - 1; letter++)
+			keyed[used++] = *letter;
+	}
+	keyed[used] = 0;
+	*shift = (short)(ui_widget_port_left_in_parent(icon) - ui_widget_port_left_in_parent(label));
+
+	return TRUE;
+}
+
+/* whether the picture is left out, its key drawn in its words (in their
+gap, or before them in a legend) */
 static boolean ui_widget_port_key_icon_hidden(
 	struct widget_instance *widget)
 {
@@ -6514,8 +6616,10 @@ static boolean ui_widget_port_key_icon_hidden(
 	if (!ui_widget_port_key_icon_key(widget))
 		return FALSE;
 	label = ui_widget_port_key_icon_label(widget);
+	if (label && ui_widget_port_key_gap(label->parameters.text_box.text, &gap_length) != NONE)
+		return TRUE;
 
-	return label && ui_widget_port_key_gap(label->parameters.text_box.text, &gap_length) != NONE;
+	return ui_widget_port_key_icon_legend(widget) != NULL;
 }
 
 /* whether the d-pad moves the focus to a widget: an item of a column list,
