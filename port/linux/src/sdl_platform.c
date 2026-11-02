@@ -758,7 +758,7 @@ modes are pretended, the display's own kept), nor under gamescope, nor on
 macOS, iOS or Android, whose displays stay at their own rate */
 int platform_refresh_rates_settable(void)
 {
-#if defined(HALO_ANDROID) || defined(HALO_MACOS)
+#ifdef HALO_MACOS
 	return 0;
 #else
 	const char *driver;
@@ -1111,6 +1111,19 @@ int platform_window_sizes(long *widths, long *heights, int maximum)
 {
 	(void)widths;
 	(void)heights;
+	(void)maximum;
+	return 0;
+}
+
+/* (Android's display keeps its own rate: no Refresh Rate row) */
+int platform_refresh_rates_settable(void)
+{
+	return 0;
+}
+
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	(void)rates;
 	(void)maximum;
 	return 0;
 }
