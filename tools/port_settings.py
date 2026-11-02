@@ -638,6 +638,14 @@ PAGES = {
             ("INSTANT AIM", "display.direct_camera", ON_OFF,
              "Turns the view the moment the mouse moves, not up to two of the game's updates later. Off feels as "
              "the original did.", "computer"),
+            # (port/linux/src/sdl_platform.c's menu_cursor_size; hidden in the
+            # headset, where VR Setup's row takes its room and the menus have
+            # no desktop pointer: menu_functions.c's menu_cursor_row_show)
+            ("MENU CURSOR", "display.menu_cursor",
+             [("OFF", "off"), ("SMALL", "small"), ("MEDIUM", "medium"), ("LARGE", "large"),
+              ("EXTRA LARGE", "extra_large")],
+             "The menus' blue arrow for the mouse, and its size. The sizes keep their share of the screen at any "
+             "resolution.|Off shows the system's pointer.", "computer"),
             ("KEY BINDINGS ›", None, _page_screen(*KEY_BINDINGS),
              "The keys and mouse buttons for each action, two for each.", None),
             ("BUTTON PROMPTS", "input.button_prompts",
@@ -1380,6 +1388,9 @@ def _settings_platform(rows: list, start: int):
 # them at most, or menu_functions.c showing one (video_rows_show): Window Size
 # in Resolution's, Android's anti-aliasing in the desktop's
 SETTINGS_SAME_PLACE = {"window_size", "anti_aliasing_android"}
+# the rows menu_functions.c hides while VR Setup's row is shown (the game in
+# the headset), which takes their room: Mouse's Menu Cursor (menu_cursor_row_show)
+SETTINGS_NOT_IN_VR = {"menu_cursor"}
 
 
 def _settings_page(folder: str, page: dict) -> list:

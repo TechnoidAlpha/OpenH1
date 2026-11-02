@@ -214,6 +214,10 @@ static const struct config_setting config_settings[] =
 	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
 		"Draw a frame for every display refresh, blending between the game's 30\n"
 		"ticks a second; false keeps the original 30 frames a second." },
+	{ "display.menu_cursor", _config_string, "\"medium\"", "HALO_MENU_CURSOR", _environment_value, _platform_desktop,
+		"The menus' pointer for the mouse: the game's blue arrow, \"small\",\n"
+		"\"medium\", \"large\" or \"extra_large\" (18, 24, 32 or 40 of the menus'\n"
+		"480 lines tall, at any resolution), or \"off\" for the system's pointer." },
 	{ "display.direct_camera", _config_boolean, "true", "HALO_DIRECT_CAMERA", _environment_value, _platform_all,
 		"Point the view where the player aims now instead of where the last\n"
 		"tick left it: the view turns the frame the mouse, the touch swipe or\n"
@@ -3500,6 +3504,7 @@ static const struct
 	{ "display.frame_style", { "plain", "halo", "xbox", NULL }, NULL },
 	{ "display.hud_button_style", { "classic", "gems", "menu_gems", NULL }, NULL },
 	{ "display.menus", { "pc", "xbox", NULL }, NULL },
+	{ "display.menu_cursor", { "off", "small", "medium", "large", "extra_large", NULL }, "medium" },
 	{ "display.player_names", { "all", "allies", "enemies", "none", NULL }, NULL },
 	{ "display.scoreboard_team_layout", { "teams", "score", NULL }, NULL },
 	{ "display.chat_style", { "colors", "white", NULL }, NULL },

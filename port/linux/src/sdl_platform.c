@@ -220,6 +220,15 @@ static void screen_keyboard_update(void);
 /* the windows' icon, a PNG (tools/embed_assets.py, from port/assets/icon) */
 extern const unsigned int platform_window_icon[];
 extern const unsigned long platform_window_icon_size;
+/* the menus' pointer, a PNG (tools/embed_assets.py, from port/assets/cursor) */
+extern const unsigned int platform_menu_cursor[];
+extern const unsigned long platform_menu_cursor_size;
+#endif
+
+/* the menus' own cursor (below): the desktop's guests (not iOS's, which has
+no pointer to draw), whose host makes it */
+#if defined(HALO_GUEST) && !defined(HALO_ANDROID) && !defined(HALO_IOS)
+#define PLATFORM_MENU_CURSOR
 #endif
 
 #ifndef HALO_ANDROID
@@ -1282,6 +1291,118 @@ static int platform_swap_interval(void);
 static int platform_interval_take(void);
 static int platform_interval = -1;
 
+#ifdef PLATFORM_MENU_CURSOR
+/* ---------- the menus' cursor
+
+The blue arrow the menus show for the mouse, in place of the system's. Halo
+PC drew its cursor in the menus' 640 x 480, so it took the same part of the
+screen at any resolution; this one is made again whenever the window's size
+in pixels or display.menu_cursor changes (menu_cursor_fit, from
+platform_pump_events). The guest reaches no SDL surfaces: the host makes the
+cursor from the embedded picture (host_sdl_menu_cursor). */
+
+/* the arrow's tip in the picture, past its soft edge: the click point */
+#define MENU_CURSOR_TIP 2
+
+/* port/linux/host/host_desktop.c: the window's cursor made from the PNG,
+height pixels tall (where the desktop counts in points, that size in points
+with the pixels' image as its alternate), its click point at (tip, tip) of
+the picture's pixels; the system's for a height of 0. Nonzero on success */
+int host_sdl_menu_cursor(unsigned int window, const void *png, unsigned int size, int height, int tip);
+
+/* the cursor's height made last, in pixels (0: the system's; -1: none made
+for this window yet) */
+static int menu_cursor_height = -1;
+
+/* display.menu_cursor: the arrow's height in the menus' 480 lines (medium:
+54 pixels at 1080p), or 0 for the system's pointer; read again when a
+setting changes */
+static int menu_cursor_size(void)
+{
+	static const struct { const char *name; int lines; } sizes[] =
+	{
+		{ "off", 0 }, { "small", 18 }, { "medium", 24 }, { "large", 32 }, { "extra_large", 40 }
+	};
+	static unsigned long read_at = (unsigned long)-1;
+	static int lines = 24;
+
+	if (read_at != config_changes())
+	{
+		const char *name = config_string("display.menu_cursor");
+		size_t index;
+
+		read_at = config_changes();
+		lines = 24;
+		for (index = 0; index < sizeof(sizes) / sizeof(sizes[0]); index++)
+			if (!strcmp(name, sizes[index].name))
+				lines = sizes[index].lines;
+	}
+	return lines;
+}
+
+/* the cursor made for the window's size and display.menu_cursor, when one
+has changed: its height the part of the window the menus' 480 lines take
+(their 4:3 fits a window of another shape), in pixels. Off, the system's
+pointer again */
+static void menu_cursor_fit(void)
+{
+	int width = 0, height = 0, lines, cursor_height = 0, size = menu_cursor_size();
+
+	if (!platform_menu_cursor_size || !SDL_GetWindowSizeInPixels(platform_window, &width, &height) ||
+		width <= 0 || height <= 0)
+		return;
+	if (size)
+	{
+		lines = height < width * 3 / 4 ? height : width * 3 / 4;
+		cursor_height = lines * size / 480;
+		if (cursor_height < 16)
+			cursor_height = 16;
+	}
+	if (cursor_height == menu_cursor_height)
+		return;
+	menu_cursor_height = cursor_height;
+	if (!host_sdl_menu_cursor((unsigned int)(uintptr_t)platform_window, platform_menu_cursor,
+		(unsigned int)platform_menu_cursor_size, cursor_height, MENU_CURSOR_TIP))
+		platform_log("cannot set the menus' cursor");
+}
+
+/* A controller's buttons or sticks, used while a menu is up, hide the
+cursor, and the mouse moved or clicked shows it again, so a player on a
+controller has no arrow left over the menus; a menu opened while the
+controller was used last opens without it, and play shows it again as it
+takes the mouse (platform_ui_pointer_set_active), where the relative mode
+hides it (or macOS parks it in fullscreen: port/macos/host_raw_mouse.m).
+Only these hide it, so its state is kept here, not asked of the host at
+each event. */
+static BOOL menu_cursor_controller;
+static BOOL menu_cursor_hidden;
+
+static void menu_cursor_show(BOOL show)
+{
+	if (show == !menu_cursor_hidden)
+		return;
+	menu_cursor_hidden = !show;
+	if (show)
+		SDL_ShowCursor();
+	else
+		SDL_HideCursor();
+}
+
+static void menu_cursor_controller_used(BOOL in_menus)
+{
+	menu_cursor_controller = TRUE;
+	if (in_menus)
+		menu_cursor_show(FALSE);
+}
+
+static void menu_cursor_mouse_used(BOOL in_menus)
+{
+	menu_cursor_controller = FALSE;
+	if (in_menus)
+		menu_cursor_show(TRUE);
+}
+#endif
+
 BOOL platform_video_initialize(unsigned long width, unsigned long height)
 {
 	if (platform_window)
@@ -1355,6 +1476,12 @@ BOOL platform_video_initialize(unsigned long width, unsigned long height)
 			platform_log("cannot set the window's icon: %s", SDL_GetError());
 		SDL_DestroySurface(icon);
 	}
+#endif
+#ifdef PLATFORM_MENU_CURSOR
+	/* the pointer the menus show (platform_ui_pointer_set_active), in place
+	of the system's, at the window's size */
+	menu_cursor_height = -1;
+	menu_cursor_fit();
 #endif
 	platform_fullscreen_requested = platform_fullscreen_setting();
 	platform_window_mode = platform_display_mode();
@@ -2474,6 +2601,9 @@ void platform_pump_events(void)
 		return;
 	exit_after_check();
 	platform_show_pending_message();
+#ifdef PLATFORM_MENU_CURSOR
+	menu_cursor_fit();
+#endif
 #ifndef HALO_ANDROID
 	updater_poll(platform_window);
 	/* (Settings > Audio's output device, as it changes: dsound_sdl.c) */
@@ -2547,6 +2677,11 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
 #ifndef HALO_ANDROID
+#ifdef PLATFORM_MENU_CURSOR
+			/* (not the warp to the middle as a menu opens) */
+			if (!input_state.ui_pointer || event.motion.x != ui_pointer.x || event.motion.y != ui_pointer.y)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (scoreboard_pointer_active)
 			{
 				scoreboard_pointer.x = event.motion.x;
@@ -2590,6 +2725,10 @@ void platform_pump_events(void)
 			input_presses++;
 			if (event.button.down)
 				movie_skip_presses++;
+#ifdef PLATFORM_MENU_CURSOR
+			if (event.button.down)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
@@ -2769,6 +2908,10 @@ void platform_pump_events(void)
 		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 		case SDL_EVENT_GAMEPAD_BUTTON_UP:
 			input_presses++;
+#ifdef PLATFORM_MENU_CURSOR
+			if (event.gbutton.down)
+				menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			break;
 		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 			if (event.gaxis.axis < SDL_GAMEPAD_AXIS_COUNT)
@@ -2780,6 +2923,11 @@ void platform_pump_events(void)
 				if (beyond != input_axis_beyond[event.gaxis.axis])
 					input_presses++;
 				input_axis_beyond[event.gaxis.axis] = beyond;
+#ifdef PLATFORM_MENU_CURSOR
+				/* (a stick or trigger past its rest) */
+				if (beyond)
+					menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			}
 			break;
 		case SDL_EVENT_GAMEPAD_REMOVED:
@@ -2889,6 +3037,9 @@ void platform_ui_pointer_set_active(BOOL active)
 	memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
 	pthread_mutex_unlock(&input_lock);
 	platform_mouse_capture(!active && !input_state.mouse_released);
+#ifdef PLATFORM_MENU_CURSOR
+	menu_cursor_show(!active || !menu_cursor_controller);
+#endif
 	if (active)
 	{
 		int width, height;
