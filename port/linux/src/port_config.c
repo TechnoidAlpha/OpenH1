@@ -1092,8 +1092,8 @@ static const struct config_setting config_settings[] =
 		"bench, a Warthog on the sand), worked out from the 3D view's depth\n"
 		"each frame. The levels' own corners keep their baked light, and\n"
 		"self-illuminated surfaces, lights and your weapon keep theirs: \"off\",\n"
-		"\"subtle\" or \"strong\". Vulkan for now (the Linux builds, Windows,\n"
-		"Android)." GRAPHICS_CHOOSES },
+		"\"subtle\" or \"strong\". Not with multisampling on Metal (macOS, iOS)."
+		GRAPHICS_CHOOSES },
 	{ "display.shield_color", _config_string, "\"default\"", "HALO_SHIELD_COLOR", _environment_value, _platform_all,
 		"Your energy shield's color, as this machine draws it: \"default\" (the\n"
 		"shield's own) or a multiplayer armor color: white, black, red, blue,\n"

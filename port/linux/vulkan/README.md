@@ -433,8 +433,9 @@ the first-person weapon's is the game's bit 0. The record
 
 The target's pass ends for them and begins again, loading what it drew.
 `debug.ambient_occlusion_view` draws the occlusion alone in the view's place
-before the HUD. Metal draws none yet: its backend leaves the record
-unhandled.
+before the HUD. Metal draws the same passes (`port/macos/xgpu_metal_post.c`,
+their MSL written from this GLSL by `tools/metal_post_shaders.py`), but not
+over a multisampled target.
 
 ## HDR
 

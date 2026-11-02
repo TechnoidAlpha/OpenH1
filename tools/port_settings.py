@@ -769,7 +769,7 @@ PAGES = {
             ("AMBIENT OCCLUSION", "display.ambient_occlusion",
              [("OFF", "off"), ("SUBTLE", "subtle"), ("STRONG", "strong")],
              "Grounds characters, vehicles and scenery with soft shade where they meet the world and in their "
-             "creases. The levels keep their own lighting. Not yet on Mac.", "desktop android"),
+             "creases. The levels keep their own lighting.", "desktop android"),
             ("SHIELD GLOW", "display.shield_glow", ON_OFF,
              "Shields light their surroundings as they flare, in the shield's own color. Online: the host's "
              "choice.", None),
