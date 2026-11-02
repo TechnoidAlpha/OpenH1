@@ -1042,7 +1042,8 @@ static const struct config_setting config_settings[] =
 		"overturned. false: the bots stay on foot." },
 	{ "display.viewmodel_shield", _config_boolean, "false", "HALO_VIEWMODEL_SHIELD", _environment_value, _platform_all,
 		"The energy shield's flare on the first-person arms too, as on the body\n"
-		"(the stock game draws it on the body only)." },
+		"(the stock game draws it on the body only): it shows as the shield\n"
+		"takes hits and fades after them; a full shield untouched shows none." },
 #ifdef HALO_VR
 	/* (the VR build's on: in the headset, your body under you, port/linux/README.md "Your body") */
 	{ "display.first_person_legs", _config_boolean, "true", "HALO_FIRST_PERSON_LEGS", _environment_value, _platform_all,

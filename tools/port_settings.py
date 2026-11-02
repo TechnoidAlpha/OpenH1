@@ -855,7 +855,8 @@ PAGES = {
              "from your seat. Behind, the weapon cannot zoom.", None),
             (SECTION, "SHIELDS"),
             ("ARM SHIELDS", "display.viewmodel_shield", ON_OFF,
-             "Your shield's flare on your first-person arms too, as on your body.", None),
+             "When your shield takes a hit, its flare shows on your first-person arms too, as on your body, "
+             "and fades as it does there. A full, untouched shield shows nothing.", None),
             ("SHIELD COLOR", "display.shield_color", [("DEFAULT", "default")] + [(c.upper(), c) for c in SHIELD_COLORS],
              "Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its "
              "own.", None),
