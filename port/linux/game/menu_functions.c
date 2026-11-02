@@ -285,7 +285,8 @@ static void settings_sliders_default(struct widget_instance *screen);
 static boolean settings_slider_function(char const *name, struct widget_instance *row);
 static short settings_slider_of(struct widget_instance const *row);
 static double settings_slider_value(short slider);
-static void settings_slider_text(double value, char *text, unsigned int size);
+static void settings_slider_text(short slider, double value, char *text, unsigned int size);
+static short settings_slider_stop_nearest(short slider);
 
 static boolean text_is_number(char const *text, double *number)
 {
@@ -2371,9 +2372,10 @@ static short settings_text_wrap(wchar_t const *text, wchar_t *wrapped, short siz
 
 /* a row's picture of each value (tools/port_settings.py's
 SETTINGS_VALUE_PICTURES: panel_picture_<the row's key>) shown, at the value
-shown, the others hidden; FALSE if the row has none */
+shown (its spinner's index, or a slider's stop nearest it: frame), the
+others hidden; FALSE if the row has none */
 static boolean settings_value_picture_show(struct widget_instance *panel, struct widget_instance *row,
-	struct widget_instance *spinner)
+	short frame)
 {
 	struct widget_instance *child;
 	boolean shown = FALSE;
@@ -2382,11 +2384,11 @@ static boolean settings_value_picture_show(struct widget_instance *panel, struct
 	{
 		if (!child->name || strncmp(child->name, "panel_picture_", 14))
 			continue;
-		child->visible = row && spinner && row->name && !strncmp(row->name, "op_", 3) &&
+		child->visible = row && frame != NONE && row->name && !strncmp(row->name, "op_", 3) &&
 			!strcmp(child->name + 14, row->name + 3);
 		if (child->visible)
 		{
-			child->animation.current_frame_index = spinner->parameters.list.selected_index;
+			child->animation.current_frame_index = frame;
 			shown = TRUE;
 		}
 	}
@@ -2781,7 +2783,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 			/* (a slider's: its number) */
 			char number[32];
 
-			settings_slider_text(settings_slider_value(settings_slider_of(row)), number, sizeof(number));
+			settings_slider_text(settings_slider_of(row), settings_slider_value(settings_slider_of(row)), number,
+				sizeof(number));
 			for (length = 0; number[length] && length < ROW_TEXT_LENGTH - 1; length++)
 				value[length] = (wchar_t)number[length];
 			value[length] = 0;
@@ -2816,7 +2819,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 				still = !strcmp(setting->values[shown], "classic") ? 0 : !strcmp(setting->values[shown], "enhanced") ? 1 : NONE;
 		}
 	}
-	picture = settings_value_picture_show(panel, row, row_spinner) && !stills;
+	picture = settings_value_picture_show(panel, row, row_spinner ? row_spinner->parameters.list.selected_index :
+		settings_slider_of(row) != NONE ? settings_slider_stop_nearest(settings_slider_of(row)) : NONE) && !stills;
 	settings_wide_copy(words, help, SETTINGS_PANEL_TEXT_LENGTH);
 	for (bar = words; *bar && *bar != '|'; bar++)
 	{
@@ -4413,24 +4417,60 @@ with its thumb at the value, and the value's number. Left and right step it
 the mouse held drags it along; A, Start or a click elsewhere on the row
 types a value into its number ("port slider edit": Enter, which is Start
 while typing, keeps it, Escape forgets it). The value is a change kept, as a
-spinner's is (settings_pending), which Settings' OK writes. */
+spinner's is (settings_pending), which Settings' OK writes. A slider with
+stops has them along its track, evenly spaced, in place of its range: left,
+right and the track go from stop to stop, and a value typed between two
+stops sits between them; a stop shown as a word (AUTO, NONE, DEFAULT) is a
+value of its own, which may be typed as the word or as its number. */
+
+/* a slider's stop: its value, and the word it is shown as (NULL: its
+number) */
+struct settings_slider_stop
+{
+	double value;
+	char const *word;
+};
+
+/* (tools/port_settings.py's FRAME_RATE_LIMITS and FIELDS_OF_VIEW) */
+static struct settings_slider_stop const settings_frame_rate_stops[] =
+{
+	{ 0.0, "AUTO" }, { 30.0, NULL }, { 60.0, NULL }, { 75.0, NULL }, { 90.0, NULL }, { 100.0, NULL },
+	{ 120.0, NULL }, { 144.0, NULL }, { 165.0, NULL }, { 200.0, NULL }, { 240.0, NULL }, { 280.0, NULL },
+	{ 360.0, NULL }, { 480.0, NULL }, { 540.0, NULL }, { -1.0, "NONE" },
+};
+static struct settings_slider_stop const settings_fov_stops[] =
+{
+	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
+	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
+	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+};
+
+#define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
 
 /* each slider by its row: its setting, its track's range and step, the
-values it may be typed (as tools/port_settings.py's Slider has them) */
+values it may be typed, whether they are whole numbers, and its stops (as
+tools/port_settings.py's Slider has them) */
 static struct
 {
 	char const *row;
 	char const *setting;
 	double least, most, step;
 	double typed_least, typed_most;
+	boolean whole;
+	struct settings_slider_stop const *stops;
+	short stop_count;
 } const settings_sliders[] =
 {
-	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0 },
+	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0, FALSE, NULL, 0 },
+	{ "op_max_fps", "display.max_fps", 30.0, 540.0, 1.0, 10.0, 1000.0, TRUE, SLIDER_STOPS(settings_frame_rate_stops) },
+	{ "op_fov", "display.fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
+	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
+		SLIDER_STOPS(settings_fov_stops) },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out
 (SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH) */
-#define SLIDER_TRACK_WIDTH 92
+#define SLIDER_TRACK_WIDTH 66
 #define SLIDER_THUMB_WIDTH 8
 
 /* the slider the mouse drags (its row), and the one typed into */
@@ -4452,6 +4492,26 @@ static short settings_slider_of(struct widget_instance const *row)
 	return NONE;
 }
 
+/* the stop shown as a word that has this value, or NONE */
+static short settings_slider_word(short slider, double value)
+{
+	short stop;
+
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].word && settings_sliders[slider].stops[stop].value == value)
+			return stop;
+	}
+	return NONE;
+}
+
+/* whether the slider takes the value: one it may be typed, or a word's */
+static boolean settings_slider_valid(short slider, double value)
+{
+	return (value >= settings_sliders[slider].typed_least && value <= settings_sliders[slider].typed_most) ||
+		settings_slider_word(slider, value) != NONE;
+}
+
 /* the slider's value as Settings shows it: the change kept, else the
 setting's (else its default) */
 static double settings_slider_value(short slider)
@@ -4460,7 +4520,7 @@ static double settings_slider_value(short slider)
 	double value;
 
 	if (!settings_value(settings_sliders[slider].setting, text, sizeof(text)) || !text_is_number(text, &value) ||
-		!(value > 0.0))
+		!settings_slider_valid(slider, value))
 	{
 		if (!setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) || !text_is_number(text, &value))
 			value = settings_sliders[slider].least;
@@ -4468,15 +4528,32 @@ static double settings_slider_value(short slider)
 	return value;
 }
 
-/* a value as the slider shows and writes it: at most three decimals */
-static void settings_slider_text(double value, char *text, unsigned int size)
+/* a value as the slider writes it: a whole number, or at most three
+decimals */
+static void settings_slider_number(short slider, double value, char *text, unsigned int size)
 {
 	size_t length;
 
+	if (settings_sliders[slider].whole)
+	{
+		snprintf(text, size, "%ld", (long)(value < 0.0 ? value - 0.5 : value + 0.5));
+		return;
+	}
 	snprintf(text, size, "%.3f", value);
 	length = strlen(text);
 	while (length > 3 && text[length - 1] == '0' && text[length - 2] != '.')
 		text[--length] = 0;
+}
+
+/* a value as the slider shows it: its stop's word, else its number */
+static void settings_slider_text(short slider, double value, char *text, unsigned int size)
+{
+	short word = settings_slider_word(slider, value);
+
+	if (word != NONE)
+		snprintf(text, size, "%s", settings_sliders[slider].stops[word].word);
+	else
+		settings_slider_number(slider, value, text, size);
 }
 
 /* the value kept as a change, or none if it is the setting's */
@@ -4484,8 +4561,9 @@ static void settings_slider_set(short slider, double value)
 {
 	char text[64], current[64];
 
-	value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
-	settings_slider_text(value, text, sizeof(text));
+	if (settings_slider_word(slider, value) == NONE)
+		value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
+	settings_slider_number(slider, value, text, sizeof(text));
 	if (setting_text(settings_sliders[slider].setting, current, sizeof(current), FALSE) &&
 		settings_values_same(current, text))
 	{
@@ -4495,6 +4573,52 @@ static void settings_slider_set(short slider, double value)
 	{
 		settings_pending_set(settings_sliders[slider].setting, text);
 	}
+}
+
+/* where the value is along a slider's stops, from 0 (the first) to the
+last's index: a stop's own place, or between the two numbers it is between
+(past the numbers' ends, at the end) */
+static double settings_slider_stop_place(short slider, double value)
+{
+	struct settings_slider_stop const *stops = settings_sliders[slider].stops;
+	short count = settings_sliders[slider].stop_count;
+	short stop, first = NONE, last = NONE;
+
+	for (stop = 0; stop < count; stop++)
+	{
+		if (stops[stop].value == value)
+			return stop;
+	}
+	for (stop = 0; stop < count; stop++)
+	{
+		if (stops[stop].word)
+			continue;
+		if (first == NONE)
+			first = stop;
+		last = stop;
+		if (stop + 1 < count && !stops[stop + 1].word && value > stops[stop].value && value < stops[stop + 1].value)
+			return stop + (value - stops[stop].value) / (stops[stop + 1].value - stops[stop].value);
+	}
+	if (first == NONE)
+		return 0.0;
+	return value < stops[first].value ? first : last;
+}
+
+/* the stop nearest the slider's value (its picture's: settings_panel_show),
+or NONE for a slider without stops */
+static short settings_slider_stop_nearest(short slider)
+{
+	if (!settings_sliders[slider].stop_count)
+		return NONE;
+	return (short)(settings_slider_stop_place(slider, settings_slider_value(slider)) + 0.5);
+}
+
+/* the thumb's place along the track, from 0 to 1 */
+static double settings_slider_fraction(short slider, double value)
+{
+	if (settings_sliders[slider].stop_count > 1)
+		return settings_slider_stop_place(slider, value) / (settings_sliders[slider].stop_count - 1);
+	return (value - settings_sliders[slider].least) / (settings_sliders[slider].most - settings_sliders[slider].least);
 }
 
 /* the track's left edge on the screen (its offsets and its parents', as the
@@ -4517,18 +4641,41 @@ static void settings_slider_place(short slider, struct widget_instance *track, s
 	double least = settings_sliders[slider].least, most = settings_sliders[slider].most;
 	double step = settings_sliders[slider].step;
 	double value = least + PIN(fraction, 0.0, 1.0) * (most - least);
+	short count = settings_sliders[slider].stop_count;
 
+	/* (with stops, the one nearest) */
+	if (count > 1)
+	{
+		settings_slider_set(slider,
+			settings_sliders[slider].stops[(short)(PIN(fraction, 0.0, 1.0) * (count - 1) + 0.5)].value);
+		return;
+	}
 	settings_slider_set(slider, PIN((double)(long)(value / step + 0.5) * step, least, most));
 }
 
-/* (the number typed: kept if it is one) */
+/* (the number typed: kept if it is one, past 0 or a word's; or a word) */
 static void settings_slider_typed(char const *text)
 {
+	short slider = settings_slider.typed;
 	double value;
+	short stop;
 
-	if (settings_slider.typed != NONE && text_is_number(text, &value) && value > 0.0)
-		settings_slider_set(settings_slider.typed, value);
 	settings_slider.typed = NONE;
+	if (slider == NONE)
+		return;
+	if (text_is_number(text, &value) && (value > 0.0 || settings_slider_word(slider, value) != NONE))
+	{
+		settings_slider_set(slider, value);
+		return;
+	}
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].word && !_stricmp(text, settings_sliders[slider].stops[stop].word))
+		{
+			settings_slider_set(slider, settings_sliders[slider].stops[stop].value);
+			return;
+		}
+	}
 }
 
 static struct widget_instance *settings_slider_track(struct widget_instance *row)
@@ -4555,10 +4702,23 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 	{
 		double step = settings_sliders[slider].step;
 		double value = settings_slider_value(slider);
+		short count = settings_sliders[slider].stop_count;
 
 		/* (the arrow keys move nothing while the number is typed) */
 		if (text_field_editing(row))
 			return TRUE;
+		/* (with stops, to the next one along: from between two, the one on
+		that side) */
+		if (count > 1)
+		{
+			double place = settings_slider_stop_place(slider, value);
+			short at = (short)place;
+			short stop = !strcmp(name, "left") ? (short)(place > at ? at : at - 1) : (short)(at + 1);
+
+			settings_slider_set(slider, settings_sliders[slider].stops[PIN(stop, 0, count - 1)].value);
+			ui_play_audio_feedback_sound(SOUND_CURSOR);
+			return TRUE;
+		}
 		value = (double)(long)(value / step + 0.5) * step + (!strcmp(name, "left") ? -step : step);
 		settings_slider_set(slider, PIN(value, settings_sliders[slider].least, settings_sliders[slider].most));
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
@@ -4584,10 +4744,16 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 		}
 		if (text_field_editing(NULL))
 			text_field_end(TRUE);
+#ifdef HALO_ANDROID
+		/* (Android's app raises no keyboard for a field: the track alone) */
+		(void)text;
+		return TRUE;
+#else
 		settings_slider.typed = slider;
-		settings_slider_text(settings_slider_value(slider), text, sizeof(text));
+		settings_slider_text(slider, settings_slider_value(slider), text, sizeof(text));
 		text_field_begin(row, text, 7, settings_slider_typed);
 		return TRUE;
+#endif
 	}
 	return FALSE;
 }
@@ -4648,14 +4814,13 @@ static void settings_sliders_show(struct widget_instance *list)
 		if (text_field_editing(row) && list->focused_child != row)
 			text_field_end(TRUE);
 		value = settings_slider_value(slider);
-		fraction = (value - settings_sliders[slider].least) /
-			(settings_sliders[slider].most - settings_sliders[slider].least);
+		fraction = settings_slider_fraction(slider, value);
 		if (thumb)
 			thumb->horizontal_offset = (short)(PIN(fraction, 0.0, 1.0) * (SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH) + 0.5);
 		for (value_text = track->next; value_text && value_text->type != 1; value_text = value_text->next)
 		{
 		}
-		settings_slider_text(value, text, sizeof(text));
+		settings_slider_text(slider, value, text, sizeof(text));
 		text_field_show(value_text, text, text_field_editing(row));
 		/* (typed into: its field lit, and the caret held on, not blinking,
 		so that it is plain that the number takes what is typed) */

@@ -281,17 +281,23 @@ class Slider(NamedTuple):
     from least to most, left and right step it by step (holding them steps
     on), a click on the track or the mouse dragged along it sets it, and A, or
     a click on its number, types a value (Enter keeps it) from typed_least to
-    typed_most. menu_functions.c's settings_sliders has the same"""
+    typed_most (whole: rounded to a whole number). With stops, [(shown,
+    value)], the track is the stops, evenly spaced, and left, right and a
+    click go from stop to stop; a stop shown as a word (AUTO) is that value,
+    which may be typed as the word or the number. menu_functions.c's
+    settings_sliders has the same"""
     least: float
     most: float
     step: float
     typed_least: float
     typed_most: float
+    whole: bool = False
+    stops: tuple = ()
 
 
 # a slider's track, its thumb and its number, in the value's column
-SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH, SLIDER_TRACK_HEIGHT = 92, 8, 14
-SLIDER_VALUE_X, SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT = 94, 46, 20
+SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH, SLIDER_TRACK_HEIGHT = 66, 8, 14
+SLIDER_VALUE_X, SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT = 68, 72, 20
 # input.mouse_sensitivity's: CS2's sensitivity (port/linux/include/mouse_sensitivity.h)
 MOUSE_SENSITIVITY = Slider(0.1, 10.0, 0.05, 0.01, 100.0)
 # the geometry, in the 640x480 menu units (menu_functions.c's SETTINGS_*
@@ -420,7 +426,15 @@ DISPLAY_MODES = [("FULLSCREEN", "fullscreen"), ("BORDERLESS", "borderless"), ("W
 # input.left_stick_dead_zone's and right's: the game's own (-1), or a part of
 # the stick's travel
 STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) for percent in range(0, 51, 5)]
-FIELDS_OF_VIEW = [("DEFAULT", "0")] + [(str(n), str(n)) for n in range(80, 151, 5)]
+# display.fov's and display.viewmodel_fov's stops: the game's own (0), or
+# degrees; any of 20 to 150 typed
+FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
+                        stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 151, 5)))
+# display.max_fps's stops: twice the display's refresh rate (0), the
+# displays' common rates, or no limit (-1); any of 10 to 1000 typed
+FRAME_RATE_LIMITS = Slider(30, 540, 1, 10, 1000, whole=True,
+                           stops=(("AUTO", "0"),) + tuple((str(n), str(n)) for n in (
+                               30, 60, 75, 90, 100, 120, 144, 165, 200, 240, 280, 360, 480, 540)) + (("NONE", "-1"),))
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
 SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
@@ -506,15 +520,14 @@ PAGES = {
              "refresh rate. On Linux and the Steam Deck each frame starts just in time for its refresh, so it adds "
              "almost no input lag; it is on in the Steam Deck's Game Mode.", None),
             # (shown while VSync shows OFF: menu_functions.c's max_fps_row_show)
-            ("FRAME RATE LIMIT", "display.max_fps",
-             [("AUTO", "0"), ("30", "30"), ("60", "60"), ("120", "120"), ("144", "144"), ("165", "165"),
-              ("240", "240"), ("NONE", "-1")],
+            ("FRAME RATE LIMIT", "display.max_fps", FRAME_RATE_LIMITS,
              "The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and "
              "uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) "
-             "is shown in step with the display, as V-Sync shows it.", "desktop"),
+             "is shown in step with the display, as V-Sync shows it.|Click the number (or press A) to type any "
+             "limit from 10 to 1000.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
              "How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
-             "more around you.", None),
+             "more around you.|Click the number (or press A) to type any from 20 to 150.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -822,7 +835,7 @@ PAGES = {
             (SECTION, "VIEW"),
             ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", FIELDS_OF_VIEW,
              "How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the "
-             "weapon's own view.", None),
+             "weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
             ("WEAPON AND HANDS", "display.viewmodel_visible", [("SHOW", "true"), ("HIDE", "false")],
              "Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and "
              "hear them.", None),

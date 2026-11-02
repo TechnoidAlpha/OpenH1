@@ -133,22 +133,42 @@
 		<on event="created" run="port setting load"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_max_fps" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="desktop" wide="-106 120">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_track" x="188" y="3"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_value" x="256" y="0"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" string_index="5" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="AUTO|30|60|120|144|165|240|NONE" setting="display.max_fps" values="0|30|60|120|144|165|240|-1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_track" controller="1" width="66" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_thumb"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/max_fps_value" type="text" controller="1" width="72" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_fov" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_track" x="188" y="3"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_value" x="256" y="0"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|80|85|90|95|100|105|110|115|120|125|130|135|140|145|150" setting="display.fov" values="0|80|85|90|95|100|105|110|115|120|125|130|135|140|145|150" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_track" controller="1" width="66" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_thumb"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_value" type="text" controller="1" width="72" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_orientation" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="android" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_label"/>
@@ -258,8 +278,8 @@
 		<string text="What fullscreen and borderless draw at. Native is the display's own, the sharpest; a lower one is lighter on a slow computer, and softer. Fullscreen sets the display to it; borderless scales it."/>
 		<string text="The window's size: 4:3 first, then 16:10, 16:9 and 21:9. Its edges can also be dragged."/>
 		<string text="Shows each frame at a refresh of the display: even motion that never tears, at the display's refresh rate. On Linux and the Steam Deck each frame starts just in time for its refresh, so it adds almost no input lag; it is on in the Steam Deck's Game Mode."/>
-		<string text="The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) is shown in step with the display, as V-Sync shows it."/>
-		<string text="How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows more around you."/>
+		<string text="The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) is shown in step with the display, as V-Sync shows it.|Click the number (or press A) to type any limit from 10 to 1000."/>
+		<string text="How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows more around you.|Click the number (or press A) to type any from 20 to 150."/>
 		<string text="Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under it and the touch controls below it. Auto turns with the device."/>
 		<string text="Where the picture sits on a screen taller than it, its shape, and the frame around it in portrait."/>
 		<string text="Your weapon's field of view and whether it is drawn, your legs and arms, your shield's color, and the view from a vehicle's passenger seat."/>
