@@ -294,7 +294,9 @@ Check these on a Windows computer before a release.
 
 ## Limits
 
-- Bink video is not available. The game skips the movies.
+- The startup movies play only with `display.movies` on (off by default),
+  from the Xbox's own movie files in the data root's `bink` folder, as on
+  the other builds.
 - Windows 10 before version 1903 does not take UTF-8 as the code page of
   the process: there, a path to the data or the saved games with
   characters that are not in the code page of the system does not always
