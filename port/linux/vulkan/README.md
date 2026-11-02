@@ -403,28 +403,33 @@ antialiases only the flat screen's 3D view (`source/render/render.c`).
 
 ## Ambient occlusion
 
-`display.ambient_occlusion` (`"off"`, `"low"`, `"high"`) shades each
-window's 3D view once its opaque surfaces have drawn their light: the
-game calls `halo_screen_ambient_occlusion` after the structure's lightmap
-pass (`source/render/render.c`), before the diffuse textures, the decals,
-the dynamic lights, the specular light, the transparent surfaces and the
-effects. The record (`XGPU_STREAM_AMBIENT_OCCLUSION`) carries the camera's
-near and far planes and its projection, and the passes
+`display.ambient_occlusion` (`"off"`, `"subtle"`, `"strong"`: Enhanced's)
+shades each window's 3D view once its opaque surfaces have drawn their
+light, only where the game's lighting does not hold the occlusion: the game
+calls `halo_screen_ambient_occlusion` after the structure's lightmap pass
+(`source/render/render.c`), before the diffuse textures, the decals, the
+dynamic lights, the specular light, the transparent surfaces and the
+effects. As they draw, objects (models) mark their pixels in the stencil's
+bit 6 and self-illuminated surfaces in bit 7 (`pipeline_state_describe`);
+the first-person weapon's is the game's bit 0. The record
+(`XGPU_STREAM_AMBIENT_OCCLUSION`) carries the camera, and the passes
 (`xgpu_vulkan_post.c`, their GLSL in `tools/vulkan_post_shaders.py`) are:
 
 - the depth target (its first sample's, resolved where it has more) made
-  the distances along the view, at the target's resolution (high) or half
-  of it (low), each a half float and what it leaves;
-- GTAO (XeGTAO's horizon integral): in two directions a pixel, turned by
-  a 4x4 Bayer matrix, the highest horizon each side within the radius
-  (0.5 world units low, 0.75 high), its normal from the depth;
+  the distances along the view, each a half float and what it leaves;
+- the mask: the stencil's bits made a texture by draws tested against them
+  (red an object's pixel, green one left as it is);
+- GTAO (XeGTAO's horizon integral) at half the resolution: in two
+  directions a pixel, turned by a 4x4 Bayer matrix, the highest horizon
+  each side within 0.5 world units, its normal from the depth. An object's
+  pixel (one ambient sample lights it) counts every sample; the level's
+  (its radiosity lightmap holds its own occlusion) only objects', so that
+  no corner is darkened twice;
 - a blur along x and then y, nine taps weighted by their distances'
-  nearness;
+  nearness, none across an object's edge;
 - a draw over the target multiplying its colour (not its alpha), filtered
-  up from half the resolution, where the stencil's
-  `XGPU_AMBIENT_OCCLUSION_KEEP` bits are clear: the first-person weapon's
-  (the game's own bit 0), and a self-illuminated surface's (bit 7, which
-  the front end has those draws write: `pipeline_state_describe`).
+  up by the nearest four weighted by their distances, none over the pixels
+  the mask leaves.
 
 The target's pass ends for them and begins again, loading what it drew.
 `debug.ambient_occlusion_view` draws the occlusion alone in the view's place

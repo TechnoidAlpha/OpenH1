@@ -136,7 +136,7 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/ambient_occlusion_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/ambient_occlusion_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|LOW|HIGH" setting="display.ambient_occlusion" values="off|low|high" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/ambient_occlusion_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|SUBTLE|STRONG" setting="display.ambient_occlusion" values="off|subtle|strong" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_shield_glow" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
@@ -200,7 +200,7 @@
 		<string text=""/>
 		<string text="Lights characters and weapons smoothly, without the flat facets of the Xbox's lighting, at a small cost."/>
 		<string text="Enhanced: plasma bolts, muzzle flashes and blasts light their surroundings smoothly, with a glow. Classic lights them as the Xbox did."/>
-		<string text="Shades the creases and corners where surfaces meet, and grounds characters and vehicles on the floor. Low works at half resolution; High is sharper and costs more. Not yet on Mac."/>
+		<string text="Grounds characters, vehicles and scenery with soft shade where they meet the world and in their creases. The levels keep their own lighting. Not yet on Mac."/>
 		<string text="Shields light their surroundings as they flare, in the shield's own color. Online: the host's choice."/>
 		<string text="Light Show: the shields' glow reaches three times as far, and is brighter. Online: the host's choice."/>
 		<string text=""/>

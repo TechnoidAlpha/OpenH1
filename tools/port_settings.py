@@ -766,10 +766,10 @@ PAGES = {
             ("DYNAMIC LIGHTS", "display.dynamic_lights", [("CLASSIC", "classic"), ("ENHANCED", "enhanced")],
              "Enhanced: plasma bolts, muzzle flashes and blasts light their surroundings smoothly, with a glow. "
              "Classic lights them as the Xbox did.", "desktop android"),
-            ("AMBIENT OCCLUSION", "display.ambient_occlusion", [("OFF", "off"), ("LOW", "low"), ("HIGH", "high")],
-             "Shades the creases and corners where surfaces meet, and grounds characters and vehicles on the floor. "
-             "Low works at half resolution; High is sharper and costs more. Not yet on Mac.",
-             "desktop android"),
+            ("AMBIENT OCCLUSION", "display.ambient_occlusion",
+             [("OFF", "off"), ("SUBTLE", "subtle"), ("STRONG", "strong")],
+             "Grounds characters, vehicles and scenery with soft shade where they meet the world and in their "
+             "creases. The levels keep their own lighting. Not yet on Mac.", "desktop android"),
             ("SHIELD GLOW", "display.shield_glow", ON_OFF,
              "Shields light their surroundings as they flare, in the shield's own color. Online: the host's "
              "choice.", None),

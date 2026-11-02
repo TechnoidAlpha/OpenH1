@@ -59,17 +59,17 @@ depth target (XGPU_VULKAN_FORMAT_D24S8), made now or queued where
 preparing; 0 if they cannot be (logged; once 0, it stays so). The occlusion
 over the corners of a target's 3D view (its first layer), found from a
 depth target of one sample (depth_texture: depth's, or its first sample's
-resolved), laid over the target's colour where the stencil of depth (its
-attachment, drawn with the target) has no XGPU_AMBIENT_OCCLUSION_KEEP bit:
-quality XGPU_AMBIENT_OCCLUSION_LOW or _HIGH, camera its near and far planes
-and the projection's x and y scales and offsets. In the stream's order; the
-targets bound before are not bound after. show draws the occlusion last
-laid in place of the view (white where it was not laid), once. */
+resolved) and the stencil of depth (its attachment, drawn with the target:
+XGPU_AMBIENT_OCCLUSION_OBJECT and _KEEP), laid over the target's colour:
+quality XGPU_AMBIENT_OCCLUSION_SUBTLE or _STRONG, camera its near and far
+planes and the projection's x and y scales and offsets. In the stream's
+order; the targets bound before are not bound after. show draws the
+occlusion last laid in place of the view (white where it was not laid),
+once. */
 int xgpu_vulkan_post_ambient_occlusion_prepare(uint8_t format, uint32_t samples, int preparing);
 void xgpu_vulkan_post_ambient_occlusion(struct xgpu_vulkan_image *target, struct xgpu_vulkan_image *depth,
 	struct xgpu_vulkan_image *depth_texture, const int32_t corners[4], int quality, const float camera[6]);
-void xgpu_vulkan_post_ambient_occlusion_show(struct xgpu_vulkan_image *target, struct xgpu_vulkan_image *depth,
-	const int32_t corners[4]);
+void xgpu_vulkan_post_ambient_occlusion_show(struct xgpu_vulkan_image *target, const int32_t corners[4]);
 
 /* The present step's turn, for a swapchain made for the display's own
 orientation while the phone is held another way (Android's pre-rotation:

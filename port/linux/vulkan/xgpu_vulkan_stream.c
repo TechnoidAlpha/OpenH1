@@ -2455,7 +2455,7 @@ static void stream_ambient_occlusion(void *context, const struct xgpu_stream_amb
 
 	(void)context;
 	if (!target || target->depth || target->layers > 1 || !depth || !depth->depth ||
-		record->quality < XGPU_AMBIENT_OCCLUSION_LOW || record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
+		record->quality < XGPU_AMBIENT_OCCLUSION_SUBTLE || record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
 		return;
 	/* (the attachments the view is drawn into: multisampled where they
 	are, and both of a number of samples) */
@@ -2473,7 +2473,7 @@ static void stream_ambient_occlusion(void *context, const struct xgpu_stream_amb
 	if (color_image == target->multisampled)
 		target->unresolved = 1;
 	if (record->quality == XGPU_AMBIENT_OCCLUSION_SHOW)
-		xgpu_vulkan_post_ambient_occlusion_show(color_image, depth_image, record->corners);
+		xgpu_vulkan_post_ambient_occlusion_show(color_image, record->corners);
 	else
 	{
 		/* (the first sample's depth, to find the occlusion from) */

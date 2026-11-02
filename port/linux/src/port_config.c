@@ -97,7 +97,7 @@ struct config_setting
 chooses (config_graphics), which are their defaults, the same on every
 build: SMAA (on iOS MSAA 2x), 16x anisotropic filtering, 512 shadow maps,
 the models' detail by the display's lines and lit for each pixel, the
-enhanced dynamic lights */
+enhanced dynamic lights, strong ambient occlusion */
 #ifdef HALO_IOS
 /* (an iPhone's tile-based GPU resolves MSAA in its tile memory, the 3D view
 drawn in one pass, port/macos/xgpu_metal.m: about the cost of SMAA's
@@ -113,6 +113,14 @@ frame where 4x took up to 10) */
 #define GRAPHICS_PER_PIXEL_LIGHTING "true"
 #define GRAPHICS_MODEL_DETAIL "\"native\""
 #define GRAPHICS_DYNAMIC_LIGHTS "\"enhanced\""
+/* (but none on the phones, whose tile-based GPUs would store the 3D view's
+colour and depth and load them again for its passes in the middle of each
+frame) */
+#if defined(HALO_ANDROID) || defined(HALO_IOS)
+#define GRAPHICS_AMBIENT_OCCLUSION "\"off\""
+#else
+#define GRAPHICS_AMBIENT_OCCLUSION "\"strong\""
+#endif
 /* display.astc_textures: "auto" everywhere (iPhones, through Metal; Android
 phones without BC, through Vulkan: seen right on a Pixel 11 Pro's PowerVR) */
 #define ASTC_TEXTURES_DEFAULT "\"auto\""
@@ -1076,15 +1084,16 @@ static const struct config_setting config_settings[] =
 		"of the walls and models, through the walls' bump maps, gliding with\n"
 		"the bolt between ticks, brighter in its core and fading softly, with\n"
 		"a glow about each plasma bolt, and lighting your own weapon and hands." GRAPHICS_CHOOSES },
-	{ "display.ambient_occlusion", _config_string, "\"off\"", "HALO_AMBIENT_OCCLUSION", _environment_value,
-		_platform_all,
-		"Ambient occlusion, which the Xbox did not have: the light of the\n"
-		"world's surfaces dimmed where they meet and in creases (a marine on a\n"
-		"bench, a Warthog's wheels on the ground, a crate on the floor), worked\n"
-		"out from the 3D view's depth each frame, over the levels' own baked\n"
-		"light. \"off\"; \"low\" at half the resolution, \"high\" at the whole.\n"
-		"Self-illuminated surfaces and your weapon keep their light. Vulkan\n"
-		"only (the Linux builds, Windows, Android)." },
+	{ "display.ambient_occlusion", _config_string, GRAPHICS_AMBIENT_OCCLUSION, "HALO_AMBIENT_OCCLUSION",
+		_environment_value, _platform_all,
+		"Ambient occlusion, which the Xbox did not have: the ambient light of\n"
+		"characters, vehicles and scenery dimmed where they meet the world and\n"
+		"in their creases, and the level's dimmed under them (a marine on a\n"
+		"bench, a Warthog on the sand), worked out from the 3D view's depth\n"
+		"each frame. The levels' own corners keep their baked light, and\n"
+		"self-illuminated surfaces, lights and your weapon keep theirs: \"off\",\n"
+		"\"subtle\" or \"strong\". Vulkan for now (the Linux builds, Windows,\n"
+		"Android)." GRAPHICS_CHOOSES },
 	{ "display.shield_color", _config_string, "\"default\"", "HALO_SHIELD_COLOR", _environment_value, _platform_all,
 		"Your energy shield's color, as this machine draws it: \"default\" (the\n"
 		"shield's own) or a multiplayer armor color: white, black, red, blue,\n"
@@ -3148,6 +3157,7 @@ static const struct
 	/* ("native" in VR, whose eyes' many lines the Xbox's 480 stand for) */
 	{ "display.model_detail", "\"auto\"" },
 	{ "display.dynamic_lights", "\"classic\"" },
+	{ "display.ambient_occlusion", "\"off\"" },
 };
 
 #define NUMBER_OF_CONFIG_GRAPHICS (sizeof(config_graphics) / sizeof(config_graphics[0]))

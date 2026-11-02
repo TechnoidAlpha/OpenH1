@@ -109,9 +109,11 @@ void xgpu_backend_picture_top(int top);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
 /* display.ambient_occlusion: the occlusion of a window's 3D view (its
 corners in the target's pixels), from the depth target drawn with it, laid
-over the light of its opaque surfaces, none over the pixels the stencil's
-XGPU_AMBIENT_OCCLUSION_KEEP bits mark: quality XGPU_AMBIENT_OCCLUSION_LOW
-or _HIGH (xgpu_stream.h), and the camera (near, far, the projection's x and
+over the light of its opaque surfaces where the lighting does not hold it
+(an object's pixel by all about it, the level's by objects alone: the
+stencil's XGPU_AMBIENT_OCCLUSION_OBJECT bit), none over the pixels its
+XGPU_AMBIENT_OCCLUSION_KEEP bits mark: quality XGPU_AMBIENT_OCCLUSION_SUBTLE
+or _STRONG (xgpu_stream.h), and the camera (near, far, the projection's x and
 y scales and offsets). XGPU_AMBIENT_OCCLUSION_SHOW draws the occlusion last
 laid over the target in its place (debug.ambient_occlusion_view: the term
 in grey, white where it was not laid), once the view is drawn */

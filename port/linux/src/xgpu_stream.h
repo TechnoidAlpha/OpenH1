@@ -333,16 +333,17 @@ struct xgpu_stream_ambient_occlusion
 	float camera[6];
 };
 
-/* its quality; and the stencil's bits of the pixels the occlusion leaves:
-the first-person weapon's (the game's own), and a surface's lighting itself
-(the front end's: d3d8_device.c) */
+/* its quality; the stencil's bits of the pixels the occlusion leaves (the
+first-person weapon's, the game's own, and a surface's lighting itself);
+and an object's pixels' bit (the front end's: d3d8_device.c) */
 enum
 {
-	XGPU_AMBIENT_OCCLUSION_LOW = 1,
-	XGPU_AMBIENT_OCCLUSION_HIGH = 2,
+	XGPU_AMBIENT_OCCLUSION_SUBTLE = 1,
+	XGPU_AMBIENT_OCCLUSION_STRONG = 2,
 	XGPU_AMBIENT_OCCLUSION_SHOW = 3,
 	XGPU_AMBIENT_OCCLUSION_KEEP = 0x81,
-	XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED = 0x80
+	XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED = 0x80,
+	XGPU_AMBIENT_OCCLUSION_OBJECT = 0x40
 };
 
 /* ---------- render targets */

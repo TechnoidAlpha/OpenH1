@@ -220,7 +220,7 @@ SMAA_PREFIX = (
 )
 # each sampler's texture unit, which becomes its binding
 UNITS = {"color_texture": 0, "edges_texture": 0, "area_texture": 1, "search_texture": 2, "weights_texture": 1,
-         "depth_texture": 0}
+         "depth_texture": 0, "mask_texture": 1, "distance_texture": 2}
 # Vulkan's own program: the frame turned for a swapchain the display turns
 # (a phone held sideways: xgpu_vulkan_post_rotate). Each pixel takes the
 # texel the bounds' matrix (its rows xy and zw) turns it to, about the
@@ -241,13 +241,15 @@ ROTATE_SOURCE = (
     "}\n"
 )
 # display.ambient_occlusion's passes (Vulkan's own: xgpu_vulkan_post.c,
-# xgpu_vulkan_post_ambient_occlusion). Their uniforms: metrics, the image
-# drawn into (the apply's: the occlusion's image); bounds, the 3D view's
-# rectangle in the occlusion's pixels; camera, the projection's x and y
-# scales and offsets; occlusion, the camera's near and far planes, the
+# xgpu_vulkan_post_ambient_occlusion). Their uniforms: metrics, the
+# occlusion's image (1 / width, 1 / height, width, height); bounds, the 3D
+# view's rectangle in the occlusion's pixels; camera, the projection's x and
+# y scales and offsets; occlusion, the camera's near and far planes, the
 # radius (world units) and the strength; sampling, the slices, the steps
 # each side, the power and the target's pixels to the occlusion's (1 or 2),
-# and the blur's direction (xy).
+# or the blur's direction (xy). The mask (the stencil's bits made a
+# texture): red an object's pixel, green a pixel the occlusion leaves (the
+# first-person weapon's, a self-illuminated surface's).
 OCCLUSION_UNIFORMS = (
     "uniform vec4 metrics;\n"
     "uniform vec4 bounds;\n"
@@ -258,17 +260,16 @@ OCCLUSION_UNIFORMS = (
     "out vec4 result;\n"
 )
 # the depth made the distance along the view (reversed Z: 1 at the near
-# plane, 0 at the far plane and where nothing was drawn), at the occlusion's
-# resolution: every pixel's, or one of each two by two; as a half float and
-# what it leaves (red plus green), the precision a wall's slope needs
+# plane, 0 at the far plane and where nothing was drawn), at the target's
+# resolution, as a half float and what it leaves (red plus green), the
+# precision a wall's slope needs
 OCCLUSION_DEPTH_SOURCE = (
     "uniform sampler2D depth_texture;\n"
     + OCCLUSION_UNIFORMS +
     "\n"
     "void main()\n"
     "{\n"
-    "\tivec2 texel = min(ivec2(gl_FragCoord.xy) * int(sampling.w), textureSize(depth_texture, 0) - 1);\n"
-    "\tfloat reversed = texelFetch(depth_texture, texel, 0).r;\n"
+    "\tfloat reversed = texelFetch(depth_texture, ivec2(gl_FragCoord.xy), 0).r;\n"
     "\tfloat near = occlusion.x, far = occlusion.y;\n"
     "\tfloat distance = reversed > 0.0 ? near * far / (near + reversed * (far - near)) : far;\n"
     "\tfloat high = unpackHalf2x16(packHalf2x16(vec2(distance, 0.0))).x;\n"
@@ -278,22 +279,31 @@ OCCLUSION_DEPTH_SOURCE = (
 # GTAO (Jimenez et al., "Practical Real-Time Strategies for Accurate
 # Indirect Occlusion", 2016, as Intel's XeGTAO has it): in each of a few
 # directions about the pixel (a slice of the view through it, turned by a
-# noise each pixel), the highest horizon each side within the radius, its
+# 4x4 Bayer matrix), the highest horizon each side within the radius, its
 # samples' weight falling off to none at the radius; the visible arc
 # between them integrated with the cosine about the pixel's normal, which
-# the depth gives (the nearer of each side's neighbours). The result: the
-# light the pixel still sees (1 none occluded), and its distance, for the
-# blur.
+# the depth gives (the nearer of each side's neighbours). Only what the
+# lighting does not already hold: an object's pixel (lit by one ambient
+# sample) is occluded by everything about it, the level's (whose lightmap
+# holds the level's own occlusion) only by objects. The result: the light
+# the pixel still sees (1 none occluded), its distance and whether it is an
+# object's, for the blur and the filtering up.
 OCCLUSION_SOURCE = (
     "uniform sampler2D depth_texture;\n"
+    "uniform sampler2D mask_texture;\n"
     + OCCLUSION_UNIFORMS +
     "\n"
     "const float PI = 3.14159265;\n"
     "\n"
+    "ivec2 full_texel(ivec2 texel)\n"
+    "{\n"
+    "\treturn clamp(texel, ivec2(bounds.xy), ivec2(bounds.zw) - 1) * int(sampling.w);\n"
+    "}\n"
+    "\n"
     "vec3 position_at(ivec2 texel)\n"
     "{\n"
     "\ttexel = clamp(texel, ivec2(bounds.xy), ivec2(bounds.zw) - 1);\n"
-    "\tvec2 parts = texelFetch(depth_texture, texel, 0).rg;\n"
+    "\tvec2 parts = texelFetch(depth_texture, texel * int(sampling.w), 0).rg;\n"
     "\tfloat z = parts.r + parts.g;\n"
     "\tvec2 ndc = (vec2(texel) + 0.5 - bounds.xy) / (bounds.zw - bounds.xy) * 2.0 - 1.0;\n"
     "\treturn vec3((ndc - camera.zw) / camera.xy * z, z);\n"
@@ -311,12 +321,14 @@ OCCLUSION_SOURCE = (
     "{\n"
     "\tivec2 texel = ivec2(gl_FragCoord.xy);\n"
     "\tvec3 centre = position_at(texel);\n"
+    "\tvec2 mask = texelFetch(mask_texture, full_texel(texel), 0).rg;\n"
+    "\tfloat object = mask.r > 0.5 ? 1.0 : 0.0;\n"
     "\tfloat radius = occlusion.z;\n"
     "\tfloat screen_radius = min(radius * 0.5 * (bounds.z - bounds.x) * camera.x / centre.z,\n"
     "\t\t0.12 * (bounds.w - bounds.y));\n"
-    "\tif (centre.z >= occlusion.y * 0.99 || screen_radius < 1.0)\n"
+    "\tif (mask.g > 0.5 || centre.z >= occlusion.y * 0.99 || screen_radius < 1.0)\n"
     "\t{\n"
-    "\t\tresult = vec4(1.0, centre.z, 0.0, 1.0);\n"
+    "\t\tresult = vec4(1.0, centre.z, object, 1.0);\n"
     "\t\treturn;\n"
     "\t}\n"
     "\tvec3 left = centre - position_at(texel - ivec2(1, 0)), right = position_at(texel + ivec2(1, 0)) - centre;\n"
@@ -345,15 +357,21 @@ OCCLUSION_SOURCE = (
     "\t\tfloat n = (dot(across, projected) < 0.0 ? -1.0 : 1.0) * acos(cos_n);\n"
     "\t\tfloat low0 = cos(n + 0.5 * PI), low1 = cos(n - 0.5 * PI);\n"
     "\t\tfloat horizon0 = low0, horizon1 = low1;\n"
-    "\t\tfor (int step = 0; step < steps; step++)\n"
+    "\t\tfor (int taken = 0; taken < steps; taken++)\n"
     "\t\t{\n"
-    "\t\t\tfloat along = (float(step) + step_noise) / float(steps);\n"
-    "\t\t\tivec2 offset = ivec2(round(omega * max(along * along * screen_radius, float(step) + 1.0)));\n"
+    "\t\t\tfloat along = (float(taken) + step_noise) / float(steps);\n"
+    "\t\t\tivec2 offset = ivec2(round(omega * max(along * along * screen_radius, float(taken) + 1.0)));\n"
     "\t\t\tvec3 to0 = position_at(texel + offset) - centre;\n"
     "\t\t\tvec3 to1 = position_at(texel - offset) - centre;\n"
     "\t\t\tfloat length0 = max(length(to0), 1e-5), length1 = max(length(to1), 1e-5);\n"
     "\t\t\tfloat weight0 = clamp(length0 * falloff_multiply + falloff_add, 0.0, 1.0);\n"
     "\t\t\tfloat weight1 = clamp(length1 * falloff_multiply + falloff_add, 0.0, 1.0);\n"
+    "\t\t\t/* (the level's pixels occluded by objects alone) */\n"
+    "\t\t\tif (object < 0.5)\n"
+    "\t\t\t{\n"
+    "\t\t\t\tweight0 *= step(0.5, texelFetch(mask_texture, full_texel(texel + offset), 0).r);\n"
+    "\t\t\t\tweight1 *= step(0.5, texelFetch(mask_texture, full_texel(texel - offset), 0).r);\n"
+    "\t\t\t}\n"
     "\t\t\thorizon0 = max(horizon0, mix(low0, dot(to0, view) / length0, weight0));\n"
     "\t\t\thorizon1 = max(horizon1, mix(low1, dot(to1, view) / length1, weight1));\n"
     "\t\t}\n"
@@ -365,12 +383,13 @@ OCCLUSION_SOURCE = (
     "\t}\n"
     "\t/* (the last few hundredths, which a flat wall's samples rounded to their\n"
     "\ttexels leave as faint contours, are none) */\n"
-    "\tresult = vec4(clamp(visibility / (0.94 * float(slices)), 0.03, 1.0), centre.z, 0.0, 1.0);\n"
+    "\tresult = vec4(clamp(visibility / (0.94 * float(slices)), 0.03, 1.0), centre.z, object, 1.0);\n"
     "}\n"
 )
 # a blur along one direction (sampling.xy), nine taps, each weighted by how
-# near its distance is to the pixel's, so that no edge is crossed; nearly
-# flat, so that the Bayer matrix's pattern is averaged away
+# near its distance is to the pixel's and none across an object's edge, so
+# that no edge is crossed; nearly flat, so that the Bayer matrix's pattern
+# is averaged away
 OCCLUSION_BLUR_SOURCE = (
     "uniform sampler2D color_texture;\n"
     + OCCLUSION_UNIFORMS +
@@ -378,33 +397,56 @@ OCCLUSION_BLUR_SOURCE = (
     "void main()\n"
     "{\n"
     "\tivec2 texel = ivec2(gl_FragCoord.xy);\n"
-    "\tvec2 centre = texelFetch(color_texture, texel, 0).rg;\n"
+    "\tvec3 centre = texelFetch(color_texture, texel, 0).rgb;\n"
     "\tfloat sum = centre.r, weights = 1.0;\n"
     "\tfor (int tap = -4; tap <= 4; tap++)\n"
     "\t{\n"
     "\t\tif (tap == 0)\n"
     "\t\t\tcontinue;\n"
     "\t\tivec2 at = clamp(texel + ivec2(sampling.xy) * tap, ivec2(bounds.xy), ivec2(bounds.zw) - 1);\n"
-    "\t\tvec2 other = texelFetch(color_texture, at, 0).rg;\n"
-    "\t\tfloat weight = exp(-float(tap * tap) / 32.0 - abs(other.g - centre.g) / (0.02 * centre.g + 0.001));\n"
+    "\t\tvec3 other = texelFetch(color_texture, at, 0).rgb;\n"
+    "\t\tfloat weight = exp(-float(tap * tap) / 32.0 - abs(other.g - centre.g) / (0.02 * centre.g + 0.001)) *\n"
+    "\t\t\t(abs(other.b - centre.b) < 0.5 ? 1.0 : 0.0);\n"
     "\t\tsum += other.r * weight;\n"
     "\t\tweights += weight;\n"
     "\t}\n"
-    "\tresult = vec4(sum / weights, centre.g, 0.0, 1.0);\n"
+    "\tresult = vec4(sum / weights, centre.g, centre.b, 1.0);\n"
     "}\n"
 )
-# the occlusion at the target's pixel (filtered, from half the resolution),
-# by its strength and power: multiplied over the light by the pipeline's
-# blend, or drawn alone (debug.ambient_occlusion_view)
+# the occlusion at the target's pixel, by its strength and power, filtered
+# up from half the resolution by the four nearest, each weighted by how near
+# its distance is to the pixel's (and none of the other kind of pixel):
+# multiplied over the light by the pipeline's blend, or drawn alone
+# (debug.ambient_occlusion_view); none where the mask leaves the pixel
 OCCLUSION_APPLY_SOURCE = (
     "uniform sampler2D color_texture;\n"
+    "uniform sampler2D mask_texture;\n"
+    "uniform sampler2D distance_texture;\n"
     + OCCLUSION_UNIFORMS +
     "\n"
     "void main()\n"
     "{\n"
-    "\tvec2 at = clamp(gl_FragCoord.xy / sampling.w, bounds.xy + 0.5, bounds.zw - 0.5) * metrics.xy;\n"
-    "\tfloat visible = textureLod(color_texture, at, 0.0).r;\n"
-    "\tresult = vec4(vec3(mix(1.0, pow(visible, sampling.z), occlusion.w)), 1.0);\n"
+    "\tivec2 pixel = ivec2(gl_FragCoord.xy);\n"
+    "\tvec2 mask = texelFetch(mask_texture, pixel, 0).rg;\n"
+    "\tif (mask.g > 0.5)\n"
+    "\t\tdiscard;\n"
+    "\tvec2 parts = texelFetch(distance_texture, pixel, 0).rg;\n"
+    "\tfloat z = parts.r + parts.g, object = mask.r > 0.5 ? 1.0 : 0.0;\n"
+    "\tvec2 at = gl_FragCoord.xy / sampling.w - 0.5;\n"
+    "\tivec2 base = ivec2(floor(at));\n"
+    "\tvec2 fraction = at - vec2(base);\n"
+    "\tfloat sum = 0.0, weights = 0.0;\n"
+    "\tfor (int corner = 0; corner < 4; corner++)\n"
+    "\t{\n"
+    "\t\tivec2 offset = ivec2(corner & 1, corner >> 1);\n"
+    "\t\tvec3 near = texelFetch(color_texture, clamp(base + offset, ivec2(bounds.xy), ivec2(bounds.zw) - 1), 0).rgb;\n"
+    "\t\tvec2 bilinear = mix(1.0 - fraction, fraction, vec2(offset));\n"
+    "\t\tfloat weight = bilinear.x * bilinear.y * exp(-abs(near.g - z) / (0.02 * z + 0.001)) *\n"
+    "\t\t\t(abs(near.b - object) < 0.5 ? 1.0 : 0.001) + 1e-6;\n"
+    "\t\tsum += near.r * weight;\n"
+    "\t\tweights += weight;\n"
+    "\t}\n"
+    "\tresult = vec4(vec3(mix(1.0, pow(sum / weights, sampling.z), occlusion.w)), 1.0);\n"
     "}\n"
 )
 # the clears' pixel shader (its uniforms at the passes' binding)
