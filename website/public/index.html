@@ -392,20 +392,6 @@ h2 { margin: 0; font: 900 clamp(40px, 6vw, 92px)/0.92 var(--display); font-stret
 .seg button:hover { color: var(--text); }
 .seg button[aria-pressed="true"] { color: var(--bg); background: var(--green); }
 .seg button:focus-visible, .toggle:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-/* the captured clip: one video, its two mixes (audio-clip-*), the switch
-   between them under it */
-.listen-clip { margin-top: clamp(40px, 6vw, 72px); }
-.listen-clip .pair { aspect-ratio: 16 / 9; }
-.listen-clip .pair > img, .listen-clip .pair > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.listen-clip .pair.playing > img { visibility: hidden; }
-.listen-clip .start { position: absolute; z-index: 3; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; gap: 12px; align-items: center; padding: 16px 22px; border-radius: 999px; border: 1.5px solid var(--green); background: rgba(4, 5, 4, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--green); cursor: pointer; font: 600 13px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; box-shadow: 0 0 24px var(--glow); }
-.listen-clip .start svg { width: 18px; height: 18px; }
-.listen-clip .pair.started .start { display: none; }
-.listen-clip .toggle[hidden] { display: none; }
-.listen-clip .now { position: absolute; z-index: 3; top: 14px; left: 14px; }
-.listen-clip .pair:not(.started) .now { display: none; }
-.listen-clip h3 { margin: 0 0 8px; font: 900 clamp(24px, 3vw, 36px)/1.05 var(--display); font-stretch: 116%; text-transform: uppercase; }
-.listen-clip .lead { margin: 0 0 22px; color: var(--soft); max-width: 640px; }
 
 /* VR */
 .vr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -807,22 +793,6 @@ footer .legal + .legal { margin-top: 12px; }
       </div>
       <p class="caption mono">The sound here is your browser's own: Stereo pans it left and right, 3D is the browser's head model, a hint of the idea. In the game it's OpenH1's own mixer: a model of a head on headphones, the levels' obstruction, occlusion and reverb, Doppler · 5.1 surround on surround systems · in VR, your real head</p>
 
-      <div class="listen-clip" id="listen-clip">
-        <h3 class="reveal">Now hear the game.</h3>
-        <p class="lead reveal d1">One run of the game, recorded twice: once panned in plain stereo, once through OpenH1's 3D audio. Switch between them while it plays.</p>
-        <div class="shot pair reveal" id="clip-pair">
-          <img src="media/audio-clip-poster.webp" alt="" loading="lazy" decoding="async">
-          <video muted playsinline loop preload="none" data-webm="media/audio-clip.webm" data-mp4="media/audio-clip.mp4" aria-label="Blood Gulch, a team game with bots: the player stands by a base while the fight goes on around it, and a Banshee circles overhead and behind"></video>
-          <span class="side now" aria-hidden="true">3D</span>
-          <button class="start" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 4.5v15l13-7.5z"/></svg>Play with sound</button>
-        </div>
-        <div class="under">
-          <span class="seg" id="clip-mode" role="group" aria-label="Which mix plays"><button type="button" data-mode="stereo" aria-pressed="false">Stereo</button><button type="button" data-mode="3d" aria-pressed="true">3D</button></span>
-          <span class="hp mono" style="color:var(--muted)">Best with headphones · sound starts on tap</span>
-          <button class="toggle" id="clip-pause" type="button" aria-pressed="false" hidden>Pause</button>
-        </div>
-        <p class="caption mono">Real capture, the same run twice, the game's own mix: plain stereo vs OpenH1's 3D audio (headphones) · Blood Gulch (a Custom Edition copy with every vehicle), 15 bots, the player standing still while a Banshee circles overhead and behind and rounds fly past · the sound recorded in step with the frames</p>
-      </div>
     </div>
   </section>
 
@@ -1487,72 +1457,6 @@ footer .legal + .legal { margin-top: 12px; }
     stage.classList.add("live");
   }
 
-  // the captured clip: one muted video and its two mixes, fetched only when
-  // the visitor presses play, decoded and started together at the same
-  // instant (each through its own gain, so that switching is a crossfade,
-  // never a restart), the video their clock: a loop, a seek or a drift of
-  // more than 50 ms starts both again from the video's time
-  (() => {
-    const pair = document.getElementById("clip-pair"), video = pair.querySelector("video");
-    const startBtn = pair.querySelector(".start"), now = pair.querySelector(".now");
-    const modes = document.getElementById("clip-mode"), pauseBtn = document.getElementById("clip-pause");
-    let mode = "3d", ctx = null, gains = null, buffers = null, sources = [], started = 0, offset = 0, last = 0, loading = null;
-    const setMode = (m) => {
-      mode = m;
-      modes.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
-      now.textContent = m === "3d" ? "3D audio" : "Stereo";
-      if (gains) { gains["3d"].gain.setTargetAtTime(m === "3d" ? 1 : 0, ctx.currentTime, 0.015); gains.stereo.gain.setTargetAtTime(m === "3d" ? 0 : 1, ctx.currentTime, 0.015); }
-    };
-    modes.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setMode(b.dataset.mode); });
-    const stop = () => { sources.forEach((x) => { try { x.stop(); } catch (err) {} }); sources = []; };
-    const sync = () => {
-      stop();
-      if (!buffers || video.paused) return;
-      started = ctx.currentTime + 0.02; offset = (video.currentTime + 0.02) % buffers.stereo.duration;
-      for (const k of ["stereo", "3d"]) {
-        const x = ctx.createBufferSource(); x.buffer = buffers[k]; x.loop = true; x.connect(gains[k]); x.start(started, offset); sources.push(x);
-      }
-    };
-    // (where the mixes are in the clip, for the check that they keep step)
-    pair.audioTime = () => buffers && sources.length ? (offset + Math.max(0, ctx.currentTime - started)) % buffers.stereo.duration : null;
-    const fetchMix = async (name) => {
-      // Opus where the browser decodes it, AAC where not (Safari's older)
-      for (const ext of ["webm", "m4a"]) {
-        try { const r = await fetch(`media/audio-clip-${name}.${ext}`); if (r.ok) return await ctx.decodeAudioData(await r.arrayBuffer()); } catch (err) {}
-      }
-      throw new Error("no mix");
-    };
-    const begin = () => {
-      if (loading) return loading;
-      ctx = new (window.AudioContext || window.webkitAudioContext)();
-      gains = { stereo: ctx.createGain(), "3d": ctx.createGain() };
-      for (const k in gains) { gains[k].gain.value = k === mode ? 1 : 0; gains[k].connect(ctx.destination); }
-      load(video);
-      loading = Promise.all([fetchMix("stereo"), fetchMix("3d")]).then(([a, b]) => { buffers = { stereo: a, "3d": b }; sync(); });
-      return loading;
-    };
-    const play = () => {
-      pair.classList.add("started"); pauseBtn.hidden = false;
-      try {
-        begin(); if (ctx.state === "suspended") ctx.resume();
-      } catch (err) { now.textContent = "Sound not available here"; }
-      video.play().catch(() => {});
-    };
-    startBtn.addEventListener("click", play);
-    pauseBtn.addEventListener("click", () => { if (video.paused) play(); else video.pause(); });
-    video.addEventListener("playing", () => { pair.classList.add("playing"); pauseBtn.textContent = "Pause"; pauseBtn.setAttribute("aria-pressed", "true"); sync(); });
-    video.addEventListener("pause", () => { stop(); pauseBtn.textContent = "Play"; pauseBtn.setAttribute("aria-pressed", "false"); });
-    video.addEventListener("seeked", sync);
-    video.addEventListener("timeupdate", () => {
-      const t = video.currentTime, at = pair.audioTime();
-      if (t < last || (at !== null && Math.abs(at - t) > 0.05 && Math.abs(at - t) < buffers.stereo.duration - 0.05)) sync();
-      last = t;
-    });
-    // (paused once it leaves the screen, or the tab is hidden)
-    new IntersectionObserver(([e]) => { if (!e.isIntersecting && !video.paused) video.pause(); }, { threshold: 0.1 }).observe(pair);
-    document.addEventListener("visibilitychange", () => { if (document.hidden && !video.paused) video.pause(); });
-    setMode("3d");
-  })();
 
   // the downloads: the visitor's machine first, and marked, once it has a
   // build (a Steam Deck's browser says Linux, an Android phone's Linux too,

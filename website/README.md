@@ -59,13 +59,6 @@ From the top:
   It draws only on screen with the tab shown; for less motion, one still
   frame (it turns by dragging); without WebGL, the poster
   (`media/audio-head-poster.webp`, a frame of the scene) and the callouts.
-  Under it, "Now hear the game": one muted clip (`media/audio-clip.*`) and
-  the game's two mixes of it (`audio-clip-3d.*`, `audio-clip-stereo.*`),
-  nothing fetched until "Play with sound" is pressed. The script decodes
-  both mixes and starts them at the same instant, each through its own gain,
-  so the Stereo / 3D switch crossfades between them without a restart; the
-  video is their clock (a loop, a seek or a drift past 50 ms starts both
-  again from its time). It pauses off screen and with the tab hidden.
 - **06, Responsive**: a headline and a line in plain words, always shown,
   then the race: one click slowed 25 times on one time axis (0 to 60 ms).
   "You click" at the left; in each lane, the Original's (grey) and OpenH1
@@ -159,7 +152,6 @@ Preview it at `http://localhost:8000/join/#party=00112233445566778899aabbccddeef
 | `edges-original.*`, `edges-openh1.*` | 02 | Blood Gulch's cliffs against the sky, a slow strafe out and back (`capture/`): the Classic preset at 640 × 480 and Enhanced (SMAA). A quarter of the frame (320 × 180 of the Original's pixels) at 1280 × 720, 4× by nearest neighbour, shown with `image-rendering: pixelated`; 5.3 s, a loop without a fade |
 | `glow-original.*`, `glow-openh1.*` | 03 | Rat Race, the plasma rifle fired down a dark corridor, a burst before the clip leaving the scorch marks (`capture/`): the Classic preset a frame a tick, and Enhanced at 60 fps between ticks. 4 s, 1280 × 960, a loop without a fade |
 | `strafe-original.*`, `strafe-openh1.*` | 04 | Rat Race, a strafe past pillars and back to where it began (`capture/`): the Classic preset at one frame a tick, and Enhanced at 60 fps between ticks. 3.9 s, 1280 × 720 (a 16:9 crop of 4:3 masters), a loop without a fade |
-| `audio-clip.*`, `audio-clip-poster.webp`, `audio-clip-3d.*`, `audio-clip-stereo.*` | 06 | Blood Gulch (a Custom Edition copy with every vehicle), Team Slayer with 15 bots, the player standing still by the red base while the fight goes on around it and a Banshee circles overhead and behind (`capture/`, "3D audio, 2026-11-01"). The same run twice, the game's own mix recorded in step with the frames: `audio.spatial` "headphones" (the HRTF) and "speakers" (the stereo pan). 15 s, 1280 × 720, HUD on, no sound in the video (MP4 1.9 MB, WebM 2.1 MB, fetched on play only); each mix as Opus (about 160 KB) and AAC (240 KB) |
 | `latency-pistol-idle.webp`, `latency-pistol-fire.webp` | 05 | Blood Gulch, a local SWAT game, the pistol fired once (`capture/`, "latency, 2026-10-24"): the frame before the shot and the one with the muzzle flash at its brightest, Enhanced. A 16:9 crop of the lower middle of a 1280 × 720 window (drawn at 2560 × 1440), 640 × 360, about 30 KB each |
 
 Each comparison is a pair of layers, `.layer.before` (the Original) under
