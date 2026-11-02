@@ -1043,6 +1043,12 @@ the setting for one start of the game. It has priority over the file.
 | `network.tunnel_port` | `0` | `HALO_NET_TUNNEL_PORT` | The UDP port for internet play. `0`: the game selects a port. Refer to "Internet play". |
 | `network.allow_upnp` | `true` | `HALO_NET_ALLOW_UPNP` | `true`: internet play can ask the router to forward its port (UPnP). `false`: the game does not ask. Refer to "Internet play". |
 | `network.public_lobby` | `true` | `HALO_NET_PUBLIC_LOBBY` | `true`: the server browser. Public games are listed, and Join Game > Server Browser shows them. `false`: no games are listed or shown. Refer to "Server browser". |
+| `network.browser_show_full` | `true` | `HALO_NET_BROWSER_SHOW_FULL` | `false`: the server browser and the local network's list hide full games. Their Filters page. Refer to "Server browser". |
+| `network.browser_show_empty` | `true` | `HALO_NET_BROWSER_SHOW_EMPTY` | `false`: the server browser and the local network's list hide games with no player. Their Filters page. |
+| `network.browser_show_password` | `true` | `HALO_NET_BROWSER_SHOW_PASSWORD` | `false`: the server browser hides games that need a password. Their Filters page. |
+| `network.browser_ping` | `0` | `HALO_NET_BROWSER_PING` | The server browsers list only games whose ping is under this many milliseconds (300, 250, 150, 100 or 50); `0` lists every game. A game whose ping is not known (a local network game's, a dedicated server's, one still being timed) is listed. Their Filters page. |
+| `network.browser_show_ctf`, `network.browser_show_slayer`, `network.browser_show_oddball`, `network.browser_show_king`, `network.browser_show_race` | `true` | `HALO_NET_BROWSER_SHOW_CTF`, `HALO_NET_BROWSER_SHOW_SLAYER`, `HALO_NET_BROWSER_SHOW_ODDBALL`, `HALO_NET_BROWSER_SHOW_KING`, `HALO_NET_BROWSER_SHOW_RACE` | `false`: the server browsers hide the games of that game type (OpenCE's kinds of it too: SWAT is Slayer). Co-op games have none (the CO-OP tab). Their Filters page. |
+| `network.browser_search` | `""` | `HALO_NET_BROWSER_SEARCH` | The server browsers list only games whose server name or map (as shown, or its own name) has these words, in any case. Empty lists every game. Their Filters page's SEARCH. |
 | `friends.share_status` | `true` | `HALO_FRIENDS_SHARE_STATUS` | Show your friends that you are online, and where, and let them join you (Multiplayer > FRIENDS). Only your friends can read it. `false` appears offline: nothing is published, and you still see your friends. Refer to "Friends". |
 | `network.host_public` | `true` | `HALO_NET_HOST_PUBLIC` | `true`: a new game of Create Game > Internet starts as PUBLIC. `false`: it starts as PRIVATE. LISTING in Server Setup changes it for each game. Refer to "Server browser". |
 | `network.game_mode` | `"openh1"` | `HALO_NET_GAME_MODE` | When you host: `"openh1"`, an OpenH1 game ("OpenH1 60 Tick" and the like) at the tick rate `network.sim_rate` sets, which OpenCE players can join too, at 30 (`network.allow_opence`); `"legacy"`, OpenCE's netcode at 30 ticks a second for everyone. `"standard"` is the same as `"openh1"`. Server Setup's GAME row (OPENH1 30 TICK, OPENH1 60 TICK, OPENH1 120 TICK or LEGACY) writes it and `network.sim_rate`. Read when hosting starts, and again when the game is started from Server Setup if no one has joined yet. Refer to "OpenH1 and Legacy games" in NETCODE.md. |
@@ -2410,6 +2416,28 @@ Sorting and the tabs, in all three lists, for this run of the game:
 - Favorites stay at the top, sorted the same way among themselves; those
   not found stay at the bottom of All and Favorites, grey.
 
+Filters, in the server browser and the local network's list (not in Join
+by Link, whose games are the invites you took): FILTERS in the footer (the
+left trigger, L on the keyboard, or a click), or Settings > Online > SERVER
+BROWSER FILTERS, opens the Filters page. Its OK keeps the choices in
+`config.toml` (the `network.browser_*` settings), so they stay for the next
+time the game starts; Cancel leaves them as they were.
+
+- SHOW FULL GAMES, SHOW EMPTY GAMES, SHOW PASSWORD GAMES: YES or NO.
+- PING: ANY, or only games under 300, 250, 150, 100 or 50 ms. A game whose
+  ping is not known (a local network game's, a dedicated server's, one
+  still being timed) stays listed.
+- SEARCH: words that a game's server name or map must have, in any case
+  ("gulch" finds Blood Gulch). Select the row, type, and press Enter.
+- GAME TYPES: CAPTURE THE FLAG, SLAYER, ODDBALL, KING OF THE HILL and RACE,
+  each SHOW or HIDE, so that any mix of them is listed. OpenCE's kinds go
+  with their game type (SWAT, Infection and Gun Game with Slayer). Co-op
+  games have no game type: the CO-OP tab lists them.
+
+The filters apply on every tab, the favorites too. The counts above the
+list say how many games they hide (`3 HIDDEN`), and a list that they leave
+empty says so.
+
 The browser lists two kinds of games: the dedicated servers that the
 master servers list (`masters.txt`, `network.masters_file`; the official
 master, `https://master.opencommunityedition.com`, built in, when the file
@@ -2431,17 +2459,7 @@ master servers, or only the brokers.
   first, the dedicated servers first among them and among the Legacy games
   after them, then the games with the most players, then by name. The browser
   keeps the order in `network.browser_sort`.
-- FILTERS opens the Filters screen of Custom Edition. It has SHOW EMPTY
-  SERVERS, SHOW FULL SERVERS, GAME TYPE (ANY or one game engine) and SHOW
-  MISSING MAPS (NO, YES, or IF DOWNLOADABLE, for a Custom Edition map that
-  Map Sharing can download when you join). OK writes the
-  `network.browser_*` settings. Settings > Network Setup > SERVER BROWSER
-  writes the same settings, and also shows LISTS, SORT BY (DEDICATED FIRST,
-  PLAYERS, NAME, MAP, GAME TYPE or LOCKED FIRST; an order that a title reversed
-  shows as the same choice) and MASTER SERVERS
-  (the number of master servers that answered the last request of the
-  browser, for example `2 OF 2`). The PING and TEAMPLAY OPTIONS rows of
-  Custom Edition are not on the Filters screen.
+- FILTERS hides games from the list: refer to "Filters" above.
 - A dedicated server's row shows the dedicated icon of Custom Edition.
   Instead of a ping, a dedicated server shows its region (EU, NA-E),
   because the browser does not ping the servers that the master servers

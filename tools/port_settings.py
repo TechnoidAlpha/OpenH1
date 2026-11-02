@@ -447,6 +447,12 @@ KEY_BINDINGS = ("controls_setup", "controls_settings_screen")
 STREAMER = ("interface_settings/streamer_mode", "streamer_mode_screen")
 # (Online's Discord account: port/linux/src/player_link.c)
 DISCORD_ACCOUNT = ("network_setup/discord_account", "discord_account_screen")
+# (the server browsers' Filters, which their FILTERS opens too: menu_functions.c's
+# browser_filters_read; its title the PC version's Filters')
+BROWSER_FILTERS = ("network_setup/browser_filters", "browser_filters_screen")
+BROWSER_FILTERS_TITLE = "main_menu/multiplayer_type_select/join_game/filters/header_filters"
+SHOW_HIDE = [("SHOW", "true"), ("HIDE", "false")]
+BROWSER_PINGS = [("ANY", "0")] + [(f"UNDER {ms} MS", str(ms)) for ms in (300, 250, 150, 100, 50)]
 # Button Remapping's rows for a group's actions (the most a group has:
 # controller_remap_menu.inl's pad_action_groups), and what each row does: A
 # (or a click) takes the next button pressed, left and right step through
@@ -460,7 +466,7 @@ REMAP_HANDLERS = ['<on event="x" run="port controller clear"/>',
 # menu_functions.c's discord_account_show fills in each frame: a link's (what
 # the page it opens is at), an action's (what it does, its state); and
 # hdr_display_show's, the display's peak
-SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink",
+SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink", "browser_search",
                         *(f"link_master_{n}" for n in range(1, 5)), "hdr_display",
                         "remap_player", "remap_group", *(f"pad_{n}" for n in range(1, REMAP_ROWS + 1))}
 # the rows whose labels menu_functions.c writes (a master server's host): the
@@ -662,6 +668,9 @@ PAGES = {
             ("DISCORD ACCOUNT ›", None, _page_screen(*DISCORD_ACCOUNT),
              "Link your Discord account, so that servers that block VPNs let you in while you use one.", None,
              "discord_account"),
+            ("SERVER BROWSER FILTERS ›", None, _page_screen(*BROWSER_FILTERS),
+             "Which games the server browser and the local network's list show: full and empty games, a "
+             "password, the ping, the game types, and words to search for.", None),
             # (port/linux/game/map_share.c: this machine's part in another's
             # game)
             (SECTION, "MAP SHARING"),
@@ -943,6 +952,37 @@ PAGES = {
              "Swearing and sexual words. Strong and Worse leaves the mildest showing.", None),
             ("INSULTS", "streamer.insults", STREAMER_LEVELS,
              "Name-calling and insults that are not slurs.", None),
+        ],
+    },
+    BROWSER_FILTERS[0]: {
+        "screen": BROWSER_FILTERS[1], "header": BROWSER_FILTERS_TITLE,
+        "rows": [
+            # (the network.browser_* settings, which the server browser and
+            # the local network's list read as they open, not Join by
+            # Link's: menu_functions.c's browser_filters_show)
+            (SECTION, "GAMES"),
+            ("SHOW FULL GAMES", "network.browser_show_full", YES_NO,
+             "Lists the games that have no room left.", None),
+            ("SHOW EMPTY GAMES", "network.browser_show_empty", YES_NO,
+             "Lists the games that no one is playing yet.", None),
+            ("SHOW PASSWORD GAMES", "network.browser_show_password", YES_NO,
+             "Lists the games that need a password to join.", None),
+            ("PING", "network.browser_ping", BROWSER_PINGS,
+             "Lists only the games whose ping is under this.|A game whose ping is not known is listed: a local "
+             "network game's, a dedicated server's, one still being timed.", None),
+            # (the search's words typed into its value: menu_functions.c's
+            # browser_search_edit)
+            ("SEARCH", None, None,
+             "Lists only the games whose server name or map has these words. Select it and type; Enter keeps "
+             "them. Empty them to list every game.", None, "browser_search", "port browser search"),
+            (SECTION, "GAME TYPES"),
+            ("CAPTURE THE FLAG", "network.browser_show_ctf", SHOW_HIDE,
+             "Lists Capture the Flag games, OpenCE's kinds of it too.", None),
+            ("SLAYER", "network.browser_show_slayer", SHOW_HIDE,
+             "Lists Slayer games, OpenCE's kinds of it too (SWAT, Infection, Gun Game).", None),
+            ("ODDBALL", "network.browser_show_oddball", SHOW_HIDE, "Lists Oddball games.", None),
+            ("KING OF THE HILL", "network.browser_show_king", SHOW_HIDE, "Lists King of the Hill games.", None),
+            ("RACE", "network.browser_show_race", SHOW_HIDE, "Lists Race games.", None),
         ],
     },
     DISCORD_ACCOUNT[0]: {
@@ -1474,8 +1514,9 @@ def _settings_page(folder: str, page: dict) -> list:
                          f'y="{SETTINGS_TABS_TOP}"/>'] if tab else []),
                       f'<child widget="{base}/options_menu"/>'])
     if not tab:
+        # (its title's picture its own, or one the PC version has: "header")
         lines += _widget(header, [("controller", 1), ("left", 35), ("top", 11), ("width", 605), ("height", 59),
-                                  ("bitmap", header), ("wide", WIDE_LEFT)], [])
+                                  ("bitmap", page.get("header", header)), ("wide", WIDE_LEFT)], [])
     # (the tabs last: up from the first row, down from the buttons)
     lines += _widget(f"{base}/options_menu",
                      [("type", "column_list"), ("width", 640), ("height", 480),
@@ -3659,6 +3700,9 @@ BROWSER_PROMPTS = [
     ("prompt_paste", "%right-trigger PASTE LINK", 156, 144, '<on event="a" run="port browser refresh"/>'),
     # (the next column's title sorts: menu_functions.c's browser_sort_choose)
     ("prompt_sort", "%x-button SORT", 304, 100, '<on event="a" run="port browser sort"/>'),
+    # (the Filters page, but Join by Link's: menu_functions.c's browser_filters_open)
+    ("prompt_filters", "%left-trigger FILTERS", 408, 100,
+     f'<on event="a" run="port browser filters" open="{_page_screen(*BROWSER_FILTERS)}"/>'),
     ("prompt_back", "%b-button BACK", 516, 96, '<on event="a" run="mouse emit back event"/>'),
 ]
 # Multiplayer's: its list's items (and its two pages': CREATE GAME's and
@@ -3931,6 +3975,7 @@ def _browser() -> list:
                      '<on event="black" run="port browser tab next"/>',
                      '<on event="x" run="port browser sort"/>', '<on event="y" run="port browser favorite"/>',
                      '<on event="right_trigger" run="port browser refresh"/>',
+                     f'<on event="left_trigger" run="port browser filters" open="{_page_screen(*BROWSER_FILTERS)}"/>',
                      f'<child widget="{base}/header_join_game"/>',
                      f'<child widget="{base}/browser_counts"/>',
                      f'<child widget="{SETTINGS}/tab_prompt_previous" x="{WIDE_MARGIN}" y="{SETTINGS_TABS_TOP}" '
@@ -3948,7 +3993,7 @@ def _browser() -> list:
                      [f'<child widget="{base}/{name}"/>' for name in
                       ("header_server_browser", "header_lan", "header_direct_link")])
     lines += _header(f"{base}/header_lan", f"{base}/header_local_network")
-    lines += _part_text(f"{base}/browser_counts", [("left", 420), ("top", 46), ("width", 192), ("height", 18),
+    lines += _part_text(f"{base}/browser_counts", [("left", 372), ("top", 46), ("width", 240), ("height", 18),
                                                   ("font", "ui\\small_ui"), ("color", PART_DIM), ("align", "right"),
                                                   ("wide", WIDE_RIGHT)])
     lines += _widget(f"{base}/browser_columns_line", [("controller", 1), ("left", BROWSER_LIST_X),

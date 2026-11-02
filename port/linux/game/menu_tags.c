@@ -496,6 +496,9 @@ static char const *const port_function_names[] =
 	/* (the browsers' tabs and refresh: menu_functions.c's browser_tab_choose,
 	browser_refresh) */
 	"port browser tab", "port browser tab next", "port browser tab previous", "port browser refresh",
+	/* (the browsers' Filters page and its SEARCH: menu_functions.c's
+	browser_filters_open, browser_search_edit) */
+	"port browser filters", "port browser search",
 	/* (Multiplayer's PARTY and its screen: party_menu.inc) */
 	"port party open", "port party button", "port party x", "port party y",
 	/* (Multiplayer's MATCHMAKING and its screen: matchmaking_menu.inc) */

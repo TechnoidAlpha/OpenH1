@@ -1154,6 +1154,41 @@ static const struct config_setting config_settings[] =
 		"The server browser: public games are listed through the signalling\n"
 		"brokers, and Join Game > Server Browser shows them. False lists no\n"
 		"game of this machine's and shows none." },
+	/* (the server browsers' Filters: menu_functions.c's browser_filters_read;
+	the first two named as OpenCE names them) */
+	{ "network.browser_show_full", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_FULL", _environment_value,
+		_platform_all,
+		"The server browsers list full games (their Filters page)." },
+	{ "network.browser_show_empty", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_EMPTY", _environment_value,
+		_platform_all,
+		"The server browsers list games with no player (their Filters page)." },
+	{ "network.browser_show_password", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_PASSWORD",
+		_environment_value, _platform_all,
+		"The server browsers list games that need a password (their Filters\n"
+		"page)." },
+	{ "network.browser_ping", _config_integer, "0", "HALO_NET_BROWSER_PING", _environment_value, _platform_all,
+		"The server browsers list only games whose ping is under this many\n"
+		"milliseconds (300, 250, 150, 100 or 50); 0 lists every game. A game\n"
+		"whose ping is not known (a local network game's, a dedicated\n"
+		"server's, one still being timed) is listed." },
+	{ "network.browser_show_ctf", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_CTF", _environment_value,
+		_platform_all,
+		"The server browsers list Capture the Flag games (their Filters page)." },
+	{ "network.browser_show_slayer", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_SLAYER", _environment_value,
+		_platform_all,
+		"The server browsers list Slayer games (their Filters page)." },
+	{ "network.browser_show_oddball", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_ODDBALL", _environment_value,
+		_platform_all,
+		"The server browsers list Oddball games (their Filters page)." },
+	{ "network.browser_show_king", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_KING", _environment_value,
+		_platform_all,
+		"The server browsers list King of the Hill games (their Filters page)." },
+	{ "network.browser_show_race", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_RACE", _environment_value,
+		_platform_all,
+		"The server browsers list Race games (their Filters page)." },
+	{ "network.browser_search", _config_string, "\"\"", "HALO_NET_BROWSER_SEARCH", _environment_value, _platform_all,
+		"The server browsers list only games whose server name or map has\n"
+		"these words, in any case; empty lists every game (their Filters page)." },
 	{ "friends.share_status", _config_boolean, "true", "HALO_FRIENDS_SHARE_STATUS", _environment_value, _platform_all,
 		"Show your friends that you are online, and where (the menus, a party,\n"
 		"a game), and let them join you (Multiplayer > FRIENDS). Only your\n"
