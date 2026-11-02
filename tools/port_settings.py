@@ -50,6 +50,9 @@ VOLUMES = [(str(step), f"{step / 10:g}") for step in range(11)]
 MENU_PLATFORMS = ("desktop", "android", "vr", "hdr", "touch", "pointer", "computer")
 # display.hdr_paper_white_nits's values: the system's SDR white, or nits
 PAPER_WHITES = [("SYSTEM", "0")] + [(f"{nits} NITS", str(nits)) for nits in range(80, 501, 20)]
+# display.hdr_ui_nits's: paper white's, or nits
+# (0's name the shortest that fits the spinner: "same as paper white" is too wide)
+UI_WHITES = [("PAPER WHITE", "0")] + [(f"{nits} NITS", str(nits)) for nits in range(80, 501, 20)]
 
 # the old settings screens' layout (rows of a label and a spinner over their
 # row backgrounds, a line of help for the row chosen, Defaults, OK and Cancel),
@@ -428,6 +431,8 @@ def _page_screen(folder: str, screen: str) -> str:
 # (a <bitmap> name: TITLES), and for a tab its name
 ADVANCED = ("video_settings/advanced", "advanced_graphics_screen")
 FIRST_PERSON = ("video_settings/first_person", "first_person_screen")
+# (display.hdr's settings and the display's peak, on the renderers that draw it)
+HDR_PAGE = ("video_settings/hdr", "hdr_screen")
 # (Android's: the picture on a tall screen, and portrait's frame)
 SCREEN_LAYOUT = ("video_settings/screen_layout", "screen_layout_screen")
 CONTROLLER = ("gamepad_setup", "gamepad_setup_screen")
@@ -449,9 +454,10 @@ REMAP_HANDLERS = ['<on event="x" run="port controller clear"/>',
                   '<on event="right" run="port controller right"/>']
 # the rows with a value of their own in the spinners' column, which
 # menu_functions.c's discord_account_show fills in each frame: a link's (what
-# the page it opens is at), an action's (what it does, its state)
+# the page it opens is at), an action's (what it does, its state); and
+# hdr_display_show's, the display's peak
 SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink",
-                        *(f"link_master_{n}" for n in range(1, 5)),
+                        *(f"link_master_{n}" for n in range(1, 5)), "hdr_display",
                         "remap_player", "remap_group", *(f"pad_{n}" for n in range(1, REMAP_ROWS + 1))}
 # the rows whose labels menu_functions.c writes (a master server's host): the
 # label's text its own, not its list's; their values the narrower column at
@@ -520,14 +526,14 @@ PAGES = {
              [("XBOX", "128"), ("MEDIUM", "256"), ("HIGH", "512"), ("ULTRA", "1024")],
              "How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky "
              "shadow; each step up is crisper, and costs a little more of the graphics card.", None),
-            # (display.hdr's rows, on the renderers that draw it: menu_files.c's
+            # (display.hdr's page, on the renderers that draw it: menu_files.c's
             # "hdr")
-            ("HDR", "display.hdr", [("AUTO", "auto"), ("ON", "on"), ("OFF", "off")],
-             "Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display "
-             "without HDR shows the game as it was.", "hdr"),
+            ("HDR ›", None, _page_screen(*HDR_PAGE),
+             "Brighter highlights on an HDR display: whether HDR is on, its look, how bright white and the HUD "
+             "are, and the display's peak.", "hdr", "hdr_settings"),
             ("ADVANCED GRAPHICS ›", None, _page_screen(*ADVANCED),
-             "Anti-aliasing, texture filtering, model detail, the lighting and the shields' glow, HDR's look, "
-             "smooth motion and the tick rate.", None),
+             "Anti-aliasing, texture filtering, model detail, the lighting and the shields' glow, smooth motion "
+             "and the tick rate.", None),
             (SECTION, "BATTERY"),
             # (display.battery_saver: port/linux/src/battery_saver.c)
             ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
@@ -748,7 +754,7 @@ PAGES = {
             ("SMOOTH MOTION", "display.interpolation", ON_OFF,
              "Draws movement smoothly between the game's 30 updates a second, so that it looks fluid at any frame "
              "rate. Off shows each update as it is.", None),
-            (SECTION, "LIGHTING AND HDR"),
+            (SECTION, "LIGHTING"),
             ("SMOOTH LIGHTING", "display.per_pixel_lighting", ON_OFF,
              "Lights characters and weapons smoothly, without the flat facets of the Xbox's lighting, at a small "
              "cost.", None),
@@ -761,15 +767,6 @@ PAGES = {
             ("GLOW INTENSITY", "display.shield_glow_intensity", [("DEFAULT", "default"), ("LIGHT SHOW", "light_show")],
              "Light Show: the shields' glow reaches three times as far, and is brighter. Online: the host's choice.",
              None),
-            ("HDR MODE", "display.hdr_mode", [("FAITHFUL", "faithful"), ("PUNCHY", "punchy")],
-             "Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a "
-             "remaster would.|The pictures are shown approximately: no SDR picture can show HDR.", "hdr"),
-            ("PAPER WHITE", "display.hdr_paper_white_nits", PAPER_WHITES,
-             "With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR "
-             "brightness. Raise it in a bright room.", "hdr"),
-            # (OpenCE's OVERSHIELD and HDR DISPLAY rows are left out: OpenH1's
-            # renderers do not draw the overshield's rise, and HDR output is
-            # display.hdr's own; port/linux/README.md)
             (SECTION, "GAME"),
             # (locked at ORIGINAL (30) in a game that plays at 30 whatever it
             # says, a network game of other machines, a film's playback:
@@ -778,6 +775,33 @@ PAGES = {
              "How often the world updates each second, in games on this device: the campaign, split screen and "
              "bots. 60 and 120 respond faster and take more of the processor. Online games play at their host's "
              "tick rate: an OpenH1 game's (OpenH1 60 Tick), a Legacy game's 30.", None),
+        ],
+    },
+    HDR_PAGE[0]: {
+        "screen": HDR_PAGE[1], "title": "HDR",
+        "rows": [
+            (SECTION, "HDR"),
+            ("HDR", "display.hdr", [("AUTO", "auto"), ("ON", "on"), ("OFF", "off")],
+             "Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display "
+             "without HDR shows the game as it was.", "hdr"),
+            ("HDR MODE", "display.hdr_mode", [("FAITHFUL", "faithful"), ("PUNCHY", "punchy")],
+             "Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a "
+             "remaster would.|The pictures are shown approximately: no SDR picture can show HDR.", "hdr"),
+            ("PAPER WHITE", "display.hdr_paper_white_nits", PAPER_WHITES,
+             "With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR "
+             "brightness. Raise it in a bright room.", "hdr"),
+            ("UI BRIGHTNESS", "display.hdr_ui_nits", UI_WHITES,
+             "With HDR, how bright the HUD and the menus are, in nits, apart from the picture. Paper White keeps "
+             "them where paper white is. The HUD's glows stay as far above it.", "hdr"),
+            (SECTION, "DISPLAY"),
+            # (the display's peak and SDR white as the system reports them:
+            # menu_functions.c's hdr_display_show)
+            ("DISPLAY PEAK", None, None,
+             "The brightest the display shows, and its SDR white, as the system reports them.", "hdr",
+             "hdr_display"),
+            # (OpenCE's OVERSHIELD and HDR DISPLAY rows are left out: OpenH1's
+            # renderers do not draw the overshield's rise, and HDR output is
+            # display.hdr's own; port/linux/README.md)
         ],
     },
     FIRST_PERSON[0]: {

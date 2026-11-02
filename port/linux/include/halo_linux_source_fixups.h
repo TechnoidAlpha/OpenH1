@@ -186,6 +186,10 @@ float halo_model_detail_scale(int level);
 /* whether display.model_detail is "stock" (port/linux/src/d3d8_gl.c), for
 each permutation's level (port/linux/game/model_detail.c) */
 int halo_model_detail_stock(void);
+/* a meter's value as drawn on the object it is drawn on: a weapon's meter
+that shows its charge shows its heat when that is more, the plasma pistol's
+gauge (port/linux/game/weapon_gauge.c) */
+float weapon_gauge_meter_value(long object_index, short value_source, float meter_value);
 /* while TRUE, drawing shifts right to center 640-column layouts */
 void halo_screen_ui_offset(unsigned char centered);
 /* names a model lighting vertex program, whose draws can be lit for each
@@ -206,6 +210,10 @@ _end), and what the code drawing knows of them (HALO_HDR_KIND_*, 0 none) */
 void halo_screen_tone_map(short x0, short y0, short x1, short y1);
 void halo_hdr_category(int category);
 void halo_hdr_draw_kind(int kind);
+/* the display's peak and SDR white, as the backend says them, as text
+(Video Setup's DISPLAY PEAK row: its value, "800 NITS"; words, its panel's
+words); 0 where no renderer draws HDR (port/linux/src/d3d8_device.c) */
+int halo_hdr_display_text(int words, char *text, unsigned int size);
 #ifndef HALO_HDR_KIND_NONE
 #define HALO_HDR_KIND_NONE 0
 #define HALO_HDR_KIND_FIRST_PERSON 1

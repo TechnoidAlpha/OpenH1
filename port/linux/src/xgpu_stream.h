@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 9
+#define XGPU_STREAM_VERSION 10
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -100,10 +100,17 @@ struct xgpu_stream_ring
 	/* the host's display (display.hdr: written by the host whenever it
 	looks, read by the guest between frames): whether it shows HDR (its
 	potential headroom past XGPU_HDR_DISPLAY_HEADROOM, or an HDR swapchain),
-	and its headroom now (a float's bits, 1.0 for none) */
+	and its headroom now (a float's bits, 1.0 for none); its SDR white in
+	nits (a float's bits: the system's, or the one the encoding takes where
+	it gives none) and whether the system gave it */
 	uint32_t display_hdr;
 	uint32_t display_headroom;
-	uint32_t pad;
+	uint32_t display_white;
+	uint32_t display_white_reported;
+	/* the guest's, with each frame: microseconds more than its frames take
+	that the next frame will (a load zone's switch in it): the host starts
+	that frame so much earlier (display_wait) */
+	uint32_t frame_extra_microseconds;
 };
 
 enum
@@ -295,11 +302,12 @@ struct xgpu_stream_anti_alias
 
 /* HDR: display.hdr's state (xgpu_backend_hdr): drawn in HDR, the mode
 (XGPU_HDR_MODE_*), paper white (in nits; 0: the system's SDR white, in
-percent of it: xgpu_hdr_paper_white_nits) */
+percent of it: xgpu_hdr_paper_white_nits), the UI's white (in nits; 0:
+paper white's) */
 struct xgpu_stream_hdr
 {
 	uint32_t header;
-	uint32_t active, mode, paper_white_nits, paper_white;
+	uint32_t active, mode, paper_white_nits, paper_white, ui_nits;
 };
 
 /* TONE_MAP: a window's 3D view tone mapped (xgpu_backend_tone_map) */
@@ -983,10 +991,10 @@ struct xgpu_stream_vr_screen_corrections
 
 #define XGPU_STREAM_ASSERT_SIZE(type, size) _Static_assert(sizeof(type) == (size), #type "'s size")
 
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ring, 96);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ring, 104);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_frame_end, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_capabilities, 20);
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 20);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_tone_map, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_set_targets, 16);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_clear, 36);

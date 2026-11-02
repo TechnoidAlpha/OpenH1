@@ -23,10 +23,8 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_dynamic_lights" x="28" y="252" platform="desktop android"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_shield_glow" x="28" y="273"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_shield_glow_intensity" x="28" y="294"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_hdr_mode" x="28" y="315" platform="hdr"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_hdr_paper_white_nits" x="28" y="336" platform="hdr"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_14" x="28" y="363"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_sim_rate" x="28" y="383"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_12" x="28" y="321"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_sim_rate" x="28" y="341"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -149,34 +147,16 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/shield_glow_intensity_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|LIGHT SHOW" setting="display.shield_glow_intensity" values="default|light_show" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_hdr_mode" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="hdr" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_mode_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_mode_spinner" x="188"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_12" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_12_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_mode_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_mode_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="FAITHFUL|PUNCHY" setting="display.hdr_mode" values="faithful|punchy" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_hdr_paper_white_nits" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="hdr" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_paper_white_nits_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_paper_white_nits_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_paper_white_nits_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/hdr_paper_white_nits_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SYSTEM|80 NITS|100 NITS|120 NITS|140 NITS|160 NITS|180 NITS|200 NITS|220 NITS|240 NITS|260 NITS|280 NITS|300 NITS|320 NITS|340 NITS|360 NITS|380 NITS|400 NITS|420 NITS|440 NITS|460 NITS|480 NITS|500 NITS" setting="display.hdr_paper_white_nits" values="0|80|100|120|140|160|180|200|220|240|260|280|300|320|340|360|380|400|420|440|460|480|500" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_14" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_14_title"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_14_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="14" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/section_12_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="12" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/op_sim_rate" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/sim_rate_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/sim_rate_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/sim_rate_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="15" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/sim_rate_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/sim_rate_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ORIGINAL (30)|60|120" setting="game.sim_rate" values="30|60|120" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
@@ -189,13 +169,11 @@
 		<string text="TEXTURE FILTERING"/>
 		<string text="MODEL DETAIL"/>
 		<string text="SMOOTH MOTION"/>
-		<string text="LIGHTING AND HDR"/>
+		<string text="LIGHTING"/>
 		<string text="SMOOTH LIGHTING"/>
 		<string text="DYNAMIC LIGHTS"/>
 		<string text="SHIELD GLOW"/>
 		<string text="GLOW INTENSITY"/>
-		<string text="HDR MODE"/>
-		<string text="PAPER WHITE"/>
 		<string text="GAME"/>
 		<string text="TICK RATE"/>
 	</strings>
@@ -213,8 +191,6 @@
 		<string text="Enhanced: plasma bolts, muzzle flashes and blasts light their surroundings smoothly, with a glow. Classic lights them as the Xbox did."/>
 		<string text="Shields light their surroundings as they flare, in the shield's own color. Online: the host's choice."/>
 		<string text="Light Show: the shields' glow reaches three times as far, and is brighter. Online: the host's choice."/>
-		<string text="Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a remaster would.|The pictures are shown approximately: no SDR picture can show HDR."/>
-		<string text="With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR brightness. Raise it in a bright room."/>
 		<string text=""/>
 		<string text="How often the world updates each second, in games on this device: the campaign, split screen and bots. 60 and 120 respond faster and take more of the processor. Online games play at their host's tick rate: an OpenH1 game's (OpenH1 60 Tick), a Legacy game's 30."/>
 	</strings>

@@ -335,6 +335,12 @@ static const struct config_setting config_settings[] =
 	{ "display.hdr_paper_white", _config_integer, "100", "HALO_HDR_PAPER_WHITE", _environment_value, _platform_all,
 		"Deprecated: paper white in percent of the system's SDR white, 50 to 250,\n"
 		"before hdr_paper_white_nits; still read while that is 0." },
+	{ "display.hdr_ui_nits", _config_integer, "0", "HALO_HDR_UI_NITS", _environment_value, _platform_all,
+		"With HDR, how bright the HUD, the menus and the screen flashes are, in\n"
+		"nits, 80 to 500, apart from the game's picture; 0 keeps them at paper\n"
+		"white. The HUD's glows stay as far above it as they are above paper\n"
+		"white; the weapon's displays stay with the scene. No brighter than the\n"
+		"display's peak." },
 	{ "display.astc_textures", _config_string, ASTC_TEXTURES_DEFAULT, "HALO_ASTC_TEXTURES", _environment_value,
 		_platform_android | _platform_guest,
 		"The maps' DXT textures on a GPU that cannot sample them (iPhones, most\n"

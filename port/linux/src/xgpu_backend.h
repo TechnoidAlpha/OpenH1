@@ -94,18 +94,21 @@ void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4
 /* display.hdr (xgpu_hdr.h): the frame drawn in HDR (the back buffer
 RGBA16F) or not from now on, the mode (XGPU_HDR_MODE_*) and paper white
 (in nits; 0: the system's SDR white, in percent of it:
-xgpu_hdr_paper_white_nits); a window's 3D view in the back buffer
-tone mapped over its corners (as xgpu_backend_anti_alias's); and the
-display, as the backend last looked (answered now, from what the backend
-writes where the front end reads it: the stream's ring): whether it shows
-HDR, and its headroom */
-void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white);
+xgpu_hdr_paper_white_nits) and the UI's white (in nits; 0: paper
+white's); a window's 3D view in the back buffer tone mapped over its
+corners (as xgpu_backend_anti_alias's); and the display, as the backend
+last looked (answered now, from what the backend writes where the front end
+reads it: the stream's ring): whether it shows HDR, and its headroom; its
+SDR white in nits, and whether the system reported it (else it is the one
+the encoding takes) */
+void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white, int ui_nits);
 /* display.picture_position: the presented picture letterboxed this many
 pixels from the top of a window taller than it (no lower than its bottom),
 or centered (-1), from the next present on */
 void xgpu_backend_picture_top(int top);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
 BOOL xgpu_backend_display_hdr(float *headroom);
+BOOL xgpu_backend_display_white(float *nits);
 
 /* ---------- render targets
 
@@ -644,6 +647,14 @@ struct xgpu_vr_frame
 void xgpu_backend_vr_compose(const struct xgpu_vr_frame *frame);
 void xgpu_backend_vr_submit(const struct xgpu_vr_frame *frame, BOOL screenshot);
 
+/* The time the frame after the one being written will take more than the
+frames do (a load zone's switch, which it begins with), told with this
+frame and each after it until 0, or XGPU_FRAME_EXTRA_FRAMES of them (a
+switch put off while a tick's sub-steps run, or not made): the host starts
+that frame so much earlier, so that it is on screen at its refresh all the
+same. */
+#define XGPU_FRAME_EXTRA_FRAMES 4
+void xgpu_backend_frame_extra(unsigned long microseconds);
 /* Acknowledged loading ownership change, before map storage is reused. */
 void xgpu_backend_loading(int active);
 int xgpu_backend_loading_owned(void);

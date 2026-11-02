@@ -13,7 +13,8 @@ are written there, and asks hud_hires_asset_at which bitmap they are: a block
 reused for another bitmap, or a map unloaded, is a write, which asks again.
 
 A texture drawn for only some of a bitmap's sprites (hud_msg_icons_sm's
-buttons, and hud_msg_icons' pictures of the weapons and the skull) does not
+buttons, hud_msg_icons' pictures of the weapons and the skull, and
+hud_reticle_warnings' warnings, whose text is the map's language's) does not
 stand for its bitmap: the game draws those sprites from a placeholder
 (hud_hires_sprite_bitmap), a bitmap of the same size and format, so the same
 coordinates, made when first needed and deleted with the map; the texture
@@ -95,9 +96,10 @@ static struct
 static long hires_bitmap_count = 0;
 
 /* Sheets without redraws: retain their original lettering and sprite layout.
- * (The message icons' pictures, and hud_msg_icons_sm's buttons, are drawn
- * from their own textures through a placeholder; their sheets' text is not,
- * so every one of their bitmaps is upscaled still.) */
+ * (The message icons' pictures, hud_msg_icons_sm's buttons and the
+ * reticle's warnings are drawn from their own textures through a
+ * placeholder; the rest of their sheets is not, nor another language's
+ * text, so every one of their bitmaps is upscaled still.) */
 static struct { struct bitmap_data *bitmap; long kind; } upscale_bitmaps[16];
 static long upscale_bitmap_count;
 static struct { struct bitmap_data *bitmap; long signature; } ce_stock_bitmaps[128];

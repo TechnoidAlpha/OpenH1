@@ -439,8 +439,8 @@ static void shot_half_floats(struct stream_target *entry, const char *path)
 	snprintf(name, sizeof(name), "%s.encoded.txt", path);
 	if ((file = fopen(name, "w")) != NULL)
 	{
-		fprintf(file, "paper_white %.6f peak %.6f output %d mode %d\n", (double)frame.paper_white, (double)frame.peak,
-			frame.output, frame.mode);
+		fprintf(file, "paper_white %.6f peak %.6f output %d mode %d ui %.6f\n", (double)frame.paper_white,
+			(double)frame.peak, frame.output, frame.mode, (double)frame.ui);
 		fclose(file);
 	}
 	free(halves);
@@ -1272,7 +1272,7 @@ static void stream_hdr(void *context, const struct xgpu_stream_hdr *record)
 {
 	(void)context;
 	host_metal_hdr_state(record->active != 0, record->mode == XGPU_HDR_MODE_PUNCHY ? XGPU_HDR_MODE_PUNCHY :
-		XGPU_HDR_MODE_FAITHFUL, (int)record->paper_white_nits, (int)record->paper_white);
+		XGPU_HDR_MODE_FAITHFUL, (int)record->paper_white_nits, (int)record->paper_white, (int)record->ui_nits);
 	/* (the tone map's function and its pipeline for the back buffer's pass,
 	made as HDR is chosen, not in the middle of a frame) */
 	if (record->active)
@@ -1302,7 +1302,9 @@ static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *re
 	host_metal_hdr_frame(&frame);
 	hdr[0] = (float)frame.mode;
 	hdr[1] = frame.peak;
-	hdr[2] = hdr[3] = 0.0f;
+	/* (the view's light over the UI's white) */
+	hdr[2] = frame.ui;
+	hdr[3] = 0.0f;
 	target->written++;
 	xgpu_metal_post_tone_map(target->texture, target->description.width, target->description.height,
 		depth ? depth->texture : 0, depth ? depth->description.format : XGPU_METAL_FORMAT_NONE, samples,
