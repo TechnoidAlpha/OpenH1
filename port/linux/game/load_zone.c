@@ -16,10 +16,13 @@ Only the frames' times change: the switch is made where it was.
 */
 
 #include "cseries.h"
+#include "scenario/scenario.h"
+#include "scenario/scenario_definitions.h"
 #include "load_zone.h"
 
 /* the platform layer's */
 void xgpu_backend_frame_extra(unsigned long microseconds);
+void d3d8_mirror_rewritten(unsigned long address, unsigned long size);
 unsigned long long SDL_GetTicksNS(void);
 void halo_load_trace(char const *phase, char const *detail);
 
@@ -60,4 +63,21 @@ void load_zone_switch_end(
 		load_zone.longest_microseconds = microseconds;
 	xgpu_backend_frame_extra(0);
 	halo_load_trace("bsp.switch.made", NULL);
+}
+
+void load_zone_structure_bsp_switched(
+	void)
+{
+	struct scenario *scenario = global_scenario_try_and_get();
+	short index = global_structure_bsp_index_get();
+
+	if (scenario && index >= 0 && index < scenario->structure_bsp_references.count)
+	{
+		struct scenario_structure_bsp_reference *reference = TAG_BLOCK_GET_ELEMENT(
+			&scenario->structure_bsp_references, index, struct scenario_structure_bsp_reference);
+
+		if (reference->file_size > 0)
+			d3d8_mirror_rewritten((unsigned long)reference->base_address, (unsigned long)reference->file_size);
+		halo_load_trace("bsp.mirror.end", NULL);
+	}
 }

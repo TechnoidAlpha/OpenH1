@@ -28,6 +28,8 @@ as before.
 #include <string.h>
 
 void platform_log(char const *format, ...);
+/* (memory_watch.c's, or the host's) */
+void memory_watch_prepare_write(void *address, unsigned long size);
 
 #define STRUCTURE_BSP_CACHE_BYTES (128UL * 1024 * 1024)
 #define MAXIMUM_STRUCTURE_BSP_CACHE_ENTRIES 32
@@ -109,11 +111,18 @@ boolean structure_bsp_cache_restore(
 			region_first = MAX(region_first, structure_bsp_cache.written_first);
 			region_end = MIN(region_end, structure_bsp_cache.written_end);
 		}
+		/* (the renderer's watched pages there let go of at once, not each
+		as the copy first writes it, a fault each) */
+		memory_watch_prepare_write((void *)MIN(region_first, first), MAX(region_end, end) - MIN(region_first, first));
 		structure_bsp_cache_fill(region_first, MIN(first, region_end));
 		structure_bsp_cache_fill(MAX(end, region_first), region_end);
 		structure_bsp_cache.written_known = TRUE;
 		structure_bsp_cache.written_first = first;
 		structure_bsp_cache.written_end = end;
+	}
+	else
+	{
+		memory_watch_prepare_write(reference->base_address, (unsigned long)entry->file_size);
 	}
 	memcpy(reference->base_address, entry->bytes, (size_t)entry->file_size);
 	return TRUE;

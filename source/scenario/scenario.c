@@ -196,6 +196,7 @@ symbols in this file:
 #include "units/units.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
 #include "structure_bsp_cache.h" /* port: port/linux/game/structure_bsp_cache.c */
+#include "load_zone.h" /* port: port/linux/game/load_zone.c */
 
 /* ---------- constants */
 
@@ -1176,6 +1177,10 @@ boolean scenario_switch_structure_bsp(
 		collision_log_enable(TRUE);
 		main_start_time();
 		halo_load_trace("bsp.switch.end", NULL); /* port: loading measurement */
+		/* port: the renderer's copies of the old bsp's pages made the new
+		one's before the frame draws (port/linux/game/load_zone.c) */
+		if (loaded)
+			load_zone_structure_bsp_switched();
 	}
 
 	return result;
