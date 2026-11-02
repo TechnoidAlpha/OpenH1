@@ -155,6 +155,10 @@ static const struct config_setting config_settings[] =
 		"What fullscreen and borderless draw at: \"native\", the display's own, or\n"
 		"\"<width>x<height>\" (\"1920x1080\"), 640x480 or more. Fullscreen sets the\n"
 		"display to it; borderless draws it scaled to the display." },
+	{ "display.refresh_rate", _config_real, "0.0", "HALO_REFRESH_RATE", _environment_value, _platform_desktop,
+		"Fullscreen's refresh rate, in Hz (the nearest the display has at the\n"
+		"resolution); 0 keeps the display's own. Windows and an X server's own\n"
+		"display only: Wayland, XWayland, gamescope and macOS keep theirs." },
 	{ "display.resolution_scaling", _config_string, "\"native\"", "HALO_RESOLUTION_SCALING", _environment_value,
 		_platform_desktop,
 		"\"native\" draws at the window's resolution (fullscreen, the display's or\n"

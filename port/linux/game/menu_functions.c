@@ -270,6 +270,8 @@ struct pc_menu_setting
 };
 
 struct pc_menu_setting *pc_menu_setting_get(long definition_index);
+/* sdl_platform.c's: whether fullscreen can set the display's refresh rate */
+int platform_refresh_rates_settable(void);
 /* the menus' pointer and their latest click on an item (ui_widget.c) */
 boolean ui_widget_port_pointer(short *x);
 boolean ui_widget_port_take_click(short *x, short *y);
@@ -1696,6 +1698,24 @@ static void video_rows_show(struct widget_instance *list)
 	}
 }
 
+/* Video Setup's Refresh Rate, shown while Window shows FULLSCREEN where
+fullscreen can set the display's rate (sdl_platform.c); the rows below close
+the gap (settings_rows_pack), and a focus on it hidden goes to the first row
+shown (settings_focus_shown) */
+static void refresh_rate_row_show(struct widget_instance *list)
+{
+	struct widget_instance *mode = named(list, "mode_spinner", 0);
+	struct widget_instance *row = named(list, "op_refresh_rate", 0);
+	struct pc_menu_setting *setting = mode ? pc_menu_setting_get(mode->definition_tag_index) : NULL;
+	short index;
+
+	if (!row)
+		return;
+	index = mode ? mode->parameters.list.selected_index : NONE;
+	row->visible = setting && index >= 0 && index < setting->value_count &&
+		!strcmp(setting->values[index], "fullscreen") && platform_refresh_rates_settable();
+}
+
 /* Interface's button style, shown while the HUD shown is the high-res one
 (Defaults too); the rows below close the gap (settings_rows_pack) */
 static void hud_button_style_row_show(struct widget_instance *list)
@@ -2900,6 +2920,7 @@ static void settings_page_update(struct widget_instance *list)
 			settings_snapshot = settings_pending;
 	}
 	video_rows_show(list);
+	refresh_rate_row_show(list);
 	hud_button_style_row_show(list);
 	max_fps_row_show(list);
 	settings_rows_show(list);

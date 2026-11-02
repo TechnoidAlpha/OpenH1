@@ -163,6 +163,17 @@ int host_sdl_get_hint_boolean(const char *name, int default_value)
 	return SDL_GetHintBoolean(name, default_value != 0) ? 1 : 0;
 }
 
+/* SDL's video driver ("x11", "wayland", "windows", "cocoa"...), 0 if none */
+int host_sdl_get_current_video_driver(char *name, int size)
+{
+	const char *driver = SDL_GetCurrentVideoDriver();
+
+	if (!driver || size < 1)
+		return 0;
+	SDL_strlcpy(name, driver, (size_t)size);
+	return 1;
+}
+
 int host_sdl_text_input_active(uint32_t window)
 {
 	return SDL_TextInputActive(window_of(window)) ? 1 : 0;

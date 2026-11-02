@@ -501,6 +501,12 @@ PAGES = {
              "computer"),
             ("WINDOW SIZE", "display.window_size", [("1280 x 960", "1280x960")],
              "The window's size: 4:3 first, then 16:10, 16:9 and 21:9. Its edges can also be dragged.", "computer"),
+            # (shown while Window shows FULLSCREEN where fullscreen can set
+            # the display's rate: menu_functions.c's refresh_rate_row_show;
+            # port/linux/game/menu_tags.c adds the display's rates)
+            ("REFRESH RATE", "display.refresh_rate", [("AUTO", "0")],
+             "How many times a second the display shows a picture while the game is fullscreen. Auto keeps the "
+             "display's own. VSync and Frame Rate Limit's Auto follow it.", "computer"),
             ("VSYNC", "display.vsync", ON_OFF,
              "Shows each frame at a refresh of the display: even motion that never tears, at the display's "
              "refresh rate. On Linux and the Steam Deck each frame starts just in time for its refresh, so it adds "
@@ -535,10 +541,6 @@ PAGES = {
             ("QUALITY", "display.graphics", [("ENHANCED", "enhanced"), ("CLASSIC", "classic"), ("CUSTOM", "custom")],
              "Enhanced: smoother edges, sharper textures and shadows, smoother lighting. Classic looks as the "
              "Xbox did.|Changing one shows CUSTOM.", None),
-            ("SHADOW QUALITY", "display.shadow_resolution",
-             [("XBOX", "128"), ("MEDIUM", "256"), ("HIGH", "512"), ("ULTRA", "1024")],
-             "How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky "
-             "shadow; each step up is crisper, and costs a little more of the graphics card.", None),
             # (display.battery_saver: port/linux/src/battery_saver.c)
             ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
              "Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns "
@@ -549,8 +551,8 @@ PAGES = {
              "Brighter highlights on an HDR display: whether HDR is on, its look, how bright white and the HUD "
              "are, and the display's peak.", "hdr", "hdr_settings"),
             ("ADVANCED GRAPHICS ›", None, _page_screen(*ADVANCED),
-             "Anti-aliasing, texture filtering, model detail, the lighting and the shields' glow, smooth motion "
-             "and the tick rate.", None),
+             "Anti-aliasing, texture filtering, model detail, shadows, the lighting and the shields' glow, smooth "
+             "motion and the tick rate.", None),
         ],
     },
     "audio_settings": {
@@ -767,6 +769,11 @@ PAGES = {
              "Draws movement smoothly between the game's 30 updates a second, so that it looks fluid at any frame "
              "rate. Off shows each update as it is.", None),
             (SECTION, "LIGHTING"),
+            # (here, not on Video's tab: Refresh Rate took its row there)
+            ("SHADOW QUALITY", "display.shadow_resolution",
+             [("XBOX", "128"), ("MEDIUM", "256"), ("HIGH", "512"), ("ULTRA", "1024")],
+             "How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky "
+             "shadow; each step up is crisper, and costs a little more of the graphics card.", None),
             ("SMOOTH LIGHTING", "display.per_pixel_lighting", ON_OFF,
              "Lights characters and weapons smoothly, without the flat facets of the Xbox's lighting, at a small "
              "cost.", None),

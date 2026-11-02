@@ -55,6 +55,7 @@ void platform_log(char const *format, ...);
 char const *config_string(char const *name);
 int config_boolean(char const *name);
 int platform_display_resolutions(long *widths, long *heights, int maximum);
+int platform_display_refresh_rates(long *rates, int maximum);
 int platform_window_sizes(long *widths, long *heights, int maximum);
 /* (sdl_platform.c's PLATFORM_AUDIO_DEVICE_NAME_SIZE) */
 int platform_audio_devices(int recording, char (*names)[128], int maximum);
@@ -1131,7 +1132,8 @@ static long split(char const *text, char const **pieces)
 /* a spinner's strings, or its values, split: its own, but Video Setup's
 sizes are the display's (sdl_platform.c), shown "1920 x 1080" and set
 "1920x1080": its resolutions after Resolution's own (NATIVE), and the
-window sizes that fit it in place of Window Size's own; and Audio Setup's
+window sizes that fit it in place of Window Size's own; its refresh rates
+after Refresh Rate's own (AUTO); and Audio Setup's
 devices SDL finds, after their SYSTEM DEFAULT, each set by its name and
 shown by it (in capitals, as the menus' words are, and cut short) */
 static long spinner_split(struct halo_menu_widget const *widget, boolean values, char const **pieces)
@@ -1171,6 +1173,25 @@ static long spinner_split(struct halo_menu_widget const *widget, boolean values,
 			if (!piece)
 				break;
 			strcpy(piece, name);
+			pieces[count++] = piece;
+		}
+		return count;
+	}
+	if (widget->setting && !strcmp(widget->setting, "display.refresh_rate"))
+	{
+		/* (the display's rates after Refresh Rate's own, AUTO: shown "144 HZ",
+		set "144") */
+		added = platform_display_refresh_rates(widths, (int)(MAXIMUM_STRINGS - count));
+		for (index = 0; index < added; index++)
+		{
+			char text[32];
+			char *piece;
+
+			snprintf(text, sizeof(text), values ? "%ld" : "%ld HZ", widths[index]);
+			piece = allocate((long)strlen(text) + 1);
+			if (!piece)
+				break;
+			strcpy(piece, text);
 			pieces[count++] = piece;
 		}
 		return count;
