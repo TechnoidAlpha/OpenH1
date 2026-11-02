@@ -34,7 +34,8 @@ calls them from PC_MENU_FUNCTION_BASE on):
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
-  right choose ("controls binding slot"); OK ("controls screen change set")
+  right choose ("controls binding slot"), or the pointer is over or clicked
+  (ui_widget_port_take_point, take_click); OK ("controls screen change set")
   writes them, "controls screen defaults" shows the defaults.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
@@ -270,9 +271,11 @@ struct pc_menu_setting
 };
 
 struct pc_menu_setting *pc_menu_setting_get(long definition_index);
-/* the menus' pointer and their latest click on an item (ui_widget.c) */
+/* the menus' pointer, their latest click on an item and the latest place
+the pointer chose one at (ui_widget.c) */
 boolean ui_widget_port_pointer(short *x);
 boolean ui_widget_port_take_click(short *x, short *y);
+boolean ui_widget_port_take_point(short *x, short *y);
 
 /* ---------- private code */
 
@@ -788,6 +791,18 @@ static struct widget_instance *descendant(struct widget_instance *widget, char c
 static struct widget_instance *named(struct widget_instance *widget, char const *name, long nth)
 {
 	return widget ? descendant(widget, name, &nth) : NULL;
+}
+
+/* a widget's left edge on the screen (its offsets and its parents', as the
+menus draw them: each widget's in its parent's, and its move in the wide
+layout, ui_widget_port_wide_offset) */
+static short widget_screen_x(struct widget_instance *widget)
+{
+	short x = 0;
+
+	for (; widget; widget = widget->parent)
+		x = (short)(x + widget->horizontal_offset + ui_widget_port_wide_offset(widget->definition_tag_index));
+	return x;
 }
 
 /* the text box's own text (as the server list sets its items'), in a
@@ -3470,13 +3485,27 @@ static short controls_group(struct widget_instance *screen)
 	return spinner ? spinner->parameters.list.selected_index : 0;
 }
 
-/* "controls begin binding" (A on a row): the next key or button pressed */
+/* the binding of a row at a place on the screen: the second from its left
+edge on, else the first */
+static short control_slot_at(struct widget_instance *row, short x)
+{
+	struct widget_instance *second = named(row, "command_binding", 1);
+
+	return (short)(second && x >= widget_screen_x(second));
+}
+
+/* "controls begin binding" (A on a row, or a click on it: the binding
+clicked): the next key or button pressed */
 static boolean control_capture_begin(struct widget_instance *widget)
 {
-	short control = control_of_row(control_row(widget), controls_group(screen_of(widget)));
+	struct widget_instance *row = control_row(widget);
+	short control = control_of_row(row, controls_group(screen_of(widget)));
+	short x, y;
 
 	if (control == NONE)
 		return FALSE;
+	if (ui_widget_port_take_click(&x, &y))
+		controls_screen.slot = control_slot_at(row, x);
 	controls_screen.capturing_control = control;
 	controls_screen.capturing_slot = controls_screen.slot;
 	platform_binding_capture_begin();
@@ -3519,14 +3548,18 @@ static void control_capture_poll(void)
 }
 
 /* "controls update menu": the group's rows, their bindings (the one left
-and right choose marked on the row chosen), and the help */
+and right choose, or the pointer is over, marked on the row chosen), and the
+help */
 static void controls_update(struct widget_instance *list)
 {
 	short group = controls_group(list);
 	struct widget_instance *row;
 	struct widget_instance *focused_row = control_row(list->focused_child);
+	short x, y;
 
 	control_capture_poll();
+	if (ui_widget_port_take_point(&x, &y) && focused_row && controls_screen.capturing_control == NONE)
+		controls_screen.slot = control_slot_at(focused_row, x);
 	for (row = list->child; row; row = row->next)
 	{
 		short control = control_of_row(row, group);
@@ -4497,22 +4530,10 @@ static void settings_slider_set(short slider, double value)
 	}
 }
 
-/* the track's left edge on the screen (its offsets and its parents', as the
-menus draw them: each widget's in its parent's, and its move in the wide
-layout, ui_widget_port_wide_offset) */
-static short settings_slider_track_x(struct widget_instance *track)
-{
-	short x = 0;
-
-	for (; track; track = track->parent)
-		x = (short)(x + track->horizontal_offset + ui_widget_port_wide_offset(track->definition_tag_index));
-	return x;
-}
-
 /* the value at a place on the track (its range, in steps) */
 static void settings_slider_place(short slider, struct widget_instance *track, short x)
 {
-	double fraction = (double)(x - settings_slider_track_x(track) - SLIDER_THUMB_WIDTH / 2) /
+	double fraction = (double)(x - widget_screen_x(track) - SLIDER_THUMB_WIDTH / 2) /
 		(SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH);
 	double least = settings_sliders[slider].least, most = settings_sliders[slider].most;
 	double step = settings_sliders[slider].step;
@@ -4575,8 +4596,8 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 			return TRUE;
 		}
 		/* (a click on the track sets the value there, and drags it) */
-		if (ui_widget_port_take_click(&x, &y) && x >= settings_slider_track_x(track) - 4 &&
-			x < settings_slider_track_x(track) + SLIDER_TRACK_WIDTH + 4)
+		if (ui_widget_port_take_click(&x, &y) && x >= widget_screen_x(track) - 4 &&
+			x < widget_screen_x(track) + SLIDER_TRACK_WIDTH + 4)
 		{
 			settings_slider_place(slider, track, x);
 			settings_slider.dragged = row;
@@ -4607,7 +4628,7 @@ struct widget_instance *menu_functions_finger_down(struct widget_instance *item,
 	for (depth = 0; row && depth < 3 && (slider = settings_slider_of(row)) == NONE; depth++)
 		row = row->parent;
 	track = slider != NONE ? settings_slider_track(row) : NULL;
-	if (!track || x < settings_slider_track_x(track) - 4 || x >= settings_slider_track_x(track) + SLIDER_TRACK_WIDTH + 4)
+	if (!track || x < widget_screen_x(track) - 4 || x >= widget_screen_x(track) + SLIDER_TRACK_WIDTH + 4)
 		return NULL;
 	/* (a number being typed is kept, and the finger places the value
 	too, where the mouse's click would only end the typing) */
@@ -8637,7 +8658,7 @@ static boolean browser_click_on_star(struct widget_instance *row)
 
 	if (!star || !ui_widget_port_take_click(&x, &y))
 		return FALSE;
-	left = settings_slider_track_x(star);
+	left = widget_screen_x(star);
 	/* (a little wider than the star, for a finger) */
 	return x >= left - 4 && x < left + 20;
 }
