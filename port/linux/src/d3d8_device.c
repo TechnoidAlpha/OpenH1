@@ -3981,6 +3981,55 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 	return TRUE;
 }
 
+/* the pages of [address, address + size) the mirror holds and the game has
+written since, uploaded now, before the frame's draws read their segments
+(d3d8_mirror_rewritten): a load zone's switch writes a whole structure over
+the one before, and uploaded as the frame's draws find them, each run of
+those pages was a copy of its whole segment made in the frame (the backend's
+buffer renamed, as a segment a draw of the frame has read must be), 27 of
+them on a10's switch into its seventh structure, 8 ms of the GPU's time. Not
+counted as a rewrite (the pages are not volatile for it), nor uploaded where
+no draw has read them yet: those are uploaded as they are first drawn, as
+ever. */
+void d3d8_mirror_rewritten(unsigned long address, unsigned long size)
+{
+	unsigned long start, end, page, run;
+
+	if (address < PLATFORM_CONTIGUOUS_BASE || !size)
+		return;
+	start = (address - PLATFORM_CONTIGUOUS_BASE) / MIRROR_PAGE_SIZE;
+	end = (address - PLATFORM_CONTIGUOUS_BASE + size + MIRROR_PAGE_SIZE - 1) / MIRROR_PAGE_SIZE;
+	if (end > MIRROR_PAGE_COUNT)
+		end = MIRROR_PAGE_COUNT;
+	for (page = start; page < end; page = run)
+	{
+		unsigned long segment = page * MIRROR_PAGE_SIZE / MIRROR_SEGMENT_SIZE;
+		unsigned long segment_end = (segment + 1) * (MIRROR_SEGMENT_SIZE / MIRROR_PAGE_SIZE);
+		unsigned long first;
+
+		for (run = page; run < end && run < segment_end && mirror.state[run] == _mirror_page_present &&
+			memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + run * MIRROR_PAGE_SIZE, MIRROR_PAGE_SIZE) >
+				mirror.generation[run];
+			run++)
+		{
+		}
+		if (run == page)
+		{
+			run = page + 1;
+			continue;
+		}
+		/* protect first, so a write racing with the upload is noticed */
+		memory_watch_protect(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE, (run - page) * MIRROR_PAGE_SIZE);
+		for (first = page; first < run; first++)
+		{
+			mirror.generation[first] = memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + first * MIRROR_PAGE_SIZE,
+				MIRROR_PAGE_SIZE);
+		}
+		xgpu_backend_mirror_write(segment, page * MIRROR_PAGE_SIZE - segment * MIRROR_SEGMENT_SIZE,
+			(run - page) * MIRROR_PAGE_SIZE, (const void *)(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE), FALSE);
+	}
+}
+
 /* makes [address, address + size) current in the mirror, giving the segment
 that holds it, the range's offset in that segment and the newest upload
 generation of its pages (which changes whenever its contents do); FALSE if

@@ -6041,7 +6041,13 @@ host is told of a switch from the frame it is asked for in
 (`game/load_zone.c`, `xgpu_backend_frame_extra`), so that the frame it is
 made in starts early enough for its refresh. On a Ryzen 9 5900X (Vulkan) a
 switch takes 1.4 to 2.6 ms of the frame, where it took 20 to 30 ms, and 550
-to 730 ms more the first time into each structure.
+to 730 ms more the first time into each structure. The renderer's copies of
+the old structure's pages (the vertices' mirror, `src/d3d8_device.c`) are
+made the new one's as the switch ends (`d3d8_mirror_rewritten`), before the
+frame's draws read them: found by the draws, each run of them was a copy of
+its whole 4 MB segment in the frame (27 at a10's switch into its seventh
+structure, 8 ms of the GPU's), and the pages copied over are let go of by
+the write tracking in runs (`host_memory_watch.c`), not one fault each.
 `debug.bsp_switch_test` times the switches.
 
 The loading panel uses Paul Hontz's redraw of the retail loading picture

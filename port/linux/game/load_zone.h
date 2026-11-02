@@ -12,5 +12,8 @@ A load zone's switch's frame started early enough for its refresh
 void load_zone_switch_requested(void);
 void load_zone_switch_begin(void);
 void load_zone_switch_end(void);
+/* any switch made (scenario_switch_structure_bsp): the renderer's copies of
+the old structure's pages its draws read made the new one's at once */
+void load_zone_structure_bsp_switched(void);
 
 #endif
