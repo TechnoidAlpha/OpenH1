@@ -938,15 +938,15 @@ the setting for one start of the game. It has priority over the file.
 | `display.window_scale` | `2` | `HALO_WINDOW_SCALE` | Used when `display.window_size` is empty: the size of the window, as a multiple of 640x480. |
 | `display.vsync` | `false` (Linux, Windows, macOS); `true` (iOS, Android, and the Linux builds under gamescope: the Steam Deck's Game Mode) | `HALO_NO_VSYNC=1` sets `false` | `true`: each frame waits for the display. `false`: as many frames as `display.max_fps` allows (twice the refresh rate by default). With Vulkan, `false` presents in mailbox mode where the display has it (no tearing), else immediately. On macOS, `false` shows the newest frame at each refresh, with the older one dropped (no tearing). The VR mode's headset paces itself. With Vulkan and `true`, `display.low_latency` starts each frame just in time for its refresh. |
 | `display.low_latency` | `"auto"` | `HALO_LOW_LATENCY` | With vsync on (Vulkan: Linux, the Steam Deck, Windows, Android), the game starts each frame as late as it can and still have it on screen at the next refresh, its input read then, and never queues frames ahead of the display. `"on"`, `"off"`, or `"auto"`: on for Linux, the Steam Deck and Android (Windows: off until measured there). It needs a driver that says when each frame reaches the screen (`VK_KHR_present_wait`, or `VK_GOOGLE_display_timing`); without one it does nothing. The Mac's frames are paced by its display already. Refer to "Low latency with vsync". |
-| `display.max_fps` | `0` | `HALO_MAX_FPS` | With vsync off, the most frames each second. `0`: twice the display's refresh rate. `-1`: no limit, which can hang some Intel graphics (Raptor Lake), resetting the desktop's graphics too. On Linux, the display's refresh rate or a whole fraction of it (a half to a quarter), within one frame a second, is shown in step with the display, as vsync shows it, with `display.low_latency` (refer to "Frame rate"). Video Setup shows Frame Rate Limit while VSync is off. A press while a frame waits for its time (a key, a mouse or controller button, a trigger or stick pushed or let go, the mouse moved after it was still) begins the next frame at once, so that it is read then: one frame more for each press, at most one an interval; the frame after waits for its time as before. Not the Mac's, whose frames wait for the display. |
+| `display.max_fps` | `0` | `HALO_MAX_FPS` | With vsync off, the most frames each second. `0`: twice the display's refresh rate. `-1`: no limit, which can hang some Intel graphics (Raptor Lake), resetting the desktop's graphics too. On Linux, the display's refresh rate or a whole fraction of it (a half to a quarter), within one frame a second, is shown in step with the display, as vsync shows it, with `display.low_latency` (refer to "Frame rate"). Video Setup shows Frame Rate Limit while VSync is off: a slider through Auto, the common rates from 30 to 540 and None, with a field to type any limit from 10 to 1000 (Enter keeps it). A press while a frame waits for its time (a key, a mouse or controller button, a trigger or stick pushed or let go, the mouse moved after it was still) begins the next frame at once, so that it is read then: one frame more for each press, at most one an interval; the frame after waits for its time as before. Not the Mac's, whose frames wait for the display. |
 | `display.battery_saver` | `"off"` | `HALO_BATTERY_SAVER` | Draw less, for a longer battery and a cooler machine. `"on"`: each frame stays on screen for a whole number of the display's refreshes, 30 to 60 frames each second (60 at 60 or 120 Hz, 45 at 90 Hz), and the settings `display.graphics` chooses that are commented out are drawn at their Classic values; those set keep their own. `"auto"`: on while the machine runs on its battery, off on its charger, as SDL says (a machine without a battery, or one that cannot tell, is taken to be on its charger). `"off"`: never. Not in VR. The game plays the same. Video Setup > Battery Saver. Refer to "Battery saver". |
 | `display.graphics` | `"enhanced"` | `HALO_GRAPHICS` | The look of the 3D view, as one choice. `"classic"`: as the Xbox drew it. `"enhanced"`: the port's improvements together, each as far as the machine's GPU does it well. It chooses `display.anti_aliasing`, `display.anisotropic_filtering`, `display.shadow_resolution`, `display.per_pixel_lighting`, `display.model_detail` and `display.dynamic_lights` where they are commented out; each of them set wins over it. Video Setup > Graphics > Preset. Refer to "Classic and Enhanced". |
 | `display.anti_aliasing` | `display.graphics`'s | `HALO_ANTI_ALIASING` | The smoothing of jagged edges, which the Xbox did not have. `"off"`: none, as on the Xbox. `"fxaa"` or `"smaa"`: a pass over the 3D view after the game draws it. The HUD and the menus stay sharp. SMAA is the sharper and costs more. `"ssaa2x"`: the game draws at two times the resolution in each direction (at most the GPU's largest texture), and the picture is scaled down. The GPU does four times the work. Not with `display.resolution_scaling = "original"`. `"msaa2x"`, `"msaa4x"` or `"msaa8x"`: each pixel of the 3D view has that many samples (at most the GPU's). On Android, macOS and iOS `"ssaa2x"` gives none. On iOS `display.graphics = "enhanced"` gives `"msaa4x"` (port/ios/README.md). The VR mode's eyes have neither pass. A change applies from the next frame. Refer to "Anti-aliasing" in "What operates". Commented out, `display.graphics` chooses it (refer to "Classic and Enhanced"); set, it wins over `display.graphics`. |
 | `display.prepare_shaders` | `true` | `HALO_PREPARE_SHADERS` | `true`: as a map loads, its first frame is drawn unseen through every shader its tags hold, in each way the game's code draws them, with its other structures' materials too, so that the renderer makes their shaders and pipelines during the loading screen, not in play nor at a load zone (a structure with materials its first could not stand in for draws those at its own first frame) (`port/assets/render/README.md`, "A map's enumeration"). `false`: each is made the first time a draw needs it, which the draw waits for. |
 | `display.interpolation` | `true` | `HALO_INTERPOLATION` | `true`: one frame for each refresh of the display. `false`: 30 frames each second, as on the Xbox. Refer to "Frame rate". |
 | `display.direct_camera` | `true` | `HALO_DIRECT_CAMERA` | `true`: in first person, on foot, the view points where the player aims in each frame, not where the last tick left it; and (not in the VR mode) the view stands where the newest step left the player, and the gun and hands show the newest step's pose (a shot, a step, a reload seen 33 ms sooner). In a vehicle's seat (first or third person, not in the VR mode) the vehicle, its riders and the view from it are drawn as the vehicle's newest step left it, the view aimed where the player aims. On Android and iOS too, with the touch controls' swipe and gyroscope. Refer to "Frame rate". |
-| `display.fov` | `0.0` | `HALO_FOV` | The first-person view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Refer to "Field of view". |
-| `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. Refer to "Field of view". |
+| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot and in vehicles, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
+| `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
 | `display.passenger_third_person` | `false` | `HALO_PASSENGER_THIRD_PERSON` | Third-person view for the Warthog's passenger and the Scorpion's four passengers. Uses the gunner's camera on the Warthog and the driver's on the Scorpion, within the passenger's firing arc. Smooth entry and exit; weapon zoom is disabled while riding. The reticle follows the shot's centre ray. Local view only. In the campaign and co-op only: not in multiplayer, where seeing around the vehicle would be an advantage. Never in VR, which stays in first person in every seat. |
 | `display.viewmodel_shield` | `false` | `HALO_VIEWMODEL_SHIELD` | `true`: the energy shield's flare (its hits, its charging, its fall) is drawn on the first-person arms too, as on the body, with the unit's own shield shader, kept closer to the arms than to the body. The stock game draws it on the body only. |
@@ -1044,6 +1044,12 @@ the setting for one start of the game. It has priority over the file.
 | `network.tunnel_port` | `0` | `HALO_NET_TUNNEL_PORT` | The UDP port for internet play. `0`: the game selects a port. Refer to "Internet play". |
 | `network.allow_upnp` | `true` | `HALO_NET_ALLOW_UPNP` | `true`: internet play can ask the router to forward its port (UPnP). `false`: the game does not ask. Refer to "Internet play". |
 | `network.public_lobby` | `true` | `HALO_NET_PUBLIC_LOBBY` | `true`: the server browser. Public games are listed, and Join Game > Server Browser shows them. `false`: no games are listed or shown. Refer to "Server browser". |
+| `network.browser_show_full` | `true` | `HALO_NET_BROWSER_SHOW_FULL` | `false`: the server browser and the local network's list hide full games. Their Filters page. Refer to "Server browser". |
+| `network.browser_show_empty` | `true` | `HALO_NET_BROWSER_SHOW_EMPTY` | `false`: the server browser and the local network's list hide games with no player. Their Filters page. |
+| `network.browser_show_password` | `true` | `HALO_NET_BROWSER_SHOW_PASSWORD` | `false`: the server browser hides games that need a password. Their Filters page. |
+| `network.browser_ping` | `0` | `HALO_NET_BROWSER_PING` | The server browsers list only games whose ping is under this many milliseconds (300, 250, 150, 100 or 50); `0` lists every game. A game whose ping is not known (a local network game's, a dedicated server's, one still being timed) is listed. Their Filters page. |
+| `network.browser_show_ctf`, `network.browser_show_slayer`, `network.browser_show_oddball`, `network.browser_show_king`, `network.browser_show_race` | `true` | `HALO_NET_BROWSER_SHOW_CTF`, `HALO_NET_BROWSER_SHOW_SLAYER`, `HALO_NET_BROWSER_SHOW_ODDBALL`, `HALO_NET_BROWSER_SHOW_KING`, `HALO_NET_BROWSER_SHOW_RACE` | `false`: the server browsers hide the games of that game type (OpenCE's kinds of it too: SWAT is Slayer). Co-op games have none (the CO-OP tab). Their Filters page. |
+| `network.browser_search` | `""` | `HALO_NET_BROWSER_SEARCH` | The server browsers list only games whose server name or map (as shown, or its own name) has these words, in any case. Empty lists every game. Their Filters page's SEARCH. |
 | `friends.share_status` | `true` | `HALO_FRIENDS_SHARE_STATUS` | Show your friends that you are online, and where, and let them join you (Multiplayer > FRIENDS). Only your friends can read it. `false` appears offline: nothing is published, and you still see your friends. Refer to "Friends". |
 | `network.host_public` | `true` | `HALO_NET_HOST_PUBLIC` | `true`: a new game of Create Game > Internet starts as PUBLIC. `false`: it starts as PRIVATE. LISTING in Server Setup changes it for each game. Refer to "Server browser". |
 | `network.game_mode` | `"openh1"` | `HALO_NET_GAME_MODE` | When you host: `"openh1"`, an OpenH1 game ("OpenH1 60 Tick" and the like) at the tick rate `network.sim_rate` sets, which OpenCE players can join too, at 30 (`network.allow_opence`); `"legacy"`, OpenCE's netcode at 30 ticks a second for everyone. `"standard"` is the same as `"openh1"`. Server Setup's GAME row (OPENH1 30 TICK, OPENH1 60 TICK, OPENH1 120 TICK or LEGACY) writes it and `network.sim_rate`. Read when hosting starts, and again when the game is started from Server Setup if no one has joined yet. Refer to "OpenH1 and Legacy games" in NETCODE.md. |
@@ -1915,8 +1921,10 @@ keeps the stock view. `config.toml` takes any angle from 20 to 150.
 
 - An angle is across the screen at 16:9. Another shape keeps the same
   angle up and down, as the stock view does.
-- The field of view applies on foot in first person only. Vehicles, death,
-  cinematics and scripted cameras keep their own view.
+- The field of view applies on foot and in vehicles, in first and third
+  person, entering and leaving a seat too, so the view and the reticle keep
+  their size as you get in and out. Death, cinematics and scripted cameras
+  keep their own view.
 - A scope's zoom levels keep their stock view: the extra width fades out as
   the zoom comes in. A view narrower than the stock one narrows the zoom
   too.
@@ -2409,6 +2417,28 @@ Sorting and the tabs, in all three lists, for this run of the game:
 - Favorites stay at the top, sorted the same way among themselves; those
   not found stay at the bottom of All and Favorites, grey.
 
+Filters, in the server browser and the local network's list (not in Join
+by Link, whose games are the invites you took): FILTERS in the footer (the
+left trigger, L on the keyboard, or a click), or Settings > Online > SERVER
+BROWSER FILTERS, opens the Filters page. Its OK keeps the choices in
+`config.toml` (the `network.browser_*` settings), so they stay for the next
+time the game starts; Cancel leaves them as they were.
+
+- SHOW FULL GAMES, SHOW EMPTY GAMES, SHOW PASSWORD GAMES: YES or NO.
+- PING: ANY, or only games under 300, 250, 150, 100 or 50 ms. A game whose
+  ping is not known (a local network game's, a dedicated server's, one
+  still being timed) stays listed.
+- SEARCH: words that a game's server name or map must have, in any case
+  ("gulch" finds Blood Gulch). Select the row, type, and press Enter.
+- GAME TYPES: CAPTURE THE FLAG, SLAYER, ODDBALL, KING OF THE HILL and RACE,
+  each SHOW or HIDE, so that any mix of them is listed. OpenCE's kinds go
+  with their game type (SWAT, Infection and Gun Game with Slayer). Co-op
+  games have no game type: the CO-OP tab lists them.
+
+The filters apply on every tab, the favorites too. The counts above the
+list say how many games they hide (`3 HIDDEN`), and a list that they leave
+empty says so.
+
 The browser lists two kinds of games: the dedicated servers that the
 master servers list (`masters.txt`, `network.masters_file`; the official
 master, `https://master.opencommunityedition.com`, built in, when the file
@@ -2430,17 +2460,7 @@ master servers, or only the brokers.
   first, the dedicated servers first among them and among the Legacy games
   after them, then the games with the most players, then by name. The browser
   keeps the order in `network.browser_sort`.
-- FILTERS opens the Filters screen of Custom Edition. It has SHOW EMPTY
-  SERVERS, SHOW FULL SERVERS, GAME TYPE (ANY or one game engine) and SHOW
-  MISSING MAPS (NO, YES, or IF DOWNLOADABLE, for a Custom Edition map that
-  Map Sharing can download when you join). OK writes the
-  `network.browser_*` settings. Settings > Network Setup > SERVER BROWSER
-  writes the same settings, and also shows LISTS, SORT BY (DEDICATED FIRST,
-  PLAYERS, NAME, MAP, GAME TYPE or LOCKED FIRST; an order that a title reversed
-  shows as the same choice) and MASTER SERVERS
-  (the number of master servers that answered the last request of the
-  browser, for example `2 OF 2`). The PING and TEAMPLAY OPTIONS rows of
-  Custom Edition are not on the Filters screen.
+- FILTERS hides games from the list: refer to "Filters" above.
 - A dedicated server's row shows the dedicated icon of Custom Edition.
   Instead of a ping, a dedicated server shows its region (EU, NA-E),
   because the browser does not ping the servers that the master servers

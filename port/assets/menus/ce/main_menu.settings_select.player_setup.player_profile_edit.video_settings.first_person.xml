@@ -47,13 +47,23 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_0_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_fov" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_track" x="188" y="3"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_value" x="256" y="0"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|80|85|90|95|100|105|110|115|120|125|130|135|140|145|150" setting="display.viewmodel_fov" values="0|80|85|90|95|100|105|110|115|120|125|130|135|140|145|150" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_track" controller="1" width="66" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_thumb"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_fov_value" type="text" controller="1" width="72" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_visible" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_visible_label"/>
@@ -118,7 +128,7 @@
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/help_strings">
 		<string text=""/>
 		<string text=""/>
-		<string text="How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the weapon's own view."/>
+		<string text="How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the weapon's own view.|Click the number (or press A) to type any from 20 to 150."/>
 		<string text="Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and hear them."/>
 		<string text="Your legs when you look down, moving as you run: your body as the others see it."/>
 		<string text="Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or from your seat. Behind, the weapon cannot zoom."/>

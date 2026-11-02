@@ -34,7 +34,8 @@ calls them from PC_MENU_FUNCTION_BASE on):
 - Controls Setup's: the keyboard and mouse's controls, two bindings each,
   shown a group at a time ("controls update menu"); "controls begin
   binding" takes the next key or button pressed for the binding left and
-  right choose ("controls binding slot"); OK ("controls screen change set")
+  right choose ("controls binding slot"), or the pointer is over or clicked
+  (ui_widget_port_take_point, take_click); OK ("controls screen change set")
   writes them, "controls screen defaults" shows the defaults.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
@@ -272,9 +273,11 @@ struct pc_menu_setting
 struct pc_menu_setting *pc_menu_setting_get(long definition_index);
 /* sdl_platform.c's: whether fullscreen can set the display's refresh rate */
 int platform_refresh_rates_settable(void);
-/* the menus' pointer and their latest click on an item (ui_widget.c) */
+/* the menus' pointer, their latest click on an item and the latest place
+the pointer chose one at (ui_widget.c) */
 boolean ui_widget_port_pointer(short *x);
 boolean ui_widget_port_take_click(short *x, short *y);
+boolean ui_widget_port_take_point(short *x, short *y);
 
 /* ---------- private code */
 
@@ -287,7 +290,8 @@ static void settings_sliders_default(struct widget_instance *screen);
 static boolean settings_slider_function(char const *name, struct widget_instance *row);
 static short settings_slider_of(struct widget_instance const *row);
 static double settings_slider_value(short slider);
-static void settings_slider_text(double value, char *text, unsigned int size);
+static void settings_slider_text(short slider, double value, char *text, unsigned int size);
+static short settings_slider_stop_nearest(short slider);
 
 static boolean text_is_number(char const *text, double *number)
 {
@@ -790,6 +794,18 @@ static struct widget_instance *descendant(struct widget_instance *widget, char c
 static struct widget_instance *named(struct widget_instance *widget, char const *name, long nth)
 {
 	return widget ? descendant(widget, name, &nth) : NULL;
+}
+
+/* a widget's left edge on the screen (its offsets and its parents', as the
+menus draw them: each widget's in its parent's, and its move in the wide
+layout, ui_widget_port_wide_offset) */
+static short widget_screen_x(struct widget_instance *widget)
+{
+	short x = 0;
+
+	for (; widget; widget = widget->parent)
+		x = (short)(x + widget->horizontal_offset + ui_widget_port_wide_offset(widget->definition_tag_index));
+	return x;
 }
 
 /* the text box's own text (as the server list sets its items'), in a
@@ -2391,9 +2407,10 @@ static short settings_text_wrap(wchar_t const *text, wchar_t *wrapped, short siz
 
 /* a row's picture of each value (tools/port_settings.py's
 SETTINGS_VALUE_PICTURES: panel_picture_<the row's key>) shown, at the value
-shown, the others hidden; FALSE if the row has none */
+shown (its spinner's index, or a slider's stop nearest it: frame), the
+others hidden; FALSE if the row has none */
 static boolean settings_value_picture_show(struct widget_instance *panel, struct widget_instance *row,
-	struct widget_instance *spinner)
+	short frame)
 {
 	struct widget_instance *child;
 	boolean shown = FALSE;
@@ -2402,11 +2419,11 @@ static boolean settings_value_picture_show(struct widget_instance *panel, struct
 	{
 		if (!child->name || strncmp(child->name, "panel_picture_", 14))
 			continue;
-		child->visible = row && spinner && row->name && !strncmp(row->name, "op_", 3) &&
+		child->visible = row && frame != NONE && row->name && !strncmp(row->name, "op_", 3) &&
 			!strcmp(child->name + 14, row->name + 3);
 		if (child->visible)
 		{
-			child->animation.current_frame_index = spinner->parameters.list.selected_index;
+			child->animation.current_frame_index = frame;
 			shown = TRUE;
 		}
 	}
@@ -2596,6 +2613,10 @@ static boolean hdr_display_panel(struct widget_instance *row, wchar_t *value, wc
 	*help = words;
 	return TRUE;
 }
+
+/* (the server browsers' Filters page's SEARCH: below) */
+static void browser_search_show(struct widget_instance *list);
+static boolean browser_search_panel(struct widget_instance *row, wchar_t *value);
 
 /* the panel's name, value and words for a row of the page (the others':
 FALSE) */
@@ -2801,7 +2822,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 			/* (a slider's: its number) */
 			char number[32];
 
-			settings_slider_text(settings_slider_value(settings_slider_of(row)), number, sizeof(number));
+			settings_slider_text(settings_slider_of(row), settings_slider_value(settings_slider_of(row)), number,
+				sizeof(number));
 			for (length = 0; number[length] && length < ROW_TEXT_LENGTH - 1; length++)
 				value[length] = (wchar_t)number[length];
 			value[length] = 0;
@@ -2821,6 +2843,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 		discord_account_panel(row, name, value, &help);
 		/* (the display's peak: its words of the display now) */
 		hdr_display_panel(row, value, &help);
+		/* (the browsers' SEARCH: its words) */
+		browser_search_panel(row, value);
 		/* (Button Remapping's: a button being taken, a replacement asked) */
 		if (pad_editor_page(screen_of(list)))
 			pad_editor_panel(row, name, value, &help);
@@ -2836,7 +2860,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 				still = !strcmp(setting->values[shown], "classic") ? 0 : !strcmp(setting->values[shown], "enhanced") ? 1 : NONE;
 		}
 	}
-	picture = settings_value_picture_show(panel, row, row_spinner) && !stills;
+	picture = settings_value_picture_show(panel, row, row_spinner ? row_spinner->parameters.list.selected_index :
+		settings_slider_of(row) != NONE ? settings_slider_stop_nearest(settings_slider_of(row)) : NONE) && !stills;
 	settings_wide_copy(words, help, SETTINGS_PANEL_TEXT_LENGTH);
 	for (bar = words; *bar && *bar != '|'; bar++)
 	{
@@ -2931,6 +2956,7 @@ static void settings_page_update(struct widget_instance *list)
 	sim_rate_row_show(list);
 	settings_each(screen, setting_stash);
 	settings_sliders_show(list);
+	browser_search_show(list);
 	settings_rows_pack(list, tab != NONE);
 	settings_focus_shown(list);
 	settings_tabs_show(list, tab);
@@ -3491,13 +3517,27 @@ static short controls_group(struct widget_instance *screen)
 	return spinner ? spinner->parameters.list.selected_index : 0;
 }
 
-/* "controls begin binding" (A on a row): the next key or button pressed */
+/* the binding of a row at a place on the screen: the second from its left
+edge on, else the first */
+static short control_slot_at(struct widget_instance *row, short x)
+{
+	struct widget_instance *second = named(row, "command_binding", 1);
+
+	return (short)(second && x >= widget_screen_x(second));
+}
+
+/* "controls begin binding" (A on a row, or a click on it: the binding
+clicked): the next key or button pressed */
 static boolean control_capture_begin(struct widget_instance *widget)
 {
-	short control = control_of_row(control_row(widget), controls_group(screen_of(widget)));
+	struct widget_instance *row = control_row(widget);
+	short control = control_of_row(row, controls_group(screen_of(widget)));
+	short x, y;
 
 	if (control == NONE)
 		return FALSE;
+	if (ui_widget_port_take_click(&x, &y))
+		controls_screen.slot = control_slot_at(row, x);
 	controls_screen.capturing_control = control;
 	controls_screen.capturing_slot = controls_screen.slot;
 	platform_binding_capture_begin();
@@ -3540,14 +3580,18 @@ static void control_capture_poll(void)
 }
 
 /* "controls update menu": the group's rows, their bindings (the one left
-and right choose marked on the row chosen), and the help */
+and right choose, or the pointer is over, marked on the row chosen), and the
+help */
 static void controls_update(struct widget_instance *list)
 {
 	short group = controls_group(list);
 	struct widget_instance *row;
 	struct widget_instance *focused_row = control_row(list->focused_child);
+	short x, y;
 
 	control_capture_poll();
+	if (ui_widget_port_take_point(&x, &y) && focused_row && controls_screen.capturing_control == NONE)
+		controls_screen.slot = control_slot_at(focused_row, x);
 	for (row = list->child; row; row = row->next)
 	{
 		short control = control_of_row(row, group);
@@ -4434,24 +4478,60 @@ with its thumb at the value, and the value's number. Left and right step it
 the mouse held drags it along; A, Start or a click elsewhere on the row
 types a value into its number ("port slider edit": Enter, which is Start
 while typing, keeps it, Escape forgets it). The value is a change kept, as a
-spinner's is (settings_pending), which Settings' OK writes. */
+spinner's is (settings_pending), which Settings' OK writes. A slider with
+stops has them along its track, evenly spaced, in place of its range: left,
+right and the track go from stop to stop, and a value typed between two
+stops sits between them; a stop shown as a word (AUTO, NONE, DEFAULT) is a
+value of its own, which may be typed as the word or as its number. */
+
+/* a slider's stop: its value, and the word it is shown as (NULL: its
+number) */
+struct settings_slider_stop
+{
+	double value;
+	char const *word;
+};
+
+/* (tools/port_settings.py's FRAME_RATE_LIMITS and FIELDS_OF_VIEW) */
+static struct settings_slider_stop const settings_frame_rate_stops[] =
+{
+	{ 0.0, "AUTO" }, { 30.0, NULL }, { 60.0, NULL }, { 75.0, NULL }, { 90.0, NULL }, { 100.0, NULL },
+	{ 120.0, NULL }, { 144.0, NULL }, { 165.0, NULL }, { 200.0, NULL }, { 240.0, NULL }, { 280.0, NULL },
+	{ 360.0, NULL }, { 480.0, NULL }, { 540.0, NULL }, { -1.0, "NONE" },
+};
+static struct settings_slider_stop const settings_fov_stops[] =
+{
+	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
+	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
+	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+};
+
+#define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
 
 /* each slider by its row: its setting, its track's range and step, the
-values it may be typed (as tools/port_settings.py's Slider has them) */
+values it may be typed, whether they are whole numbers, and its stops (as
+tools/port_settings.py's Slider has them) */
 static struct
 {
 	char const *row;
 	char const *setting;
 	double least, most, step;
 	double typed_least, typed_most;
+	boolean whole;
+	struct settings_slider_stop const *stops;
+	short stop_count;
 } const settings_sliders[] =
 {
-	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0 },
+	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0, FALSE, NULL, 0 },
+	{ "op_max_fps", "display.max_fps", 30.0, 540.0, 1.0, 10.0, 1000.0, TRUE, SLIDER_STOPS(settings_frame_rate_stops) },
+	{ "op_fov", "display.fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
+	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
+		SLIDER_STOPS(settings_fov_stops) },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out
 (SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH) */
-#define SLIDER_TRACK_WIDTH 92
+#define SLIDER_TRACK_WIDTH 66
 #define SLIDER_THUMB_WIDTH 8
 
 /* the slider the mouse drags (its row), and the one typed into */
@@ -4473,6 +4553,26 @@ static short settings_slider_of(struct widget_instance const *row)
 	return NONE;
 }
 
+/* the stop shown as a word that has this value, or NONE */
+static short settings_slider_word(short slider, double value)
+{
+	short stop;
+
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].word && settings_sliders[slider].stops[stop].value == value)
+			return stop;
+	}
+	return NONE;
+}
+
+/* whether the slider takes the value: one it may be typed, or a word's */
+static boolean settings_slider_valid(short slider, double value)
+{
+	return (value >= settings_sliders[slider].typed_least && value <= settings_sliders[slider].typed_most) ||
+		settings_slider_word(slider, value) != NONE;
+}
+
 /* the slider's value as Settings shows it: the change kept, else the
 setting's (else its default) */
 static double settings_slider_value(short slider)
@@ -4481,7 +4581,7 @@ static double settings_slider_value(short slider)
 	double value;
 
 	if (!settings_value(settings_sliders[slider].setting, text, sizeof(text)) || !text_is_number(text, &value) ||
-		!(value > 0.0))
+		!settings_slider_valid(slider, value))
 	{
 		if (!setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) || !text_is_number(text, &value))
 			value = settings_sliders[slider].least;
@@ -4489,15 +4589,32 @@ static double settings_slider_value(short slider)
 	return value;
 }
 
-/* a value as the slider shows and writes it: at most three decimals */
-static void settings_slider_text(double value, char *text, unsigned int size)
+/* a value as the slider writes it: a whole number, or at most three
+decimals */
+static void settings_slider_number(short slider, double value, char *text, unsigned int size)
 {
 	size_t length;
 
+	if (settings_sliders[slider].whole)
+	{
+		snprintf(text, size, "%ld", (long)(value < 0.0 ? value - 0.5 : value + 0.5));
+		return;
+	}
 	snprintf(text, size, "%.3f", value);
 	length = strlen(text);
 	while (length > 3 && text[length - 1] == '0' && text[length - 2] != '.')
 		text[--length] = 0;
+}
+
+/* a value as the slider shows it: its stop's word, else its number */
+static void settings_slider_text(short slider, double value, char *text, unsigned int size)
+{
+	short word = settings_slider_word(slider, value);
+
+	if (word != NONE)
+		snprintf(text, size, "%s", settings_sliders[slider].stops[word].word);
+	else
+		settings_slider_number(slider, value, text, size);
 }
 
 /* the value kept as a change, or none if it is the setting's */
@@ -4505,8 +4622,9 @@ static void settings_slider_set(short slider, double value)
 {
 	char text[64], current[64];
 
-	value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
-	settings_slider_text(value, text, sizeof(text));
+	if (settings_slider_word(slider, value) == NONE)
+		value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
+	settings_slider_number(slider, value, text, sizeof(text));
 	if (setting_text(settings_sliders[slider].setting, current, sizeof(current), FALSE) &&
 		settings_values_same(current, text))
 	{
@@ -4518,38 +4636,95 @@ static void settings_slider_set(short slider, double value)
 	}
 }
 
-/* the track's left edge on the screen (its offsets and its parents', as the
-menus draw them: each widget's in its parent's, and its move in the wide
-layout, ui_widget_port_wide_offset) */
-static short settings_slider_track_x(struct widget_instance *track)
+/* where the value is along a slider's stops, from 0 (the first) to the
+last's index: a stop's own place, or between the two numbers it is between
+(past the numbers' ends, at the end) */
+static double settings_slider_stop_place(short slider, double value)
 {
-	short x = 0;
+	struct settings_slider_stop const *stops = settings_sliders[slider].stops;
+	short count = settings_sliders[slider].stop_count;
+	short stop, first = NONE, last = NONE;
 
-	for (; track; track = track->parent)
-		x = (short)(x + track->horizontal_offset + ui_widget_port_wide_offset(track->definition_tag_index));
-	return x;
+	for (stop = 0; stop < count; stop++)
+	{
+		if (stops[stop].value == value)
+			return stop;
+	}
+	for (stop = 0; stop < count; stop++)
+	{
+		if (stops[stop].word)
+			continue;
+		if (first == NONE)
+			first = stop;
+		last = stop;
+		if (stop + 1 < count && !stops[stop + 1].word && value > stops[stop].value && value < stops[stop + 1].value)
+			return stop + (value - stops[stop].value) / (stops[stop + 1].value - stops[stop].value);
+	}
+	if (first == NONE)
+		return 0.0;
+	return value < stops[first].value ? first : last;
+}
+
+/* the stop nearest the slider's value (its picture's: settings_panel_show),
+or NONE for a slider without stops */
+static short settings_slider_stop_nearest(short slider)
+{
+	if (!settings_sliders[slider].stop_count)
+		return NONE;
+	return (short)(settings_slider_stop_place(slider, settings_slider_value(slider)) + 0.5);
+}
+
+/* the thumb's place along the track, from 0 to 1 */
+static double settings_slider_fraction(short slider, double value)
+{
+	if (settings_sliders[slider].stop_count > 1)
+		return settings_slider_stop_place(slider, value) / (settings_sliders[slider].stop_count - 1);
+	return (value - settings_sliders[slider].least) / (settings_sliders[slider].most - settings_sliders[slider].least);
 }
 
 /* the value at a place on the track (its range, in steps) */
 static void settings_slider_place(short slider, struct widget_instance *track, short x)
 {
-	double fraction = (double)(x - settings_slider_track_x(track) - SLIDER_THUMB_WIDTH / 2) /
+	double fraction = (double)(x - widget_screen_x(track) - SLIDER_THUMB_WIDTH / 2) /
 		(SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH);
 	double least = settings_sliders[slider].least, most = settings_sliders[slider].most;
 	double step = settings_sliders[slider].step;
 	double value = least + PIN(fraction, 0.0, 1.0) * (most - least);
+	short count = settings_sliders[slider].stop_count;
 
+	/* (with stops, the one nearest) */
+	if (count > 1)
+	{
+		settings_slider_set(slider,
+			settings_sliders[slider].stops[(short)(PIN(fraction, 0.0, 1.0) * (count - 1) + 0.5)].value);
+		return;
+	}
 	settings_slider_set(slider, PIN((double)(long)(value / step + 0.5) * step, least, most));
 }
 
-/* (the number typed: kept if it is one) */
+/* (the number typed: kept if it is one, past 0 or a word's; or a word) */
 static void settings_slider_typed(char const *text)
 {
+	short slider = settings_slider.typed;
 	double value;
+	short stop;
 
-	if (settings_slider.typed != NONE && text_is_number(text, &value) && value > 0.0)
-		settings_slider_set(settings_slider.typed, value);
 	settings_slider.typed = NONE;
+	if (slider == NONE)
+		return;
+	if (text_is_number(text, &value) && (value > 0.0 || settings_slider_word(slider, value) != NONE))
+	{
+		settings_slider_set(slider, value);
+		return;
+	}
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].word && !_stricmp(text, settings_sliders[slider].stops[stop].word))
+		{
+			settings_slider_set(slider, settings_sliders[slider].stops[stop].value);
+			return;
+		}
+	}
 }
 
 static struct widget_instance *settings_slider_track(struct widget_instance *row)
@@ -4576,10 +4751,23 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 	{
 		double step = settings_sliders[slider].step;
 		double value = settings_slider_value(slider);
+		short count = settings_sliders[slider].stop_count;
 
 		/* (the arrow keys move nothing while the number is typed) */
 		if (text_field_editing(row))
 			return TRUE;
+		/* (with stops, to the next one along: from between two, the one on
+		that side) */
+		if (count > 1)
+		{
+			double place = settings_slider_stop_place(slider, value);
+			short at = (short)place;
+			short stop = !strcmp(name, "left") ? (short)(place > at ? at : at - 1) : (short)(at + 1);
+
+			settings_slider_set(slider, settings_sliders[slider].stops[PIN(stop, 0, count - 1)].value);
+			ui_play_audio_feedback_sound(SOUND_CURSOR);
+			return TRUE;
+		}
 		value = (double)(long)(value / step + 0.5) * step + (!strcmp(name, "left") ? -step : step);
 		settings_slider_set(slider, PIN(value, settings_sliders[slider].least, settings_sliders[slider].most));
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
@@ -4596,8 +4784,8 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 			return TRUE;
 		}
 		/* (a click on the track sets the value there, and drags it) */
-		if (ui_widget_port_take_click(&x, &y) && x >= settings_slider_track_x(track) - 4 &&
-			x < settings_slider_track_x(track) + SLIDER_TRACK_WIDTH + 4)
+		if (ui_widget_port_take_click(&x, &y) && x >= widget_screen_x(track) - 4 &&
+			x < widget_screen_x(track) + SLIDER_TRACK_WIDTH + 4)
 		{
 			settings_slider_place(slider, track, x);
 			settings_slider.dragged = row;
@@ -4605,10 +4793,16 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 		}
 		if (text_field_editing(NULL))
 			text_field_end(TRUE);
+#ifdef HALO_ANDROID
+		/* (Android's app raises no keyboard for a field: the track alone) */
+		(void)text;
+		return TRUE;
+#else
 		settings_slider.typed = slider;
-		settings_slider_text(settings_slider_value(slider), text, sizeof(text));
+		settings_slider_text(slider, settings_slider_value(slider), text, sizeof(text));
 		text_field_begin(row, text, 7, settings_slider_typed);
 		return TRUE;
+#endif
 	}
 	return FALSE;
 }
@@ -4628,7 +4822,7 @@ struct widget_instance *menu_functions_finger_down(struct widget_instance *item,
 	for (depth = 0; row && depth < 3 && (slider = settings_slider_of(row)) == NONE; depth++)
 		row = row->parent;
 	track = slider != NONE ? settings_slider_track(row) : NULL;
-	if (!track || x < settings_slider_track_x(track) - 4 || x >= settings_slider_track_x(track) + SLIDER_TRACK_WIDTH + 4)
+	if (!track || x < widget_screen_x(track) - 4 || x >= widget_screen_x(track) + SLIDER_TRACK_WIDTH + 4)
 		return NULL;
 	/* (a number being typed is kept, and the finger places the value
 	too, where the mouse's click would only end the typing) */
@@ -4669,14 +4863,13 @@ static void settings_sliders_show(struct widget_instance *list)
 		if (text_field_editing(row) && list->focused_child != row)
 			text_field_end(TRUE);
 		value = settings_slider_value(slider);
-		fraction = (value - settings_sliders[slider].least) /
-			(settings_sliders[slider].most - settings_sliders[slider].least);
+		fraction = settings_slider_fraction(slider, value);
 		if (thumb)
 			thumb->horizontal_offset = (short)(PIN(fraction, 0.0, 1.0) * (SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH) + 0.5);
 		for (value_text = track->next; value_text && value_text->type != 1; value_text = value_text->next)
 		{
 		}
-		settings_slider_text(value, text, sizeof(text));
+		settings_slider_text(slider, value, text, sizeof(text));
 		text_field_show(value_text, text, text_field_editing(row));
 		/* (typed into: its field lit, and the caret held on, not blinking,
 		so that it is plain that the number takes what is typed) */
@@ -4717,6 +4910,109 @@ static void settings_sliders_default(struct widget_instance *screen)
 			settings_slider_set(slider, value);
 		}
 	}
+}
+
+/* ---- the server browsers' Filters page (tools/port_settings.py's
+BROWSER_FILTERS, its rows the network.browser_* settings): opened by the
+browsers' FILTERS (the left trigger; "port browser filters", which starts
+it with no change kept: its OK writes its own, as a page of Settings' does)
+or by Settings' Online. Its SEARCH row's words are typed into its value
+("port browser search": A, Start or a click begins, Enter keeps, Escape
+forgets), a change kept as a spinner's is. The browser reads them all again
+as it opens (browser_filters_read) */
+
+#define BROWSER_SEARCH_SETTING "network.browser_search"
+#define BROWSER_SEARCH_TEXT 32
+
+/* "port browser filters": not Join by Link's, whose games are not filtered */
+static boolean browser_filters_open(void)
+{
+	if (multiplayer.mode == _multiplayer_mode_direct_link)
+		return FALSE;
+	if (text_field_editing(NULL))
+		text_field_end(FALSE);
+	settings_pending_clear();
+	ui_play_audio_feedback_sound(SOUND_FORWARD);
+	return TRUE;
+}
+
+/* (the words typed: a change kept, or none if they are the setting's) */
+static void browser_search_typed(char const *text)
+{
+	char current[BROWSER_SEARCH_TEXT] = "";
+
+	setting_text(BROWSER_SEARCH_SETTING, current, sizeof(current), FALSE);
+	if (!strcmp(current, text))
+		settings_pending_remove(BROWSER_SEARCH_SETTING);
+	else
+		settings_pending_set(BROWSER_SEARCH_SETTING, text);
+}
+
+/* "port browser search" (its row's A: begins, or ends) */
+static boolean browser_search_edit(struct widget_instance *row)
+{
+	char text[BROWSER_SEARCH_TEXT] = "";
+
+	if (text_field_editing(row))
+	{
+		text_field_end(TRUE);
+		return TRUE;
+	}
+	if (text_field_editing(NULL))
+		text_field_end(TRUE);
+	settings_value(BROWSER_SEARCH_SETTING, text, sizeof(text));
+	text_field_begin(row, text, BROWSER_SEARCH_TEXT - 1, browser_search_typed);
+	return TRUE;
+}
+
+/* SEARCH's value as its row and the panel show it: the words, or OFF */
+static void browser_search_text(char *text, unsigned int size)
+{
+	text[0] = 0;
+	settings_value(BROWSER_SEARCH_SETTING, text, size);
+	if (!text[0])
+		snprintf(text, size, "OFF");
+}
+
+/* (each frame of a page) SEARCH's value, the words typed while they are;
+typing whose row lost the focus keeps what was typed */
+static void browser_search_show(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_browser_search", 0);
+	struct widget_instance *value = row ? named(row, "browser_search_value", 0) : NULL;
+	char text[BROWSER_SEARCH_TEXT];
+
+	if (!value)
+		return;
+	if (text_field_editing(row) && list->focused_child != row)
+		text_field_end(TRUE);
+	browser_search_text(text, sizeof(text));
+	text_field_show(value, text, text_field_editing(row));
+}
+
+/* the SEARCH row's panel: its words (the others': FALSE) */
+static boolean browser_search_panel(struct widget_instance *row, wchar_t *value)
+{
+	char text[BROWSER_SEARCH_TEXT];
+	short index;
+
+	if (!row->name || strcmp(row->name, "op_browser_search"))
+		return FALSE;
+	browser_search_text(text, sizeof(text));
+	for (index = 0; text[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		value[index] = (wchar_t)(unsigned char)text[index];
+	value[index] = 0;
+	return TRUE;
+}
+
+/* "port settings defaults": no words searched for (what is typed forgotten) */
+static void browser_search_default(struct widget_instance *screen)
+{
+	if (!named(screen, "op_browser_search", 0))
+		return;
+	if (text_field_editing(NULL))
+		text_field_end(FALSE);
+	browser_search_typed("");
 }
 
 /* ---- the menu */
@@ -5924,6 +6220,7 @@ static void lobby_browser_update(struct widget_instance *list);
 static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,
 	boolean *widget_deleted);
 static void browser_prompts_show(struct widget_instance *list);
+static void browser_filters_refresh(void);
 
 /* "gamespy screen init": the mode's title and parts; the games' client */
 static boolean browser_initialize(struct widget_instance *screen, struct event_record *event,
@@ -5936,6 +6233,8 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	short index;
 
 	server_browser_initialize(screen);
+	/* (the filters as Filters left them: browser_filters_read, below) */
+	browser_filters_refresh();
 	for (index = 0; index < NUMBEROF(titles); index++)
 		visible_set(named(screen, titles[index], 0), !strcmp(titles[index], title));
 	/* (the tabs and their prompts, but for Join by Link's list, whose games
@@ -6270,6 +6569,13 @@ struct browser_sort_entry
 	boolean coop;
 	/* a dedicated server's */
 	boolean dedicated;
+	/* what the filters see of it (browser_filters_show): its most players
+	(0: not known), its game engine (0: co-op's none), its password, and
+	its map's name as the rows show it */
+	short maximum_players;
+	short engine_type;
+	boolean locked;
+	wchar_t map_shown[ROW_TEXT_LENGTH];
 };
 
 static short browser_sort_column = _browser_sort_players;
@@ -6386,6 +6692,126 @@ static boolean browser_tab_lists_offline(void)
 	return browser_tab == _browser_tab_all || browser_tab == _browser_tab_favorites;
 }
 
+/* ---- the browsers' filters (the Filters page, tools/port_settings.py's
+BROWSER_FILTERS: the network.browser_* settings, read as a list opens and
+kept): full games, empty ones and those with a password listed or not, only
+the games whose ping is under a limit (one whose ping is not known is
+listed: a local network game's, a master server's dedicated server's, one
+being timed), the gametypes listed (a co-op game has none: CO-OP is its
+tab), and words a game's name or map must have. The server browser's and
+the local network's lists are filtered, not Join by Link's, whose games are
+the invites taken. Nothing is sent: the lists' own */
+
+#define BROWSER_SEARCH_LENGTH 31
+#define BROWSER_ALL_ENGINES 0x3E
+
+struct browser_filters
+{
+	boolean show_full, show_empty, show_password;
+	/* milliseconds; 0: any */
+	short maximum_ping;
+	/* a bit for each game engine listed (1 << 1 CTF to 1 << 5 Race) */
+	short engines;
+	char search[BROWSER_SEARCH_LENGTH + 1];
+};
+
+static struct browser_filters browser_filters = { TRUE, TRUE, TRUE, 0, BROWSER_ALL_ENGINES, "" };
+/* whether the list being ordered is filtered, and how many of the games its
+tab lists the filters hid */
+static boolean browser_filtering;
+static short browser_filtered_count;
+
+/* whether text has the words, in any case (ASCII's) */
+static boolean browser_text_has(wchar_t const *text, char const *words)
+{
+	short start, index;
+
+	for (start = 0; text[start]; start++)
+	{
+		for (index = 0; words[index] && text[start + index]; index++)
+		{
+			int x = text[start + index] >= 'a' && text[start + index] <= 'z' ? text[start + index] - 32 :
+				text[start + index];
+			int y = words[index] >= 'a' && words[index] <= 'z' ? words[index] - 32 : words[index];
+
+			if (x != y)
+				break;
+		}
+		if (!words[index])
+			return TRUE;
+	}
+	return !words[0];
+}
+
+/* whether the filters list the game */
+static boolean browser_filters_show(struct browser_filters const *filters, struct browser_sort_entry const *entry)
+{
+	wchar_t text[ROW_TEXT_LENGTH];
+	short index;
+
+	if (!filters->show_full && entry->maximum_players > 0 && entry->players >= entry->maximum_players)
+		return FALSE;
+	if (!filters->show_empty && entry->players <= 0)
+		return FALSE;
+	if (!filters->show_password && entry->locked)
+		return FALSE;
+	/* (a ping not known, NONE, under any limit) */
+	if (filters->maximum_ping > 0 && entry->ping >= filters->maximum_ping)
+		return FALSE;
+	if (entry->engine_type >= 1 && entry->engine_type <= 5 && !(filters->engines & (1 << entry->engine_type)))
+		return FALSE;
+	if (!filters->search[0])
+		return TRUE;
+	/* (its name, its map as shown (Blood Gulch), and its map's own name
+	(bloodgulch)) */
+	for (index = 0; entry->name[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		text[index] = (wchar_t)(unsigned char)entry->name[index];
+	text[index] = 0;
+	if (browser_text_has(text, filters->search) || browser_text_has(entry->map_shown, filters->search))
+		return TRUE;
+	for (index = 0; entry->map[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		text[index] = (wchar_t)(unsigned char)entry->map[index];
+	text[index] = 0;
+	return browser_text_has(text, filters->search);
+}
+
+/* the filters as the settings have them (the words without the spaces
+around them) */
+static void browser_filters_read(struct browser_filters *filters)
+{
+	static char const *const engines[] =
+	{
+		NULL, "network.browser_show_ctf", "network.browser_show_slayer", "network.browser_show_oddball",
+		"network.browser_show_king", "network.browser_show_race",
+	};
+	char text[BROWSER_SEARCH_LENGTH + 1];
+	char const *search = config_string("network.browser_search");
+	short index, length;
+
+	filters->show_full = config_boolean("network.browser_show_full") != 0;
+	filters->show_empty = config_boolean("network.browser_show_empty") != 0;
+	filters->show_password = config_boolean("network.browser_show_password") != 0;
+	filters->maximum_ping = (short)PIN(config_integer("network.browser_ping"), 0, 9999);
+	filters->engines = 0;
+	for (index = 1; index < (short)NUMBEROF(engines); index++)
+	{
+		if (config_boolean(engines[index]))
+			filters->engines |= (short)(1 << index);
+	}
+	for (search = search ? search : ""; *search == ' '; search++)
+	{
+	}
+	snprintf(text, sizeof(text), "%s", search);
+	for (length = (short)strlen(text); length > 0 && text[length - 1] == ' '; length--)
+		text[length - 1] = 0;
+	snprintf(filters->search, sizeof(filters->search), "%s", text);
+}
+
+static void browser_filters_refresh(void)
+{
+	browser_filters_read(&browser_filters);
+}
+
 /* the order of the games found: the favorites first, then the others, those
 the tab shows, each part sorted by the column chosen; into `order`,
 returning how many */
@@ -6396,6 +6822,7 @@ static short browser_favorites_order(short const *favorite_of, struct browser_so
 	short written = 0;
 
 	browser_found_favorites = 0;
+	browser_filtered_count = 0;
 	for (pass = 0; pass < 2; pass++)
 	{
 		short start = written;
@@ -6403,7 +6830,12 @@ static short browser_favorites_order(short const *favorite_of, struct browser_so
 
 		for (index = 0; index < count; index++)
 		{
-			if ((favorite_of[index] != NONE) == (pass == 0) && browser_tab_shows(&entries[index], pass == 0))
+			if ((favorite_of[index] != NONE) != (pass == 0) || !browser_tab_shows(&entries[index], pass == 0))
+				continue;
+			/* (those the filters hide counted, for the words over the list) */
+			if (browser_filtering && !browser_filters_show(&browser_filters, &entries[index]))
+				browser_filtered_count++;
+			else
 				order[written++] = index;
 		}
 		/* (each part sorted, alike ones kept in the order found) */
@@ -6519,9 +6951,9 @@ static boolean browser_tab_choose(short tab)
 /* the words in the list's place while it has no rows: what it shows, why
 there are none and what to do (the mode's, multiplayer.mode; the tab's;
 the server browser's: internet play off, or its list, still being looked
-for, newer games it cannot join), into text */
+for, newer games it cannot join; the games its filters hid), into text */
 static void browser_empty_text(short mode, short tab, boolean online, boolean public_lobby, boolean looking,
-	int newer, wchar_t *text, short size)
+	int newer, short filtered, wchar_t *text, short size)
 {
 	static wchar_t const *const kinds[NUMBER_OF_BROWSER_TABS] =
 	{
@@ -6540,6 +6972,11 @@ static void browser_empty_text(short mode, short tab, boolean online, boolean pu
 		usnprintf(text, size - 1, L"The server browser is off\r\n(network.public_lobby).");
 	else if (server_browser && looking)
 		usnprintf(text, size - 1, L"Looking for public games...");
+	else if (filtered > 0)
+	{
+		usnprintf(text, size - 1, L"%d %s hidden by your filters.\r\nChoose FILTERS to change them.", filtered,
+			filtered == 1 ? L"game is" : L"games are");
+	}
 	else if (tab == _browser_tab_favorites)
 	{
 		usnprintf(text, size - 1, server_browser ? L"None of your favorites is online.\r\n%s" :
@@ -7012,13 +7449,14 @@ static void browser_status_text(struct browser_row const *row, wchar_t *text, sh
 }
 
 /* the footer's prompts for the list's mode: REFRESH the server browser's,
-PASTE LINK Join by Link's in its place */
+PASTE LINK Join by Link's in its place; FILTERS but Join by Link's */
 static void browser_prompts_show(struct widget_instance *list)
 {
 	struct widget_instance *bar = named(list, "join_game_button_bar", 0);
 
 	menu_prompts_show(bar, "prompt_refresh", multiplayer.mode == _multiplayer_mode_server_browser);
 	menu_prompts_show(bar, "prompt_paste", multiplayer.mode == _multiplayer_mode_direct_link);
+	menu_prompts_show(bar, "prompt_filters", multiplayer.mode != _multiplayer_mode_direct_link);
 }
 
 /* what the list shows above its rows: its tabs, the sort, its games and
@@ -7061,6 +7499,13 @@ static void browser_header_show(struct widget_instance *list, short games, long 
 	}
 	usnprintf(text, NUMBEROF(text) - 1, L"%d %s    %ld %s", games, games == 1 ? L"GAME" : L"GAMES", players,
 		players == 1 ? L"PLAYER" : L"PLAYERS");
+	/* (and how many the filters hide) */
+	if (browser_filtering && browser_filtered_count > 0)
+	{
+		short length = (short)ustrlen(text);
+
+		usnprintf(text + length, NUMBEROF(text) - 1 - length, L"    %d HIDDEN", browser_filtered_count);
+	}
 	text[NUMBEROF(text) - 1] = 0;
 	text_set(named(screen, "browser_counts", 0), text);
 	visible_set(named(screen, "browser_empty", 0), rows == 0);
@@ -7462,8 +7907,16 @@ static short lobby_browser_favorites(short count)
 		entries[index].dedicated = game->dedicated != 0;
 		settings_wide_copy(entries[index].mode, game_kind_name(game->engine_type, game->kind, FALSE),
 			BROWSER_MODE_LENGTH);
+		entries[index].maximum_players = game->maximum_player_count;
+		entries[index].engine_type = (short)game->engine_type;
+		entries[index].locked = game->locked != 0;
+		/* (the map's name as shown, for the words searched for alone) */
+		entries[index].map_shown[0] = 0;
+		if (browser_filters.search[0])
+			map_display_name(game->map, entries[index].map_shown);
 	}
 	browser_favorites_match(favorites, count, favorite_of, "net:");
+	browser_filtering = TRUE;
 	listed = browser_favorites_order(favorite_of, entries, count, order);
 	for (index = 0; index < listed; index++)
 		ordered[index] = lobby_browser.games[order[index]];
@@ -7718,7 +8171,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			players += lobby_browser.games[index].player_count;
 		browser_empty_text(multiplayer.mode, browser_tab, config_boolean("network.online"),
 			config_boolean("network.public_lobby"), now - lobby_browser.begin_time < LOBBY_BROWSER_LOOK_TIME,
-			p2p_lobby_newer_games(), text, NUMBEROF(text));
+			p2p_lobby_newer_games(), browser_filtered_count, text, NUMBEROF(text));
 		browser_header_show(list, lobby_browser.count, players, rows, text);
 	}
 	browser_focus(list, browser_chosen_row());
@@ -7932,9 +8385,17 @@ static short local_browser_favorites(struct widget_instance *list)
 		entries[index].dedicated = advertised_dedicated(game);
 		settings_wide_copy(entries[index].mode, game_kind_name(game->engine_type, favorites[index].kind, FALSE),
 			BROWSER_MODE_LENGTH);
+		entries[index].maximum_players = game->maximum_player_count;
+		entries[index].engine_type = (short)game->engine_type;
+		entries[index].locked = FALSE;
+		entries[index].map_shown[0] = 0;
+		if (browser_filters.search[0])
+			game_map_name(game, entries[index].map_shown);
 	}
 	browser_favorites_match(favorites, multiplayer.game_count, favorite_of,
 		multiplayer.mode == _multiplayer_mode_lan ? "lan:" : NULL);
+	/* (Join by Link's games are the invites taken: never hidden) */
+	browser_filtering = multiplayer.mode != _multiplayer_mode_direct_link;
 	multiplayer.game_count = browser_favorites_order(favorite_of, entries, multiplayer.game_count, order);
 	for (index = 0; index < multiplayer.game_count; index++)
 		multiplayer.games[index] = games[order[index]];
@@ -8040,7 +8501,8 @@ static void browser_update(struct widget_instance *list)
 		multiplayer.mode == _multiplayer_mode_direct_link ? L"JOIN BY LINK" : L"LOCAL NETWORK", text);
 	for (index = 0; index < multiplayer.game_count; index++)
 		players += multiplayer.games[index]->player_count;
-	browser_empty_text(multiplayer.mode, browser_tab, TRUE, TRUE, FALSE, 0, text, NUMBEROF(text));
+	browser_empty_text(multiplayer.mode, browser_tab, TRUE, TRUE, FALSE, 0, browser_filtered_count, text,
+		NUMBEROF(text));
 	browser_header_show(list, multiplayer.game_count, players, rows, text);
 	browser_focus(list, browser_chosen_row());
 }
@@ -8658,7 +9120,7 @@ static boolean browser_click_on_star(struct widget_instance *row)
 
 	if (!star || !ui_widget_port_take_click(&x, &y))
 		return FALSE;
-	left = settings_slider_track_x(star);
+	left = widget_screen_x(star);
 	/* (a little wider than the star, for a finger) */
 	return x >= left - 4 && x < left + 20;
 }
@@ -10506,6 +10968,14 @@ boolean pc_menu_event_function_invoke(
 		{
 			return browser_refresh(widget, controller, widget_deleted);
 		}
+		else if (!strcmp(name, "port browser filters"))
+		{
+			return browser_filters_open();
+		}
+		else if (!strcmp(name, "port browser search"))
+		{
+			return browser_search_edit(widget);
+		}
 		else if (!strcmp(name, "gamespy back handler") && text_field_editing(NULL))
 		{
 			text_field_end(FALSE);
@@ -10680,6 +11150,7 @@ boolean pc_menu_event_function_invoke(
 		{
 			settings_each(screen_of(widget), setting_default_show);
 			settings_sliders_default(screen_of(widget));
+			browser_search_default(screen_of(widget));
 			pad_editor_defaults(screen_of(widget));
 		}
 		else if (!strncmp(name, "port slider ", 12))

@@ -881,6 +881,8 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	/* (R as the right trigger: Multiplayer's and the server browser's
 	refresh, drawn as R) */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_RIGHT_TRIGGER] |= analog(k[SDL_SCANCODE_R]);
+	/* (L as the left trigger: the server browsers' Filters, drawn as L) */
+	pad->bAnalogButtons[XINPUT_GAMEPAD_LEFT_TRIGGER] |= analog(k[SDL_SCANCODE_L]);
 }
 
 /* the keys held when the game and the menus switch, or typing or the
