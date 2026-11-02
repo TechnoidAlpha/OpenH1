@@ -1412,6 +1412,8 @@ boolean hud_key_prompt_draw_key(
 	rectangle2d *bounds,
 	rectangle2d *cursor,
 	pixel32 color);
+short hud_key_prompt_cap_widening(
+	short name_width);
 int halo_keyboard_prompts(
 	void);
 static boolean ui_widget_port_key_label_text(
@@ -1425,6 +1427,8 @@ static boolean ui_widget_port_key_legend_text(
 	wchar_t *keyed,
 	long length);
 static short ui_widget_port_key_legend_shift(
+	struct widget_instance *label);
+static short ui_widget_port_key_label_widening(
 	struct widget_instance *label);
 static boolean ui_widget_port_key_icon_hidden(
 	struct widget_instance *widget);
@@ -5826,15 +5830,18 @@ static void widget_instance_render_text_box(
 			ui_widget_port_key_label_text(widget, TRUE, named, NUMBEROF(named)))
 		{
 			rectangle2d text_bounds, cursor_bounds;
-			short end;
+			short end, widening;
 
+			widening = ui_widget_port_key_label_widening(widget);
+			draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
 			draw_string_set_indents(0, 0);
 			draw_unicode_string_compute_bounds(&bounds, *text, &text_bounds, &cursor_bounds);
 			end = text_bounds.x1;
 			draw_unicode_string_compute_bounds(&bounds, named, &text_bounds, &cursor_bounds);
-			/* (and the cap's edges about the name) */
-			if (end != SHORT_MIN && text_bounds.x1 > end - 6)
-				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + 6 - end));
+			/* (and the cap's edges about the name, a narrow name's cap
+			widened) */
+			if (end != SHORT_MIN && text_bounds.x1 + widening > end - 6)
+				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + widening + 6 - end));
 		}
 		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
 	}
@@ -6639,6 +6646,23 @@ static short ui_widget_port_text_width(
 	return text_bounds.x1 == SHORT_MIN ? 0 : text_bounds.x1;
 }
 
+/* how much wider a narrow key's cap is drawn than its name and edges
+(hud_key_prompts.c's key_cap_draw), for the key pictured in a label's gap
+(ui_widget_port_key_label_text). Leaves the draw mode the measuring's: the
+caller sets its own again */
+static short ui_widget_port_key_label_widening(
+	struct widget_instance *label)
+{
+	struct widget_instance *icon = label->parent ? ui_widget_port_label_key_icon(label->parent, label, 0) : NULL;
+	wchar_t name[16];
+
+	if (!icon || !ui_widget_port_key_icon_key(icon))
+		return 0;
+	ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+
+	return hud_key_prompt_cap_widening(ui_widget_port_text_width(label, name));
+}
+
 /* how far right of its words' box a legend's key is drawn: the legends of
 the label's parent drawn in turn as each key's cap and its words, the gaps
 between them as they were, the row centred on the pictures' and words'.
@@ -6655,7 +6679,7 @@ static short ui_widget_port_key_legend_shift(
 	for (icon = label->parent ? label->parent->child : NULL; icon; icon = icon->next)
 	{
 		struct widget_instance *words;
-		short icon_left, words_left, words_width;
+		short icon_left, words_left, words_width, name_width;
 
 		if (!ui_widget_port_key_icon_key(icon))
 			continue;
@@ -6671,8 +6695,10 @@ static short ui_widget_port_key_legend_shift(
 		if (words == label)
 			label_x = x;
 		/* (the key's name and the words, and the cap's edges about the
-		name: hud_key_prompts.c's key_cap_draw) */
-		x = (short)(x + ui_widget_port_text_width(words, name) + 4);
+		name, a narrow name's cap widened: hud_key_prompts.c's
+		key_cap_draw) */
+		name_width = ui_widget_port_text_width(words, name);
+		x = (short)(x + name_width + 4 + hud_key_prompt_cap_widening(name_width));
 		previous_end = (short)(words_left + words_width);
 		old_left = MIN(old_left, icon_left);
 		old_right = MAX(old_right, previous_end);
