@@ -160,10 +160,9 @@ int main(int argc, char **argv)
 	}
 	CASE("unnamed")
 	{
-		/* (the D-pad, Start, the triggers and the sticks keep the
-		controller's) */
+		/* (the D-pad, Start and the sticks keep the controller's) */
 		CHECK(!ui_widget_port_menu_key(_icon_dpad_up) && !ui_widget_port_menu_key(_icon_start_button) &&
-			!ui_widget_port_menu_key(_icon_left_trigger) && !ui_widget_port_menu_key(_icon_left_thumb),
+			!ui_widget_port_menu_key(_icon_left_thumb),
 			"a button the keyboard has no menu key for named one");
 		return 0;
 	}

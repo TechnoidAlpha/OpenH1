@@ -36,8 +36,8 @@ NEGATIVE_CONTROLS = {
     "password-never-hidden": (("if (!filters->show_password && entry->locked)", "if (FALSE)"), "filters"),
     "ping-at-limit-listed": (("entry->ping >= filters->maximum_ping)", "entry->ping > filters->maximum_ping)"),
                              "filters"),
-    "ping-unknown-hidden": (("filters->maximum_ping > 0 && entry->ping >= 0 &&", "filters->maximum_ping > 0 &&"),
-                            "filters"),
+    "ping-unknown-hidden": (("entry->ping >= filters->maximum_ping)",
+                             "(entry->ping < 0 || entry->ping >= filters->maximum_ping))"), "filters"),
     "coop-hidden-by-types": (("entry->engine_type >= 1 && entry->engine_type <= 5 &&", ""), "filters"),
     "search-name-only": (("browser_text_has(text, filters->search) || browser_text_has(entry->map_shown, "
                           "filters->search)", "browser_text_has(text, filters->search)"), "filters"),

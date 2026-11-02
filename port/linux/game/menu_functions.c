@@ -6548,7 +6548,8 @@ static boolean browser_filters_show(struct browser_filters const *filters, struc
 		return FALSE;
 	if (!filters->show_password && entry->locked)
 		return FALSE;
-	if (filters->maximum_ping > 0 && entry->ping >= 0 && entry->ping >= filters->maximum_ping)
+	/* (a ping not known, NONE, under any limit) */
+	if (filters->maximum_ping > 0 && entry->ping >= filters->maximum_ping)
 		return FALSE;
 	if (entry->engine_type >= 1 && entry->engine_type <= 5 && !(filters->engines & (1 << entry->engine_type)))
 		return FALSE;
