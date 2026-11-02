@@ -88,6 +88,27 @@ static void *guest_allocate(size_t size)
 /* ---------- what the encoder calls besides the host (the front end's
 own code in the game) */
 
+void platform_log(const char *format, ...)
+{
+	(void)format;
+}
+
+/* the floats as the encoder sends them: each not a number, or infinite, 0
+(xgpu_stream_encode.c's stream_finite) */
+static void finite_floats(float *values, size_t count)
+{
+	size_t index;
+
+	for (index = 0; index < count; index++)
+	{
+		uint32_t bits;
+
+		memcpy(&bits, &values[index], sizeof(bits));
+		if ((bits & 0x7f800000u) == 0x7f800000u)
+			values[index] = 0.0f;
+	}
+}
+
 void host_logf(int priority, const char *format, ...)
 {
 	va_list arguments;
@@ -1103,7 +1124,12 @@ static void front_draw_state(void)
 	xgpu_backend_draw_state(&dynamic, &pool.uniforms, pool.uniforms_serial);
 	front.dynamic = dynamic;
 	front.uniforms_serial = pool.uniforms_serial;
-	front.uniforms_checksum = checksum(&pool.uniforms, sizeof(pool.uniforms));
+	{
+		struct xgpu_draw_uniforms sent = pool.uniforms;
+
+		finite_floats((float *)&sent, sizeof(sent) / sizeof(float));
+		front.uniforms_checksum = checksum(&sent, sizeof(sent));
+	}
 	front.stated = TRUE;
 }
 
@@ -1294,6 +1320,7 @@ static void front_draw(uint32_t draw)
 		}
 		xgpu_backend_draw_immediate(primitive, vertices, count, written, (const float (*)[4])front.attributes, indices,
 			index_count);
+		finite_floats(vertices, count * 16 * 4);
 		/* (the packed vertices' checksum, register by register) */
 		for (vertex = 0; vertex < count; vertex++)
 		{
@@ -1357,6 +1384,7 @@ static void front_frame(uint32_t frame, uint32_t draws)
 
 			random_bytes(values, sizeof(values));
 			xgpu_backend_set_constants(first, (const float (*)[4])values, count);
+			finite_floats(&values[0][0], count * 4);
 			text_printf(&expected, "constants %lu %lu %08x\n", first, count, checksum(values, count * 16));
 		}
 		else if (what == 1)

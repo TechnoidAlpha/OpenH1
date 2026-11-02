@@ -20,6 +20,13 @@ synchronously.
 Records are written compactly: pipeline keys and vertex layouts are sent
 once and named by a number after, and the draw state, textures and the
 inputs no stream feeds only when they change.
+
+Every float the game hands the GPU passes here (its vertex shaders'
+constants, the combiners' and fog's, immediate mode's vertices, the
+enhanced dynamic lights and their glows): one that is not a number, or is
+infinite, goes as 0 (stream_finite), said once in a while with what it was
+and where. The Xbox's NV2A computed none, and a GPU draws one as anything:
+black, white or blocks.
 */
 
 #include "frame_pacing.h"
@@ -42,6 +49,8 @@ inputs no stream feeds only when they change.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 /* port/android/guest/runtime/guest_host.h */
 int host_render_stream_open(unsigned int ring);
@@ -1058,6 +1067,29 @@ void xgpu_backend_set_textures(const struct xgpu_texture_source stages[4])
 
 /* ---------- pipelines */
 
+/* ---------- numbers (above) */
+
+/* the floats made finite: each not a number or infinite made 0, and said
+(what, and the first's register or place) once in a thousand */
+static void stream_finite(float *values, unsigned long count, const char *what, unsigned long first)
+{
+	static unsigned long made;
+	unsigned long index;
+
+	for (index = 0; index < count; index++)
+	{
+		uint32_t bits;
+
+		memcpy(&bits, &values[index], sizeof(bits));
+		if ((bits & 0x7f800000u) != 0x7f800000u)
+			continue;
+		if (made++ % 1000 == 0)
+			platform_log("GPU: %s %lu's %s (%08x) drawn as 0 (%lu so far)", what, first + index / 4,
+				bits & 0x007fffffu ? "number not a number" : "infinity", (unsigned)bits, made);
+		values[index] = 0.0f;
+	}
+}
+
 void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], unsigned long count)
 {
 	struct xgpu_stream_constants *record_body;
@@ -1068,6 +1100,7 @@ void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], u
 	record_body->first = (uint32_t)first;
 	record_body->count = (uint32_t)count;
 	memcpy(record_body->values, values, count * sizeof(record_body->values[0]));
+	stream_finite(&record_body->values[0][0], count * 4, "vertex constant", first);
 }
 
 void xgpu_backend_vertex_program(unsigned long id, const struct xgpu_vertex_program *program)
@@ -1229,6 +1262,7 @@ void xgpu_backend_draw_state(const struct xgpu_dynamic_state *dynamic, const str
 			continue;
 		memcpy(place, now + offset, bytes);
 		memcpy(had + offset, now + offset, bytes);
+		stream_finite((float *)place, bytes / 4, "draw uniform", piece * 4);
 		place += 16;
 	}
 	if (parts & XGPU_STREAM_DRAW_UNIFORMS)
@@ -1585,6 +1619,8 @@ void xgpu_backend_draw_immediate(int primitive, const float *vertices, unsigned 
 				}
 			}
 		}
+		stream_finite(packed ? packed : (float *)place, (unsigned long)count * bits(registers) * 4, "immediate vertex value",
+			0);
 		if (packed)
 		{
 			record_body->vertices = aside(packed);
@@ -1705,6 +1741,10 @@ void xgpu_backend_dynamic_lights_upload(const struct xgpu_dynamic_lights_block *
 		memcpy(record_body->block.color[light], block->color[light], 16);
 		memcpy(record_body->block.cone[light], block->cone[light], 16);
 	}
+	stream_finite(&record_body->block.grid[0][0], sizeof(record_body->block.grid) / 4, "dynamic lights' grid", 0);
+	stream_finite(&record_body->block.position[0][0], count * 4, "dynamic light place", 0);
+	stream_finite(&record_body->block.color[0][0], count * 4, "dynamic light colour", 0);
+	stream_finite(&record_body->block.cone[0][0], count * 4, "dynamic light cone", 0);
 	record_body->cells = carry_one(&place, cells, DYNAMIC_LIGHTS_CELLS_SIZE);
 }
 
@@ -1734,6 +1774,7 @@ void xgpu_backend_dynamic_lights_halos(xgpu_target color, xgpu_target depth, int
 	record_body->softness = halos->softness;
 	record_body->screen_offset = halos->screen_offset;
 	memcpy(record_body->halos, halos->halos, count * 2 * sizeof(record_body->halos[0]));
+	stream_finite(&record_body->halos[0][0], (unsigned long)count * 2 * 4, "dynamic light glow value", 0);
 }
 
 /* ---------- the VR mode */

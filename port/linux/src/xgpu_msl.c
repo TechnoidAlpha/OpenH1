@@ -271,6 +271,10 @@ static void operand(struct xgpu_text *text, const struct xgpu_vertex_operand *op
 }
 
 static const char vertex_functions[] =
+	"static inline float4 nv2a_finite(float4 v)\n"
+	"{\n"
+	"\treturn select(v, float4(0.0), (as_type<uint4>(v) & 0x7f800000u) == 0x7f800000u);\n"
+	"}\n"
 	"static inline float4 unpack_normpacked3(uint p)\n"
 	"{\n"
 	"\tint x = int(p << 21) >> 21;\n"
@@ -558,13 +562,13 @@ char *xgpu_msl_vertex_shader(const struct xgpu_vertex_program *program, unsigned
 		"\txgpu_vertex_out output;\n"
 		"\toutput.position = position;\n"
 		"\toutput.point_size = oPts.x;\n"
-		"\toutput.xD0 = saturate(oD0);\n"
-		"\toutput.xD1 = saturate(oD1);\n"
-		"\toutput.xT0 = oT0;\n"
-		"\toutput.xT1 = oT1;\n"
-		"\toutput.xT2 = oT2;\n"
-		"\toutput.xT3 = oT3;\n"
-		"\toutput.xFog = oFog.x;\n");
+		"\toutput.xD0 = saturate(nv2a_finite(oD0));\n"
+		"\toutput.xD1 = saturate(nv2a_finite(oD1));\n"
+		"\toutput.xT0 = nv2a_finite(oT0);\n"
+		"\toutput.xT1 = nv2a_finite(oT1);\n"
+		"\toutput.xT2 = nv2a_finite(oT2);\n"
+		"\toutput.xT3 = nv2a_finite(oT3);\n"
+		"\toutput.xFog = nv2a_finite(oFog).x;\n");
 	if (lighting)
 		xgpu_text_append(&text, "\toutput.xWorldNormal = xWorldNormal;\n");
 	if (lighting_position(lighting))
@@ -1341,6 +1345,10 @@ static void dynamic_lights_functions(struct xgpu_text *text, struct xgpu_text *f
 }
 
 static const char pixel_functions[] =
+	"static inline float4 nv2a_finite(float4 v)\n"
+	"{\n"
+	"\treturn select(v, float4(0.0), (as_type<uint4>(v) & 0x7f800000u) == 0x7f800000u);\n"
+	"}\n"
 	"static inline float signed_byte(float x)\n"
 	"{\n"
 	"\tfloat b = floor(x * 255.0 + 0.5);\n"
@@ -1789,6 +1797,9 @@ char *xgpu_msl_pixel_shader(const struct xgpu_pixel_program *program, const stru
 	{
 		xgpu_text_append(&text, "\toutput.color = saturate(result);\n");
 	}
+	/* (finite: the NV2A wrote no colour that is not a number, nor an
+	infinite one; by its bits, which Metal's fast arithmetic keeps) */
+	xgpu_text_append(&text, "\toutput.color = nv2a_finite(output.color);\n");
 	xgpu_text_append(&text, "\treturn output;\n}\n");
 	functions_insert(&text, functions_at, functions.buffer);
 	free(functions.buffer);
