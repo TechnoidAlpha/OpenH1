@@ -7415,6 +7415,42 @@ boolean ui_widget_port_take_click(
 	return TRUE;
 }
 
+/* port: the latest place the pointer chose an item at without pressing it
+(passed over it, or a click that only chose it), once, if it was at most a
+quarter of a second ago, for a row of several choices (menu_functions.c's
+Controls Setup: the binding under the pointer is the one chosen) */
+static short ui_widget_port_point_x, ui_widget_port_point_y;
+static unsigned long ui_widget_port_point_time;
+static boolean ui_widget_port_point_taken = TRUE;
+
+static void ui_widget_port_note_point(
+	short x,
+	short y)
+{
+	ui_widget_port_point_x = x;
+	ui_widget_port_point_y = y;
+	ui_widget_port_point_time = widget_globals.current_system_milliseconds;
+	ui_widget_port_point_taken = FALSE;
+
+	return;
+}
+
+boolean ui_widget_port_take_point(
+	short *x,
+	short *y)
+{
+	if (ui_widget_port_point_taken ||
+		widget_globals.current_system_milliseconds - ui_widget_port_point_time > 250)
+	{
+		return FALSE;
+	}
+	ui_widget_port_point_taken = TRUE;
+	*x = ui_widget_port_point_x;
+	*y = ui_widget_port_point_y;
+
+	return TRUE;
+}
+
 /* logs a tap while the virtual keyboard is up: the key or legend that took it */
 static void ui_debug_log_keyboard_tap(
 	short x,
@@ -7595,6 +7631,9 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 						/* port: (ui_mouse_hovered_last) */
 						ui_mouse_hovered_last = TRUE;
+						/* port: (ui_widget_port_take_point) */
+						if (target->kind == _ui_mouse_target_item)
+							ui_widget_port_note_point(ui_mouse_hover_x, ui_mouse_hover_y);
 					}
 					break;
 				case _ui_mouse_target_list_slot:
@@ -7630,10 +7669,11 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 						break;
 					}
-					/* port: (ui_mouse_tap_chooses_first) */
+					/* port: (ui_mouse_tap_chooses_first; ui_widget_port_take_point) */
 					if (ui_mouse_tap_chooses_first(target->widget))
 					{
 						ui_mouse_give_focus(target->widget);
+						ui_widget_port_note_point(ui_mouse_click_x, ui_mouse_click_y);
 						break;
 					}
 					ui_mouse_give_focus(target->widget);
