@@ -61,8 +61,11 @@ short controller_remap_local_player(short port)
 int controller_remap_playing(short port)
 {
     short local = controller_remap_local_player(port);
-    /* The main menu has a live UI-map player, but its widgets belong to NONE. */
-    return remap_game_in_progress() && !main_menu_is_active() && local != NONE && !ui_widgets_active_for_local_player(local) &&
+    /* The main menu has a live UI-map player, but its widgets belong to NONE;
+     * so do a network game's postgame and pregame screens and errors, which
+     * every controller drives with the stock buttons. */
+    return remap_game_in_progress() && !main_menu_is_active() && !ui_widgets_port_active_for_everyone() &&
+        local != NONE && !ui_widgets_active_for_local_player(local) &&
         !console_is_active() && network_chat_controller() != port;
 }
 

@@ -102,7 +102,9 @@ continue") stay the stock buttons, as the menus do.
    physical ports to local players, reads profile and camera context, supplies
    digital movement and adjusts a temporary copy of prompt preferences. Its main-menu
    guard is separate from per-player widgets: the UI map has a live player, while
-   the main-menu root belongs to any player (`NONE`). Pause menus retain their
+   the main-menu root belongs to any player (`NONE`). In OpenH1 any screen of
+   `NONE`'s gives way too (`ui_widgets_port_active_for_everyone`): a network
+   game's postgame and pregame screens, an error. Pause menus retain their
    per-player ownership so other split-screen players can continue playing.
 5. The minimal hooks in [xinput_sdl.c](../port/linux/src/xinput_sdl.c) provide
    physical input, per-port chat navigation and push-to-talk. Chat's existing

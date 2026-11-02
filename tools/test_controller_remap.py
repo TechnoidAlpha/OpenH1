@@ -339,6 +339,7 @@ static void input_abstraction_get_local_player_preferences(short port,struct gam
 static int game_time_initialized(void){return 1;}
 static int game_in_progress(void){return in_game;}
 static int main_menu_is_active(void){return 0;}
+static int ui_widgets_port_active_for_everyone(void){return 0;}
 static int ui_widgets_active_for_local_player(short port){return menus;}
 short network_chat_controller(void){return (short)chat;}
 static long local_player_get_player_index(short viewport){return viewport==1?7:NONE;}
@@ -448,6 +449,7 @@ static void input_abstraction_get_local_player_preferences(short port,struct gam
 static int game_time_initialized(void){return 1;}
 static int game_in_progress(void){return 1;}
 static int main_menu_is_active(void){return 0;}
+static int ui_widgets_port_active_for_everyone(void){return 0;}
 static int ui_widgets_active_for_local_player(short port){return menu[port];}
 short network_chat_controller(void){return -1;}
 static int console_is_active(void){return 0;}

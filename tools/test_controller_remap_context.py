@@ -7,6 +7,7 @@ def integrated_source():
     return (COMMON + POLICY + INPUT.split('void controller_remap_profile(')[0] +
             (ROOT / 'tools/fixtures/controller_remap_context.c').read_text() +
             function((ROOT / 'source/interface/ui_widget.c').read_text(), 'ui_widgets_active_for_local_player') +
+            function((ROOT / 'source/interface/ui_widget.c').read_text(), 'ui_widgets_port_active_for_everyone') +
             source('port/linux/game/controller_remap_game.c') +
             source('port/linux/src/controller_remap_input.c') +
             function((ROOT / 'source/camera/director.c').read_text(), 'director_update_controls') + r'''
@@ -48,6 +49,26 @@ int main(void) {
  main_menu=1;pad=expected;controller_remap_input(0,&pad,1);assert(!memcmp(&pad,&expected,sizeof(pad)));
  config_write("input.controller_p1","");pad=expected;
  controller_remap_input(0,&pad,1);assert(!memcmp(&pad,&expected,sizeof(pad)));
+ return 0;
+}
+''')
+
+
+def test_screens_of_everyone_in_a_game_keep_physical_buttons(tmp_path):
+    """a screen made for no one player while a game runs (a network game's
+    postgame and pregame screens, an error) is driven with the stock buttons,
+    as the main menu is; a player's own pause menu leaves the others playing"""
+    run_c(tmp_path, integrated_source() + r'''
+int main(void) {
+ XINPUT_GAMEPAD pad={0},expected;
+ layout_save();main_menu=0;root_widget.local_player_index=NONE;
+ assert(!ui_widgets_active_for_local_player(0) && ui_widgets_port_active_for_everyone());
+ assert(!controller_remap_playing(0));
+ controller_remap_input(0,&pad,1);
+ pad.wButtons=15;pad.bAnalogButtons[1]=255;pad.bAnalogButtons[0]=255;expected=pad;
+ controller_remap_input(0,&pad,1);assert(!memcmp(&pad,&expected,sizeof(pad)));
+ root_widget.local_player_index=1;assert(!ui_widgets_port_active_for_everyone() && controller_remap_playing(0));
+ widget_globals.active_widgets[0]=NULL;assert(controller_remap_playing(0));
  return 0;
 }
 ''')
