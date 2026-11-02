@@ -123,6 +123,7 @@ def test_post_shaders_on_the_gpu(harness):
         _cross(spv, post / (name.replace("_frag", "") + ".metal"), stage, entry, fetch)
     output = _run(binary, "post", str(post))
     assert "post: 1152 values checked" in output, output
+    assert "post: 9 values not a number or infinite tone mapped finite" in output, output
 
 
 def test_draws_agree_on_the_gpu(harness):

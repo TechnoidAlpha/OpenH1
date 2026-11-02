@@ -6,6 +6,9 @@ no menus) with the scripted player (debug.test_input "bot"), offscreen
 (SDL's offscreen video driver: no window), recording its draws
 (debug.render_manifest); then tools/render_manifest.py check reads the
 recordings. A run fails on an EXCEPTION in its debug.txt or a nonzero exit,
+on a number that was not one on its way to the GPU (the command stream's
+encoder made it 0: xgpu_stream_encode.c's stream_finite, said in its output;
+or a light the rasterizer refused, rasterizer_lights.c, in debug.txt), and
 the check on any draw of play the map's enumeration does not have.
 
     python tools/render_enumerate_sweep.py --data <folder of maps/> [--list maps.txt] [--seconds 90] [--jobs 8]
@@ -59,6 +62,12 @@ def run(scenario, arguments):
                   if "EXCEPTION" in line] if debug.exists() else []
     if exceptions:
         return folder, exceptions[0]
+    # (a value not a number on its way to the GPU, made finite where it was caught)
+    caught = [line.strip() for path in (folder / "stdout.txt", debug) if path.exists()
+              for line in path.read_text(errors="replace").splitlines()
+              if "drawn as 0" in line or "a light not a number" in line]
+    if caught:
+        return folder, caught[0]
     if status != 0:
         return folder, f"exit {status}"
     return folder, None
