@@ -137,7 +137,10 @@ renderer's [README](../linux/vulkan/README.md).
 
 The game needs the `maps/` folder from an Xbox disc image (`.xiso` or
 `.iso`) of any version of the game. The app extracts `maps/` from the disc
-image. The app keeps the data in `/sdcard/Android/data/com.openh1.openh1/files`.
+image, and its movies (`bink/`, for `display.movies`) when it has them
+(`XisoExtractor.java`). The app keeps the data in
+`/sdcard/Android/data/com.openh1.openh1/files`; to add the movies to data
+installed before, copy the disc's `bink` folder there, beside `maps`.
 
 To install the data with the app:
 
