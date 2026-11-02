@@ -413,6 +413,9 @@ SETTINGS_WIDE_ROWS = 120
 SETTINGS_WIDE_PANEL = (-WIDE_HALF + SETTINGS_WIDE_ROWS, WIDE_EXTRA - SETTINGS_WIDE_ROWS)
 
 DISPLAY_MODES = [("FULLSCREEN", "fullscreen"), ("BORDERLESS", "borderless"), ("WINDOWED", "windowed")]
+# input.left_stick_dead_zone's and right's: the game's own (-1), or a part of
+# the stick's travel
+STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) for percent in range(0, 51, 5)]
 FIELDS_OF_VIEW = [("DEFAULT", "0")] + [(str(n), str(n)) for n in range(80, 151, 5)]
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
@@ -433,20 +436,33 @@ HDR_PAGE = ("video_settings/hdr", "hdr_screen")
 # (Android's: the picture on a tall screen, and portrait's frame)
 SCREEN_LAYOUT = ("video_settings/screen_layout", "screen_layout_screen")
 CONTROLLER = ("gamepad_setup", "gamepad_setup_screen")
+# (the controller's own button layout, each player's: controller_remap_menu.inl)
+BUTTON_REMAPPING = ("gamepad_setup/button_remapping", "button_remapping_screen")
+DEAD_ZONES = ("gamepad_setup/dead_zones", "dead_zones_screen")
 KEY_BINDINGS = ("controls_setup", "controls_settings_screen")
 STREAMER = ("interface_settings/streamer_mode", "streamer_mode_screen")
 # (Online's Discord account: port/linux/src/player_link.c)
 DISCORD_ACCOUNT = ("network_setup/discord_account", "discord_account_screen")
+# Button Remapping's rows for a group's actions (the most a group has:
+# controller_remap_menu.inl's pad_action_groups), and what each row does: A
+# (or a click) takes the next button pressed, left and right step through
+# the buttons, X leaves the action without one; its player's and group's rows
+# step through them
+REMAP_ROWS = 6
+REMAP_HANDLERS = ['<on event="x" run="port controller clear"/>',
+                  '<on event="left" run="port controller left"/>',
+                  '<on event="right" run="port controller right"/>']
 # the rows with a value of their own in the spinners' column, which
 # menu_functions.c's discord_account_show fills in each frame: a link's (what
 # the page it opens is at), an action's (what it does, its state); and
 # hdr_display_show's, the display's peak
 SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink",
-                        *(f"link_master_{n}" for n in range(1, 5)), "hdr_display"}
+                        *(f"link_master_{n}" for n in range(1, 5)), "hdr_display",
+                        "remap_player", "remap_group", *(f"pad_{n}" for n in range(1, REMAP_ROWS + 1))}
 # the rows whose labels menu_functions.c writes (a master server's host): the
 # label's text its own, not its list's; their values the narrower column at
 # the spinners' column's right end ("CODE ABC-DEF")
-SETTINGS_NAMED_ROWS = {f"link_master_{n}" for n in range(1, 5)}
+SETTINGS_NAMED_ROWS = {*(f"link_master_{n}" for n in range(1, 5)), *(f"pad_{n}" for n in range(1, REMAP_ROWS + 1))}
 SETTINGS_NAMED_VALUE_WIDTH = 110
 # (making a profile: as the main menu's items do, its name asked, then the
 # profile made and edited, menu_functions.c's settings_profile_new)
@@ -818,6 +834,8 @@ PAGES = {
             ("LOOK SENSITIVITY", "profile.look_sensitivity", [(str(step), str(step)) for step in range(1, 11)],
              "How fast the right stick turns the view.", None),
             ("INVERT LOOK", "profile.invert_look", YES_NO, "Pushing the right stick up looks down.", None),
+            ("INVERT TURNING", "input.invert_look_horizontal", YES_NO,
+             "Pushing the right stick right turns the view left. For every controller on this device.", None),
             ("INVERT FLIGHT", "profile.flight_inversion", YES_NO,
              "Flying vehicles pitch as aircraft do: pushing up flies down.", None),
             ("AUTO-CENTER LOOK", "profile.autocenter", YES_NO, "Levels the view while you walk.", None),
@@ -826,15 +844,52 @@ PAGES = {
              [("DEFAULT", "0"), ("SWAP TRIGGERS", "1"), ("SWAP A, L TRIGGER", "2"), ("SWAP B, L TRIGGER", "3"),
               ("SWAP B, R STICK", "4"), ("BUMPER JUMPER", "5"),
               ("FISHSTICKS", "6"), ("RECON", "7")],
-             "Which of the controller's buttons does what. The keyboard's keys are Key Bindings'.", None),
+             "Which of the controller's buttons does what. Button Remapping sets them one by one; the "
+             "keyboard's keys are Key Bindings'.", None),
             ("STICK LAYOUT", "profile.joystick_preset",
              [("DEFAULT", "0"), ("SOUTHPAW", "1"), ("LEGACY", "2"), ("LEGACY SOUTHPAW", "3")],
-             "Which stick moves and which looks.", None),
+             "Which stick moves and which looks. Southpaw swaps them.", None),
+            ("BUTTON REMAPPING ›", None, _page_screen(*BUTTON_REMAPPING),
+             "Put any action on any button, each player their own layout, the D-pad and Back too: chat, push to "
+             "talk, the scoreboard, a screenshot.", None),
+            ("STICK DEAD ZONES ›", None, _page_screen(*DEAD_ZONES),
+             "How far each stick moves before it does anything: more for a worn stick that drifts, less for "
+             "finer aim.", None),
             (SECTION, "FEEDBACK"),
             ("VIBRATION", "profile.vibration", ON_OFF, "Rumbles the controller.", None),
             ("IN-GAME HELP", "profile.ingame_help", ON_OFF, "Shows the game's hints about its controls.", None),
             (SECTION, "PROFILE"),
             CREATE_PROFILE,
+        ],
+    },
+    BUTTON_REMAPPING[0]: {
+        "screen": BUTTON_REMAPPING[1], "title": "BUTTON REMAPPING",
+        "rows": [
+            # (the rows' values, and the actions' names, are
+            # controller_remap_menu.inl's, each frame: pad_editor_update)
+            (SECTION, "LAYOUT"),
+            ("PLAYER", None, None,
+             "Whose buttons to edit. Each player's layout is kept apart, and named for the controller they play "
+             "with. OK saves every player's.", None, "remap_player", "port controller right", REMAP_HANDLERS),
+            ("SHOW", None, None,
+             "Which of the actions to show: movement, combat, general, chat and voice, or the debug camera's.",
+             None, "remap_group", "port controller right", REMAP_HANDLERS),
+            (SECTION, "ACTIONS"),
+            # (an action's: its name, button and words controller_remap_menu.inl's)
+            *[("", None, None, "", None, f"pad_{n}", "port controller bind", REMAP_HANDLERS)
+              for n in range(1, REMAP_ROWS + 1)],
+        ],
+    },
+    DEAD_ZONES[0]: {
+        "screen": DEAD_ZONES[1], "title": "STICK DEAD ZONES",
+        "rows": [
+            (SECTION, "DEAD ZONES"),
+            ("LEFT STICK", "input.left_stick_dead_zone", STICK_DEAD_ZONES,
+             "How far the left stick moves before you move. Raise it for a stick that drifts; lower it to start "
+             "walking sooner. Default is the game's own, 27%.|The touch controls' stick too.", None),
+            ("RIGHT STICK", "input.right_stick_dead_zone", STICK_DEAD_ZONES,
+             "How far the right stick moves before the view turns. Raise it for a stick that drifts; lower it for "
+             "finer aim. Default is the game's own, 27%.", None),
         ],
     },
     SCREEN_LAYOUT[0]: {
@@ -1369,11 +1424,11 @@ def _settings_page(folder: str, page: dict) -> list:
             # (a row that opens a page, choices: its screen; run: a function
             # first; none: nothing to open)
             run = named[1] if len(named) > 1 else None
-            handlers = []
+            handlers = list(named[2]) if len(named) > 2 else []
             if choices or run:
                 branch = "true" if run == "port settings new profile" else None
                 handlers = [f'<on{attributes([("event", event), ("run", run), ("open", choices), ("branch", branch)])}/>'
-                            for event in ("a", "start")]
+                            for event in ("a", "start")] + handlers
                 handlers.append('<on event="left_mouse" run="mouse emit accept event"/>')
                 if branch:
                     handlers.append(f'<conditional widget="{SETTINGS}/settings_creating_profile" if_failed="true"/>')

@@ -46,6 +46,7 @@ static char const *config_string(char const *name)
 }
 
 static unsigned char network_chat_keyboard_open(void) { return 0; }
+static short network_chat_controller(void) { return -1; }
 static unsigned char main_menu_is_loaded(void) { return (unsigned char)menus_loaded; }
 static unsigned long long SDL_GetTicks(void) { return (unsigned long long)(clock_seconds * 1000.0); }
 static double test_input_seconds(void) { return clock_seconds; }

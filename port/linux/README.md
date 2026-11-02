@@ -329,7 +329,7 @@ gamepads operate controllers 2 to 4. With two or more players on this
 computer (co-op, or split screen in a network game) and only one gamepad,
 that gamepad is controller 2 (player 2) and the keyboard and mouse stay
 controller 1. The gamepad changes controller only when none of its buttons
-is held. The profile's button layout (Settings > Gamepads) is the
+is held. The profile's button layout (Settings > Controls > Controller) is the
 gamepads' only. Besides the Xbox's five, it has the Master Chief
 Collection's Bumper Jumper: jump on the left bumper, melee on the right,
 switching grenades on A, action and reload on B and the flashlight on X.
@@ -339,6 +339,20 @@ switched with the pad's left direction (which then does not strafe or turn).
 
 Recon is the standard layout with action and reload on the right bumper and
 grenades switched with the left bumper (the flashlight moves to X).
+
+Settings > Controls > Controller > Button Remapping puts any action on any of
+a gamepad's buttons (the D-pad and Back too), each of controllers 1 to 4 a
+layout of its own (`input.controller_p1` to `p4`), over the profile's: the
+game's actions, the scores, a screenshot, movement, the three chats, push to
+talk and the debug camera's controls; an action can be left with no button.
+The HUD's prompts and the help screens name the buttons of the layout.
+Remapping changes only what a gamepad's buttons do on this computer, in the
+game (the menus keep the stock buttons): the keyboard, the touch controls,
+the controllers in the hands in VR and scripted input are not remapped, and
+nothing sent to the other machines changes. Stick Dead Zones there sets how
+far each stick moves before it acts, and INVERT TURNING turns the look
+the other way side to side. Refer to
+[docs/controller_remapping.md](../../docs/controller_remapping.md).
 
 | Action | Keys and buttons (default) |
 | --- | --- |
@@ -988,7 +1002,14 @@ the setting for one start of the game. It has priority over the file.
 | `input.crouch` | `"hold"` | `HALO_CROUCH` | A controller's or the keys' Crouch: `"hold"` crouches while it is held, as Halo did; `"toggle"` crouches at a tap until Crouch is pressed again, Jump is pressed, a vehicle's seat is taken or the player dies, and still crouches while held. The touch controls' Crouch is `input.touch_crouch`. |
 | `input.crouch_walk` | `false` | `HALO_CROUCH_WALK` | `true`: a crouched player stays crouched at a full push of a controller's stick, walking at a crouch's speed (Settings > Controls: CROUCH WALK). `false`: a full push stands them up, as Halo did (it stands a grounded player up once the move is 0.98 long, which a stick's diagonal reaches at about 70% of its travel). The touch controls' stick always stays crouched, and the keys keep their own crouch walk. |
 | `input.button_prompts` | `"auto"` | `HALO_BUTTON_PROMPTS` | The HUD's button prompts ("Hold X to pick up", the campaign's help text; Mouse Setup > BUTTON PROMPTS). `"auto"`: while the keyboard and mouse were played with last (a key or mouse button bound to an action, the captured mouse moved), the prompt names the key or button bound to the action (its first binding, a key or button before the wheel: `E`, `Left Click`, `Mouse 4`, `WASD` for moving), in the prompt's font in a drawn key cap, as Halo PC named the bound key; while a controller (or the touch controls) was, the controller's button, as before. Before either is used: the keys, unless a controller is connected or the touch controls are there. It follows Controls Setup's bindings as they change. `"controller"`: always the controller's buttons, as on the Xbox. `"keyboard"`: always the keys. In VR (but with `"controller"`), a prompt names what presses its button on the controllers in the hands: the input bound to it as the OpenXR runtime names it (`A Button`, `Right Hand Trigger`; the hand where the other hand has one too), or a fixed name when the runtime names none (`A`, `Right Bumper` on the Steam Frame, `Right Grip` on Touch-style controllers), the triggers and sticks' clicks as `vr.dominant_hand` and `vr.swap_sticks` place them, and `Left Hand Throw` for the grenade with `vr.grenade_throw = "gesture"` on foot; moving and looking keep the sticks' pictures. Only the first player's prompts (the keyboard's player); what the keyboard has no action for (the D-pad, the menus' accept and back) keeps the button. |
+| `input.controller_p1` | `""` | `HALO_CONTROLLER_P1` | P1 custom controller layout, including D-pad, communication, debug camera and unbound actions; empty uses the profile preset. Edit in Settings > Controls > Controller > Button Remapping. See [format and behavior](../../docs/controller_remapping.md). |
+| `input.controller_p2` | `""` | `HALO_CONTROLLER_P2` | P2 custom controller layout; empty uses the profile preset. Edit in Settings > Controls > Controller > Button Remapping. See [format and behavior](../../docs/controller_remapping.md). |
+| `input.controller_p3` | `""` | `HALO_CONTROLLER_P3` | P3 custom controller layout; empty uses the profile preset. Edit in Settings > Controls > Controller > Button Remapping. See [format and behavior](../../docs/controller_remapping.md). |
+| `input.controller_p4` | `""` | `HALO_CONTROLLER_P4` | P4 custom controller layout; empty uses the profile preset. Edit in Settings > Controls > Controller > Button Remapping. See [format and behavior](../../docs/controller_remapping.md). |
 | `input.playstation_kernel_driver` | `false` | `HALO_PLAYSTATION_KERNEL_DRIVER` | Linux: `true` drives a PlayStation controller (DualSense, DualShock 4) through the kernel's driver of it (`hid-playstation` since Linux 5.12, `hid-sony`): its buttons, sticks, triggers and rumble, with no setup, but not its lightbar. `false`: SDL's own driver, which needs access to the controller's `/dev/hidraw` device, as Steam's udev rules give it (`steam-devices`, or Steam installed). Read at start-up. |
+| `input.left_stick_dead_zone` | `-1` | `HALO_LEFT_STICK_DEAD_ZONE` | How far the controller's left stick moves before it moves the player, in percent of its travel (`0` to `50`). Lower for finer control, higher for a worn stick that drifts. `-1`: the game's own (9000 of 32767, about 27%). On Android, the touch controls' stick too. Settings > Controls > Controller > Stick Dead Zones sets it. |
+| `input.right_stick_dead_zone` | `-1` | `HALO_RIGHT_STICK_DEAD_ZONE` | The same for the right stick, which turns the view. |
+| `input.invert_look_horizontal` | `false` | `HALO_INVERT_LOOK_HORIZONTAL` | `true`: a controller's look turns the other way side to side (pushing the look stick right turns the view left), whichever stick looks (the profile's STICK LAYOUT) and for every controller on this device (Settings > Controls > Controller: INVERT TURNING). The profile's INVERT LOOK is up and down. The keyboard and mouse and the touch controls are not changed. |
 | `input.invert_mouse` | `false` | `HALO_MOUSE_INVERT=1` sets `true` | `true`: the vertical mouse aim is inverted. |
 | `input.mouse_aim_assist` | `false` | `HALO_MOUSE_AIM_ASSIST` | `true`: the magnetism of the controller also operates for the mouse. `false`: when the mouse moved after the right stick, the view is not slowed or dragged by a target. The autoaim of the bullets operates in both cases. |
 | `controls.<action>` | (the table in "Controls") | `HALO_KEY_<ACTION>` | The keys and mouse buttons of an action, up to two, separated by a comma: `move_forward`, `move_backward`, `strafe_left`, `strafe_right`, `jump`, `crouch`, `fire`, `throw_grenade`, `melee`, `reload`, `zoom`, `switch_weapon`, `switch_grenade`, `action`, `flashlight`, `scoreboard`, `pause`, `screenshot`, `push_to_talk`, `chat`, `team_chat`, `party_accept`, `vote_yes`, `vote_no`. Keys by their names on a US keyboard (`"W"`, `"Space"`, `"Left Ctrl"`, `"F1"`): a key is the one in that place on any keyboard, which Controls Setup shows by its own label (the US name on Android). Buttons: `"Mouse Left"`, `"Mouse Right"`, `"Mouse Middle"`, `"Mouse 4"`, `"Mouse 5"`, `"Wheel"` (either way), `"Wheel Up"`, `"Wheel Down"`. |

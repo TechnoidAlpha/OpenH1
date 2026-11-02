@@ -680,6 +680,7 @@ struct widget_instance;
 #include "text/text_group.h"
 #include "text/unicode.h"
 #include "ui_widget.h"
+#include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
 /* port: port/linux/game/menu_functions.c: a text's colour in place of its
 own (the server browser's pings) */
 boolean pc_menu_text_color(struct widget_instance *widget, real_argb_color *color);
@@ -4541,6 +4542,11 @@ void draw_string_and_hack_in_icons(
 						input_abstraction_get_local_player_preferences(
 							local_player_index_for_draw_string_and_hack_in_icons,
 							&preferences);
+						/* port: the player's own button layout
+						(input.controller_p1 to p4), as the HUD's prompts */
+						controller_remap_prompt(
+							local_player_index_for_draw_string_and_hack_in_icons,
+							&preferences);
 						icon_index = preferences.game_control_to_xbox_buttons[
 							button_mappings[remapped_icon_type - _icon_action]];
 					}
@@ -4575,6 +4581,13 @@ void draw_string_and_hack_in_icons(
 			else
 			{
 				icon_index = remapped_icon_type;
+			}
+			/* port: an action the player's layout leaves without a button
+			(input.controller_p1 to p4) says so, as the HUD's prompts do */
+			if (icon_index == CONTROLLER_REMAP_UNBOUND)
+			{
+				render_state_text(bounds, &cursor_bounds, L"UNBOUND");
+				continue;
 			}
 
 			{

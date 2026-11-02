@@ -49,6 +49,8 @@ extern unsigned char network_aim_assist_block_mouse(void);
 #ifdef HALO_VR
 #include "vr.h"
 #endif
+#include "controller_buttons.h"
+#include "controller_remap.h"
 
 #include <SDL3/SDL.h>
 #include <math.h>
@@ -177,6 +179,42 @@ static float mouse_sensitivity(void)
 	return sensitivity;
 }
 
+/* the game's own dead zone of each stick, of 32767 (source/input/input_xbox.c) */
+#define STICK_DEAD_RANGE 9000
+/* the most a stick's dead zone setting takes, in percent */
+#define STICK_DEAD_ZONE_MAXIMUM 50
+
+/* the deflection a stick reads as none, of 32767, for the game's sticks
+(stick 0 the left, 1 the right): input.left_stick_dead_zone and
+input.right_stick_dead_zone as a percentage, else the game's own */
+short halo_stick_dead_range(short stick)
+{
+	static const char *const settings[2] = { "input.left_stick_dead_zone", "input.right_stick_dead_zone" };
+	static short ranges[2] = { STICK_DEAD_RANGE, STICK_DEAD_RANGE };
+	static unsigned long read_at = (unsigned long)-1;
+	int index;
+
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		for (index = 0; index < 2; index++)
+		{
+			long percent = config_integer(settings[index]);
+
+			ranges[index] = percent < 0 || percent > STICK_DEAD_ZONE_MAXIMUM
+				? STICK_DEAD_RANGE : (short)(percent * 32767 / 100);
+		}
+	}
+	return ranges[stick ? 1 : 0];
+}
+
+/* whether a controller's look turns the other way side to side
+(input.invert_look_horizontal; the profile's INVERT LOOK is up and down) */
+int halo_look_horizontal_inverted(void)
+{
+	return config_boolean("input.invert_look_horizontal");
+}
+
 /* radians of yaw and pitch for the mouse motion since the last call: each
 count turns the view 0.022 degrees times the sensitivity, as CS2's does
 (mouse_sensitivity.h); the game adds these to the facing change of the
@@ -271,10 +309,10 @@ static void touch_used(void)
 
 /* ---------- the text chat's on-screen keyboard (halo_keyboard.h) */
 
-/* the first controller's buttons, as each read of it found them */
-static unsigned long chat_pad;
+/* Each controller's buttons, before the on-screen keyboard consumes them. */
+static unsigned long chat_pad[PORT_COUNT], chat_physical_pad[PORT_COUNT];
 
-static void chat_pad_record(const XINPUT_GAMEPAD *pad)
+static void chat_pad_record(short port, const XINPUT_GAMEPAD *pad)
 {
 	/* (an analog button pressed half way; the stick most of the way) */
 	enum { PRESSED = 0x80, PUSHED = 22000 };
@@ -293,12 +331,19 @@ static void chat_pad_record(const XINPUT_GAMEPAD *pad)
 	if (pad->sThumbLY < -PUSHED) buttons |= 1UL << HALO_CHAT_PAD_STICK_DOWN;
 	if (pad->sThumbLX < -PUSHED) buttons |= 1UL << HALO_CHAT_PAD_STICK_LEFT;
 	if (pad->sThumbLX > PUSHED) buttons |= 1UL << HALO_CHAT_PAD_STICK_RIGHT;
-	chat_pad = buttons;
+	chat_pad[port] = buttons;
+}
+
+extern short network_chat_controller(void);
+unsigned long halo_chat_pad_buttons_for_port(short port)
+{
+	return port >= 0 && port < PORT_COUNT ? chat_physical_pad[port] : 0;
 }
 
 unsigned long halo_chat_pad_buttons(void)
 {
-	return chat_pad;
+	short port = network_chat_controller();
+	return chat_pad[port >= 0 && port < PORT_COUNT ? port : 0];
 }
 
 int halo_chat_taps(float *x, float *y)
@@ -326,35 +371,35 @@ int halo_chat_touch_layout(void)
 B that closed it, the Start or the A that sent the line), which the game
 gets none of till each is let go: it would see a new press of it, a pause
 menu opened, a melee, a jump (the triggers are analog buttons too) */
-static WORD chat_held_buttons;
-static unsigned char chat_held_analog;
+static WORD chat_held_buttons[PORT_COUNT];
+static unsigned char chat_held_analog[PORT_COUNT];
 
-static void chat_pad_hold_over(XINPUT_GAMEPAD *pad)
+static void chat_pad_hold_over(short port, XINPUT_GAMEPAD *pad)
 {
 	int index;
 
-	if (network_chat_keyboard_open())
+	if (network_chat_controller() == port)
 	{
-		chat_held_buttons = pad->wButtons;
-		chat_held_analog = 0;
+		chat_held_buttons[port] = pad->wButtons;
+		chat_held_analog[port] = 0;
 		for (index = 0; index < 8; index++)
 		{
 			if (pad->bAnalogButtons[index])
-				chat_held_analog |= (unsigned char)(1 << index);
+				chat_held_analog[port] |= (unsigned char)(1 << index);
 		}
 		memset(pad, 0, sizeof(*pad));
 		return;
 	}
-	chat_held_buttons &= pad->wButtons;
-	pad->wButtons &= (WORD)~chat_held_buttons;
+	chat_held_buttons[port] &= pad->wButtons;
+	pad->wButtons &= (WORD)~chat_held_buttons[port];
 	for (index = 0; index < 8; index++)
 	{
-		if (!(chat_held_analog & (1 << index)))
+		if (!(chat_held_analog[port] & (1 << index)))
 			continue;
 		if (pad->bAnalogButtons[index])
 			pad->bAnalogButtons[index] = 0;
 		else
-			chat_held_analog &= (unsigned char)~(1 << index);
+			chat_held_analog[port] &= (unsigned char)~(1 << index);
 	}
 }
 
@@ -541,7 +586,7 @@ int halo_linux_touch_move(short controller_index, float *forward, float *strafe)
 	if (controller_index != 0)
 		return FALSE;
 #ifdef HALO_TOUCH_CONTROLS
-	if (!touch_input_move(forward, strafe) || network_chat_keyboard_open())
+	if (!touch_input_move(forward, strafe) || network_chat_controller() == 0)
 	{
 		*forward = 0.0f;
 		*strafe = 0.0f;
@@ -571,7 +616,7 @@ int halo_linux_touch_look(short gamepad_index, float *yaw, float *pitch, float *
 	touch_input_look(0.0022f, yaw, pitch, gyro_yaw, gyro_pitch);
 	/* (none while the chat's on-screen keyboard is up: what was swiped is
 	dropped, not saved for after) */
-	if (network_chat_keyboard_open())
+	if (network_chat_keyboard_open() && network_chat_controller() == 0)
 	{
 		*yaw = 0.0f;
 		*pitch = 0.0f;
@@ -603,7 +648,7 @@ int halo_linux_touch_look_late(short gamepad_index, float *yaw, float *pitch, fl
 		return FALSE;
 #ifdef HALO_TOUCH_CONTROLS
 	/* (none while the chat's on-screen keyboard is up, whose frames drop it) */
-	if (network_chat_keyboard_open())
+	if (network_chat_keyboard_open() && network_chat_controller() == 0)
 		return FALSE;
 	touch_input_look_late(0.0022f, yaw, pitch, gyro_yaw, gyro_pitch);
 	return *yaw != 0.0f || *pitch != 0.0f || *gyro_yaw != 0.0f || *gyro_pitch != 0.0f;
@@ -1111,7 +1156,7 @@ int halo_push_to_talk_held(void)
 		if (input_held(&input, bindings[HALO_KEYBOARD_PUSH_TO_TALK][slot]))
 			return 1;
 	}
-	return 0;
+	return controller_remap_talk();
 }
 
 /* ---------- a Discord friend's ask to join (p2p_discord.c) */
@@ -1966,7 +2011,7 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 		pad->sThumbLX = -32000;
 	if (test_input_pressed & (1UL << HALO_CHAT_PAD_STICK_RIGHT))
 		pad->sThumbLX = 32000;
-	if (network_chat_keyboard_open())
+	if (network_chat_keyboard_open() && network_chat_controller() == 0)
 		return;
 
 	if (!checked)
@@ -2285,6 +2330,8 @@ static DWORD connected_gamepads(void)
 		return mask;
 #endif
 	/* the first pad shares port 0 with the keyboard (port_gamepad) */
+	for (port = 0; port < PORT_COUNT; port++)
+		controller_device_update((short)port, port_gamepad(gamepads, count, port));
 	for (port = 1; port < PORT_COUNT; port++)
 	{
 		if (port_gamepad(gamepads, count, port))
@@ -2356,6 +2403,34 @@ static int controller_port(HANDLE device)
 	return -1;
 }
 
+/* what OpenH1's overlays read of a port's pad as it is, whatever its button
+layout (input.controller_p1 to p4: controller_remap_reserve): the scoreboard's
+D-pad and X while it offers its player menu, all of it while it holds the
+controls (scoreboard_pad_port_hold's, not counted as a reading); a vote's
+D-pad left and right, a Discord ask's up and down (the first controller's) */
+static unsigned int remap_reserved(int port)
+{
+	struct scoreboard_pad *pad = &scoreboard_pads[port];
+	struct platform_input_state input;
+	unsigned int reserved = 0;
+	int hold;
+
+	platform_input_read(&input, FALSE);
+	pthread_mutex_lock(&scoreboard_pad_lock);
+	hold = input.menus || pad->readings > SCOREBOARD_PAD_READINGS ? HALO_SCOREBOARD_PAD_FREE : pad->hold;
+	pthread_mutex_unlock(&scoreboard_pad_lock);
+	if (hold == HALO_SCOREBOARD_PAD_HOLDS)
+		return CONTROLLER_REMAP_RESERVE_ALL;
+	if (hold == HALO_SCOREBOARD_PAD_OFFERED)
+		reserved |= CONTROLLER_REMAP_RESERVE_X | CONTROLLER_REMAP_RESERVE_DPAD_UP | CONTROLLER_REMAP_RESERVE_DPAD_DOWN |
+			CONTROLLER_REMAP_RESERVE_DPAD_LEFT | CONTROLLER_REMAP_RESERVE_DPAD_RIGHT;
+	if (port == 0 && network_vote_pad_open())
+		reserved |= CONTROLLER_REMAP_RESERVE_DPAD_LEFT | CONTROLLER_REMAP_RESERVE_DPAD_RIGHT;
+	if (port == 0 && discord_ask_serial())
+		reserved |= CONTROLLER_REMAP_RESERVE_DPAD_UP | CONTROLLER_REMAP_RESERVE_DPAD_DOWN;
+	return reserved;
+}
+
 /* reads a controller's state; for port 0 the keyboard, mouse, debug input
 and touchscreen are merged into the first gamepad's; runs on the game's main
 thread (touch_input_gamepad relies on it); returns ERROR_SUCCESS or
@@ -2368,12 +2443,24 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 #ifdef HALO_VR
 	int back = 0;
 #endif
+	XINPUT_GAMEPAD physical;
+	int captured;
 
 	memset(state, 0, sizeof(*state));
 	if (port < 0)
 		return ERROR_DEVICE_NOT_CONNECTED;
 	platform_pump_events();
 	count = sdl_gamepads(gamepads);
+	controller_device_update((short)port, port_gamepad(gamepads, count, port));
+	/* Keep physical remapping separate from the keyboard and touch controls. */
+	memset(&physical, 0, sizeof(physical));
+	if (port_gamepad(gamepads, count, port))
+		sdl_gamepad_state(port_gamepad(gamepads, count, port), &physical);
+	/* Keep the opening chat press so even B can open it without immediately closing it. */
+	chat_pad_record((short)port, &physical);
+	chat_physical_pad[port] = chat_pad[port];
+	controller_remap_reserve((short)port, remap_reserved(port));
+	captured = controller_remap_input((short)port, &physical, port_gamepad(gamepads, count, port) != NULL);
 	if (port == 0)
 	{
 		struct platform_input_state input;
@@ -2382,6 +2469,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		int scoreboard_hold;
 		BOOL console_active;
 		unsigned long discord_ask;
+		short aiming_deflection;
 
 		platform_input_read(&input, TRUE);
 		mouse_poll(&input);
@@ -2422,7 +2510,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 			}
 		}
 		if (port_gamepad(gamepads, count, 0))
-			sdl_gamepad_state(gamepads[0], &state->Gamepad);
+			controller_remap_merge(&physical, &state->Gamepad);
 		discord_ask_pad(port_gamepad(gamepads, count, 0), discord_ask, &state->Gamepad);
 #ifdef HALO_VR
 		if (halo_vr_running())
@@ -2470,13 +2558,17 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		scoreboard_pad_read(0, &state->Gamepad, scoreboard_keys, scoreboard_hold);
 		/* (the text chat's on-screen keyboard reads them, and takes them
 		while it is up) */
-		chat_pad_record(&state->Gamepad);
-		chat_pad_hold_over(&state->Gamepad);
+		chat_pad_record(0, &state->Gamepad);
+		chat_pad_hold_over(0, &state->Gamepad);
 		/* (and a vote running takes the D-pad's left and right:
 		network_votekick.c) */
 		vote_pad_hold_over(&state->Gamepad);
-		if (abs(state->Gamepad.sThumbRX) > STICK_AIMING_DEFLECTION ||
-			abs(state->Gamepad.sThumbRY) > STICK_AIMING_DEFLECTION)
+		/* (a right stick dead zone set below it aims from that) */
+		aiming_deflection = halo_stick_dead_range(1);
+		if (aiming_deflection > STICK_AIMING_DEFLECTION)
+			aiming_deflection = STICK_AIMING_DEFLECTION;
+		if (abs(state->Gamepad.sThumbRX) > aiming_deflection ||
+			abs(state->Gamepad.sThumbRY) > aiming_deflection)
 		{
 			pthread_mutex_lock(&mouse_lock);
 			stick_aimed_ms = SDL_GetTicks();
@@ -2491,11 +2583,15 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	{
 		struct platform_input_state input;
 
-		sdl_gamepad_state(port_gamepad(gamepads, count, port), &state->Gamepad);
+		state->Gamepad = physical;
 		/* (a split screen player's scoreboard, as port 0's) */
 		platform_input_read(&input, FALSE);
 		scoreboard_pad_read(port, &state->Gamepad, 0, scoreboard_pad_port_hold(port, input.menus));
+		/* (the chat's on-screen keyboard, when this player opened it) */
+		chat_pad_record((short)port, &state->Gamepad);
+		chat_pad_hold_over((short)port, &state->Gamepad);
 	}
+	if (captured) memset(&state->Gamepad, 0, sizeof(state->Gamepad));
 
 	if (memcmp(&state->Gamepad, &controllers[port].previous, sizeof(state->Gamepad)))
 	{

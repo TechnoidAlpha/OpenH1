@@ -185,7 +185,7 @@ void touch_input_menu_read(struct platform_ui_pointer *pointer)
 
 /* port/linux/game/network_chat.c: its on-screen keyboard is up, which
 takes the taps outside the menus */
-extern unsigned char network_chat_keyboard_open(void);
+extern short network_chat_controller(void);
 
 /* the taps for that keyboard since it last took them, and the latest's
 place (0 to 1 of the window) */
@@ -213,7 +213,7 @@ void touch_input_gamepad(XINPUT_GAMEPAD *pad)
 		menu_setup();
 		touch_menu_read(&menu, &output);
 		/* (or, while the text chat's on-screen keyboard is up, its keys) */
-		if (output.clicks && network_chat_keyboard_open())
+		if (output.clicks && (network_chat_controller() == 0))
 		{
 			int width = 0, height = 0;
 
@@ -368,7 +368,7 @@ void touch_input_controls(XINPUT_GAMEPAD *pad, int menus)
 	playing = touch_game_playing();
 	host_touch_scene(_touch_scene_known | touch_controls_setting() |
 		(controller ? _touch_scene_controller : 0) |
-		(menus || !playing || touch_game_cinematic_playing() || network_chat_keyboard_open() ?
+		(menus || !playing || touch_game_cinematic_playing() || network_chat_controller() == 0 ?
 			_touch_scene_menus : 0) |
 		(playing ? touch_game_context() << _touch_scene_context_shift : 0));
 	/* (the profile's mapping, for the buttons' names; only when it changes) */
