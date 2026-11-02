@@ -1647,8 +1647,13 @@ static void first_person_weapon_build_node_matrices(
 							{
 								settle_fraction= 1.0f;
 							}
+							/* port: BUG (original): the needles the reload ends with
+							are the rounds loaded and the rounds left to load, not
+							those left alone: with fewer than a magazine left, the
+							needles went down to that many as the gun was raised, then
+							grew all at once to the full count as the reload ended */
 							predicted_frame_index= (short)MIN(
-								weapon->weapon.magazines[0].rounds_total,
+								weapon->weapon.magazines[0].rounds_loaded+weapon->weapon.magazines[0].rounds_total,
 								magazine_definition->rounds_loaded_maximum);
 							frame_index= (short)((predicted_frame_index-frame_index)*settle_fraction)+
 								frame_index;
