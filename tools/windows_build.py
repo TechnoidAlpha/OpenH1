@@ -192,7 +192,7 @@ def generate_windows_build(n: Writer, sln: Any) -> None:
         fetch_third_party(THIRD_PARTY)
         fetch_vulkan_headers(VULKAN_HEADERS_DIR)
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
-        print(f"Windows build disabled: cannot fetch musl, SDL3 or the Vulkan headers ({error})",
+        print(f"Windows build disabled: cannot fetch musl, SDL3, FFmpeg or the Vulkan headers ({error})",
               file=sys.stderr)
         return
     config: Dict[str, Any] = json.loads(config_path.read_text(encoding="utf-8"))

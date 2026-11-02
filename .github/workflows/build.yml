@@ -16,8 +16,8 @@ name: Build
 #   downloads, caches) is paid once;
 # - compiles go through ccache, whose cache, master's latest build's, every
 #   run starts from, so a commit only recompiles what it changed from
-#   master; downloads (SDL, musl, the Vulkan headers, Gradle, the guests'
-#   pinned LLVM) are cached too;
+#   master; downloads (SDL, musl, FFmpeg, the Vulkan headers, Gradle, the
+#   guests' pinned LLVM) are cached too;
 # - a newer push to the same branch cancels a run still going (but not on
 #   master, whose builds the others' caches come from);
 # - pushes that only change documentation (Markdown, website/) do not
@@ -183,12 +183,12 @@ jobs:
           echo "CCACHE_START=$(date +%s)" >> "$GITHUB_ENV"
           mkdir -p .cache/guest-asm && touch "$RUNNER_TEMP/build-start"
 
-      # musl, SDL and the Vulkan headers, which configure.py fetches (and the
-      # OpenXR headers, which the VR build fetches)
+      # musl, SDL, FFmpeg and the Vulkan headers, which configure.py fetches
+      # (and the OpenXR headers, which the VR build fetches)
       - uses: actions/cache@v4
         with:
           path: build/linux_arm64/third_party
-          key: linux-arm64-third-party-${{ hashFiles('tools/android_build.py', 'tools/vulkan_build.py', 'tools/linux_guest_build.py', 'port/android/patches/**') }}
+          key: linux-arm64-third-party-${{ hashFiles('tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'tools/vulkan_build.py', 'tools/linux_guest_build.py', 'port/android/patches/**') }}
 
       # the guests' LLVM, which configure.py fetches (tools/guest_toolchain.py)
       - uses: actions/cache@v4
@@ -309,12 +309,12 @@ jobs:
           ccache --zero-stats
           echo "CCACHE_START=$(date +%s)" >> "$GITHUB_ENV"
 
-      # musl, SDL and the Vulkan headers, which configure.py fetches (and the
-      # OpenXR headers, which the VR build fetches)
+      # musl, SDL, FFmpeg and the Vulkan headers, which configure.py fetches
+      # (and the OpenXR headers, which the VR build fetches)
       - uses: actions/cache@v4
         with:
           path: build/linux_x86_64/third_party
-          key: linux-x86_64-third-party-${{ hashFiles('tools/android_build.py', 'tools/vulkan_build.py', 'tools/linux_guest_build.py', 'port/android/patches/**') }}
+          key: linux-x86_64-third-party-${{ hashFiles('tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'tools/vulkan_build.py', 'tools/linux_guest_build.py', 'port/android/patches/**') }}
 
       # the guests' LLVM, which configure.py fetches (tools/guest_toolchain.py)
       - uses: actions/cache@v4
@@ -478,11 +478,11 @@ jobs:
           echo "CCACHE_START=$(date +%s)" >> "$GITHUB_ENV"
           mkdir -p .cache/guest-asm && touch "$RUNNER_TEMP/build-start"
 
-      # musl and SDL, which configure.py fetches
+      # musl, SDL and FFmpeg, which configure.py fetches
       - uses: actions/cache@v4
         with:
           path: build/android/third_party
-          key: android-third-party-${{ hashFiles('tools/android_build.py', 'port/android/patches/**') }}
+          key: android-third-party-${{ hashFiles('tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'port/android/patches/**') }}
 
       # (and the Linux x86-64 build's, which configure.py fetches too on this
       # x86-64 Linux runner, for a build this job does not make: the
@@ -490,7 +490,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: build/linux_x86_64/third_party
-          key: linux-x86_64-third-party-${{ hashFiles('tools/android_build.py', 'tools/vulkan_build.py', 'tools/linux_guest_build.py', 'port/android/patches/**') }}
+          key: linux-x86_64-third-party-${{ hashFiles('tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'tools/vulkan_build.py', 'tools/linux_guest_build.py', 'port/android/patches/**') }}
 
       # the guests' LLVM, which configure.py fetches (tools/guest_toolchain.py)
       - uses: actions/cache@v4
@@ -624,12 +624,12 @@ jobs:
           ccache --zero-stats
           echo "CCACHE_START=$(date +%s)" >> "$GITHUB_ENV"
 
-      # SDL's development package, and the guest's musl, SDL3 and headers,
+      # SDL's development package, and the guest's musl, SDL3, FFmpeg and headers,
       # which configure.py fetches
       - uses: actions/cache@v4
         with:
           path: build/windows/third_party
-          key: windows-third-party-${{ hashFiles('tools/windows_build.py', 'tools/android_build.py', 'port/android/patches/**') }}
+          key: windows-third-party-${{ hashFiles('tools/windows_build.py', 'tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'port/android/patches/**') }}
 
       # the guests' LLVM, which configure.py fetches (tools/guest_toolchain.py)
       - uses: actions/cache@v4
@@ -754,11 +754,11 @@ jobs:
           echo "CCACHE_START=$(date +%s)" >> "$GITHUB_ENV"
           mkdir -p .cache/guest-asm && touch "$RUNNER_TEMP/build-start"
 
-      # musl and SDL, which configure.py fetches
+      # musl, SDL and FFmpeg, which configure.py fetches
       - uses: actions/cache@v4
         with:
           path: build/macos/third_party
-          key: macos-third-party-${{ hashFiles('tools/macos_build.py', 'tools/android_build.py', 'port/android/patches/**') }}
+          key: macos-third-party-${{ hashFiles('tools/macos_build.py', 'tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'port/android/patches/**') }}
 
       # SDL3's CMake build folder, whose configure checks are most of SDL's
       # time on this 3-core runner (its compiles are ccache's): found again
@@ -943,14 +943,14 @@ jobs:
           echo "CCACHE_START=$(date +%s)" >> "$GITHUB_ENV"
           mkdir -p .cache/guest-asm && touch "$RUNNER_TEMP/build-start"
 
-      # musl and SDL, which configure.py fetches (the macOS build's too: the
+      # musl, SDL and FFmpeg, which configure.py fetches (the macOS build's too: the
       # iOS build uses its shaders' tool)
       - uses: actions/cache@v4
         with:
           path: |
             build/ios/third_party
             build/macos/third_party
-          key: ios-third-party-${{ hashFiles('tools/macos_build.py', 'tools/ios_build.py', 'tools/android_build.py', 'port/android/patches/**') }}
+          key: ios-third-party-${{ hashFiles('tools/macos_build.py', 'tools/ios_build.py', 'tools/android_build.py', 'tools/ffmpeg_fetch.py', 'port/third_party/ffmpeg/sources.txt', 'port/android/patches/**') }}
 
       - uses: actions/cache@v4
         with:

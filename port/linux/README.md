@@ -38,8 +38,10 @@ To build:
   the game would play under XWayland, without HDR. No Vulkan development
   files are needed: the build downloads the Vulkan headers it uses.
 - A network connection for the first build. `configure.py` downloads musl
-  1.2.5 (checked against its SHA-256), SDL 3.4.16 and the Khronos Vulkan
-  headers (checked against their SHA-256) to `build/<name>/third_party`
+  1.2.5 (checked against its SHA-256), SDL 3.4.16, FFmpeg 8.1.3 (checked
+  against its SHA-256; only its Bink decoders' files are kept,
+  `port/third_party/ffmpeg`) and the Khronos Vulkan headers (checked
+  against their SHA-256) to `build/<name>/third_party`
   (`build/linux_x86_64/third_party`, `build/linux_arm64/third_party`), and
   with `--vr` the OpenXR headers ("VR"). Later runs of `configure.py` take
   them from there.
@@ -5924,7 +5926,7 @@ does; making the eye images from the four layers cost 0.2 ms more there.
 | Memory | The port reserves the Xbox memory at `0x80000000`. Thus the game gets the fixed addresses that it expects. |
 | Saved games | The Xbox `UDATA` layout, with SHA-1 signatures. |
 | Networking | Winsock on BSD sockets. System link on a local network and on the internet. |
-| Bink video | The Bink SDK's calls (`src/bink_movie.c`) over FFmpeg's Bink demuxer and decoders (`src/bink_ffmpeg.c`, `port/third_party/ffmpeg`, LGPL 2.1 or later), in the game, when `display.movies` is on: the frames into the linear texture `bink/bink_playback.c` draws, the audio as a DirectSound stream. Off (the default), or without the movie files, which OpenH1 does not ship, the game skips the movies. |
+| Bink video | The Bink SDK's calls (`src/bink_movie.c`) over FFmpeg's Bink demuxer and decoders (`src/bink_ffmpeg.c`; FFmpeg 8.1.3, LGPL 2.1 or later, fetched by `configure.py`: `port/third_party/ffmpeg`), in the game, when `display.movies` is on: the frames into the linear texture `bink/bink_playback.c` draws, the audio as a DirectSound stream. Off (the default), or without the movie files, which OpenH1 does not ship, the game skips the movies. |
 
 ## How the port operates
 
