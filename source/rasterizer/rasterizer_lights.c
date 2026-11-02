@@ -764,6 +764,23 @@ long rasterizer_light_submit(
 		243,
 		parameters->color.blue >=0.0f && parameters->color.blue <=1.0f);
 
+	/* port: no light whose place, direction, reach or colour is not a number (or
+	is infinite) is drawn: the passes over the level and the models would draw
+	what it reaches with that colour, and its reach and place size them
+	(lights_preprocess_scene's 0/0 of a light of no transition was one) */
+	if (!valid_real(parameters->radius) ||
+		!valid_real(parameters->position.x) || !valid_real(parameters->position.y) || !valid_real(parameters->position.z) ||
+		!valid_real(parameters->forward.i) || !valid_real(parameters->forward.j) || !valid_real(parameters->forward.k) ||
+		!valid_real(parameters->up.i) || !valid_real(parameters->up.j) || !valid_real(parameters->up.k) ||
+		!valid_real(parameters->color.red) || !valid_real(parameters->color.green) || !valid_real(parameters->color.blue))
+	{
+		static long refused_invalid;
+
+		if (refused_invalid++ % 1000 == 0)
+			error(2, "### ERROR a light not a number submitted to window (%ld refused so far)", refused_invalid);
+		return NONE;
+	}
+
 	if (rasterizer_lights.light_count<MAXIMUM_LIGHTS_PER_WINDOW)
 	{
 		light_index= rasterizer_lights.light_count++;
