@@ -3471,6 +3471,12 @@ void rasterizer_transparent_geometry_group_draw(
 								if (meter->value_source>=1 && meter->value_source<=NUMBER_OF_SHADER_ANIMATION_FUNCTIONS)
 									meter_value = group->animation->values[
 										meter->value_source-1];
+								/* port: BUG (original): the plasma pistol's gauge
+								shows its charge alone, empty while the pistol is
+								tapped until it overheats; it shows the weapon's heat
+								when that is more (port/linux/game/weapon_gauge.c) */
+								meter_value = weapon_gauge_meter_value(group->object_index,
+									meter->value_source, meter_value);
 								if (meter->gradient_source>=1 && meter->gradient_source<=NUMBER_OF_SHADER_ANIMATION_FUNCTIONS)
 									gradient_value = group->animation->values[
 										meter->gradient_source-1];

@@ -186,6 +186,10 @@ float halo_model_detail_scale(int level);
 /* whether display.model_detail is "stock" (port/linux/src/d3d8_gl.c), for
 each permutation's level (port/linux/game/model_detail.c) */
 int halo_model_detail_stock(void);
+/* a meter's value as drawn on the object it is drawn on: a weapon's meter
+that shows its charge shows its heat when that is more, the plasma pistol's
+gauge (port/linux/game/weapon_gauge.c) */
+float weapon_gauge_meter_value(long object_index, short value_source, float meter_value);
 /* while TRUE, drawing shifts right to center 640-column layouts */
 void halo_screen_ui_offset(unsigned char centered);
 /* names a model lighting vertex program, whose draws can be lit for each
