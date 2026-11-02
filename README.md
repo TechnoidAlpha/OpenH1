@@ -154,7 +154,15 @@ so players of the two versions can play together.
    file picker (a disc image next to `halo.exe` is used without one). The
    macOS app's open panel takes the disc image or the maps folder copied
    from the disc.
-3. The game extracts the `maps/` folder. Then the game starts.
+3. The game extracts the `maps/` folder, and the disc's movies (its `bink/`
+   folder, for the startup movies, `display.movies`) when the image has
+   them. Then the game starts.
+
+A game whose maps came from elsewhere, or from a version before the movies
+were extracted, copies them when Startup Movies (Settings > Video) is
+turned on, if the disc image the maps came from is still where it was.
+Otherwise put the disc's `bink/` folder (`intro.bik` and the rest) beside
+`maps/`.
 
 The `maps/` folder holds the Xbox maps only. If it holds Halo PC's maps
 instead (a Halo PC or Custom Edition install's `maps` folder), the game says

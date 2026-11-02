@@ -310,6 +310,10 @@ SETTINGS_TAB_LAID = 86
 # (the tab keys' prompts: LB's at the margin, RB's after the last tab)
 SETTINGS_TAB_PROMPT_WIDTH = 30
 SETTINGS_PANEL_X, SETTINGS_PANEL_WIDTH, SETTINGS_PANEL_BOTTOM = 388, 224, 400
+# the footer's band (bitmaps/gradient's line, at 409, over Defaults, OK and
+# Cancel): a page's rows, packed for any platform, end above it
+# (test_port_settings.py's test_settings_rows_fit). The list does not scroll
+SETTINGS_ROWS_BOTTOM = 408
 # the value's column in a row, and the arrows either side of it
 SETTINGS_SPINNER_X, SETTINGS_SPINNER_WIDTH = 188, 140
 # small_ui's measures (ui.map's tag): draw_string puts the baseline its ascent
@@ -466,6 +470,12 @@ SETTINGS_NAMED_ROWS = {*(f"link_master_{n}" for n in range(1, 5)), *(f"pad_{n}" 
 SETTINGS_NAMED_VALUE_WIDTH = 110
 # (making a profile: as the main menu's items do, its name asked, then the
 # profile made and edited, menu_functions.c's settings_profile_new)
+# display.movies's help: where the movies come from (xiso.c's
+# xiso_extract_bink, with the maps; bink_import.c's, for a data root without)
+MOVIES_HELP = ("Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu. Any "
+               "button skips the intro.|They are the bink folder of your Xbox disc image, copied with the maps. "
+               "Without them, put the disc's bink folder beside your maps folder.")
+
 CREATE_PROFILE = ("CREATE PROFILE ›", None, None,
                   "Your name, color and controller layout are kept in a player profile. Make one to set them; the "
                   "rest of Settings works without one.", None, "create_profile", "port settings new profile")
@@ -515,6 +525,9 @@ PAGES = {
             ("FIRST PERSON ›", None, _page_screen(*FIRST_PERSON),
              "Your weapon's field of view and whether it is drawn, your legs and arms, your shield's color, and the "
              "view from a vehicle's passenger seat.", None),
+            # (port/linux/src/bink_movie.c; the help says where the movies go:
+            # MOVIES_HELP)
+            ("STARTUP MOVIES", "display.movies", ON_OFF, MOVIES_HELP, None),
             (SECTION, "GRAPHICS"),
             # (Classic or Enhanced, CUSTOM while any setting it chooses is
             # another value: menu_functions.c's graphics_preset_show; choosing
@@ -526,6 +539,10 @@ PAGES = {
              [("XBOX", "128"), ("MEDIUM", "256"), ("HIGH", "512"), ("ULTRA", "1024")],
              "How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky "
              "shadow; each step up is crisper, and costs a little more of the graphics card.", None),
+            # (display.battery_saver: port/linux/src/battery_saver.c)
+            ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
+             "Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns "
+             "it on while the device runs on its battery. Your own settings come back as it turns off.", None),
             # (display.hdr's page, on the renderers that draw it: menu_files.c's
             # "hdr")
             ("HDR ›", None, _page_screen(*HDR_PAGE),
@@ -534,11 +551,6 @@ PAGES = {
             ("ADVANCED GRAPHICS ›", None, _page_screen(*ADVANCED),
              "Anti-aliasing, texture filtering, model detail, the lighting and the shields' glow, smooth motion "
              "and the tick rate.", None),
-            (SECTION, "BATTERY"),
-            # (display.battery_saver: port/linux/src/battery_saver.c)
-            ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
-             "Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns "
-             "it on while the device runs on its battery. Your own settings come back as it turns off.", None),
         ],
     },
     "audio_settings": {
@@ -583,8 +595,10 @@ PAGES = {
     "mouse_settings": {
         "screen": "mouse_settings_screen", "tab": "CONTROLS",
         "about": "The mouse, the controller and the keys.",
+        # (two sections: with VR Setup's row, the VR build's rows fill the
+        # page to the footer, as test_settings_rows_fit checks)
         "rows": [
-            (SECTION, "MOUSE"),
+            (SECTION, "MOUSE AND KEYBOARD"),
             ("SENSITIVITY", "input.mouse_sensitivity", MOUSE_SENSITIVITY,
              "How far the view turns as the mouse moves, on Counter-Strike 2's scale: your CS2 number turns the "
              "same here. Drag the slider, or press left and right. Click the number (or press A) to type an exact "
@@ -603,10 +617,19 @@ PAGES = {
             ("INSTANT AIM", "display.direct_camera", ON_OFF,
              "Turns the view the moment the mouse moves, not up to two of the game's updates later. Off feels as "
              "the original did.", "computer"),
+            ("KEY BINDINGS ›", None, _page_screen(*KEY_BINDINGS),
+             "The keys and mouse buttons for each action, two for each.", None),
+            ("BUTTON PROMPTS", "input.button_prompts",
+             [("AUTO", "auto"), ("CONTROLLER", "controller"), ("KEYBOARD", "keyboard")],
+             "The buttons the HUD's prompts show. Auto shows the keys or the controller's buttons, as you last "
+             "played with.", None),
             (SECTION, "CONTROLLER"),
             ("CONTROLLER ›", None, _page_screen(*CONTROLLER),
              "The look sensitivity and inversion, the button and stick layouts, and vibration, kept in your player "
              "profile.", None),
+            # (VR Setup, the VR build's, while it plays in the headset)
+            ("VR SETUP ›", None, VR_CONTROLS,
+             "Your hands, aiming, turning, your height, the HUD and the menus in VR.", "vr"),
             # (input.crouch: the controller's and the keys'; input.touch_crouch: the touch controls')
             ("CROUCH", "input.crouch", [("HOLD", "hold"), ("TOGGLE", "toggle")],
              "Hold crouches while the button is held, as Halo did. Toggle crouches at a tap until you press it "
@@ -617,17 +640,6 @@ PAGES = {
             ("TOUCH CROUCH", "input.touch_crouch", [("TOGGLE", "toggle"), ("HOLD", "hold")],
              "The touch controls' Crouch. Toggle crouches at a tap until the next tap, a jump, a seat or death; "
              "Hold crouches while your finger is on it.", "touch"),
-            (SECTION, "KEYBOARD"),
-            ("KEY BINDINGS ›", None, _page_screen(*KEY_BINDINGS),
-             "The keys and mouse buttons for each action, two for each.", None),
-            ("BUTTON PROMPTS", "input.button_prompts",
-             [("AUTO", "auto"), ("CONTROLLER", "controller"), ("KEYBOARD", "keyboard")],
-             "The buttons the HUD's prompts show. Auto shows the keys or the controller's buttons, as you last "
-             "played with.", None),
-            # (VR Setup, the VR build's, while it plays in the headset)
-            (SECTION, "VR"),
-            ("VR SETUP ›", None, VR_CONTROLS,
-             "Your hands, aiming, turning, your height, the HUD and the menus in VR.", "vr"),
         ],
     },
     "network_setup": {
@@ -696,11 +708,6 @@ PAGES = {
              "Draws a dark panel behind the scoreboard, for clearer text.", None),
             ("MATCH TIMER", "display.match_timer", ON_OFF,
              "Draws a clock at the bottom right in multiplayer, counting up from the start of the game.", None),
-            # (port/linux/src/bink_ffmpeg.c)
-            (SECTION, "MOVIES"),
-            ("STARTUP MOVIES", "display.movies", ON_OFF,
-             "Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu, from "
-             "the bink folder of your game data. Any button skips the intro.", None),
             # (the text chat's: port/linux/game/network_chat.c)
             (SECTION, "CHAT"),
             ("TEXT CHAT", "display.text_chat", [("SHOW", "true"), ("HIDE", "false")],

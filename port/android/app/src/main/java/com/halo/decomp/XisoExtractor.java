@@ -56,6 +56,14 @@ import java.util.Locale;
  * itself, so the copy is written to maps.partial (emptied first of what an
  * earlier attempt left) and its files moved into maps once all are
  * complete, ui.map last.
+ *
+ * The root's bink folder, the movies the game plays with display.movies
+ * (port/linux/src/bink_movie.c), is copied after the maps through
+ * bink.partial, renamed bink once whole (as xiso.c's xiso_copy_movies):
+ * only its .bik files, each at most MAXIMUM_MOVIE_SIZE and
+ * MAXIMUM_MOVIES_SIZE together. A disc without it has nothing copied, a
+ * bink folder with movies already is kept, and a copy that fails leaves the
+ * maps as they are.
  */
 final class XisoExtractor {
     private static final int SECTOR_SIZE = 2048;
@@ -79,6 +87,10 @@ final class XisoExtractor {
     private static final int MAXIMUM_ENTRIES = 256;
     private static final int COPY_CHUNK = 1024 * 1024;
     private static final String PARTIAL_DIRECTORY = "maps.partial";
+    private static final String MOVIES_PARTIAL_DIRECTORY = "bink.partial";
+    /** the movies: the intro is the largest, a few hundred MB; the folder, with every language's, a few GB at most */
+    private static final long MAXIMUM_MOVIE_SIZE = 1024L * 1024 * 1024;
+    private static final long MAXIMUM_MOVIES_SIZE = 4L * 1024 * 1024 * 1024;
     /** the loading screen's picture (source/interface/progress_bar.c), out of default.xbe; the executable is a few MB */
     private static final int LOADING_WIDTH = 320;
     private static final int LOADING_HEIGHT = 240;
@@ -86,7 +98,7 @@ final class XisoExtractor {
     private static final long MAXIMUM_XBE_SIZE = 64 * 1024 * 1024;
     private static final String LOADING_PICTURE = "loading.tga";
 
-    /** Told as the copy goes: the file being copied, and the bytes copied of all the files'. */
+    /** Told as the copy goes: the file being copied (maps/ui.map, bink/intro.bik), and the bytes copied of all the files'. */
     interface Progress {
         void report(String file, long done, long total);
     }
@@ -176,6 +188,8 @@ final class XisoExtractor {
         }
         if (maps == null)
             throw new ExtractException("The disc image has no maps folder: it is not a Halo disc.");
+        // (the movies, copied after the maps)
+        List<Entry> movies = movies(image, imageSize, partition, directories);
 
         // its files
         byte[] table = readTable(image, partition, maps.sector, maps.size, "The disc image's maps folder is damaged.");
@@ -197,6 +211,8 @@ final class XisoExtractor {
                 throw new ExtractException(readFailure(file));
             total += file.size;
         }
+        for (Entry movie : movies)
+            total += movie.size;
 
         // the copy, to maps.partial
         File partial = new File(destination, PARTIAL_DIRECTORY);
@@ -215,7 +231,8 @@ final class XisoExtractor {
         ByteBuffer buffer = ByteBuffer.allocate(COPY_CHUNK);
         long done = 0;
         for (Entry file : files)
-            done = copyFile(image, partition, file, new File(partial, file.name), buffer, done, total, progress);
+            done = copyFile(image, partition, file, "maps/", new File(partial, file.name), buffer, done, total,
+                progress);
         if (!hasLoading && writeLoadingPicture(image, imageSize, partition, xbe, new File(partial, LOADING_PICTURE)))
             files.add(new Entry(LOADING_PICTURE, 0, 0));
 
@@ -233,6 +250,98 @@ final class XisoExtractor {
                 throw new ExtractException("Could not move " + file.name + " into " + mapsFolder.getPath() + ".");
         }
         partial.delete();
+
+        // the movies: without them the game skips them
+        if (movies.isEmpty()) {
+            android.util.Log.i("halo", "extract: the disc image has no movies (a bink folder of .bik files)");
+            return;
+        }
+        try {
+            copyMovies(image, partition, movies, destination, buffer, done, total, progress);
+        } catch (IOException exception) {
+            android.util.Log.i("halo", "extract: the movies were not copied: " + exception.getMessage());
+        }
+    }
+
+    /**
+     * The movies of the root's bink folder (directories: the root's
+     * folders): its .bik files, each whole in the image and at most
+     * MAXIMUM_MOVIE_SIZE, and no more than MAXIMUM_MOVIES_SIZE together. None
+     * for a disc without the folder or with a damaged one.
+     */
+    private static List<Entry> movies(FileChannel image, long imageSize, long partition, List<Entry> directories) {
+        List<Entry> movies = new ArrayList<>();
+        Entry bink = null;
+        long taken = 0;
+
+        for (Entry entry : directories) {
+            if (entry.name.equalsIgnoreCase("bink")) {
+                bink = entry;
+                break;
+            }
+        }
+        if (bink == null)
+            return movies;
+        List<Entry> files;
+        try {
+            files = walkTable(readTable(image, partition, bink.sector, bink.size, "damaged"), false);
+        } catch (IOException exception) {
+            android.util.Log.i("halo", "extract: the disc image's bink folder is damaged: no movies copied");
+            return movies;
+        }
+        for (Entry file : files) {
+            if (!isMovieName(file.name))
+                continue;
+            if (file.size <= 0 || file.size > MAXIMUM_MOVIE_SIZE
+                    || partition + file.sector * SECTOR_SIZE + file.size > imageSize
+                    || taken + file.size > MAXIMUM_MOVIES_SIZE) {
+                android.util.Log.i("halo", "extract: bink/" + file.name + " (" + file.size
+                    + " bytes) is past the disc image's end or too large: not copied");
+                continue;
+            }
+            movies.add(file);
+            taken += file.size;
+        }
+        return movies;
+    }
+
+    /** Whether a name ends in .bik, ignoring case. */
+    static boolean isMovieName(String name) {
+        return name.length() > 4 && name.regionMatches(true, name.length() - 4, ".bik", 0, 4);
+    }
+
+    /** Copies the movies to destination/bink through bink.partial, unless it has movies already. */
+    private static void copyMovies(FileChannel image, long partition, List<Entry> movies, File destination,
+            ByteBuffer buffer, long done, long total, Progress progress) throws IOException {
+        File bink = new File(destination, "bink");
+        String[] existing = bink.list();
+
+        if (existing != null) {
+            for (String name : existing) {
+                if (isMovieName(name)) {
+                    android.util.Log.i("halo", "extract: " + bink.getPath() + " has movies already");
+                    return;
+                }
+            }
+        }
+        File partial = new File(destination, MOVIES_PARTIAL_DIRECTORY);
+        File[] leftovers = partial.listFiles();
+        if (leftovers != null) {
+            for (File leftover : leftovers)
+                leftover.delete();
+        } else {
+            partial.delete();
+            partial.mkdirs();
+        }
+        if (!partial.isDirectory())
+            throw new ExtractException("Could not create " + partial.getPath() + ".");
+        for (Entry movie : movies)
+            done = copyFile(image, partition, movie, "bink/", new File(partial, movie.name), buffer, done, total,
+                progress);
+        // (an empty bink folder, the player's, is replaced)
+        bink.delete();
+        if (!partial.renameTo(bink))
+            throw new ExtractException("Could not create " + bink.getPath() + ".");
     }
 
     /** No path, no . or .., and only printable ASCII that every file system takes as a plain name. */
@@ -445,8 +554,8 @@ final class XisoExtractor {
     }
 
     /** Copies one file of the image to output; returns the bytes copied of all the files so far. */
-    private static long copyFile(FileChannel image, long partition, Entry file, File output, ByteBuffer buffer,
-            long done, long total, Progress progress) throws IOException {
+    private static long copyFile(FileChannel image, long partition, Entry file, String folder, File output,
+            ByteBuffer buffer, long done, long total, Progress progress) throws IOException {
         String writeFailure = "Could not write " + output.getPath() + " (is the storage full?).";
         long position = partition + file.sector * SECTOR_SIZE;
         long remaining = file.size;
@@ -477,7 +586,7 @@ final class XisoExtractor {
                 remaining -= count;
                 done += count;
                 if (progress != null)
-                    progress.report(file.name, done, total);
+                    progress.report(folder + file.name, done, total);
             }
             FileOutputStream closing = stream;
             stream = null;
