@@ -339,8 +339,8 @@ read `xbox/include`. To add a name, follow `port/include/xdk/README.md`.
   Mobile Controls, `port/assets/touch`), credited in `AUTHORS.md`. Never
   the game's art, icons or logos.
 - `AUTHORS.md` credits art only.
-- Fonts: Overpass and OpenCE (Newtown, respaced) only; see
-  `port/assets/fonts/README.md`. Never ship the maps' commercial typefaces.
+- Fonts: Overpass, OpenCE (Newtown, respaced) and, for the console, Hack
+  only; see `port/assets/fonts/README.md`. Never ship the maps' commercial typefaces.
 
 ### Custom Edition maps
 

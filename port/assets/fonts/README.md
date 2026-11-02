@@ -8,6 +8,7 @@ place of the bitmap fonts of the maps (`port/linux/src/text_hires.c`).
 | --- | --- | --- |
 | `Overpass-900.ttf` | `ui\large_ui`, `ui\interstate` | Overpass, weight 900 (Black) |
 | `Overpass-750.ttf` | `ui\small_ui` | Overpass, weight 750 |
+| `Hack-Bold.ttf` | `old tags\internal system plain`, the console's (and the debug text's) | Hack 3.003, Bold, unmodified |
 | `OpenCE-Regular.ttf` | the menus' titles, as pictures (`port/assets/titles`) | OpenCE: Newtown, respaced for this project (`tools/title_font.py`) |
 | `Newtown-Regular.ttf` | (OpenCE's source) | Newtown by Roger White, unmodified |
 
@@ -41,5 +42,17 @@ The Overpass files are static instances of Google Fonts' variable Overpass
     python3 -m fontTools.varLib.instancer 'Overpass[wght].ttf' wght=900 -o Overpass-900.ttf
     python3 -m fontTools.varLib.instancer 'Overpass[wght].ttf' wght=750 -o Overpass-750.ttf
 
-The builds embed the Overpass files (`tools/embed_assets.py`), and the
-release packages carry `Overpass-OFL.txt`, as the license asks.
+The console's font in the maps, `old tags\internal system plain`, is a
+small fixed-width bitmap font. Hack (Source Foundry,
+https://github.com/source-foundry/Hack) is a monospaced typeface made for
+code and terminals; its Bold matches the weight of the bitmap's strokes.
+`Hack-Bold.ttf` is the file of the release v3.003
+(`Hack-v3.003-ttf.tar.gz`, SHA-256
+`7f592d091cbd2472f39af96e6c280cde3c27cab50a9c88746feb42918aa1888f`),
+unchanged. Hack is under the MIT License, and the Bitstream Vera License
+for the Bitstream Vera Sans Mono outlines it builds on (DejaVu's are in the
+public domain); `Hack-LICENSE.txt` is the project's `LICENSE.md`.
+
+The builds embed the Overpass and Hack files (`tools/embed_assets.py`),
+and the release packages carry `Overpass-OFL.txt` and `Hack-LICENSE.txt`,
+as the licenses ask.

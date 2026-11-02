@@ -61,6 +61,7 @@ LICENSES = {
     "mbedtls-LICENSE.txt": "port/third_party/mbedtls/LICENSE",
     "miniupnpc-LICENSE.txt": "port/third_party/miniupnpc/LICENSE",
     "Overpass-OFL.txt": "port/assets/fonts/Overpass-OFL.txt",
+    "Hack-LICENSE.txt": "port/assets/fonts/Hack-LICENSE.txt",
     "expat-COPYING.txt": "port/third_party/expat/COPYING",
     "opus-COPYING.txt": "port/third_party/opus/COPYING",
     "ffmpeg-COPYING.LGPLv2.1.txt": "port/third_party/ffmpeg/COPYING.LGPLv2.1",
