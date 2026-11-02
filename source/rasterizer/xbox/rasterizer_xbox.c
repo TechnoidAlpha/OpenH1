@@ -1204,6 +1204,9 @@ void rasterizer_set_model_lighting(
 	}
 	else
 	{
+		/* port: the registers' pads too (sent to the GPU, which a stack's
+		leftovers made not a number) */
+		csmemset(&lighting_constants, 0, sizeof(lighting_constants));
 		for (light_index = 0; light_index < MAXIMUM_RENDERED_POINT_LIGHTS; light_index++)
 			rasterizer_set_model_lighting_point_light(
 				lighting->point_light_count > light_index ?

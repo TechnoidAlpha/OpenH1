@@ -1084,8 +1084,8 @@ static void stream_finite(float *values, unsigned long count, const char *what, 
 		if ((bits & 0x7f800000u) != 0x7f800000u)
 			continue;
 		if (made++ % 1000 == 0)
-			platform_log("GPU: %s %lu's %s (%08x) drawn as 0 (%lu so far)", what, first + index / 4,
-				bits & 0x007fffffu ? "number not a number" : "infinity", (unsigned)bits, made);
+			platform_log("GPU: %s %lu.%c's %s (%08x) drawn as 0 (%lu so far)", what, first + index / 4,
+				"xyzw"[index % 4], bits & 0x007fffffu ? "number not a number" : "infinity", (unsigned)bits, made);
 		values[index] = 0.0f;
 	}
 }

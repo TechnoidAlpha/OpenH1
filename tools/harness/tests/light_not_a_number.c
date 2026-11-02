@@ -50,6 +50,19 @@ int main(int argc,char **argv)
   CHECK(light_port_transition_fraction(-0.5f, 10.0f) == 0.0f, "before it was let go: not at the start");
   CHECK(!isnan(light_port_transition_fraction(0.0f, NAN)), "a transition not a number: a fraction not a number");
  }
+ else CASE("brighten-black") {
+  /* (an artificially bright object on a lightmap's black: object_lights.c's
+  build_distant_lights) */
+  real_rgb_color black = { 0.0f, 0.0f, 0.0f }, dim = { 0.1f, 0.05f, 0.0f }, bright = { 0.9f, 0.6f, 0.3f };
+  brighten_real_rgb_color(&black, 0.3f);
+  CHECK(black.red == 0.3f && black.green == 0.3f && black.blue == 0.3f, "black brightened to %g %g %g, not grey",
+   black.red, black.green, black.blue);
+  brighten_real_rgb_color(&dim, 0.3f);
+  CHECK(fabsf(dim.red - 0.3f) < 1e-6f && fabsf(dim.green - 0.15f) < 1e-6f && dim.blue == 0.0f, "a dim colour %g %g %g",
+   dim.red, dim.green, dim.blue);
+  brighten_real_rgb_color(&bright, 0.3f);
+  CHECK(fabsf(bright.red - 1.0f) < 1e-6f, "a bright colour %g past white", bright.red);
+ }
  else CASE("submitted") {
   struct rasterizer_light_submit_parameters parameters = light();
   CHECK(rasterizer_light_submit(&parameters) == 0 && rasterizer_lights.light_count == 1, "a light refused");

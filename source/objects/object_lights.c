@@ -1873,6 +1873,15 @@ static void brighten_real_rgb_color(
 	real scale = fraction + 1.0f;
 	real scaled_maximum = scale * maximum;
 
+	/* port: a black colour (an artificially bright object, a weapon, on a
+	lightmap's black) brightened to the least it is brightened to, grey, not
+	scaled by fraction / 0 (0 times infinity: not a number, which the
+	object's lighting kept for as long as it lay there) */
+	if (!(maximum > 0.0f))
+	{
+		color->red = color->green = color->blue = fraction;
+		return;
+	}
 	if (scaled_maximum > 1.0f)
 	{
 		scale = 1.0f / maximum;

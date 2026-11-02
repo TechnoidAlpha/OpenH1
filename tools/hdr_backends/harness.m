@@ -262,6 +262,47 @@ static void post_test(NSString *dir)
 			}
 		}
 	}
+	/* (a pixel not a number, or infinite, either way: tone mapped as 0, and
+	as the half floats' most and least, finite) */
+	{
+		id<MTLTexture> target = texture_make(MTLPixelFormatRGBA16Float, VECTORS,
+			MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
+		float special[VECTORS * 4], expected[3][3] = { { 0.0f, 0.0f, 0.0f }, { 65504.0f, 65504.0f, 65504.0f },
+			{ -65504.0f, -65504.0f, -65504.0f } };
+		struct post_uniforms uniforms;
+		int finite = 0;
+
+		memset(special, 0, sizeof(special));
+		for (channel = 0; channel < 3; channel++)
+		{
+			special[channel] = NAN;
+			special[4 + channel] = INFINITY;
+			special[8 + channel] = -INFINITY;
+		}
+		halves_write(target, special, VECTORS);
+		memset(&uniforms, 0, sizeof(uniforms));
+		uniforms.metrics[0] = 1.0f / VECTORS;
+		uniforms.metrics[1] = 1.0f;
+		uniforms.metrics[2] = VECTORS;
+		uniforms.metrics[3] = 1.0f;
+		uniforms.hdr[0] = (float)XGPU_HDR_MODE_FAITHFUL;
+		uniforms.hdr[1] = 4.0f;
+		post_draw(tone_pipeline, target, nil, &uniforms);
+		halves_read(target, got, VECTORS);
+		for (vector = 0; vector < 3; vector++)
+		{
+			xgpu_hdr_tone_map(expected[vector], XGPU_HDR_MODE_FAITHFUL, 4.0f);
+			for (channel = 0; channel < 3; channel++)
+			{
+				if (!isfinite(got[vector * 4 + channel]) || !close_to(got[vector * 4 + channel], expected[vector][channel]))
+					FAIL("tone map: special value %d channel %d: %.5f, the reference %.5f", vector, channel,
+						(double)got[vector * 4 + channel], (double)expected[vector][channel]);
+				else
+					finite++;
+			}
+		}
+		printf("post: %d values not a number or infinite tone mapped finite\n", finite);
+	}
 	for (which = 0; which < 6; which++)
 	{
 		id<MTLTexture> source = texture_make(MTLPixelFormatRGBA16Float, VECTORS, MTLTextureUsageShaderRead);
