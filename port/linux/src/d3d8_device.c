@@ -29,6 +29,7 @@ Conventions carried over from the Xbox:
 #include "xgpu_backend.h"
 #include "xgpu_hdr.h"
 #include "xgpu_manifest.h"
+#include "xgpu_stream.h"
 #include "frame_pacing.h"
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
@@ -226,6 +227,46 @@ void halo_hdr_category(int category)
 void halo_hdr_draw_kind(int kind)
 {
 	hdr.kind = kind;
+}
+
+/* ---------- display.ambient_occlusion (xgpu_backend_ambient_occlusion)
+
+Each window's 3D view is occluded once its opaque surfaces have drawn their
+light (halo_screen_ambient_occlusion, after the structure's lightmap pass):
+the backend finds the occlusion from the depth and multiplies the light by
+it, before the diffuse textures, the decals, the dynamic lights, the
+specular light, the transparent surfaces and the effects. A surface that
+lights itself (a structure's lightmap pass or a model's with its
+self-illumination: halo_hdr_draw_kind) marks its pixels in the stencil's
+top bit as it draws (pipeline_state_describe), and the first-person weapon
+marks its own in the first (the game's), so that the occlusion leaves them
+as they were. Read between frames (halo_screen_commit). */
+
+static struct
+{
+	/* XGPU_AMBIENT_OCCLUSION_LOW or _HIGH, 0 off; the view shown alone
+	(debug.ambient_occlusion_view); config_changes() when read; laid over
+	a view since its last show */
+	int quality;
+	BOOL view, laid;
+	long read_at;
+} ambient_occlusion = { 0, FALSE, FALSE, -1 };
+
+static void ambient_occlusion_read(void)
+{
+	const char *setting;
+	int quality;
+
+	if (ambient_occlusion.read_at == config_changes())
+		return;
+	ambient_occlusion.read_at = config_changes();
+	setting = config_string("display.ambient_occlusion");
+	quality = !strcmp(setting, "high") ? XGPU_AMBIENT_OCCLUSION_HIGH :
+		!strcmp(setting, "low") ? XGPU_AMBIENT_OCCLUSION_LOW : 0;
+	if (quality != ambient_occlusion.quality)
+		platform_log("ambient occlusion: %s", quality ? setting : "off");
+	ambient_occlusion.quality = quality;
+	ambient_occlusion.view = config_boolean("debug.ambient_occlusion_view");
 }
 
 /* a draw's tag (nv2a_pixel_shader_key.hdr): 0 but into the HDR back
@@ -1872,6 +1913,8 @@ long halo_screen_commit(void)
 	anti_aliasing_read();
 	/* (display.hdr, and the display: the back buffer's format) */
 	hdr_read();
+	/* (display.ambient_occlusion) */
+	ambient_occlusion_read();
 	/* (display.picture_position) */
 	picture_position_send();
 	/* display.shadow_resolution, if it has changed: the maps' entries at
@@ -2890,6 +2933,19 @@ static void pipeline_state_describe(BOOL has_depth, struct xgpu_pipeline_key *ke
 		key->stencil_pass = stencil_operation(rs[D3DRS_STENCILPASS]);
 		key->stencil_write_mask = rs[D3DRS_STENCILWRITEMASK];
 		dynamic->stencil_reference = rs[D3DRS_STENCILREF];
+	}
+	/* display.ambient_occlusion: a surface that lights itself marks its
+	pixels, which the occlusion then leaves */
+	else if (ambient_occlusion.quality && key->depth_write && (hdr.kind & HALO_HDR_KIND_SELF_ILLUMINATION))
+	{
+		key->stencil_test = 1;
+		key->stencil_function = XGPU_COMPARE_ALWAYS;
+		key->stencil_read_mask = 0;
+		key->stencil_fail = XGPU_STENCIL_KEEP;
+		key->stencil_depth_fail = XGPU_STENCIL_KEEP;
+		key->stencil_pass = XGPU_STENCIL_REPLACE;
+		key->stencil_write_mask = XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED;
+		dynamic->stencil_reference = XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED;
 	}
 
 	key->blend = rs[D3DRS_ALPHABLENDENABLE] != 0;
@@ -4560,6 +4616,40 @@ void halo_screen_anti_alias(short x0, short y0, short x1, short y1)
 	xgpu_backend_anti_alias(target->target.number, mode == _anti_aliasing_smaa, corners);
 }
 
+/* the corners of a window's 3D view in the back buffer's pixels */
+static void view_corners(struct render_target_entry *target, short x0, short y0, short x1, short y1, long corners[4])
+{
+	corners[0] = scaled_pixel(x0, target->target.scale[0]);
+	corners[1] = scaled_pixel(y0, target->target.scale[1]);
+	corners[2] = scaled_pixel(x1, target->target.scale[0]);
+	corners[3] = scaled_pixel(y1, target->target.scale[1]);
+}
+
+/* display.ambient_occlusion over a window's 3D view once its opaque
+surfaces have drawn their light (source/render/render.c), from the camera
+it was drawn with: its near and far planes and its projection's x and y
+scales and offsets (render_frustum's projection_matrix [0][0], [1][1],
+[2][0], [2][1]) */
+void halo_screen_ambient_occlusion(short x0, short y0, short x1, short y1, float z_near, float z_far,
+	const float projection[4])
+{
+	struct render_target_entry *target;
+	long corners[4];
+	float camera[6];
+
+	if (!device.gl_ready || !ambient_occlusion.quality)
+		return;
+	target = render_target_get(&device.back_buffer);
+	if (!target || !device.depth_stencil)
+		return;
+	view_corners(target, x0, y0, x1, y1, corners);
+	camera[0] = z_near;
+	camera[1] = z_far;
+	memcpy(camera + 2, projection, sizeof(float) * 4);
+	xgpu_backend_ambient_occlusion(target->target.number, corners, ambient_occlusion.quality, camera);
+	ambient_occlusion.laid = TRUE;
+}
+
 /* display.hdr's tone map of a window's 3D view (source/render/render.c),
 before its anti-aliasing and the HUD: the draws from now on are the HUD's
 and the menus' (xgpu_hdr.h) */
@@ -4568,6 +4658,14 @@ void halo_screen_tone_map(short x0, short y0, short x1, short y1)
 	struct render_target_entry *target;
 	long corners[4];
 
+	/* (debug.ambient_occlusion_view: the view is the occlusion alone) */
+	if (device.gl_ready && ambient_occlusion.laid && ambient_occlusion.view &&
+		(target = render_target_get(&device.back_buffer)))
+	{
+		view_corners(target, x0, y0, x1, y1, corners);
+		xgpu_backend_ambient_occlusion(target->target.number, corners, XGPU_AMBIENT_OCCLUSION_SHOW, NULL);
+	}
+	ambient_occlusion.laid = FALSE;
 	hdr.view = FALSE;
 	if (!device.gl_ready || !hdr.active)
 		return;

@@ -2442,6 +2442,50 @@ static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *re
 	targets_bind();
 }
 
+/* display.ambient_occlusion over a window's 3D view, once its opaque
+surfaces have drawn their light (xgpu_vulkan_post.c), with the depth target
+drawn with it: its stencil marks the pixels left, and its depth (its first
+sample's, resolved where it has more) gives the occlusion. Or the occlusion
+last laid drawn in the view's place (debug.ambient_occlusion_view) */
+static void stream_ambient_occlusion(void *context, const struct xgpu_stream_ambient_occlusion *record)
+{
+	struct stream_target *target = target_get(record->target);
+	struct stream_target *depth = stream.color == record->target ? target_get(stream.depth) : NULL;
+	struct xgpu_vulkan_image *color_image, *depth_image;
+
+	(void)context;
+	if (!target || target->depth || target->layers > 1 || !depth || !depth->depth ||
+		record->quality < XGPU_AMBIENT_OCCLUSION_LOW || record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
+		return;
+	/* (the attachments the view is drawn into: multisampled where they
+	are, and both of a number of samples) */
+	color_image = stream.samples && target->multisampled ? target->multisampled : target->image;
+	depth_image = stream.samples && depth->multisampled ? depth->multisampled : depth->image;
+	if (xgpu_vulkan_image_description(depth_image)->samples != xgpu_vulkan_image_description(color_image)->samples)
+		return;
+	if (stream.preparing)
+	{
+		(void)xgpu_vulkan_post_ambient_occlusion_prepare(xgpu_vulkan_image_description(color_image)->format,
+			xgpu_vulkan_image_description(color_image)->samples, 1);
+		return;
+	}
+	target->written++;
+	if (color_image == target->multisampled)
+		target->unresolved = 1;
+	if (record->quality == XGPU_AMBIENT_OCCLUSION_SHOW)
+		xgpu_vulkan_post_ambient_occlusion_show(color_image, depth_image, record->corners);
+	else
+	{
+		/* (the first sample's depth, to find the occlusion from) */
+		if (depth_image == depth->multisampled)
+			xgpu_vulkan_image_resolve(depth->multisampled, depth->image);
+		xgpu_vulkan_post_ambient_occlusion(color_image, depth_image, depth->image, record->corners, (int)record->quality,
+			record->camera);
+	}
+	/* (the stream's targets again: the same, so that the pass goes on) */
+	targets_bind();
+}
+
 /* ---------- visibility tests, frames */
 
 static void stream_visibility_begin(void *context)
@@ -2686,6 +2730,7 @@ const struct host_render_backend *xgpu_vulkan_stream_backend(void)
 		backend.anti_alias = stream_anti_alias;
 		backend.hdr = stream_hdr;
 		backend.tone_map = stream_tone_map;
+		backend.ambient_occlusion = stream_ambient_occlusion;
 		backend.picture_top = stream_picture_top;
 #ifdef HALO_VR
 		host_vulkan_vr_backend(&backend);

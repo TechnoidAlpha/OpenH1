@@ -401,6 +401,36 @@ are made when the setting is chosen, and requested with the map's
 preparation. Android draws SMAA too. The VR mode's eyes have neither pass: the game
 antialiases only the flat screen's 3D view (`source/render/render.c`).
 
+## Ambient occlusion
+
+`display.ambient_occlusion` (`"off"`, `"low"`, `"high"`) shades each
+window's 3D view once its opaque surfaces have drawn their light: the
+game calls `halo_screen_ambient_occlusion` after the structure's lightmap
+pass (`source/render/render.c`), before the diffuse textures, the decals,
+the dynamic lights, the specular light, the transparent surfaces and the
+effects. The record (`XGPU_STREAM_AMBIENT_OCCLUSION`) carries the camera's
+near and far planes and its projection, and the passes
+(`xgpu_vulkan_post.c`, their GLSL in `tools/vulkan_post_shaders.py`) are:
+
+- the depth target (its first sample's, resolved where it has more) made
+  the distances along the view, at the target's resolution (high) or half
+  of it (low), each a half float and what it leaves;
+- GTAO (XeGTAO's horizon integral): in two directions a pixel, turned by
+  a 4x4 Bayer matrix, the highest horizon each side within the radius
+  (0.5 world units low, 0.75 high), its normal from the depth;
+- a blur along x and then y, nine taps weighted by their distances'
+  nearness;
+- a draw over the target multiplying its colour (not its alpha), filtered
+  up from half the resolution, where the stencil's
+  `XGPU_AMBIENT_OCCLUSION_KEEP` bits are clear: the first-person weapon's
+  (the game's own bit 0), and a self-illuminated surface's (bit 7, which
+  the front end has those draws write: `pipeline_state_describe`).
+
+The target's pass ends for them and begins again, loading what it drew.
+`debug.ambient_occlusion_view` draws the occlusion alone in the view's place
+before the HUD. Metal draws none yet: its backend leaves the record
+unhandled.
+
 ## HDR
 
 `display.hdr` is the shared contract of [docs/hdr.md](../../../docs/hdr.md);

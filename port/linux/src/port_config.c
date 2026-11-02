@@ -1076,6 +1076,15 @@ static const struct config_setting config_settings[] =
 		"of the walls and models, through the walls' bump maps, gliding with\n"
 		"the bolt between ticks, brighter in its core and fading softly, with\n"
 		"a glow about each plasma bolt, and lighting your own weapon and hands." GRAPHICS_CHOOSES },
+	{ "display.ambient_occlusion", _config_string, "\"off\"", "HALO_AMBIENT_OCCLUSION", _environment_value,
+		_platform_all,
+		"Ambient occlusion, which the Xbox did not have: the light of the\n"
+		"world's surfaces dimmed where they meet and in creases (a marine on a\n"
+		"bench, a Warthog's wheels on the ground, a crate on the floor), worked\n"
+		"out from the 3D view's depth each frame, over the levels' own baked\n"
+		"light. \"off\"; \"low\" at half the resolution, \"high\" at the whole.\n"
+		"Self-illuminated surfaces and your weapon keep their light. Vulkan\n"
+		"only (the Linux builds, Windows, Android)." },
 	{ "display.shield_color", _config_string, "\"default\"", "HALO_SHIELD_COLOR", _environment_value, _platform_all,
 		"Your energy shield's color, as this machine draws it: \"default\" (the\n"
 		"shield's own) or a multiplayer armor color: white, black, red, blue,\n"
@@ -2093,6 +2102,10 @@ static const struct config_setting config_settings[] =
 		"if it is carried a tenth of a unit away), turned so many degrees left\n"
 		"of the view's heading (0: ahead); empty none." },
 #endif
+	{ "debug.ambient_occlusion_view", _config_boolean, "false", "HALO_AMBIENT_OCCLUSION_VIEW", _environment_value,
+		_platform_all,
+		"With display.ambient_occlusion, the 3D view drawn as the occlusion\n"
+		"alone, in grey (white where it is not laid)." },
 	{ "debug.null_renderer", _config_boolean, "false", "HALO_NULL_RENDERER", _environment_set_is_true, _platform_all,
 		"Run without a window, drawing nothing." },
 	{ "debug.no_clipboard", _config_boolean, "false", "HALO_NO_CLIPBOARD", _environment_set_is_true, _platform_all,

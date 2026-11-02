@@ -107,6 +107,15 @@ pixels from the top of a window taller than it (no lower than its bottom),
 or centered (-1), from the next present on */
 void xgpu_backend_picture_top(int top);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
+/* display.ambient_occlusion: the occlusion of a window's 3D view (its
+corners in the target's pixels), from the depth target drawn with it, laid
+over the light of its opaque surfaces, none over the pixels the stencil's
+XGPU_AMBIENT_OCCLUSION_KEEP bits mark: quality XGPU_AMBIENT_OCCLUSION_LOW
+or _HIGH (xgpu_stream.h), and the camera (near, far, the projection's x and
+y scales and offsets). XGPU_AMBIENT_OCCLUSION_SHOW draws the occlusion last
+laid over the target in its place (debug.ambient_occlusion_view: the term
+in grey, white where it was not laid), once the view is drawn */
+void xgpu_backend_ambient_occlusion(xgpu_target target, const long corners[4], int quality, const float camera[6]);
 BOOL xgpu_backend_display_hdr(float *headroom);
 BOOL xgpu_backend_display_white(float *nits);
 

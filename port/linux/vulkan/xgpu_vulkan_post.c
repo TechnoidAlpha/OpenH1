@@ -52,6 +52,7 @@ made at the start (xgpu_vulkan_post_encode_prepare).
 #include "xgpu_vulkan.h"
 #include "xgpu_vulkan_post_shaders.h"
 #include "../src/xgpu_hdr.h"
+#include "../src/xgpu_stream.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -89,6 +90,25 @@ static struct
 	VkPipeline encode[2];
 	struct xgpu_vulkan_image *encoded;
 } post;
+
+/* display.ambient_occlusion's state (below) */
+static struct
+{
+	/* its pipelines or shaders could not be made (logged once); the white
+	of its view alone (the clears' shader) */
+	int failed;
+	VkShaderModule white;
+	/* the distances, the occlusion and its blur along x, of a size (the
+	target's over the preset's scale); a sampler of single texels, which
+	the depth's format needs */
+	struct xgpu_vulkan_image *distances, *occlusion, *blurred;
+	uint32_t width, height;
+	VkSampler nearest;
+	/* the occlusion last laid over a target, for its view alone: the
+	uniforms it was laid with */
+	int laid;
+	struct xgpu_vulkan_post_uniforms laid_uniforms;
+} occlusion;
 
 /* ---------- images */
 
@@ -674,4 +694,294 @@ struct xgpu_vulkan_image *xgpu_vulkan_post_encode(struct xgpu_vulkan_image *imag
 	xgpu_vulkan_set_target_views(post.encoded, NULL, 0, 1);
 	xgpu_vulkan_draw(&draw);
 	return post.encoded;
+}
+
+/* ---------- display.ambient_occlusion
+
+GTAO over a window's 3D view once its opaque surfaces have drawn their light
+(xgpu_backend_ambient_occlusion): the depth target made the distances along
+the view (at the target's resolution, or half of it), the occlusion found
+from them (tools/vulkan_post_shaders.py), blurred along x and then y (each
+tap weighted by its distance's nearness), and laid over the target: a draw
+multiplying its colour (not its alpha, the game's own) by the occlusion,
+filtered up from half the resolution, where the stencil's
+XGPU_AMBIENT_OCCLUSION_KEEP bits are clear (a surface lighting itself, the
+first-person weapon). Each is a pass of the core's: the target's pass ends
+and begins again after them, loading what it had drawn. */
+
+/* each quality's: the target's pixels to the occlusion's, the slices, the
+steps each side, the radius in world units, the strength and the power */
+static const struct
+{
+	uint32_t scale;
+	float slices, steps, radius, strength, power;
+} occlusion_presets[2] =
+{
+	{ 2, 2.0f, 4.0f, 0.5f, 0.8f, 1.25f },
+	{ 1, 2.0f, 5.0f, 0.75f, 1.0f, 1.5f },
+};
+
+/* the pipelines' values of xgpu_backend.h's (the key's): XGPU_COMPARE_EQUAL,
+XGPU_STENCIL_KEEP, XGPU_BLEND_ZERO, XGPU_BLEND_SOURCE_COLOR, XGPU_BLEND_ADD */
+enum
+{
+	COMPARE_EQUAL = 2,
+	STENCIL_KEEP = 0,
+	BLEND_ZERO = 0,
+	BLEND_SOURCE_COLOR = 2,
+	BLEND_ADD = 0
+};
+
+enum
+{
+	/* the occlusion laid over the light (a multiply), drawn alone, and the
+	white drawn first under it alone */
+	OCCLUSION_LAY,
+	OCCLUSION_SHOW,
+	OCCLUSION_WHITE
+};
+
+/* an intermediate pass's pipeline: into an RGBA16F image of its own */
+static void occlusion_intermediate_description(int program, struct xgpu_vulkan_pipeline_description *description)
+{
+	memset(description, 0, sizeof(*description));
+	description->vertex_shader = post.vertex;
+	description->pixel_shader = post.pixel[program];
+	description->primitive_class = XGPU_VULKAN_CLASS_TRIANGLES;
+	description->color_mask = 15;
+	description->color_format = XGPU_VULKAN_FORMAT_RGBA16F;
+	description->samples = 1;
+}
+
+/* a pipeline over the target (its format and samples, with its depth
+target, whose stencil is tested): OCCLUSION_* */
+static void occlusion_target_description(int kind, uint8_t format, uint32_t samples,
+	struct xgpu_vulkan_pipeline_description *description)
+{
+	memset(description, 0, sizeof(*description));
+	description->vertex_shader = post.vertex;
+	description->pixel_shader = kind == OCCLUSION_WHITE ? occlusion.white : post.pixel[XGPU_VULKAN_POST_OCCLUSION_APPLY];
+	description->primitive_class = XGPU_VULKAN_CLASS_TRIANGLES;
+	description->color_mask = 7;
+	description->color_format = format;
+	description->depth_format = XGPU_VULKAN_FORMAT_D24S8;
+	description->samples = (uint8_t)(samples > 1 ? samples : 1);
+	if (kind != OCCLUSION_WHITE)
+	{
+		description->stencil_test = 1;
+		description->stencil_function = COMPARE_EQUAL;
+		description->stencil_fail = description->stencil_depth_fail = description->stencil_pass = STENCIL_KEEP;
+		description->stencil_read_mask = XGPU_AMBIENT_OCCLUSION_KEEP;
+		description->stencil_write_mask = 0;
+	}
+	if (kind == OCCLUSION_LAY)
+	{
+		description->blend = 1;
+		description->blend_source = BLEND_ZERO;
+		description->blend_destination = BLEND_SOURCE_COLOR;
+		description->blend_operation = BLEND_ADD;
+	}
+}
+
+int xgpu_vulkan_post_ambient_occlusion_prepare(uint8_t format, uint32_t samples, int preparing)
+{
+	struct xgpu_vulkan_pipeline_description description;
+	int program, kind, made = 1;
+
+	if (occlusion.failed)
+		return 0;
+	for (program = XGPU_VULKAN_POST_OCCLUSION_DEPTH; program <= XGPU_VULKAN_POST_OCCLUSION_APPLY && made; program++)
+		made = shaders_make(program);
+	if (made && !occlusion.white)
+		made = (occlusion.white = xgpu_vulkan_shader(xgpu_vulkan_post_clear.words, xgpu_vulkan_post_clear.count)) !=
+			VK_NULL_HANDLE;
+	if (made && !occlusion.nearest)
+	{
+		struct xgpu_vulkan_sampler_description sampler;
+
+		memset(&sampler, 0, sizeof(sampler));
+		sampler.minify = sampler.magnify = XGPU_VULKAN_FILTER_POINT;
+		sampler.mip = XGPU_VULKAN_MIP_NONE;
+		sampler.address[0] = sampler.address[1] = sampler.address[2] = XGPU_VULKAN_ADDRESS_CLAMP;
+		sampler.anisotropy = 1;
+		made = (occlusion.nearest = xgpu_vulkan_sampler(&sampler)) != VK_NULL_HANDLE;
+	}
+	made = made && sampler_make();
+	for (program = XGPU_VULKAN_POST_OCCLUSION_DEPTH; program < XGPU_VULKAN_POST_OCCLUSION_APPLY && made; program++)
+	{
+		occlusion_intermediate_description(program, &description);
+		made = preparing ? xgpu_vulkan_pipeline_prepare(&description) :
+			xgpu_vulkan_pipeline(&description) != VK_NULL_HANDLE;
+	}
+	for (kind = OCCLUSION_LAY; kind <= OCCLUSION_WHITE && made; kind++)
+	{
+		occlusion_target_description(kind, format, samples, &description);
+		made = preparing ? xgpu_vulkan_pipeline_prepare(&description) :
+			xgpu_vulkan_pipeline(&description) != VK_NULL_HANDLE;
+	}
+	if (!made)
+	{
+		host_logf(HOST_LOG_WARN, "vulkan: display.ambient_occlusion's passes cannot be made: the view has none");
+		occlusion.failed = 1;
+	}
+	return made;
+}
+
+/* the occlusion's images, of a size: 1 if they are */
+static int occlusion_images_fit(uint32_t width, uint32_t height)
+{
+	if (occlusion.width != width || occlusion.height != height || !occlusion.distances)
+	{
+		xgpu_vulkan_image_destroy(occlusion.distances);
+		xgpu_vulkan_image_destroy(occlusion.occlusion);
+		xgpu_vulkan_image_destroy(occlusion.blurred);
+		occlusion.width = width;
+		occlusion.height = height;
+		occlusion.laid = 0;
+		occlusion.distances = image_make(XGPU_VULKAN_FORMAT_RGBA16F, XGPU_VULKAN_USAGE_SAMPLED | XGPU_VULKAN_USAGE_TARGET,
+			width, height);
+		occlusion.occlusion = image_make(XGPU_VULKAN_FORMAT_RGBA16F, XGPU_VULKAN_USAGE_SAMPLED | XGPU_VULKAN_USAGE_TARGET,
+			width, height);
+		occlusion.blurred = image_make(XGPU_VULKAN_FORMAT_RGBA16F, XGPU_VULKAN_USAGE_SAMPLED | XGPU_VULKAN_USAGE_TARGET,
+			width, height);
+	}
+	return occlusion.distances && occlusion.occlusion && occlusion.blurred;
+}
+
+/* a pass's triangle over a rectangle of an image (and a depth target, for
+its stencil), sampling one texture, with the uniforms */
+static void occlusion_draw(const struct xgpu_vulkan_pipeline_description *description, struct xgpu_vulkan_image *into,
+	struct xgpu_vulkan_image *depth, const int32_t rectangle[4], struct xgpu_vulkan_image *texture, VkSampler sampler,
+	const struct xgpu_vulkan_post_uniforms *values)
+{
+	struct xgpu_vulkan_post_uniforms *uniforms;
+	struct xgpu_vulkan_dynamic_state dynamic;
+	struct xgpu_vulkan_draw draw;
+	int stage;
+
+	memset(&draw, 0, sizeof(draw));
+	draw.pipeline = xgpu_vulkan_pipeline(description);
+	if (!draw.pipeline)
+		return;
+	for (stage = 0; stage < 4; stage++)
+	{
+		draw.textures[stage].image = stage ? NULL : texture;
+		draw.textures[stage].kind = XGPU_VULKAN_IMAGE_2D;
+		draw.textures[stage].sampler = sampler;
+	}
+	uniforms = xgpu_vulkan_upload(UNIFORMS_RANGE, 256, &draw.uniforms);
+	if (!uniforms)
+		return;
+	*uniforms = *values;
+	draw.constants = draw.uniforms;
+	memset(&dynamic, 0, sizeof(dynamic));
+	dynamic.viewport[0] = dynamic.scissor[0] = rectangle[0];
+	dynamic.viewport[1] = dynamic.scissor[1] = rectangle[1];
+	dynamic.viewport[2] = dynamic.scissor[2] = rectangle[2] - rectangle[0];
+	dynamic.viewport[3] = dynamic.scissor[3] = rectangle[3] - rectangle[1];
+	dynamic.depth_range[1] = 1.0f;
+	draw.dynamic = &dynamic;
+	draw.topology = XGPU_VULKAN_TOPOLOGY_TRIANGLES;
+	draw.count = 3;
+	xgpu_vulkan_set_target_views(into, depth, 0, 1);
+	xgpu_vulkan_draw(&draw);
+}
+
+/* the corners inside an image's width and height: 0 if nothing is left */
+static int rectangle_inside(const int32_t corners[4], uint32_t width, uint32_t height, int32_t rectangle[4])
+{
+	int index;
+
+	for (index = 0; index < 4; index++)
+	{
+		int32_t most = (int32_t)(index & 1 ? height : width);
+
+		rectangle[index] = corners[index] < 0 ? 0 : corners[index] > most ? most : corners[index];
+	}
+	return rectangle[2] > rectangle[0] && rectangle[3] > rectangle[1];
+}
+
+void xgpu_vulkan_post_ambient_occlusion(struct xgpu_vulkan_image *target, struct xgpu_vulkan_image *depth,
+	struct xgpu_vulkan_image *depth_texture, const int32_t corners[4], int quality, const float camera[6])
+{
+	const struct xgpu_vulkan_image_description *description;
+	struct xgpu_vulkan_pipeline_description pipeline;
+	struct xgpu_vulkan_post_uniforms values;
+	int32_t rectangle[4], inner[4];
+	uint32_t scale, width, height;
+	int preset = quality == XGPU_AMBIENT_OCCLUSION_HIGH;
+
+	if (!target || !depth || !depth_texture)
+		return;
+	description = xgpu_vulkan_image_description(target);
+	if (!xgpu_vulkan_post_ambient_occlusion_prepare(description->format, description->samples, 0) ||
+		!rectangle_inside(corners, description->width, description->height, rectangle))
+		return;
+	scale = occlusion_presets[preset].scale;
+	width = (description->width + scale - 1) / scale;
+	height = (description->height + scale - 1) / scale;
+	if (!occlusion_images_fit(width, height))
+		return;
+	/* (the view's rectangle in the occlusion's pixels) */
+	inner[0] = rectangle[0] / (int32_t)scale;
+	inner[1] = rectangle[1] / (int32_t)scale;
+	inner[2] = (rectangle[2] + (int32_t)scale - 1) / (int32_t)scale;
+	inner[3] = (rectangle[3] + (int32_t)scale - 1) / (int32_t)scale;
+	memset(&values, 0, sizeof(values));
+	values.metrics[0] = 1.0f / (float)width;
+	values.metrics[1] = 1.0f / (float)height;
+	values.metrics[2] = (float)width;
+	values.metrics[3] = (float)height;
+	values.bounds[0] = (float)inner[0];
+	values.bounds[1] = (float)inner[1];
+	values.bounds[2] = (float)inner[2];
+	values.bounds[3] = (float)inner[3];
+	memcpy(values.camera, camera + 2, sizeof(values.camera));
+	values.occlusion[0] = camera[0];
+	values.occlusion[1] = camera[1];
+	values.occlusion[2] = occlusion_presets[preset].radius;
+	values.occlusion[3] = occlusion_presets[preset].strength;
+	values.sampling[0] = occlusion_presets[preset].slices;
+	values.sampling[1] = occlusion_presets[preset].steps;
+	values.sampling[2] = occlusion_presets[preset].power;
+	values.sampling[3] = (float)scale;
+
+	occlusion_intermediate_description(XGPU_VULKAN_POST_OCCLUSION_DEPTH, &pipeline);
+	occlusion_draw(&pipeline, occlusion.distances, NULL, inner, depth_texture, occlusion.nearest, &values);
+	occlusion_intermediate_description(XGPU_VULKAN_POST_OCCLUSION, &pipeline);
+	occlusion_draw(&pipeline, occlusion.occlusion, NULL, inner, occlusion.distances, occlusion.nearest, &values);
+	occlusion_intermediate_description(XGPU_VULKAN_POST_OCCLUSION_BLUR, &pipeline);
+	values.sampling[0] = 1.0f;
+	values.sampling[1] = 0.0f;
+	occlusion_draw(&pipeline, occlusion.blurred, NULL, inner, occlusion.occlusion, occlusion.nearest, &values);
+	values.sampling[0] = 0.0f;
+	values.sampling[1] = 1.0f;
+	occlusion_draw(&pipeline, occlusion.occlusion, NULL, inner, occlusion.blurred, occlusion.nearest, &values);
+	occlusion_target_description(OCCLUSION_LAY, description->format, description->samples, &pipeline);
+	occlusion_draw(&pipeline, target, depth, rectangle, occlusion.occlusion, post.sampler, &values);
+	occlusion.laid = 1;
+	occlusion.laid_uniforms = values;
+}
+
+void xgpu_vulkan_post_ambient_occlusion_show(struct xgpu_vulkan_image *target, struct xgpu_vulkan_image *depth,
+	const int32_t corners[4])
+{
+	const struct xgpu_vulkan_image_description *description;
+	struct xgpu_vulkan_pipeline_description pipeline;
+	struct xgpu_vulkan_post_uniforms white;
+	int32_t rectangle[4];
+
+	if (!target || !depth || !occlusion.laid)
+		return;
+	description = xgpu_vulkan_image_description(target);
+	if (!xgpu_vulkan_post_ambient_occlusion_prepare(description->format, description->samples, 0) ||
+		!rectangle_inside(corners, description->width, description->height, rectangle))
+		return;
+	memset(&white, 0, sizeof(white));
+	white.metrics[0] = white.metrics[1] = white.metrics[2] = white.metrics[3] = 1.0f;
+	occlusion_target_description(OCCLUSION_WHITE, description->format, description->samples, &pipeline);
+	occlusion_draw(&pipeline, target, depth, rectangle, NULL, post.sampler, &white);
+	occlusion_target_description(OCCLUSION_SHOW, description->format, description->samples, &pipeline);
+	occlusion_draw(&pipeline, target, depth, rectangle, occlusion.occlusion, post.sampler, &occlusion.laid_uniforms);
+	occlusion.laid = 0;
 }

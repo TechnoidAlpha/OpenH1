@@ -728,6 +728,22 @@ void xgpu_backend_tone_map(xgpu_target target, const long corners[4])
 		record_body->corners[index] = (int32_t)corners[index];
 }
 
+void xgpu_backend_ambient_occlusion(xgpu_target target, const long corners[4], int quality, const float camera[6])
+{
+	struct xgpu_stream_ambient_occlusion *record_body;
+	int index;
+
+	if (!stream.open)
+		return;
+	record_body = record(XGPU_STREAM_AMBIENT_OCCLUSION, sizeof(*record_body));
+	record_body->target = target;
+	record_body->quality = (uint32_t)quality;
+	for (index = 0; index < 4; index++)
+		record_body->corners[index] = (int32_t)corners[index];
+	for (index = 0; index < 6; index++)
+		record_body->camera[index] = camera ? camera[index] : 0.0f;
+}
+
 /* (the host writes the ring's display_hdr and display_headroom as it looks
 at its display) */
 BOOL xgpu_backend_display_hdr(float *headroom)
