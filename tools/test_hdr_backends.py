@@ -122,7 +122,7 @@ def test_post_shaders_on_the_gpu(harness):
         spv.write_bytes(struct.pack(f"<{len(arrays[name])}I", *arrays[name]))
         _cross(spv, post / (name.replace("_frag", "") + ".metal"), stage, entry, fetch)
     output = _run(binary, "post", str(post))
-    assert "post: 480 values checked" in output, output
+    assert "post: 1152 values checked" in output, output
 
 
 def test_draws_agree_on_the_gpu(harness):

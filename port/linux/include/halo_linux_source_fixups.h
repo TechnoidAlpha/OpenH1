@@ -206,6 +206,10 @@ _end), and what the code drawing knows of them (HALO_HDR_KIND_*, 0 none) */
 void halo_screen_tone_map(short x0, short y0, short x1, short y1);
 void halo_hdr_category(int category);
 void halo_hdr_draw_kind(int kind);
+/* the display's peak and SDR white, as the backend says them, as text
+(Video Setup's DISPLAY PEAK row: its value, "800 NITS"; words, its panel's
+words); 0 where no renderer draws HDR (port/linux/src/d3d8_device.c) */
+int halo_hdr_display_text(int words, char *text, unsigned int size);
 #ifndef HALO_HDR_KIND_NONE
 #define HALO_HDR_KIND_NONE 0
 #define HALO_HDR_KIND_FIRST_PERSON 1

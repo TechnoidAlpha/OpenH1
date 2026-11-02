@@ -117,13 +117,14 @@ struct xgpu_vulkan_options
 	/* display.hdr: what the backend tells of its display (the render
 	thread, as it changes): whether it shows HDR (the window's display
 	does, and the surface has an HDR colour space), its headroom over
-	SDR white (host_render_stream_display_hdr). And the encoding of a
+	SDR white, that white in nits and whether the system gave it
+	(host_render_stream_display_hdr). And the encoding of a
 	frame for an HDR swapchain (xgpu_vulkan_post.c's): encode_prepare
 	makes its pipelines at the start (1 if it can), encode draws the frame
 	into an image of its own of the swapchain's format
 	(XGPU_VULKAN_FORMAT_*) and returns it, NULL if it cannot. NULL: no HDR
 	swapchain. */
-	void (*display_hdr)(int hdr, float headroom);
+	void (*display_hdr)(int hdr, float headroom, float white_nits, int white_reported);
 	int (*encode_prepare)(void);
 	struct xgpu_vulkan_image *(*encode)(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 		uint8_t format);
@@ -599,16 +600,17 @@ changes: SDL's): whether HDR is on, its SDR white in scRGB's units (1.0:
 white; the swapchain is made again where its output changes. And the front
 end's state (the stream's record, render thread): whether the frames are
 HDR (a half-float back buffer), the mode, paper white (in nits; 0: the
-system's SDR white, in percent of it: xgpu_hdr_paper_white_nits). */
+system's SDR white, in percent of it: xgpu_hdr_paper_white_nits), the
+UI's white (in nits; 0: paper white's). */
 void xgpu_vulkan_window_hdr(int enabled, float sdr_white, float headroom);
-void xgpu_vulkan_hdr_state(int active, int mode, int paper_white_nits, int paper_white);
+void xgpu_vulkan_hdr_state(int active, int mode, int paper_white_nits, int paper_white, int ui_nits);
 /* display.picture_position: a picture of another shape than the window
 this many pixels from its top (no lower than its bottom) or centered (-1)
 (present), from the next present on */
 void xgpu_vulkan_picture_top(int top);
 /* the tone map's and the encoding's parameters now (xgpu_hdr.h): the
-swapchain's output, paper white in its units, the peak in paper whites (1
-and SDR where the swapchain is SDR) */
+swapchain's output, paper white in its units, the peak in paper whites, the
+UI's white over paper white (1 and SDR where the swapchain is SDR) */
 void xgpu_vulkan_hdr_frame(struct xgpu_hdr_frame *frame);
 
 /* the frame's end: its last work submitted, and (with a window) an image

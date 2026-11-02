@@ -39,8 +39,18 @@ highlights it cannot show.
   (`faithful`, `punchy`), `display.hdr_paper_white_nits` (80 to 500 nits,
   or 0, the default: the system's SDR white; the older
   `display.hdr_paper_white`, in percent of the system's SDR white, is still
-  read while it is 0). Video Setup's Extra Effects screen has a row for
-  each on a renderer that draws HDR (the menus' `platform="hdr"`).
+  read while it is 0), `display.hdr_ui_nits` (the UI's brightness, below).
+  On a renderer that draws HDR (the menus' `platform="hdr"`), Video
+  Setup's HDR row opens the HDR page: a row for each, and a DISPLAY PEAK
+  row that shows the display's peak and SDR white as the system reports
+  them.
+- **UI brightness** (`display.hdr_ui_nits`): what is drawn over the tone
+  mapped view (the HUD's bitmaps and meters, the menus, the scope's reticle
+  and frame, the screen flashes) at its own white, 80 to 500 nits, or 0, the
+  default: paper white's, the picture as before. The HUD's glows keep their
+  ratio above it; the first-person weapon's displays and the
+  self-illumination are the 3D view's and stay with paper white. It is
+  never brighter than the display's peak.
 - **Fallback**: `auto` turns HDR on only on an HDR display; off, and on an
   SDR display, the frame is the 8-bit one, byte for byte. Highlights roll
   off under a soft shoulder to the display's peak (its EDR headroom, which
@@ -200,6 +210,31 @@ patched to give it as the window's property
 (`port/android/patches/sdl-wayland-reference-luminance.patch`), so that a
 paper white set in nits is those nits on the panel.
 
+**The UI's white.** The frame's 1.0 is the UI's white
+(`xgpu_hdr_frame.ui`: the UI's nits over paper white's, 1 by default and
+for SDR): the tone map leaves the 3D view's light divided by it
+(`xgpu_hdr_to_ui`), and the encoding takes the frame's light times it
+before its peak and paper white. The view is shown as it was, at paper
+white, and every draw after the tone map, which the frame's values put
+under 1 (or a glow's ceiling), at the UI's nits, with nothing in the draws'
+tags or their shaders changed. Both are the encoding's units, so the UI
+follows paper white's encoding: on Linux its nits over the system's SDR
+white, relative to the compositor's reference. The draws over a frame with
+no 3D view (the menus, the loading screen) are the UI's. A screenshot's
+picture (`xgpu_hdr_sdr_pixel`) is of the frame's values: with a UI white
+past paper white's, its view a little darker than the screen's.
+
+**The display, shown.** The backend writes the display's SDR white in
+nits beside its headroom (the ring's `display_white` and
+`display_white_reported`: Vulkan's from SDL, BT.2408's 203 where it gives
+none; Metal's EDR 1.0, taken as 100 nits, never reported; Metal's headroom
+there its potential one, the display's peak, which the headroom now, the
+tone map's, rises toward as EDR content is shown), and the front end shows
+its peak (the headroom times that white) on Video Setup's
+DISPLAY PEAK row (`halo_hdr_display_text`, `xgpu_hdr_display_text`) and
+logs it at the start and as it changes ("hdr: display peak 800 nits, SDR
+white 203 nits, from the system").
+
 The setting's nits (`xgpu_hdr_paper_white_nits`) are
 `display.hdr_paper_white_nits`, or, while it is 0, the system's SDR white
 (SDL's on Vulkan, or BT.2408's 203 nits where it gives none; EDR's 1.0 on
@@ -247,7 +282,10 @@ the stream's ring carries it, written by the host). A backend declares
 
 ## Tests
 
-- `tools/test_hdr.py`: the classification, table by table; the reference
+- `tools/test_hdr.py`: the UI's white (its default paper white's, exactly;
+  its ceiling the display's peak; the view shown as it was under it; the
+  HUD's glows its ratio above it); the display's readout and log line;
+  the classification, table by table; the reference
   (Faithful leaves under white exactly as it is, never passes the peak,
   brightens with the light; Punchy lifts and keeps hues; a core is white-hot;
   the encodings' paper white and peak; PQ's 203 nits); the GLSL's constants
@@ -262,7 +300,7 @@ the stream's ring carries it, written by the host). A backend declares
   Vulkan device, made Metal's by SPIRV-Cross and run on a Mac's GPU: its
   tone map and encoding as shipped (`xgpu_vulkan_post_shaders.c`) over the
   same golden colours against the reference (scRGB's and HDR10's encodings
-  too); and each tagged draw (every ceiling, the three glows' expansion,
+  too, and both with the UI's white past and under paper white's); and each tagged draw (every ceiling, the three glows' expansion,
   the alpha limit, over each of eleven blends) as the SPIR-V emitter writes it and as
   the MSL emitter writes it, over the same 512 pixels: the two backends
   leave the same values, none past its tag's limit; a screen effect's

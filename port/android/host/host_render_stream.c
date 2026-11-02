@@ -1296,7 +1296,7 @@ int host_render_stream_open(uint32_t ring_address)
 		return -1;
 	}
 	render.ring = ring;
-	host_render_stream_display_hdr(-1, 0.0f);
+	host_render_stream_display_hdr(-1, 0.0f, 0.0f, 0);
 	render.decoder = host_render_decoder_new(backend, ring);
 	if (!render.decoder)
 		return -1;
@@ -1331,26 +1331,34 @@ int host_render_stream_open(uint32_t ring_address)
 /* (render.lock held) the guest waits for done, counted in its statistics */
 /* ---------- display.hdr's display */
 
-/* what the backend last said of its display (headroom: a float's bits) */
-static _Atomic uint32_t display_hdr, display_headroom = 0x3f800000u;
+/* what the backend last said of its display (headroom, white: a float's
+bits) */
+static _Atomic uint32_t display_hdr, display_headroom = 0x3f800000u, display_white, display_white_reported;
 
-void host_render_stream_display_hdr(int hdr, float headroom)
+void host_render_stream_display_hdr(int hdr, float headroom, float white_nits, int white_reported)
 {
 	struct xgpu_stream_ring *ring = render.ring;
 
 	/* (-1: as last said, into a ring just opened) */
 	if (hdr >= 0)
 	{
-		uint32_t bits;
+		uint32_t bits, white_bits;
 
 		if (!(headroom >= 1.0f))
 			headroom = 1.0f;
+		if (!(white_nits > 0.0f))
+			white_nits = 0.0f;
 		memcpy(&bits, &headroom, sizeof(bits));
+		memcpy(&white_bits, &white_nits, sizeof(white_bits));
+		atomic_store(&display_white, white_bits);
+		atomic_store(&display_white_reported, white_reported ? 1u : 0u);
 		atomic_store(&display_hdr, hdr ? 1u : 0u);
 		atomic_store(&display_headroom, bits);
 	}
 	if (ring)
 	{
+		__atomic_store_n(&ring->display_white, atomic_load(&display_white), __ATOMIC_RELEASE);
+		__atomic_store_n(&ring->display_white_reported, atomic_load(&display_white_reported), __ATOMIC_RELEASE);
 		__atomic_store_n(&ring->display_headroom, atomic_load(&display_headroom), __ATOMIC_RELEASE);
 		__atomic_store_n(&ring->display_hdr, atomic_load(&display_hdr), __ATOMIC_RELEASE);
 	}

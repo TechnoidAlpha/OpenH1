@@ -177,19 +177,25 @@ static id<MTLRenderPipelineState> post_pipeline(id<MTLFunction> vertex, id<MTLFu
 static void post_test(NSString *dir)
 {
 	static const float peaks[3] = { 1.0f, 4.0f, 16.0f };
-	static const struct xgpu_hdr_frame encodings[4] =
+	/* (the last two with the UI's white past and under paper white's) */
+	static const struct xgpu_hdr_frame encodings[6] =
 	{
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_SCRGB, 2.5f, 4.0f },
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_PQ, 0.02f, 4.0f },
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_PQ, 0.0203f, 10.0f },
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_SDR, 1.0f, 1.0f },
+		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_SCRGB, 2.5f, 4.0f, 1.8f },
+		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_PQ, 0.0203f, 10.0f, 0.6f },
 	};
+	/* the tone map's UI white: none given (paper white's), and the UI's
+	white under and past paper white's */
+	static const float ui_whites[3] = { 0.0f, 0.6f, 2.0f };
 	id<MTLFunction> vertex = function_load([dir stringByAppendingPathComponent:@"post_vert.metal"], @"xgpu_vk_post_vertex");
 	id<MTLFunction> tone_map = function_load([dir stringByAppendingPathComponent:@"hdr_tone_map.metal"], @"xgpu_vk_tone_map");
 	id<MTLFunction> encode = function_load([dir stringByAppendingPathComponent:@"hdr_encode.metal"], @"xgpu_vk_encode");
 	id<MTLRenderPipelineState> tone_pipeline, encode_pipeline;
 	float rgba[VECTORS * 4], got[VECTORS * 4];
-	int mode, peak, vector, channel, which, checked = 0;
+	int mode, peak, ui, vector, channel, which, checked = 0;
 
 	if (!vertex || !tone_map || !encode)
 		return;
@@ -206,52 +212,57 @@ static void post_test(NSString *dir)
 	}
 	for (mode = XGPU_HDR_MODE_FAITHFUL; mode <= XGPU_HDR_MODE_PUNCHY; mode++)
 	{
-		for (peak = 0; peak < 3; peak++)
+		for (ui = 0; ui < 3; ui++)
 		{
-			id<MTLTexture> target = texture_make(MTLPixelFormatRGBA16Float, VECTORS,
-				MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
-			struct post_uniforms uniforms;
-
-			halves_write(target, rgba, VECTORS);
-			memset(&uniforms, 0, sizeof(uniforms));
-			uniforms.metrics[0] = 1.0f / VECTORS;
-			uniforms.metrics[1] = 1.0f;
-			uniforms.metrics[2] = VECTORS;
-			uniforms.metrics[3] = 1.0f;
-			uniforms.hdr[0] = (float)mode;
-			uniforms.hdr[1] = peaks[peak];
-			post_draw(tone_pipeline, target, nil, &uniforms);
-			halves_read(target, got, VECTORS);
-			for (vector = 0; vector < VECTORS; vector++)
+			for (peak = 0; peak < 3; peak++)
 			{
-				float expected[3];
+				id<MTLTexture> target = texture_make(MTLPixelFormatRGBA16Float, VECTORS,
+					MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
+				struct post_uniforms uniforms;
 
-				for (channel = 0; channel < 3; channel++)
-					expected[channel] = half_of(vectors[vector][channel]);
-				xgpu_hdr_tone_map(expected, mode, peaks[peak]);
-				for (channel = 0; channel < 3; channel++)
+				halves_write(target, rgba, VECTORS);
+				memset(&uniforms, 0, sizeof(uniforms));
+				uniforms.metrics[0] = 1.0f / VECTORS;
+				uniforms.metrics[1] = 1.0f;
+				uniforms.metrics[2] = VECTORS;
+				uniforms.metrics[3] = 1.0f;
+				uniforms.hdr[0] = (float)mode;
+				uniforms.hdr[1] = peaks[peak];
+				uniforms.hdr[2] = ui_whites[ui];
+				post_draw(tone_pipeline, target, nil, &uniforms);
+				halves_read(target, got, VECTORS);
+				for (vector = 0; vector < VECTORS; vector++)
 				{
-					if (!close_to(got[vector * 4 + channel], expected[channel]))
-						FAIL("tone map, %s at peak %.0f: vector %d channel %d: %.5f, the reference %.5f",
-							mode ? "punchy" : "faithful", (double)peaks[peak], vector, channel,
-							(double)got[vector * 4 + channel], (double)expected[channel]);
-					checked++;
-				}
-				if (got[vector * 4 + 3] != 0.25f)
-					FAIL("tone map: vector %d's alpha %.5f, not the game's", vector, (double)got[vector * 4 + 3]);
-				/* (faithful: a colour under white exactly as it was) */
-				if (mode == XGPU_HDR_MODE_FAITHFUL && vector == 2)
-				{
+					float expected[3];
+
+					for (channel = 0; channel < 3; channel++)
+						expected[channel] = half_of(vectors[vector][channel]);
+					xgpu_hdr_tone_map(expected, mode, peaks[peak]);
+					xgpu_hdr_to_ui(expected, ui_whites[ui]);
 					for (channel = 0; channel < 3; channel++)
 					{
-						if (got[vector * 4 + channel] != half_of(vectors[vector][channel]))
-							FAIL("tone map: faithful changed a colour under white: %.6f", (double)got[vector * 4 + channel]);
+						if (!close_to(got[vector * 4 + channel], expected[channel]))
+							FAIL("tone map, %s at peak %.0f: vector %d channel %d: %.5f, the reference %.5f",
+								mode ? "punchy" : "faithful", (double)peaks[peak], vector, channel,
+								(double)got[vector * 4 + channel], (double)expected[channel]);
+						checked++;
+					}
+					if (got[vector * 4 + 3] != 0.25f)
+						FAIL("tone map: vector %d's alpha %.5f, not the game's", vector, (double)got[vector * 4 + 3]);
+					/* (faithful: a colour under white exactly as it was) */
+					if (mode == XGPU_HDR_MODE_FAITHFUL && vector == 2 && !ui)
+					{
+						for (channel = 0; channel < 3; channel++)
+						{
+							if (got[vector * 4 + channel] != half_of(vectors[vector][channel]))
+								FAIL("tone map: faithful changed a colour under white: %.6f", (double)got[vector * 4 + channel]);
+						}
 					}
 				}
 			}
 		}
 	}
-	for (which = 0; which < 4; which++)
+	for (which = 0; which < 6; which++)
 	{
 		id<MTLTexture> source = texture_make(MTLPixelFormatRGBA16Float, VECTORS, MTLTextureUsageShaderRead);
 		id<MTLTexture> target = texture_make(MTLPixelFormatRGBA32Float, VECTORS, MTLTextureUsageRenderTarget);
@@ -264,6 +275,7 @@ static void post_test(NSString *dir)
 		uniforms.hdr[0] = encodings[which].paper_white;
 		uniforms.hdr[1] = encodings[which].peak;
 		uniforms.hdr[2] = (float)encodings[which].output;
+		uniforms.hdr[3] = encodings[which].ui;
 		post_draw(encode_pipeline, target, source, &uniforms);
 		[target getBytes:got bytesPerRow:VECTORS * 16 fromRegion:MTLRegionMake2D(0, 0, VECTORS, 1) mipmapLevel:0];
 		for (vector = 0; vector < VECTORS; vector++)

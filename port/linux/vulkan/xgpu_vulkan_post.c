@@ -662,6 +662,7 @@ struct xgpu_vulkan_image *xgpu_vulkan_post_encode(struct xgpu_vulkan_image *imag
 	uniforms->hdr[0] = frame->paper_white;
 	uniforms->hdr[1] = frame->peak;
 	uniforms->hdr[2] = (float)frame->output;
+	uniforms->hdr[3] = frame->ui;
 	draw.constants = draw.uniforms;
 	memset(&dynamic, 0, sizeof(dynamic));
 	dynamic.viewport[2] = dynamic.scissor[2] = (int32_t)description->width;

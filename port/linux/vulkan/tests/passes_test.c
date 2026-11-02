@@ -2151,8 +2151,10 @@ static VkResult VKAPI_CALL hdr_formats(VkPhysicalDevice physical, VkSurfaceKHR s
 	return VK_SUCCESS;
 }
 
-static void hdr_display(int hdr, float headroom)
+static void hdr_display(int hdr, float headroom, float white_nits, int white_reported)
 {
+	(void)white_nits;
+	(void)white_reported;
 	assert(hdr_tells < 8);
 	hdr_told[hdr_tells][0] = hdr;
 	hdr_told_headroom[hdr_tells] = headroom;
@@ -2217,7 +2219,7 @@ static void hdr_window_test(void)
 	the system's SDR white (SDL's 2.5 times 80, 200 nits), which a Wayland
 	compositor shows PQ's reference white at: BT.2408's 203 nits in PQ's
 	units; the peak the headroom */
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_PUNCHY, 0, 100);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_PUNCHY, 0, 100, 0);
 	assert(window_present_frame() && window_swapchains == 2);
 	assert(window_made.imageFormat == VK_FORMAT_A2B10G10R10_UNORM_PACK32);
 	assert(window_made.imageColorSpace == VK_COLOR_SPACE_HDR10_ST2084_EXT);
@@ -2228,27 +2230,43 @@ static void hdr_window_test(void)
 
 	/* paper white twice the system's: the peak in paper whites halved;
 	past the headroom, no brighter than it */
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 200);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 200, 0);
 	xgpu_vulkan_hdr_frame(&frame);
 	assert(fabsf(frame.paper_white - 0.0406f) < 1e-6f && frame.peak == 2.0f && frame.mode == XGPU_HDR_MODE_FAITHFUL);
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 500);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 500, 0);
 	xgpu_vulkan_hdr_frame(&frame);
 	assert(fabsf(frame.paper_white - 0.0812f) < 1e-6f && frame.peak == 1.0f);
 	/* paper white in nits, whatever the system's white (the percent not
 	read: 300 nits is 1.5 of its 200, PQ's 304.5); past the headroom, no
 	brighter than it */
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 300, 50);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 300, 50, 0);
 	xgpu_vulkan_hdr_frame(&frame);
 	assert(fabsf(frame.paper_white - 0.03045f) < 1e-6f && fabsf(frame.peak - 800.0f / 300.0f) < 1e-5f);
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 1000, 100);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 1000, 100, 0);
 	xgpu_vulkan_hdr_frame(&frame);
 	assert(fabsf(frame.paper_white - 0.0812f) < 1e-6f && frame.peak == 1.0f);
+	/* the UI's white: paper white's (1) by default; in nits over paper
+	white's (400 over 200: twice), no brighter than the peak (800 nits:
+	4 times), on Linux relative to the system's white as paper white is */
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 100, 0);
+	xgpu_vulkan_hdr_frame(&frame);
+	assert(frame.ui == 1.0f);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 100, 400);
+	xgpu_vulkan_hdr_frame(&frame);
+	assert(fabsf(frame.ui - 2.0f) < 1e-6f && frame.peak == 4.0f && fabsf(frame.paper_white - 0.0203f) < 1e-6f);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 400, 100, 100);
+	xgpu_vulkan_hdr_frame(&frame);
+	assert(fabsf(frame.ui - 0.25f) < 1e-6f);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 100, 100, 1000);
+	xgpu_vulkan_hdr_frame(&frame);
+	assert(fabsf(frame.ui - 8.0f) < 1e-5f && fabsf(frame.peak - 8.0f) < 1e-5f);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 1000, 100, 0);
 	assert(window_present_frame() && window_swapchains == 2);
 
 	/* scRGB asked for: half floats in extended linear sRGB, paper white its
 	1.0, the reference white a Wayland compositor maps onto its own */
 	setenv("HALO_VULKAN_HDR_OUTPUT", "scrgb", 1);
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 100);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 100, 0);
 	assert(window_present_frame() && window_swapchains == 3);
 	assert(window_made.imageFormat == VK_FORMAT_R16G16B16A16_SFLOAT);
 	assert(window_made.imageColorSpace == VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT);
@@ -2276,7 +2294,7 @@ static void hdr_window_test(void)
 	hdr_window_reset();
 	vk.colorspaces = 0;
 	xgpu_vulkan_window_hdr(1, 2.5f, 4.0f);
-	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 100);
+	xgpu_vulkan_hdr_state(1, XGPU_HDR_MODE_FAITHFUL, 0, 100, 0);
 	assert(window_present_frame() && window_made.imageFormat == VK_FORMAT_B8G8R8A8_UNORM && !hdr_encodes);
 	assert(hdr_tells == 1 && !hdr_told[0][0]);
 	reset();

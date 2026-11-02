@@ -168,10 +168,11 @@ static struct
 	id<MTLRenderPipelineState> loading_pipeline;
 	/* display.hdr: the presentation's encoding for an EDR layer (half
 	floats); the front end's state (drawn in HDR, the mode, paper white in
-	nits, or 0 and its percent of the system's white); the window's screen's potential headroom and headroom now (a
+	nits, or 0 and its percent of the system's white; the UI's white in nits,
+	or 0); the window's screen's potential headroom and headroom now (a
 	float's bits); the layer is EDR's; HALO_METAL_EDR_HEADROOM's (0: none) */
 	id<MTLRenderPipelineState> edr_pipeline, loading_edr_pipeline;
-	_Atomic int hdr_active, hdr_mode, hdr_paper_white_nits, hdr_paper_white;
+	_Atomic int hdr_active, hdr_mode, hdr_paper_white_nits, hdr_paper_white, hdr_ui_nits;
 	_Atomic uint32_t edr_potential, edr_current;
 	BOOL layer_edr;
 	uint32_t edr_ticks;
@@ -337,7 +338,11 @@ static void display_hdr_read(void)
 		host_logf(HOST_LOG_INFO, "metal: the display's EDR headroom: %.2f potential, %.2f now", potential, current);
 	atomic_store(&presentation.edr_potential, float_bits(potential));
 	atomic_store(&presentation.edr_current, float_bits(current));
-	host_render_stream_display_hdr(potential > XGPU_HDR_DISPLAY_HEADROOM, current);
+	/* (the guest shows and logs the display's peak: its potential headroom,
+	which the headroom now, the tone map's, rises toward as EDR content is
+	shown; macOS and iOS give no nits: EDR's 1.0 taken as
+	XGPU_HDR_EDR_WHITE_NITS) */
+	host_render_stream_display_hdr(potential > XGPU_HDR_DISPLAY_HEADROOM, potential, XGPU_HDR_EDR_WHITE_NITS, 0);
 }
 
 void host_metal_hdr_override(float headroom)
@@ -345,15 +350,17 @@ void host_metal_hdr_override(float headroom)
 	presentation.edr_override = headroom;
 	atomic_store(&presentation.edr_potential, float_bits(headroom > 1.0f ? headroom : 1.0f));
 	atomic_store(&presentation.edr_current, float_bits(headroom > 1.0f ? headroom : 1.0f));
-	host_render_stream_display_hdr(headroom > XGPU_HDR_DISPLAY_HEADROOM, headroom > 1.0f ? headroom : 1.0f);
+	host_render_stream_display_hdr(headroom > XGPU_HDR_DISPLAY_HEADROOM, headroom > 1.0f ? headroom : 1.0f,
+		XGPU_HDR_EDR_WHITE_NITS, 0);
 }
 
-void host_metal_hdr_state(int active, int mode, int paper_white_nits, int paper_white)
+void host_metal_hdr_state(int active, int mode, int paper_white_nits, int paper_white, int ui_nits)
 {
 	atomic_store(&presentation.hdr_active, active);
 	atomic_store(&presentation.hdr_mode, mode);
 	atomic_store(&presentation.hdr_paper_white_nits, paper_white_nits);
 	atomic_store(&presentation.hdr_paper_white, paper_white);
+	atomic_store(&presentation.hdr_ui_nits, ui_nits > 0 ? ui_nits : 0);
 }
 
 /* the layer is EDR's while the frame is drawn in HDR and the display has
@@ -377,6 +384,7 @@ void host_metal_hdr_frame(struct xgpu_hdr_frame *frame)
 	frame->output = XGPU_HDR_OUTPUT_SDR;
 	frame->paper_white = 1.0f;
 	frame->peak = 1.0f;
+	frame->ui = 1.0f;
 	if (!(paper_white > 0.0f))
 		paper_white = 1.0f;
 	/* (the replay's, which has no window, as its layer would be) */
@@ -388,11 +396,14 @@ void host_metal_hdr_frame(struct xgpu_hdr_frame *frame)
 		frame->output = XGPU_HDR_OUTPUT_EXTENDED_LINEAR;
 		frame->paper_white = paper_white;
 		frame->peak = current / paper_white;
+		/* (the UI's white, no brighter than the display either) */
+		frame->ui = xgpu_hdr_ui_white((float)atomic_load(&presentation.hdr_ui_nits) / XGPU_HDR_EDR_WHITE_NITS,
+			paper_white, current);
 	}
 }
 
 /* a colour's channel (the frame's values) as an EDR drawable takes it:
-linear, times paper white; as it is for an SDR one */
+linear, times the UI's white; as it is for an SDR one */
 static float edr_value(id<CAMetalDrawable> drawable, float value)
 {
 	struct xgpu_hdr_frame frame;
@@ -400,7 +411,7 @@ static float edr_value(id<CAMetalDrawable> drawable, float value)
 	if (drawable.texture.pixelFormat != MTLPixelFormatRGBA16Float)
 		return value;
 	host_metal_hdr_frame(&frame);
-	return xgpu_hdr_linear(value) * (frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white);
+	return xgpu_hdr_linear(value) * (frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white * frame.ui);
 }
 
 /* (the presentation thread, before it draws into the drawable) the layer
@@ -1368,6 +1379,7 @@ static BOOL rate_adapt(BOOL shown, double now)
 				uniforms.hdr[0] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white;
 				uniforms.hdr[1] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.peak;
 				uniforms.hdr[2] = (float)XGPU_HDR_OUTPUT_EXTENDED_LINEAR;
+				uniforms.hdr[3] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.ui;
 				[encoder setRenderPipelineState:presentation.edr_pipeline];
 				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
 				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
@@ -1614,6 +1626,7 @@ int host_metal_initialize(void)
 	atomic_store(&presentation.edr_current, float_bits(1.0f));
 	atomic_store(&presentation.hdr_paper_white_nits, 0);
 	atomic_store(&presentation.hdr_paper_white, 100);
+	atomic_store(&presentation.hdr_ui_nits, 0);
 	if (edr && atof(edr) > 0.0)
 		host_metal_hdr_override((float)atof(edr));
 	memset(&options, 0, sizeof(options));
