@@ -1411,6 +1411,15 @@ boolean hud_key_prompt_draw_key(
 	rectangle2d *bounds,
 	rectangle2d *cursor,
 	pixel32 color);
+int halo_keyboard_prompts(
+	void);
+static boolean ui_widget_port_key_label_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length);
+static boolean ui_widget_port_key_icon_hidden(
+	struct widget_instance *widget);
 static void widget_instance_initialize(
 	struct widget_instance *widget,
 	struct widget_instance *parent,
@@ -4451,21 +4460,30 @@ void draw_string_and_hack_in_icons(
 		{
 			short remapped_icon_type;
 			short icon_index;
+			short key_icon_type;
 			real_argb_color key_color;
 
 			current = icon_spec + wcslen(icon_names[icon_type]);
 			/* port: a game control's key for the keyboard and mouse
 			(input.button_prompts) */
 			draw_string_get_color(&key_color);
+			/* port: the menus' accept and back (the help screens' "Press
+			%accept to continue") are the A and Back buttons, move and look
+			the sticks, as the icons below draw them; their keys are those
+			buttons' */
+			key_icon_type = icon_type == _icon_accept ? _icon_a_button :
+				icon_type == _icon_back ? _icon_back_button :
+				icon_type == _icon_move ? _icon_left_stick :
+				icon_type == _icon_look ? _icon_right_stick : icon_type;
 			/* port: a controller button as its key while the keyboard and
 			mouse play: where the keyboard drives the menus (their screens,
 			and the scores after a game, whose A picks the next game and B
 			quits), the menus' key for it (ui_widget_port_menu_key); in game,
 			the key of the control the player's profile puts on it */
-			if (icon_type <= _icon_right_thumb)
+			if (key_icon_type <= _icon_right_thumb)
 			{
 				boolean menus = ui_mouse_menus_active();
-				char const *menu_key = menus ? ui_widget_port_menu_key(icon_type) : NULL;
+				char const *menu_key = menus ? ui_widget_port_menu_key(key_icon_type) : NULL;
 
 				if (menu_key &&
 					hud_key_prompt_draw_key(menu_key, bounds, &cursor_bounds, real_argb_color_to_pixel32(&key_color)))
@@ -4476,13 +4494,26 @@ void draw_string_and_hack_in_icons(
 					hud_key_prompt_draw(
 						local_player_index_for_draw_string_and_hack_in_icons,
 						NONE,
-						icon_type,
+						key_icon_type,
 						bounds,
 						&cursor_bounds,
 						real_argb_color_to_pixel32(&key_color)))
 				{
 					continue;
 				}
+			}
+			/* port: the sticks as the movement keys and the mouse, in the
+			menus too (the help screens tell how to play) */
+			if ((key_icon_type == _icon_left_stick || key_icon_type == _icon_right_stick) &&
+				hud_key_prompt_draw(
+					local_player_index_for_draw_string_and_hack_in_icons,
+					NONE,
+					key_icon_type,
+					bounds,
+					&cursor_bounds,
+					real_argb_color_to_pixel32(&key_color)))
+			{
+				continue;
 			}
 			if (icon_type >= _icon_action && icon_type <= _icon_zoom &&
 				hud_key_prompt_draw(
@@ -5580,6 +5611,9 @@ static void widget_instance_render_text_box(
 	real_argb_color color;
 	rectangle2d bounds;
 	rectangle2d clip;
+	/* port: (ui_widget_port_key_label_text) */
+	wchar_t keyed[256];
+	wchar_t named[256];
 
 	if (definition->text_label_string_list.index != NONE)
 	{
@@ -5737,7 +5771,29 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
-	if (string_has_icons_to_draw(*text))
+	/* port: the key of a button pictured beside the words in their gap
+	(ui_widget_port_key_label_text), the words left-justified moved left
+	by as much as the key's cap is wider than the gap, so that they end
+	where they did, inside their panel */
+	if (ui_widget_port_key_label_text(widget, FALSE, keyed, NUMBEROF(keyed)))
+	{
+		if (justification == _text_justification_left &&
+			ui_widget_port_key_label_text(widget, TRUE, named, NUMBEROF(named)))
+		{
+			rectangle2d text_bounds, cursor_bounds;
+			short end;
+
+			draw_string_set_indents(0, 0);
+			draw_unicode_string_compute_bounds(&bounds, *text, &text_bounds, &cursor_bounds);
+			end = text_bounds.x1;
+			draw_unicode_string_compute_bounds(&bounds, named, &text_bounds, &cursor_bounds);
+			/* (and the cap's edges about the name) */
+			if (end != SHORT_MIN && text_bounds.x1 > end - 6)
+				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + 6 - end));
+		}
+		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
+	}
+	else if (string_has_icons_to_draw(*text))
 		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, *text, FALSE);
 	else
 		rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, *text);
@@ -6283,6 +6339,147 @@ static short ui_mouse_key_button(
 	}
 
 	return NONE;
+}
+
+/* port: an Xbox screen's picture of a controller button beside its words
+(the help screens' "PRESS [A] TO CONTINUE") is drawn as the key the
+keyboard presses it with while the keyboard and mouse play
+(input.button_prompts; ui_widget_port_menu_key): in the gap its words leave
+for it, which widens to the key's cap (where they leave none, the picture
+stays). These give the key (NULL while a controller plays, or for a
+button the keyboard has no key for), the words (the nearest text box among
+the children of the picture's parents) and the gap (the first run of
+spaces in them, its length in *length; NONE for none) */
+static char const *ui_widget_port_key_icon_key(
+	struct widget_instance *widget)
+{
+	short button_index = ui_mouse_key_button(widget);
+
+	if (button_index == NONE || !ui_mouse_menus_active() || !halo_keyboard_prompts())
+		return NULL;
+	/* (the controller's buttons are in the order of the icons, A to the
+	right thumb) */
+	return ui_widget_port_menu_key(button_index);
+}
+
+static struct widget_instance *ui_widget_port_key_icon_label(
+	struct widget_instance *widget)
+{
+	struct widget_instance *ancestor;
+	struct widget_instance *child;
+
+	for (ancestor = widget->parent; ancestor; ancestor = ancestor->parent)
+	{
+		for (child = ancestor->child; child; child = child->next)
+		{
+			if (child->type == _ui_widget_type_text_box)
+				return child;
+		}
+	}
+
+	return NULL;
+}
+
+static long ui_widget_port_key_gap(
+	wchar_t const *text,
+	long *length)
+{
+	long index;
+
+	for (index = 0; text && text[index]; index++)
+	{
+		if (text[index] == L' ' && text[index + 1] == L' ')
+		{
+			*length = 0;
+			while (text[index + *length] == L' ')
+				(*length)++;
+			return index;
+		}
+	}
+
+	return NONE;
+}
+
+/* a picture of a button among a widget's children and theirs whose key
+the words of label show */
+static struct widget_instance *ui_widget_port_label_key_icon(
+	struct widget_instance *widget,
+	struct widget_instance *label,
+	short depth)
+{
+	struct widget_instance *child;
+
+	for (child = widget->child; child && depth < 4; child = child->next)
+	{
+		struct widget_instance *icon;
+
+		if (ui_widget_port_key_icon_key(child) && ui_widget_port_key_icon_label(child) == label)
+			return child;
+		icon = ui_widget_port_label_key_icon(child, label, (short)(depth + 1));
+		if (icon)
+			return icon;
+	}
+
+	return NULL;
+}
+
+/* the words with the button pictured beside them in their gap, as its
+icon ("%a-button"), which draw_string_and_hack_in_icons draws as the
+menus' key, or (named) as the key's name; FALSE where they are drawn as
+they are */
+static boolean ui_widget_port_key_label_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length)
+{
+	wchar_t const *text = label->parameters.text_box.text;
+	wchar_t const *parts[4];
+	wchar_t name[16];
+	struct widget_instance *icon;
+	long gap, gap_length;
+	long used;
+	long part;
+
+	gap = ui_widget_port_key_gap(text, &gap_length);
+	if (gap == NONE || !label->parent)
+		return FALSE;
+	icon = ui_widget_port_label_key_icon(label->parent, label, 0);
+	if (!icon)
+		return FALSE;
+	name[0] = 0;
+	parts[0] = named ? L" " : L" %";
+	parts[1] = named ? name : icon_names[ui_mouse_key_button(icon)];
+	if (named)
+		ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+	parts[2] = L" ";
+	parts[3] = text + gap + gap_length;
+	for (used = 0; used < gap && used < length - 1; used++)
+		keyed[used] = text[used];
+	for (part = 0; part < NUMBEROF(parts); part++)
+	{
+		wchar_t const *letter;
+
+		for (letter = parts[part]; *letter && used < length - 1; letter++)
+			keyed[used++] = *letter;
+	}
+	keyed[used] = 0;
+
+	return TRUE;
+}
+
+/* whether the picture is left out, its key drawn in its words */
+static boolean ui_widget_port_key_icon_hidden(
+	struct widget_instance *widget)
+{
+	struct widget_instance *label;
+	long gap_length;
+
+	if (!ui_widget_port_key_icon_key(widget))
+		return FALSE;
+	label = ui_widget_port_key_icon_label(widget);
+
+	return label && ui_widget_port_key_gap(label->parameters.text_box.text, &gap_length) != NONE;
 }
 
 /* whether the d-pad moves the focus to a widget: an item of a column list,
@@ -7607,6 +7804,10 @@ static void widget_instance_render_recursive(
 				alpha_modifier;
 		}
 		color = modulate_pixel32_by_real_alpha(0xFFFFFFFF, alpha);
+		/* port: a controller button's picture left out where its words
+		show its key for the keyboard and mouse
+		(ui_widget_port_key_label_text) */
+		if (!ui_widget_port_key_icon_hidden(widget))
 		{
 			/* port: a frame of ui.map's that the menus scale (the Xbox's
 			picture of the button settings, in the profile settings' smaller

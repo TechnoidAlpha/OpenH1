@@ -1373,9 +1373,14 @@ footer .legal a { color: var(--soft); }
       const d = 7.2 * Math.max(1, 1.5 / camera.aspect);
       camera.position.set(Math.sin(yaw) * d * Math.cos(pitch), 0.4 + Math.sin(pitch) * d, Math.cos(yaw) * d * Math.cos(pitch));
       camera.lookAt(0, -0.05, 0);
-      // the numbers: azimuth from the face's front (+z), the ear delay of an
-      // 8.75 cm head (as the mixer's HRTF)
-      const az = Math.atan2(src.position.x, src.position.z), elv = Math.atan2(h, r);
+      // the sound is heard from where you sit: the source's place in the
+      // view's frame (x to the right of the screen, y up, -z into it), so
+      // what is drawn on your left is heard on your left whatever the angle
+      camera.updateMatrixWorld();
+      const view = src.position.clone().sub(origin).applyQuaternion(camera.quaternion.clone().invert());
+      // the numbers: azimuth from straight into the screen, the ear delay of
+      // an 8.75 cm head (as the mixer's HRTF)
+      const az = Math.atan2(view.x, -view.z), elv = Math.atan2(view.y, Math.hypot(view.x, view.z));
       const lat = Math.abs(Math.asin(Math.sin(az)));
       const itd = 0.0875 / 343 * (Math.sin(lat) + lat) * 1000;
       const right = 0.5 + 0.5 * Math.sin(az), occl = blocked ? 0.45 : 1;
@@ -1390,8 +1395,8 @@ footer .legal a { color: var(--soft); }
       if (panner) {
         const at = ctx.currentTime;
         if (panner.positionX) {
-          panner.positionX.setTargetAtTime(src.position.x, at, 0.03); panner.positionY.setTargetAtTime(src.position.y, at, 0.03); panner.positionZ.setTargetAtTime(-src.position.z, at, 0.03);
-        } else panner.setPosition(src.position.x, src.position.y, -src.position.z);
+          panner.positionX.setTargetAtTime(view.x, at, 0.03); panner.positionY.setTargetAtTime(view.y, at, 0.03); panner.positionZ.setTargetAtTime(view.z, at, 0.03);
+        } else panner.setPosition(view.x, view.y, view.z);
         lp.frequency.setTargetAtTime(blocked ? 700 : 6000, at, 0.06);
       }
       renderer.render(scene, camera);

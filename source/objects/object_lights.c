@@ -321,7 +321,11 @@ struct point_light_definition
 	unsigned long color_interpolation_flags;
 	real_argb_color color_lower_bound;
 	real_argb_color color_upper_bound;
-	byte reserved58[0x54];
+	byte reserved58[0xC];
+	struct tag_reference gel_map; /* port: (named: light_port_lights_structure) */
+	byte reserved74[0x8];
+	struct tag_reference gel_secondary_map; /* port: (named) */
+	byte reserved8C[0x20];
 	struct tag_reference lens_flare;
 	byte reservedBC[0x38];
 	real transition_duration;
@@ -2013,11 +2017,15 @@ static void light_port_drawn_center(
 
 /* port: whether the enhanced dynamic lights light the structure with this
 light (display.dynamic_lights, port/linux/game/dynamic_lights.c): all but a
-spotlight's (a flashlight's, a lamp's), whose gel the game's own pass draws */
+spotlight's (a flashlight's, a lamp's) and one with a gel (a headlight's, the
+Pillar of Autumn's turning alarm lights', whose cube map lights the room only
+where it points as their marker turns), whose shape the game's own pass draws */
 static boolean light_port_lights_structure(
 	struct point_light_definition const *definition)
 {
-	return definition->cutoff_angle >= _pi / 2;
+	return definition->cutoff_angle >= _pi / 2
+		&& definition->gel_map.index == NONE
+		&& definition->gel_secondary_map.index == NONE;
 }
 
 void lights_render_diffuse(

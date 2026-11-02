@@ -1599,12 +1599,15 @@ void hud_messaging_update(
 							short icon_index = NONE;
 
 							/* port: the key bound to it for the keyboard and
-							mouse (input.button_prompts) */
+							mouse (input.button_prompts); accept and back are
+							the A and Back buttons, as drawn below */
 							if (element->data <= _icon_look && hud_key_prompt_draw(
 								local_player_index,
 								element->data >= _icon_action && element->data <= _icon_zoom ?
 									button_mappings[element->data - _icon_action] : NONE,
-								element->data == _icon_move ? _icon_left_stick :
+								element->data == _icon_accept ? _icon_a_button :
+									element->data == _icon_back ? _icon_back_button :
+									element->data == _icon_move ? _icon_left_stick :
 									element->data == _icon_look ? _icon_right_stick :
 									element->data <= _icon_right_stick ? element->data : NONE,
 								&line_bounds,
