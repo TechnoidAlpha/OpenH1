@@ -113,14 +113,11 @@ frame where 4x took up to 10) */
 #define GRAPHICS_PER_PIXEL_LIGHTING "true"
 #define GRAPHICS_MODEL_DETAIL "\"native\""
 #define GRAPHICS_DYNAMIC_LIGHTS "\"enhanced\""
-/* (but none on the phones, whose tile-based GPUs would store the 3D view's
-colour and depth and load them again for its passes in the middle of each
-frame) */
-#if defined(HALO_ANDROID) || defined(HALO_IOS)
+/* (off in Enhanced too, for now: it is opt-in, Video Setup > Advanced
+Graphics > Ambient Occlusion, while its look is refined; and the phones'
+tile-based GPUs would store the 3D view's colour and depth and load them
+again for its passes in the middle of each frame) */
 #define GRAPHICS_AMBIENT_OCCLUSION "\"off\""
-#else
-#define GRAPHICS_AMBIENT_OCCLUSION "\"strong\""
-#endif
 /* display.astc_textures: "auto" everywhere (iPhones, through Metal; Android
 phones without BC, through Vulkan: seen right on a Pixel 11 Pro's PowerVR) */
 #define ASTC_TEXTURES_DEFAULT "\"auto\""
