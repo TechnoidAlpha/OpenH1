@@ -146,19 +146,6 @@ enum
 
 /* ---------- structures */
 
-struct cache_file_tag_instance
-{
-	long group_tag;
-	long parent_group_tags[2];
-	long tag_index;
-	char *name;
-	void *base_address;
-	unsigned long unused[2];
-};
-
-typedef char verify_cache_file_tag_instance_size[
-	sizeof(struct cache_file_tag_instance) == 0x20 ? 1 : -1];
-
 /* the widget definition, as ui_widget.c has it */
 struct ui_widget_event_handler_reference
 {

@@ -164,16 +164,6 @@ enum
 
 /* ---------- structures */
 
-struct cache_file_tag_instance
-{
-	long group_tag;
-	long parent_group_tags[2];
-	long tag_index;
-	char *name;
-	void *base_address;
-	unsigned long unused[2];
-};
-
 struct cache_file_tag_header
 {
 	struct cache_file_tag_instance *tag_instances;
@@ -223,9 +213,6 @@ struct cache_file_globals
 	struct cache_file_structure_bsp_header *structure_bsp_header;
 };
 
-typedef char verify_cache_file_tag_instance_size[
-	sizeof(struct cache_file_tag_instance) == 0x20 ? 1 : -1];
-
 typedef char verify_cache_file_tag_header_count_offset[
 	offsetof(struct cache_file_tag_header, tag_count) == 0xC ? 1 : -1];
 
@@ -260,11 +247,10 @@ static boolean cache_file_structure_bsp_tag_valid(
 static struct cache_file_globals cache_file_globals = { 0 };
 /* port: the name the map loaded last was loaded by (scenario_tags_load) */
 static char cache_file_loaded_name[64];
-extern struct cache_file_tag_instance *global_tag_instances;
 /* port: global_tag_instances' count. The menus add their tags to a copy of
 the table (port/linux/game/menu_tags.c); the map's tag header keeps its own,
 which a Custom Edition map's loader goes on reading. */
-static long global_tag_count;
+long global_tag_count; /* port: not static, for tag_get's fast path (tag_groups.h) */
 /* port: one more each time a map's tags are loaded or unloaded
 (cache_files_tags_generation) */
 static unsigned long cache_file_tags_generation = 1;
@@ -1677,7 +1663,9 @@ void scenario_structure_bsp_unload(
 	return;
 }
 
-void *tag_get(
+/* port: tag_get (tag_groups.h) where its fast path finds nothing: the
+original, as the port has it */
+void *tag_get_slow(
 	long group_tag,
 	long tag_index)
 {
