@@ -5673,7 +5673,7 @@ MISSION_ARROW_X, MISSION_ARROW_WIDE = WIDE_MARGIN, 48
 MISSION_DOTS, MISSION_DOT, MISSION_DOT_STEP, MISSION_DOTS_TOP = 16, (16, 8), 20, 328
 # the details' panel under the cards, across a wide screen
 MISSION_PANEL = (28, 340, 584, 68)
-MISSION_PANEL_BADGE, MISSION_PANEL_BADGE_STEP = 30, 60
+MISSION_PANEL_BADGE, MISSION_PANEL_BADGE_STEP = 30, 56
 # the difficulty cards: four across, each its big badge in a box at its top
 DIFFICULTY_CARD = (138, 300)
 DIFFICULTY_CARDS = (28, 96, 148)
@@ -6016,7 +6016,7 @@ def _missions() -> list:
     spread = wide(-WIDE_HALF, WIDE_EXTRA)
     badge = MISSION_PANEL_BADGE
     step = MISSION_PANEL_BADGE_STEP
-    badges_x = left + width - 14 - 4 * step
+    badges_x = left + width - 26 - 4 * step
     panel = [f'<child widget="{base}/{name}"/>' for name in
              ("detail_title", "detail_objective", "detail_status", "detail_status_new", "detail_beaten")]
     panel += [f'<child widget="{base}/detail_{part}" x="{step * index}"/>' for index in range(4)
