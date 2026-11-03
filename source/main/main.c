@@ -3538,6 +3538,7 @@ void main_loop(
 	long connection;
 	boolean loading_game_frame; /* port: only a completed game picture ends loading */
 	boolean frames_unseen; /* port: nobody sees the frames (port/linux/game/unseen_frames.c) */
+	boolean frames_undrawn; /* port: ... and they need not be drawn */
 
 	if (!game_in_editor())
 	{
@@ -3669,8 +3670,12 @@ void main_loop(
 		{
 			render_frame = TRUE;
 			/* port: with no display (debug.null_renderer, a dedicated server)
-			nothing is drawn, presented or waited for */
+			no vertical blank is waited for, and a game's frames are not drawn
+			or presented; but the menus are, as their widgets' game data
+			inputs run as they are drawn (a lobby's player joins from one:
+			netgame_prejoin_players) */
 			frames_unseen = halo_frames_unseen() != 0;
+			frames_undrawn = frames_unseen && !main_globals.main_menu_scenario_loaded && !ui_widgets_active();
 
 			/* automated system link tests (port/linux/game/network_test.c) */
 			network_test_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
@@ -3867,7 +3872,7 @@ void main_loop(
 					main_save_map_private();
 				}
 
-				if (render_frame && !debug_no_drawing && !frames_unseen)
+				if (render_frame && !debug_no_drawing && !frames_undrawn)
 				{
 					profile_render_start();
 					render_interpolation_frame_begin();
@@ -3887,7 +3892,7 @@ void main_loop(
 				}
 			}
 			/* port: nothing drawn on a dedicated server, nor waited for */
-			else if (!halo_server_mode() && !frames_unseen)
+			else if (!halo_server_mode())
 			{
 				profile_render_start();
 				main_pregame_render();
@@ -3897,7 +3902,7 @@ void main_loop(
 			if (!halo_server_mode() && !frames_unseen)
 				profile_scope(main_throttle_section, main_rasterizer_throttle();)
 
-			if (render_frame && !debug_no_drawing && !frames_unseen)
+			if (render_frame && !debug_no_drawing && !frames_undrawn)
 			{
 				profile_scope(main_present_section, main_present_frame();)
 				LATENCY_LOG(latency_log_frame_presented()); /* port: debug.latency_log */

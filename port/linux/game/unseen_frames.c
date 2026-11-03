@@ -2,8 +2,9 @@
 UNSEEN_FRAMES.C
 
 A run whose frames nobody sees (debug.null_renderer, or no display: a
-network test's headless host or client, a probe) draws none (main.c), and
-would otherwise run its frames back to back, thousands a second, each with
+network test's headless host or client, a probe) draws no game frames
+(main.c: the menus are still drawn, as their widgets' game data inputs run
+as they are), and would otherwise run its frames back to back, thousands a second, each with
 no step of the game's clock to run: the clock steps only as its time comes
 (game_time_update). So each frame waits, before its time is measured, until
 the clock's next step falls due (game_time_seconds_to_next_step): one step
