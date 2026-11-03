@@ -1466,10 +1466,17 @@ static void first_person_weapon_build_node_matrices(
 	short local_player_index)
 {
 	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
+	/* port: posed along the aim, which is below the view's middle with
+	display.lowered_reticle (lowered_reticle.c): render.camera turned back
+	down to it, so the weapon points at the reticle and sways as the aim
+	turns; render.camera itself when the reticle is in the middle */
+	struct render_camera const *pose_camera= lowered_reticle_aim_camera(
+		local_player_index,
+		&render.camera);
 
 	if (!first_person_weapon->rendered)
 	{
-		euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &render.camera.forward);
+		euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);
 		first_person_weapon->render_position= render.camera.position;
 	}
 	/* The native ports draw several frames per tick. The turning sway
@@ -1485,9 +1492,9 @@ static void first_person_weapon_build_node_matrices(
 			last_render_ticks[local_player_index]= game_time_get();
 		}
 	}
-	euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &render.camera.forward);
+	euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);
 	first_person_weapon->render_position= render.camera.position;
-	first_person_weapon->render_forward= render.camera.forward;
+	first_person_weapon->render_forward= pose_camera->forward;
 	first_person_weapon->rendered= TRUE;
 
 	if (first_person_weapon->weapon_index!=NONE &&
@@ -1509,13 +1516,6 @@ static void first_person_weapon_build_node_matrices(
 			weapon_definition->weapon.interface_definition.first_person_model.index);
 		struct animation_graph *animation_graph= animation_graph_definition_get(
 			weapon_definition->weapon.interface_definition.first_person_animations.index);
-		/* port: posed along the aim, which is below the view's middle with
-		display.lowered_reticle (lowered_reticle.c): render.camera turned
-		back down to it, so the weapon points at the reticle; render.camera
-		itself when the reticle is in the middle */
-		struct render_camera const *pose_camera= lowered_reticle_aim_camera(
-			local_player_index,
-			&render.camera);
 
 		if (animation_graph->first_person_weapon_animations.count)
 		{

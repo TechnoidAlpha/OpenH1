@@ -112,6 +112,8 @@ def test_the_weapon_posed_along_the_aim():
     build_matrices = function(read("source/interface/first_person_weapons.c"), "first_person_weapon_build_node_matrices")
     pose = build_matrices.index("pose_camera= lowered_reticle_aim_camera(")
     assert pose < build_matrices.index("&pose_camera->position,\n\t\t\t&pose_camera->forward,\n\t\t\t&pose_camera->up);")
+    # (the turning sway: the aim's turn, not the view's lift as a scope recenters it)
+    assert build_matrices.count("euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);") == 2
     interpolation = build_matrices.index("render_interpolation_first_person(")
     assert "\t\t\tpose_camera);" in build_matrices[interpolation:interpolation + 300]
     offset = build_matrices.index("viewmodel_offset_apply(")
