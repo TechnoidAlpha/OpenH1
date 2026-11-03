@@ -82,6 +82,10 @@ short structure_clusters_in_sphere(
 	real radius,
 	short maximum_count,
 	short *intersected_indices);
+/* port: the spheres structure_clusters_in_sphere keeps are forgotten (the
+current bsp changes) */
+void structure_port_clusters_forget(
+	void);
 void render_debug_fog_planes(
 	void);
 

@@ -230,9 +230,55 @@ static struct structure_runtime_globals structure_globals;
 /* port: whether a map's malformed cluster portal was reported (once) */
 static boolean structure_warned_about_portal_vertices;
 
+/* port: The clusters a sphere reaches (structure_clusters_in_sphere), kept
+for the sphere asked. The moving lights (a vehicle's, a weapon's) are
+connected to the clusters again each tick and each frame, where they mostly
+haven't moved, and walking the portals for them was much of the tick. What
+is found is a function of the sphere (its cluster, its center and radius,
+bit for bit), the most asked for and the current bsp alone: the walk's marks
+are only compared with the walk's own marker, and nothing of it is in the
+game state. So a sphere asked again is answered with what was found, the
+count as it was (more than were asked for, if so) and the clusters that
+were written. A new bsp, or none, forgets them all
+(structure_port_clusters_forget). Not in the game state. */
+enum
+{
+	STRUCTURE_PORT_SPHERE_CACHE_SIZE = 1024,
+	STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS = 64,
+};
+
+struct structure_port_sphere_entry
+{
+	unsigned long generation;
+	unsigned long position[3];
+	unsigned long radius;
+	short cluster_index;
+	short maximum_count;
+	short cluster_count;
+	short cluster_indices[STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS];
+};
+
+static struct structure_port_sphere_entry structure_port_sphere_cache[STRUCTURE_PORT_SPHERE_CACHE_SIZE];
+static unsigned long structure_port_sphere_generation = 1;
+#ifdef HALO_PORT_CACHE_CHECK
+static unsigned long structure_port_sphere_checked;
+#endif
+
 boolean debug_fog_planes;
 
 /* ---------- public code */
+
+/* port: (structure_port_sphere_cache) */
+void structure_port_clusters_forget(
+	void)
+{
+#ifdef HALO_PORT_CACHE_CHECK
+	error(_error_silent, "structure_clusters_in_sphere: %lu kept answers checked", structure_port_sphere_checked);
+#endif
+	structure_port_sphere_generation++;
+	if (!structure_port_sphere_generation)
+		structure_port_sphere_generation = 1;
+}
 
 void structures_initialize(
 	void)
@@ -717,6 +763,65 @@ short structure_clusters_in_sphere(
 	{
 		if (radius > 0.0f)
 		{
+			/* port: (or as found before: structure_port_sphere_cache) */
+			struct structure_port_sphere_entry *entry = NULL;
+			union
+			{
+				real value;
+				unsigned long bits;
+			} key[4];
+			short index;
+
+			key[0].value = position->x;
+			key[1].value = position->y;
+			key[2].value = position->z;
+			key[3].value = radius;
+			if (maximum_count <= STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS)
+			{
+				unsigned long hash = (unsigned long)cluster_index * 0x9E3779B1UL ^ (unsigned long)maximum_count;
+
+				for (index = 0; index < 4; index++)
+					hash = (hash ^ key[index].bits) * 0x01000193UL;
+				entry = &structure_port_sphere_cache[(hash ^ (hash >> 16)) & (STRUCTURE_PORT_SPHERE_CACHE_SIZE - 1)];
+				if (entry->generation == structure_port_sphere_generation &&
+					entry->cluster_index == cluster_index &&
+					entry->maximum_count == maximum_count &&
+					entry->position[0] == key[0].bits &&
+					entry->position[1] == key[1].bits &&
+					entry->position[2] == key[2].bits &&
+					entry->radius == key[3].bits)
+				{
+					short written = MIN(entry->cluster_count, maximum_count);
+
+					for (index = 0; index < written; index++)
+						intersected_indices[index] = entry->cluster_indices[index];
+#ifdef HALO_PORT_CACHE_CHECK
+					/* (-DHALO_PORT_CACHE_CHECK: each kept answer found again) */
+					structure_port_sphere_checked++;
+					{
+						short found_indices[STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS];
+						short found_count;
+
+						structure_cluster_marker_begin();
+						found_count = structure_clusters_in_sphere_recursive(
+							cluster_index,
+							position,
+							radius,
+							maximum_count,
+							found_indices);
+						structure_cluster_marker_end();
+						if (found_count != entry->cluster_count ||
+							csmemcmp(found_indices, entry->cluster_indices, written * sizeof(short)))
+						{
+							error(_error_silent, "structure_clusters_in_sphere: kept %d clusters, found %d",
+								entry->cluster_count, found_count);
+							__builtin_trap();
+						}
+					}
+#endif
+					return entry->cluster_count;
+				}
+			}
 			structure_cluster_marker_begin();
 			cluster_count = structure_clusters_in_sphere_recursive(
 				cluster_index,
@@ -725,6 +830,21 @@ short structure_clusters_in_sphere(
 				maximum_count,
 				intersected_indices);
 			structure_cluster_marker_end();
+			if (entry)
+			{
+				short written = MIN(cluster_count, maximum_count);
+
+				entry->generation = structure_port_sphere_generation;
+				entry->cluster_index = cluster_index;
+				entry->maximum_count = maximum_count;
+				entry->position[0] = key[0].bits;
+				entry->position[1] = key[1].bits;
+				entry->position[2] = key[2].bits;
+				entry->radius = key[3].bits;
+				entry->cluster_count = cluster_count;
+				for (index = 0; index < written; index++)
+					entry->cluster_indices[index] = intersected_indices[index];
+			}
 		}
 		else if (maximum_count > 0)
 		{
