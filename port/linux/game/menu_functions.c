@@ -751,6 +751,9 @@ struct campaign_level
 	/* finished on Normal, Heroic, Legendary (difficulty_options_small's
 	frames 1 to 3) */
 	boolean finished[3];
+	/* finished on each difficulty, Easy's the first bit (the profile's
+	single_player_map_flags: the campaign's cards, campaign_menu.inc) */
+	byte beaten;
 };
 
 struct campaign_saved_game
@@ -970,6 +973,7 @@ static void campaign_levels_read(struct player_profile const *profile)
 			short marker;
 
 			campaign.levels[level].available |= flags || level == highest_level + 1 || level == 0;
+			campaign.levels[level].beaten |= flags & 0xF;
 			for (marker = 0; marker < 3; marker++)
 				campaign.levels[level].finished[marker] |= (flags >> (marker + 1)) & 1;
 		}
@@ -10980,6 +10984,8 @@ static void gametype_engine_name(struct widget_instance *text_box)
 #include "matchmaking_menu.inc"
 #include "friends_menu.inc"
 #include "lobby_menu.inc"
+/* (the campaign's screens: the Campaign menu, Choose Mission, Choose Difficulty) */
+#include "campaign_menu.inc"
 
 /* ---------- Host Controls: the pause menu's HOST CONTROLS, the host's */
 
@@ -11019,6 +11025,8 @@ boolean pc_menu_event_function_invoke(
 			return FALSE;
 		if (!strncmp(name, "port controller ", 16))
 			return pad_editor_event(widget, name);
+		if (!strncmp(name, "port campaign ", 14))
+			return campaign_menu_event(widget, name + 14, controller);
 		if (!strcmp(name, "main menu quit game"))
 		{
 			platform_request_quit();
@@ -11576,7 +11584,9 @@ void pc_menu_game_data_function_invoke(
 	/* (a text field whose screen has gone: let go of) */
 	if (text_field.row && system_milliseconds() - text_field_shown_time > 500)
 		text_field_end(FALSE);
-	if (!strcmp(name, "solo map list update"))
+	if (!strncmp(name, "port campaign ", 14))
+		campaign_menu_update(widget, name + 14);
+	else if (!strcmp(name, "solo map list update"))
 		level_list_update(widget);
 	else if (!strcmp(name, "mp map list update"))
 		map_list_update(widget);

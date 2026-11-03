@@ -1,0 +1,594 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The campaign's screens: the Campaign menu, Choose Mission and Choose Difficulty (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/campaign/campaign_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+		<on event="created" run="port campaign init"/>
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<child widget="main_menu/campaign/header_campaign"/>
+		<child widget="main_menu/campaign/campaign_list"/>
+	</widget>
+	<widget name="main_menu/campaign/header_campaign" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/campaign/header_campaign" wide="-106 0">
+	</widget>
+	<widget name="main_menu/campaign/campaign_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/campaign/campaign_panel">
+		<data input="port campaign update"/>
+		<child widget="main_menu/campaign/item_continue" x="28" y="92"/>
+		<child widget="main_menu/campaign/item_missions" x="28" y="142"/>
+		<child widget="main_menu/campaign/item_coop" x="28" y="170"/>
+		<child widget="main_menu/campaign/item_back" x="28" y="198"/>
+		<child widget="main_menu/campaign/campaign_prompts" y="414"/>
+	</widget>
+	<widget name="main_menu/campaign/item_continue" type="text" width="280" height="46" wide="-106 80" bitmap="main_menu/campaign/continue_280x46" text="CONTINUE" font="ui\large_ui" color="#FFFFFFFF" text_x="64" text_y="2">
+		<on event="a" run="port campaign continue"/>
+		<on event="start" run="port campaign continue"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/continue_art"/>
+		<child widget="main_menu/campaign/continue_corners"/>
+		<child widget="main_menu/campaign/continue_note"/>
+	</widget>
+	<widget name="main_menu/campaign/continue_art" controller="1" left="6" top="2" width="50" height="41" bitmap="main_menu/campaign/art_50x41">
+	</widget>
+	<widget name="main_menu/campaign/continue_corners" controller="1" left="6" top="2" width="50" height="41" bitmap="main_menu/campaign/art_corners_50x41">
+	</widget>
+	<bitmap name="main_menu/campaign/art_50x41">
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="91" height="46"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="91" height="46"/>
+	</bitmap>
+	<widget name="main_menu/campaign/continue_note" type="text" controller="1" left="64" top="24" width="208" height="18" font="ui\small_ui" color="#FFD6E9FF" wide="0 80" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/item_missions" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" text="CHOOSE MISSION" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+		<on event="a" run="port campaign missions" open="main_menu/campaign/mission_screen"/>
+		<on event="start" run="port campaign missions" open="main_menu/campaign/mission_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/item_coop" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" text="CO-OP" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+		<on event="a" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/item_back" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" text="BACK" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+		<on event="a" back="true"/>
+		<on event="start" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/panel_art_back" controller="1" left="376" top="92" width="176" height="143" bitmap="main_menu/campaign/art_back_176x143" wide="66 0">
+	</widget>
+	<widget name="main_menu/campaign/panel_art" controller="1" left="376" top="92" width="176" height="143" bitmap="main_menu/campaign/art_176x143" wide="66 0">
+	</widget>
+	<widget name="main_menu/campaign/panel_art_corners" controller="1" left="376" top="92" width="176" height="143" bitmap="main_menu/campaign/art_corners_176x143" wide="66 0">
+	</widget>
+	<widget name="main_menu/campaign/panel_number" type="text" controller="1" left="330" top="238" width="268" height="16" font="ui\small_ui" color="#FF8FB3D3" wide="0 132" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/panel_title" type="text" controller="1" left="330" top="253" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/panel_status" type="text" controller="1" left="330" top="277" width="268" height="18" font="ui\small_ui" color="#FF4FB3FF" wide="0 132" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/panel_objective" type="text" controller="1" left="330" top="296" width="268" height="50" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/panel_hint" type="text" controller="1" left="330" top="350" width="268" height="44" font="ui\small_ui" color="#FF8FB3D3" wide="0 132" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/campaign_panel" controller="1" left="316" top="80" width="296" height="320" bitmap="main_menu/parts/panel_296x320" wide="-26 132">
+		<child widget="main_menu/campaign/panel_art_back"/>
+		<child widget="main_menu/campaign/panel_art"/>
+		<child widget="main_menu/campaign/panel_art_corners"/>
+		<child widget="main_menu/campaign/panel_number"/>
+		<child widget="main_menu/campaign/panel_title"/>
+		<child widget="main_menu/campaign/panel_status"/>
+		<child widget="main_menu/campaign/panel_objective"/>
+		<child widget="main_menu/campaign/panel_hint"/>
+	</widget>
+	<widget name="main_menu/campaign/campaign_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="main_menu/campaign/prompt_back" x="516" y="1"/>
+	</widget>
+	<widget name="main_menu/campaign/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<bitmap name="main_menu/campaign/art_176x143">
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="322" height="161"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="322" height="161"/>
+	</bitmap>
+	<strings name="main_menu/campaign/hints">
+		<string text="Pick up where you left off: no mission or difficulty to choose."/>
+		<string text="Play any mission, on any difficulty."/>
+		<string text=""/>
+		<string text=""/>
+	</strings>
+	<widget name="main_menu/campaign/mission_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<on event="white" run="port campaign tab previous"/>
+		<on event="black" run="port campaign tab next"/>
+		<child widget="main_menu/campaign/mission_cards"/>
+		<child widget="main_menu/campaign/header_missions"/>
+		<child widget="main_menu/campaign/source_prompt_previous"/>
+		<child widget="main_menu/campaign/source_prompt_next"/>
+		<child widget="main_menu/campaign/source_tabs" x="410" y="44"/>
+		<child widget="main_menu/campaign/mission_dot_0"/>
+		<child widget="main_menu/campaign/mission_dot_1"/>
+		<child widget="main_menu/campaign/mission_dot_2"/>
+		<child widget="main_menu/campaign/mission_dot_3"/>
+		<child widget="main_menu/campaign/mission_dot_4"/>
+		<child widget="main_menu/campaign/mission_dot_5"/>
+		<child widget="main_menu/campaign/mission_dot_6"/>
+		<child widget="main_menu/campaign/mission_dot_7"/>
+		<child widget="main_menu/campaign/mission_dot_8"/>
+		<child widget="main_menu/campaign/mission_dot_9"/>
+		<child widget="main_menu/campaign/mission_dot_10"/>
+		<child widget="main_menu/campaign/mission_dot_11"/>
+		<child widget="main_menu/campaign/mission_dot_12"/>
+		<child widget="main_menu/campaign/mission_dot_13"/>
+		<child widget="main_menu/campaign/mission_dot_14"/>
+		<child widget="main_menu/campaign/mission_dot_15"/>
+		<child widget="main_menu/campaign/mission_empty"/>
+		<child widget="main_menu/campaign/mission_prompts" y="414"/>
+	</widget>
+	<widget name="main_menu/campaign/header_missions" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/campaign/header_missions" wide="-106 0">
+	</widget>
+	<widget name="main_menu/campaign/source_prompt_previous" type="text" controller="1" left="380" top="44" width="30" height="22" font="ui\small_ui" color="#FF2896FF" wide="106 0" text_y="2" text="%white-button" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/source_prompt_next" type="text" controller="1" left="588" top="44" width="30" height="22" font="ui\small_ui" color="#FF2896FF" wide="106 0" text_y="2" text="%black-button" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/source_tabs" type="column_list" width="176" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="main_menu/campaign/tab_halo" x="0"/>
+		<child widget="main_menu/campaign/tab_custom" x="88"/>
+	</widget>
+	<widget name="main_menu/campaign/tab_halo" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/parts/tab" text="HALO" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="port campaign tab"/>
+		<on event="start" run="port campaign tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/tab_custom" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/parts/tab" text="CUSTOM" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="port campaign tab"/>
+		<on event="start" run="port campaign tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/mission_cards" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child" description="main_menu/campaign/mission_panel">
+		<data input="port campaign missions update"/>
+		<on event="created" run="port campaign missions init"/>
+		<on event="left" run="port campaign previous"/>
+		<on event="stick_left" run="port campaign previous"/>
+		<on event="right" run="port campaign next"/>
+		<on event="stick_right" run="port campaign next"/>
+		<child widget="main_menu/campaign/card_big_0" y="84"/>
+		<child widget="main_menu/campaign/card_small_0" y="84"/>
+		<child widget="main_menu/campaign/card_big_1" y="84"/>
+		<child widget="main_menu/campaign/card_small_1" y="84"/>
+		<child widget="main_menu/campaign/card_big_2" y="84"/>
+		<child widget="main_menu/campaign/card_small_2" y="84"/>
+		<child widget="main_menu/campaign/arrow_previous" x="24" y="172"/>
+		<child widget="main_menu/campaign/arrow_next" x="592" y="172"/>
+	</widget>
+	<widget name="main_menu/campaign/arrow_previous" width="24" height="64" bitmap="main_menu/campaign/arrow_left" wide="-48 0">
+		<on event="a" run="port campaign previous"/>
+		<on event="start" run="port campaign previous"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/arrow_next" width="24" height="64" bitmap="main_menu/campaign/arrow_right" wide="48 0">
+		<on event="a" run="port campaign next"/>
+		<on event="start" run="port campaign next"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/card_big_0" width="158" height="240" bitmap="main_menu/campaign/card_158x240">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/card_art_back_big"/>
+		<child widget="main_menu/campaign/card_art_big"/>
+		<child widget="main_menu/campaign/card_custom_art_big"/>
+		<child widget="main_menu/campaign/card_art_corners_big"/>
+		<child widget="main_menu/campaign/card_card_tag_big"/>
+		<child widget="main_menu/campaign/card_card_title_big"/>
+		<child widget="main_menu/campaign/card_resume_big"/>
+		<child widget="main_menu/campaign/card_number_big"/>
+		<child widget="main_menu/campaign/card_title_big"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="4"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="42"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="80"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="118"/>
+		<child widget="main_menu/campaign/card_badge_big" x="4"/>
+		<child widget="main_menu/campaign/card_badge_big" x="42"/>
+		<child widget="main_menu/campaign/card_badge_big" x="80"/>
+		<child widget="main_menu/campaign/card_badge_big" x="118"/>
+		<child widget="main_menu/campaign/card_unbeaten_big"/>
+	</widget>
+	<widget name="main_menu/campaign/card_art_back_big" controller="1" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_back_146x119">
+	</widget>
+	<widget name="main_menu/campaign/card_art_big" controller="1" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_146x119">
+	</widget>
+	<widget name="main_menu/campaign/card_custom_art_big" controller="1" left="6" top="6" width="146" height="119" bitmap="ui\shell\bitmaps\mp_map_grafix">
+	</widget>
+	<widget name="main_menu/campaign/card_art_corners_big" controller="1" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_corners_146x119">
+	</widget>
+	<widget name="main_menu/campaign/card_card_tag_big" type="text" controller="1" left="16" top="77" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_card_title_big" type="text" controller="1" left="16" top="95" width="126" height="26" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_resume_big" type="text" controller="1" left="14" top="14" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_number_big" type="text" controller="1" left="10" top="131" width="138" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_title_big" type="text" controller="1" left="10" top="147" width="138" height="46" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_badge_shape_big" controller="1" top="193" width="36" height="36" bitmap="main_menu/campaign/badge_shape_36">
+	</widget>
+	<widget name="main_menu/campaign/card_badge_big" controller="1" top="193" width="36" height="36" bitmap="main_menu/campaign/badges_36">
+	</widget>
+	<widget name="main_menu/campaign/card_unbeaten_big" type="text" controller="1" left="10" top="203" width="138" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	</widget>
+	<bitmap name="main_menu/campaign/art_146x119">
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="267" height="134"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/badges_36">
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="36" height="36"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="36" height="36"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="36" height="36"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="36" height="36"/>
+	</bitmap>
+	<widget name="main_menu/campaign/card_small_0" width="132" height="211" bitmap="main_menu/campaign/card_132x211">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/card_art_back_small"/>
+		<child widget="main_menu/campaign/card_art_small"/>
+		<child widget="main_menu/campaign/card_custom_art_small"/>
+		<child widget="main_menu/campaign/card_art_corners_small"/>
+		<child widget="main_menu/campaign/card_card_tag_small"/>
+		<child widget="main_menu/campaign/card_card_title_small"/>
+		<child widget="main_menu/campaign/card_resume_small"/>
+		<child widget="main_menu/campaign/card_number_small"/>
+		<child widget="main_menu/campaign/card_title_small"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="5"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="36"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="67"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="98"/>
+		<child widget="main_menu/campaign/card_badge_small" x="5"/>
+		<child widget="main_menu/campaign/card_badge_small" x="36"/>
+		<child widget="main_menu/campaign/card_badge_small" x="67"/>
+		<child widget="main_menu/campaign/card_badge_small" x="98"/>
+		<child widget="main_menu/campaign/card_unbeaten_small"/>
+	</widget>
+	<widget name="main_menu/campaign/card_art_back_small" controller="1" left="6" top="6" width="120" height="98" bitmap="main_menu/campaign/art_back_120x98">
+	</widget>
+	<widget name="main_menu/campaign/card_art_small" controller="1" left="6" top="6" width="120" height="98" bitmap="main_menu/campaign/art_120x98">
+	</widget>
+	<widget name="main_menu/campaign/card_custom_art_small" controller="1" left="6" top="6" width="120" height="98" bitmap="ui\shell\bitmaps\mp_map_grafix">
+	</widget>
+	<widget name="main_menu/campaign/card_art_corners_small" controller="1" left="6" top="6" width="120" height="98" bitmap="main_menu/campaign/art_corners_120x98">
+	</widget>
+	<widget name="main_menu/campaign/card_card_tag_small" type="text" controller="1" left="16" top="56" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_card_title_small" type="text" controller="1" left="16" top="74" width="100" height="26" font="ui\small_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_resume_small" type="text" controller="1" left="14" top="14" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_number_small" type="text" controller="1" left="10" top="110" width="112" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_title_small" type="text" controller="1" left="10" top="126" width="112" height="46" font="ui\small_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/card_badge_shape_small" controller="1" top="172" width="28" height="28" bitmap="main_menu/campaign/badge_shape_28">
+	</widget>
+	<widget name="main_menu/campaign/card_badge_small" controller="1" top="172" width="28" height="28" bitmap="main_menu/campaign/badges_28">
+	</widget>
+	<widget name="main_menu/campaign/card_unbeaten_small" type="text" controller="1" left="10" top="178" width="112" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	</widget>
+	<bitmap name="main_menu/campaign/art_120x98">
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="219" height="110"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/badges_28">
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="28" height="28"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="28" height="28"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="28" height="28"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="28" height="28"/>
+	</bitmap>
+	<widget name="main_menu/campaign/card_big_1" width="158" height="240" bitmap="main_menu/campaign/card_158x240">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/card_art_back_big"/>
+		<child widget="main_menu/campaign/card_art_big"/>
+		<child widget="main_menu/campaign/card_custom_art_big"/>
+		<child widget="main_menu/campaign/card_art_corners_big"/>
+		<child widget="main_menu/campaign/card_card_tag_big"/>
+		<child widget="main_menu/campaign/card_card_title_big"/>
+		<child widget="main_menu/campaign/card_resume_big"/>
+		<child widget="main_menu/campaign/card_number_big"/>
+		<child widget="main_menu/campaign/card_title_big"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="4"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="42"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="80"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="118"/>
+		<child widget="main_menu/campaign/card_badge_big" x="4"/>
+		<child widget="main_menu/campaign/card_badge_big" x="42"/>
+		<child widget="main_menu/campaign/card_badge_big" x="80"/>
+		<child widget="main_menu/campaign/card_badge_big" x="118"/>
+		<child widget="main_menu/campaign/card_unbeaten_big"/>
+	</widget>
+	<widget name="main_menu/campaign/card_small_1" width="132" height="211" bitmap="main_menu/campaign/card_132x211">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/card_art_back_small"/>
+		<child widget="main_menu/campaign/card_art_small"/>
+		<child widget="main_menu/campaign/card_custom_art_small"/>
+		<child widget="main_menu/campaign/card_art_corners_small"/>
+		<child widget="main_menu/campaign/card_card_tag_small"/>
+		<child widget="main_menu/campaign/card_card_title_small"/>
+		<child widget="main_menu/campaign/card_resume_small"/>
+		<child widget="main_menu/campaign/card_number_small"/>
+		<child widget="main_menu/campaign/card_title_small"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="5"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="36"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="67"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="98"/>
+		<child widget="main_menu/campaign/card_badge_small" x="5"/>
+		<child widget="main_menu/campaign/card_badge_small" x="36"/>
+		<child widget="main_menu/campaign/card_badge_small" x="67"/>
+		<child widget="main_menu/campaign/card_badge_small" x="98"/>
+		<child widget="main_menu/campaign/card_unbeaten_small"/>
+	</widget>
+	<widget name="main_menu/campaign/card_big_2" width="158" height="240" bitmap="main_menu/campaign/card_158x240">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/card_art_back_big"/>
+		<child widget="main_menu/campaign/card_art_big"/>
+		<child widget="main_menu/campaign/card_custom_art_big"/>
+		<child widget="main_menu/campaign/card_art_corners_big"/>
+		<child widget="main_menu/campaign/card_card_tag_big"/>
+		<child widget="main_menu/campaign/card_card_title_big"/>
+		<child widget="main_menu/campaign/card_resume_big"/>
+		<child widget="main_menu/campaign/card_number_big"/>
+		<child widget="main_menu/campaign/card_title_big"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="4"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="42"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="80"/>
+		<child widget="main_menu/campaign/card_badge_shape_big" x="118"/>
+		<child widget="main_menu/campaign/card_badge_big" x="4"/>
+		<child widget="main_menu/campaign/card_badge_big" x="42"/>
+		<child widget="main_menu/campaign/card_badge_big" x="80"/>
+		<child widget="main_menu/campaign/card_badge_big" x="118"/>
+		<child widget="main_menu/campaign/card_unbeaten_big"/>
+	</widget>
+	<widget name="main_menu/campaign/card_small_2" width="132" height="211" bitmap="main_menu/campaign/card_132x211">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/card_art_back_small"/>
+		<child widget="main_menu/campaign/card_art_small"/>
+		<child widget="main_menu/campaign/card_custom_art_small"/>
+		<child widget="main_menu/campaign/card_art_corners_small"/>
+		<child widget="main_menu/campaign/card_card_tag_small"/>
+		<child widget="main_menu/campaign/card_card_title_small"/>
+		<child widget="main_menu/campaign/card_resume_small"/>
+		<child widget="main_menu/campaign/card_number_small"/>
+		<child widget="main_menu/campaign/card_title_small"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="5"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="36"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="67"/>
+		<child widget="main_menu/campaign/card_badge_shape_small" x="98"/>
+		<child widget="main_menu/campaign/card_badge_small" x="5"/>
+		<child widget="main_menu/campaign/card_badge_small" x="36"/>
+		<child widget="main_menu/campaign/card_badge_small" x="67"/>
+		<child widget="main_menu/campaign/card_badge_small" x="98"/>
+		<child widget="main_menu/campaign/card_unbeaten_small"/>
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_0" controller="1" left="160" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_1" controller="1" left="180" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_2" controller="1" left="200" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_3" controller="1" left="220" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_4" controller="1" left="240" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_5" controller="1" left="260" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_6" controller="1" left="280" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_7" controller="1" left="300" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_8" controller="1" left="320" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_9" controller="1" left="340" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_10" controller="1" left="360" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_11" controller="1" left="380" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_12" controller="1" left="400" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_13" controller="1" left="420" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_14" controller="1" left="440" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/mission_dot_15" controller="1" left="460" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
+	</widget>
+	<widget name="main_menu/campaign/detail_title" type="text" controller="1" left="42" top="344" width="276" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 212" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/detail_objective" type="text" controller="1" left="42" top="364" width="276" height="26" font="ui\small_ui" color="#FF2896FF" wide="0 212" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/detail_status" type="text" controller="1" left="42" top="387" width="276" height="18" font="ui\small_ui" color="#FF4FB3FF" wide="0 212" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/detail_status_new" type="text" controller="1" left="42" top="387" width="276" height="18" font="ui\small_ui" color="#FFF2B34A" wide="0 212" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/detail_beaten" type="text" controller="1" left="324" top="342" width="264" height="16" font="ui\small_ui" color="#FF8FB3D3" align="center" wide="212 0" text="BEATEN ON" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/detail_badge_shape" controller="1" left="342" top="358" width="30" height="30" bitmap="main_menu/campaign/badge_shape_30" wide="212 0">
+	</widget>
+	<widget name="main_menu/campaign/detail_badge" controller="1" left="342" top="358" width="30" height="30" bitmap="main_menu/campaign/badges_30" wide="212 0">
+	</widget>
+	<widget name="main_menu/campaign/detail_badge_name" type="text" controller="1" left="316" top="387" width="82" height="16" font="ui\small_ui" color="#FF8FB3D3" align="center" wide="212 0" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/mission_panel" controller="1" left="28" top="340" width="584" height="68" bitmap="main_menu/campaign/panel" wide="-106 212">
+		<child widget="main_menu/campaign/detail_title"/>
+		<child widget="main_menu/campaign/detail_objective"/>
+		<child widget="main_menu/campaign/detail_status"/>
+		<child widget="main_menu/campaign/detail_status_new"/>
+		<child widget="main_menu/campaign/detail_beaten"/>
+		<child widget="main_menu/campaign/detail_badge_shape" x="0"/>
+		<child widget="main_menu/campaign/detail_badge" x="0"/>
+		<child widget="main_menu/campaign/detail_badge_name" x="0"/>
+		<child widget="main_menu/campaign/detail_badge_shape" x="66"/>
+		<child widget="main_menu/campaign/detail_badge" x="66"/>
+		<child widget="main_menu/campaign/detail_badge_name" x="66"/>
+		<child widget="main_menu/campaign/detail_badge_shape" x="132"/>
+		<child widget="main_menu/campaign/detail_badge" x="132"/>
+		<child widget="main_menu/campaign/detail_badge_name" x="132"/>
+		<child widget="main_menu/campaign/detail_badge_shape" x="198"/>
+		<child widget="main_menu/campaign/detail_badge" x="198"/>
+		<child widget="main_menu/campaign/detail_badge_name" x="198"/>
+	</widget>
+	<bitmap name="main_menu/campaign/badges_30">
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="30" height="30"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="30" height="30"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="30" height="30"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="30" height="30"/>
+	</bitmap>
+	<widget name="main_menu/campaign/mission_empty" type="text" controller="1" left="80" top="170" width="480" height="80" font="ui\large_ui" color="#FF2896FF" align="center" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/mission_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="main_menu/campaign/prompt_select" x="388" y="1"/>
+		<child widget="main_menu/campaign/prompt_back" x="516" y="1"/>
+	</widget>
+	<widget name="main_menu/campaign/prompt_select" type="text" width="124" height="24" wide="106 0" bitmap="main_menu/parts/item_124x24" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<child widget="main_menu/campaign/difficulty_list"/>
+		<child widget="main_menu/difficulty_select/header_choose_difficulty"/>
+		<child widget="main_menu/campaign/difficulty_mission"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_mission" type="text" controller="1" left="44" top="74" width="560" height="18" font="ui\small_ui" color="#FF8FB3D3" wide="-106 0" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/difficulty_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<data input="port campaign difficulty update"/>
+		<on event="created" run="port campaign difficulty init"/>
+		<child widget="main_menu/campaign/difficulty_0" x="28" y="96"/>
+		<child widget="main_menu/campaign/difficulty_1" x="176" y="96"/>
+		<child widget="main_menu/campaign/difficulty_2" x="324" y="96"/>
+		<child widget="main_menu/campaign/difficulty_3" x="472" y="96"/>
+		<child widget="main_menu/campaign/difficulty_prompts" y="414"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_0" width="138" height="300" bitmap="main_menu/campaign/difficulty_card" wide="-106 53">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/difficulty_badge_box"/>
+		<child widget="main_menu/campaign/difficulty_badge_shape"/>
+		<child widget="main_menu/campaign/difficulty_badge"/>
+		<child widget="main_menu/campaign/difficulty_name"/>
+		<child widget="main_menu/campaign/difficulty_blurb"/>
+		<child widget="main_menu/campaign/difficulty_beaten"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_1" width="138" height="300" bitmap="main_menu/campaign/difficulty_card" wide="-53 53">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/difficulty_badge_box"/>
+		<child widget="main_menu/campaign/difficulty_badge_shape"/>
+		<child widget="main_menu/campaign/difficulty_badge"/>
+		<child widget="main_menu/campaign/difficulty_name"/>
+		<child widget="main_menu/campaign/difficulty_blurb"/>
+		<child widget="main_menu/campaign/difficulty_beaten"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_2" width="138" height="300" bitmap="main_menu/campaign/difficulty_card" wide="0 53">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/difficulty_badge_box"/>
+		<child widget="main_menu/campaign/difficulty_badge_shape"/>
+		<child widget="main_menu/campaign/difficulty_badge"/>
+		<child widget="main_menu/campaign/difficulty_name"/>
+		<child widget="main_menu/campaign/difficulty_blurb"/>
+		<child widget="main_menu/campaign/difficulty_beaten"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_3" width="138" height="300" bitmap="main_menu/campaign/difficulty_card" wide="53 53">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/campaign/difficulty_badge_box"/>
+		<child widget="main_menu/campaign/difficulty_badge_shape"/>
+		<child widget="main_menu/campaign/difficulty_badge"/>
+		<child widget="main_menu/campaign/difficulty_name"/>
+		<child widget="main_menu/campaign/difficulty_blurb"/>
+		<child widget="main_menu/campaign/difficulty_beaten"/>
+	</widget>
+	<widget name="main_menu/campaign/difficulty_badge_box" controller="1" left="8" top="8" width="122" height="122" bitmap="main_menu/campaign/badge_box" wide="26 0">
+	</widget>
+	<widget name="main_menu/campaign/difficulty_badge_shape" controller="1" left="14" top="14" width="110" height="110" bitmap="main_menu/campaign/badge_shape_110" wide="26 0">
+	</widget>
+	<widget name="main_menu/campaign/difficulty_badge" controller="1" left="14" top="14" width="110" height="110" bitmap="main_menu/campaign/difficulty_badges" wide="26 0">
+	</widget>
+	<widget name="main_menu/campaign/difficulty_name" type="text" controller="1" left="10" top="140" width="118" height="24" string_list="main_menu/difficulty_select/difficulty_options" font="ui\large_ui" color="#FFFFFFFF" wide="0 53" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/difficulty_blurb" type="text" controller="1" left="10" top="166" width="124" height="126" font="ui\small_ui" color="#FF2896FF" wide="0 53" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/campaign/difficulty_beaten" type="text" controller="1" left="14" top="14" width="64" wide="26 0" height="16" bitmap="main_menu/parts/pill_64" text="BEATEN" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	</widget>
+	<bitmap name="main_menu/campaign/difficulty_badges">
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="0" width="110" height="110"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="1" width="110" height="110"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="2" width="110" height="110"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="3" width="110" height="110"/>
+	</bitmap>
+	<strings name="main_menu/campaign/difficulty_blurbs">
+		<string text="Fewer, weaker enemies.\nFor learning the ropes."/>
+		<string text="The challenge as\nintended for most\nplayers."/>
+		<string text="Smarter, tougher\nenemies who punish\nmistakes."/>
+		<string text="Brutal. Every fight\nis a puzzle."/>
+	</strings>
+	<widget name="main_menu/campaign/difficulty_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="main_menu/campaign/prompt_play" x="388" y="1"/>
+		<child widget="main_menu/campaign/prompt_back" x="516" y="1"/>
+	</widget>
+	<widget name="main_menu/campaign/prompt_play" type="text" width="124" height="24" wide="106 0" bitmap="main_menu/parts/item_124x24" text="%a-button PLAY" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+</menus>

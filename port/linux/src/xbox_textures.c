@@ -328,11 +328,11 @@ unsigned int xgpu_texture_replacement(DWORD resource, struct xgpu_texture_descri
 			long kind = hud_hires_upscale_at(address, description->width, description->height);
 
 			/* (a Custom Edition map's stock sheet, kind 4, may be DXT and
-			up to 512 square) */
+			up to 512 square; a menu's picture of ui.map's, kind 5, DXT) */
 			unsigned long largest = kind == 4 ? 512 : 256;
 
 			entry->hud_upscale_checked = TRUE;
-			if (kind && size && (!description->compressed || kind == 4) &&
+			if (kind && size && (!description->compressed || kind == 4 || kind == 5) &&
 				description->width <= largest && description->height <= largest &&
 				custom_edition_texels_order(address) == _custom_edition_channels_xbox &&
 				platform_is_contiguous((void *)address) && platform_is_contiguous((void *)(address + size - 1)))

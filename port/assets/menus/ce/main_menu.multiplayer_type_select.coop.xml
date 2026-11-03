@@ -23,7 +23,7 @@
 		<data input="3wide player profile list update"/>
 		<on event="created" run="port coop player 2 list initialize"/>
 		<on event="deleted" run="player profile list dispose"/>
-		<on event="custom_activation" run="port coop player 2" open="main_menu/solo_level_select/solo_level_select_screen" branch="true"/>
+		<on event="custom_activation" run="port coop player 2" open="main_menu/campaign/mission_screen" branch="true"/>
 		<child widget="main_menu/multiplayer_type_select/coop/list_item_0" x="20" y="73"/>
 		<child widget="main_menu/multiplayer_type_select/coop/list_item_1" x="20" y="103"/>
 		<child widget="main_menu/multiplayer_type_select/coop/list_item_2" x="20" y="133"/>

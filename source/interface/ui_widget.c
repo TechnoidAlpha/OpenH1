@@ -8142,6 +8142,9 @@ static void widget_instance_render_recursive(
 			}
 			else if (shown)
 			{
+				/* port: a scaled frame of ui.map's faded by its widget (the
+				campaign's badges not earned: menu_functions.c) drawn without
+				the plasma's combiners, which leave out the colour's alpha */
 				draw_bitmap_in_rect(
 					bitmap,
 					&bounds,
@@ -8149,7 +8152,7 @@ static void widget_instance_render_recursive(
 					clip,
 					color,
 					&multitexture_params,
-					FALSE);
+					placed && alpha < 1.0f && !use_nifty_plasma_fx);
 			}
 		}
 		if (use_nifty_plasma_fx)
