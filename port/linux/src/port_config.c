@@ -836,14 +836,14 @@ static const struct config_setting config_settings[] =
 		"Moving the mouse forward looks down." },
 	{ "network.block_mouse_aim_assist", _config_boolean, "false", "HALO_NET_BLOCK_MOUSE_AIM_ASSIST", _environment_value,
 		_platform_all, "Host: disable optional mouse magnetism for mouse/keyboard players. Controllers and touch keep their own assist." },
-	{ "network.shield_effects", _config_string, "\"stock\"", "HALO_NET_SHIELD_EFFECTS", _environment_value, _platform_all,
+	{ "network.shield_effects", _config_string, "\"overshield\"", "HALO_NET_SHIELD_EFFECTS", _environment_value, _platform_all,
 		"Host: the shield effects every player of a network game sees, whatever\n"
-		"their own: \"stock\", \"glow\", \"light_show\", \"overshield\",\n"
-		"\"glow_overshield\" or \"light_show_overshield\" (display.shield_glow,\n"
-		"its light_show intensity, display.overshield_effect); \"players\": not\n"
-		"synced, each player sees their own settings'. An online co-op game is\n"
-		"always each player's own. SHIELD EFFECTS in Server Setup > Player\n"
-		"Options writes its choice here." },
+		"their own: \"stock\", \"glow\", \"light_show\", \"overshield\" (the\n"
+		"default), \"glow_overshield\" or \"light_show_overshield\"\n"
+		"(display.shield_glow, its light_show intensity,\n"
+		"display.overshield_effect); \"players\": not synced, each player sees\n"
+		"their own settings'. An online co-op game is always each player's own.\n"
+		"SHIELD EFFECTS in Server Setup > Player Options writes its choice here." },
 	{ "network.fire_origins", _config_boolean, "true", "HALO_NET_FIRE_ORIGINS", _environment_value, _platform_all,
 		"Host: whether a reported hit the shooter's camera had no line of sight\n"
 		"to may still count from where their machine says the shot left, when\n"
@@ -1052,7 +1052,8 @@ static const struct config_setting config_settings[] =
 	{ "display.viewmodel_shield", _config_boolean, "false", "HALO_VIEWMODEL_SHIELD", _environment_value, _platform_all,
 		"The energy shield's flare on the first-person arms too, as on the body\n"
 		"(the stock game draws it on the body only): it shows as the shield\n"
-		"takes hits and fades after them; a full shield untouched shows none." },
+		"takes hits and fades after them; a full shield untouched shows none.\n"
+		"An overshield stays lit on the arms with display.overshield_effect." },
 #ifdef HALO_VR
 	/* (the VR build's on: in the headset, your body under you, port/linux/README.md "Your body") */
 	{ "display.first_person_legs", _config_boolean, "true", "HALO_FIRST_PERSON_LEGS", _environment_value, _platform_all,
@@ -1061,14 +1062,15 @@ static const struct config_setting config_settings[] =
 #endif
 		"Your own legs in first person, seen looking down: your body as others\n"
 		"see it, drawn from the waist down, moving as it moves." },
-	{ "display.overshield_effect", _config_boolean, "false", "HALO_OVERSHIELD_EFFECT", _environment_value, _platform_all,
-		"The overshield as this machine draws it: its flare rising up the body as\n"
-		"it charges (2 seconds, 3 from a shield that was down) and staying lit,\n"
-		"its energy slower, in its own color (the powerup's), on the first-person\n"
-		"arms too with viewmodel_shield; a hit on it plays what the projectile\n"
-		"plays on an Elite's shield. Only what is drawn and heard changes.\n"
-		"In a network game, the host's network.shield_effects decides, unless\n"
-		"it is \"players\" (each player's own) or the game is co-op." },
+	{ "display.overshield_effect", _config_boolean, "true", "HALO_OVERSHIELD_EFFECT", _environment_value, _platform_all,
+		"The overshield as this machine draws it: its flare lit as it charges\n"
+		"and staying lit for as long as it lasts, its energy slower, in its own\n"
+		"color (the powerup's), on the first-person arms too with\n"
+		"viewmodel_shield; a hit on it plays what the projectile plays on an\n"
+		"Elite's shield. Only what is drawn and heard changes. false: as the\n"
+		"stock game draws it (no flare of its own). In a network game, the\n"
+		"host's network.shield_effects decides, unless it is \"players\" (each\n"
+		"player's own) or the game is co-op." },
 	{ "display.shield_glow", _config_boolean, "false", "HALO_SHIELD_GLOW", _environment_value, _platform_all,
 		"Energy shields light what is around them as they flare, as plasma\n"
 		"does, in the shield's own color. In a network game, the host's\n"
