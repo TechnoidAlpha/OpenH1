@@ -443,7 +443,7 @@ void menu_picture_frame(
 static struct
 {
 	pthread_mutex_t lock;
-	int started;
+	int started, enabled;
 	char folder[1024];
 	/* each pose's picture, as the main menu found it */
 	struct menu_picture_state
@@ -1085,13 +1085,17 @@ void menu_pictures_update(
 {
 	long pose, scale;
 
-	if (!picture_enabled())
-		return;
+	/* (decided once: none of these is changed by a menu; in a game, nothing
+	to do but a copy's end) */
 	if (!menu_pictures.started)
 	{
 		menu_pictures.started = 1;
-		mkdir(picture_folder(), 0755);
+		menu_pictures.enabled = picture_enabled();
+		if (menu_pictures.enabled)
+			mkdir(picture_folder(), 0755);
 	}
+	if (!menu_pictures.enabled || (!main_menu_loaded && !menu_pictures.worker && !menu_pictures.menu_since))
+		return;
 	/* (a larger screen: each picture looked at again) */
 	scale = menu_picture_scale_for_height((long)(480.0f * halo_screen_pixel_scale() + 0.5f));
 	if (scale > menu_pictures.wanted_scale)

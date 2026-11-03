@@ -14,11 +14,14 @@ In a copy started to render a picture (debug.render_picture), each frame
 (main.c) takes it a step: in the main menu, the original frame's texels
 kept for its colours and the pose's map loaded (map_name); its checksum
 checked against the pose's (another is a modded map: noted, and the copy
-ends); the map let run until a cinematic is skipped and its first frames
-are drawn; then the scene set from the console, a line a frame, as the
-pose was found with (tools/preview_rerender/game.py): no console text, HUD,
-help text, letterbox or AI, the player's body gone, the world stopped
-(game_speed 0); the pose's structure (always: a map may start in another),
+ends); the map let run until no cinematic has run for a few seconds (its
+opening skipped, debug.skip_cinematics; a10's waits for the player, so at
+most 20 seconds); then the scene set from the console, a line a frame, as
+the pose was found with (tools/preview_rerender/game.py): no console text,
+HUD, help text or AI, a cinematic still running stopped, the player's body
+gone, the world stopped (game_speed 0) and whatever a cinematic its scripts
+started meanwhile left on the screen cleared (its letterbox and titles,
+which go only as the world's time passes); the pose's structure (always: a map may start in another),
 its own lines and objects (the world let run a moment for them to settle);
 the camera put at the pose (debug_camera_set, camera_pose.c), and frames
 drawn there until the textures it sees have loaded; then the frame kept
