@@ -5485,6 +5485,20 @@ static boolean widget_instance_text_box_is_focused(
 	return focused;
 }
 
+/* port: whether the widget and each of its parents is its parent's focused
+child, up to the screen: on the path the focus takes, not only focused
+within its parent, which a widget no longer on the path stays */
+static boolean widget_instance_port_on_focus_path(
+	struct widget_instance *widget)
+{
+	for (; widget && widget->parent; widget = widget->parent)
+	{
+		if (widget->parent->focused_child != widget)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static boolean string_has_icons_to_draw(
 	wchar_t *string)
 {
@@ -8187,12 +8201,17 @@ static void widget_instance_render_recursive(
 		break;
 
 	case _ui_widget_type_spinner_list:
+		/* port: drawn focused (its text white) only on the screen's focus
+		path: a row of the port's settings is a container whose spinner is
+		its focused child from its creation on, so every row's value was
+		white until the focus had passed through it
+		(widget_instance_port_on_focus_path) */
 		widget_instance_render_spinner_list(
 			widget,
 			definition,
 			clip_rect,
 			offset,
-			focus);
+			focus && widget_instance_port_on_focus_path(widget));
 		if (TEST_FLAG(
 				definition->list_flags,
 				_list_items_generated_from_string_list_tag) &&
