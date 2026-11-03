@@ -4786,9 +4786,8 @@ unsigned long xgpu_screenshot_number(void)
 	return device.frame;
 }
 
-/* port/linux/src/dsound_sdl.c: a frame's sound owed to a mix paced by the
-frames (debug.audio_record with debug.frame_time), and the sound recorded */
-void dsound_sdl_frame(double seconds);
+/* port/linux/src/dsound_sdl.c: the sound recorded (debug.audio_record; with
+the frames' time fixed, mixed in step with them: frames_clock.c) */
 unsigned long dsound_sdl_recorded_frames(void);
 
 /* debug.screenshot_stream: each frame's pixels (BGRA, top row first, no
@@ -5220,12 +5219,6 @@ static BOOL screenshot_this_frame(void)
 void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destination_rectangle,
 	void *unused, void *unused2)
 {
-	static double frame_time = -1.0;
-
-	if (frame_time < 0.0)
-		frame_time = config_real("debug.frame_time");
-	if (frame_time > 0.0)
-		dsound_sdl_frame(frame_time);
 	(void)source_rectangle;
 	(void)destination_rectangle;
 	(void)unused;

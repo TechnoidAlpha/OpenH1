@@ -80,6 +80,12 @@ char const *pc_menus_screen(char const *name);
 /* debug.fixed_step: a game of this machine alone runs a tick a frame
 (port/linux/src/port_config.c; game_time.c, main.c) */
 int halo_fixed_step(void);
+/* the frames' clock, with each frame's time fixed (debug.frame_time,
+debug.fixed_step): whether, and the frames' time since the start in
+milliseconds; and each frame's time, which main.c gives it
+(port/linux/game/frames_clock.c) */
+int frames_clock(unsigned long *milliseconds);
+void frames_clock_frame(double seconds);
 /* debug.trace, the scorecard's per-step log (port/linux/game/sim_trace.c):
 each simulation step (the tick it ran, the sub-step's index in the tick and
 the sub-steps a tick, 0 and 1 at 30 Hz: game_time.c after each tick, for

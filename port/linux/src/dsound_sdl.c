@@ -2826,11 +2826,13 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
 }
 
 /* without a device, drain voices in real time */
-/* debug.audio_record with debug.frame_time (footage: the frames drawn at
-a fixed time each, slower or faster than the clock): the mix paced by the
-frames instead, each drawn frame owing its time's sound, which the frame
-waits to be mixed (dsound_sdl_frame), so that the recording keeps step with
-the pictures */
+/* the frames' time fixed (debug.frame_time, debug.fixed_step: footage, the
+frames drawn at a fixed time each, slower or faster than the clock, and the
+tests): the mix paced by the frames instead, with no device, each frame
+owing its time's sound, which the frame waits to be mixed (dsound_sdl_frame),
+so that a recording keeps step with the pictures and two runs of the same
+input hear the same (port/linux/game/frames_clock.c) */
+int frames_clock(unsigned long *milliseconds);
 static BOOL paced;
 static pthread_mutex_t paced_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t paced_condition = PTHREAD_COND_INITIALIZER;
@@ -2869,7 +2871,7 @@ static void *silent_clock_thread(void *parameter)
 	return NULL;
 }
 
-/* (the presenting thread, each frame drawn) its time's sound owed to a
+/* (the main thread, each frame: frames_clock.c) its time's sound owed to a
 paced mix, waited for */
 void dsound_sdl_frame(double seconds)
 {
@@ -3113,9 +3115,9 @@ static void audio_start(void)
 	reverb_initialize();
 	hrtf_initialize();
 	record_open();
-	paced = record_file && config_real("debug.frame_time") > 0.0;
+	paced = frames_clock(NULL);
 	if (paced)
-		platform_log("sound: recorded in step with the frames (debug.frame_time), no device");
+		platform_log("sound: mixed in step with the frames (debug.frame_time, debug.fixed_step), no device");
 
 	if (!paced && config_boolean("audio.enabled") && platform_sdl_initialize())
 	{

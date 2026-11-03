@@ -3785,6 +3785,9 @@ void main_loop(
 			{
 				profile_scope(main_update_time_section, main_update_time();)
 			}
+			/* port: with the frames' time fixed, the sound's clock and its mix
+			keep step with the frames (port/linux/game/frames_clock.c) */
+			frames_clock_frame(main_globals.seconds_elapsed);
 			profile_scope_enter(main_ui_update_section)
 			process_ui_widgets();
 			bink_playback_update();
