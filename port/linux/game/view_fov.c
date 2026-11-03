@@ -461,7 +461,7 @@ static real viewmodel_offset_axis(char const *name)
 		centimeters = VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS;
 	else if (centimeters < -VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS)
 		centimeters = -VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS;
-	else if (!(centimeters == centimeters))
+	else if (!(centimeters >= -VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS))
 		centimeters = 0.0;
 	return (real)(centimeters / CENTIMETERS_PER_WORLD_UNIT);
 }

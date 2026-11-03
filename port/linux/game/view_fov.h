@@ -32,7 +32,8 @@ void viewmodel_projection_end(void);
 /* where the first-person weapon and hands are drawn (display.viewmodel_offset_x,
 _y and _z): this weapon's offset along the view's right, up and forward, in
 world units (every weapon's, for now); FALSE when it has none */
-boolean viewmodel_offset(long weapon_index, real_vector3d *offset);
+union real_vector3d;
+boolean viewmodel_offset(long weapon_index, union real_vector3d *offset);
 /* the weapon's and hands' node matrices, built at the camera, moved by that
 offset: what is drawn and the markers the muzzle's effects, the shells and
 the lights are placed at, together */
