@@ -901,7 +901,8 @@ short model_find_marker(
 				{
 #ifdef HALO_PORT_CACHE_CHECK
 					/* (-DHALO_PORT_CACHE_CHECK: each kept answer searched for again) */
-					model_port_marker_checked++;
+					if (!(++model_port_marker_checked % 1000000))
+						error(_error_silent, "model_find_marker: %lu kept answers checked", model_port_marker_checked);
 					if (entry->marker_index != model_find_marker_search(model_index, name))
 					{
 						error(_error_silent, "model_find_marker: kept #%d for %s, search finds #%d",

@@ -797,7 +797,8 @@ short structure_clusters_in_sphere(
 						intersected_indices[index] = entry->cluster_indices[index];
 #ifdef HALO_PORT_CACHE_CHECK
 					/* (-DHALO_PORT_CACHE_CHECK: each kept answer found again) */
-					structure_port_sphere_checked++;
+					if (!(++structure_port_sphere_checked % 1000000))
+						error(_error_silent, "structure_clusters_in_sphere: %lu kept answers checked", structure_port_sphere_checked);
 					{
 						short found_indices[STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS];
 						short found_count;
