@@ -1300,6 +1300,12 @@ long scenario_tags_load(
 
 				menu_tags_loaded(cache_file_globals.header.name);
 			}
+			/* (the saving screens, as below) */
+			{
+				extern void saving_screens_tags_loaded(void);
+
+				saving_screens_tags_loaded();
+			}
 			/* port: register CE HUD bitmaps before mods replace their tags
 			(port/linux/game/hud_hires_tags.c), as for Xbox maps below. */
 			{
@@ -1412,6 +1418,13 @@ long scenario_tags_load(
 				extern void menu_tags_loaded(char const *map_name);
 
 				menu_tags_loaded(cache_file_globals.header.name);
+			}
+			/* port: the saving screens' waits skipped
+			(port/linux/game/saving_screens.c) */
+			{
+				extern void saving_screens_tags_loaded(void);
+
+				saving_screens_tags_loaded();
 			}
 			/* port: the bitmaps the high-res HUD stands for (port/linux/game/hud_hires_tags.c) */
 			{
