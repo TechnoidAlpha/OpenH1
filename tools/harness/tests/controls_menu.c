@@ -163,7 +163,7 @@ static void setup(void)
 			.next = &bindings[index][0] };
 		bindings[index][0] = (struct widget_instance){ .name = "command_binding", .horizontal_offset = 200,
 			.parent = &rows[index], .next = &bindings[index][1] };
-		bindings[index][1] = (struct widget_instance){ .name = "command_binding", .horizontal_offset = 356,
+		bindings[index][1] = (struct widget_instance){ .name = "command_binding_second", .horizontal_offset = 356,
 			.parent = &rows[index] };
 		for (slot = 0; slot < CONTROL_BINDINGS; slot++)
 			snprintf(controls_screen.bindings[index][slot], CONTROL_NAME_LENGTH, "%c%d", 'A' + index, slot);
@@ -254,18 +254,18 @@ int main(int argc, char **argv)
 	{
 		setup();
 		controls_update(&list);
-		CHECK(shows(1, 0, L"> B0 <") && shows(1, 1, L"B1"), "at first: %ls | %ls", bindings[1][0].shown,
+		CHECK(shows(1, 0, L"[ B0 ]") && shows(1, 1, L"B1"), "at first: %ls | %ls", bindings[1][0].shown,
 			bindings[1][1].shown);
 		pointed = TRUE;
 		point_x = 54 + 356 + 100;
 		controls_update(&list);
 		CHECK(controls_screen.slot == 1, "over the second binding: slot %d", controls_screen.slot);
-		CHECK(shows(1, 0, L"B0") && shows(1, 1, L"> B1 <"), "over the second: %ls | %ls", bindings[1][0].shown,
+		CHECK(shows(1, 0, L"B0") && shows(1, 1, L"[ B1 ]"), "over the second: %ls | %ls", bindings[1][0].shown,
 			bindings[1][1].shown);
 		pointed = TRUE;
 		point_x = 54 + 210;
 		controls_update(&list);
-		CHECK(controls_screen.slot == 0 && shows(1, 0, L"> B0 <"), "over the first binding: slot %d",
+		CHECK(controls_screen.slot == 0 && shows(1, 0, L"[ B0 ]"), "over the first binding: slot %d",
 			controls_screen.slot);
 		/* (no new place: the keys' choice stays) */
 		controls_screen.slot = 1;
@@ -300,10 +300,7 @@ int main(int argc, char **argv)
 	key it is, as a control that is not the game's (SHOW SCORES, 15) */
 	if (!strcmp(case_name, "keep-a-key"))
 	{
-		static struct widget_instance help = { .name = "help" };
-
 		setup();
-		list.parameters.list.extended_description = &help;
 		controls_screen.bindings[0][1][0] = 0;
 		/* MOVE FORWARD's only key, for MOVE BACKWARD */
 		set_binding(1, 0, 1, "A0");
@@ -311,12 +308,10 @@ int main(int argc, char **argv)
 			"the only key was taken: %s | %s", controls_screen.bindings[0][0], controls_screen.bindings[1][0]);
 		CHECK(error_sounds == 1, "%d error sounds", error_sounds);
 		controls_update(&list);
-		CHECK(list.parameters.list.extended_description->parameters.text_box.string_list_index == 3,
-			"the help is %d, not why", list.parameters.list.extended_description->parameters.text_box.string_list_index);
+		CHECK(controls_help_index() == 2, "the help is %d, not why", controls_help_index());
 		now_ms += 5000;
 		controls_update(&list);
-		CHECK(list.parameters.list.extended_description->parameters.text_box.string_list_index == 1,
-			"the why stayed: %d", list.parameters.list.extended_description->parameters.text_box.string_list_index);
+		CHECK(controls_help_index() == 0, "the why stayed: %d", controls_help_index());
 		/* cleared */
 		set_binding(0, 0, 2, "");
 		CHECK(!strcmp(controls_screen.bindings[0][0], "A0") && error_sounds == 2, "the only key was cleared");

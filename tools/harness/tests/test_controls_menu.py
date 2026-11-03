@@ -1,4 +1,4 @@
-"""Controls Setup's rows (port/linux/game/menu_functions.c's control_capture_begin and controls_update): each control's
+"""Key Bindings' rows (port/linux/game/menu_functions.c's control_capture_begin and controls_update): each control's
 two bindings, the one set chosen by left and right, by a click on it, or by the pointer over it (ui_widget.c's
 ui_widget_port_take_click and ui_widget_port_take_point), where the bindings are drawn (the wide layout's move too)."""
 
@@ -29,7 +29,7 @@ NEGATIVE_CONTROLS = {
     # every control the game's
     "all-essential": (("\tif (!controls[control].essential)\n\t\treturn FALSE;\n", ""), "keep-a-key"),
     # no why
-    "refusal-unexplained": (("refused ? 3 : ", ""), "keep-a-key"),
+    "refusal-unexplained": (("refused ? 2 : ", ""), "keep-a-key"),
 }
 
 
@@ -38,8 +38,9 @@ def generated(fault=None):
     start = menus.index("#define CONTROL_BINDINGS")
     declarations = menus[start:menus.index("/* a setting's bindings", start)]
     code = declarations + "\n\n" + "\n\n".join(function(menus, name) for name in (
-        "widget_screen_x", "control_row", "control_of_row", "control_slot_at", "control_capture_begin",
-        "control_left_without_key", "control_refuse", "control_capture_poll", "controls_update"))
+        "widget_screen_x", "control_row", "control_of_row", "control_binding_box", "control_slot_at",
+        "control_capture_begin", "control_left_without_key", "control_refuse", "control_capture_poll",
+        "controls_update", "controls_help_index"))
     if fault:
         code = mutated(code, *fault)
     return (("under_test.inc", code),)
@@ -59,8 +60,11 @@ def test_negative_control(control):
 
 
 def test_rows_layout():
-    """The screen's rows have their two bindings where the test has them, and A (a click's too) begins a binding."""
+    """Key Bindings' rows have their two bindings, the first left of the second, and A (a click's too) begins a
+    binding."""
     text = read("port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit.controls_setup.xml")
     row = re.search(r'<widget name="[^"]*/op_command_1"[^>]*>(.*?)</widget>', text, re.S).group(1)
     assert '<on event="a" run="controls begin binding"/>' in row
-    assert re.findall(r'<child widget="[^"]*/command_binding" x="(\d+)"/>', row) == ["200", "356"]
+    first = re.findall(r'<child widget="[^"]*/command_binding" x="(\d+)"/>', row)
+    second = re.findall(r'<child widget="[^"]*/command_binding_second" x="(\d+)"/>', row)
+    assert len(first) == 1 and len(second) == 1 and int(first[0]) < int(second[0])

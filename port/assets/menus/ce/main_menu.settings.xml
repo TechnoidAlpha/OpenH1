@@ -116,4 +116,8 @@
 		<string text="CLASSIC"/>
 		<string text="ENHANCED"/>
 	</strings>
+	<widget name="main_menu/settings/stepped_left" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_left" wide="120 0">
+	</widget>
+	<widget name="main_menu/settings/stepped_right" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_right" wide="120 0">
+	</widget>
 </menus>
