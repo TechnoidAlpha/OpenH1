@@ -1990,6 +1990,13 @@ static const struct config_setting config_settings[] =
 		"state too, counted as logged from 1, to <log>.<count>.bin (and its first\n"
 		"frame to <log>.<count>.bmp), to find where two runs' game states differ;\n"
 		"0 none." },
+	{ "debug.fresh_memory_fill", _config_string, "\"\"", "HALO_FRESH_MEMORY_FILL", _environment_value, _platform_all,
+		"\"zero\" or \"pattern\" (0xAA): fill what the allocators give out\n"
+		"without clearing it (the game state's and the caches' memory, the\n"
+		"game's malloc and realloc, GlobalAlloc) with that, to find reads of\n"
+		"memory never written: two runs, one of each, compared with\n"
+		"tools/determinism_compare.py, part where one reaches the game; empty\n"
+		"as the game always has (the game's malloc fills with 0xCA)." },
 	{ "debug.frame_time", _config_real, "0.0", "HALO_FRAME_TIME", _environment_value, _platform_all,
 		"Seconds of game time each frame runs, whatever time it took, so that two\n"
 		"runs of the same input run the same frames (the determinism check),\n"
@@ -4523,6 +4530,19 @@ int halo_fixed_step(void)
 	if (fixed_step < 0)
 		fixed_step = config_boolean("debug.fixed_step") != 0;
 	return fixed_step;
+}
+
+int halo_fresh_memory_fill(void)
+{
+	static int fill = -2;
+
+	if (fill == -2)
+	{
+		const char *value = config_string("debug.fresh_memory_fill");
+
+		fill = !strcmp(value, "zero") ? 0x00 : !strcmp(value, "pattern") ? 0xAA : -1;
+	}
+	return fill;
 }
 
 long config_integer(const char *name)
