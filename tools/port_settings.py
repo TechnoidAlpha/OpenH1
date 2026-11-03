@@ -5668,6 +5668,8 @@ CAMPAIGN_ACCENT = "#FF4FB3FF"
 CAMPAIGN_TEXT = "#FFD6E9FF"
 CAMPAIGN_DIM = "#FF8FB3D3"
 CAMPAIGN_NEW = "#FFF2B34A"
+# the missions' names: the menus' heading font (menu_tags.c's pc\\heading, OpenCE)
+CAMPAIGN_TITLE_FONT = "heading"
 # CONTINUE's picture of the saved game's mission, at its left
 CONTINUE_ART_WIDTH = 50
 # the levels' pictures (ui.map's sp_levels: the ten levels', then a level
@@ -5922,7 +5924,7 @@ def _campaign_menu() -> list:
                          []), "panel_art_corners")
     lines += add(_campaign_text(f"{CAMPAIGN}/panel_number", x, top + 158, inner, 16, "ui\\small_ui", CAMPAIGN_DIM,
                                 wide_layout=grown), "panel_number")
-    lines += add(_campaign_text(f"{CAMPAIGN}/panel_title", x, top + 173, inner, 24, "ui\\large_ui", "#FFFFFFFF",
+    lines += add(_campaign_text(f"{CAMPAIGN}/panel_title", x, top + 173, inner, 24, CAMPAIGN_TITLE_FONT, "#FFFFFFFF",
                                 wide_layout=grown), "panel_title")
     lines += add(_campaign_text(f"{CAMPAIGN}/panel_status", x, top + 197, inner, 18, "ui\\small_ui", CAMPAIGN_ACCENT,
                                 wide_layout=grown), "panel_status")
@@ -5951,8 +5953,8 @@ def _mission_card(size: tuple, slot: int) -> list:
     inset = MISSION_ART_INSET
     badge, step = MISSION_BADGE[size]
     text_top = inset + art_h + 6
-    # (the cards beside the chosen one smaller, their names too, as the design has them)
-    font = "ui\\large_ui" if size == MISSION_BIG else "ui\\small_ui"
+    # (the missions' names in the menus' heading font: OpenCE, the titles' face)
+    font = CAMPAIGN_TITLE_FONT if size == MISSION_BIG else "ui\\small_ui"
     children = [f'<child widget="{CAMPAIGN}/{name}_{kind}"/>' for name in
                 ("card_art_back", "card_art", "card_custom_art", "card_art_corners", "card_card_tag",
                  "card_card_title", "card_resume",
@@ -6101,7 +6103,7 @@ def _missions() -> list:
              ("detail_title", "detail_objective", "detail_status", "detail_status_new", "detail_beaten")]
     panel += [f'<child widget="{base}/detail_{part}" x="{step * index}"/>' for index in range(4)
               for part in ("badge_shape", "badge", "badge_name")]
-    lines += _campaign_text(f"{base}/detail_title", left + 14, top + 4, 276, 22, "ui\\large_ui", "#FFFFFFFF",
+    lines += _campaign_text(f"{base}/detail_title", left + 14, top + 4, 276, 22, CAMPAIGN_TITLE_FONT, "#FFFFFFFF",
                             wide_layout=wide(0, WIDE_EXTRA))
     lines += _campaign_text(f"{base}/detail_objective", left + 14, top + 24, 276, 26, "ui\\small_ui", SETTINGS_BLUE,
                             wide_layout=wide(0, WIDE_EXTRA))

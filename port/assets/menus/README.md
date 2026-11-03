@@ -129,7 +129,7 @@ be a child of many).
 | `bitmap` | Its background: a `<bitmap>` |
 | `string_list`, `string_index` | Its text: a `<strings>` and the number in it |
 | `text` | Its text, given here |
-| `font` | `large`, `small`, `terminal`, or a font tag of the map |
+| `font` | `large`, `small`, `terminal`, `heading` (the port's: `large`'s measures, drawn in OpenCE by the high-res text; `large` where the map has no `large_ui`), or a font tag of the map |
 | `color` | The text's colour, `#RRGGBB` or `#AARRGGBB`. Focused text is white. |
 | `align`, `text_x`, `text_y` | `left`, `right` or `center`, and where the text starts in it |
 | `text_flags` | `editable`, `password`, `flashing`, `no_focus_test` |

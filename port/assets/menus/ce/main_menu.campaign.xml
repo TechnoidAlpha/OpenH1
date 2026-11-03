@@ -68,7 +68,7 @@
 	</widget>
 	<widget name="main_menu/campaign/panel_number" type="text" controller="1" left="330" top="238" width="268" height="16" font="ui\small_ui" color="#FF8FB3D3" wide="0 132" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/panel_title" type="text" controller="1" left="330" top="253" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/panel_title" type="text" controller="1" left="330" top="253" width="268" height="24" font="heading" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/panel_status" type="text" controller="1" left="330" top="277" width="268" height="18" font="ui\small_ui" color="#FF4FB3FF" wide="0 132" text_flags="no_focus_test">
 	</widget>
@@ -221,13 +221,13 @@
 	</widget>
 	<widget name="main_menu/campaign/card_card_tag_big" type="text" controller="1" left="16" top="77" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_card_title_big" type="text" controller="1" left="16" top="95" width="126" height="26" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_card_title_big" type="text" controller="1" left="16" top="95" width="126" height="26" font="heading" color="#FFFFFFFF" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/card_resume_big" type="text" controller="1" left="14" top="14" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/card_number_big" type="text" controller="1" left="10" top="131" width="138" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_title_big" type="text" controller="1" left="10" top="147" width="138" height="46" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_title_big" type="text" controller="1" left="10" top="147" width="138" height="46" font="heading" color="#FFFFFFFF" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/card_badge_shape_big" controller="1" top="193" width="36" height="36" bitmap="main_menu/campaign/badge_shape_36">
 	</widget>
@@ -444,7 +444,7 @@
 	</widget>
 	<widget name="main_menu/campaign/mission_dot_15" controller="1" left="460" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
 	</widget>
-	<widget name="main_menu/campaign/detail_title" type="text" controller="1" left="42" top="344" width="276" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 212" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/detail_title" type="text" controller="1" left="42" top="344" width="276" height="22" font="heading" color="#FFFFFFFF" wide="0 212" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/detail_objective" type="text" controller="1" left="42" top="364" width="276" height="26" font="ui\small_ui" color="#FF2896FF" wide="0 212" text_flags="no_focus_test">
 	</widget>
