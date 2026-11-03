@@ -5,7 +5,6 @@ bringing the reticle back to the middle, nothing turned off or away from the pla
 the view alone turns (main.c), never the observer, the aim or anything the simulation reads; the HUD and the weapon;
 the settings' rows, sliders and defaults."""
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -102,9 +101,12 @@ def test_called_only_by_the_drawing():
     # for the lowered view: only the window's camera, the HUD's reticle and the first-person weapon's pose
     names = ["lowered_reticle_view", "lowered_reticle_lift", "lowered_reticle_screen_offset",
              "lowered_reticle_offset_point", "lowered_reticle_aim_camera"]
-    found = subprocess.run(["git", "grep", "-l", "-w", *[part for name in names for part in ("-e", name)], "--",
-                            "*.c", "*.h"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split()
-    assert sorted(name for name in found if not name.startswith("tools/")) == [
+    # (the sources read from the tree: CI's checkout is not always one that can be searched with its tools)
+    called = re.compile(r"\b(?:" + "|".join(names) + r")\b")
+    found = [path.relative_to(ROOT).as_posix() for folder in ("source", "port")
+             for path in sorted((ROOT / folder).rglob("*")) if path.suffix in (".c", ".h", ".m") and path.is_file() and
+             called.search(path.read_text(encoding="latin-1"))]
+    assert sorted(found) == [
         "port/linux/game/lowered_reticle.c", "port/linux/game/lowered_reticle.h",
         "source/interface/first_person_weapons.c",
         "source/interface/hud_draw.c", "source/main/main.c"]
