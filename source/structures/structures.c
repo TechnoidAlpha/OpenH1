@@ -239,12 +239,13 @@ bit for bit), the most asked for and the current bsp alone: the walk's marks
 are only compared with the walk's own marker, and nothing of it is in the
 game state. So a sphere asked again is answered with what was found, the
 count as it was (more than were asked for, if so) and the clusters that
-were written. A new bsp, or none, forgets them all
+were written; a sphere that reaches more clusters than an entry holds is
+walked each time. A new bsp, or none, forgets them all
 (structure_port_clusters_forget). Not in the game state. */
 enum
 {
 	STRUCTURE_PORT_SPHERE_CACHE_SIZE = 1024,
-	STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS = 64,
+	STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS = 10,
 };
 
 struct structure_port_sphere_entry
@@ -262,6 +263,7 @@ static struct structure_port_sphere_entry structure_port_sphere_cache[STRUCTURE_
 static unsigned long structure_port_sphere_generation = 1;
 #ifdef HALO_PORT_CACHE_CHECK
 static unsigned long structure_port_sphere_checked;
+static unsigned long structure_port_sphere_asked;
 #endif
 
 boolean debug_fog_planes;
@@ -273,7 +275,7 @@ void structure_port_clusters_forget(
 	void)
 {
 #ifdef HALO_PORT_CACHE_CHECK
-	error(_error_silent, "structure_clusters_in_sphere: %lu kept answers checked", structure_port_sphere_checked);
+	error(_error_silent, "structure_clusters_in_sphere: %lu kept answers checked, of %lu asked", structure_port_sphere_checked, structure_port_sphere_asked);
 #endif
 	structure_port_sphere_generation++;
 	if (!structure_port_sphere_generation)
@@ -764,7 +766,7 @@ short structure_clusters_in_sphere(
 		if (radius > 0.0f)
 		{
 			/* port: (or as found before: structure_port_sphere_cache) */
-			struct structure_port_sphere_entry *entry = NULL;
+			struct structure_port_sphere_entry *entry;
 			union
 			{
 				real value;
@@ -776,13 +778,15 @@ short structure_clusters_in_sphere(
 			key[1].value = position->y;
 			key[2].value = position->z;
 			key[3].value = radius;
-			if (maximum_count <= STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS)
 			{
 				unsigned long hash = (unsigned long)cluster_index * 0x9E3779B1UL ^ (unsigned long)maximum_count;
 
 				for (index = 0; index < 4; index++)
 					hash = (hash ^ key[index].bits) * 0x01000193UL;
 				entry = &structure_port_sphere_cache[(hash ^ (hash >> 16)) & (STRUCTURE_PORT_SPHERE_CACHE_SIZE - 1)];
+#ifdef HALO_PORT_CACHE_CHECK
+			structure_port_sphere_asked++;
+#endif
 				if (entry->generation == structure_port_sphere_generation &&
 					entry->cluster_index == cluster_index &&
 					entry->maximum_count == maximum_count &&
@@ -798,9 +802,9 @@ short structure_clusters_in_sphere(
 #ifdef HALO_PORT_CACHE_CHECK
 					/* (-DHALO_PORT_CACHE_CHECK: each kept answer found again) */
 					if (!(++structure_port_sphere_checked % 1000000))
-						error(_error_silent, "structure_clusters_in_sphere: %lu kept answers checked", structure_port_sphere_checked);
+						error(_error_silent, "structure_clusters_in_sphere: %lu kept answers checked, of %lu asked", structure_port_sphere_checked, structure_port_sphere_asked);
 					{
-						short found_indices[STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS];
+						short found_indices[MAXIMUM_CLUSTERS_PER_STRUCTURE];
 						short found_count;
 
 						structure_cluster_marker_begin();
@@ -831,7 +835,7 @@ short structure_clusters_in_sphere(
 				maximum_count,
 				intersected_indices);
 			structure_cluster_marker_end();
-			if (entry)
+			if (MIN(cluster_count, maximum_count) <= STRUCTURE_PORT_SPHERE_CACHE_CLUSTERS)
 			{
 				short written = MIN(cluster_count, maximum_count);
 

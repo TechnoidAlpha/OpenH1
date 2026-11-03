@@ -287,7 +287,7 @@ tags don't change while it plays, and a new map forgets them all
 for each time. Not in the game state. */
 enum
 {
-	MODEL_PORT_MARKER_CACHE_SIZE = 4096,
+	MODEL_PORT_MARKER_CACHE_SIZE = 1024,
 	MODEL_PORT_MARKER_NAME_WORDS = 8,
 };
 
@@ -305,6 +305,7 @@ static struct model_port_marker_entry model_port_marker_cache[MODEL_PORT_MARKER_
 static unsigned long model_port_marker_generation = 1;
 #ifdef HALO_PORT_CACHE_CHECK
 static unsigned long model_port_marker_checked;
+static unsigned long model_port_marker_asked;
 #endif
 
 /* ---------- private code */
@@ -855,7 +856,7 @@ void model_port_markers_forget(
 	void)
 {
 #ifdef HALO_PORT_CACHE_CHECK
-	error(_error_silent, "model_find_marker: %lu kept answers checked", model_port_marker_checked);
+	error(_error_silent, "model_find_marker: %lu kept answers checked, of %lu asked", model_port_marker_checked, model_port_marker_asked);
 #endif
 	model_port_marker_generation++;
 	if (!model_port_marker_generation)
@@ -889,6 +890,9 @@ short model_find_marker(
 				&model_port_marker_cache[(hash ^ (hash >> 15)) & (MODEL_PORT_MARKER_CACHE_SIZE - 1)];
 			short word;
 
+#ifdef HALO_PORT_CACHE_CHECK
+			model_port_marker_asked++;
+#endif
 			if (entry->generation == model_port_marker_generation &&
 				entry->model_index == model_index &&
 				entry->markers == model->markers.address &&
@@ -902,7 +906,7 @@ short model_find_marker(
 #ifdef HALO_PORT_CACHE_CHECK
 					/* (-DHALO_PORT_CACHE_CHECK: each kept answer searched for again) */
 					if (!(++model_port_marker_checked % 1000000))
-						error(_error_silent, "model_find_marker: %lu kept answers checked", model_port_marker_checked);
+						error(_error_silent, "model_find_marker: %lu kept answers checked, of %lu asked", model_port_marker_checked, model_port_marker_asked);
 					if (entry->marker_index != model_find_marker_search(model_index, name))
 					{
 						error(_error_silent, "model_find_marker: kept #%d for %s, search finds #%d",
