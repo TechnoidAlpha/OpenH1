@@ -1787,13 +1787,12 @@ static void gamma_row_show(struct widget_instance *list)
 #endif
 }
 
-/* First Person's Panini Projection (display.panini, port/linux/game/panini.c),
-Panini Strength and Panini Vertical: none in the VR build, which never draws
-through it */
+/* First Person's Panini Projection (display.panini, port/linux/game/panini.c)
+and Panini Vertical: none in the VR build, which never draws through it */
 static void panini_rows_show(struct widget_instance *list)
 {
 #ifdef HALO_VR
-	static char const *const rows[] = { "op_panini", "op_panini_strength", "op_panini_vertical" };
+	static char const *const rows[] = { "op_panini", "op_panini_vertical" };
 	short index;
 
 	for (index = 0; index < (short)NUMBEROF(rows); index++)
@@ -4872,6 +4871,12 @@ static struct settings_slider_stop const settings_vehicle_fov_stops[] =
 	{ 125.0, NULL }, { 130.0, NULL }, { 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
 };
 
+/* (tools/port_settings.py's PANINI_STRENGTHS: off, and strengths) */
+static struct settings_slider_stop const settings_panini_stops[] =
+{
+	{ 0.0, "OFF" }, { 0.25, NULL }, { 0.5, NULL }, { 0.75, NULL }, { 1.0, NULL },
+};
+
 #define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
 
 /* each slider by its row: its setting, its track's range and step, the
@@ -4900,8 +4905,8 @@ static struct
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
 	/* (tools/port_settings.py's GAMMA) */
 	{ "op_gamma", "display.gamma", 0.5, 2.0, 0.05, 0.5, 2.0, FALSE, NULL, 0 },
-	/* (tools/port_settings.py's PANINI_AMOUNT) */
-	{ "op_panini_strength", "display.panini_strength", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
+	/* (tools/port_settings.py's PANINI_STRENGTHS and PANINI_VERTICAL) */
+	{ "op_panini", "display.panini", 0.0, 1.0, 0.25, 0.0, 1.0, FALSE, SLIDER_STOPS(settings_panini_stops) },
 	{ "op_panini_vertical", "display.panini_vertical", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
 };
 

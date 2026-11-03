@@ -16,20 +16,15 @@ struct render_camera { boolean mirrored; rectangle2d viewport_bounds; };
 struct render_frustum { boolean projection_valid; real projection_matrix[4][4]; };
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-/* config.toml's display.panini, _strength and _vertical */
+/* config.toml's display.panini (the strength, 0 off) and _vertical */
 static int setting_on;
 static double setting_strength = 1.0, setting_vertical;
 static unsigned long setting_changes;
 
 double config_real(const char *name)
 {
-	return !strcmp(name, "display.panini_strength") ? setting_strength :
+	return !strcmp(name, "display.panini") ? (setting_on ? setting_strength : 0.0) :
 		!strcmp(name, "display.panini_vertical") ? setting_vertical : 0.0;
-}
-
-int config_boolean(const char *name)
-{
-	return !strcmp(name, "display.panini") && setting_on;
 }
 
 unsigned long config_changes(void)
@@ -411,10 +406,10 @@ static void off(void)
 	panini_window_draw();
 	CHECK(!passes && panini_center_scale() == 1.0f, "off, drawn");
 	CHECK(!panini_view_to_screen(&camera, &frustum, &point, &screen, &visible), "off, answered");
-	settings(TRUE, 0.0, 0.0);
+	settings(TRUE, 0.0, 1.0);
 	panini_window_begin(0, 0, &camera, &frustum);
 	panini_window_draw();
-	CHECK(!passes, "the rectilinear view drawn again");
+	CHECK(!passes, "no strength, drawn");
 	settings(TRUE, 1.0, 0.0);
 	panini_window_begin(1, 1, &camera, &frustum);
 	panini_window_draw();

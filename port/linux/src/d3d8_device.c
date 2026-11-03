@@ -336,8 +336,8 @@ static float panini_supersampling(long display_width, long display_height)
 	if (read_at != (long)config_changes())
 	{
 		read_at = (long)config_changes();
-		strength = 0.0f;
-		if (config_boolean("display.panini"))
+		strength = (float)config_real("display.panini");
+		if (strength > 0.0f)
 		{
 			const char *vehicle = config_string("display.vehicle_fov");
 			double foot = config_real("display.fov");
@@ -345,7 +345,6 @@ static float panini_supersampling(long display_width, long display_height)
 			double degrees = strtod(vehicle, &end);
 			float seated;
 
-			strength = (float)config_real("display.panini_strength");
 			tangent = panini_vertical_tangent(foot);
 			/* ("default": the stock view; "match": display.fov's) */
 			seated = !strcmp(vehicle, "match") ? tangent : panini_vertical_tangent(end != vehicle ? degrees : 0.0);

@@ -1,7 +1,7 @@
 /*
 PANINI.C
 
-display.panini, display.panini_strength and display.panini_vertical: each
+display.panini (its strength, 0 off) and display.panini_vertical: each
 player's window's 3D view drawn again through the Panini projection
 (port/linux/include/panini_projection.h has its arithmetic and why the view
 is drawn as ever first), once it is whole and before the HUD is drawn over
@@ -45,13 +45,13 @@ enum
 };
 
 double config_real(const char *name);
-int config_boolean(const char *name);
 unsigned long config_changes(void);
 
-/* the settings: on, the strength (d) and the vertical compression (s) */
+/* the settings: the strength (d; 0 off) and the vertical compression (s);
+TRUE while on */
 static boolean panini_settings(real *d, real *s)
 {
-	static boolean initialized, enabled;
+	static boolean initialized;
 	static unsigned long read_at;
 	static real strength, vertical;
 	unsigned long changes = config_changes();
@@ -60,8 +60,7 @@ static boolean panini_settings(real *d, real *s)
 	{
 		initialized = TRUE;
 		read_at = changes;
-		enabled = config_boolean("display.panini") != 0;
-		strength = (real)config_real("display.panini_strength");
+		strength = (real)config_real("display.panini");
 		vertical = (real)config_real("display.panini_vertical");
 	}
 	*d = strength;
@@ -71,7 +70,7 @@ static boolean panini_settings(real *d, real *s)
 	and its mirror on the screen is not the player's view) */
 	return FALSE;
 #else
-	return enabled;
+	return strength > 0.0f;
 #endif
 }
 
@@ -119,10 +118,8 @@ void panini_window_begin(short local_player_index, short rasterizer_target, stru
 	/* (an axis inside the view; the scale from its farther sides) */
 	if (!(window.left < 0.0f && window.right > 0.0f && window.bottom < 0.0f && window.top > 0.0f) ||
 		!panini_projection_fit(&window.panini, d, s, MAX(-window.left, window.right),
-			MAX(-window.bottom, window.top)) ||
-		(window.panini.d == 0.0f && window.panini.s == 0.0f))
+			MAX(-window.bottom, window.top)))
 	{
-		/* (0 and 0: the rectilinear view, nothing to draw) */
 		return;
 	}
 	window.projection[0] = x_scale;

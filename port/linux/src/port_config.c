@@ -240,15 +240,12 @@ static const struct config_setting config_settings[] =
 		"The view's field of view in a vehicle's seat, first or third person,\n"
 		"getting in and out too: \"default\" keeps the stock view, \"match\" takes\n"
 		"display.fov's, and a number is degrees across at 16:9 (20 to 150)." },
-	{ "display.panini", _config_boolean, "false", "HALO_PANINI", _environment_value, _platform_all,
-		"Draw the 3D view through the Panini projection: at a wide field of\n"
-		"view, what is at the sides keeps its shape instead of stretching.\n"
-		"The view sees as far to the sides; its middle is drawn larger. The\n"
-		"HUD and the menus are not curved. Not in split screen's cropped views\n"
-		"nor in the VR build." },
-	{ "display.panini_strength", _config_real, "1.0", "HALO_PANINI_STRENGTH", _environment_value, _platform_all,
-		"With display.panini, its strength (Panini's d), 0 to 1: 1 keeps the\n"
-		"shapes at the sides true along the horizon, 0 is the flat view." },
+	{ "display.panini", _config_real, "0.0", "HALO_PANINI", _environment_value, _platform_all,
+		"Draw the 3D view through the Panini projection, at this strength\n"
+		"(Panini's d), 0 to 1; 0 off. At a wide field of view what is at the\n"
+		"sides keeps its shape instead of stretching: 1 keeps it true along\n"
+		"the horizon. The view sees as far to the sides; its middle is drawn\n"
+		"larger. The HUD and the menus are not curved. Not in the VR build." },
 	{ "display.panini_vertical", _config_real, "0.0", "HALO_PANINI_VERTICAL", _environment_value, _platform_all,
 		"With display.panini, its vertical compression (Panini's s), 0 to 1:\n"
 		"0 keeps the shapes at the sides; more straightens the floors and\n"

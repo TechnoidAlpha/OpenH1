@@ -450,9 +450,11 @@ FRAME_RATE_LIMITS = Slider(30, 540, 1, 10, 1000, whole=True,
 # display.gamma's: Halo PC's gamma, past 1 brighter; 1 none (menu_functions.c's
 # settings_sliders, d3d8_device.c's GAMMA_LEAST and GAMMA_MOST)
 GAMMA = Slider(0.5, 2.0, 0.05, 0.5, 2.0)
-# display.panini_strength's and display.panini_vertical's: 0 to 1
-# (menu_functions.c's settings_sliders)
-PANINI_AMOUNT = Slider(0.0, 1.0, 0.05, 0.0, 1.0)
+# display.panini's: its strength, off (0) to 1; any of 0 to 1 typed; and
+# display.panini_vertical's, 0 to 1 (menu_functions.c's settings_sliders)
+PANINI_STRENGTHS = Slider(0.0, 1.0, 0.25, 0.0, 1.0,
+                          stops=(("OFF", "0"), ("0.25", "0.25"), ("0.5", "0.5"), ("0.75", "0.75"), ("1", "1")))
+PANINI_VERTICAL = Slider(0.0, 1.0, 0.05, 0.0, 1.0)
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
 SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
@@ -923,17 +925,14 @@ PAGES = {
             ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
              "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
              "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),
-            # (display.panini, port/linux/game/panini.c, and its strength and
-            # vertical compression; none in the VR build: menu_functions.c's
+            # (display.panini, port/linux/game/panini.c, and its vertical
+            # compression; none in the VR build: menu_functions.c's
             # panini_rows_show)
-            ("PANINI PROJECTION", "display.panini", ON_OFF,
-             "Stops a wide field of view from stretching what is at the sides: you still see as far, and the "
-             "middle is drawn larger. The HUD stays flat.|Best with a Field of View above 100.", None),
-            ("PANINI STRENGTH", "display.panini_strength", PANINI_AMOUNT,
-             "With Panini Projection on: how much the sides are corrected. 1 keeps their shapes true; less keeps "
-             "more of the flat view and enlarges the middle less.|Click the number (or press A) to type 0 to 1.",
-             None),
-            ("PANINI VERTICAL", "display.panini_vertical", PANINI_AMOUNT,
+            ("PANINI PROJECTION", "display.panini", PANINI_STRENGTHS,
+             "Stops a wide field of view from stretching what is at the sides; you still see as far, and the "
+             "middle is drawn larger. 1 keeps their shapes true. The HUD stays flat.|Click the number (or press "
+             "A) to type 0 to 1.", None),
+            ("PANINI VERTICAL", "display.panini_vertical", PANINI_VERTICAL,
              "With Panini Projection on: straightens floors and ceilings above and below the middle, and "
              "stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1.",
              None),

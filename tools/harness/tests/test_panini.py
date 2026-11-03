@@ -47,8 +47,6 @@ CONTROLS = [
      "center"),
     # on whatever the setting says
     (GAME, "if (!panini_settings(&d, &s) || ", "if ((panini_settings(&d, &s), FALSE) || ", "off"),
-    # the rectilinear view drawn again for nothing
-    (GAME, "||\n\t\t(window.panini.d == 0.0f && window.panini.s == 0.0f))", ")", "off"),
     # the arrows' direction kept rectilinear
     (GAME, "\t*x = across;\n\t*y = -up;", "\t(void)across;\n\t(void)up;", "direction"),
 ]
@@ -65,8 +63,7 @@ def generated(fault=None):
             game = mutated(game, before, after)
     # (the game's code after its includes: the stubs are the test's)
     game = game[game.index("/* (the window's rasterizer target"):]
-    game = game.replace("double config_real(const char *name);\nint config_boolean(const char *name);\n"
-                        "unsigned long config_changes(void);\n", "")
+    game = game.replace("double config_real(const char *name);\nunsigned long config_changes(void);\n", "")
     return (("projection.inc", projection), ("under_test.inc", game))
 
 
@@ -118,9 +115,10 @@ def test_the_hud_and_the_weapon_take_it():
 
 def test_the_settings():
     config = read("port/linux/src/port_config.c")
-    assert '{ "display.panini", _config_boolean, "false", "HALO_PANINI",' in config
-    assert '{ "display.panini_strength", _config_real, "1.0", "HALO_PANINI_STRENGTH",' in config
+    # (off by default: its strength 0)
+    assert '{ "display.panini", _config_real, "0.0", "HALO_PANINI",' in config
     assert '{ "display.panini_vertical", _config_real, "0.0", "HALO_PANINI_VERTICAL",' in config
     menu = read("port/linux/game/menu_functions.c")
-    assert '{ "op_panini_strength", "display.panini_strength", 0.0, 1.0, 0.05, 0.0, 1.0,' in menu
+    assert '{ "op_panini", "display.panini", 0.0, 1.0, 0.25, 0.0, 1.0, FALSE, SLIDER_STOPS(settings_panini_stops) },' \
+        in menu
     assert '{ "op_panini_vertical", "display.panini_vertical", 0.0, 1.0, 0.05, 0.0, 1.0,' in menu
