@@ -359,6 +359,28 @@ real game_time_get_tick_fraction(
 	return PIN(fraction, 0.0f, 1.0f);
 }
 
+/* port: the seconds of the frames' time until the clock's next step (a
+tick at game.sim_rate 30, a sub-step at 60 and 120) falls due, 0 when one is
+due already; -1 while the clock does not run. A run that shows nothing waits
+this long between frames (port/linux/game/unseen_frames.c) */
+real game_time_seconds_to_next_step(
+	void)
+{
+	real steps_per_second;
+	real step_seconds;
+
+	if (!game_time_globals || !game_time_globals->initialized || !game_time_globals->active ||
+		game_time_globals->paused)
+	{
+		return -1.0f;
+	}
+	steps_per_second = game_time_globals->speed*(TICKS_PER_SECOND*(short)(sim_rate_next()/SIM_RATE_CLASSIC));
+	if (steps_per_second <= 0.f)
+		return -1.0f;
+	step_seconds = 1.0f/steps_per_second;
+	return PIN(step_seconds - game_time_globals->leftover_dt, 0.0f, step_seconds);
+}
+
 /* port: whether what the frames do to the game as a whole (save it, load a
 saved game, revert, change the map or its structure: main.c's work at a
 frame's start) must wait, a tick being open (its sub-steps spread over the

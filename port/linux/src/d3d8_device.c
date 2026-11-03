@@ -1632,6 +1632,14 @@ HRESULT WINAPI Direct3D_CreateDevice(UINT adapter, D3DDEVTYPE device_type, void 
 	return S_OK;
 }
 
+/* whether the frames the game draws are shown nowhere: the device made
+with no backend behind it (debug.null_renderer, a dedicated server, or no
+display). main.c then draws none (port/linux/game/unseen_frames.c) */
+int halo_frames_unseen(void)
+{
+	return device.created && !device.gl_ready;
+}
+
 /* ---------- the menus' pointer */
 
 /* display.picture_position (Android): a picture of another shape than the

@@ -2164,7 +2164,8 @@ static const struct config_setting config_settings[] =
 		"With display.ambient_occlusion, the 3D view drawn as the occlusion\n"
 		"alone, in grey (white where it is not laid)." },
 	{ "debug.null_renderer", _config_boolean, "false", "HALO_NULL_RENDERER", _environment_set_is_true, _platform_all,
-		"Run without a window, drawing nothing." },
+		"Run without a window, drawing nothing: a frame a step of the game's\n"
+		"clock (game.sim_rate), not as many as it can." },
 	{ "debug.no_clipboard", _config_boolean, "false", "HALO_NO_CLIPBOARD", _environment_set_is_true, _platform_all,
 		"Leave the clipboard alone (tests and tools): no invite link is put on\n"
 		"it, and none found there is joined, as with debug.null_renderer,\n"
