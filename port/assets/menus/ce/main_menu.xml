@@ -15,8 +15,8 @@
 		<child widget="main_menu/main_menu_select_list"/>
 	</widget>
 	<widget name="main_menu/main_menu_item_load_camp" type="text" width="256" height="33" bitmap="main_menu/menu_load_campaign" string_list="main_menu/main_menu_options" string_index="1" font="ui\small_ui" color="#000080FF">
-		<on event="a" run="new game if no plyr profiles" label="load_campaign" open="main_menu/campaign_select/campaign_menu" branch="true"/>
-		<on event="start" run="new game if no plyr profiles" label="load_campaign" open="main_menu/campaign_select/campaign_menu" branch="true"/>
+		<on event="a" run="new game if no plyr profiles" label="load_campaign" open="main_menu/campaign/campaign_screen" branch="true"/>
+		<on event="start" run="new game if no plyr profiles" label="load_campaign" open="main_menu/campaign/campaign_screen" branch="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<conditional widget="main_menu/new_campaign_creating_profile" if_failed="true"/>
 	</widget>
@@ -62,7 +62,7 @@
 	<widget name="main_menu/new_campaign_saving_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="3000" auto_close_fade="1000">
 		<on event="b" run="NULL"/>
 		<on event="back" run="NULL"/>
-		<on event="deleted" run="NULL" open="main_menu/difficulty_select/difficulty_select_list_screen"/>
+		<on event="deleted" run="NULL" open="main_menu/campaign/difficulty_screen"/>
 		<child widget="error/warning_creating_player_profile_screen"/>
 	</widget>
 </menus>

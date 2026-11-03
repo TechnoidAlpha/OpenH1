@@ -726,7 +726,8 @@ def main() -> None:
             lines += widget_xml(tag, widgets[tag], tags, functions, inputs, fonts, {})
         lines.append("</menus>")
         (CE / f"{folder.replace('/', '.')}.xml").write_text("\n".join(lines) + "\n")
-    for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items()]:
+    for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items(),
+                        *port_settings.campaign_files().items()]:
         (CE / name).write_text("\n".join(lines))
     # their strings
     (CE / "strings.xml").write_text(strings_xml({
@@ -774,6 +775,8 @@ def main() -> None:
     # Multiplayer's tabs, rows, panels, pills, button and prompts, and the
     # touchscreen's chips, rows, tiles and buttons)
     lines += [art.port_picture(name, frames) for name, frames in port_settings.parts_pictures()]
+    # (the campaign's cards, arrows, dots and panels: port_settings.campaign_pictures)
+    lines += [art.port_picture(name, frames) for name, frames in port_settings.campaign_pictures()]
     lines.append("</menus>")
     (CE / "bitmaps.xml").write_text("\n".join(lines) + "\n")
     # what is not hand-drawn

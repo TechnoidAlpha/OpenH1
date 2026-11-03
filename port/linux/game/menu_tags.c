@@ -519,6 +519,10 @@ static char const *const port_function_names[] =
 	"port training chapter", "port training open",
 	/* (Controller's Button Remapping: controller_remap_menu.inl) */
 	"port controller bind", "port controller left", "port controller right", "port controller clear",
+	/* (the campaign's screens: campaign_menu.inc) */
+	"port campaign init", "port campaign continue", "port campaign missions", "port campaign missions init",
+	"port campaign previous", "port campaign next", "port campaign tab", "port campaign tab previous",
+	"port campaign tab next", "port campaign choose", "port campaign difficulty init", "port campaign play",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -565,6 +569,8 @@ static char const *const port_game_data_input_names[] =
 	"port map vote update",
 	/* (Basic Training's chapters) */
 	"port training update",
+	/* (the campaign's screens: campaign_menu.inc) */
+	"port campaign update", "port campaign missions update", "port campaign difficulty update",
 };
 
 static struct
