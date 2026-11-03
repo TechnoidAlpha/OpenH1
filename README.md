@@ -409,8 +409,8 @@ it calculates the game, needs `HALO_PORT_NETWORK_VERSION` and a
 players can still play together.
 
 Report problems on the [issue tracker](https://github.com/OpenH1/OpenH1/issues),
-with the build number (the main menu shows it) and `debug.txt`. For help,
-or to talk about a change before you make it, ask on the
+with the build number (Settings, Profile, About shows it) and `debug.txt`.
+For help, or to talk about a change before you make it, ask on the
 [Discord](https://discord.gg/MJa327PSWt): #help, and #dev-general.
 
 ## Licence

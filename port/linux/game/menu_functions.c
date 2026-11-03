@@ -155,6 +155,9 @@ void halo_input_name(int input, char *name, unsigned int size);
 void halo_input_shown_name(char const *binding, char *shown, unsigned int size);
 short pc_menu_string_index(long definition_index);
 void updater_update_now(void);
+/* main.c's: this build's number, configuration, repository and label */
+void main_build_identity(long *number, char *flavor, size_t flavor_size, char *repository, size_t repository_size,
+	char *version, size_t version_size);
 /* cseries_windows.c's */
 unsigned long system_milliseconds(void);
 
@@ -2592,6 +2595,41 @@ static boolean hdr_display_panel(struct widget_instance *row, wchar_t *value, wc
 	return TRUE;
 }
 
+/* Profile's ABOUT row's panel: this build (its number, or a local build's),
+and in the note its label and the Xbox build the game's sources were
+decompiled from, which the main menu used to show (the others': FALSE) */
+static boolean about_panel(struct widget_instance *row, wchar_t *value, wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	char flavor[32], repository[160], version[96], text[SETTINGS_PANEL_TEXT_LENGTH];
+	char *bar;
+	long number;
+	short length;
+
+	if (!row->name || strcmp(row->name, "op_about"))
+		return FALSE;
+	main_build_identity(&number, flavor, sizeof(flavor), repository, sizeof(repository), version, sizeof(version));
+	/* (the label's " | ", a comma) */
+	if ((bar = strstr(version, " | ")) != NULL)
+	{
+		bar[0] = ',';
+		memmove(bar + 1, bar + 2, strlen(bar + 2) + 1);
+	}
+	if (number > 0)
+		snprintf(text, sizeof(text), "BUILD %ld", number);
+	else
+		snprintf(text, sizeof(text), "LOCAL BUILD");
+	discord_widen(text, value, ROW_TEXT_LENGTH);
+	settings_wide_copy(words, *help, SETTINGS_PANEL_TEXT_LENGTH);
+	for (length = 0; words[length]; length++)
+	{
+	}
+	snprintf(text, sizeof(text), "|%s. Made from the Xbox game's build 01.01.14.2342.", version);
+	discord_widen(text, words + length, (short)(SETTINGS_PANEL_TEXT_LENGTH - length));
+	*help = words;
+	return TRUE;
+}
+
 /* (the server browsers' Filters page's SEARCH: below) */
 static void browser_search_show(struct widget_instance *list);
 static boolean browser_search_panel(struct widget_instance *row, wchar_t *value);
@@ -2820,6 +2858,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 		discord_account_panel(row, name, value, &help);
 		/* (the display's peak: its words of the display now) */
 		hdr_display_panel(row, value, &help);
+		/* (Profile's ABOUT: this build) */
+		about_panel(row, value, &help);
 		/* (the browsers' SEARCH: its words) */
 		browser_search_panel(row, value);
 		/* (Button Remapping's: a button being taken, a replacement asked) */
