@@ -130,6 +130,13 @@ void panini_window_begin(short local_player_index, short rasterizer_target, stru
 	window.active = TRUE;
 }
 
+boolean panini_projection_of_view(real tangent_x, real tangent_y, struct panini_projection *projection)
+{
+	real d, s;
+
+	return panini_settings(&d, &s) && panini_projection_fit(projection, d, s, tangent_x, tangent_y);
+}
+
 void panini_window_draw(void)
 {
 	float parameters[8];
