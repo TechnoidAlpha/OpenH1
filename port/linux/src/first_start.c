@@ -24,6 +24,14 @@ image or the maps folder; the window stays fullscreen meanwhile. A maps
 folder is copied too, not used where it is: the game's data is the game's
 own, whatever becomes of the folder or wherever the app is.
 
+Custom Edition's installer (halocesetup_en_1.00.exe), found as the disc
+images are or picked with Browse..., is offered too, as an extra: its
+multiplayer maps (Halo PC's, with bitmaps.map, sounds.map and loc.map) are
+written into the custom_maps folder (map_import.c), and the screen comes
+back, since the game still needs the Xbox maps to start. A Halo PC CD
+image picked is explained, not copied: OpenH1 does not play Halo PC's own
+maps, and the installer has the same ones.
+
 (Windows' first start is sdl_platform.c's.)
 */
 
@@ -33,7 +41,9 @@ own, whatever becomes of the folder or wherever the app is.
 
 #include "port_config.h"
 #include "xiso.h"
+#include "ce_installer.h"
 #include "game_data_scan.h"
+#include "map_import.h"
 
 #include <SDL3/SDL.h>
 #include <pthread.h>
@@ -73,6 +83,10 @@ struct chooser_copy
 {
 	pthread_mutex_t lock;
 	struct game_data_candidate source;
+	/* Custom Edition's installer, whose maps go to folder (custom_maps) */
+	BOOL installer;
+	char folder[GAME_DATA_PATH_SIZE];
+	unsigned long long written;
 	char destination[GAME_DATA_PATH_SIZE];
 	char file[256];
 	unsigned long long done;
@@ -95,6 +109,8 @@ struct chooser
 	struct game_data_places places;
 	char places_text[GAME_DATA_PATH_SIZE + 128];
 	struct game_data_candidate candidates[GAME_DATA_CANDIDATES];
+	/* whether each candidate image is Custom Edition's installer */
+	BOOL installers[GAME_DATA_CANDIDATES];
 	int candidate_count;
 	/* the times the player has looked again and found nothing new */
 	int looked_again;
@@ -108,6 +124,8 @@ struct chooser
 	char missing[GAME_DATA_PATH_SIZE];
 	char error_title[128];
 	char error[1200];
+	/* the error screen says something done, not wrong */
+	BOOL notice;
 	/* the left stick's last direction (-1, 0 or 1), moved once a push */
 	int stick;
 	struct chooser_copy copy;
@@ -318,12 +336,12 @@ static const char *item_label(const struct chooser_item *item)
 		return "Look again";
 	case _action_browse:
 #ifdef HALO_MACOS
-		return "Browse for the disc image or folder...";
+		return "Browse for the disc image, folder or installer...";
 #else
-		return "Browse for the disc image...";
+		return "Browse for the disc image or installer...";
 #endif
 	case _action_back:
-		return "Back";
+		return chooser.notice ? "Continue" : "Back";
 	case _action_quit:
 		return "Quit";
 	}
@@ -427,7 +445,13 @@ static void draw_items(float left, float width, float top, float bottom)
 				int detail_columns = (int)((width - padding * 2 - unit * 4) / (GLYPH * unit));
 
 				size_text(candidate->size, size, sizeof(size));
-				if (candidate->kind == _game_data_image)
+				if (chooser.installers[item->candidate])
+				{
+					fit(candidate->name, columns, line, sizeof(line));
+					snprintf(details, sizeof(details), "%s  -  Custom Edition installer: adds its multiplayer maps",
+						candidate->place);
+				}
+				else if (candidate->kind == _game_data_image)
 				{
 					fit(candidate->name, columns, line, sizeof(line));
 					snprintf(details, sizeof(details), "%s  -  disc image, %s", candidate->place, size);
@@ -451,6 +475,29 @@ static void draw_items(float left, float width, float top, float bottom)
 	}
 }
 
+/* how many of the candidates are Custom Edition's installer, and the first
+that is not */
+static int installer_count(void)
+{
+	int index, count = 0;
+
+	for (index = 0; index < chooser.candidate_count; index++)
+		count += chooser.installers[index] != FALSE;
+	return count;
+}
+
+static int first_xbox_candidate(void)
+{
+	int index;
+
+	for (index = 0; index < chooser.candidate_count; index++)
+	{
+		if (!chooser.installers[index])
+			return index;
+	}
+	return 0;
+}
+
 static void draw_list(float left, float width)
 {
 	int unit = chooser.unit;
@@ -466,20 +513,22 @@ static void draw_list(float left, float width)
 		snprintf(missing, sizeof(missing), "The maps are no longer in %s, the folder paths.data names (moved, or "
 			"on a drive not connected?). ", chooser.missing);
 	}
-	if (chooser.candidate_count)
+	if (chooser.candidate_count > installer_count())
 	{
-		BOOL one = chooser.candidate_count == 1;
+		BOOL one = chooser.candidate_count - installer_count() == 1;
+		const struct game_data_candidate *first = &chooser.candidates[first_xbox_candidate()];
 
 		y = draw_heading(left, width, !one ? "Choose your Halo disc image" :
-			chooser.candidates[0].kind == _game_data_image ? "Your Halo disc image was found" :
+			first->kind == _game_data_image ? "Your Halo disc image was found" :
 			"Your Halo maps folder was found", colour_text);
 		snprintf(explanation, sizeof(explanation),
 			"%sOpenH1 plays the maps of your own Halo: Combat Evolved for the Xbox. Choosing %s copies "
-			"the maps (about 2 GB) to %s.", missing, one ? "it" : "one", destination);
+			"the maps (about 2 GB) to %s.%s", missing, one ? "it" : "one", destination,
+			installer_count() ? " Custom Edition's installer adds its multiplayer maps too (optional)." : "");
 	}
 	else
 	{
-		y = draw_heading(left, width, "Halo's maps were not found", colour_text);
+		y = draw_heading(left, width, "Halo's Xbox maps were not found", colour_text);
 		snprintf(explanation, sizeof(explanation),
 #ifdef HALO_MACOS
 			"%sOpenH1 plays the maps of your own Halo: Combat Evolved for the Xbox. Choose Browse to pick its "
@@ -515,12 +564,24 @@ static void draw_copy(float left, float width)
 	done = chooser.copy.done;
 	total = chooser.copy.total;
 	pthread_mutex_unlock(&chooser.copy.lock);
-	y = draw_heading(left, width, "Copying the maps...", colour_text);
-	game_data_short_path(&chooser.places, chooser.copy.destination, destination, (int)sizeof(destination));
-	snprintf(explanation, sizeof(explanation), "From %s (%s) to %s/maps. About 2 GB: this takes a few minutes.%s",
-		chooser.copy.source.kind == _game_data_image ? chooser.copy.source.name : "the maps folder",
-		chooser.copy.source.place, destination,
-		chooser.copy.source.kind == _game_data_image ? "" : " The folder itself stays as it is.");
+	if (chooser.copy.installer)
+	{
+		y = draw_heading(left, width, "Adding Custom Edition's maps...", colour_text);
+		game_data_short_path(&chooser.places, chooser.copy.folder, destination, (int)sizeof(destination));
+		snprintf(explanation, sizeof(explanation), "From %s (%s) to %s. Only the maps the folder lacks are "
+			"written; the installer itself stays as it is.", chooser.copy.source.name, chooser.copy.source.place,
+			destination);
+	}
+	else
+	{
+		y = draw_heading(left, width, "Copying the maps...", colour_text);
+		game_data_short_path(&chooser.places, chooser.copy.destination, destination, (int)sizeof(destination));
+		snprintf(explanation, sizeof(explanation),
+			"From %s (%s) to %s/maps. About 2 GB: this takes a few minutes.%s",
+			chooser.copy.source.kind == _game_data_image ? chooser.copy.source.name : "the maps folder",
+			chooser.copy.source.place, destination,
+			chooser.copy.source.kind == _game_data_image ? "" : " The folder itself stays as it is.");
+	}
 	y = paragraph(left, y, width, unit, colour_dim, explanation) + unit * 16;
 	fraction = total ? (float)((double)done / (double)total) : 0.0f;
 	fill(left, y, width, (float)(unit * 10), colour_bar);
@@ -538,7 +599,7 @@ static void draw_copy(float left, float width)
 static void draw_error(float left, float width)
 {
 	int unit = chooser.unit;
-	float y = draw_heading(left, width, chooser.error_title, colour_error);
+	float y = draw_heading(left, width, chooser.error_title, chooser.notice ? colour_accent : colour_error);
 
 	y = paragraph(left, y, width, unit, colour_dim, chooser.error);
 	draw_items(left, width, y + unit * 8, (float)chooser.height - GLYPH * unit - (float)chooser.height * 0.05f -
@@ -594,10 +655,12 @@ static void draw_message(const char *headline, const char *message)
 
 /* ---------- what the player does */
 
+/* an Xbox disc image of Halo, or Custom Edition's installer (an .exe the
+scan finds by its name, game_data_scan.c) */
 static int image_check(const char *path, void *context)
 {
 	(void)context;
-	return xiso_is_halo_image(path);
+	return xiso_is_halo_image(path) || ce_installer_is_installer(path);
 }
 
 static void scan(void)
@@ -610,7 +673,10 @@ static void scan(void)
 	platform_log("first start: %d disc images and maps folders found", chooser.candidate_count);
 	for (index = 0; index < chooser.candidate_count; index++)
 	{
-		platform_log("first start: %s %s (%s, %llu bytes)",
+		/* (the scan's check has found it one or the other) */
+		chooser.installers[index] = chooser.candidates[index].kind == _game_data_image &&
+			!xiso_is_halo_image(chooser.candidates[index].path);
+		platform_log("first start: %s %s (%s, %llu bytes)", chooser.installers[index] ? "Custom Edition installer" :
 			chooser.candidates[index].kind == _game_data_image ? "disc image" : "maps folder",
 			chooser.candidates[index].path, chooser.candidates[index].place, chooser.candidates[index].size);
 	}
@@ -622,8 +688,16 @@ static void show_error(const char *title, const char *message)
 {
 	snprintf(chooser.error_title, sizeof(chooser.error_title), "%s", title);
 	snprintf(chooser.error, sizeof(chooser.error), "%s", message);
+	chooser.notice = FALSE;
 	chooser.screen = _screen_error;
 	items_error();
+}
+
+/* the error screen, saying something done (Custom Edition's maps added) */
+static void show_notice(const char *title, const char *message)
+{
+	show_error(title, message);
+	chooser.notice = TRUE;
 }
 
 static void copy_progress(void *context, const char *file, unsigned long long done, unsigned long long total)
@@ -641,9 +715,15 @@ static void *copy_thread(void *context)
 {
 	struct chooser_copy *copy = context;
 	char error[512] = "";
+	unsigned long long written = 0;
 	BOOL succeeded;
 
-	if (copy->source.kind == _game_data_image)
+	if (copy->installer)
+	{
+		succeeded = map_import_custom_edition(copy->source.path, copy->folder, copy_progress, copy, &written, error,
+			sizeof(error)) != 0;
+	}
+	else if (copy->source.kind == _game_data_image)
 	{
 		succeeded = xiso_extract_maps(copy->source.path, copy->destination, copy_progress, copy, error,
 			sizeof(error)) != 0;
@@ -655,18 +735,24 @@ static void *copy_thread(void *context)
 	}
 	pthread_mutex_lock(&copy->lock);
 	snprintf(copy->error, sizeof(copy->error), "%s", error);
+	copy->written = written;
 	copy->succeeded = succeeded;
 	copy->finished = TRUE;
 	pthread_mutex_unlock(&copy->lock);
 	return NULL;
 }
 
-static void start_copy(const struct game_data_candidate *source)
+/* copies the maps of source (with installer, Custom Edition's installer's
+into custom_maps) */
+static void start_copy(const struct game_data_candidate *source, BOOL installer)
 {
 	pthread_t thread;
 
 	pthread_mutex_lock(&chooser.copy.lock);
 	chooser.copy.source = *source;
+	chooser.copy.installer = installer;
+	chooser.copy.written = 0;
+	map_import_custom_maps_folder(chooser.places.destination, chooser.copy.folder, sizeof(chooser.copy.folder));
 	snprintf(chooser.copy.destination, sizeof(chooser.copy.destination), "%s", chooser.places.destination);
 	chooser.copy.file[0] = 0;
 	chooser.copy.done = 0;
@@ -675,7 +761,8 @@ static void start_copy(const struct game_data_candidate *source)
 	chooser.copy.succeeded = FALSE;
 	chooser.copy.error[0] = 0;
 	pthread_mutex_unlock(&chooser.copy.lock);
-	platform_log("first start: copying the maps from %s to %s", source->path, chooser.places.destination);
+	platform_log("first start: copying the maps from %s to %s", source->path,
+		installer ? chooser.copy.folder : chooser.places.destination);
 	if (pthread_create(&thread, NULL, copy_thread, &chooser.copy) != 0)
 	{
 		show_error("Could not copy the maps", "The copy could not be started.");
@@ -712,7 +799,7 @@ static void browse(void)
 {
 	static const SDL_DialogFileFilter filters[] =
 	{
-		{ "Xbox disc images", "iso;xiso" },
+		{ "Xbox disc images and Custom Edition's installer", "iso;xiso;exe" },
 		{ "All files", "*" },
 	};
 	static struct browse_answer answer;
@@ -764,18 +851,26 @@ static void browse(void)
 	}
 	if (folder > 0)
 	{
-		start_copy(&picked);
+		start_copy(&picked, FALSE);
 		return;
 	}
 	{
 		const char *slash = strrchr(answer.path, '/');
+		int kind = map_import_kind(answer.path);
 
+		if (kind == _map_import_cd_image)
+		{
+			show_error("That is not an Xbox disc image", map_import_cd_image_text);
+			return;
+		}
 		memset(&picked, 0, sizeof(picked));
 		picked.kind = _game_data_image;
 		snprintf(picked.path, sizeof(picked.path), "%s", answer.path);
 		snprintf(picked.name, sizeof(picked.name), "%s", slash ? slash + 1 : answer.path);
 		snprintf(picked.place, sizeof(picked.place), "%.*s", slash ? (int)(slash - answer.path) : 0, answer.path);
-		start_copy(&picked);
+		/* (anything else is tried as a disc image, which says what is
+		wrong with it) */
+		start_copy(&picked, kind == _map_import_custom_edition_installer);
 	}
 }
 
@@ -789,7 +884,7 @@ static void activate(int index)
 	switch (item->action)
 	{
 	case _action_candidate:
-		start_copy(&chooser.candidates[item->candidate]);
+		start_copy(&chooser.candidates[item->candidate], chooser.installers[item->candidate]);
 		break;
 	case _action_look_again:
 		{
@@ -1031,20 +1126,36 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 		test_input();
 		if (chooser.screen == _screen_copy)
 		{
-			BOOL finished, succeeded;
+			BOOL finished, succeeded, installer;
+			unsigned long long written;
 			char error[512];
 
 			pthread_mutex_lock(&chooser.copy.lock);
 			finished = chooser.copy.finished;
 			succeeded = chooser.copy.succeeded;
+			installer = chooser.copy.installer;
+			written = chooser.copy.written;
 			snprintf(error, sizeof(error), "%s", chooser.copy.error);
 			pthread_mutex_unlock(&chooser.copy.lock);
-			if (finished && succeeded)
+			if (finished && succeeded && installer)
+			{
+				char folder[GAME_DATA_PATH_SIZE];
+				char message[GAME_DATA_PATH_SIZE + 400];
+
+				/* (the Xbox maps are still needed: back to the list) */
+				game_data_short_path(&chooser.places, chooser.copy.folder, folder, (int)sizeof(folder));
+				snprintf(message, sizeof(message), "%s %s. They show in the map lists' CUSTOM MULTIPLAYER.\n\n"
+					"OpenH1 still needs the maps of your Xbox disc to start: choose Continue, then its disc image.",
+					written ? "Custom Edition's maps are in" : "Custom Edition's maps were already in", folder);
+				platform_log("first start: added Custom Edition's maps");
+				show_notice(written ? "Custom Edition's maps were added" : "Nothing to add", message);
+			}
+			else if (finished && succeeded)
 			{
 				platform_log("first start: copied the maps");
 				break;
 			}
-			if (finished)
+			else if (finished)
 			{
 				char message[900];
 

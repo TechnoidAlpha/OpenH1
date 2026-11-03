@@ -196,6 +196,18 @@ static void test_scan(void)
 	CHECK(index < 3 && !strcmp(candidates[index].place, "Drive USB STICK"), "USB drive: %s",
 		index < count ? candidates[index].place : "not found");
 
+	/* Custom Edition's installer, a program named halo...exe that the check
+	takes; no other program is checked */
+	make_file("home/Downloads/halocesetup_en_1.00.exe", "HALO", 4, 100LL << 20);
+	make_file("home/Downloads/setup.exe", "HALO", 4, 100LL << 20);
+	count = game_data_scan(&places, image_check, &checks, candidates, GAME_DATA_CANDIDATES);
+	CHECK(count == 5, "%d candidates with the installer, not 5", count);
+	for (index = 0; index < count && strcmp(candidates[index].name, "halocesetup_en_1.00.exe"); index++)
+		;
+	CHECK(index < count && candidates[index].kind == _game_data_image &&
+		!strcmp(candidates[index].place, "Downloads"), "installer: %s",
+		index < count ? candidates[index].place : "not found");
+
 	/* the most there may be */
 	count = game_data_scan(&places, image_check, &checks, candidates, 1);
 	CHECK(count == 1, "%d candidates with room for 1", count);

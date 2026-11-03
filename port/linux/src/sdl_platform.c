@@ -24,6 +24,7 @@ and the debug keyboard that the game's console reads.
 #include "server_master.h"
 #include "player_link.h"
 #include "xiso.h"
+#include "map_import.h"
 #ifdef HALO_VR
 #include "vr.h"
 #include "vr_host.h"
@@ -380,11 +381,20 @@ BOOL platform_sdl_initialize(void)
 /* ---------- first start without game data (xbox_files.c), on Windows: the
 system's dialogs. (The Linux builds' and the macOS app's is first_start.c,
 in the game's own window; the iOS app asks before the game starts,
-port/ios/host_app.m) */
+port/ios/host_app.m)
+
+Besides the Xbox disc image the game needs, the player may add Custom
+Edition's maps from its installer (halocesetup_en_1.00.exe) into
+custom_maps (map_import.c), as ChupathingyCE's first start does (their
+pull request #313, whose choices this follows); a file picked is told apart
+by its contents. */
 
 struct data_extraction
 {
 	pthread_mutex_t lock;
+	/* Custom Edition's installer, into custom_maps (destination) */
+	BOOL installer;
+	unsigned long long written;
 	char image[1024];
 	char destination[1024];
 	char file[256];
@@ -410,18 +420,32 @@ static void data_extraction_progress(void *context, const char *file, unsigned l
 static void *data_extraction_thread(void *context)
 {
 	struct data_extraction *extraction = context;
-	BOOL succeeded = xiso_extract_maps(extraction->image, extraction->destination, data_extraction_progress,
-		extraction, extraction->error, sizeof(extraction->error)) != 0;
+	unsigned long long written = 0;
+	BOOL succeeded;
 
+	if (extraction->installer)
+	{
+		succeeded = map_import_custom_edition(extraction->image, extraction->destination, data_extraction_progress,
+			extraction, &written, extraction->error, sizeof(extraction->error)) != 0;
+	}
+	else
+	{
+		succeeded = xiso_extract_maps(extraction->image, extraction->destination, data_extraction_progress,
+			extraction, extraction->error, sizeof(extraction->error)) != 0;
+	}
 	pthread_mutex_lock(&extraction->lock);
+	extraction->written = written;
 	extraction->succeeded = succeeded;
 	extraction->finished = TRUE;
 	pthread_mutex_unlock(&extraction->lock);
 	return NULL;
 }
 
-/* copies the maps, showing how far it has got; closing the window quits */
-static BOOL data_extract(const char *image, const char *destination, char *error, int error_size)
+/* copies the maps (with installer, Custom Edition's installer's into the
+custom_maps folder destination, the bytes written in *written), showing how
+far it has got; closing the window quits */
+static BOOL data_extract(const char *image, const char *destination, BOOL installer, unsigned long long *written,
+	char *error, int error_size)
 {
 	static struct data_extraction extraction;
 	SDL_Window *window;
@@ -431,6 +455,7 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 
 	memset(&extraction, 0, sizeof(extraction));
 	pthread_mutex_init(&extraction.lock, NULL);
+	extraction.installer = installer;
 	snprintf(extraction.image, sizeof(extraction.image), "%s", image);
 	snprintf(extraction.destination, sizeof(extraction.destination), "%s", destination);
 	if (pthread_create(&thread, NULL, data_extraction_thread, &extraction) != 0)
@@ -478,7 +503,8 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 			SDL_RenderClear(renderer);
 			SDL_SetRenderDrawColor(renderer, 230, 230, 230, 255);
 			SDL_SetRenderScale(renderer, 2.0f, 2.0f);
-			SDL_RenderDebugText(renderer, 10.0f, 10.0f, "Extracting the maps folder...");
+			SDL_RenderDebugText(renderer, 10.0f, 10.0f,
+				installer ? "Adding Custom Edition's maps..." : "Extracting the maps folder...");
 			SDL_SetRenderScale(renderer, 1.0f, 1.0f);
 			snprintf(line, sizeof(line), "%s  (%llu of %llu MB)", file, done >> 20, total >> 20);
 			SDL_RenderDebugText(renderer, 20.0f, 70.0f, line);
@@ -495,6 +521,8 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 		SDL_DestroyRenderer(renderer);
 	if (window)
 		SDL_DestroyWindow(window);
+	if (written)
+		*written = extraction.written;
 	if (!extraction.succeeded)
 		snprintf(error, (size_t)error_size, "%s", extraction.error);
 	return extraction.succeeded;
@@ -551,19 +579,26 @@ static BOOL data_find_image(const char *directory, char *path, int size)
 	return FALSE;
 }
 
-/* the disc image the player picks; FALSE if they pick none, with *failed
-set (and error written) when no dialog could be shown */
-static BOOL data_choose_image(char *path, int size, BOOL *failed, char *error, int error_size)
+/* the disc image (with installer, Custom Edition's installer) the player
+picks; FALSE if they pick none, with *failed set (and error written) when no
+dialog could be shown */
+static BOOL data_choose_image(char *path, int size, BOOL installer, BOOL *failed, char *error, int error_size)
 {
-	static const SDL_DialogFileFilter filters[] =
+	static const SDL_DialogFileFilter image_filters[] =
 	{
 		{ "Xbox disc images", "iso;xiso" },
+		{ "All files", "*" },
+	};
+	static const SDL_DialogFileFilter installer_filters[] =
+	{
+		{ "Custom Edition's installer", "exe" },
 		{ "All files", "*" },
 	};
 	static struct data_image_choice choice;
 
 	memset(&choice, 0, sizeof(choice));
-	SDL_ShowOpenFileDialog(data_image_chosen, &choice, NULL, filters, 2, NULL, false);
+	SDL_ShowOpenFileDialog(data_image_chosen, &choice, NULL, installer ? installer_filters : image_filters, 2, NULL,
+		false);
 	/* the dialog answers through events (and on some systems another
 	thread) */
 	while (!SDL_GetAtomicInt(&choice.done))
@@ -580,12 +615,61 @@ static BOOL data_choose_image(char *path, int size, BOOL *failed, char *error, i
 	return TRUE;
 }
 
+/* adds Custom Edition's maps from the installer the player picks, saying
+what became of it */
+static void data_import_custom_edition(const char *destination)
+{
+	char installer[1024];
+	char folder[1024];
+	char error[512];
+	char message[1600];
+	unsigned long long written = 0;
+	BOOL failed = FALSE;
+	int kind;
+
+	if (!data_choose_image(installer, sizeof(installer), TRUE, &failed, error, sizeof(error)))
+	{
+		if (failed)
+		{
+			platform_log("no file dialog: %s", error);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", error, NULL);
+		}
+		return;
+	}
+	kind = map_import_kind(installer);
+	if (kind != _map_import_custom_edition_installer)
+	{
+		platform_log("%s is not Custom Edition's installer", installer);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", kind == _map_import_cd_image ? map_import_cd_image_text :
+			kind == _map_import_xbox_disc ? "That is an Xbox disc image: choose Xbox disc image for it." :
+			"That file is not Custom Edition's installer (halocesetup_en_1.00.exe).", NULL);
+		return;
+	}
+	map_import_custom_maps_folder(destination, folder, sizeof(folder));
+	if (!data_extract(installer, folder, TRUE, &written, error, sizeof(error)))
+	{
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", error, NULL);
+		return;
+	}
+	snprintf(message, sizeof(message), "%s %s. They show in the map lists' CUSTOM MULTIPLAYER.\n\n"
+		"Halo still needs the maps of your Xbox disc to start: choose Xbox disc image next.",
+		written ? "Custom Edition's maps are in" : "Custom Edition's maps were already in", folder);
+	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Halo", message, NULL);
+}
+
 BOOL platform_offer_game_data(const char *destination, const char *missing)
 {
+	enum
+	{
+		_choice_quit,
+		_choice_xbox,
+		_choice_custom_edition,
+	};
 	static const SDL_MessageBoxButtonData buttons[] =
 	{
-		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes" },
-		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No" },
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, _choice_xbox, "Xbox disc image" },
+		{ 0, _choice_custom_edition, "Custom Edition maps" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, _choice_quit, "Quit" },
 	};
 	char message[2600];
 	char found[1024];
@@ -604,8 +688,10 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 	{
 		snprintf(message, sizeof(message),
 			"Halo's game data (its maps folder) was not found.\n\n"
-			"Extract the maps folder from the Xbox disc image %s? "
+			"Xbox disc image: extract the maps folder from the Xbox disc image %s. "
 			"It is copied to %s/maps (about 2 GB).\n\n"
+			"Custom Edition maps (optional): add the multiplayer maps of Custom Edition's installer "
+			"(halocesetup_en_1.00.exe) to custom_maps.\n\n"
 			"(Or put the maps folder there yourself, or set paths.data in config.toml.)",
 			found, destination);
 	}
@@ -613,29 +699,36 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 	{
 		snprintf(message, sizeof(message),
 			"Halo's game data (its maps folder) was not found.\n\n"
-			"Extract the maps folder from an Xbox disc image (.iso) of Halo: Combat Evolved? "
+			"Xbox disc image: extract the maps folder from an Xbox disc image (.iso) of Halo: Combat Evolved. "
 			"It is copied to %s/maps (about 2 GB).\n\n"
+			"Custom Edition maps (optional): add the multiplayer maps of Custom Edition's installer "
+			"(halocesetup_en_1.00.exe) to custom_maps.\n\n"
 			"(Or put the maps folder there yourself, or set paths.data in config.toml.)",
 			destination);
 	}
 	for (;;)
 	{
-		SDL_MessageBoxData question = { SDL_MESSAGEBOX_INFORMATION, NULL, "Halo", message, 2, buttons, NULL };
+		SDL_MessageBoxData question = { SDL_MESSAGEBOX_INFORMATION, NULL, "Halo", message, 3, buttons, NULL };
 		char image[1024];
 		char error[512];
-		int answer = 0;
+		int answer = _choice_quit;
 		BOOL failed = FALSE;
 
-		if (!SDL_ShowMessageBox(&question, &answer) || answer != 1)
+		if (!SDL_ShowMessageBox(&question, &answer) || answer == _choice_quit)
 		{
 			platform_log("no game data: quitting");
 			exit(EXIT_SUCCESS);
+		}
+		if (answer == _choice_custom_edition)
+		{
+			data_import_custom_edition(destination);
+			continue;
 		}
 		if (image_found)
 		{
 			snprintf(image, sizeof(image), "%s", found);
 		}
-		else if (!data_choose_image(image, sizeof(image), &failed, error, sizeof(error)))
+		else if (!data_choose_image(image, sizeof(image), FALSE, &failed, error, sizeof(error)))
 		{
 			char explanation[1400];
 
@@ -652,8 +745,13 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", explanation, NULL);
 			exit(EXIT_SUCCESS);
 		}
+		if (map_import_kind(image) == _map_import_cd_image)
+		{
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", map_import_cd_image_text, NULL);
+			continue;
+		}
 		platform_log("extracting the maps folder from %s to %s", image, destination);
-		if (data_extract(image, destination, error, sizeof(error)))
+		if (data_extract(image, destination, FALSE, NULL, error, sizeof(error)))
 		{
 			platform_log("extracted the maps folder");
 			return TRUE;

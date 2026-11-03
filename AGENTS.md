@@ -199,6 +199,7 @@ python -m pytest -q tools/test_bots.py                      # the bots in local 
 python -m pytest -q tools/test_screenshot_key.py            # the Screenshot key's PNG in a hidden run (a build, assets/maps)
 python -m pytest -q tools/test_cache_file_formats.py tools/test_bmp_files.py tools/test_profile.py
 python -m pytest -q tools/test_xiso.py tools/test_port_settings.py  # the disc image's maps and movies extracted; the settings pages' rows fit
+python -m pytest -q tools/test_cabinet.py                   # Custom Edition's installer and Halo PC's CD read (made-up cabinets; cabextract checks them)
 python -m pytest -q tools/test_render_manifest.py tools/test_render_stream.py  # the renderer's manifest, the command stream
 python -m pytest -q tools/test_vulkan_passes.py tools/test_host_vr_vulkan.py  # the Vulkan backend, the VR host (a fake GPU)
 python -m pytest -q tools/test_vr_effects.py                # the VR effects: the thickness bake, the eyes' transforms, their SPIR-V
