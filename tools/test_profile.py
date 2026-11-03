@@ -42,6 +42,10 @@ def test_configuration_defines():
     assert build_common.configuration_defines(SimpleNamespace(port_release=True)) == ["-DHALO_RELEASE"]
     assert build_common.configuration_defines(SimpleNamespace(port_release=True, port_profile=True)) == [
         "-DHALO_RELEASE", "-DHALO_PROFILE"]
+    # (--pgo=generate's, which every host takes too: its image's larger range)
+    assert build_common.configuration_defines(SimpleNamespace(port_release=True, port_pgo="generate")) == [
+        "-DHALO_RELEASE", "-DHALO_PGO_GENERATE"]
+    assert build_common.configuration_defines(SimpleNamespace(port_pgo="use")) == []
 
 
 def test_every_native_build_takes_the_configuration_defines():

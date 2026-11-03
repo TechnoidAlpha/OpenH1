@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Dict, Sequence
 
 import pytest
@@ -21,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 from guest_arch import ARM64_32, GUEST_ARCHES, X32  # noqa: E402
+from tools import build_common  # noqa: E402
 import guest_image_check  # noqa: E402
 
 ABI_HEADER = ROOT / "port" / "android" / "include" / "halo_android_abi.h"
@@ -70,8 +72,8 @@ def guest_macros(flags: Sequence[str]) -> Dict[str, int]:
     return macros(flags, text)
 
 
-def host_macros(elf_arch: str) -> Dict[str, int]:
-    return macros([f"--target={HOST_TARGETS[elf_arch]}", "-ffreestanding"], ABI_HEADER.read_text())
+def host_macros(elf_arch: str, defines: Sequence[str] = ()) -> Dict[str, int]:
+    return macros([f"--target={HOST_TARGETS[elf_arch]}", "-ffreestanding", *defines], ABI_HEADER.read_text())
 
 
 def clang_takes(flag: str) -> bool:
@@ -108,6 +110,25 @@ def test_image_range_is_the_hosts(name):
     window_end = host["HALO_GUEST_WINDOW_BASE"] + host["HALO_GUEST_WINDOW_SIZE"]
     image_end = arch.image_base + host["HALO_GUEST_IMAGE_RESERVE"]
     assert image_end <= host["HALO_GUEST_WINDOW_BASE"] or arch.image_base >= window_end
+
+
+@pytest.mark.parametrize("name", sorted(GUEST_ARCHES))
+def test_instrumented_image_range_is_the_hosts(name):
+    """an instrumented build's (configure.py --pgo=generate,
+    HALO_PGO_GENERATE) larger range, which still keeps off the window and
+    the x32 image's 2 GB line"""
+    arch = GUEST_ARCHES[name]
+    host = host_macros(arch.elf_arch, build_common.pgo_generate_defines(SimpleNamespace(port_pgo="generate")))
+    assert host["HALO_GUEST_IMAGE_BASE"] == arch.image_base
+    assert host["HALO_GUEST_IMAGE_RESERVE"] == guest_image_check.PGO_GENERATE_IMAGE_RESERVE
+    assert guest_image_check.PGO_GENERATE_IMAGE_RESERVE > guest_image_check.IMAGE_RESERVE
+    window_end = host["HALO_GUEST_WINDOW_BASE"] + host["HALO_GUEST_WINDOW_SIZE"]
+    image_end = arch.image_base + host["HALO_GUEST_IMAGE_RESERVE"]
+    assert image_end <= host["HALO_GUEST_WINDOW_BASE"] or arch.image_base >= window_end
+    assert image_end <= 0x80000000 or arch.image_base >= 0x80000000
+    # (and no other build has the define)
+    for mode in ("use", "off"):
+        assert build_common.pgo_generate_defines(SimpleNamespace(port_pgo=mode)) == []
 
 
 def test_window_sizes():

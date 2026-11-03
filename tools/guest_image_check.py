@@ -19,7 +19,9 @@ This checks that the image
   sections);
 - has its loadable segments inside the range the host reserves for it,
   from the architecture's image_base (tools/guest_arch.py), which must be
-  the host's HALO_GUEST_IMAGE_BASE (port/android/include/halo_android_abi.h);
+  the host's HALO_GUEST_IMAGE_BASE (port/android/include/halo_android_abi.h),
+  and is IMAGE_RESERVE long (an instrumented guest's, --pgo-generate,
+  PGO_GENERATE_IMAGE_RESERVE);
 - has constructors (.guest_init, which __guest_start calls as 4-byte
   pointers: port/android/guest/guest.ld) that are each the address of code
   in the image, so that an 8-byte entry (an ELF64 object's .init_array: the
@@ -30,7 +32,7 @@ This checks that the image
 - has no instruction that uses the thread pointer
   (GuestArch.thread_pointer_instructions), from llvm-objdump's disassembly.
 
-Usage: guest_image_check.py --arch NAME --objdump LLVM_OBJDUMP [--map MAP] image stamp
+Usage: guest_image_check.py --arch NAME --objdump LLVM_OBJDUMP [--pgo-generate] [--map MAP] image stamp
 Exits 1 and names each problem when there is one; otherwise touches stamp.
 """
 
@@ -47,15 +49,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from guest_arch import GUEST_ARCHES, GuestArch  # noqa: E402
 
 # the room the host reserves for the image (HALO_GUEST_IMAGE_RESERVE of
-# port/android/include/halo_android_abi.h: tools/test_guest_layout.py)
+# port/android/include/halo_android_abi.h: tools/test_guest_layout.py), and
+# an instrumented build's (configure.py --pgo=generate: HALO_PGO_GENERATE),
+# whose profile counters and records do not fit beside the game
 IMAGE_RESERVE = 0x04000000
+PGO_GENERATE_IMAGE_RESERVE = 0x08000000
 PT_LOAD, PT_DYNAMIC, PT_INTERP, PT_TLS = 1, 2, 3, 7
 PF_X = 1
 MACHINES = {"aarch64": 183, "x86_64": 62}
 
 
-def elf_problems(data: bytes, arch: GuestArch) -> List[str]:
-    """the problems with the ELF file's headers"""
+def elf_problems(data: bytes, arch: GuestArch, reserve: int = IMAGE_RESERVE) -> List[str]:
+    """the problems with the ELF file's headers (reserve: the length of the
+    image's range)"""
     if data[:4] != b"\x7fELF":
         return ["not an ELF file"]
     elf_class = data[4]
@@ -78,7 +84,7 @@ def elf_problems(data: bytes, arch: GuestArch) -> List[str]:
     expected_class = 1 if arch.ld_emulation.startswith("elf32") else 2
     if elf_class != expected_class:
         problems.append(f"ELF class {elf_class}, not {expected_class}")
-    reserve_end = arch.image_base + IMAGE_RESERVE
+    reserve_end = arch.image_base + reserve
     lowest = None
     code = []
     for index in range(phnum):
@@ -180,12 +186,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--arch", required=True, choices=sorted(GUEST_ARCHES))
     parser.add_argument("--objdump", default="llvm-objdump")
+    parser.add_argument("--pgo-generate", action="store_true",
+                        help="an instrumented guest (configure.py --pgo=generate), with its larger range")
     parser.add_argument("--map", type=Path, help="ld.lld's map of the link (-Map), to check .guest_init's inputs")
     parser.add_argument("image", type=Path)
     parser.add_argument("stamp", type=Path)
     args = parser.parse_args()
     arch = GUEST_ARCHES[args.arch]
-    problems = elf_problems(args.image.read_bytes(), arch)
+    problems = elf_problems(args.image.read_bytes(), arch,
+                            PGO_GENERATE_IMAGE_RESERVE if args.pgo_generate else IMAGE_RESERVE)
     if args.map:
         problems += map_problems(args.map.read_text(errors="replace"), arch)
     if not problems:

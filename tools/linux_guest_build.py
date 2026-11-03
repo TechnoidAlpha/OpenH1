@@ -46,7 +46,7 @@ from .android_build import (GUEST_ARCH_SCRIPT, GUEST_TOOLCHAIN_SCRIPT, SDL_ANDRO
                             SDL_TAG, SDL_WAYLAND_REFERENCE_PATCH, TOML_DIR, fetch_third_party, generate_guest_image, host_memory_sources)
 from .build_common import (MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUPNPC_DIR, OWN_CODE_ERRORS, SDL_RPATH_LDFLAGS,
                            compile_launcher, download, miniupnpc_sources, sdl3_desktop_check, sdl3_rule,
-                           updater_defines)
+                           pgo_generate_defines, updater_defines)
 from .guest_arch import ARM64_32, X32, GuestArch
 from .guest_toolchain import LLVM_VERSION, guest_toolchain
 from .ninja_syntax import Writer, escape
@@ -274,6 +274,7 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
         "-D_GNU_SOURCE",
         f"-I{ANDROID_DIR}/include", f"-I{ANDROID_DIR}/host", f"-I{sdl_dir}/include", f"-I{LINUX_DIR}/src",
         f"-I{TOML_DIR}", f"-I{openxr_dir}", f"-I{PORT_DIR}", f"-I{vulkan_headers}", *host_defines,
+        *pgo_generate_defines(sln),
     ])
     # (the app's own: its entry point, and the touch controls through Java)
     android_only = {"host_main.c", "host_touch.c"}

@@ -175,7 +175,17 @@ def configuration_defines(sln: Any) -> List[str]:
         defines.append("-DHALO_RELEASE")
     if getattr(sln, "port_profile", False):
         defines.append("-DHALO_PROFILE")
+    defines += pgo_generate_defines(sln)
     return defines
+
+
+def pgo_generate_defines(sln: Any) -> List[str]:
+    """--pgo=generate's define, for the guest and every host: the
+    instrumented image's larger range (HALO_GUEST_IMAGE_RESERVE,
+    port/android/include/halo_android_abi.h; tools/guest_image_check.py
+    --pgo-generate). Other builds have none, so their images and memory
+    are laid out as without it."""
+    return ["-DHALO_PGO_GENERATE"] if pgo_mode(sln) == "generate" else []
 
 
 def check_profile_options(profile: bool, pgo: str) -> None:

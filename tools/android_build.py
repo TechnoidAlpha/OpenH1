@@ -35,7 +35,7 @@ from .build_common import (LINUX_PROFILE, MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUP
                            XDK_INCLUDE, compile_launcher, configuration_defines, download, game_defines_and_includes,
                            FFMPEG_CALLER, ffmpeg_cflags, game_sources, miniupnpc_sources,
                            musl_math_sources, opus_cflags, opus_sources,
-                           PROFILE_GENERATE_FLAGS, pgo_mode, pgo_profile, profile_use_flags, updater_defines,
+                           PROFILE_GENERATE_FLAGS, pgo_generate_defines, pgo_mode, pgo_profile, profile_use_flags, updater_defines,
                            xdk_headers)
 from . import check_host_imports
 from .ffmpeg_fetch import fetch_ffmpeg, ffmpeg_sources, ffmpeg_tree
@@ -692,7 +692,8 @@ def generate_guest_image(n: Writer, sln: Any, config: Dict[str, Any], *, arch: G
     checked = guest_dir / "halo_guest.checked"
     n.rule(
         name=f"{prefix}_guest_check",
-        command=f"{python} tools/guest_image_check.py --arch {arch.name} --objdump {objdump} --map $in.map $in $out",
+        command=(f"{python} tools/guest_image_check.py --arch {arch.name} --objdump {objdump} "
+                 f"{'--pgo-generate ' if profile_generate else ''}--map $in.map $in $out"),
         description=f"{label} CHECK $in",
     )
     n.build(outputs=checked, rule=f"{prefix}_guest_check", inputs=image,
@@ -814,7 +815,7 @@ def generate_android_build(n: Writer, sln: Any) -> None:
     host_cflags = " ".join([
         "-O2", "-g", "-fPIC", "-Wall", "-Wno-unused-function", *OWN_CODE_ERRORS, "-D_GNU_SOURCE",
         f"-I{PORT_DIR}/include", f"-I{PORT_DIR}/host", f"-I{SDL_DIR}/include", f"-I{LINUX_DIR}/src",
-        f"-I{TOML_DIR}", "-DHALO_VULKAN=1", *(["-DHALO_GUEST_BASE=1"] if base_register else []),
+        f"-I{TOML_DIR}", "-DHALO_VULKAN=1", *(["-DHALO_GUEST_BASE=1"] if base_register else []), *pgo_generate_defines(sln),
     ])
     host_sources = host_memory_sources(sorted((PORT_DIR / "host").glob("*.c")), base_register) + [
         LINUX_DIR / "src" / "posix_files.c", LINUX_DIR / "src" / "posix_net.c",
