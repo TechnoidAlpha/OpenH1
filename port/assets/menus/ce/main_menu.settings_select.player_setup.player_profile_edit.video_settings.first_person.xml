@@ -24,10 +24,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_visible" x="28" y="289"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_first_person_legs" x="28" y="310"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_passenger_third_person" x="28" y="331"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_13" x="28" y="358"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_shield" x="28" y="378"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shield_color" x="28" y="399"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_overshield_effect" x="28" y="420"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shields" x="28" y="352"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -243,37 +240,13 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/passenger_third_person_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="BEHIND|SEAT" setting="display.passenger_third_person" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_13" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_13_title"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shields" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shields/shields_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shields/shields_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shields_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_13_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="13" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_shield" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="14" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.viewmodel_shield" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shield_color" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="15" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|WHITE|BLACK|RED|BLUE|GRAY|YELLOW|GREEN|PINK|PURPLE|CYAN|COBALT|ORANGE|TEAL|SAGE|BROWN|TAN|MAROON|SALMON" setting="display.shield_color" values="default|white|black|red|blue|gray|yellow|green|pink|purple|cyan|cobalt|orange|teal|sage|brown|tan|maroon|salmon" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_overshield_effect" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="16" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.overshield_effect" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shields_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels">
 		<string text="VIEW"/>
@@ -289,10 +262,7 @@
 		<string text="WEAPON AND HANDS"/>
 		<string text="LEGS"/>
 		<string text="PASSENGER VIEW"/>
-		<string text="SHIELDS"/>
-		<string text="ARM SHIELDS"/>
-		<string text="SHIELD COLOR"/>
-		<string text="OVERSHIELD"/>
+		<string text="SHIELDS ›"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/help_strings">
 		<string text=""/>
@@ -309,9 +279,6 @@
 		<string text="Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and hear them."/>
 		<string text="Your legs when you look down, moving as you run: your body as the others see it."/>
 		<string text="Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or from your seat. Behind, the weapon cannot zoom."/>
-		<string text=""/>
-		<string text="When your shield takes a hit, its flare shows on your first-person arms too, as on your body, and fades as it does there. A full, untouched shield shows nothing.|An overshield stays lit on them with Overshield on, below."/>
-		<string text="Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its own."/>
-		<string text="An overshield stays lit for as long as it lasts, in its own color, on your body and, with Arm Shields, your arms. Off draws it as the original did. Online: the host's choice."/>
+		<string text="Your shield's flare on your first-person arms, its color, and an overshield's glow."/>
 	</strings>
 </menus>

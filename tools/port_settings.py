@@ -477,6 +477,9 @@ FIRST_PERSON = ("video_settings/first_person", "first_person_screen")
 BRIGHTNESS_PAGE = ("video_settings/brightness", "brightness_screen")
 # (Android's: the picture on a tall screen, and portrait's frame)
 SCREEN_LAYOUT = ("video_settings/screen_layout", "screen_layout_screen")
+# (First Person's shields: the arms' flare, its color, the overshield; their
+# own page, so that First Person's view rows fit)
+SHIELDS = ("video_settings/first_person/shields", "shields_screen")
 CONTROLLER = ("gamepad_setup", "gamepad_setup_screen")
 # (the controller's own button layout, each player's: controller_remap_menu.inl)
 BUTTON_REMAPPING = ("gamepad_setup/button_remapping", "button_remapping_screen")
@@ -953,6 +956,13 @@ PAGES = {
             ("PASSENGER VIEW", "display.passenger_third_person", [("BEHIND", "true"), ("SEAT", "false")],
              "Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or "
              "from your seat. Behind, the weapon cannot zoom.", None),
+            ("SHIELDS ›", None, _page_screen(*SHIELDS),
+             "Your shield's flare on your first-person arms, its color, and an overshield's glow.", None),
+        ],
+    },
+    SHIELDS[0]: {
+        "screen": SHIELDS[1], "title": "SHIELDS",
+        "rows": [
             (SECTION, "SHIELDS"),
             ("ARM SHIELDS", "display.viewmodel_shield", ON_OFF,
              "When your shield takes a hit, its flare shows on your first-person arms too, as on your body, "
