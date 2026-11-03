@@ -4888,6 +4888,10 @@ void ai_communication_finished(
 									{
 										struct unit_speech_item speech;
 
+										/* port: zeroed, padding and look data too: it is copied
+										whole into the replying unit (its speech.queued), in the
+										game state, from whatever the stack held */
+										csmemset(&speech, 0, sizeof(speech));
 										speech.priority = speech_priority;
 										speech.vocalization_type = reply_vocalization_type;
 										speech.sound_definition_index = sound_definition_index;

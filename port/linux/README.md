@@ -984,7 +984,8 @@ the setting for one start of the game. It has priority over the file.
 | `display.interpolation` | `true` | `HALO_INTERPOLATION` | `true`: one frame for each refresh of the display. `false`: 30 frames each second, as on the Xbox. Refer to "Frame rate". |
 | `display.menu_cursor` | `"medium"` | `HALO_MENU_CURSOR` | The menus' pointer for the mouse (Settings > Controls > Menu Cursor): the game's blue arrow, `"small"`, `"medium"`, `"large"` or `"extra_large"` (18, 24, 32 or 40 of the menus' 480 lines tall, the same part of the screen at any resolution), or `"off"` for the system's pointer. Linux, Windows and macOS. Refer to "Controls". |
 | `display.direct_camera` | `true` | `HALO_DIRECT_CAMERA` | `true`: in first person, on foot, the view points where the player aims in each frame, not where the last tick left it; and (not in the VR mode) the view stands where the newest step left the player, and the gun and hands show the newest step's pose (a shot, a step, a reload seen 33 ms sooner). In a vehicle's seat (first or third person, not in the VR mode) the vehicle, its riders and the view from it are drawn as the vehicle's newest step left it, the view aimed where the player aims. On Android and iOS too, with the touch controls' swipe and gyroscope. Refer to "Frame rate". |
-| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot and in vehicles, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
+| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
+| `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
 | `display.passenger_third_person` | `false` | `HALO_PASSENGER_THIRD_PERSON` | Third-person view for the Warthog's passenger and the Scorpion's four passengers. Uses the gunner's camera on the Warthog and the driver's on the Scorpion, within the passenger's firing arc. Smooth entry and exit; weapon zoom is disabled while riding. The reticle follows the shot's centre ray. Local view only. In the campaign and co-op only: not in multiplayer, where seeing around the vehicle would be an advantage. Never in VR, which stays in first person in every seat. |
@@ -1015,7 +1016,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.shield_glow_intensity` | `default` | `HALO_SHIELD_GLOW_INTENSITY` | The shield glow's reach and brightness: `default`, or `light_show` (three times as far, and at full strength from a third of the flare: a light is no brighter than full). The units glowing are those near any local player's camera, so each of a split screen's views has the same. Video Setup's Extra Effects screen sets it. In a network game, the host's `network.shield_effects` decides, unless it is `players` (each player's own). |
 | `display.overshield_effect` | `true` | `HALO_OVERSHIELD_EFFECT` | `true` (the default): the overshield's flare rises up the body from the feet as it charges, with a soft edge (2 seconds, the charge's time from a full shield; 3 from a shield that was down; 2 from any other), then stays lit, whole, for as long as the overshield lasts, its energy moving at 30% of its speed, in its own color (the powerup's, 253, 78, 116), whatever shield color its player chose; the shield's own flares are not drawn over it, and its glow (`display.shield_glow`) rises and stays with it. With `display.viewmodel_shield` it comes up on the first-person arms as the rise reaches them. A hit on it plays what the projectile plays on an Elite's shield (its sound, sparks and light), when the map has that effect and it only shows and sounds. `false`: the overshield as the stock game draws it, with no flare of its own. Only this machine's drawing and sounds change (`overshield_effect.c`; the rise is a fade in the vertex shader, `d3d8_gl_set_height_fade`, which the Vulkan and Metal renderers do not draw yet: on the body the flare is lit whole from the charge's start, and on the arms it comes up over the rise). OVERSHIELD in Settings > Video > First Person sets it. In a network game, the host's `network.shield_effects` decides (`overshield` by default, which shows it to everyone), unless it is `players` (each player's own). |
 | `display.dynamic_lights` | `display.graphics`'s | `HALO_DYNAMIC_LIGHTS` | The light of plasma bolts, needles, muzzle flashes, grenades and explosions. `"classic"`: the game's own. `"enhanced"`: the structure and the models are lit for each pixel by the lights near each pixel (a grid of the lights about the camera, not a cap of two lights an object), the structure through its bump maps; in linear light, falling off as the inverse square of the distance with a soft core, to nothing at the light tag's radius, under a soft shoulder that never clips (a light's color and radius are its tag's); placed where the objects are drawn between ticks; lighting the first-person weapon and hands; with a soft glow about each plasma bolt in flight (a projectile with no model). Bolts and needles light too (the game draws only their lens flares). Vulkan and Metal: the Linux builds, Windows and Android (Vulkan) and macOS and iOS (Metal). The structure's spotlights and gelled lights (a flashlight's, a headlight's, the Pillar of Autumn's turning alarm lights') keep the game's own pass, which draws their gels. Refer to "Dynamic lights" under "VR". Commented out, `display.graphics` chooses it (refer to "Classic and Enhanced"); set, it wins over `display.graphics`. |
-| `display.ambient_occlusion` | `display.graphics`'s | `HALO_AMBIENT_OCCLUSION` | Ambient occlusion, which the Xbox did not have, found each frame from the 3D view's depth (GTAO: the horizons each pixel sees in a few directions, its normal from the depth, at half the resolution, blurred and filtered up by the depth) and multiplied into the opaque surfaces' ambient light only where the game's lighting does not already hold it. An object (a character, a vehicle, scenery, a weapon on the ground), which one ambient sample lights, is occluded by everything about it; the level, whose radiosity lightmaps hold its own occlusion, only by objects (a Warthog on the sand, a marine at a wall), so its corners keep their baked light. It is laid after the lightmap pass, before the diffuse textures, the decals, the dynamic lights, the specular light, the transparent surfaces, the effects and the HUD; self-illuminated surfaces and the first-person weapon keep their light (the stencil marks them, and objects). `"off"`: none, as the game draws. `"subtle"`: half the strength. `"strong"`: radius 0.5 world units (1.5 m), strength 1, power 1.5. Vulkan (the Linux builds, Windows, Android) and Metal (macOS, iOS: not with multisampling, `display.anti_aliasing = "msaa..."`). Not in the VR mode's eyes. Video Setup > Advanced Graphics > Ambient Occlusion. Commented out, `display.graphics` chooses it (refer to "Classic and Enhanced"); set, it wins over `display.graphics`. |
+| `display.ambient_occlusion` | `display.graphics`'s | `HALO_AMBIENT_OCCLUSION` | Ambient occlusion, which the Xbox did not have, found each frame from the 3D view's depth (GTAO: the horizons each pixel sees in a few directions, its normal from the depth, at half the resolution, blurred and filtered up by the depth) and multiplied into the opaque surfaces' ambient light only where the game's lighting does not already hold it. An object (a character, a vehicle, scenery, a weapon on the ground), which one ambient sample lights, is occluded by everything about it; the level, whose radiosity lightmaps hold its own occlusion, only by objects (a Warthog on the sand, a marine at a wall), so its corners keep their baked light. It is laid after the lightmap pass, before the diffuse textures, the decals, the dynamic lights, the specular light, the transparent surfaces, the effects and the HUD; self-illuminated surfaces and the first-person weapon keep their light (the stencil marks them, and objects). `"off"`: none, as the game draws. `"subtle"`: half the strength. `"strong"`: radius 0.5 world units (1.5 m), strength 1, power 1.5. Vulkan (the Linux builds, Windows, Android) and Metal (macOS, iOS: not with multisampling, `display.anti_aliasing = "msaa..."`). Not in the VR mode's eyes. Video Setup > Advanced Graphics > Ambient Occlusion. Off by default, Enhanced included, while its look is refined. Commented out, `display.graphics` chooses it (refer to "Classic and Enhanced"); set, it wins over `display.graphics`. |
 | `display.hdr` | `"auto"` | `HALO_HDR` | High dynamic range. `"auto"`: on while the window's display shows HDR (an XDR or HDR display: macOS's EDR headroom past 2, which an SDR panel's dimmed white never reaches); `"on"`: always (on an SDR display the highlights are rolled off under its white); `"off"`: never. The frame is drawn in half floats, which keep the light that the game's additive effects (plasma, explosions, muzzle flashes, the dynamic lights, lens flares, the sun) add past white, and an HDR display shows it brighter than paper white, its SDR white. Surfaces, the HUD and the menus stay where they are; the first-person weapon's displays and the HUD's flashes and motion tracker glow a little past paper white, the screens, door panels and Forerunner glyphs that light themselves (their self-illumination) up to twice it. Off, and with `"auto"` on an SDR display, the picture is the 8-bit one, unchanged. Metal (macOS) and Vulkan (the Linux desktop and Windows, where the device reads its colour attachments, `VK_KHR_dynamic_rendering_local_read`, and the compositor gives the swapchain an HDR colour space: HDR10 or scRGB; `"auto"` follows SDL's HDR state); Android and the VR mode draw SDR, and Video Setup shows its HDR row, which opens the HDR page (HDR, HDR Mode, Paper White, UI Brightness and the display's peak), only where the renderer draws HDR. The design: [docs/hdr.md](../../docs/hdr.md). A change applies from the next frame. |
 | `display.hdr_mode` | `"faithful"` | `HALO_HDR_MODE` | With HDR: `"faithful"`: the picture as the game draws it, only its highlights brighter (what was under white stays exactly so); `"punchy"`: the whole scene and its bright parts lifted, each colour keeping its hue, for a brighter, remastered look. |
 | `display.hdr_paper_white_nits` | `0` | `HALO_HDR_PAPER_WHITE_NITS` | With HDR, how bright paper white (white surfaces, the HUD, the menus) is, in nits, `80` to `500` (the HDR page's Paper White row: System, or 80 to 500 nits in steps of 20). `0`: the system's SDR white (on Vulkan, SDL's, which follows Windows' SDR content brightness and the desktop's; 203 nits, BT.2408's reference white, where the system gives none). macOS and iOS give no nits for their SDR white, which follows the display's brightness: it is taken as 100 nits, as their reference modes have it. The highlights keep the rest of the display's headroom; paper white is never brighter than the display can show. |
@@ -1218,13 +1219,13 @@ the setting for one start of the game. It has priority over the file.
 | `debug.update_key` | `""` | `HALO_UPDATE_KEY` | A test's release key (its Ed25519 public key, 64 hex digits), trusted beside OpenH1's to sign the `SHA256SUMS` of `debug.update_url`'s releases, and only while `debug.update_url` is set: never for GitHub's (`tools/test_dedicated_server.py`). Empty: OpenH1's key alone. |
 | `debug.update_time_scale` | `1.0` | `HALO_UPDATE_TIME_SCALE` | How much faster than real time a dedicated server's `server.auto_update` counts its minutes (between checks, empty, of a game), for tests. |
 | `debug.load_trace` | `false` | `HALO_LOAD_TRACE` | Log map loading checkpoints, and start-up's from the host's `main` (`host.main`, `host.guest_main`), with absolute monotonic wall, thread and process CPU seconds. Subtract timestamps to measure phases; process CPU includes worker threads. Set `HALO_LOAD_TRACE_DETAIL=1` to add sampled preparation CPU timings and detailed renderer traces; measure final loading times without these extra diagnostics. |
-| `debug.fixed_step` | `false` | `HALO_FIXED_STEP` | `true`: a game of this computer alone runs one step a frame (a tick at `game.sim_rate` 30, a sub-step at 60 and 120), whatever time has passed, so that it plays the same every time (tests). |
+| `debug.fixed_step` | `false` | `HALO_FIXED_STEP` | `true`: a game of this computer alone runs one step a frame (a tick at `game.sim_rate` 30, a sub-step at 60 and 120), whatever time has passed, so that it plays the same every time (tests); the sound is timed by the frames too, mixed with no device. |
 | `debug.exit_after` | `0.0` | `HALO_EXIT_AFTER` | The game stops after this number of seconds (from when its window opens; with `debug.null_renderer`, or no display, from its first frame; a dedicated server stops as `quit` stops it). `0`: never. |
 | `debug.screenshot_directory`, `debug.screenshot_every` | `""`, `0` | `HALO_SCREENSHOT_DIR`, `HALO_SCREENSHOT_EVERY` | The game writes each Nth frame to this folder as a BMP file. |
 | `debug.screenshot_stream` | `""` | `HALO_SCREENSHOT_STREAM` | With `debug.screenshot_every`, a file each frame's pixels are appended to instead of the folder's BMP files: BGRA, the top row first, no header (a named pipe an encoder reads, `ffmpeg -f rawvideo -pix_fmt bgra -s <width>x<height>`), so that a long run's frames never reach the disk. |
 | `debug.screenshot_from`, `debug.screenshot_until` | `0`, `0` | `HALO_SCREENSHOT_FROM`, `HALO_SCREENSHOT_UNTIL` | With `debug.screenshot_every`, only the frames between these seconds of the scenario's simulation (the clock of `debug.trace` and `debug.test_input`'s scripts; `0`: no bound) are written: a part of a long run, run again the same way. |
 | `debug.ambient_occlusion_view` | `false` | `HALO_AMBIENT_OCCLUSION_VIEW` | With `display.ambient_occlusion`, the 3D view drawn as the occlusion alone, in grey (white where it is not laid), for comparing its settings. |
-| `debug.hidden_window`, `debug.null_renderer` | `false` | `HALO_HIDDEN_WINDOW`, `HALO_NULL_RENDERER` | `true`: no visible window, or no graphics. |
+| `debug.hidden_window`, `debug.null_renderer` | `false` | `HALO_HIDDEN_WINDOW`, `HALO_NULL_RENDERER` | `true`: no visible window, or no graphics. With no graphics (or no display) the game draws no game frames (its menus still are), and runs one a step of its clock (`game.sim_rate`), not as many as it can (`port/linux/game/unseen_frames.c`); runs of fixed frame times (`debug.frame_time`, `debug.fixed_step`) still run as fast as they can. |
 | `debug.join_legacy` | `false` | `HALO_DEBUG_JOIN_LEGACY` | `true`: join every game as an OpenCE build joins it, an OpenH1 game that OpenCE players can join (`network.allow_opence`) too: at 30 ticks a second, with the Legacy game's join token. The tests' stand-in for an OpenCE machine (`tools/stagekit/tests/test_mixed.py`). |
 | `debug.no_clipboard` | `false` | `HALO_NO_CLIPBOARD` | `true`: the game leaves the clipboard alone, for tests and tools: it puts no invite link on it and joins none found there. A run with `debug.null_renderer`, `debug.test_input`, `debug.fixed_step`, `debug.network_test` or `debug.exit_after` leaves it alone too. |
 | `debug.render_manifest` | `""` | `HALO_RENDER_MANIFEST` | A file the draws' shaders and pipelines are recorded into, each new one added (the renderer's manifest: `port/assets/render/README.md`), and a map's enumeration (as `display.prepare_shaders`): each later draw the map's enumeration does not have is marked missed, with the functions it was drawn in (`tools/render_manifest.py check`). Empty: none. |
@@ -1260,7 +1261,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.determinism_log` | `""` | `HALO_DETERMINISM_LOG` | A file to write a line a tick to: a hash of the game state as the tick left it, the random seeds, and every taker of a seed since the line before by its call site (in the tick, in the frames, on other threads). Two runs of the same input compared with `tools/determinism_compare.py` first differ where something besides the input reached the game. |
 | `debug.determinism_dump` | `0` | `HALO_DETERMINISM_DUMP` | With `debug.determinism_log`, the tick after which to write the game state too, counted as logged from 1 (its allocations in order, to `<log>.<count>.bin`), to find where two runs' game states differ (`tools/determinism_compare.py --dump`), and that tick's first frame as `<log>.<count>.bmp`; `0` none. |
 | `debug.trace`, `debug.trace_seconds`, `debug.trace_mutation` | `""`, `0.0`, `""` | `HALO_TRACE`, `HALO_TRACE_SECONDS`, `HALO_TRACE_MUTATION` | A file to write a line a simulation step to (`game/sim_trace.c`): the players' place, velocity and aim, each projectile's, and the step's shots, projectiles made, strikes and detonations, timed in seconds from the scenario's start; quit once the scenario has run `debug.trace_seconds`; `debug.trace_mutation` puts a known bug in on purpose (`head_start`, `jump`, `speed`), which the scorecard must catch (`tools/scorecard`). Off, it costs a test a call. `HALO_GUEST_IMAGE` (the environment only) runs another guest image in the game's place: StageKit's map writer (`tools/stagekit`). |
-| `debug.frame_time` | `0.0` | `HALO_FRAME_TIME` | Seconds of game time each frame runs, whatever time it took, so that two runs of the same input run the same frames (the determinism check, with `debug.determinism_log`); `0` the time each frame took. |
+| `debug.frame_time` | `0.0` | `HALO_FRAME_TIME` | Seconds of game time each frame runs, whatever time it took, so that two runs of the same input run the same frames (the determinism check, with `debug.determinism_log`); the sound is timed by the frames too, mixed with no device; `0` the time each frame took. |
 | `debug.bots_tactics_team` | `-1` | `HALO_BOTS_TACTICS_TEAM` | With `bots.tactics`, only this team's bots (`0` red, `1` blue) play together, the other team's each on its own, to measure what the team play is worth (the bots' minute line gives each team's kills); `-1` both teams'. |
 | `debug.random_seed` | `0` | `HALO_RANDOM_SEED` | The random seed of the network games this machine hosts, so that a test plays the same game again (where players spawn, the weapons' spread, the AI's choices); `0` a new one for each game, from the clock. |
 | `debug.audio_log` | `false` | `HALO_AUDIO_LOG` | Write to the log, five times a second, each sound placed in the world that plays: where it is from the listener (metres ahead, right and up), its gain in each ear (through the HRTF, its delays and filters too), the time the mixing takes, how long the sound device waited for its frames of the time it had queued, and its dropouts ("Sound delay"). |
@@ -1289,7 +1290,7 @@ so that choosing Classic or Enhanced there chooses them all.
 | `display.per_pixel_lighting` | `false` | `true` |
 | `display.model_detail` | `"auto"` | `"native"` |
 | `display.dynamic_lights` | `"classic"` | `"enhanced"` |
-| `display.ambient_occlusion` | `"off"` | `"strong"` (Android, iOS: `"off"`) |
+| `display.ambient_occlusion` | `"off"` | `"off"` (opt-in for now) |
 
 Enhanced is the default, the same on every build: every improvement. SMAA
 is one pass of fixed cost whatever the scene, where multisampling multiplies
@@ -1958,22 +1959,30 @@ sooner than the AudioQueue.
 
 ## Field of view
 
-Video Setup's FOV AND VIEWMODELS screen sets the field of view of the
-first-person view (`display.fov`) and of the weapon and hands
-(`display.viewmodel_fov`), from 80 to 150 degrees in steps of 5, and can
-hide the weapon (`display.viewmodel_visible`). DEFAULT, the setting's `0`,
-keeps the stock view. `config.toml` takes any angle from 20 to 150.
+Video Setup's Field of View sets the view's field of view on foot
+(`display.fov`); First Person sets the vehicles' (`display.vehicle_fov`)
+and the weapon and hands' (`display.viewmodel_fov`), from 80 to 150
+degrees in steps of 5, and can hide the weapon (`display.viewmodel_visible`).
+DEFAULT, the setting's `0` (the vehicles' `"default"`), keeps the stock
+view; the vehicles' MATCH (`"match"`) takes the view on foot's. `config.toml`
+takes any angle from 20 to 150.
 
 - An angle is across the screen at 16:9. Another shape keeps the same
   angle up and down, as the stock view does.
-- The field of view applies on foot and in vehicles, in first and third
-  person, entering and leaving a seat too, so the view and the reticle keep
-  their size as you get in and out. Death, cinematics and scripted cameras
-  keep their own view.
+- `display.fov` applies on foot. In a vehicle's seat, in first and third
+  person, entering and leaving it too, the view takes `display.vehicle_fov`:
+  by default the stock view, as the Xbox drew it. Getting in or out, while
+  the two differ, the view eases from one to the other in half a second
+  (from when the player is in the seat, and from when the player is out of
+  it, while the camera flies back to the head), and turns back from where
+  it is if the player gets in or out again on the way. Death, cinematics
+  and scripted cameras keep their own view.
 - A scope's zoom levels keep their stock view: the extra width fades out as
   the zoom comes in. A view narrower than the stock one narrows the zoom
   too.
-- The reticles scale with the view, so that they stay on the aim. The
+- The reticles scale with the view, so that they stay on the aim: each
+  frame's reticle is scaled from that frame's view, so it grows or shrinks
+  with the view as you get in and out and never shows another size. The
   scopes' pictures keep their place.
 - By default the weapon keeps its stock view when the world is wider:
   arms and a gun right against the camera stretch at a wide angle.
@@ -6243,8 +6252,24 @@ contrails, which a tick adds points to, still part by the frame rate.)
   tick.
 - What the ticks keep. Not the sound manager's indices, which are the
   mixer's (a unit's speech, the first-person weapon's sound); a decal is
-  made whether or not the texture cache has its bitmap yet.
+  made whether or not the texture cache has its bitmap yet. What the game
+  fills on the stack and copies whole into the game state (a unit's speech
+  item and its AI packet, a particle's data) is zeroed first, its padding
+  too, or the bytes it leaves are whatever the stack held, which any change
+  to the code moves.
+- The sound's clock. The sound manager times its sounds by the clock, and
+  what it decides by it reaches the game state: the HUD's sounds' handles,
+  the sound classes' fades, the looping sounds' states and the slots they
+  free, which an object's next looping sound takes. With the frames' time
+  fixed (`debug.frame_time`, `debug.fixed_step`) it is the frames' time
+  instead, the mix keeps step with the frames with no device, and a sound's
+  read is waited for (`game/frames_clock.c`), so that two runs of the same
+  input hear the same.
 - A new network game's seed is the clock's (`debug.random_seed` fixes it).
+  A network test's lobby (`debug.network_test`) runs by the network's clock
+  (its messages, its joins, the start), so it is not as many ticks each
+  time; its frames and sounds leave the frames' allocations and the HUD's
+  sounds' handles as they were, after a lobby of another length.
 
 The determinism check is `debug.determinism_log`: a line a tick in a file
 of its own, with a hash of the game state as the tick left it (of each of
@@ -6279,7 +6304,8 @@ second is the same game. Left out of the hash, as they mean nothing
 between their uses: the objects' magic numbers (the collision tests'
 marks, which the frames' tests leave too) and their cached render states'
 indices (the renderer's), and the free space after the objects' last
-block.
+block. `--game` compares each log from its last game's start, where the
+tick count began again at 1: a network test's game after its lobby (above).
 
 ### Simulation rate
 
@@ -6467,6 +6493,7 @@ Other changes:
 | `render/render.c`, `rasterizer/xbox/rasterizer_xbox_decals.c` | The frames are counted from the map's start, as the game state's caches stamp them: the menus' and the loading's frames, as many as the loading took, made two runs of one game differ. |
 | `scenario/scenario.c` | A location's last field is set, not left as the stack had it. The wind steps once a tick, at the tick's end, not by the frames' time. |
 | `scenario/scenario.c`, `cache/cache_files.c` | A load zone shows no loading screen and does not hitch: as a scenario loads, every structure BSP of it is read and checked, and kept as read (`game/structure_bsp_cache.c`) with its culling's buckets (`game/structure_culling.c`); a switch to one copies it back instead of reading and checking it again. |
+| `models/models.c`, `structures/structures.c`, `scenario/scenario.c` | Each marker name looked up in a model (`model_find_marker`) and the clusters each sphere reaches (`structure_clusters_in_sphere`) are kept with the game's own answer, out of the game state, so the objects' effects and moving lights neither search nor walk the portals again each tick; a map's load and unload, and a BSP's switch, forget them. |
 | `memory/memory_pool.c`, `main/main.c` | A release build checks the memory pool's first and last blocks, and a block's neighbours, instead of walking every block at each allocation and lookup (the checked build still walks them); a load zone's switch tells the host its frame's extra time (`game/load_zone.c`). |
 | `sound/sound_manager.c`, `sound/sound_definitions.c` | The sounds' random choices take a seed of their own. The speakers' mouths are not moved from the mixer's place in the sound. |
 | `sound/game_sound.c`, `units/unit_dialogue.c` | The speakers' mouths move in the ticks, from the permutation the game picks at the speech's start and the ticks since. A unit does not keep the sound manager's index of its speech, and a scripted sound's time ends when it is stopped, whether or not the mixer played it. |

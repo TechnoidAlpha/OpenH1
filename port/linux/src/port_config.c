@@ -113,14 +113,11 @@ frame where 4x took up to 10) */
 #define GRAPHICS_PER_PIXEL_LIGHTING "true"
 #define GRAPHICS_MODEL_DETAIL "\"native\""
 #define GRAPHICS_DYNAMIC_LIGHTS "\"enhanced\""
-/* (but none on the phones, whose tile-based GPUs would store the 3D view's
-colour and depth and load them again for its passes in the middle of each
-frame) */
-#if defined(HALO_ANDROID) || defined(HALO_IOS)
+/* (off in Enhanced too, for now: it is opt-in, Video Setup > Advanced
+Graphics > Ambient Occlusion, while its look is refined; and the phones'
+tile-based GPUs would store the 3D view's colour and depth and load them
+again for its passes in the middle of each frame) */
 #define GRAPHICS_AMBIENT_OCCLUSION "\"off\""
-#else
-#define GRAPHICS_AMBIENT_OCCLUSION "\"strong\""
-#endif
 /* display.astc_textures: "auto" everywhere (iPhones, through Metal; Android
 phones without BC, through Vulkan: seen right on a Pixel 11 Pro's PowerVR) */
 #define ASTC_TEXTURES_DEFAULT "\"auto\""
@@ -236,9 +233,13 @@ static const struct config_setting config_settings[] =
 		"VR mode) the vehicle and the view from it are drawn as its newest\n"
 		"step left it: not a tick (33 ms) behind." },
 	{ "display.fov", _config_real, "0.0", "HALO_FOV", _environment_value, _platform_all,
-		"The view's field of view on foot and in vehicles, in degrees across\n"
-		"at 16:9 (20 to 150); 0 keeps the stock view. Cinematics and scripted\n"
-		"cameras keep their own." },
+		"The view's field of view on foot, in degrees across at 16:9 (20 to\n"
+		"150); 0 keeps the stock view. Vehicles take display.vehicle_fov's.\n"
+		"Cinematics and scripted cameras keep their own." },
+	{ "display.vehicle_fov", _config_string, "\"default\"", "HALO_VEHICLE_FOV", _environment_value, _platform_all,
+		"The view's field of view in a vehicle's seat, first or third person,\n"
+		"getting in and out too: \"default\" keeps the stock view, \"match\" takes\n"
+		"display.fov's, and a number is degrees across at 16:9 (20 to 150)." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"
@@ -1961,7 +1962,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.fixed_step", _config_boolean, "false", "HALO_FIXED_STEP", _environment_set_is_true, _platform_all,
 		"A game of this machine alone runs one tick a frame, whatever time has\n"
 		"passed, so that it plays the same every time (tests); game_speed has no\n"
-		"effect." },
+		"effect. The sound is timed by the frames too, mixed with no device." },
 	{ "debug.exit_after", _config_real, "0.0", "HALO_EXIT_AFTER", _environment_value, _platform_all,
 		"Quit this many seconds after the window opens (without a window, after\n"
 		"the first frame); 0 never." },
@@ -1991,8 +1992,9 @@ static const struct config_setting config_settings[] =
 		"0 none." },
 	{ "debug.frame_time", _config_real, "0.0", "HALO_FRAME_TIME", _environment_value, _platform_all,
 		"Seconds of game time each frame runs, whatever time it took, so that two\n"
-		"runs of the same input run the same frames (the determinism check); 0\n"
-		"the time each frame took." },
+		"runs of the same input run the same frames (the determinism check),\n"
+		"and the sound is timed by them too, mixed with no device; 0 the time\n"
+		"each frame took." },
 	{ "debug.bots_tactics_team", _config_integer, "-1", "HALO_BOTS_TACTICS_TEAM", _environment_value, _platform_all,
 		"With bots.tactics, only this team's bots (0 red, 1 blue) play together,\n"
 		"the other's each on its own, to measure what the team play is worth;\n"
@@ -2163,7 +2165,8 @@ static const struct config_setting config_settings[] =
 		"With display.ambient_occlusion, the 3D view drawn as the occlusion\n"
 		"alone, in grey (white where it is not laid)." },
 	{ "debug.null_renderer", _config_boolean, "false", "HALO_NULL_RENDERER", _environment_set_is_true, _platform_all,
-		"Run without a window, drawing nothing." },
+		"Run without a window, drawing nothing: a frame a step of the game's\n"
+		"clock (game.sim_rate), not as many as it can." },
 	{ "debug.no_clipboard", _config_boolean, "false", "HALO_NO_CLIPBOARD", _environment_set_is_true, _platform_all,
 		"Leave the clipboard alone (tests and tools): no invite link is put on\n"
 		"it, and none found there is joined, as with debug.null_renderer,\n"
@@ -3079,6 +3082,24 @@ static int config_environment_set(const char *text)
 	return text[0] && !config_text_is_false(text);
 }
 
+/* the string settings that take a word or a number (display.vehicle_fov:
+"default", "match" or degrees), which config.toml may have unquoted */
+static int config_string_takes_number(const struct config_setting *setting)
+{
+	return setting->type == _config_string && !strcmp(setting->name, "display.vehicle_fov");
+}
+
+/* whether the text is a number in digits, all of it */
+static int config_text_is_number(const char *text)
+{
+	char *end;
+
+	if (!isdigit((unsigned char)text[text[0] == '-' || text[0] == '+']))
+		return 0;
+	strtod(text, &end);
+	return !*end && isdigit((unsigned char)end[-1]);
+}
+
 static void config_set_from_text(struct config_value *value, enum config_type type, const char *text)
 {
 	switch (type)
@@ -3149,6 +3170,15 @@ static int config_set_from_file(struct config_value *value, const struct config_
 		{
 			free(value->string);
 			value->string = strdup(datum.u.s);
+		}
+		else if ((datum.type == TOML_FP64 || datum.type == TOML_INT64) && config_string_takes_number(setting))
+		{
+			char number[64];
+
+			config_real_text(datum.type == TOML_FP64 ? datum.u.fp64 : (double)datum.u.int64, number,
+				sizeof(number));
+			free(value->string);
+			value->string = strdup(number);
 		}
 		else
 		{
@@ -4200,8 +4230,17 @@ int config_write(const char *name, const char *value)
 		break;
 	case _config_string:
 	{
-		char *end = line_text + snprintf(line_text, line_size, "%s = \"", key);
+		char *end;
 		const char *character;
+
+		/* (a number unquoted, for one that takes a word or a number) */
+		if (config_string_takes_number(&config_settings[index]) &&
+			config_text_is_number(config_values[index].string))
+		{
+			snprintf(line_text, line_size, "%s = %s\n", key, config_values[index].string);
+			break;
+		}
+		end = line_text + snprintf(line_text, line_size, "%s = \"", key);
 
 		/* (a TOML basic string: quotes and backslashes escaped, and control
 		characters, so that a value cannot end its line) */

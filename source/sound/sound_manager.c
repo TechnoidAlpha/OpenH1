@@ -604,6 +604,20 @@ typedef char verify_sound_manager_channel_count_offset[
 
 /* ---------- prototypes */
 
+/* port: the sound manager's clock, which times the sounds: the computer's,
+or with the frames' time fixed (debug.frame_time, debug.fixed_step) the
+frames' time, which the mix keeps step with (port/linux/game/frames_clock.c),
+so that two runs of the same input leave the same in the game state */
+static long sound_clock_milliseconds(
+	void)
+{
+	unsigned long frames_milliseconds;
+
+	if (frames_clock(&frames_milliseconds))
+		return (long)frames_milliseconds;
+	return (long)system_milliseconds();
+}
+
 static void sound_update_time(
 	void);
 static void detail_sound_random_offset(
@@ -885,7 +899,7 @@ void sound_pause(
 
 		if (!paused)
 		{
-			sound_manager_globals.render_time = system_milliseconds();
+			sound_manager_globals.render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 		}
 	}
 
@@ -1085,7 +1099,7 @@ void sound_stop_impulse_by_source_and_definition(
 static void sound_update_time(
 	void)
 {
-	long render_time = system_milliseconds();
+	long render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 
 	sound_manager_globals.ticks_elapsed =
 		((real)render_time - sound_manager_globals.render_time) * 0.029999999f;
@@ -3335,7 +3349,7 @@ void sound_dispose_from_old_map(
 	{
 		sound_manager_globals.paused = FALSE;
 		sound_manager_globals.platform_definition->set_pause(FALSE);
-		sound_manager_globals.render_time = system_milliseconds();
+		sound_manager_globals.render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 	}
 
 	sound_stop_all();
@@ -4210,7 +4224,7 @@ void sound_render(
 
 		if (!sound_manager_globals.paused)
 		{
-			long render_time = system_milliseconds();
+			long render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 
 			sound_manager_globals.ticks_elapsed =
 				((real)render_time - sound_manager_globals.render_time) *

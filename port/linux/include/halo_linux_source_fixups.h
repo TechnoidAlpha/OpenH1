@@ -80,6 +80,12 @@ char const *pc_menus_screen(char const *name);
 /* debug.fixed_step: a game of this machine alone runs a tick a frame
 (port/linux/src/port_config.c; game_time.c, main.c) */
 int halo_fixed_step(void);
+/* the frames' clock, with each frame's time fixed (debug.frame_time,
+debug.fixed_step): whether, and the frames' time since the start in
+milliseconds; and each frame's time, which main.c gives it
+(port/linux/game/frames_clock.c) */
+int frames_clock(unsigned long *milliseconds);
+void frames_clock_frame(double seconds);
 /* debug.trace, the scorecard's per-step log (port/linux/game/sim_trace.c):
 each simulation step (the tick it ran, the sub-step's index in the tick and
 the sub-steps a tick, 0 and 1 at 30 Hz: game_time.c after each tick, for
@@ -230,6 +236,11 @@ int halo_hdr_display_text(int words, char *text, unsigned int size);
 #define HALO_HDR_KIND_SELF_ILLUMINATION 64
 #define HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(stages) ((stages) << 8)
 #endif
+/* a run whose frames nobody sees (debug.null_renderer, a dedicated server,
+no display: port/linux/src/d3d8_device.c): main.c draws none, and paces its
+frames to the game's clock (port/linux/game/unseen_frames.c) */
+int halo_frames_unseen(void);
+void unseen_frame_wait(void);
 /* network.client_timeout_seconds, in milliseconds (port/linux/src/port_config.c) */
 unsigned long network_client_timeout_milliseconds(void);
 /* a dedicated server (halo --server: port/linux/src/server_mode.c,

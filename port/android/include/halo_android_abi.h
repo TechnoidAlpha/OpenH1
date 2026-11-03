@@ -40,8 +40,17 @@ registers. */
 #else
 #define HALO_GUEST_IMAGE_BASE 0xA0000000u
 #endif
-/* the room the host reserves for the image there (port/android/host/host_memory.c) */
+/* the room the host reserves for the image there (port/android/host/host_memory.c).
+An instrumented build's (configure.py --pgo=generate, which defines
+HALO_PGO_GENERATE for the guest and its host) has twice as much, for the
+profile's counters and records, which do not fit beside the game's 64 MB;
+every other build's image, and the guest memory above it, stay where they
+are. */
+#ifdef HALO_PGO_GENERATE
+#define HALO_GUEST_IMAGE_RESERVE 0x08000000u
+#else
 #define HALO_GUEST_IMAGE_RESERVE 0x04000000u
+#endif
 
 /* the Xbox contiguous memory window (port/linux/src/platform.h's
 PLATFORM_CONTIGUOUS_SIZE, which must agree: tools/test_guest_layout.py):

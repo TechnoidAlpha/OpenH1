@@ -193,6 +193,8 @@ symbols in this file:
 #include "sound/sound_definitions.h"
 #include "sound/sound_manager.h"
 #include "structures/structure_bsp_definitions.h"
+#include "structures/structures.h" /* port: (structure_port_clusters_forget) */
+#include "models/models.h" /* port: (model_port_markers_forget) */
 #include "units/units.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
 #include "structure_bsp_cache.h" /* port: port/linux/game/structure_bsp_cache.c */
@@ -374,6 +376,9 @@ void scenario_unload(
 	/* port: and the copies of its bsps (port/linux/game/structure_bsp_cache.c) */
 	structure_bsp_cache_dispose();
 	scenario_tags_unload();
+	/* port: and what was kept of its tags (models.c, structures.c) */
+	model_port_markers_forget();
+	structure_port_clusters_forget();
 	global_scenario_index = NONE;
 	global_structure_bsp_index = NONE;
 	scenario_globals->structure_bsp_index = NONE;
@@ -1083,6 +1088,8 @@ boolean scenario_switch_structure_bsp(
 		up meanwhile, with no loading screen (a load zone is seamless) */
 		halo_loading_retire();
 		halo_load_trace("bsp.switch.begin", NULL); /* port: loading measurement */
+		/* port: the old bsp's spheres forgotten (structures.c) */
+		structure_port_clusters_forget();
 		reference = TAG_BLOCK_GET_ELEMENT(
 			&global_scenario->structure_bsp_references,
 			structure_bsp_index,
@@ -1152,6 +1159,8 @@ boolean scenario_switch_structure_bsp(
 		if (loaded)
 		{
 			global_structure_bsp = structure_bsp_definition_get(reference->structure_bsp.index);
+			/* port: (and any found while it was read) */
+			structure_port_clusters_forget();
 			global_collision_bsp = TAG_BLOCK_GET_ELEMENT(
 				&global_structure_bsp->collision_bsp,
 				0,
@@ -1224,7 +1233,12 @@ boolean scenario_load(
 
 	halo_load_trace("scenario.begin", name); /* port: loading measurement */
 	check_memory_status(scenario_memory_status_attributed, "scenario_load");
+	/* port: what was kept of the last map's tags forgotten (models.c,
+	structures.c) */
+	model_port_markers_forget();
+	structure_port_clusters_forget();
 	global_scenario_index = scenario_tags_load(name);
+	model_port_markers_forget();
 	if (global_scenario_index != NONE)
 	{
 		global_scenario = scenario_definition_get(global_scenario_index);
