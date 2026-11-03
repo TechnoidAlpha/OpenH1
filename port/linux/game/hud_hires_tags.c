@@ -419,6 +419,9 @@ long hud_hires_asset_at(
 	return NONE;
 }
 
+/* (menu_tags.c's: the menus' scaled frames of ui.map's) */
+boolean pc_menu_scaled_frame_at(unsigned long address, long width, long height);
+
 long hud_hires_upscale_at(unsigned long address, long width, long height)
 {
 	long index;
@@ -441,6 +444,10 @@ long hud_hires_upscale_at(unsigned long address, long width, long height)
 			bitmap->width == width && bitmap->height == height)
 			return upscale_bitmaps[index].kind;
 	}
+	/* (the menus' pictures drawn larger than they are: kind 5, which may be
+	DXT, as the HUD's Custom Edition sheets may) */
+	if (pc_menu_scaled_frame_at(address, width, height))
+		return 5;
 	return FALSE;
 }
 

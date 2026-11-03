@@ -80,6 +80,7 @@ char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
+boolean pc_menu_scaled_frame_at(unsigned long address, long width, long height);
 
 /* ---------- constants */
 
@@ -2740,6 +2741,29 @@ boolean pc_menu_frame_placement(
 			*y = menu_tags.placements[index].y;
 			*width = menu_tags.placements[index].width;
 			*height = menu_tags.placements[index].height;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* whether the texture at this address, this size, is a frame of ui.map's
+the menus draw scaled (the campaign's levels' pictures and badges), loaded:
+hud_hires_upscale_at upscales it, as the HUD's sheets without redraws are */
+boolean pc_menu_scaled_frame_at(
+	unsigned long address,
+	long width,
+	long height)
+{
+	long index;
+
+	for (index = 0; index < menu_tags.placement_count; index++)
+	{
+		struct bitmap_data const *bitmap = menu_tags.placements[index].bitmap;
+
+		if (bitmap->base_address && (unsigned long)bitmap->base_address == address && bitmap->width == width &&
+			bitmap->height == height)
+		{
 			return TRUE;
 		}
 	}
