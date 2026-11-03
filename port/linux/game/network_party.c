@@ -125,6 +125,7 @@ unsigned long p2p_party_tag(void);
 unsigned char network_chat_keyboard_open(void);
 /* hud_key_prompts.c's */
 boolean hud_key_prompt_draw_key(char const *name, rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
+void hud_key_prompt_action_name(short action, char *name, long size);
 
 /* ---------- constants */
 
@@ -1923,8 +1924,8 @@ void network_party_draw(
 		cursor.x0 -= 3;
 		measured.x0 = bounds.x0;
 		rasterizer_draw_unicode_string(&measured, NULL, NULL, 0, text);
-		if (halo_keyboard_action_name(HALO_KEYBOARD_PARTY_ACCEPT, key, sizeof(key)) &&
-			hud_key_prompt_draw_key(key, &bounds, &cursor, key_color))
+		hud_key_prompt_action_name(HALO_KEYBOARD_PARTY_ACCEPT, key, sizeof(key));
+		if (hud_key_prompt_draw_key(key, &bounds, &cursor, key_color))
 		{
 			rectangle2d rest = bounds;
 
@@ -2023,7 +2024,8 @@ static void party_friends_draw(
 	line_height = (short)(font->ascending_height + font->descending_height + font->leading_height);
 	if (line_height <= 0)
 		return;
-	keys = halo_keyboard_prompts() && halo_keyboard_action_name(HALO_KEYBOARD_PARTY_ACCEPT, key, sizeof(key));
+	keys = halo_keyboard_prompts();
+	hud_key_prompt_action_name(HALO_KEYBOARD_PARTY_ACCEPT, key, sizeof(key));
 	color.alpha = alpha;
 	color.red = 0.81f;
 	color.green = 0.89f;
@@ -2119,7 +2121,8 @@ void network_party_discord_draw(
 	line_height = (short)(font->ascending_height + font->descending_height + font->leading_height);
 	if (line_height <= 0)
 		return;
-	keys = halo_keyboard_prompts() && halo_keyboard_action_name(HALO_KEYBOARD_PARTY_ACCEPT, key, sizeof(key));
+	keys = halo_keyboard_prompts();
+	hud_key_prompt_action_name(HALO_KEYBOARD_PARTY_ACCEPT, key, sizeof(key));
 	color.alpha = 1.0f;
 	color.red = 0.81f;
 	color.green = 0.89f;

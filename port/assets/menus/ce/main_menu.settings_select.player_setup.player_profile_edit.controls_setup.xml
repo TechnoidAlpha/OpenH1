@@ -111,5 +111,6 @@
 		<string text="Choose what to show, with left and right."/>
 		<string text="Enter sets the key chosen; left and right choose\nwhich of two. Then press the new key or button."/>
 		<string text="Press a key, a mouse button or turn the wheel...\nEscape cancels, Delete clears it."/>
+		<string text="That is this control's only key, and it needs one.\nGive it another key first."/>
 	</strings>
 </menus>

@@ -1404,6 +1404,8 @@ def _controls_screen() -> list:
         "Choose what to show, with left and right.",
         "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button.",
         "Press a key, a mouse button or turn the wheel...\\nEscape cancels, Delete clears it.",
+        # (a change refused: menu_functions.c's control_capture_poll)
+        "That is this control's only key, and it needs one.\\nGive it another key first.",
     ])
     return _screen(folder, spec, rows, ["controls update menu"], ['<on event="created" run="controls screen init"/>'],
                    extra)

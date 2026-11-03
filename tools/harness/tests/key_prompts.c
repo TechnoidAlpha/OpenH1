@@ -187,13 +187,22 @@ int main(int argc, char **argv)
 		snprintf(binding_names[HALO_KEYBOARD_MOVE_BACKWARD], 32, "Down");
 		snprintf(binding_names[HALO_KEYBOARD_STRAFE_RIGHT], 32, "Right");
 		check_text(NONE, HUD_KEY_PROMPT_LEFT_STICK, L"Up/Left/Down/Right");
+		/* an action with no key is named Unbound, never the controller's
+		button (the keyboard and mouse are what the player holds) */
 		binding_names[HALO_KEYBOARD_STRAFE_RIGHT][0] = 0;
-		check_text(NONE, HUD_KEY_PROMPT_LEFT_STICK, NULL);
-		/* what has no key keeps the button */
+		check_text(NONE, HUD_KEY_PROMPT_LEFT_STICK, L"Up/Left/Down/Unbound");
+		binding_names[HALO_KEYBOARD_MOVE_FORWARD][0] = 0;
+		binding_names[HALO_KEYBOARD_STRAFE_LEFT][0] = 0;
+		binding_names[HALO_KEYBOARD_MOVE_BACKWARD][0] = 0;
+		check_text(NONE, HUD_KEY_PROMPT_LEFT_STICK, L"Unbound");
+		binding_names[HALO_KEYBOARD_FLASHLIGHT][0] = 0;
+		check_text(button_mappings[_icon_integrated_light - _icon_action], NONE, L"Unbound");
+		binding_names[HALO_KEYBOARD_FIRE][0] = 0;
+		check_text(button_mappings[_icon_primary_trigger - _icon_action], NONE, L"Unbound");
+		check_text(NONE, _icon_right_trigger, L"Unbound");
+		/* what the keyboard has no action for keeps the button */
 		check_text(NONE, NONE, NULL);
 		check_text(NONE, _icon_dpad_left, NULL);
-		binding_names[HALO_KEYBOARD_FLASHLIGHT][0] = 0;
-		check_text(button_mappings[_icon_integrated_light - _icon_action], NONE, NULL);
 		/* a Latin-1 label (a German keyboard's) */
 		snprintf(binding_names[HALO_KEYBOARD_ACTION], 32, "%c", 0xD6);
 		check_text(button_mappings[_icon_action - _icon_action], NONE, L"Ö");
