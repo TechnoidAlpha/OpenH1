@@ -987,6 +987,9 @@ the setting for one start of the game. It has priority over the file.
 | `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
 | `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
+| `display.viewmodel_offset_x` | `0.0` | `HALO_VIEWMODEL_OFFSET_X` | The first-person weapon and hands moved right (negative: left) along the view, in centimeters, from -20 to 20, for every weapon. `0`: where the game draws them. Only this machine's drawing changes; not in the VR mode. First Person's WEAPON HORIZONTAL is a slider (-10 to 10, any of -20 to 20 typed). Refer to "Field of view". |
+| `display.viewmodel_offset_y` | `0.0` | `HALO_VIEWMODEL_OFFSET_Y` | The same, up (negative: down): First Person's WEAPON VERTICAL. |
+| `display.viewmodel_offset_z` | `0.0` | `HALO_VIEWMODEL_OFFSET_Z` | The same, forward, away from the view (negative: closer; too close and the near plane cuts them): First Person's WEAPON DEPTH. |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
 | `display.passenger_third_person` | `false` | `HALO_PASSENGER_THIRD_PERSON` | Third-person view for the Warthog's passenger and the Scorpion's four passengers. Uses the gunner's camera on the Warthog and the driver's on the Scorpion, within the passenger's firing arc. Smooth entry and exit; weapon zoom is disabled while riding. The reticle follows the shot's centre ray. Local view only. In the campaign and co-op only: not in multiplayer, where seeing around the vehicle would be an advantage. Never in VR, which stays in first person in every seat. |
 | `display.viewmodel_shield` | `false` | `HALO_VIEWMODEL_SHIELD` | `true`: the energy shield's flare is drawn on the first-person arms too, as on the body, with the unit's own shield shader, kept closer to the arms than to the body. The stock game draws it on the body only. The flare is the shield's hits: it shows as the shield takes damage and fades over the next second or two (the unit's recent shield damage), so a full shield that nothing hits shows none, on the arms as on the body. An overshield stays lit on the arms with `display.overshield_effect` (OVERSHIELD, on the same screen). |
@@ -1987,6 +1990,18 @@ takes any angle from 20 to 150.
   scopes' pictures keep their place.
 - By default the weapon keeps its stock view when the world is wider:
   arms and a gun right against the camera stretch at a wide angle.
+
+WEAPON HORIZONTAL, VERTICAL and DEPTH (`display.viewmodel_offset_x`, `_y`
+and `_z`) move the weapon and hands right, up and away from the view, in
+centimeters (a world unit is ten feet, 304.8 cm), the same for every weapon,
+as Halo Infinite's weapon offset does: the sliders go from -10 to 10 in steps
+of 0.5, and any value from -20 to 20 can be typed. The move is along the
+view's own axes, after the weapon is posed and interpolated, so right is
+right on the screen at any field of view and weapon field of view, and the
+weapon's markers move with it: its muzzle flash, shell casings and lights,
+the flashlight, and the arm shields' flare (on the hands' model). A scope's
+zoom does not draw the weapon, so it is unchanged. The VR mode keeps the
+weapon in the controllers' hands, without the offset.
 
 LEGS (`display.first_person_legs`) draws your own body in first person
 from the waist down, so you see your legs when you look down, walking,
@@ -6464,6 +6479,7 @@ Other changes:
 | `text/draw_string.c`, `interface/terminal.c`, `interface/virtual_keyboard.c` | Streamer mode's words are hidden in every string drawn or measured (`game/text_filter.c`), but in the console's line and the virtual keyboard's text being typed. |
 | `rasterizer/rasterizer_text.c`, `text/draw_string.c` | Text is drawn from an atlas of the fonts' glyphs, rasterized at the resolution the game draws at (`src/text_hires.c`), when the font has every character of the string. Text can be drawn scaled about a point (`rasterizer_text_set_scale`), as the players' names are. Each glyph's advance is centred on the font tag character's, so the layout is the same, and a glyph is cut at a text box only where the font tag's character visibly was. |
 | `interface/first_person_weapons.c` | The first-person hands are drawn with the unit's shield modifier shader, as its body is (`display.viewmodel_shield`). |
+| `interface/first_person_weapons.c` | The first-person weapon's and hands' node matrices are moved along the view's right, up and forward once they are posed and interpolated (`display.viewmodel_offset_x`, `_y`, `_z`; `game/view_fov.c`), but in the VR mode. |
 | `interface/first_person_weapons.c` | With the player's own view drawn from the newest step (`display.direct_camera`), the gun's animations are sampled at the frame's time: the state and moving animations between their frame and the next, a state's blend in by its fraction, the sway's springs where their velocity has them (`game/render_interpolation.c`, `render_interpolation_first_person_phase`). |
 | `render/render_objects.c`, `objects/objects.c` | In first person, your own body is drawn from the waist down with the pose `first_person_legs.c` makes (`display.first_person_legs`); the waist it found and the mesh `object_mesh.c` read are forgotten on a new map. |
 | `objects/object_lights.c` | Glows the port lights itself (`shield_glow.c`): dynamic lights attached to an object's node, colored and sized each frame by their maker, drawn with a light definition the map has. |

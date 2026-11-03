@@ -78,7 +78,7 @@ def test_menu_sliders_match_their_rows():
              for name, body in re.findall(r"settings_slider_stop const (\w+)\[\] =\n\{\n(.*?)\n\};", functions, re.S)}
     found = set()
     for row, setting, numbers, whole, stops_name in re.findall(
-            r'\{ "(\w+)", "([\w.]+)", ([\d., ]+?), (TRUE|FALSE),\s+(?:NULL, 0|SLIDER_STOPS\((\w+)\)) \}', table):
+            r'\{ "(\w+)", "([\w.]+)", ([-\d., ]+?), (TRUE|FALSE),\s+(?:NULL, 0|SLIDER_STOPS\((\w+)\)) \}', table):
         found.add((row, setting, port_settings.Slider(*map(float, numbers.split(", ")), whole=whole == "TRUE",
                                                       stops=stops[stops_name] if stops_name else ())))
     assert found == rows

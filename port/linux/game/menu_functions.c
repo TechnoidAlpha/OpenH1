@@ -4628,6 +4628,9 @@ static struct
 	{ "op_fov", "display.fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
 	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
 		SLIDER_STOPS(settings_fov_stops) },
+	{ "op_viewmodel_offset_x", "display.viewmodel_offset_x", -10.0, 10.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
+	{ "op_viewmodel_offset_y", "display.viewmodel_offset_y", -10.0, 10.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
+	{ "op_viewmodel_offset_z", "display.viewmodel_offset_z", -10.0, 10.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
 	/* (tools/port_settings.py's GAMMA) */
@@ -4811,6 +4814,14 @@ static double settings_slider_fraction(short slider, double value)
 	return (value - settings_sliders[slider].least) / (settings_sliders[slider].most - settings_sliders[slider].least);
 }
 
+/* a value to the nearest step, either side of 0 */
+static double settings_slider_round(double value, double step)
+{
+	double steps = value / step;
+
+	return (double)(long)(steps < 0.0 ? steps - 0.5 : steps + 0.5) * step;
+}
+
 /* the value at a place on the track (its range, in steps) */
 static void settings_slider_place(short slider, struct widget_instance *track, short x)
 {
@@ -4828,10 +4839,11 @@ static void settings_slider_place(short slider, struct widget_instance *track, s
 			settings_sliders[slider].stops[(short)(PIN(fraction, 0.0, 1.0) * (count - 1) + 0.5)].value);
 		return;
 	}
-	settings_slider_set(slider, PIN((double)(long)(value / step + 0.5) * step, least, most));
+	settings_slider_set(slider, PIN(settings_slider_round(value, step), least, most));
 }
 
-/* (the number typed: kept if it is one, past 0 or a word's; or a word) */
+/* (the number typed: kept if it is one, past 0 (or in a range that takes 0
+and below), or a word's; or a word) */
 static void settings_slider_typed(char const *text)
 {
 	short slider = settings_slider.typed;
@@ -4841,7 +4853,8 @@ static void settings_slider_typed(char const *text)
 	settings_slider.typed = NONE;
 	if (slider == NONE)
 		return;
-	if (text_is_number(text, &value) && (value > 0.0 || settings_slider_word(slider, value) != NONE))
+	if (text_is_number(text, &value) && (value > 0.0 || settings_sliders[slider].typed_least <= 0.0 ||
+		settings_slider_word(slider, value) != NONE))
 	{
 		settings_slider_set(slider, value);
 		return;
@@ -4897,7 +4910,7 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 			ui_play_audio_feedback_sound(SOUND_CURSOR);
 			return TRUE;
 		}
-		value = (double)(long)(value / step + 0.5) * step + (!strcmp(name, "left") ? -step : step);
+		value = settings_slider_round(value, step) + (!strcmp(name, "left") ? -step : step);
 		settings_slider_set(slider, PIN(value, settings_sliders[slider].least, settings_sliders[slider].most));
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
 		return TRUE;

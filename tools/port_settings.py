@@ -435,6 +435,9 @@ STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) fo
 # degrees; any of 20 to 150 typed
 FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
                         stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 151, 5)))
+# display.viewmodel_offset_x's, _y's and _z's: centimeters, 0 the game's own
+# place; any of -20 to 20 typed
+VIEWMODEL_OFFSETS = Slider(-10, 10, 0.5, -20, 20)
 # display.vehicle_fov's: the game's own view ("default"), display.fov's
 # ("match"), or degrees; any of 20 to 150 typed
 VEHICLE_FIELDS_OF_VIEW = FIELDS_OF_VIEW._replace(
@@ -896,6 +899,15 @@ PAGES = {
             ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", FIELDS_OF_VIEW,
              "How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the "
              "weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
+            ("WEAPON HORIZONTAL", "display.viewmodel_offset_x", VIEWMODEL_OFFSETS,
+             "Moves your weapon and hands right, or left below 0, in centimeters, for every weapon. 0 keeps "
+             "them where the game puts them.|Click the number (or press A) to type any from -20 to 20.", None),
+            ("WEAPON VERTICAL", "display.viewmodel_offset_y", VIEWMODEL_OFFSETS,
+             "Moves your weapon and hands up, or down below 0, in centimeters. Lower it to see more of the "
+             "screen.|Click the number (or press A) to type any from -20 to 20.", None),
+            ("WEAPON DEPTH", "display.viewmodel_offset_z", VIEWMODEL_OFFSETS,
+             "Pushes your weapon and hands away from you, or closer below 0, in centimeters. Too close and they "
+             "cut off.|Click the number (or press A) to type any from -20 to 20.", None),
             ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
              "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
              "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),

@@ -244,6 +244,17 @@ static const struct config_setting config_settings[] =
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"
 		"display.fov widens the world." },
+	{ "display.viewmodel_offset_x", _config_real, "0.0", "HALO_VIEWMODEL_OFFSET_X", _environment_value, _platform_all,
+		"The first-person weapon and hands moved right (negative: left) on\n"
+		"the screen, in centimeters (-20 to 20), for every weapon; 0 keeps them\n"
+		"where the game draws them. Not in VR." },
+	{ "display.viewmodel_offset_y", _config_real, "0.0", "HALO_VIEWMODEL_OFFSET_Y", _environment_value, _platform_all,
+		"The first-person weapon and hands moved up (negative: down), in\n"
+		"centimeters (-20 to 20); 0 keeps them where the game draws them." },
+	{ "display.viewmodel_offset_z", _config_real, "0.0", "HALO_VIEWMODEL_OFFSET_Z", _environment_value, _platform_all,
+		"The first-person weapon and hands moved forward, away from the view\n"
+		"(negative: closer), in centimeters (-20 to 20); 0 keeps them where\n"
+		"the game draws them." },
 	{ "display.viewmodel_visible", _config_boolean, "true", "HALO_VIEWMODEL_VISIBLE", _environment_value, _platform_all,
 		"Draw the first-person weapon, hands and what is attached to them.\n"
 		"Off, they are not drawn; firing, animation, sound and lights go on." },

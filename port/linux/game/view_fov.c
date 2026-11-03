@@ -3,9 +3,10 @@ VIEW_FOV.C
 
 The view's field of view (display.fov on foot, display.vehicle_fov in a
 vehicle's seat), the first-person weapon's (display.viewmodel_fov) and
-whether the weapon is drawn (display.viewmodel_visible), the local render
-view only: the observer, its transitions and what the network sends
-keep the game's own camera. Each angle is horizontal at 16:9 (the vertical
+whether the weapon is drawn (display.viewmodel_visible) and where
+(display.viewmodel_offset_x, _y and _z), the local render view only: the
+observer, its transitions and what the network sends keep the game's own
+camera. Each angle is horizontal at 16:9 (the vertical
 angle is kept, so other shapes of window widen or narrow as the stock view
 does), and 0 keeps the stock view. Called from the game's camera
 (main.c's set_window_camera_values), its HUD (hud_draw.c) and the passes
@@ -441,6 +442,78 @@ void viewmodel_projection_end(void)
 	global_window_parameters.frustum = saved_rasterizer_frustum;
 	projection_applied = FALSE;
 	rasterizer_set_frustum_z(0.0f, 0.0f);
+}
+
+/* ---------- where the first-person weapon is drawn */
+
+/* a world unit is ten feet */
+#define CENTIMETERS_PER_WORLD_UNIT 304.8
+/* the farthest display.viewmodel_offset_* move the weapon along each axis,
+in centimeters (the menu's sliders go half as far) */
+#define VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS 20.0
+
+static real viewmodel_offset_axis(char const *name)
+{
+	double centimeters = config_real(name);
+
+	/* (beyond the range, its end; not a number, none) */
+	if (centimeters > VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS)
+		centimeters = VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS;
+	else if (centimeters < -VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS)
+		centimeters = -VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS;
+	else if (!(centimeters >= -VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS))
+		centimeters = 0.0;
+	return (real)(centimeters / CENTIMETERS_PER_WORLD_UNIT);
+}
+
+/* every weapon's offset (display.viewmodel_offset_x, _y and _z): along the
+view's right, up and forward, in world units */
+static boolean viewmodel_offset_global(real_vector3d *offset)
+{
+	static boolean initialized;
+	static unsigned long read_at;
+	static real_vector3d global;
+	unsigned long changes = config_changes();
+
+	if (!initialized || read_at != changes)
+	{
+		global.i = viewmodel_offset_axis("display.viewmodel_offset_x");
+		global.j = viewmodel_offset_axis("display.viewmodel_offset_y");
+		global.k = viewmodel_offset_axis("display.viewmodel_offset_z");
+		initialized = TRUE;
+		read_at = changes;
+	}
+	*offset = global;
+	return global.i != 0.0f || global.j != 0.0f || global.k != 0.0f;
+}
+
+boolean viewmodel_offset(long weapon_index, real_vector3d *offset)
+{
+	/* (one offset for every weapon: a weapon's own would be found here) */
+	(void)weapon_index;
+	return viewmodel_offset_global(offset);
+}
+
+void viewmodel_offset_apply(long weapon_index, struct real_matrix4x3 *node_matrices, short node_count,
+	struct render_camera const *camera)
+{
+	real_vector3d offset, right, move;
+	short node_index;
+
+	if (!node_matrices || node_count <= 0 || !viewmodel_offset(weapon_index, &offset))
+		return;
+	/* (the view's right: forward across up, as the world has z up and y
+	left) */
+	cross_product3d(&camera->forward, &camera->up, &right);
+	move.i = right.i * offset.i + camera->up.i * offset.j + camera->forward.i * offset.k;
+	move.j = right.j * offset.i + camera->up.j * offset.j + camera->forward.j * offset.k;
+	move.k = right.k * offset.i + camera->up.k * offset.j + camera->forward.k * offset.k;
+	for (node_index = 0; node_index < node_count; node_index++)
+	{
+		node_matrices[node_index].position.x += move.i;
+		node_matrices[node_index].position.y += move.j;
+		node_matrices[node_index].position.z += move.k;
+	}
 }
 
 /* ---------- whether the first-person weapon is drawn */
