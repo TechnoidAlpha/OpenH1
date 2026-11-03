@@ -29,6 +29,7 @@ do, for the scope's picture is drawn about the middle.
 #include "objects/objects.h"
 #include "render/render.h"
 #include "render/render_cameras.h"
+#include "render/render_cameras_internal.h"
 #include "units/unit_definitions.h"
 #include "units/units.h"
 
