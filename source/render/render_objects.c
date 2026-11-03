@@ -1122,6 +1122,9 @@ static void object_render_state_refresh(
 				state->desired_lighting.point_light_indices[0];
 			state->lighting.point_light_indices[1] =
 				state->desired_lighting.point_light_indices[1];
+			/* port: (and its own lights: render.h, RENDER_LIGHTING_OWN_LIGHT) */
+			state->lighting.own_lights_low = state->desired_lighting.own_lights_low;
+			state->lighting.own_lights_high = state->desired_lighting.own_lights_high;
 		}
 	}
 	else if (!rebuild && object_light_interpolate)
@@ -1180,6 +1183,9 @@ static void object_render_state_refresh(
 			state->desired_lighting.point_light_indices[0];
 		state->lighting.point_light_indices[1] =
 			state->desired_lighting.point_light_indices[1];
+		/* port: (and its own lights: render.h, RENDER_LIGHTING_OWN_LIGHT) */
+		state->lighting.own_lights_low = state->desired_lighting.own_lights_low;
+		state->lighting.own_lights_high = state->desired_lighting.own_lights_high;
 	}
 	else
 	{

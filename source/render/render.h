@@ -35,6 +35,18 @@ enum
 
 /* ---------- macros */
 
+/* port: the rasterizer lights near an object that the game does not light
+it with: its own lights whose definition says so (dont light own object: a
+Covenant door's light). The game leaves them out of the
+object's two point lights; the enhanced dynamic lights (display.dynamic_lights),
+which light it by every light near it, leave them out by these. Up to
+RENDER_LIGHTING_OWN_LIGHTS of them, each its index + 1 in a byte of the
+struct's pads (0: none), written by lights_prepare_for_object_dynamic; the
+rasterizer light index of each, NONE for none */
+#define RENDER_LIGHTING_OWN_LIGHTS 4
+#define RENDER_LIGHTING_OWN_LIGHT(lighting, slot) \
+	((long)((((slot) < 2 ? (lighting)->own_lights_low : (lighting)->own_lights_high) >> (((slot) & 1) * 8)) & 0xFF) - 1)
+
 /* ---------- structures */
 
 struct render_distant_light
@@ -47,10 +59,10 @@ struct render_lighting
 {
 	real_rgb_color ambient_color;
 	short distant_light_count;
-	word pad;
+	word own_lights_low; /* port: (pad) RENDER_LIGHTING_OWN_LIGHT */
 	struct render_distant_light distant_lights[MAXIMUM_RENDERED_DISTANT_LIGHTS];
 	short point_light_count;
-	word pad1;
+	word own_lights_high; /* port: (pad1) RENDER_LIGHTING_OWN_LIGHT */
 	long point_light_indices[MAXIMUM_RENDERED_POINT_LIGHTS];
 	real_argb_color reflection_tint_color;
 	real_vector3d shadow_vector;

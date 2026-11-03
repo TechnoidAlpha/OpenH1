@@ -107,6 +107,17 @@ pixels from the top of a window taller than it (no lower than its bottom),
 or centered (-1), from the next present on */
 void xgpu_backend_picture_top(int top);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
+/* display.ambient_occlusion: the occlusion of a window's 3D view (its
+corners in the target's pixels), from the depth target drawn with it, laid
+over the light of its opaque surfaces where the lighting does not hold it
+(an object's pixel by all about it, the level's by objects alone: the
+stencil's XGPU_AMBIENT_OCCLUSION_OBJECT bit), none over the pixels its
+XGPU_AMBIENT_OCCLUSION_KEEP bits mark: quality XGPU_AMBIENT_OCCLUSION_SUBTLE
+or _STRONG (xgpu_stream.h), and the camera (near, far, the projection's x and
+y scales and offsets). XGPU_AMBIENT_OCCLUSION_SHOW draws the occlusion last
+laid over the target in its place (debug.ambient_occlusion_view: the term
+in grey, white where it was not laid), once the view is drawn */
+void xgpu_backend_ambient_occlusion(xgpu_target target, const long corners[4], int quality, const float camera[6]);
 BOOL xgpu_backend_display_hdr(float *headroom);
 BOOL xgpu_backend_display_white(float *nits);
 
@@ -257,8 +268,10 @@ uploads to each program only what changed since it last had them */
 void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], unsigned long count);
 
 /* the vertex constant register of each of the per-pixel lighting's
-(XGPU_MODEL_LIGHT_COUNT): c[-82], then c[-79] to c[-69] */
-#define XGPU_MODEL_LIGHT_REGISTER(light) ((unsigned long)(XGPU_VERTEX_CONSTANT_BIAS + ((light) ? -80 + (light) : -82)))
+(XGPU_MODEL_LIGHT_COUNT): c[-82], then c[-79] to c[-69], then c[-57]
+(halo_dynamic_lights.h's HALO_DYNAMIC_LIGHTS_OWN_LIGHTS_REGISTER) */
+#define XGPU_MODEL_LIGHT_REGISTER(light) ((unsigned long)(XGPU_VERTEX_CONSTANT_BIAS + \
+	((light) == XGPU_MODEL_LIGHT_OWN_LIGHTS ? -57 : (light) ? -80 + (light) : -82)))
 
 /* the uniforms a draw sets besides the vertex constants, converted from
 the render and texture stage states */

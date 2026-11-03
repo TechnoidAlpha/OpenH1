@@ -430,6 +430,10 @@ STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) fo
 # degrees; any of 20 to 150 typed
 FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
                         stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 151, 5)))
+# display.vehicle_fov's: the game's own view ("default"), display.fov's
+# ("match"), or degrees; any of 20 to 150 typed
+VEHICLE_FIELDS_OF_VIEW = FIELDS_OF_VIEW._replace(
+    stops=(("DEFAULT", "default"), ("MATCH", "match")) + FIELDS_OF_VIEW.stops[1:])
 # display.max_fps's stops: twice the display's refresh rate (0), the
 # displays' common rates, or no limit (-1); any of 10 to 1000 typed
 FRAME_RATE_LIMITS = Slider(30, 540, 1, 10, 1000, whole=True,
@@ -538,8 +542,9 @@ PAGES = {
              "is shown in step with the display, as V-Sync shows it.|Click the number (or press A) to type any "
              "limit from 10 to 1000.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
-             "How wide you see, on foot and in vehicles, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
-             "more around you.|Click the number (or press A) to type any from 20 to 150.", None),
+             "How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
+             "more around you. Vehicles have their own, on First Person.|Click the number (or press A) to type any "
+             "from 20 to 150.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -810,6 +815,10 @@ PAGES = {
             ("DYNAMIC LIGHTS", "display.dynamic_lights", [("CLASSIC", "classic"), ("ENHANCED", "enhanced")],
              "Enhanced: plasma bolts, muzzle flashes and blasts light their surroundings smoothly, with a glow. "
              "Classic lights them as the Xbox did.", "desktop android"),
+            ("AMBIENT OCCLUSION", "display.ambient_occlusion",
+             [("OFF", "off"), ("SUBTLE", "subtle"), ("STRONG", "strong")],
+             "Grounds characters, vehicles and scenery with soft shade where they meet the world and in their "
+             "creases. The levels keep their own lighting.", "desktop android"),
             ("SHIELD GLOW", "display.shield_glow", ON_OFF,
              "Shields light their surroundings as they flare, in the shield's own color. Online: the host's "
              "choice.", None),
@@ -859,6 +868,9 @@ PAGES = {
             ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", FIELDS_OF_VIEW,
              "How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the "
              "weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
+            ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
+             "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
+             "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),
             ("WEAPON AND HANDS", "display.viewmodel_visible", [("SHOW", "true"), ("HIDE", "false")],
              "Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and "
              "hear them.", None),

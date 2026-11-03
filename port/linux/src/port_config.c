@@ -97,7 +97,7 @@ struct config_setting
 chooses (config_graphics), which are their defaults, the same on every
 build: SMAA (on iOS MSAA 2x), 16x anisotropic filtering, 512 shadow maps,
 the models' detail by the display's lines and lit for each pixel, the
-enhanced dynamic lights */
+enhanced dynamic lights, strong ambient occlusion */
 #ifdef HALO_IOS
 /* (an iPhone's tile-based GPU resolves MSAA in its tile memory, the 3D view
 drawn in one pass, port/macos/xgpu_metal.m: about the cost of SMAA's
@@ -113,6 +113,11 @@ frame where 4x took up to 10) */
 #define GRAPHICS_PER_PIXEL_LIGHTING "true"
 #define GRAPHICS_MODEL_DETAIL "\"native\""
 #define GRAPHICS_DYNAMIC_LIGHTS "\"enhanced\""
+/* (off in Enhanced too, for now: it is opt-in, Video Setup > Advanced
+Graphics > Ambient Occlusion, while its look is refined; and the phones'
+tile-based GPUs would store the 3D view's colour and depth and load them
+again for its passes in the middle of each frame) */
+#define GRAPHICS_AMBIENT_OCCLUSION "\"off\""
 /* display.astc_textures: "auto" everywhere (iPhones, through Metal; Android
 phones without BC, through Vulkan: seen right on a Pixel 11 Pro's PowerVR) */
 #define ASTC_TEXTURES_DEFAULT "\"auto\""
@@ -228,9 +233,13 @@ static const struct config_setting config_settings[] =
 		"VR mode) the vehicle and the view from it are drawn as its newest\n"
 		"step left it: not a tick (33 ms) behind." },
 	{ "display.fov", _config_real, "0.0", "HALO_FOV", _environment_value, _platform_all,
-		"The view's field of view on foot and in vehicles, in degrees across\n"
-		"at 16:9 (20 to 150); 0 keeps the stock view. Cinematics and scripted\n"
-		"cameras keep their own." },
+		"The view's field of view on foot, in degrees across at 16:9 (20 to\n"
+		"150); 0 keeps the stock view. Vehicles take display.vehicle_fov's.\n"
+		"Cinematics and scripted cameras keep their own." },
+	{ "display.vehicle_fov", _config_string, "\"default\"", "HALO_VEHICLE_FOV", _environment_value, _platform_all,
+		"The view's field of view in a vehicle's seat, first or third person,\n"
+		"getting in and out too: \"default\" keeps the stock view, \"match\" takes\n"
+		"display.fov's, and a number is degrees across at 16:9 (20 to 150)." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"
@@ -1088,6 +1097,16 @@ static const struct config_setting config_settings[] =
 		"of the walls and models, through the walls' bump maps, gliding with\n"
 		"the bolt between ticks, brighter in its core and fading softly, with\n"
 		"a glow about each plasma bolt, and lighting your own weapon and hands." GRAPHICS_CHOOSES },
+	{ "display.ambient_occlusion", _config_string, GRAPHICS_AMBIENT_OCCLUSION, "HALO_AMBIENT_OCCLUSION",
+		_environment_value, _platform_all,
+		"Ambient occlusion, which the Xbox did not have: the ambient light of\n"
+		"characters, vehicles and scenery dimmed where they meet the world and\n"
+		"in their creases, and the level's dimmed under them (a marine on a\n"
+		"bench, a Warthog on the sand), worked out from the 3D view's depth\n"
+		"each frame. The levels' own corners keep their baked light, and\n"
+		"self-illuminated surfaces, lights and your weapon keep theirs: \"off\",\n"
+		"\"subtle\" or \"strong\". Not with multisampling on Metal (macOS, iOS)."
+		GRAPHICS_CHOOSES },
 	{ "display.shield_color", _config_string, "\"default\"", "HALO_SHIELD_COLOR", _environment_value, _platform_all,
 		"Your energy shield's color, as this machine draws it: \"default\" (the\n"
 		"shield's own) or a multiplayer armor color: white, black, red, blue,\n"
@@ -2140,6 +2159,10 @@ static const struct config_setting config_settings[] =
 		"if it is carried a tenth of a unit away), turned so many degrees left\n"
 		"of the view's heading (0: ahead); empty none." },
 #endif
+	{ "debug.ambient_occlusion_view", _config_boolean, "false", "HALO_AMBIENT_OCCLUSION_VIEW", _environment_value,
+		_platform_all,
+		"With display.ambient_occlusion, the 3D view drawn as the occlusion\n"
+		"alone, in grey (white where it is not laid)." },
 	{ "debug.null_renderer", _config_boolean, "false", "HALO_NULL_RENDERER", _environment_set_is_true, _platform_all,
 		"Run without a window, drawing nothing: a frame a step of the game's\n"
 		"clock (game.sim_rate), not as many as it can." },
@@ -3058,6 +3081,24 @@ static int config_environment_set(const char *text)
 	return text[0] && !config_text_is_false(text);
 }
 
+/* the string settings that take a word or a number (display.vehicle_fov:
+"default", "match" or degrees), which config.toml may have unquoted */
+static int config_string_takes_number(const struct config_setting *setting)
+{
+	return setting->type == _config_string && !strcmp(setting->name, "display.vehicle_fov");
+}
+
+/* whether the text is a number in digits, all of it */
+static int config_text_is_number(const char *text)
+{
+	char *end;
+
+	if (!isdigit((unsigned char)text[text[0] == '-' || text[0] == '+']))
+		return 0;
+	strtod(text, &end);
+	return !*end && isdigit((unsigned char)end[-1]);
+}
+
 static void config_set_from_text(struct config_value *value, enum config_type type, const char *text)
 {
 	switch (type)
@@ -3129,6 +3170,15 @@ static int config_set_from_file(struct config_value *value, const struct config_
 			free(value->string);
 			value->string = strdup(datum.u.s);
 		}
+		else if ((datum.type == TOML_FP64 || datum.type == TOML_INT64) && config_string_takes_number(setting))
+		{
+			char number[64];
+
+			config_real_text(datum.type == TOML_FP64 ? datum.u.fp64 : (double)datum.u.int64, number,
+				sizeof(number));
+			free(value->string);
+			value->string = strdup(number);
+		}
 		else
 		{
 			wrong_type = 1;
@@ -3183,6 +3233,7 @@ static const struct
 	/* ("native" in VR, whose eyes' many lines the Xbox's 480 stand for) */
 	{ "display.model_detail", "\"auto\"" },
 	{ "display.dynamic_lights", "\"classic\"" },
+	{ "display.ambient_occlusion", "\"off\"" },
 };
 
 #define NUMBER_OF_CONFIG_GRAPHICS (sizeof(config_graphics) / sizeof(config_graphics[0]))
@@ -4178,8 +4229,17 @@ int config_write(const char *name, const char *value)
 		break;
 	case _config_string:
 	{
-		char *end = line_text + snprintf(line_text, line_size, "%s = \"", key);
+		char *end;
 		const char *character;
+
+		/* (a number unquoted, for one that takes a word or a number) */
+		if (config_string_takes_number(&config_settings[index]) &&
+			config_text_is_number(config_values[index].string))
+		{
+			snprintf(line_text, line_size, "%s = %s\n", key, config_values[index].string);
+			break;
+		}
+		end = line_text + snprintf(line_text, line_size, "%s = \"", key);
 
 		/* (a TOML basic string: quotes and backslashes escaped, and control
 		characters, so that a value cannot end its line) */

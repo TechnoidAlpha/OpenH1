@@ -1281,7 +1281,7 @@ static void dynamic_lights_functions(struct xgpu_text *text, struct xgpu_text *f
 		"};\n", XGPU_DYNAMIC_LIGHTS_MAXIMUM, XGPU_DYNAMIC_LIGHTS_MAXIMUM, XGPU_DYNAMIC_LIGHTS_MAXIMUM);
 	xgpu_text_append(functions,
 		"static inline float3 dynamic_light_sum(constant xgpu_dynamic_lights &lights, const device uint4 *cells, float3 p,\n"
-		"\tfloat3 n, float3 surface_normal, bool environment)\n"
+		"\tfloat3 n, float3 surface_normal, bool environment, float4 own)\n"
 		"{\n"
 		"\tfloat3 offset = p - lights.grid[0].xyz;\n"
 		"\tfloat3 cell = sign(offset) * log2(1.0 + abs(offset) * lights.grid[1].w) * lights.grid[1].xyz +\n"
@@ -1297,7 +1297,7 @@ static void dynamic_lights_functions(struct xgpu_text *text, struct xgpu_text *f
 		"\t\t\tint light = word * 32 + int(ctz(bits));\n"
 		"\t\t\tbits &= bits - 1u;\n"
 		"\t\t\tfloat4 position = lights.position[light];\n"
-		"\t\t\tif (environment && position.w < 0.0)\n"
+		"\t\t\tif ((environment && position.w < 0.0) || any(own == float4(float(light))))\n"
 		"\t\t\t\tcontinue;\n"
 		"\t\t\tfloat3 to_light = position.xyz - p;\n"
 		"\t\t\tfloat distance_squared = dot(to_light, to_light);\n"
@@ -1630,8 +1630,9 @@ char *xgpu_msl_pixel_shader(const struct xgpu_pixel_program *program, const stru
 			"\t{\n"
 			"\t\tfloat3 n = in.xWorldNormal.xyz * rsqrt(max(dot(in.xWorldNormal.xyz, in.xWorldNormal.xyz), 1.0e-24));\n"
 			"\t\tv0.rgb = dynamic_light_add(dynamic_lights, model_lighting(u, in.xWorldNormal),\n"
-			"\t\t\tdynamic_light_sum(dynamic_lights, dynamic_light_cells, in.xWorldPosition, n, n, false));\n"
-			"\t}\n");
+			"\t\t\tdynamic_light_sum(dynamic_lights, dynamic_light_cells, in.xWorldPosition, n, n, false,\n"
+			"\t\t\t\tu.model_lights[%d]));\n"
+			"\t}\n", XGPU_MODEL_LIGHT_OWN_LIGHTS);
 	}
 	else if (register_read(&usage, XGPU_REGISTER_V0) && program->per_pixel_lighting)
 	{
@@ -1718,7 +1719,8 @@ char *xgpu_msl_pixel_shader(const struct xgpu_pixel_program *program, const stru
 			"\t\tfloat3 bump = %s;\n"
 			"\t\tfloat3 n = normalize(in.xWorldTangent * bump.x + in.xWorldBinormal * bump.y + surface_normal * max(bump.z, 0.05));\n"
 			"\t\tresult.rgb = dynamic_light_add%s(dynamic_lights, result.rgb,\n"
-			"\t\t\tdynamic_light_sum(dynamic_lights, dynamic_light_cells, in.xWorldPosition, n, surface_normal, true) *\n"
+			"\t\t\tdynamic_light_sum(dynamic_lights, dynamic_light_cells, in.xWorldPosition, n, surface_normal, true,\n"
+			"\t\t\t\tfloat4(-1.0)) *\n"
 			"\t\t\tpow(u.ps_final_c0.rgb, float3(2.2)));\n"
 			"\t}\n",
 			program->stages[0].sampler == _xgpu_sampler_2d ? "dynamic_light_bump * 2.0 - 1.0" : "float3(0.0, 0.0, 1.0)",

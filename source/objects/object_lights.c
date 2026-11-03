@@ -2230,6 +2230,31 @@ void light_reconnect_to_map(
 	return;
 }
 
+/* port: the lighting lights_prepare_for_object_dynamic is finding, whose
+object's own lights that do not light it are noted (render.h,
+RENDER_LIGHTING_OWN_LIGHT); NULL when none is */
+static struct render_lighting *lights_port_own_lighting;
+
+static void lights_port_own_light(
+	long rasterizer_light_index)
+{
+	struct render_lighting *lighting = lights_port_own_lighting;
+	short slot;
+
+	if (!lighting || rasterizer_light_index < 0 || rasterizer_light_index >= 0xFF)
+		return;
+	for (slot = 0; slot < RENDER_LIGHTING_OWN_LIGHTS; slot++)
+	{
+		if (RENDER_LIGHTING_OWN_LIGHT(lighting, slot) == NONE)
+		{
+			word *pair = slot < 2 ? &lighting->own_lights_low : &lighting->own_lights_high;
+
+			*pair |= (word)((rasterizer_light_index + 1) << ((slot & 1) * 8));
+			return;
+		}
+	}
+}
+
 /* a light of a cluster, for find_point_lights_for_object_in_cluster: as
 the Xbox's loop does each, marking it (so its other clusters pass it over) */
 static void find_point_light_for_object(
@@ -2247,6 +2272,15 @@ static void find_point_light_for_object(
 	{
 		struct light_datum *light = light_get(light_index);
 
+		/* port: (its own light it is not lit by, for the enhanced dynamic
+		lights: lights_port_own_light) */
+		if (light->rasterizer_light_index != NONE
+			&& light->object_index == object_index
+			&& TEST_FLAG(light_definition_get(light->definition_index)->flags,
+				_light_definition_dont_light_own_object_bit))
+		{
+			lights_port_own_light(light->rasterizer_light_index);
+		}
 		if (light->rasterizer_light_index != NONE
 			&& (light->object_index != object_index
 				|| !TEST_FLAG(light_definition_get(light->definition_index)->flags,
@@ -2539,6 +2573,10 @@ void lights_prepare_for_object_dynamic(
 
 	object_get_bounding_sphere(object_index, &center, &radius);
 	lighting->point_light_count = 0;
+	/* port: (and the object's own lights it is not lit by: render.h) */
+	lighting->own_lights_low = 0;
+	lighting->own_lights_high = 0;
+	lights_port_own_lighting = lighting;
 	light_marker_begin();
 	for (cluster_index = object_get_first_cluster(&iterator, object_index);
 		cluster_index != NONE;
@@ -2556,6 +2594,7 @@ void lights_prepare_for_object_dynamic(
 			MAXIMUM_RENDERED_POINT_LIGHTS);
 	}
 	light_marker_end();
+	lights_port_own_lighting = NULL;
 	/* (port: and a light the window had no room for, with no rasterizer
 	index, lights nothing: left out) */
 	{

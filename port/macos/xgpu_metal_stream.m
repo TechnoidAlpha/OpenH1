@@ -605,9 +605,10 @@ static void textures_bind(void)
 /* ---------- pipelines */
 
 /* the per-pixel lighting's lights' registers (xgpu_backend.h's
-XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69]) */
+XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69], c[-57]) */
 #define MODEL_LIGHT_FIRST (96 - 82)
 #define MODEL_LIGHT_LAST (96 - 69)
+#define MODEL_LIGHT_OWN_LIGHTS (96 - 57)
 
 static void stream_set_constants(void *context, const struct xgpu_stream_constants *record)
 {
@@ -619,7 +620,8 @@ static void stream_set_constants(void *context, const struct xgpu_stream_constan
 	if (count > XGPU_METAL_VERTEX_CONSTANT_COUNT - record->first)
 		count = XGPU_METAL_VERTEX_CONSTANT_COUNT - record->first;
 	memcpy(stream.constants[record->first], record->values, (size_t)count * sizeof(stream.constants[0]));
-	if (record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST)
+	if ((record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST) ||
+		(record->first <= MODEL_LIGHT_OWN_LIGHTS && record->first + count > MODEL_LIGHT_OWN_LIGHTS))
 		stream.uniforms_dirty = YES;
 	xgpu_metal_set_vertex_constants(record->first, count, &record->values[0][0]);
 }
@@ -1312,6 +1314,36 @@ static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *re
 	stream_state_restore();
 }
 
+/* display.ambient_occlusion over a window's 3D view once its opaque
+surfaces have drawn their light (xgpu_metal_post.c), with the depth target
+drawn with it, or the occlusion last laid in the view's place
+(debug.ambient_occlusion_view); none over a multisampled target */
+static void stream_ambient_occlusion(void *context, const struct xgpu_stream_ambient_occlusion *record)
+{
+	struct stream_target *target = target_get(record->target);
+	struct stream_target *depth = stream.color == record->target ? target_get(stream.depth) : NULL;
+
+	(void)context;
+	if (!target || target->description.depth_or_layers > 1 || target->description.samples > 1 || !depth ||
+		depth->description.samples > 1 || record->quality < XGPU_AMBIENT_OCCLUSION_SUBTLE ||
+		record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
+		return;
+	if (stream.preparing)
+	{
+		(void)xgpu_metal_post_ambient_occlusion_prepare(target->description.format, depth->description.format);
+		return;
+	}
+	target->written++;
+	if (record->quality == XGPU_AMBIENT_OCCLUSION_SHOW)
+		xgpu_metal_post_ambient_occlusion_show(target->texture, target->description.format, target->description.width,
+			target->description.height, record->corners);
+	else
+		xgpu_metal_post_ambient_occlusion(target->texture, target->description.format, target->description.width,
+			target->description.height, depth->texture, depth->description.format, record->corners, (int)record->quality,
+			record->camera);
+	stream_state_restore();
+}
+
 /* ---------- visibility tests, frames */
 
 static void stream_visibility_begin(void *context)
@@ -1475,6 +1507,7 @@ const struct host_render_backend *xgpu_metal_stream_backend(void)
 		backend.anti_alias = stream_anti_alias;
 		backend.hdr = stream_hdr;
 		backend.tone_map = stream_tone_map;
+		backend.ambient_occlusion = stream_ambient_occlusion;
 	}
 	return &backend;
 }

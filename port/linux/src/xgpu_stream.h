@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 10
+#define XGPU_STREAM_VERSION 11
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -243,6 +243,8 @@ enum
 	window sits in it (value: 0 centered, n + 1 n pixels from the top, no
 	lower than the bottom) */
 	XGPU_STREAM_PICTURE_POSITION,
+	/* display.ambient_occlusion (xgpu_backend_ambient_occlusion) */
+	XGPU_STREAM_AMBIENT_OCCLUSION,
 	XGPU_STREAM_RECORD_TYPES,
 };
 
@@ -316,6 +318,32 @@ struct xgpu_stream_tone_map
 	uint32_t header;
 	uint32_t target;
 	int32_t corners[4];
+};
+
+/* AMBIENT_OCCLUSION: display.ambient_occlusion over a window's 3D view
+(xgpu_backend_ambient_occlusion): its target (drawn with the stream's depth
+target), its corners, XGPU_AMBIENT_OCCLUSION_* and the camera: its near and
+far planes and its projection's x and y scales and offsets */
+struct xgpu_stream_ambient_occlusion
+{
+	uint32_t header;
+	uint32_t target;
+	uint32_t quality;
+	int32_t corners[4];
+	float camera[6];
+};
+
+/* its quality; the stencil's bits of the pixels the occlusion leaves (the
+first-person weapon's, the game's own, and a surface's lighting itself);
+and an object's pixels' bit (the front end's: d3d8_device.c) */
+enum
+{
+	XGPU_AMBIENT_OCCLUSION_SUBTLE = 1,
+	XGPU_AMBIENT_OCCLUSION_STRONG = 2,
+	XGPU_AMBIENT_OCCLUSION_SHOW = 3,
+	XGPU_AMBIENT_OCCLUSION_KEEP = 0x81,
+	XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED = 0x80,
+	XGPU_AMBIENT_OCCLUSION_OBJECT = 0x40
 };
 
 /* ---------- render targets */
@@ -996,6 +1024,7 @@ XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_frame_end, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_capabilities, 20);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_tone_map, 24);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ambient_occlusion, 52);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_set_targets, 16);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_clear, 36);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_read_target, 28);
