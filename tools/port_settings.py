@@ -1804,16 +1804,15 @@ def settings_pictures() -> list:
     pictures.append((f"{SETTINGS}/slider_thumb", [(_svg(thumb_w, track_h, [
         _rounded(thumb_w, track_h, 1, 2.5, "#8cc8ff", 1.0, "#2299ff", 1.5)]), thumb_w, track_h)]))
     # (its number's field, as the CE text fields are framed: a navy box with
-    # a blue rim and a line under the number; typed into, a brighter rim
-    # and field)
+    # a blue rim; typed into, a brighter rim and field. No line under the
+    # number: the field is too short for one clear of the rim, which it
+    # thickened into a step along the bottom)
     field_w, field_h = SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT
-    underline = (f'  <rect x="6" y="{field_h - 3.5:g}" width="{field_w - 12}" height="1" fill="#2995ff" '
-                 'fill-opacity="0.8"/>')
     pictures.append((f"{SETTINGS}/slider_field", [
-        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#000e23", 0.9, "#2995ff", 1.5), underline]),
+        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#000e23", 0.9, "#2995ff", 1.5)]),
          field_w, field_h),
-        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#0d3a7a", 0.95, "#8cc8ff", 1.5),
-                                 underline.replace("#2995ff", "#8cc8ff")]), field_w, field_h)]))
+        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#0d3a7a", 0.95, "#8cc8ff", 1.5)]),
+         field_w, field_h)]))
     for kind, top in (("tab", SETTINGS_TOP), ("page", PAGE_TOP)):
         height = SETTINGS_PANEL_BOTTOM - top
         # (list_field's framed panel: a navy field, a blue rim)
