@@ -26,6 +26,19 @@ caller sets its own again. */
 int xgpu_metal_post_anti_alias(int smaa, uint32_t target, uint8_t format, uint32_t width, uint32_t height,
 	const int32_t corners[4]);
 
+/* display.panini (port/linux/game/panini.c): its function and pipelines,
+made on the backend's queues (0, logged once, if the function cannot be);
+and the corners of a target's texture (BGRA8 or RGBA16F: format; one
+sample, its size) drawn again through the Panini projection
+(port/linux/include/panini_projection.h), projection its d, s,
+magnification at the middle, 0, and the rectilinear view's tangents at
+the corners' left, right, top and bottom, as the Vulkan backend draws it.
+Nonzero if it was drawn; the backend's state is the pass's afterwards, as
+anti-aliasing's is. */
+int xgpu_metal_post_panini_prepare(void);
+int xgpu_metal_post_panini(uint32_t target, uint8_t format, uint32_t width, uint32_t height, const int32_t corners[4],
+	const float projection[8]);
+
 /* display.hdr (port/linux/src/xgpu_hdr.h): the tone map's function and the
 pipeline for a pass with that depth attachment (its XGPU_METAL_FORMAT_*, or
 NONE) and samples, made (as anti-aliasing's are); and the tone map of the

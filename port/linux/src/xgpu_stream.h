@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 12
+#define XGPU_STREAM_VERSION 13
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -248,6 +248,8 @@ enum
 	/* display.gamma: an SDR frame's curve as it is presented (value: the
 	setting, a float's bits; 1 none) */
 	XGPU_STREAM_GAMMA,
+	/* display.panini (xgpu_backend_panini) */
+	XGPU_STREAM_PANINI,
 	XGPU_STREAM_RECORD_TYPES,
 };
 
@@ -303,6 +305,18 @@ struct xgpu_stream_anti_alias
 	uint32_t target;
 	uint32_t smaa;
 	int32_t corners[4];
+};
+
+/* PANINI: a window's 3D view drawn again through the Panini projection
+(xgpu_backend_panini): its target, corners, and the projection (d, s, the
+magnification at the middle, 0, and the rectilinear view's tangents at the
+corners' left, right, top and bottom) */
+struct xgpu_stream_panini
+{
+	uint32_t header;
+	uint32_t target;
+	int32_t corners[4];
+	float projection[8];
 };
 
 /* HDR: display.hdr's state (xgpu_backend_hdr): drawn in HDR, the mode
@@ -1027,6 +1041,7 @@ XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_frame_end, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_capabilities, 20);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_tone_map, 24);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_panini, 56);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ambient_occlusion, 52);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_set_targets, 16);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_clear, 36);

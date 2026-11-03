@@ -12,7 +12,7 @@ Their textures are set 1's bindings, the tool's texture units: FXAA and
 SMAA's edges read the target's copy (0); the blending weights the edges (0),
 the area texture (1) and the search texture (2); the blend the target's copy
 (0) and the weights (1); the turn, the encoding and display.gamma's curve
-the frame (0). The tone map reads the pixel it draws over as input
+the frame (0); the Panini projection the target's copy (0). The tone map reads the pixel it draws over as input
 attachment 0 of set 2 (binding 0), each sample's own in its multisampled
 variant. The ambient occlusion's
 passes read the depth target, the distances, or the occlusion (0).
@@ -46,6 +46,8 @@ enum xgpu_vulkan_post_program_id
 	XGPU_VULKAN_POST_OCCLUSION_APPLY,
 	/* display.gamma's curve over an SDR frame (xgpu_vulkan_post_gamma) */
 	XGPU_VULKAN_POST_GAMMA,
+	/* display.panini's projection (xgpu_vulkan_post_panini) */
+	XGPU_VULKAN_POST_PANINI,
 	XGPU_VULKAN_POST_PROGRAM_COUNT
 };
 
@@ -72,6 +74,13 @@ struct xgpu_vulkan_post_uniforms
 	float camera[4];
 	float occlusion[4];
 	float sampling[4];
+	/* display.panini's: the 3D view's corners in the target's pixels (x0,
+	y0, width, height; its bounds the rectangle's outermost texel centres,
+	as FXAA's); the projection's d, s and magnification at the middle; the
+	rectilinear view's tangents at the view's left, right, top and bottom */
+	float window[4];
+	float panini[4];
+	float tangents[4];
 };
 
 struct xgpu_vulkan_post_module

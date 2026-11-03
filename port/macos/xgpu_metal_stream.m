@@ -1264,6 +1264,30 @@ static void stream_anti_alias(void *context, const struct xgpu_stream_anti_alias
 	stream_state_restore();
 }
 
+/* display.panini over a window's 3D view, after its anti-aliasing and
+before the HUD: the target's texture (the front end no longer multisamples
+it, as for the anti-aliasing) */
+static void stream_panini(void *context, const struct xgpu_stream_panini *record)
+{
+	struct stream_target *target = target_get(record->target);
+
+	(void)context;
+	if (!target || (target->description.format != XGPU_METAL_FORMAT_BGRA8 &&
+		target->description.format != XGPU_METAL_FORMAT_RGBA16F) || target->description.samples > 1 ||
+		target->description.depth_or_layers > 1)
+		return;
+	if (stream.preparing)
+	{
+		/* (made as the map loads, as the game's pipelines are) */
+		(void)xgpu_metal_post_panini_prepare();
+		return;
+	}
+	target->written++;
+	xgpu_metal_post_panini(target->texture, target->description.format, target->description.width,
+		target->description.height, record->corners, record->projection);
+	stream_state_restore();
+}
+
 /* ---------- display.hdr (port/linux/src/xgpu_hdr.h)
 
 The front end's state: whether the frame is drawn in HDR, the mode and
@@ -1519,6 +1543,7 @@ const struct host_render_backend *xgpu_metal_stream_backend(void)
 		backend.tone_map = stream_tone_map;
 		backend.ambient_occlusion = stream_ambient_occlusion;
 		backend.gamma = stream_gamma;
+		backend.panini = stream_panini;
 	}
 	return &backend;
 }

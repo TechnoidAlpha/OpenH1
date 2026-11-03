@@ -694,6 +694,21 @@ void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4
 		record_body->corners[index] = (int32_t)corners[index];
 }
 
+void xgpu_backend_panini(xgpu_target target, const long corners[4], const float projection[8])
+{
+	struct xgpu_stream_panini *record_body;
+	int index;
+
+	if (!stream.open)
+		return;
+	record_body = record(XGPU_STREAM_PANINI, sizeof(*record_body));
+	record_body->target = target;
+	for (index = 0; index < 4; index++)
+		record_body->corners[index] = (int32_t)corners[index];
+	for (index = 0; index < 8; index++)
+		record_body->projection[index] = projection[index];
+}
+
 void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white, int ui_nits)
 {
 	struct xgpu_stream_hdr *record_body;

@@ -450,6 +450,9 @@ FRAME_RATE_LIMITS = Slider(30, 540, 1, 10, 1000, whole=True,
 # display.gamma's: Halo PC's gamma, past 1 brighter; 1 none (menu_functions.c's
 # settings_sliders, d3d8_device.c's GAMMA_LEAST and GAMMA_MOST)
 GAMMA = Slider(0.5, 2.0, 0.05, 0.5, 2.0)
+# display.panini_strength's and display.panini_vertical's: 0 to 1
+# (menu_functions.c's settings_sliders)
+PANINI_AMOUNT = Slider(0.0, 1.0, 0.05, 0.0, 1.0)
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
 SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
@@ -566,6 +569,18 @@ PAGES = {
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
              "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First "
              "Person.|Click the number (or press A) to type 20 to 150.", None),
+            # (display.panini, port/linux/game/panini.c; its strength and
+            # vertical rows shown while it shows ON: menu_functions.c's
+            # panini_rows_show; none in the VR build)
+            ("PANINI PROJECTION", "display.panini", ON_OFF,
+             "Stops a wide field of view from stretching what is at the sides: you still see as far, and the "
+             "middle is drawn larger. The HUD stays flat.|Best with Field of View above 100.", None),
+            ("PANINI STRENGTH", "display.panini_strength", PANINI_AMOUNT,
+             "How much the sides are corrected. 1 keeps their shapes true; less keeps more of the flat view and "
+             "enlarges the middle less.|Click the number (or press A) to type 0 to 1.", None),
+            ("PANINI VERTICAL", "display.panini_vertical", PANINI_AMOUNT,
+             "Straightens floors and ceilings above and below the middle, and stretches the sides taller. 0 keeps "
+             "the shapes at the sides true.|Click the number (or press A) to type 0 to 1.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "

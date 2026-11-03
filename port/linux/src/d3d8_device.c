@@ -38,6 +38,7 @@ Conventions carried over from the Xbox:
 #include "battery_saver.h"
 #include "bink_import.h"
 #include "halo_linux_source_fixups.h"
+#include "panini_projection.h"
 #include "main/console.h"
 
 #include <SDL3/SDL.h>
@@ -297,6 +298,68 @@ static unsigned short hdr_tag(const struct xgpu_pipeline_key *key)
 static BOOL vr_screen_mode(long *width, float scale[2]);
 #endif
 
+/* ---------- display.panini (port/linux/game/panini.c)
+
+The 3D view drawn through the Panini projection is drawn larger at its
+middle (port/linux/include/panini_projection.h): by its magnification there,
+1.5 at 120 degrees across 16:9 at full strength, 2.4 at 150. So that the
+middle keeps its sharpness, the screen is supersampled by as much, as
+"ssaa2x" supersamples it (the display blit scales it down), at most twice
+the pixels each way, as "ssaa2x": the magnification at the widest of
+display.fov's and display.vehicle_fov's views on the display's shape. Not on
+Android, Metal (the Mac and iOS) or VR, where supersampling is not either;
+there the middle is drawn from the pixels the view has. */
+
+#define PANINI_SUPERSAMPLING_MOST 2.0f
+
+/* a field of view in degrees across 16:9 as the tangent of half the
+vertical (view_fov.c's fov_tangent), or the stock view's (the cyborg's 70
+degrees across 4:3, as the game widens it: render_camera_get_adjusted_field_
+of_view_tangent's 0.85) outside 20 to 150 */
+static float panini_vertical_tangent(double degrees)
+{
+	return degrees >= 20.0 && degrees <= 150.0 ? (float)(tan(degrees * M_PI / 360.0) * (9.0 / 16.0)) :
+		(float)(0.75 * 0.85 * tan(35.0 * M_PI / 180.0));
+}
+
+static float panini_supersampling(long display_width, long display_height)
+{
+#if defined(HALO_ANDROID) || defined(HALO_MACOS) || defined(HALO_VR)
+	(void)display_width;
+	(void)display_height;
+	return 1.0f;
+#else
+	static long read_at = -1;
+	static float strength, tangent;
+	float factor;
+
+	if (read_at != (long)config_changes())
+	{
+		read_at = (long)config_changes();
+		strength = 0.0f;
+		if (config_boolean("display.panini"))
+		{
+			const char *vehicle = config_string("display.vehicle_fov");
+			double foot = config_real("display.fov");
+			char *end;
+			double degrees = strtod(vehicle, &end);
+			float seated;
+
+			strength = (float)config_real("display.panini_strength");
+			tangent = panini_vertical_tangent(foot);
+			/* ("default": the stock view; "match": display.fov's) */
+			seated = !strcmp(vehicle, "match") ? tangent : panini_vertical_tangent(end != vehicle ? degrees : 0.0);
+			if (seated > tangent)
+				tangent = seated;
+		}
+	}
+	if (!(strength > 0.0f) || display_height <= 0)
+		return 1.0f;
+	factor = panini_projection_scale(strength, tangent * (float)display_width / (float)display_height);
+	return factor < PANINI_SUPERSAMPLING_MOST ? factor : PANINI_SUPERSAMPLING_MOST;
+#endif
+}
+
 /* the narrowest picture, in columns of the 480 lines: a display narrower
 than it letterboxes it (display.picture_shape on Android: 4:3 or 16:9, the
 even width a 16:9 display already has, so it adds no bars there) */
@@ -337,11 +400,15 @@ static void screen_mode_choose(long *width, float scale[2])
 		/* supersampling: twice the pixels each way, or as many as the GPU's
 		largest target has (once it is known), which the display blit
 		scales down; not with "original" resolution scaling, which draws
-		the Xbox's 640x480 */
-		if (anti_aliasing() == _anti_aliasing_ssaa && xgpu_backend_capabilities.largest_target > 0)
+		the Xbox's 640x480. display.panini's: its middle's magnification
+		(above), as much as "ssaa2x" at most */
+		if (xgpu_backend_capabilities.largest_target > 0)
 		{
-			float factor = 2.0f;
+			float factor = anti_aliasing() == _anti_aliasing_ssaa ? 2.0f : 1.0f;
+			float panini = panini_supersampling(display_width, display_height);
 
+			if (factor < panini)
+				factor = panini;
 			if (*width * scale[0] * factor > (float)xgpu_backend_capabilities.largest_target)
 				factor = (float)xgpu_backend_capabilities.largest_target / (*width * scale[0]);
 			if (SCREEN_HEIGHT * scale[1] * factor > (float)xgpu_backend_capabilities.largest_target)
@@ -4688,6 +4755,28 @@ static void view_corners(struct render_target_entry *target, short x0, short y0,
 	corners[1] = scaled_pixel(y0, target->target.scale[1]);
 	corners[2] = scaled_pixel(x1, target->target.scale[0]);
 	corners[3] = scaled_pixel(y1, target->target.scale[1]);
+}
+
+/* display.panini's pass over a window's 3D view (port/linux/game/panini.c),
+once it is whole, tone mapped and antialiased, before the HUD: the window's
+bounds in the game's units of the screen, and the projection (its d, s and
+magnification, then the rectilinear view's tangents at the window's left,
+right, top and bottom) */
+void halo_screen_panini(short x0, short y0, short x1, short y1, const float projection[8])
+{
+	struct render_target_entry *target;
+	long corners[4];
+
+	if (!device.gl_ready)
+		return;
+	target = render_target_get(&device.back_buffer);
+	if (!target)
+		return;
+	/* (no longer multisampled: the pass reads the view's pixels resolved,
+	as anti-aliasing's do; the HUD's draws multisample it again) */
+	render_target_multisample(&target->target, 0);
+	view_corners(target, x0, y0, x1, y1, corners);
+	xgpu_backend_panini(target->target.number, corners, projection);
 }
 
 /* display.ambient_occlusion over a window's 3D view once its opaque

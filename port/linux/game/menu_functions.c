@@ -1787,6 +1787,34 @@ static void gamma_row_show(struct widget_instance *list)
 #endif
 }
 
+/* Video's Panini Projection (display.panini, port/linux/game/panini.c),
+its Strength and Vertical shown while it shows ON; none in the VR build,
+which never draws through it */
+static void panini_rows_show(struct widget_instance *list)
+{
+	static char const *const rows[] = { "op_panini", "op_panini_strength", "op_panini_vertical" };
+	struct widget_instance *spinner = named(list, "panini_spinner", 0);
+	struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+	boolean on = FALSE;
+	short index;
+
+	if (!setting)
+		return;
+	index = spinner->parameters.list.selected_index;
+	on = index >= 0 && index < setting->value_count && !strcmp(setting->values[index], "true");
+	for (index = 0; index < (short)NUMBEROF(rows); index++)
+	{
+		struct widget_instance *row = named(list, rows[index], 0);
+
+		if (row)
+#ifdef HALO_VR
+			row->visible = FALSE;
+#else
+			row->visible = index == 0 || on;
+#endif
+	}
+}
+
 /* Video's Frame Rate Limit, shown while VSync shows OFF (Defaults too):
 with vsync on, the display paces the frames and the limit does nothing;
 the rows below close the gap (settings_rows_pack) */
@@ -3118,6 +3146,7 @@ static void settings_page_update(struct widget_instance *list)
 	refresh_rate_row_show(list);
 	hud_button_style_row_show(list);
 	max_fps_row_show(list);
+	panini_rows_show(list);
 	menu_cursor_row_show(list);
 	gamma_row_show(list);
 	settings_rows_show(list);
@@ -4878,6 +4907,9 @@ static struct
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
 	/* (tools/port_settings.py's GAMMA) */
 	{ "op_gamma", "display.gamma", 0.5, 2.0, 0.05, 0.5, 2.0, FALSE, NULL, 0 },
+	/* (tools/port_settings.py's PANINI_AMOUNT) */
+	{ "op_panini_strength", "display.panini_strength", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
+	{ "op_panini_vertical", "display.panini_vertical", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out

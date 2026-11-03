@@ -1642,6 +1642,68 @@ static const char gamma_source[] =
 	"}\n"
 	"\n";
 
+static const char panini_source[] =
+	"#pragma clang diagnostic ignored \"-Wmissing-prototypes\"\n"
+	"\n"
+	"#include <metal_stdlib>\n"
+	"#include <simd/simd.h>\n"
+	"\n"
+	"using namespace metal;\n"
+	"\n"
+	"struct PostUniforms\n"
+	"{\n"
+	"    float4 metrics;\n"
+	"    float4 bounds;\n"
+	"    float4 hdr;\n"
+	"    float4 camera;\n"
+	"    float4 occlusion;\n"
+	"    float4 sampling;\n"
+	"    float4 window;\n"
+	"    float4 panini;\n"
+	"    float4 tangents;\n"
+	"};\n"
+	"\n"
+	"struct xgpu_post_panini_out\n"
+	"{\n"
+	"    float4 result [[color(0)]];\n"
+	"};\n"
+	"\n"
+	"static inline __attribute__((always_inline))\n"
+	"float2 rectilinear(thread const float2& p, constant PostUniforms& _18)\n"
+	"{\n"
+	"    float d = _18.panini.x;\n"
+	"    float2 projected = p / float2(_18.panini.z);\n"
+	"    float k = (projected.x * projected.x) / ((d + 1.0) * (d + 1.0));\n"
+	"    float c = fast::max((sqrt(1.0 + (k * (1.0 - (d * d)))) - (k * d)) / (k + 1.0), 9.9999999747524270787835121154785e-07);\n"
+	"    float S = (d + 1.0) / (d + c);\n"
+	"    return float2(projected.x / (S * c), projected.y / (S * (_18.panini.y + ((1.0 - _18.panini.y) * c))));\n"
+	"}\n"
+	"\n"
+	"fragment xgpu_post_panini_out xgpu_post_panini(constant PostUniforms& _18 [[buffer(17)]], texture2d<float> color_texture [[texture(0)]], sampler color_textureSmplr [[sampler(0)]], float4 gl_FragCoord [[position]])\n"
+	"{\n"
+	"    xgpu_post_panini_out out = {};\n"
+	"    float2 place = (gl_FragCoord.xy - _18.window.xy) / _18.window.zw;\n"
+	"    float2 param = float2(mix(_18.tangents.x, _18.tangents.y, place.x), mix(_18.tangents.z, _18.tangents.w, place.y));\n"
+	"    float2 seen = rectilinear(param, _18);\n"
+	"    float2 source = _18.window.xy + ((_18.window.zw * (seen - _18.tangents.xz)) / (_18.tangents.yw - _18.tangents.xz));\n"
+	"    float2 across = dfdx(source);\n"
+	"    float2 down = dfdy(source);\n"
+	"    int2 taps = int2(fast::clamp(ceil(float2(length(across), length(down)) - float2(0.00999999977648258209228515625)), float2(1.0), float2(4.0)));\n"
+	"    float4 sum = float4(0.0);\n"
+	"    for (int row = 0; row < taps.y; row++)\n"
+	"    {\n"
+	"        for (int column = 0; column < taps.x; column++)\n"
+	"        {\n"
+	"            float2 offset = ((float2(float(column), float(row)) + float2(0.5)) / float2(taps)) - float2(0.5);\n"
+	"            float2 at = ((source + (across * offset.x)) + (down * offset.y)) * _18.metrics.xy;\n"
+	"            sum += color_texture.sample(color_textureSmplr, fast::clamp(at, _18.bounds.xy, _18.bounds.zw), level(0.0));\n"
+	"        }\n"
+	"    }\n"
+	"    out.result = sum / float4(float(taps.x * taps.y));\n"
+	"    return out;\n"
+	"}\n"
+	"\n";
+
 const struct xgpu_metal_post_function xgpu_metal_post_functions[XGPU_METAL_POST_FUNCTION_COUNT] =
 {
 	{ post_source, sizeof(post_source) - 1, "xgpu_post_vertex" },
@@ -1657,6 +1719,7 @@ const struct xgpu_metal_post_function xgpu_metal_post_functions[XGPU_METAL_POST_
 	{ occlusion_apply_source, sizeof(occlusion_apply_source) - 1, "xgpu_occlusion_apply" },
 	{ occlusion_fill_source, sizeof(occlusion_fill_source) - 1, "xgpu_occlusion_fill" },
 	{ gamma_source, sizeof(gamma_source) - 1, "xgpu_gamma" },
+	{ panini_source, sizeof(panini_source) - 1, "xgpu_post_panini" },
 };
 
 const uint32_t xgpu_metal_post_area_texture[] =

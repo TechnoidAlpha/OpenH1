@@ -91,6 +91,7 @@ symbols in this file:
 /* port: static transparent part links for the newly loaded model tags. */
 #include "models/models.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
+#include "panini.h" /* port: port/linux/game/panini.c */
 
 #ifdef HALO_VR
 #include "../../port/linux/src/vr.h"
@@ -411,6 +412,9 @@ static void render_window(
 	(port/linux/game/render_enumerate.c) */
 	render_enumerate_structure();
 	player_effect_get_screen_flash(local_player_index, &parameters.screen_flash);
+	/* port: display.panini, the view drawn through it with this projection
+	(port/linux/game/panini.c) */
+	panini_window_begin(local_player_index, rasterizer_target, rasterizer_camera, &parameters.frustum);
 	rasterizer_window_begin(&parameters);
 
 	if (!bink_playback_in_progress())
@@ -612,6 +616,9 @@ static void render_window(
 				rasterizer_camera->viewport_bounds.y0,
 				rasterizer_camera->viewport_bounds.x1,
 				rasterizer_camera->viewport_bounds.y1);
+			/* port: and drawn through display.panini's projection, the HUD
+			not (port/linux/game/panini.c) */
+			panini_window_draw();
 		}
 		interface_draw_screen();
 		/* port: and every HUD's (port/linux/game/render_enumerate.c) */
@@ -639,6 +646,7 @@ static void render_window(
 	}
 	/* port: the loading transition too (port/linux/game/render_enumerate.c) */
 	render_enumerate_loading_screen();
+	panini_window_end(); /* port */
 	rasterizer_window_end();
 	profile_render_window_end();
 

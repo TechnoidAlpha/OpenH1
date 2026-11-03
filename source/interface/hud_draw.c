@@ -108,6 +108,7 @@ symbols in this file:
 #include "cache_file_formats.h" /* port: port/linux/game/cache_file_formats.c */
 #include "custom_edition_cache.h"
 #include "view_fov.h" /* port: port/linux/game/view_fov.c */
+#include "panini.h" /* port: port/linux/game/panini.c */
 
 #ifdef HALO_VR
 #include "../../port/linux/src/vr.h"
@@ -1737,9 +1738,10 @@ static void hud_draw_bitmap_with_meter(
 		&xy_scale,
 		theta,
 		color,
-		/* port: a reticle at the centre keeps to its aim (view_fov.c) */
+		/* port: a reticle at the centre keeps to its aim (view_fov.c), the
+		view drawn through display.panini's projection too (panini.c) */
 		is_crosshair_bitmap && absolute_placement->corner == _hud_anchor_center ?
-			render_fov_reticle_scale(render.local_player_index) : 1.0f);
+			render_fov_reticle_scale(render.local_player_index) * panini_center_scale() : 1.0f);
 
 	match_assert_stack_frame("c:\\halo\\SOURCE\\interface\\hud_draw.c", 814);
 
