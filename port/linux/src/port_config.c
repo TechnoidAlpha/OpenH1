@@ -1962,7 +1962,7 @@ static const struct config_setting config_settings[] =
 	{ "debug.fixed_step", _config_boolean, "false", "HALO_FIXED_STEP", _environment_set_is_true, _platform_all,
 		"A game of this machine alone runs one tick a frame, whatever time has\n"
 		"passed, so that it plays the same every time (tests); game_speed has no\n"
-		"effect." },
+		"effect. The sound is timed by the frames too, mixed with no device." },
 	{ "debug.exit_after", _config_real, "0.0", "HALO_EXIT_AFTER", _environment_value, _platform_all,
 		"Quit this many seconds after the window opens (without a window, after\n"
 		"the first frame); 0 never." },
@@ -1992,8 +1992,9 @@ static const struct config_setting config_settings[] =
 		"0 none." },
 	{ "debug.frame_time", _config_real, "0.0", "HALO_FRAME_TIME", _environment_value, _platform_all,
 		"Seconds of game time each frame runs, whatever time it took, so that two\n"
-		"runs of the same input run the same frames (the determinism check); 0\n"
-		"the time each frame took." },
+		"runs of the same input run the same frames (the determinism check),\n"
+		"and the sound is timed by them too, mixed with no device; 0 the time\n"
+		"each frame took." },
 	{ "debug.bots_tactics_team", _config_integer, "-1", "HALO_BOTS_TACTICS_TEAM", _environment_value, _platform_all,
 		"With bots.tactics, only this team's bots (0 red, 1 blue) play together,\n"
 		"the other's each on its own, to measure what the team play is worth;\n"

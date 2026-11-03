@@ -1993,6 +1993,10 @@ static void effect_generate_particles(
 					particles->scale_b_flags,
 					_effect_particle_distribution_radius_bit);
 
+				/* port: zeroed: a particle not attached to the object has no
+				node, which was whatever the stack held, kept in its datum
+				(particle_new) */
+				csmemset(&data, 0, sizeof(data));
 				local_random_direction3d(&random_offset);
 				matrix4x3_transform_vector(
 					&instance->matrix,

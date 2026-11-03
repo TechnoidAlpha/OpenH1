@@ -58,6 +58,17 @@ def test_frames_and_takers(tmp_path):
     assert status == 0, out
 
 
+def test_game_after_a_lobby(tmp_path):
+    # (a network test's lobby, of a length the network sets, then its game from tick 1)
+    write_log(tmp_path / "a.txt", [(1, 10), (2, 11), (3, 12), (1, 20), (2, 21)])
+    write_log(tmp_path / "b.txt", [(1, 10), (2, 11), (1, 20), (2, 21)])
+    status, out = run(tmp_path / "a.txt", tmp_path / "b.txt")
+    assert status == 1
+    status, out = run(tmp_path / "a.txt", tmp_path / "b.txt", "--game")
+    assert status == 0, out
+    assert "2 ticks alike" in out
+
+
 def pool(blocks, magic):
     """an objects' memory pool with blocks of 0x200 bytes, each object's
     magic number given"""

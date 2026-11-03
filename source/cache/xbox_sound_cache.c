@@ -624,6 +624,15 @@ static void sound_cache_start_loading_sound(
 					cache_address,
 					&cache_sound->loaded,
 					FALSE);
+				/* port: with the frames' time fixed (debug.frame_time,
+				debug.fixed_step), waited for: a sound starts on the frame that
+				asks for it, not whenever the disk has read it, so that two runs
+				of the same input play the same (port/linux/game/frames_clock.c) */
+				if (frames_clock(NULL))
+				{
+					while (!*(volatile boolean *)&cache_sound->loaded)
+						SwitchToThread();
+				}
 			}
 		}
 	}

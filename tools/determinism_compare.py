@@ -281,6 +281,13 @@ def compare_dumps(allocations, path_a, path_b, ignored, limit=12):
     return 1 if differing else 0
 
 
+def last_game(ticks):
+    """the ticks from the last time the tick count began again at 1 (a network test's game after its lobby,
+    whose length is the network's: its messages and joins, by the computer's clock), else all of them"""
+    starts = [index for index, tick in enumerate(ticks) if tick.number == 1]
+    return ticks[starts[-1]:] if len(starts) > 1 else ticks
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("a")
@@ -289,6 +296,10 @@ def main():
     parser.add_argument("--ignore", action="append", default=[],
                         help="a game state allocation not to compare (by name; repeatable)")
     parser.add_argument("--from-tick", type=int, default=0, help="compare from this tick on")
+    parser.add_argument("--game", action="store_true",
+                        help="compare from each log's last game's start, where the tick count began again at 1: "
+                             "a network test's game (debug.network_test), after its lobby, whose length the "
+                             "network's clock sets")
     parser.add_argument("--dump", nargs=2, metavar=("A_BIN", "B_BIN"),
                         help="compare two game states written at one tick (debug.determinism_dump)")
     parser.add_argument("--simulation", action="store_true",
@@ -310,6 +321,8 @@ def main():
     except OSError as error:
         print(f"error: {error}")
         return 2
+    if args.game:
+        ticks_a, ticks_b = last_game(ticks_a), last_game(ticks_b)
     if not ticks_a or not ticks_b:
         print("error: a log has no ticks")
         return 2
