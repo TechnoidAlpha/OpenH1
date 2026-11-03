@@ -6256,7 +6256,9 @@ contrails, which a tick adds points to, still part by the frame rate.)
   fills on the stack and copies whole into the game state (a unit's speech
   item and its AI packet, a particle's data) is zeroed first, its padding
   too, or the bytes it leaves are whatever the stack held, which any change
-  to the code moves.
+  to the code moves. So is what a function gives back through a pointer
+  on every return, not only on some: the AI's test of a friend's line of
+  fire (`ai/actor_perception.c`), which left the caller's vector unset.
 - The sound's clock. The sound manager times its sounds by the clock, and
   what it decides by it reaches the game state: the HUD's sounds' handles,
   the sound classes' fades, the looping sounds' states and the slots they
