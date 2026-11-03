@@ -71,6 +71,12 @@ peak the tone map and the encoding roll off to (it changes with the
 display's brightness). HALO_METAL_EDR_HEADROOM=<headroom> stands in for the
 display's (both), for tests and for the replay, which has no window.
 
+display.gamma: into a BGRA8 layer, where the setting is not 1, the
+presentation draws the frame with its curve (each channel raised to one
+over the setting: xgpu_metal_post_shaders.h's) in place of the plain copy,
+so that it costs no pass of its own; the loading screen's colours are
+curved alike. An EDR layer is never curved: paper white is its brightness.
+
 HALO_METAL_STATS=<seconds> logs the pacing that often: the link's
 refreshes, the frames presented, the intervals between the times the
 drawables reached the screen.
@@ -172,6 +178,10 @@ static struct
 	or 0); the window's screen's potential headroom and headroom now (a
 	float's bits); the layer is EDR's; HALO_METAL_EDR_HEADROOM's (0: none) */
 	id<MTLRenderPipelineState> edr_pipeline, loading_edr_pipeline;
+	/* display.gamma: the presentation with its curve, into an SDR layer
+	(nil: none), and the setting (a float's bits; 0 or 1: none) */
+	id<MTLRenderPipelineState> gamma_pipeline;
+	_Atomic uint32_t gamma;
 	_Atomic int hdr_active, hdr_mode, hdr_paper_white_nits, hdr_paper_white, hdr_ui_nits;
 	_Atomic uint32_t edr_potential, edr_current;
 	BOOL layer_edr;
@@ -402,14 +412,30 @@ void host_metal_hdr_frame(struct xgpu_hdr_frame *frame)
 	}
 }
 
+void host_metal_gamma(float gamma)
+{
+	atomic_store(&presentation.gamma, float_bits(gamma));
+}
+
+/* display.gamma's power for an SDR drawable (one over the setting), or 0
+where the setting is 1: none, the presentation's own pipeline */
+static float gamma_power(void)
+{
+	float gamma = bits_float(atomic_load(&presentation.gamma));
+
+	return gamma > 0.0f && gamma != 1.0f && presentation.gamma_pipeline ? 1.0f / gamma : 0.0f;
+}
+
 /* a colour's channel (the frame's values) as an EDR drawable takes it:
-linear, times the UI's white; as it is for an SDR one */
+linear, times the UI's white; as it is for an SDR one, curved by
+display.gamma as the frame is */
 static float edr_value(id<CAMetalDrawable> drawable, float value)
 {
 	struct xgpu_hdr_frame frame;
+	float power;
 
 	if (drawable.texture.pixelFormat != MTLPixelFormatRGBA16Float)
-		return value;
+		return (power = gamma_power()) > 0.0f && value > 0.0f ? powf(value, power) : value;
 	host_metal_hdr_frame(&frame);
 	return xgpu_hdr_linear(value) * (frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white * frame.ui);
 }
@@ -1384,6 +1410,22 @@ static BOOL rate_adapt(BOOL shown, double now)
 				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
 				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 			}
+			else if (drawable.texture.pixelFormat == MTLPixelFormatBGRA8Unorm && gamma_power() > 0.0f)
+			{
+				/* display.gamma: the frame curved as it is drawn into the
+				SDR layer (no pass of its own: this is the frame's last) */
+				struct xgpu_metal_post_uniforms uniforms;
+
+				memset(&uniforms, 0, sizeof(uniforms));
+				uniforms.metrics[0] = (float)viewport.originX;
+				uniforms.metrics[1] = (float)viewport.originY;
+				uniforms.metrics[2] = 1.0f / (float)viewport.width;
+				uniforms.metrics[3] = 1.0f / (float)viewport.height;
+				uniforms.bounds[0] = gamma_power();
+				[encoder setRenderPipelineState:presentation.gamma_pipeline];
+				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
+				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+			}
 			else
 			{
 				[encoder setRenderPipelineState:presentation.present_pipeline];
@@ -1865,6 +1907,17 @@ int host_metal_window_open(uint32_t window)
 		[xgpu_metal_device() newRenderPipelineStateWithDescriptor:descriptor error:&error] : nil;
 	if (!presentation.edr_pipeline)
 		host_logf(HOST_LOG_WARN, "metal: no HDR presentation (%s): the window stays SDR",
+			error ? error.localizedDescription.UTF8String : "its functions");
+	/* display.gamma: the presentation into an SDR layer with its curve
+	(tools/vulkan_post_shaders.py's GLSL: xgpu_metal_post_shaders.h) */
+	error = nil;
+	descriptor = xgpu_metal_present_descriptor();
+	descriptor.vertexFunction = post_function(XGPU_METAL_POST_VERTEX);
+	descriptor.fragmentFunction = post_function(XGPU_METAL_POST_GAMMA);
+	presentation.gamma_pipeline = descriptor.vertexFunction && descriptor.fragmentFunction ?
+		[xgpu_metal_device() newRenderPipelineStateWithDescriptor:descriptor error:&error] : nil;
+	if (!presentation.gamma_pipeline)
+		host_logf(HOST_LOG_WARN, "metal: no display.gamma (%s): the frame is shown as drawn",
 			error ? error.localizedDescription.UTF8String : "its functions");
 	display_hdr_read();
 #if !TARGET_OS_IPHONE

@@ -52,6 +52,14 @@ cannot. */
 int xgpu_vulkan_post_encode_prepare(void);
 struct xgpu_vulkan_image *xgpu_vulkan_post_encode(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 	uint8_t format);
+/* display.gamma's curve over an SDR frame (the core's options' gamma), its
+last pass before the swapchain: gamma_prepare makes its pipeline at the
+start (as the encoding's are), 0 if it cannot be (logged). gamma draws the
+frame with each channel raised to power (one over the setting) into a BGRA8
+image of its own of the frame's size, in the stream's order, and returns
+it; the targets bound before are not bound after. NULL if it cannot. */
+int xgpu_vulkan_post_gamma_prepare(void);
+struct xgpu_vulkan_image *xgpu_vulkan_post_gamma(struct xgpu_vulkan_image *image, float power);
 
 /* display.ambient_occlusion (xgpu_backend_ambient_occlusion). Its
 pipelines for a target of a format and number of samples drawn with a

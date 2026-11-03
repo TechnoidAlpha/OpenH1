@@ -128,6 +128,13 @@ struct xgpu_vulkan_options
 	int (*encode_prepare)(void);
 	struct xgpu_vulkan_image *(*encode)(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 		uint8_t format);
+	/* display.gamma: its curve over an SDR frame before the swapchain
+	(xgpu_vulkan_post.c's): gamma_prepare makes its pipeline at the start
+	(1 if it can), gamma draws the frame curved (each channel raised to a
+	power) into an image of its own and returns it, NULL if it cannot.
+	NULL: no curve (the VR build's). */
+	int (*gamma_prepare)(void);
+	struct xgpu_vulkan_image *(*gamma)(struct xgpu_vulkan_image *image, float power);
 };
 
 /* 1 on success: a device that has what the backend needs (logged if not) */
@@ -608,6 +615,10 @@ void xgpu_vulkan_hdr_state(int active, int mode, int paper_white_nits, int paper
 this many pixels from its top (no lower than its bottom) or centered (-1)
 (present), from the next present on */
 void xgpu_vulkan_picture_top(int top);
+/* display.gamma (the stream's record, render thread): the setting, 1 for
+none, from the next present on; an SDR frame is curved by one over it
+(present), an HDR swapchain's never */
+void xgpu_vulkan_gamma(float gamma);
 /* the tone map's and the encoding's parameters now (xgpu_hdr.h): the
 swapchain's output, paper white in its units, the peak in paper whites, the
 UI's white over paper white (1 and SDR where the swapchain is SDR) */

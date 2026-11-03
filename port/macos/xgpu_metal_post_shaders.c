@@ -1615,6 +1615,33 @@ static const char occlusion_fill_source[] =
 	"}\n"
 	"\n";
 
+static const char gamma_source[] =
+	"#include <metal_stdlib>\n"
+	"#include <simd/simd.h>\n"
+	"\n"
+	"using namespace metal;\n"
+	"\n"
+	"struct PostUniforms\n"
+	"{\n"
+	"    float4 metrics;\n"
+	"    float4 bounds;\n"
+	"};\n"
+	"\n"
+	"struct xgpu_gamma_out\n"
+	"{\n"
+	"    float4 result [[color(0)]];\n"
+	"};\n"
+	"\n"
+	"fragment xgpu_gamma_out xgpu_gamma(constant PostUniforms& _17 [[buffer(17)]], texture2d<float> color_texture [[texture(0)]], sampler color_textureSmplr [[sampler(0)]], float4 gl_FragCoord [[position]])\n"
+	"{\n"
+	"    xgpu_gamma_out out = {};\n"
+	"    float2 position = (gl_FragCoord.xy - _17.metrics.xy) * _17.metrics.zw;\n"
+	"    float3 color = fast::max(color_texture.sample(color_textureSmplr, position, level(0.0)).xyz, float3(0.0));\n"
+	"    out.result = float4(powr(color, float3(_17.bounds.x)), 1.0);\n"
+	"    return out;\n"
+	"}\n"
+	"\n";
+
 const struct xgpu_metal_post_function xgpu_metal_post_functions[XGPU_METAL_POST_FUNCTION_COUNT] =
 {
 	{ post_source, sizeof(post_source) - 1, "xgpu_post_vertex" },
@@ -1629,6 +1656,7 @@ const struct xgpu_metal_post_function xgpu_metal_post_functions[XGPU_METAL_POST_
 	{ occlusion_blur_source, sizeof(occlusion_blur_source) - 1, "xgpu_occlusion_blur" },
 	{ occlusion_apply_source, sizeof(occlusion_apply_source) - 1, "xgpu_occlusion_apply" },
 	{ occlusion_fill_source, sizeof(occlusion_fill_source) - 1, "xgpu_occlusion_fill" },
+	{ gamma_source, sizeof(gamma_source) - 1, "xgpu_gamma" },
 };
 
 const uint32_t xgpu_metal_post_area_texture[] =

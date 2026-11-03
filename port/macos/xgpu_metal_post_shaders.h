@@ -39,6 +39,10 @@ enum
 	XGPU_METAL_POST_OCCLUSION_BLUR,
 	XGPU_METAL_POST_OCCLUSION_APPLY,
 	XGPU_METAL_POST_OCCLUSION_FILL,
+	/* display.gamma's curve (the Vulkan backend's), which the presentation
+	draws into an SDR drawable, sampling the frame (texture 0) over the
+	viewport */
+	XGPU_METAL_POST_GAMMA,
 	XGPU_METAL_POST_FUNCTION_COUNT
 };
 
@@ -48,7 +52,8 @@ struct xgpu_metal_post_uniforms
 	/* 1 / width, 1 / height, width, height of the target */
 	float metrics[4];
 	/* FXAA's: the rectangle's outermost texel centres, as texture
-	coordinates (x0, y0, x1, y1) */
+	coordinates (x0, y0, x1, y1); display.gamma's: the power (x), its
+	metrics the viewport's x, y, 1 / width, 1 / height */
 	float bounds[4];
 	/* display.hdr's: the tone map's mode and peak; the encoding's paper
 	white, peak and output (xgpu_hdr.h; its metrics are the viewport's x, y,

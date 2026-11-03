@@ -67,5 +67,9 @@ void host_metal_hdr_state(int active, int mode, int paper_white_nits, int paper_
 the replay) */
 void host_metal_hdr_override(float headroom);
 void host_metal_hdr_frame(struct xgpu_hdr_frame *frame);
+/* display.gamma (the render thread, as it plays the stream): the setting,
+1 for none; the presentation curves an SDR frame by one over it, an EDR
+layer's never */
+void host_metal_gamma(float gamma);
 
 #endif

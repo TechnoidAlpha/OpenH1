@@ -2390,6 +2390,16 @@ static void stream_picture_top(void *context, uint32_t top)
 	xgpu_vulkan_picture_top(top ? (int)(top - 1) : -1);
 }
 
+/* display.gamma: the core's present curves an SDR frame by it */
+static void stream_gamma(void *context, uint32_t gamma)
+{
+	float value;
+
+	(void)context;
+	memcpy(&value, &gamma, sizeof(value));
+	xgpu_vulkan_gamma(value);
+}
+
 static void stream_hdr(void *context, const struct xgpu_stream_hdr *record)
 {
 	(void)context;
@@ -2730,6 +2740,7 @@ const struct host_render_backend *xgpu_vulkan_stream_backend(void)
 		backend.tone_map = stream_tone_map;
 		backend.ambient_occlusion = stream_ambient_occlusion;
 		backend.picture_top = stream_picture_top;
+		backend.gamma = stream_gamma;
 #ifdef HALO_VR
 		host_vulkan_vr_backend(&backend);
 #endif

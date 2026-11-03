@@ -1717,6 +1717,33 @@ static void picture_position_send(void)
 #endif
 }
 
+/* display.gamma's range (tools/port_settings.py's GAMMA) */
+#define GAMMA_LEAST 0.5f
+#define GAMMA_MOST 2.0f
+
+/* (between frames: halo_screen_commit) display.gamma, to the backend's
+present, when it changes: 0.5 to 2, 1 none. Not the VR build's: its
+headset shows the eyes' images, and its window is no SDR picture to curve. */
+static void gamma_send(void)
+{
+#ifndef HALO_VR
+	static float sent;
+	float gamma;
+
+	if (!device.gl_ready)
+		return;
+	gamma = (float)config_real("display.gamma");
+	gamma = !(gamma > 0.0f) ? 1.0f : gamma < GAMMA_LEAST ? GAMMA_LEAST : gamma > GAMMA_MOST ? GAMMA_MOST : gamma;
+	if (gamma != sent)
+	{
+		if (sent || gamma != 1.0f)
+			platform_log("gamma: %.2f", gamma);
+		xgpu_backend_gamma(gamma);
+		sent = gamma;
+	}
+#endif
+}
+
 /* a point in the window, as SDL reports it, in the menus' coordinates: the
 inverse of the letterboxed display blit at presentation, the screen's
 width and the menus' centering (halo_screen_ui_offset); or, not centered,
@@ -1931,6 +1958,8 @@ long halo_screen_commit(void)
 	ambient_occlusion_read();
 	/* (display.picture_position) */
 	picture_position_send();
+	/* (display.gamma) */
+	gamma_send();
 	/* display.shadow_resolution, if it has changed: the maps' entries at
 	the old scale are freed (render_targets_evict), new ones made at the new */
 	if (shadow_scale && shadow_scale_read_at != config_changes())

@@ -11,9 +11,10 @@ uniforms are a block at set 0, binding 1: struct xgpu_vulkan_post_uniforms.
 Their textures are set 1's bindings, the tool's texture units: FXAA and
 SMAA's edges read the target's copy (0); the blending weights the edges (0),
 the area texture (1) and the search texture (2); the blend the target's copy
-(0) and the weights (1); the turn and the encoding the frame (0). The tone
-map reads the pixel it draws over as input attachment 0 of set 2 (binding
-0), each sample's own in its multisampled variant. The ambient occlusion's
+(0) and the weights (1); the turn, the encoding and display.gamma's curve
+the frame (0). The tone map reads the pixel it draws over as input
+attachment 0 of set 2 (binding 0), each sample's own in its multisampled
+variant. The ambient occlusion's
 passes read the depth target, the distances, or the occlusion (0).
 */
 
@@ -43,6 +44,8 @@ enum xgpu_vulkan_post_program_id
 	XGPU_VULKAN_POST_OCCLUSION,
 	XGPU_VULKAN_POST_OCCLUSION_BLUR,
 	XGPU_VULKAN_POST_OCCLUSION_APPLY,
+	/* display.gamma's curve over an SDR frame (xgpu_vulkan_post_gamma) */
+	XGPU_VULKAN_POST_GAMMA,
 	XGPU_VULKAN_POST_PROGRAM_COUNT
 };
 
@@ -53,7 +56,9 @@ struct xgpu_vulkan_post_uniforms
 	float metrics[4];
 	/* FXAA's: the rectangle's outermost texel centres, as texture
 	coordinates (x0, y0, x1, y1); the turn's: its matrix's rows (the
-	turned image's coordinates about its centre to the frame's) */
+	turned image's coordinates about its centre to the frame's); display.
+	gamma's: the power (x), its metrics the viewport's x, y, 1 / width and
+	1 / height */
 	float bounds[4];
 	/* display.hdr's: the tone map's mode and peak; the encoding's paper
 	white, peak and output (xgpu_hdr.c), its metrics the viewport's x, y,

@@ -106,6 +106,10 @@ void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_whi
 pixels from the top of a window taller than it (no lower than its bottom),
 or centered (-1), from the next present on */
 void xgpu_backend_picture_top(int top);
+/* display.gamma: an SDR frame curved by one over this as it is presented
+(each channel raised to that power: past 1 brighter), from the next present
+on; 1 none, which costs nothing. An HDR swapchain's frame never is. */
+void xgpu_backend_gamma(float gamma);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
 /* display.ambient_occlusion: the occlusion of a window's 3D view (its
 corners in the target's pixels), from the depth target drawn with it, laid

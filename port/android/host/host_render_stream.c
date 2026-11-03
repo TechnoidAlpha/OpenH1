@@ -220,6 +220,7 @@ static const uint32_t record_minimum[XGPU_STREAM_RECORD_TYPES] =
 	[XGPU_STREAM_TONE_MAP] = sizeof(struct xgpu_stream_tone_map),
 	[XGPU_STREAM_AMBIENT_OCCLUSION] = sizeof(struct xgpu_stream_ambient_occlusion),
 	[XGPU_STREAM_PICTURE_POSITION] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_GAMMA] = sizeof(struct xgpu_stream_value),
 	/* (and its folder's path, at least its NUL) */
 	[XGPU_STREAM_SCREENSHOT] = sizeof(struct xgpu_stream_screenshot) + XGPU_STREAM_RECORD_ALIGNMENT,
 	[XGPU_STREAM_TARGET_CREATE] = sizeof(struct xgpu_stream_target_create),
@@ -467,6 +468,9 @@ static int decode_record(struct host_render_decoder *decoder, const unsigned cha
 		break;
 	case XGPU_STREAM_PICTURE_POSITION:
 		CALL(picture_top, value->value);
+		break;
+	case XGPU_STREAM_GAMMA:
+		CALL(gamma, value->value);
 		break;
 	case XGPU_STREAM_TARGET_CREATE:
 		CALL(target_create, (const void *)start);

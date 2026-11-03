@@ -89,6 +89,8 @@ struct host_render_backend
 	/* display.picture_position: the picture n pixels from the top of a
 	taller window (n + 1) or centered (0) */
 	void (*picture_top)(void *context, uint32_t top);
+	/* display.gamma: the setting (a float's bits), from the next present on */
+	void (*gamma)(void *context, uint32_t gamma);
 
 	void (*target_create)(void *context, const struct xgpu_stream_target_create *record);
 	void (*target_delete)(void *context, uint32_t target);

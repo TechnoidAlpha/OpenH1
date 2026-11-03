@@ -35,7 +35,8 @@ window's display shows HDR, the swapchain is HDR (VK_EXT_swapchain_colorspace:
 scRGB's half floats in extended linear sRGB, or HDR10's PQ in BT.2020's
 primaries) and the frame is encoded for it (the options' encode) before it
 is letterboxed into it as an SDR frame is; the swapchain is made again as
-that changes.
+that changes. An SDR swapchain's frame is curved by display.gamma (the
+options' gamma) first, where the setting is not 1.
 */
 
 #include "xgpu_vulkan.h"
@@ -612,6 +613,10 @@ static struct
 	void (*display_hdr)(int hdr, float headroom, float white_nits, int white_reported);
 	struct xgpu_vulkan_image *(*encode)(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 		uint8_t format);
+	/* display.gamma: the options' curve (NULL: none, or it could not be
+	made), and the setting (a float's bits; 0 or 1: none) */
+	struct xgpu_vulkan_image *(*gamma)(struct xgpu_vulkan_image *image, float power);
+	uint32_t gamma_setting;
 
 	/* HALO_VULKAN_DISCARDS: the passes recorded into secondary command
 	buffers, their stores chosen at the submission (deferred); the
@@ -4906,6 +4911,14 @@ void xgpu_vulkan_picture_top(int top)
 	__atomic_store_n(&vk.picture_top, top < 0 ? 0 : top + 1, __ATOMIC_RELEASE);
 }
 
+void xgpu_vulkan_gamma(float gamma)
+{
+	uint32_t bits;
+
+	memcpy(&bits, &gamma, sizeof(bits));
+	__atomic_store_n(&vk.gamma_setting, bits, __ATOMIC_RELEASE);
+}
+
 /* a rectangle in the window, its way up, as it lies in a swapchain turned
 quarter_turns clockwise from it (the frame's turn: present_turned) */
 static void rectangle_turned(int quarter_turns, uint32_t window_width, uint32_t window_height, uint32_t *x,
@@ -5389,6 +5402,31 @@ static struct xgpu_vulkan_image *present_encoded(struct xgpu_vulkan_image *image
 	return NULL;
 }
 
+/* display.gamma: an SDR frame curved by one over the setting (the
+options' gamma, into an image of its own); the frame itself where the
+setting is 1 (none: nothing drawn, so the frame is the swapchain's exactly)
+or the curve cannot be drawn; the targets and visibility test as they
+were */
+static struct xgpu_vulkan_image *present_curved(struct xgpu_vulkan_image *image)
+{
+	struct xgpu_vulkan_image *color = vk.color, *depth = vk.depth, *curved;
+	uint32_t layer = vk.layer, views = vk.views;
+	int test_active = vk.test_active;
+	uint32_t bits = __atomic_load_n(&vk.gamma_setting, __ATOMIC_ACQUIRE);
+	float gamma;
+
+	memcpy(&gamma, &bits, sizeof(gamma));
+	if (!(gamma > 0.0f) || gamma == 1.0f)
+		return image;
+	pass_end();
+	vk.test_active = 0;
+	curved = vk.gamma(image, 1.0f / gamma);
+	pass_end();
+	vk.test_active = test_active;
+	xgpu_vulkan_set_target_views(color, depth, layer, views);
+	return curved ? curved : image;
+}
+
 /* the image shown in the window: letterboxed into a swapchain image
 (cleared black), then presented. 0 if nothing is presented: no surface (the
 app in the background, the window not back yet), a swapchain that cannot
@@ -5437,6 +5475,8 @@ static uint64_t present(struct xgpu_vulkan_image *image, int frame)
 		if (!image)
 			return 0;
 	}
+	else if (image && vk.hdr_output == XGPU_HDR_OUTPUT_SDR && vk.gamma)
+		image = present_curved(image);
 	/* (the slot's semaphore free: the recording begun, which waits for the
 	slot's last submission) */
 	if (trace)
@@ -6810,6 +6850,7 @@ int xgpu_vulkan_initialize(const struct xgpu_vulkan_options *options)
 	vk.surface_context = options->surface_context;
 	vk.display_hdr = options->display_hdr;
 	vk.encode = options->encode;
+	vk.gamma = options->gamma;
 	vk.display_hdr_told = -1;
 	vk.hdr_paper_white = 100;
 	if (!vk.window_headroom)
@@ -6920,6 +6961,9 @@ int xgpu_vulkan_initialize(const struct xgpu_vulkan_options *options)
 	screen's presentation may encode while a map is prepared) */
 	if (vk.encode && (!vk.colorspaces || !options->encode_prepare || !options->encode_prepare()))
 		vk.encode = NULL;
+	/* (display.gamma's too) */
+	if (vk.gamma && (!options->gamma_prepare || !options->gamma_prepare()))
+		vk.gamma = NULL;
 	if (vk.surface && options->rotation_prepare && options->rotate)
 	{
 		VkSurfaceCapabilitiesKHR capabilities;

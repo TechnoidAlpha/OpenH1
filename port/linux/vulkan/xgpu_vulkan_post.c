@@ -44,7 +44,11 @@ queued as a map is prepared. The encoding for an HDR swapchain
 (xgpu_vulkan_post_encode) is a pass like the turn's: the frame drawn
 encoded into an image of the swapchain's format, which the core then
 letterboxes into the swapchain as it does an SDR frame; its pipelines are
-made at the start (xgpu_vulkan_post_encode_prepare).
+made at the start (xgpu_vulkan_post_encode_prepare). display.gamma's curve
+(xgpu_vulkan_post_gamma) is the same kind of pass for an SDR frame: the
+swapchain's image is filled by a blit, which has no arithmetic, so the curve
+is drawn into an image of its own first, and only where the setting is not
+1 (the core's present skips it).
 */
 
 #include "xgpu_vulkan_post.h"
@@ -89,6 +93,9 @@ static struct
 	int tone_map_failed;
 	VkPipeline encode[2];
 	struct xgpu_vulkan_image *encoded;
+	/* display.gamma: its curve's pipeline, and the frame curved */
+	VkPipeline gamma;
+	struct xgpu_vulkan_image *curved;
 } post;
 
 /* display.ambient_occlusion's state (below) */
@@ -694,6 +701,86 @@ struct xgpu_vulkan_image *xgpu_vulkan_post_encode(struct xgpu_vulkan_image *imag
 	xgpu_vulkan_set_target_views(post.encoded, NULL, 0, 1);
 	xgpu_vulkan_draw(&draw);
 	return post.encoded;
+}
+
+/* ---------- display.gamma */
+
+int xgpu_vulkan_post_gamma_prepare(void)
+{
+	struct xgpu_vulkan_pipeline_description *description = &post.pipelines[XGPU_VULKAN_POST_GAMMA];
+
+	if (post.gamma)
+		return 1;
+	if (shaders_make(XGPU_VULKAN_POST_GAMMA) && sampler_make())
+	{
+		/* (into BGRA8, every channel: the swapchain's alpha is opaque) */
+		memset(description, 0, sizeof(*description));
+		description->vertex_shader = post.vertex;
+		description->pixel_shader = post.pixel[XGPU_VULKAN_POST_GAMMA];
+		description->primitive_class = XGPU_VULKAN_CLASS_TRIANGLES;
+		description->color_mask = 15;
+		description->color_format = XGPU_VULKAN_FORMAT_BGRA8;
+		description->samples = 1;
+		post.gamma = xgpu_vulkan_pipeline(description);
+	}
+	if (!post.gamma)
+	{
+		host_logf(HOST_LOG_WARN, "vulkan: display.gamma's pass cannot be made: the frame is shown as drawn");
+		return 0;
+	}
+	return 1;
+}
+
+struct xgpu_vulkan_image *xgpu_vulkan_post_gamma(struct xgpu_vulkan_image *image, float power)
+{
+	const struct xgpu_vulkan_image_description *description, *curved;
+	struct xgpu_vulkan_post_uniforms *uniforms;
+	struct xgpu_vulkan_dynamic_state dynamic;
+	struct xgpu_vulkan_draw draw;
+	int stage;
+
+	if (!image || !post.gamma)
+		return NULL;
+	description = xgpu_vulkan_image_description(image);
+	curved = post.curved ? xgpu_vulkan_image_description(post.curved) : NULL;
+	if (curved && (curved->width != description->width || curved->height != description->height))
+	{
+		xgpu_vulkan_image_destroy(post.curved);
+		post.curved = NULL;
+	}
+	if (!post.curved)
+		post.curved = image_make(XGPU_VULKAN_FORMAT_BGRA8, XGPU_VULKAN_USAGE_SAMPLED | XGPU_VULKAN_USAGE_TARGET,
+			description->width, description->height);
+	if (!post.curved)
+		return NULL;
+	memset(&draw, 0, sizeof(draw));
+	draw.pipeline = post.gamma;
+	for (stage = 0; stage < 4; stage++)
+	{
+		draw.textures[stage].image = stage ? NULL : image;
+		draw.textures[stage].kind = XGPU_VULKAN_IMAGE_2D;
+		draw.textures[stage].sampler = post.sampler;
+	}
+	uniforms = xgpu_vulkan_upload(UNIFORMS_RANGE, 256, &draw.uniforms);
+	if (!uniforms)
+		return NULL;
+	/* (the viewport's corner, and its size's reciprocals: the frame over
+	all of it, each pixel its own texel) */
+	memset(uniforms, 0, sizeof(*uniforms));
+	uniforms->metrics[2] = 1.0f / (float)description->width;
+	uniforms->metrics[3] = 1.0f / (float)description->height;
+	uniforms->bounds[0] = power;
+	draw.constants = draw.uniforms;
+	memset(&dynamic, 0, sizeof(dynamic));
+	dynamic.viewport[2] = dynamic.scissor[2] = (int32_t)description->width;
+	dynamic.viewport[3] = dynamic.scissor[3] = (int32_t)description->height;
+	dynamic.depth_range[1] = 1.0f;
+	draw.dynamic = &dynamic;
+	draw.topology = XGPU_VULKAN_TOPOLOGY_TRIANGLES;
+	draw.count = 3;
+	xgpu_vulkan_set_target_views(post.curved, NULL, 0, 1);
+	xgpu_vulkan_draw(&draw);
+	return post.curved;
 }
 
 /* ---------- display.ambient_occlusion
