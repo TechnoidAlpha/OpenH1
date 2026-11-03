@@ -41,9 +41,10 @@ highlights it cannot show.
   `display.hdr_paper_white`, in percent of the system's SDR white, is still
   read while it is 0), `display.hdr_ui_nits` (the UI's brightness, below).
   On a renderer that draws HDR (the menus' `platform="hdr"`), Video
-  Setup's HDR row opens the HDR page: a row for each, and a DISPLAY PEAK
-  row that shows the display's peak and SDR white as the system reports
-  them.
+  Setup's Brightness page has a row for each under its HDR section, and a
+  DISPLAY PEAK row that shows the display's peak and SDR white as the
+  system reports them. Its Gamma row (`display.gamma`) is SDR's brightness:
+  an HDR swapchain's frame is never curved by it.
 - **UI brightness** (`display.hdr_ui_nits`): what is drawn over the tone
   mapped view (the HUD's bitmaps and meters, the menus, the scope's reticle
   and frame, the screen flashes) at its own white, 80 to 500 nits, or 0, the

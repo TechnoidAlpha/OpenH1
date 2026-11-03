@@ -1761,6 +1761,20 @@ static void menu_cursor_row_show(struct widget_instance *list)
 		row->visible = !named(list, "op_vr_setup", 0);
 }
 
+/* Brightness's Gamma (display.gamma), hidden in the VR build, whose frames
+are never curved (d3d8_device.c's gamma_send) */
+static void gamma_row_show(struct widget_instance *list)
+{
+#ifdef HALO_VR
+	struct widget_instance *row = named(list, "op_gamma", 0);
+
+	if (row)
+		row->visible = FALSE;
+#else
+	(void)list;
+#endif
+}
+
 /* Video's Frame Rate Limit, shown while VSync shows OFF (Defaults too):
 with vsync on, the display paces the frames and the limit does nothing;
 the rows below close the gap (settings_rows_pack) */
@@ -3000,6 +3014,7 @@ static void settings_page_update(struct widget_instance *list)
 	hud_button_style_row_show(list);
 	max_fps_row_show(list);
 	menu_cursor_row_show(list);
+	gamma_row_show(list);
 	settings_rows_show(list);
 	discord_account_show(list);
 	hdr_display_show(list);
@@ -4592,6 +4607,8 @@ static struct
 		SLIDER_STOPS(settings_fov_stops) },
 	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
+	/* (tools/port_settings.py's GAMMA) */
+	{ "op_gamma", "display.gamma", 0.5, 2.0, 0.05, 0.5, 2.0, FALSE, NULL, 0 },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out

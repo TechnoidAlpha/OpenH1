@@ -439,6 +439,9 @@ VEHICLE_FIELDS_OF_VIEW = FIELDS_OF_VIEW._replace(
 FRAME_RATE_LIMITS = Slider(30, 540, 1, 10, 1000, whole=True,
                            stops=(("AUTO", "0"),) + tuple((str(n), str(n)) for n in (
                                30, 60, 75, 90, 100, 120, 144, 165, 200, 240, 280, 360, 480, 540)) + (("NONE", "-1"),))
+# display.gamma's: Halo PC's gamma, past 1 brighter; 1 none (menu_functions.c's
+# settings_sliders, d3d8_device.c's GAMMA_LEAST and GAMMA_MOST)
+GAMMA = Slider(0.5, 2.0, 0.05, 0.5, 2.0)
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
 SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
@@ -453,8 +456,9 @@ def _page_screen(folder: str, screen: str) -> str:
 # (a <bitmap> name: TITLES), and for a tab its name
 ADVANCED = ("video_settings/advanced", "advanced_graphics_screen")
 FIRST_PERSON = ("video_settings/first_person", "first_person_screen")
-# (display.hdr's settings and the display's peak, on the renderers that draw it)
-HDR_PAGE = ("video_settings/hdr", "hdr_screen")
+# (display.gamma, and display.hdr's settings and the display's peak on the
+# renderers that draw it)
+BRIGHTNESS_PAGE = ("video_settings/brightness", "brightness_screen")
 # (Android's: the picture on a tall screen, and portrait's frame)
 SCREEN_LAYOUT = ("video_settings/screen_layout", "screen_layout_screen")
 CONTROLLER = ("gamepad_setup", "gamepad_setup_screen")
@@ -569,11 +573,11 @@ PAGES = {
             ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
              "Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns "
              "it on while the device runs on its battery. Your own settings come back as it turns off.", None),
-            # (display.hdr's page, on the renderers that draw it: menu_files.c's
-            # "hdr")
-            ("HDR ›", None, _page_screen(*HDR_PAGE),
-             "Brighter highlights on an HDR display: whether HDR is on, its look, how bright white and the HUD "
-             "are, and the display's peak.", "hdr", "hdr_settings"),
+            # (display.gamma's page, and display.hdr's rows on the renderers
+            # that draw it: menu_files.c's "hdr")
+            ("BRIGHTNESS ›", None, _page_screen(*BRIGHTNESS_PAGE),
+             "How bright the picture is: its gamma, and on an HDR display, HDR's look, how bright white and the "
+             "HUD are, and the display's peak.", None, "brightness_settings"),
             ("ADVANCED GRAPHICS ›", None, _page_screen(*ADVANCED),
              "Anti-aliasing, texture filtering, model detail, shadows, the lighting and the shields' glow, smooth "
              "motion and the tick rate.", None),
@@ -835,9 +839,16 @@ PAGES = {
              "tick rate: an OpenH1 game's (OpenH1 60 Tick), a Legacy game's 30.", None),
         ],
     },
-    HDR_PAGE[0]: {
-        "screen": HDR_PAGE[1], "title": "HDR",
+    BRIGHTNESS_PAGE[0]: {
+        "screen": BRIGHTNESS_PAGE[1], "title": "BRIGHTNESS",
         "rows": [
+            (SECTION, "PICTURE"),
+            # (not the VR build's: menu_functions.c's gamma_row_show)
+            ("GAMMA", "display.gamma", GAMMA,
+             "How bright the picture is, the HUD and menus too, as Halo PC's gamma. Higher brightens the dark "
+             "parts; lower darkens them. 1.0 shows the game as it is drawn. With HDR on an HDR display, Paper "
+             "White sets the brightness instead.|Click the number (or press A) to type any from 0.5 to 2.0.",
+             None),
             (SECTION, "HDR"),
             ("HDR", "display.hdr", [("AUTO", "auto"), ("ON", "on"), ("OFF", "off")],
              "Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display "
@@ -1404,8 +1415,9 @@ def _settings_platform(rows: list, start: int):
 # in Resolution's, Android's anti-aliasing in the desktop's
 SETTINGS_SAME_PLACE = {"window_size", "anti_aliasing_android"}
 # the rows menu_functions.c hides while VR Setup's row is shown (the game in
-# the headset), which takes their room: Mouse's Menu Cursor (menu_cursor_row_show)
-SETTINGS_NOT_IN_VR = {"menu_cursor"}
+# the headset), which takes their room: Mouse's Menu Cursor (menu_cursor_row_show);
+# and Brightness's Gamma, which the VR build hides always (gamma_row_show)
+SETTINGS_NOT_IN_VR = {"menu_cursor", "gamma"}
 
 
 def _settings_page(folder: str, page: dict) -> list:

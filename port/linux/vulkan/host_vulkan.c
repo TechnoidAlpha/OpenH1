@@ -365,6 +365,11 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 			options.encode_prepare = xgpu_vulkan_post_encode_prepare;
 			options.encode = xgpu_vulkan_post_encode;
 #endif
+#ifndef HALO_VR
+			/* (display.gamma's curve over an SDR frame: not the VR build's) */
+			options.gamma_prepare = xgpu_vulkan_post_gamma_prepare;
+			options.gamma = xgpu_vulkan_post_gamma;
+#endif
 		}
 	}
 	else

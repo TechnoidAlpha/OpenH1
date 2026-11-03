@@ -708,6 +708,15 @@ void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_whi
 	record_body->ui_nits = (uint32_t)ui_nits;
 }
 
+void xgpu_backend_gamma(float gamma)
+{
+	uint32_t bits;
+
+	memcpy(&bits, &gamma, sizeof(bits));
+	if (stream.open)
+		record_value(XGPU_STREAM_GAMMA, bits);
+}
+
 void xgpu_backend_picture_top(int top)
 {
 	/* (0 centered, n + 1 at n pixels from the top) */

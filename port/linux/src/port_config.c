@@ -364,6 +364,13 @@ static const struct config_setting config_settings[] =
 		"white. The HUD's glows stay as far above it as they are above paper\n"
 		"white; the weapon's displays stay with the scene. No brighter than the\n"
 		"display's peak." },
+	{ "display.gamma", _config_real, "1.0", "HALO_GAMMA", _environment_value, _platform_all,
+		"The picture's gamma, 0.5 to 2.0, as Halo PC's: above 1 brighter (the\n"
+		"dark parts lifted most), below 1 darker; white and black stay. The\n"
+		"whole picture, the HUD and the menus with it, each color channel\n"
+		"raised to one over it as the frame is shown. 1.0 changes nothing and\n"
+		"costs nothing. Not with HDR on an HDR display (paper white is its\n"
+		"brightness), nor in the VR build." },
 	{ "display.astc_textures", _config_string, ASTC_TEXTURES_DEFAULT, "HALO_ASTC_TEXTURES", _environment_value,
 		_platform_android | _platform_guest,
 		"The maps' DXT textures on a GPU that cannot sample them (iPhones, most\n"

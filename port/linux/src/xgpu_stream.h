@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 11
+#define XGPU_STREAM_VERSION 12
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -245,6 +245,9 @@ enum
 	XGPU_STREAM_PICTURE_POSITION,
 	/* display.ambient_occlusion (xgpu_backend_ambient_occlusion) */
 	XGPU_STREAM_AMBIENT_OCCLUSION,
+	/* display.gamma: an SDR frame's curve as it is presented (value: the
+	setting, a float's bits; 1 none) */
+	XGPU_STREAM_GAMMA,
 	XGPU_STREAM_RECORD_TYPES,
 };
 
@@ -266,7 +269,7 @@ struct xgpu_stream_frame_end
 };
 
 /* a record of one value: ANTI_ALIASING_PREPARE (smaa), TARGET_DELETE,
-TARGET_RESOLVE, PRESENT (the back buffer's target), PICTURE_POSITION, VR_PASS, VR_TIMING
+TARGET_RESOLVE, PRESENT (the back buffer's target), PICTURE_POSITION, GAMMA, VR_PASS, VR_TIMING
 (mark), PIPELINE (the id, XGPU_STREAM_PIPELINE_DEFINE's), VR_SKY (sky) */
 struct xgpu_stream_value
 {

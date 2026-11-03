@@ -375,11 +375,11 @@
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/header_advanced_graphics">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/header_advanced_graphics.png" width="512" height="64"/>
 	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/header_brightness">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/header_brightness.png" width="512" height="64"/>
+	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/header_first_person">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/header_first_person.png" width="512" height="64"/>
-	</bitmap>
-	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/hdr/header_hdr">
-		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/video_settings/hdr/header_hdr.png" width="512" height="64"/>
 	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout/header_screen_layout">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout/header_screen_layout.png" width="512" height="64"/>

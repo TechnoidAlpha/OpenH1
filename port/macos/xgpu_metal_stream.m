@@ -1281,6 +1281,16 @@ static void stream_hdr(void *context, const struct xgpu_stream_hdr *record)
 		(void)xgpu_metal_post_prepare_hdr(XGPU_METAL_FORMAT_D24S8, 0);
 }
 
+/* display.gamma: the presentation curves an SDR frame by it */
+static void stream_gamma(void *context, uint32_t gamma)
+{
+	float value;
+
+	(void)context;
+	memcpy(&value, &gamma, sizeof(value));
+	host_metal_gamma(value);
+}
+
 /* a window's 3D view tone mapped, in the pass that drew it, before the HUD
 and the menus are drawn over it */
 static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *record)
@@ -1508,6 +1518,7 @@ const struct host_render_backend *xgpu_metal_stream_backend(void)
 		backend.hdr = stream_hdr;
 		backend.tone_map = stream_tone_map;
 		backend.ambient_occlusion = stream_ambient_occlusion;
+		backend.gamma = stream_gamma;
 	}
 	return &backend;
 }

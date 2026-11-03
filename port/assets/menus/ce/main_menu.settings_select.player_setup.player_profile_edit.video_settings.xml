@@ -28,7 +28,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_12" x="28" y="340"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_graphics" x="28" y="360"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_battery_saver" x="28" y="381"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_hdr_settings" x="28" y="402" platform="hdr"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_brightness_settings" x="28" y="402"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_advanced_graphics" x="28" y="423"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_bar" y="414"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs" y="76"/>
@@ -236,13 +236,13 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ON|AUTO" setting="display.battery_saver" values="off|on|auto" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_hdr_settings" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="hdr" wide="-106 120">
-		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/hdr/hdr_screen"/>
-		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/hdr/hdr_screen"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_brightness_settings" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/brightness_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/brightness_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/hdr_settings_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness_settings_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/hdr_settings_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" string_index="15" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness_settings_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" string_index="15" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_advanced_graphics" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/advanced_graphics_screen"/>
@@ -268,7 +268,7 @@
 		<string text="GRAPHICS"/>
 		<string text="QUALITY"/>
 		<string text="BATTERY SAVER"/>
-		<string text="HDR ›"/>
+		<string text="BRIGHTNESS ›"/>
 		<string text="ADVANCED GRAPHICS ›"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/help_strings">
@@ -288,7 +288,7 @@
 		<string text=""/>
 		<string text="Enhanced: smoother edges, sharper textures and shadows, smoother lighting. Classic looks as the Xbox did.|Changing one shows CUSTOM."/>
 		<string text="Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns it on while the device runs on its battery. Your own settings come back as it turns off."/>
-		<string text="Brighter highlights on an HDR display: whether HDR is on, its look, how bright white and the HUD are, and the display's peak."/>
+		<string text="How bright the picture is: its gamma, and on an HDR display, HDR's look, how bright white and the HUD are, and the display's peak."/>
 		<string text="Anti-aliasing, texture filtering, model detail, shadows, the lighting and the shields' glow, smooth motion and the tick rate."/>
 	</strings>
 </menus>
