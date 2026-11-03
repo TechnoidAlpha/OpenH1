@@ -233,7 +233,7 @@
 	</widget>
 	<widget name="main_menu/campaign/card_badge_big" controller="1" top="193" width="36" height="36" bitmap="main_menu/campaign/badges_36">
 	</widget>
-	<widget name="main_menu/campaign/card_unbeaten_big" type="text" controller="1" left="10" top="203" width="138" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_unbeaten_big" type="text" controller="1" left="10" top="203" width="138" height="18" font="ui\small_ui" color="#FFF2B34A" text_flags="no_focus_test">
 	</widget>
 	<bitmap name="main_menu/campaign/art_146x119">
 		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="267" height="134"/>
@@ -299,7 +299,7 @@
 	</widget>
 	<widget name="main_menu/campaign/card_badge_small" controller="1" top="172" width="28" height="28" bitmap="main_menu/campaign/badges_28">
 	</widget>
-	<widget name="main_menu/campaign/card_unbeaten_small" type="text" controller="1" left="10" top="178" width="112" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_unbeaten_small" type="text" controller="1" left="10" top="178" width="112" height="18" font="ui\small_ui" color="#FFF2B34A" text_flags="no_focus_test">
 	</widget>
 	<bitmap name="main_menu/campaign/art_120x98">
 		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="219" height="110"/>

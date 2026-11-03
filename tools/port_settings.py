@@ -6034,9 +6034,10 @@ def _mission_card(size: tuple, slot: int) -> list:
                          ("card_badge", f"{CAMPAIGN}/badges_{badge}")):
         lines += _widget(f"{CAMPAIGN}/{name}_{kind}", [("controller", 1), ("top", text_top + 62),
                                                         ("width", badge), ("height", badge), ("bitmap", bitmap)], [])
-    # (a mission not beaten on any difficulty says so, in the badges' place)
+    # (a mission not beaten on any difficulty says so, in the badges' place:
+    # the longest of campaign_menu.inc's wordings that fits the card)
     lines += _campaign_text(f"{CAMPAIGN}/card_unbeaten_{kind}", 10, text_top + 62 + (badge - 16) // 2, width - 20, 18,
-                            "ui\\small_ui", CAMPAIGN_NEW, words="NOT YET BEATEN")
+                            "ui\\small_ui", CAMPAIGN_NEW)
     lines += _level_pictures(f"{CAMPAIGN}/art_{art_w}x{art_h}", art_w, art_h)
     lines += _badge_frames(f"{CAMPAIGN}/badges_{badge}", CAMPAIGN_BADGES_SMALL, badge)
     return lines

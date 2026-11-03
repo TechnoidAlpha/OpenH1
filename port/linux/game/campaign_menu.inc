@@ -199,6 +199,29 @@ static void campaign_text_set_ascii(struct widget_instance *box, char const *tex
 	campaign_text_set(box, wide);
 }
 
+/* a card's one-line label, never cut off by its box: the first of its
+wordings (longest first) that fits the box, measured in its font, else the
+last fitted with "..." (the card's width: a small card's narrower) */
+static void campaign_label_fit(struct widget_instance *box, char const *const *wordings, short count)
+{
+	wchar_t wide[MISSION_TEXT_LENGTH];
+	short width, index;
+	long font = ui_widget_port_text_box_font(box, &width);
+
+	if (!box || count <= 0)
+		return;
+	for (index = 0; index < count; index++)
+	{
+		campaign_widen(wordings[index], wide, MISSION_TEXT_LENGTH);
+		if (font == NONE || width <= 0 || settings_text_width(font, wide) <= width)
+		{
+			campaign_text_set(box, wide);
+			return;
+		}
+	}
+	menu_text_box_fit(box, wide, 0);
+}
+
 /* a level's name, the Xbox's "This Level Unavailable" for one not reached */
 static void campaign_level_title(short level, boolean reached, wchar_t *text, short size)
 {
@@ -535,7 +558,11 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		snprintf(name, sizeof(name), "card_title_%s", kind);
 		menu_text_box_wrap(named(card, name, 0), text, 2);
 		snprintf(name, sizeof(name), "card_number_%s", kind);
-		campaign_text_set_ascii(named(card, name, 0), "CUSTOM MISSION");
+		{
+			static char const *const wordings[] = { "CUSTOM MISSION", "CUSTOM" };
+
+			campaign_label_fit(named(card, name, 0), wordings, NUMBEROF(wordings));
+		}
 		snprintf(name, sizeof(name), "card_resume_%s", kind);
 		visible_set(named(card, name, 0), FALSE);
 		snprintf(name, sizeof(name), "card_badge_%s", kind);
@@ -559,8 +586,16 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 	snprintf(name, sizeof(name), "card_card_title_%s", kind);
 	visible_set(named(card, name, 0), FALSE);
 	snprintf(name, sizeof(name), "card_number_%s", kind);
-	campaign_mission_number(mission, text, MISSION_TEXT_LENGTH);
-	campaign_text_set(named(card, name, 0), text);
+	{
+		char number[32], short_number[32];
+		char const *wordings[2];
+
+		snprintf(number, sizeof(number), "MISSION %02d", mission + 1);
+		snprintf(short_number, sizeof(short_number), "%02d", mission + 1);
+		wordings[0] = number;
+		wordings[1] = short_number;
+		campaign_label_fit(named(card, name, 0), wordings, NUMBEROF(wordings));
+	}
 	snprintf(name, sizeof(name), "card_title_%s", kind);
 	campaign_level_title(mission, reached, text, MISSION_TEXT_LENGTH);
 	menu_text_box_wrap(named(card, name, 0), text, 2);
@@ -576,6 +611,12 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		campaign_badges_show(card, badge, shape, MISSION_BADGE_FAINT, beaten, beaten != 0);
 		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
 		visible_set(named(card, name, 0), beaten == 0);
+		if (beaten == 0)
+		{
+			static char const *const wordings[] = { "NOT YET BEATEN", "NOT BEATEN", "UNBEATEN" };
+
+			campaign_label_fit(named(card, name, 0), wordings, NUMBEROF(wordings));
+		}
 	}
 	card->animation.current_frame_index = chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
 	/* (its picture's corners the card's fill, resting or chosen) */
