@@ -118,7 +118,7 @@ const char xgpu_metal_combiner_source[] =
 	"\tfloat4 blend_constant;\n"
 	"\tfloat4 texture_border[4];\n"
 	"\tfloat4 texture_border_linear;\n"
-	"\tfloat4 model_lights[12];\n"
+	"\tfloat4 model_lights[13];\n"
 	"};\n"
 	"struct xgpu_combiner_general { uint inputs[2]; uint control[2]; };\n"
 	"struct xgpu_combiner\n"

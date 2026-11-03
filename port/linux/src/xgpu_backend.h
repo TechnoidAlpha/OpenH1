@@ -268,8 +268,10 @@ uploads to each program only what changed since it last had them */
 void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], unsigned long count);
 
 /* the vertex constant register of each of the per-pixel lighting's
-(XGPU_MODEL_LIGHT_COUNT): c[-82], then c[-79] to c[-69] */
-#define XGPU_MODEL_LIGHT_REGISTER(light) ((unsigned long)(XGPU_VERTEX_CONSTANT_BIAS + ((light) ? -80 + (light) : -82)))
+(XGPU_MODEL_LIGHT_COUNT): c[-82], then c[-79] to c[-69], then c[-57]
+(halo_dynamic_lights.h's HALO_DYNAMIC_LIGHTS_OWN_LIGHTS_REGISTER) */
+#define XGPU_MODEL_LIGHT_REGISTER(light) ((unsigned long)(XGPU_VERTEX_CONSTANT_BIAS + \
+	((light) == XGPU_MODEL_LIGHT_OWN_LIGHTS ? -57 : (light) ? -80 + (light) : -82)))
 
 /* the uniforms a draw sets besides the vertex constants, converted from
 the render and texture stage states */

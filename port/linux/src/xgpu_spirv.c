@@ -2541,7 +2541,8 @@ static unsigned int dynamic_light(struct module *m, int member, unsigned int ind
 }
 
 /* dynamic_light_sum(p, n, surface_normal, environment): the lights of the
-pixel's cell, summed; its loops are SPIR-V's structured loops, its values
+pixel's cell, summed (a model's but those its object's own that do not light
+it, its model_lights[XGPU_MODEL_LIGHT_OWN_LIGHTS]); its loops are SPIR-V's structured loops, its values
 kept in the function's variables */
 static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *state, unsigned int p, unsigned int n,
 	unsigned int surface_normal, BOOL environment)
@@ -2552,7 +2553,7 @@ static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *stat
 	unsigned int outer_header, outer_condition, outer_body, outer_continue, outer_merge;
 	unsigned int inner_header, inner_condition, inner_body, inner_continue, inner_merge;
 	unsigned int word, bits, light, position, to_light, distance_squared, x2, l, window, core, falloff, facing;
-	unsigned int cone, color, spot, grid2, w;
+	unsigned int cone, color, spot, grid2, w, own = 0;
 
 	/* cell = sign(offset) * log2(1.0 + abs(offset) * grid[1].w) * grid[1].xyz + vec3(16.0, 16.0, 8.0) */
 	offset = fsub(m, 3, p, xyz(m, grid0));
@@ -2576,6 +2577,9 @@ static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *stat
 		mask = op(m, OP_IMAGE_FETCH, m->t_uv4, 4, operands);
 	}
 	grid2 = dynamic_light(m, 0, constant_int(m, 2));
+	/* (a model's: the lights it is not lit by, xgpu.h) */
+	if (!environment)
+		own = uniform(m, U_MODEL_LIGHTS, XGPU_MODEL_LIGHT_OWN_LIGHTS);
 
 	sum_variable = local(m, &state->locals, m->t_v3);
 	word_variable = local(m, &state->locals, m->t_int);
@@ -2628,6 +2632,19 @@ static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *stat
 		unsigned int skip = id_new(m), condition = compare(m, OP_F_ORD_LESS_THAN, w, constant_float(m, 0.0f));
 
 		/* if (environment && position.w < 0.0) continue; */
+		selection_merge(m, skip);
+		branch_conditional(m, condition, inner_continue, skip);
+		label_at(m, skip);
+	}
+	else
+	{
+		unsigned int skip = id_new(m), index = op1(m, OP_CONVERT_S_TO_F, m->t_float, light), condition;
+		int slot;
+
+		/* if (any(own == vec4(float(light)))) continue; */
+		condition = compare(m, OP_F_ORD_EQUAL, extract(m, own, 0), index);
+		for (slot = 1; slot < 4; slot++)
+			condition = op2(m, OP_LOGICAL_OR, m->t_bool, condition, compare(m, OP_F_ORD_EQUAL, extract(m, own, slot), index));
 		selection_merge(m, skip);
 		branch_conditional(m, condition, inner_continue, skip);
 		label_at(m, skip);
