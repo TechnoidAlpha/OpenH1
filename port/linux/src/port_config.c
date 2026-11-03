@@ -1963,6 +1963,12 @@ static const struct config_setting config_settings[] =
 		"A game of this machine alone runs one tick a frame, whatever time has\n"
 		"passed, so that it plays the same every time (tests); game_speed has no\n"
 		"effect. The sound is timed by the frames too, mixed with no device." },
+	{ "debug.fatal_asserts", _config_boolean, "false", "HALO_FATAL_ASSERTS", _environment_set_is_true, _platform_all,
+		"Tests: a failed assertion ends the run, with its reason, place and\n"
+		"return addresses on stderr and in debug.txt, exit status 70 (a\n"
+		"release build otherwise carries on past it, as the retail game did,\n"
+		"and a debug build halts); a warning is counted only. Either way, a\n"
+		"run in which any failed sums them up on stderr when it exits." },
 	{ "debug.exit_after", _config_real, "0.0", "HALO_EXIT_AFTER", _environment_value, _platform_all,
 		"Quit this many seconds after the window opens (without a window, after\n"
 		"the first frame); 0 never." },

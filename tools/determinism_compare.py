@@ -67,8 +67,11 @@ CLASSIC_RATE = 30
 
 
 class Tick:
-    def __init__(self, number, global_seed, local_seed, state_hash, rate=CLASSIC_RATE):
+    def __init__(self, number, global_seed, local_seed, state_hash, rate=CLASSIC_RATE, asserts=(0, 0)):
         self.number = number
+        # (the run's failed assertions and warnings by this tick's end:
+        # debug.fatal_asserts, assert_report.c)
+        self.asserts = asserts
         self.global_seed = global_seed
         self.local_seed = local_seed
         self.state_hash = state_hash
@@ -97,6 +100,7 @@ def read_log(path):
     pending_allocations = None
     current = None
     rate = CLASSIC_RATE
+    asserts = (0, 0)
     with open(path, errors="replace") as log:
         for line in log:
             parts = line.split()
@@ -109,8 +113,10 @@ def read_log(path):
                 pending_allocations = parts[1:]
             elif kind == "rate" and len(parts) >= 2 and parts[1].isdigit():
                 rate = int(parts[1])
+            elif kind == "asserts" and len(parts) >= 3 and parts[1].isdigit() and parts[2].isdigit():
+                asserts = (int(parts[1]), int(parts[2]))
             elif kind == "t" and len(parts) >= 8:
-                current = Tick(int(parts[1]), parts[3], parts[5], parts[7], rate)
+                current = Tick(int(parts[1]), parts[3], parts[5], parts[7], rate, asserts)
                 current.allocations = pending_allocations or []
                 pending_allocations = None
                 ticks.append(current)
@@ -337,6 +343,12 @@ def main():
                   "against is made at the same rate (HALO_SIM_RATE), or --across-rates compares them anyway")
             return 2
         print(f"note: comparing across simulation rates ({rates})")
+    for name, ticks in (("A", ticks_a), ("B", ticks_b)):
+        failed, warned = ticks[-1].asserts
+        if failed or warned:
+            first = next(tick.number for tick in ticks if tick.asserts != (0, 0))
+            print(f"note: {name}'s run failed {failed} assertions and {warned} warnings, the first by tick {first} "
+                  "(its stderr's \"asserts:\" lines, or debug.txt, name them)")
     symbols = Symbols(args.symbols)
     if args.simulation:
         args.ignore += FRAME_ALLOCATIONS

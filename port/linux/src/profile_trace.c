@@ -231,6 +231,8 @@ static void profile_trace_sample_session(void)
 	}
 	if (current.players > profile_trace_globals.session.players_most)
 		profile_trace_globals.session.players_most = current.players;
+	profile_trace_globals.session.asserts_failed = current.asserts_failed;
+	profile_trace_globals.session.asserts_warned = current.asserts_warned;
 }
 
 static const char *profile_trace_platform(void)

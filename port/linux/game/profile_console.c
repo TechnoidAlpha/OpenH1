@@ -159,6 +159,7 @@ static void profile_console_sample_session(
 	for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS; player_index++)
 		if (distributed_player(player_index))
 			session->players++;
+	assert_report_counts(&session->asserts_failed, &session->asserts_warned);
 }
 
 /* the recording's seams. Not left to the first frame: init.txt's
