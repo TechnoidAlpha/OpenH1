@@ -7,7 +7,9 @@ mouse, a prompt's controller button ("Hold [X] to pick up", the campaign's
 "Press [flashlight]") is drawn as the key or mouse button bound to the
 action instead, its name in the prompt's font and colour in a drawn key
 cap, as Halo PC named the bound key; while they play with a controller (or
-the touch controls) it is the controller's button, as before. The keys are
+the touch controls) it is the controller's button, as before. An action
+with no key bound (Controls Setup's "-") is named Unbound, never the
+controller's button, which the player is not holding. The keys are
 config.toml's [controls] (Settings > Controls Setup), read as they change,
 so a prompt follows a new binding at once (port/linux/src/xinput_sdl.c:
 halo_keyboard_prompts, halo_keyboard_action_name).
@@ -68,6 +70,7 @@ enum
 
 boolean hud_key_prompt_text(short local_player_index, short game_control, short gamepad_button,
 	wchar_t *text, long length);
+void hud_key_prompt_action_name(short action, char *name, long size);
 boolean hud_key_prompt_draw(short local_player_index, short game_control, short gamepad_button,
 	rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
 boolean hud_key_prompt_draw_key(char const *name, rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
@@ -85,7 +88,7 @@ static void latin1_to_wide(char const *name, wchar_t *text, long length)
 }
 
 /* the movement keys as one name: "WASD" for single letters, else each
-separated by a slash */
+separated by a slash, one with no key as Unbound; Unbound for none */
 static void movement_name(char *name, long size)
 {
 	static short const actions[] =
@@ -96,18 +99,22 @@ static void movement_name(char *name, long size)
 		HALO_KEYBOARD_STRAFE_RIGHT
 	};
 	char keys[NUMBEROF(actions)][32];
-	boolean letters = TRUE;
+	boolean letters = TRUE, bound = FALSE;
 	long index, used = 0;
 
 	name[0] = 0;
 	for (index = 0; index < NUMBEROF(actions); index++)
 	{
-		if (!halo_keyboard_action_name(actions[index], keys[index], sizeof(keys[index])))
-		{
-			name[0] = 0;
-			return;
-		}
+		if (halo_keyboard_action_name(actions[index], keys[index], sizeof(keys[index])))
+			bound = TRUE;
+		else
+			hud_key_prompt_action_name(NONE, keys[index], sizeof(keys[index]));
 		letters = letters && keys[index][1] == 0;
+	}
+	if (!bound)
+	{
+		hud_key_prompt_action_name(NONE, name, size);
+		return;
 	}
 	for (index = 0; index < NUMBEROF(actions) && used < size - 1; index++)
 	{
@@ -379,8 +386,21 @@ static boolean key_cap_draw(wchar_t const *text, rectangle2d *bounds, rectangle2
 	return TRUE;
 }
 
+/* an action's key as the prompts name it: its first binding, else
+Unbound (an action with no key, or no action) */
+void hud_key_prompt_action_name(
+	short action,
+	char *name,
+	long size)
+{
+	if (size > 0 && (action == NONE || !halo_keyboard_action_name(action, name, (unsigned long)size)))
+		snprintf(name, (size_t)size, "%s", "Unbound");
+}
+
 /* the key a prompt names for the keyboard and mouse, for a game control or
-(game_control NONE) a controller button; FALSE when the keyboard has none */
+(game_control NONE) a controller button, Unbound for an action with no key;
+FALSE when the keyboard has no action for it (the D-pad, the menus' accept
+and back), which keeps the controller's button */
 boolean hud_key_prompt_text(
 	short local_player_index,
 	short game_control,
@@ -406,7 +426,7 @@ boolean hud_key_prompt_text(
 	{
 		action = input_abstraction_port_keyboard_action(local_player_index, game_control, gamepad_button);
 		if (action != NONE)
-			halo_keyboard_action_name(action, name, sizeof(name));
+			hud_key_prompt_action_name(action, name, sizeof(name));
 	}
 	if (!name[0])
 		return FALSE;

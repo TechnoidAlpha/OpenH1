@@ -36,7 +36,9 @@ calls them from PC_MENU_FUNCTION_BASE on):
   binding" takes the next key or button pressed for the binding left and
   right choose ("controls binding slot"), or the pointer is over or clicked
   (ui_widget_port_take_point, take_click); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults.
+  writes them, "controls screen defaults" shows the defaults. The game's
+  own controls (moving, the weapons, action, flashlight, pause) each keep
+  a key: a change that would leave one with none is refused.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -3465,37 +3467,43 @@ bindings each */
 #define CONTROL_ROWS 7
 #define CONTROL_NAME_LENGTH 32
 
+/* (a refused change's help shown this long: control_capture_poll) */
+#define CONTROL_REFUSED_MILLISECONDS 4000
+
+/* each control's setting, label, group, and whether it is the game's own,
+which must keep a key (the game cannot be played without it) */
 static struct
 {
 	char const *setting;
 	wchar_t const *label;
 	short group;
+	boolean essential;
 } const controls[] =
 {
-	{ "controls.move_forward", L"MOVE FORWARD", 0 },
-	{ "controls.move_backward", L"MOVE BACKWARD", 0 },
-	{ "controls.strafe_left", L"STRAFE LEFT", 0 },
-	{ "controls.strafe_right", L"STRAFE RIGHT", 0 },
-	{ "controls.jump", L"JUMP", 0 },
-	{ "controls.crouch", L"CROUCH", 0 },
-	{ "controls.fire", L"FIRE", 1 },
-	{ "controls.throw_grenade", L"THROW GRENADE", 1 },
-	{ "controls.melee", L"MELEE", 1 },
-	{ "controls.reload", L"RELOAD", 1 },
-	{ "controls.zoom", L"ZOOM", 1 },
-	{ "controls.switch_weapon", L"SWITCH WEAPON", 1 },
-	{ "controls.switch_grenade", L"SWITCH GRENADE", 1 },
-	{ "controls.action", L"ACTION", 2 },
-	{ "controls.flashlight", L"FLASHLIGHT", 2 },
-	{ "controls.scoreboard", L"SHOW SCORES", 2 },
-	{ "controls.pause", L"PAUSE MENU", 2 },
-	{ "controls.screenshot", L"SCREENSHOT", 2 },
-	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
-	{ "controls.chat", L"CHAT", 3 },
-	{ "controls.team_chat", L"TEAM CHAT", 3 },
-	{ "controls.party_accept", L"ACCEPT INVITE", 3 },
-	{ "controls.vote_yes", L"VOTE YES", 3 },
-	{ "controls.vote_no", L"VOTE NO", 3 },
+	{ "controls.move_forward", L"MOVE FORWARD", 0, TRUE },
+	{ "controls.move_backward", L"MOVE BACKWARD", 0, TRUE },
+	{ "controls.strafe_left", L"STRAFE LEFT", 0, TRUE },
+	{ "controls.strafe_right", L"STRAFE RIGHT", 0, TRUE },
+	{ "controls.jump", L"JUMP", 0, TRUE },
+	{ "controls.crouch", L"CROUCH", 0, TRUE },
+	{ "controls.fire", L"FIRE", 1, TRUE },
+	{ "controls.throw_grenade", L"THROW GRENADE", 1, TRUE },
+	{ "controls.melee", L"MELEE", 1, TRUE },
+	{ "controls.reload", L"RELOAD", 1, TRUE },
+	{ "controls.zoom", L"ZOOM", 1, TRUE },
+	{ "controls.switch_weapon", L"SWITCH WEAPON", 1, TRUE },
+	{ "controls.switch_grenade", L"SWITCH GRENADE", 1, TRUE },
+	{ "controls.action", L"ACTION", 2, TRUE },
+	{ "controls.flashlight", L"FLASHLIGHT", 2, TRUE },
+	{ "controls.scoreboard", L"SHOW SCORES", 2, FALSE },
+	{ "controls.pause", L"PAUSE MENU", 2, TRUE },
+	{ "controls.screenshot", L"SCREENSHOT", 2, FALSE },
+	{ "controls.push_to_talk", L"PUSH TO TALK", 3, FALSE },
+	{ "controls.chat", L"CHAT", 3, FALSE },
+	{ "controls.team_chat", L"TEAM CHAT", 3, FALSE },
+	{ "controls.party_accept", L"ACCEPT INVITE", 3, FALSE },
+	{ "controls.vote_yes", L"VOTE YES", 3, FALSE },
+	{ "controls.vote_no", L"VOTE NO", 3, FALSE },
 };
 
 static struct
@@ -3506,7 +3514,9 @@ static struct
 	short slot;
 	short capturing_control;
 	short capturing_slot;
-} controls_screen = { { { { 0 } } }, 0, NONE, 0 };
+	/* when a change was refused last (its help shown a while), 0 for not */
+	unsigned long refused_time;
+} controls_screen = { { { { 0 } } }, 0, NONE, 0, 0 };
 
 /* a setting's bindings ("Left Ctrl, C") into the control's */
 static void control_bindings_read(short control, char const *text)
@@ -3638,7 +3648,39 @@ static boolean control_capture_begin(struct widget_instance *widget)
 	return TRUE;
 }
 
-/* the key or button taken (then bound to no other control), or cleared */
+/* whether clearing the control's bindings that are name (NULL: the one in
+slot) would take its last key: a game control must keep one */
+static boolean control_left_without_key(short control, short slot, char const *name)
+{
+	boolean taken = FALSE;
+	short other_slot;
+
+	if (!controls[control].essential)
+		return FALSE;
+	for (other_slot = 0; other_slot < CONTROL_BINDINGS; other_slot++)
+	{
+		char const *binding = controls_screen.bindings[control][other_slot];
+
+		if (!*binding)
+			continue;
+		if (name ? _stricmp(binding, name) != 0 : other_slot != slot)
+			return FALSE;
+		taken = TRUE;
+	}
+	return taken;
+}
+
+/* a change that would leave a game control with no key: not made, the
+error's sound and the help's why (controls_update) */
+static void control_refuse(void)
+{
+	controls_screen.refused_time = system_milliseconds() ? system_milliseconds() : 1;
+	ui_play_audio_feedback_sound(SOUND_ERROR);
+}
+
+/* the key or button taken (then bound to no other control), or cleared;
+not where a game control would be left with no key (its only key taken
+for another control, or cleared) */
 static void control_capture_poll(void)
 {
 	short control = controls_screen.capturing_control;
@@ -3649,6 +3691,7 @@ static void control_capture_poll(void)
 	if (control == NONE || !(result = platform_binding_capture_poll(&input)))
 		return;
 	controls_screen.capturing_control = NONE;
+	controls_screen.refused_time = 0;
 	if (result == 1)
 	{
 		char name[CONTROL_NAME_LENGTH];
@@ -3657,6 +3700,14 @@ static void control_capture_poll(void)
 		halo_input_name(input, name, sizeof(name));
 		if (!*name)
 			return;
+		for (other = 0; other < NUMBEROF(controls); other++)
+		{
+			if (other != control && control_left_without_key(other, NONE, name))
+			{
+				control_refuse();
+				return;
+			}
+		}
 		for (other = 0; other < NUMBEROF(controls); other++)
 		{
 			for (other_slot = 0; other_slot < CONTROL_BINDINGS; other_slot++)
@@ -3669,6 +3720,11 @@ static void control_capture_poll(void)
 	}
 	else if (result == 2)
 	{
+		if (control_left_without_key(control, slot, NULL))
+		{
+			control_refuse();
+			return;
+		}
 		controls_screen.bindings[control][slot][0] = 0;
 	}
 }
@@ -3728,8 +3784,11 @@ static void controls_update(struct widget_instance *list)
 	}
 	if (list->parameters.list.extended_description)
 	{
+		boolean refused = controls_screen.refused_time &&
+			system_milliseconds() - controls_screen.refused_time < CONTROL_REFUSED_MILLISECONDS;
+
 		list->parameters.list.extended_description->parameters.text_box.string_list_index =
-			controls_screen.capturing_control != NONE ? 2 : focused_row ? 1 : 0;
+			controls_screen.capturing_control != NONE ? 2 : refused ? 3 : focused_row ? 1 : 0;
 	}
 }
 
