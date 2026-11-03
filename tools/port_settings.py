@@ -6034,9 +6034,9 @@ def _missions() -> list:
     badge_x = badges_x + (step - badge) // 2
     for name, bitmap in (("detail_badge_shape", f"{base}/badge_shape_{badge}"),
                          ("detail_badge", f"{base}/badges_{badge}")):
-        lines += _widget(f"{base}/{name}", [("controller", 1), ("left", badge_x), ("top", top + 17), ("width", badge),
+        lines += _widget(f"{base}/{name}", [("controller", 1), ("left", badge_x), ("top", top + 20), ("width", badge),
                                             ("height", badge), ("bitmap", bitmap), ("wide", wide(WIDE_EXTRA))], [])
-    lines += _campaign_text(f"{base}/detail_badge_name", badges_x - 6, top + 48, step + 12, 16, "ui\\small_ui", CAMPAIGN_DIM,
+    lines += _campaign_text(f"{base}/detail_badge_name", badges_x - 6, top + 50, step + 12, 16, "ui\\small_ui", CAMPAIGN_DIM,
                             align="center", wide_layout=wide(WIDE_EXTRA))
     lines += _widget(f"{base}/mission_panel", [("controller", 1), ("left", left), ("top", top), ("width", width),
                                                ("height", height), ("bitmap", f"{base}/panel"),
