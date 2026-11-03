@@ -279,15 +279,17 @@ OCCLUSION_DEPTH_SOURCE = (
 # GTAO (Jimenez et al., "Practical Real-Time Strategies for Accurate
 # Indirect Occlusion", 2016, as Intel's XeGTAO has it): in each of a few
 # directions about the pixel (a slice of the view through it, turned by a
-# 4x4 Bayer matrix), the highest horizon each side within the radius, its
-# samples' weight falling off to none at the radius; the visible arc
+# 4x4 Bayer matrix), the highest horizon each side within the radius (each
+# sample's rise above the pixel's tangent plane), its samples' weight
+# falling off to none at the radius; the visible arc
 # between them integrated with the cosine about the pixel's normal, which
 # the depth gives (the nearer of each side's neighbours). Only what the
 # lighting does not already hold: an object's pixel (lit by one ambient
 # sample) is occluded by everything about it, the level's (whose lightmap
 # holds the level's own occlusion) only by objects. The result: the light
-# the pixel still sees (1 none occluded), its distance and whether it is an
-# object's, for the blur and the filtering up.
+# the pixel still sees, as a share of what its slices see unoccluded (1
+# none occluded), its distance and whether it is an object's, for the blur
+# and the filtering up.
 OCCLUSION_SOURCE = (
     "uniform sampler2D depth_texture;\n"
     "uniform sampler2D mask_texture;\n"
@@ -342,7 +344,7 @@ OCCLUSION_SOURCE = (
     "\tfloat falloff_add = (radius - falloff_range) / falloff_range + 1.0;\n"
     "\tint slices = int(sampling.x), steps = int(sampling.y);\n"
     "\tfloat slice_noise = noise(texel), step_noise = noise(texel.yx + ivec2(1, 2));\n"
-    "\tfloat visibility = 0.0;\n"
+    "\tfloat visibility = 0.0, unoccluded = 0.0;\n"
     "\tfor (int slice = 0; slice < slices; slice++)\n"
     "\t{\n"
     "\t\tfloat angle = (float(slice) + slice_noise) / float(slices) * PI;\n"
@@ -355,8 +357,10 @@ OCCLUSION_SOURCE = (
     "\t\tfloat projected_length = max(length(projected), 1e-5);\n"
     "\t\tfloat cos_n = clamp(dot(projected, view) / projected_length, -1.0, 1.0);\n"
     "\t\tfloat n = (dot(across, projected) < 0.0 ? -1.0 : 1.0) * acos(cos_n);\n"
-    "\t\tfloat low0 = cos(n + 0.5 * PI), low1 = cos(n - 0.5 * PI);\n"
-    "\t\tfloat horizon0 = low0, horizon1 = low1;\n"
+    "\t\t/* (each side's highest rise above the pixel's own surface, its tangent\n"
+    "\t\tplane: a sample of a flat surface rises by none, however its offset was\n"
+    "\t\trounded to a texel off the slice) */\n"
+    "\t\tfloat rise0 = 0.0, rise1 = 0.0;\n"
     "\t\tfor (int taken = 0; taken < steps; taken++)\n"
     "\t\t{\n"
     "\t\t\tfloat along = (float(taken) + step_noise) / float(steps);\n"
@@ -372,18 +376,22 @@ OCCLUSION_SOURCE = (
     "\t\t\t\tweight0 *= step(0.5, texelFetch(mask_texture, full_texel(texel + offset), 0).r);\n"
     "\t\t\t\tweight1 *= step(0.5, texelFetch(mask_texture, full_texel(texel - offset), 0).r);\n"
     "\t\t\t}\n"
-    "\t\t\thorizon0 = max(horizon0, mix(low0, dot(to0, view) / length0, weight0));\n"
-    "\t\t\thorizon1 = max(horizon1, mix(low1, dot(to1, view) / length1, weight1));\n"
+    "\t\t\t/* (its height over the plane made the slice's angle: exact for a\n"
+    "\t\t\tsample in the slice, whose normal there is the projected one) */\n"
+    "\t\t\trise0 = max(rise0, weight0 * asin(clamp(dot(to0, normal) / (length0 * projected_length), 0.0, 1.0)));\n"
+    "\t\t\trise1 = max(rise1, weight1 * asin(clamp(dot(to1, normal) / (length1 * projected_length), 0.0, 1.0)));\n"
     "\t\t}\n"
-    "\t\tfloat h0 = n + clamp(-acos(clamp(horizon1, -1.0, 1.0)) - n, -0.5 * PI, 0.5 * PI);\n"
-    "\t\tfloat h1 = n + clamp(acos(clamp(horizon0, -1.0, 1.0)) - n, -0.5 * PI, 0.5 * PI);\n"
+    "\t\tfloat h0 = n - 0.5 * PI + rise1, h1 = n + 0.5 * PI - rise0;\n"
     "\t\tfloat sin_n = sin(n);\n"
     "\t\tvisibility += projected_length * 0.25 * (2.0 * cos_n + 2.0 * (h0 + h1) * sin_n -\n"
     "\t\t\tcos(2.0 * h0 - n) - cos(2.0 * h1 - n));\n"
+    "\t\t/* (the same with nothing about it: both horizons the surface's) */\n"
+    "\t\tunoccluded += projected_length * (cos_n + n * sin_n);\n"
     "\t}\n"
-    "\t/* (the last few hundredths, which a flat wall's samples rounded to their\n"
-    "\ttexels leave as faint contours, are none) */\n"
-    "\tresult = vec4(clamp(visibility / (0.94 * float(slices)), 0.03, 1.0), centre.z, object, 1.0);\n"
+    "\t/* (as a share of what the same slices see with nothing about the pixel,\n"
+    "\tso that an open surface is 1 at any angle to the view, whatever its\n"
+    "\tslices' turn) */\n"
+    "\tresult = vec4(clamp(visibility / max(unoccluded, 1e-5), 0.0, 1.0), centre.z, object, 1.0);\n"
     "}\n"
 )
 # a blur along one direction (sampling.xy), nine taps, each weighted by how
