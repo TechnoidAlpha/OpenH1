@@ -790,8 +790,8 @@
 	<bitmap name="main_menu/campaign/art_back_132x107">
 		<frame png="ce/port/main_menu/campaign/art_back_132x107__0.png" width="132" height="107"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/art_back_210x171">
-		<frame png="ce/port/main_menu/campaign/art_back_210x171__0.png" width="210" height="171"/>
+	<bitmap name="main_menu/campaign/art_back_176x143">
+		<frame png="ce/port/main_menu/campaign/art_back_176x143__0.png" width="176" height="143"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/arrow_left">
 		<frame png="ce/port/main_menu/campaign/arrow_left__0.png" width="24" height="64"/>
@@ -830,5 +830,14 @@
 	<bitmap name="main_menu/campaign/badge_shape_110">
 		<frame png="ce/port/main_menu/campaign/badge_shape_110__0.png" width="110" height="110"/>
 		<frame png="ce/port/main_menu/campaign/badge_shape_110__1.png" width="110" height="110"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/badge_veil_16">
+		<frame png="ce/port/main_menu/campaign/badge_veil_16__0.png" width="18" height="18"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/badge_veil_20">
+		<frame png="ce/port/main_menu/campaign/badge_veil_20__0.png" width="22" height="22"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/badge_veil_30">
+		<frame png="ce/port/main_menu/campaign/badge_veil_30__0.png" width="32" height="32"/>
 	</bitmap>
 </menus>

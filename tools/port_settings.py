@@ -5626,6 +5626,9 @@ def _touch_host_controls() -> tuple:
 CAMPAIGN_ACCENT = "#FF4FB3FF"
 CAMPAIGN_TEXT = "#FFD6E9FF"
 CAMPAIGN_DIM = "#FF8FB3D3"
+CAMPAIGN_NEW = "#FFF2B34A"
+# CONTINUE's picture of the saved game's mission, at its left
+CONTINUE_ART_WIDTH = 50
 # the levels' pictures (ui.map's sp_levels: the ten levels', then a level
 # not reached), 2:1
 CAMPAIGN_PICTURES = "ui\\shell\\bitmaps\\sp_levels"
@@ -5656,7 +5659,7 @@ CAMPAIGN_BADGES = "ui\\shell\\main_menu\\difficulty_select\\difficulty_options"
 # its mission under its name, and its panel (Multiplayer's: HUB_PANEL)
 CAMPAIGN_CONTINUE = (HUB_ITEM[0], 46)
 CAMPAIGN_ITEMS_TOP = 92
-CAMPAIGN_ART = campaign_art_size(210)
+CAMPAIGN_ART = campaign_art_size(176)
 # the mission cards: the one chosen and the others, (width, height), their
 # pictures' size in them (4 in from the edges), the badges' size and step
 MISSION_BIG, MISSION_SMALL = (168, 233), (140, 206)
@@ -5681,7 +5684,7 @@ DIFFICULTY_BLURBS = ["Fewer, weaker enemies.\\nFor learning the ropes.",
                      "Brutal. Every fight\\nis a puzzle."]
 CAMPAIGN_PROMPT_BACK = ("prompt_back", "%b-button BACK", 516, 96, '<on event="a" run="mouse emit back event"/>')
 CAMPAIGN_HINTS = ["Pick up where you left off: no mission or difficulty to choose.",
-                  "Play any mission you have reached, on any difficulty.",
+                  "Play any mission, on any difficulty.",
                   "Play the campaign with a friend: online, or split screen on this computer.",
                   ""]
 
@@ -5744,6 +5747,11 @@ def campaign_pictures() -> list:
     for size in (*{badge for badge, _ in MISSION_BADGE.values()}, MISSION_PANEL_BADGE, DIFFICULTY_BADGE):
         pictures.append((f"{CAMPAIGN}/badge_shape_{size}", [(shield(size, "#2e5478"), size, size),
                                                             (shield(size, "#4fb3ff"), size, size)]))
+    # (a badge not earned, veiled: the card's and the panel's)
+    for size in (*{badge for badge, _ in MISSION_BADGE.values()}, MISSION_PANEL_BADGE):
+        pictures.append((f"{CAMPAIGN}/badge_veil_{size}", [
+            (_svg(size + 2, size + 2, [_rounded(size + 2, size + 2, 0, (size + 2) / 2, "#06101c", 0.74)]),
+             size + 2, size + 2)]))
     return pictures
 
 
@@ -5801,12 +5809,18 @@ def _campaign_menu() -> list:
     lines += _widget(f"{CAMPAIGN}/item_continue", [("type", "text"), ("width", cw), ("height", ch),
                                                    ("wide", items_wide), ("bitmap", f"{CAMPAIGN}/continue_{cw}x{ch}"),
                                                    ("text", "CONTINUE"), ("font", "ui\\large_ui"),
-                                                   ("color", "#FFFFFFFF"), ("text_x", 12), ("text_y", 2)],
+                                                   ("color", "#FFFFFFFF"), ("text_x", CONTINUE_ART_WIDTH + 14),
+                                                   ("text_y", 2)],
                      [*(f'<on event="{event}" run="port campaign continue"/>' for event in ("a", "start")),
                       '<on event="left_mouse" run="mouse emit accept event"/>',
-                      f'<child widget="{CAMPAIGN}/continue_note"/>'])
-    lines += _campaign_text(f"{CAMPAIGN}/continue_note", 12, 24, cw - 20, 18, "ui\\small_ui", CAMPAIGN_TEXT,
-                            wide_layout=wide(0, HUB_WIDE_ITEMS))
+                      f'<child widget="{CAMPAIGN}/continue_art"/>', f'<child widget="{CAMPAIGN}/continue_note"/>'])
+    art_w, art_h = campaign_art_size(CONTINUE_ART_WIDTH)
+    lines += _widget(f"{CAMPAIGN}/continue_art", [("controller", 1), ("left", 6), ("top", (ch - art_h) // 2),
+                                                  ("width", art_w), ("height", art_h),
+                                                  ("bitmap", f"{CAMPAIGN}/art_{art_w}x{art_h}")], [])
+    lines += _level_pictures(f"{CAMPAIGN}/art_{art_w}x{art_h}", art_w, art_h)
+    lines += _campaign_text(f"{CAMPAIGN}/continue_note", CONTINUE_ART_WIDTH + 14, 24, cw - CONTINUE_ART_WIDTH - 22, 18,
+                            "ui\\small_ui", CAMPAIGN_TEXT, wide_layout=wide(0, HUB_WIDE_ITEMS))
     for name, words, handlers in (
             ("item_missions", "CHOOSE MISSION", [f'<on event="{event}" run="port campaign missions" '
                                                  f'open="{CAMPAIGN}/mission_screen"/>' for event in ("a", "start")]),
@@ -5835,15 +5849,15 @@ def _campaign_menu() -> list:
                                                    ("width", art_w), ("height", art_h),
                                                    ("bitmap", f"{CAMPAIGN}/art_{art_w}x{art_h}"), ("wide", middle)],
                          []), "panel_art")
-    lines += add(_campaign_text(f"{CAMPAIGN}/panel_number", x, top + 190, inner, 16, "ui\\small_ui", CAMPAIGN_DIM,
+    lines += add(_campaign_text(f"{CAMPAIGN}/panel_number", x, top + 158, inner, 16, "ui\\small_ui", CAMPAIGN_DIM,
                                 wide_layout=grown), "panel_number")
-    lines += add(_campaign_text(f"{CAMPAIGN}/panel_title", x, top + 206, inner, 24, "ui\\large_ui", "#FFFFFFFF",
+    lines += add(_campaign_text(f"{CAMPAIGN}/panel_title", x, top + 173, inner, 24, "ui\\large_ui", "#FFFFFFFF",
                                 wide_layout=grown), "panel_title")
-    lines += add(_campaign_text(f"{CAMPAIGN}/panel_status", x, top + 230, inner, 18, "ui\\small_ui", CAMPAIGN_ACCENT,
+    lines += add(_campaign_text(f"{CAMPAIGN}/panel_status", x, top + 197, inner, 18, "ui\\small_ui", CAMPAIGN_ACCENT,
                                 wide_layout=grown), "panel_status")
-    lines += add(_campaign_text(f"{CAMPAIGN}/panel_objective", x, top + 250, inner, 34, "ui\\small_ui",
+    lines += add(_campaign_text(f"{CAMPAIGN}/panel_objective", x, top + 216, inner, 50, "ui\\small_ui",
                                 SETTINGS_BLUE, wide_layout=grown), "panel_objective")
-    lines += add(_campaign_text(f"{CAMPAIGN}/panel_hint", x, top + 286, inner, 30, "ui\\small_ui",
+    lines += add(_campaign_text(f"{CAMPAIGN}/panel_hint", x, top + 270, inner, 44, "ui\\small_ui",
                                 CAMPAIGN_DIM, wide_layout=grown), "panel_hint")
     lines += _widget(f"{CAMPAIGN}/campaign_panel", [("controller", 1), ("left", left), ("top", top), ("width", width),
                                                     ("height", height), ("bitmap", part_panel(width, height)),
@@ -5866,7 +5880,8 @@ def _mission_card(size: tuple, slot: int) -> list:
     inset = MISSION_ART_INSET
     badge, step = MISSION_BADGE[size]
     text_top = inset + art_h + 6
-    font = "ui\\large_ui"
+    # (the cards beside the chosen one smaller, their names too, as the design has them)
+    font = "ui\\large_ui" if size == MISSION_BIG else "ui\\small_ui"
     children = [f'<child widget="{CAMPAIGN}/{name}_{kind}"/>' for name in
                 ("card_art_back", "card_art", "card_custom_art", "card_card_tag", "card_card_title", "card_resume",
                  "card_number", "card_title")]
@@ -5875,6 +5890,9 @@ def _mission_card(size: tuple, slot: int) -> list:
     children += [f'<child widget="{CAMPAIGN}/card_badge_shape_{kind}" x="{badges_x + step * index}"/>'
                  for index in range(4)]
     children += [f'<child widget="{CAMPAIGN}/card_badge_{kind}" x="{badges_x + step * index}"/>' for index in range(4)]
+    children += [f'<child widget="{CAMPAIGN}/card_badge_veil_{kind}" x="{badges_x - 1 + step * index}"/>'
+                 for index in range(4)]
+    children.append(f'<child widget="{CAMPAIGN}/card_unbeaten_{kind}"/>')
     lines = _widget(base, [("width", width), ("height", height), ("bitmap", mission_card(size))],
                     [*(f'<on event="{event}" run="port campaign choose" open="{CAMPAIGN}/difficulty_screen"/>'
                        for event in ("a", "start")),
@@ -5915,6 +5933,12 @@ def _mission_card(size: tuple, slot: int) -> list:
                          ("card_badge", f"{CAMPAIGN}/badges_{badge}")):
         lines += _widget(f"{CAMPAIGN}/{name}_{kind}", [("controller", 1), ("top", text_top + 64),
                                                         ("width", badge), ("height", badge), ("bitmap", bitmap)], [])
+    lines += _widget(f"{CAMPAIGN}/card_badge_veil_{kind}", [("controller", 1), ("top", text_top + 63),
+                                                            ("width", badge + 2), ("height", badge + 2),
+                                                            ("bitmap", f"{CAMPAIGN}/badge_veil_{badge}")], [])
+    # (a mission not beaten on any difficulty says so, in the badges' place)
+    lines += _campaign_text(f"{CAMPAIGN}/card_unbeaten_{kind}", 10, text_top + 64 + (badge - 16) // 2, width - 20, 18,
+                            "ui\\small_ui", CAMPAIGN_NEW, words="NOT YET BEATEN")
     lines += _level_pictures(f"{CAMPAIGN}/art_{art_w}x{art_h}", art_w, art_h)
     lines += _map_frames(f"{CAMPAIGN}/badges_{badge}", CAMPAIGN_BADGES_SMALL, 4, badge, badge)
     return lines
@@ -6004,15 +6028,17 @@ def _missions() -> list:
     step = MISSION_PANEL_BADGE_STEP
     badges_x = left + width - 14 - 4 * step
     panel = [f'<child widget="{base}/{name}"/>' for name in
-             ("detail_title", "detail_objective", "detail_status", "detail_beaten")]
+             ("detail_title", "detail_objective", "detail_status", "detail_status_new", "detail_beaten")]
     panel += [f'<child widget="{base}/detail_{part}" x="{step * index}"/>' for index in range(4)
-              for part in ("badge_shape", "badge", "badge_name")]
+              for part in ("badge_shape", "badge", "badge_veil", "badge_name")]
     lines += _campaign_text(f"{base}/detail_title", left + 14, top + 4, 340, 22, "ui\\large_ui", "#FFFFFFFF",
                             wide_layout=wide(0, WIDE_EXTRA))
     lines += _campaign_text(f"{base}/detail_objective", left + 14, top + 25, 340, 28, "ui\\small_ui", SETTINGS_BLUE,
                             wide_layout=wide(0, WIDE_EXTRA))
     lines += _campaign_text(f"{base}/detail_status", left + 14, top + 51, 340, 18, "ui\\small_ui", CAMPAIGN_ACCENT,
                             wide_layout=wide(0, WIDE_EXTRA))
+    lines += _campaign_text(f"{base}/detail_status_new", left + 14, top + 51, 340, 18, "ui\\small_ui",
+                            CAMPAIGN_NEW, wide_layout=wide(0, WIDE_EXTRA))
     lines += _campaign_text(f"{base}/detail_beaten", badges_x, top + 2, 4 * step, 16, "ui\\small_ui", CAMPAIGN_DIM,
                             words="BEATEN ON", align="center", wide_layout=wide(WIDE_EXTRA))
     badge_x = badges_x + (step - badge) // 2
@@ -6020,6 +6046,10 @@ def _missions() -> list:
                          ("detail_badge", f"{base}/badges_{badge}")):
         lines += _widget(f"{base}/{name}", [("controller", 1), ("left", badge_x), ("top", top + 18), ("width", badge),
                                             ("height", badge), ("bitmap", bitmap), ("wide", wide(WIDE_EXTRA))], [])
+    lines += _widget(f"{base}/detail_badge_veil", [("controller", 1), ("left", badge_x - 1), ("top", top + 17),
+                                                   ("width", badge + 2), ("height", badge + 2),
+                                                   ("bitmap", f"{base}/badge_veil_{badge}"), ("wide", wide(WIDE_EXTRA))],
+                     [])
     lines += _campaign_text(f"{base}/detail_badge_name", badges_x - 6, top + 50, step + 12, 16, "ui\\small_ui", CAMPAIGN_DIM,
                             align="center", wide_layout=wide(WIDE_EXTRA))
     lines += _widget(f"{base}/mission_panel", [("controller", 1), ("left", left), ("top", top), ("width", width),
@@ -6062,7 +6092,7 @@ def _difficulties() -> list:
                      f'<child widget="{base}/difficulty_list"/>',
                      '<child widget="main_menu/difficulty_select/header_choose_difficulty"/>',
                      f'<child widget="{base}/difficulty_mission"/>'])
-    lines += _campaign_text(f"{base}/difficulty_mission", 44, 70, 560, 18, "ui\\small_ui", CAMPAIGN_DIM,
+    lines += _campaign_text(f"{base}/difficulty_mission", 44, 74, 560, 18, "ui\\small_ui", CAMPAIGN_DIM,
                             wide_layout=WIDE_LEFT)
     cards = [f'<child widget="{base}/difficulty_{index}" x="{x0 + step * index}" y="{top}"/>' for index in range(4)]
     lines += _widget(f"{base}/difficulty_list", [("type", "column_list"), ("width", 640), ("height", 480),
@@ -6099,13 +6129,10 @@ def _difficulties() -> list:
                                                  ("string_list", "main_menu/difficulty_select/difficulty_options"),
                                                  ("font", "ui\\large_ui"), ("color", "#FFFFFFFF"),
                                                  ("wide", wide(0, grown)), ("text_flags", "no_focus_test")], [])
-    lines += _widget(f"{base}/difficulty_blurb", [("type", "text"), ("controller", 1), ("left", 10),
-                                                  ("top", inset + box + 36), ("width", width - 16), ("height", 70),
-                                                  ("string_list", f"{base}/difficulty_blurbs"),
-                                                  ("font", "ui\\small_ui"), ("color", SETTINGS_BLUE),
-                                                  ("wide", wide(0, grown)), ("text_flags", "no_focus_test")], [])
-    lines += _widget(f"{base}/difficulty_beaten", [("type", "text"), ("controller", 1), ("left", 10),
-                                                   ("top", height - PART_PILL_HEIGHT - 14), ("width", BROWSER_PILL),
+    lines += _campaign_text(f"{base}/difficulty_blurb", 10, inset + box + 36, width - 14, height - inset - box - 44,
+                            "ui\\small_ui", SETTINGS_BLUE, wide_layout=wide(0, grown))
+    lines += _widget(f"{base}/difficulty_beaten", [("type", "text"), ("controller", 1), ("left", inset + 6),
+                                                   ("top", inset + 6), ("width", BROWSER_PILL), ("wide", wide(grown // 2)),
                                                    ("height", PART_PILL_HEIGHT), ("bitmap", part_pill(BROWSER_PILL)),
                                                    ("text", "BEATEN"), ("text_y", PILL_TEXT_Y),
                                                    ("font", "ui\\small_ui"), ("color", "#FFFFFFFF"),

@@ -1000,6 +1000,9 @@ static const struct config_setting config_settings[] =
 		"false: the original animations, which freeze the legs and stand a\n"
 		"rider up (the turning, which moves where shots go, stays on in a\n"
 		"network game for every player)." },
+	{ "game.campaign_difficulty", _config_integer, "1", "HALO_CAMPAIGN_DIFFICULTY", _environment_value, _platform_all,
+		"The difficulty Choose Difficulty opens on: the one chosen last (0 Easy,\n"
+		"1 Normal, 2 Heroic, 3 Legendary). The campaign's menus write it." },
 	{ "game.sim_rate", _config_integer, "60", "HALO_SIM_RATE", _environment_value, _platform_all,
 		"The steps a second of what a player feels in their hands: their own\n"
 		"movement and aim, projectiles and thrown items: 30 (as the game was\n"

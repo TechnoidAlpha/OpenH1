@@ -16,20 +16,20 @@ campaign_levels_read), a level started as the PC version's lists start it
 - Choose Mission ("port campaign missions init", "missions update"): HALO's
   ten levels or the custom_maps folder's campaign maps (CUSTOM: LB and RB,
   "tab previous" and "tab next", or a click on a tab, "tab"), three cards at
-  a time, the one chosen larger and outlined. Left and right ("previous",
-  "next", or the arrows) choose the one before or after it, the row moving
-  only when it leaves the three shown (mission_cards_first), so a card the
-  pointer passes over (which chooses it) stays under the pointer as the row
-  is laid out again (mission_cards_place: the larger card grows away from
-  its neighbours' sides). Each card has its level's picture (ui.map's
-  sp_levels; a Custom Edition map's own, else a title card), MISSION 0N, its
-  name, a badge for each difficulty it has been finished on (the profile's
-  flags, as the Xbox's list marks them) and RESUME on the saved game's; a
-  level not reached yet is the Xbox's locked level. A card's A, a second tap
-  on a touchscreen or SELECT ("choose") opens the difficulties, or goes on
-  with the saved game (RESUME).
+  a time, the chosen one larger, outlined and in the middle (but at the
+  row's ends: mission_cards_first, mission_cards_place). Left and right
+  ("previous", "next", or the arrows) choose the one before or after it;
+  the pointer passing over a card chooses it. Each card has its level's
+  picture (ui.map's sp_levels; a Custom Edition map's own, else a title
+  card), MISSION 0N, its name, a badge for each difficulty, veiled where it
+  is not beaten on it (the profile's flags, as the Xbox's list marks them),
+  NOT YET BEATEN in their place where it is on none, and RESUME on the saved
+  game's. Every mission can be played. A card's A, a second tap on a
+  touchscreen or SELECT ("choose") opens the difficulties, or goes on with
+  the saved game (RESUME).
 - Choose Difficulty ("difficulty init", "difficulty update"): four cards,
-  each its badge, its name, a line about it and BEATEN where the mission has
+  the one chosen last focused (game.campaign_difficulty), each its badge,
+  its name, the game's words about it and BEATEN where the mission has
   been finished on it; A on one or PLAY ("play") starts the mission
   (difficulty_start).
 */
@@ -47,10 +47,9 @@ MISSION_CARDS_TOP, MISSION_DOTS, MISSION_DOT_STEP) */
 #define MISSION_CARDS_TOP 86
 #define MISSION_DOTS 16
 #define MISSION_DOT_STEP 20
-/* the card's frames (port_settings.py's mission_card) */
+/* the card's frames (port_settings.py's mission_card: its third unused) */
 #define MISSION_CARD_RESTING 0
 #define MISSION_CARD_CHOSEN 1
-#define MISSION_CARD_LOCKED 2
 #define MISSION_CAMPAIGN_PICTURES "ui\\shell\\bitmaps\\sp_levels"
 #define MISSION_CUSTOM_PICTURES "ui\\shell\\bitmaps\\mp_map_grafix"
 #define MISSION_BADGES "ui\\shell\\main_menu\\difficulty_select\\difficulty_options_small"
@@ -62,6 +61,8 @@ CAMPAIGN_CONTINUE, HUB_ITEM) */
 #define CAMPAIGN_CONTINUE_HEIGHT 46
 #define CAMPAIGN_ITEM_HEIGHT 26
 #define NUMBER_OF_DIFFICULTIES 4
+/* a card beside the chosen one: its opacity */
+#define MISSION_CARD_FAINT 0.8f
 
 /* ---------- globals */
 
@@ -84,17 +85,13 @@ static struct
 
 /* ---------- the row's layout (tools/harness/tests/campaign_cards.c) */
 
-/* the first of the cards shown for the chosen one to be among them: where
-it was while the chosen one is shown, else as little moved as can be */
-static short mission_cards_first(short first, short chosen, short count)
+/* the first of the cards shown: the chosen one in the middle, but at the
+row's ends (the first mission's and the last's cards at their edges) */
+static short mission_cards_first(short chosen, short count)
 {
 	if (count <= MISSION_SLOTS)
 		return 0;
-	if (chosen < first)
-		first = chosen;
-	else if (chosen >= first + MISSION_SLOTS)
-		first = (short)(chosen - MISSION_SLOTS + 1);
-	return (short)PIN(first, 0, count - MISSION_SLOTS);
+	return (short)PIN(chosen - MISSION_SLOTS / 2, 0, count - MISSION_SLOTS);
 }
 
 /* each slot's left in the menus' 640 for shown cards (a wide screen's
@@ -203,9 +200,9 @@ static void campaign_level_status(short level, wchar_t *text, short size)
 	char const *before;
 	short difficulty;
 
-	if (level < 0 || level >= NUMBER_OF_SINGLE_PLAYER_LEVELS || !campaign.levels[level].available)
+	if (level < 0 || level >= NUMBER_OF_SINGLE_PLAYER_LEVELS)
 	{
-		campaign_widen("Finish the mission before it to play this one.", text, size);
+		text[0] = 0;
 		return;
 	}
 	if (level == campaign.saved_level)
@@ -231,11 +228,11 @@ static void campaign_level_status(short level, wchar_t *text, short size)
 	}
 	if (difficulty < 0)
 	{
-		campaign_widen("Not finished yet.", text, size);
+		campaign_widen("Not yet beaten.", text, size);
 		return;
 	}
 	campaign_difficulty_name(difficulty, name, ROW_TEXT_LENGTH);
-	campaign_widen("Finished on ", text, size);
+	campaign_widen("Beaten on ", text, size);
 	ustrncpy(text + ustrlen(text), name, (long)(size - 1 - (short)ustrlen(text)));
 	text[size - 1] = 0;
 	if ((short)ustrlen(text) < size - 1)
@@ -244,11 +241,11 @@ static void campaign_level_status(short level, wchar_t *text, short size)
 
 /* ---------- shared parts */
 
-/* the four badges in a widget: a difficulty's own picture (ui.map's) where
-it is finished on it, else its shape unlit; the shape lit where the map has
-no badges */
-static void campaign_badges_show(struct widget_instance *parent, char const *badge, char const *shape, byte beaten,
-	boolean shown)
+/* the four badges in a widget: each difficulty's own picture (ui.map's),
+veiled where the mission is not beaten on it; where the map has no badges,
+a shape, lit or not */
+static void campaign_badges_show(struct widget_instance *parent, char const *badge, char const *shape,
+	char const *veil, byte beaten, boolean shown)
 {
 	boolean have_badges = tag_loaded('bitm', MISSION_BADGES) != NONE;
 	short index;
@@ -259,8 +256,9 @@ static void campaign_badges_show(struct widget_instance *parent, char const *bad
 		struct widget_instance *outline = named(parent, shape, index);
 		boolean lit = (beaten >> index) & 1;
 
-		visible_set(picture, shown && lit && have_badges);
-		visible_set(outline, shown && !(lit && have_badges));
+		visible_set(picture, shown && have_badges);
+		visible_set(outline, shown && !have_badges);
+		visible_set(named(parent, veil, index), shown && have_badges && !lit);
 		if (picture)
 			picture->animation.current_frame_index = index;
 		if (outline)
@@ -299,8 +297,6 @@ static short campaign_opening_level(struct player_profile const *profile)
 
 	if (campaign.saved_level != NONE)
 		level = campaign.saved_level;
-	if (!campaign.levels[level].available)
-		level = 0;
 	return level;
 }
 
@@ -326,7 +322,7 @@ it and its objective */
 static void campaign_panel_show(struct widget_instance *panel, short level)
 {
 	wchar_t text[MISSION_TEXT_LENGTH];
-	boolean reached = level >= 0 && level < NUMBER_OF_SINGLE_PLAYER_LEVELS && campaign.levels[level].available;
+	boolean reached = level >= 0 && level < NUMBER_OF_SINGLE_PLAYER_LEVELS;
 	struct widget_instance *art = named(panel, "panel_art", 0);
 
 	if (art)
@@ -390,6 +386,8 @@ static void campaign_screen_update(struct widget_instance *list)
 			ustrncat(text, difficulty_name, MISSION_TEXT_LENGTH - 1 - (long)ustrlen(text));
 		}
 		menu_text_box_fit(named(item, "continue_note", 0), text, 0);
+		if (named(item, "continue_art", 0))
+			named(item, "continue_art", 0)->animation.current_frame_index = campaign.saved_level;
 	}
 	campaign_panel_show(panel, saved ? campaign.saved_level : campaign_cards.opening_level);
 	string_get("pc\\main_menu\\campaign\\hints", hint, text);
@@ -410,8 +408,7 @@ static boolean campaign_missions_initialize(struct widget_instance *list, short 
 	}
 	campaign_cards.custom = FALSE;
 	campaign_cards.chosen = campaign_cards.opening_level;
-	campaign_cards.first = mission_cards_first(campaign_cards.chosen - 1, campaign_cards.chosen,
-		campaign_mission_count());
+	campaign_cards.first = mission_cards_first(campaign_cards.chosen, campaign_mission_count());
 	list->focused_child = NULL;
 	return TRUE;
 }
@@ -474,15 +471,17 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		visible_set(named(card, name, 0), FALSE);
 		snprintf(name, sizeof(name), "card_badge_%s", kind);
 		{
-			char shape[48];
+			char shape[48], veil[48];
 
 			snprintf(shape, sizeof(shape), "card_badge_shape_%s", kind);
-			campaign_badges_show(card, name, shape, 0, FALSE);
+			snprintf(veil, sizeof(veil), "card_badge_veil_%s", kind);
+			campaign_badges_show(card, name, shape, veil, 0, FALSE);
 		}
+		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
+		visible_set(named(card, name, 0), FALSE);
 		card->animation.current_frame_index = chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
 		return;
 	}
-	reached = campaign.levels[mission].available;
 	visible_set(custom_art, FALSE);
 	visible_set(art, TRUE);
 	if (art)
@@ -500,14 +499,18 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 	snprintf(name, sizeof(name), "card_resume_%s", kind);
 	visible_set(named(card, name, 0), mission == campaign.saved_level);
 	{
-		char badge[48], shape[48];
+		char badge[48], shape[48], veil[48];
+		byte beaten = campaign.levels[mission].beaten;
 
 		snprintf(badge, sizeof(badge), "card_badge_%s", kind);
 		snprintf(shape, sizeof(shape), "card_badge_shape_%s", kind);
-		campaign_badges_show(card, badge, shape, campaign.levels[mission].beaten, reached);
+		snprintf(veil, sizeof(veil), "card_badge_veil_%s", kind);
+		/* (not yet beaten on any: said in the badges' place) */
+		campaign_badges_show(card, badge, shape, veil, beaten, beaten != 0);
+		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
+		visible_set(named(card, name, 0), beaten == 0);
 	}
-	card->animation.current_frame_index = !reached ? MISSION_CARD_LOCKED :
-		chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
+	card->animation.current_frame_index = chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
 }
 
 /* the panel under the cards: the chosen mission's name, objective, where
@@ -527,22 +530,29 @@ static void mission_panel_show(struct widget_instance *panel, short mission, sho
 
 		menu_text_box_fit(named(panel, "detail_title", 0), words ? words : L"", 0);
 		words = custom_edition_maps_description(display_index);
-		menu_text_box_wrap(named(panel, "detail_objective", 0), words ? words : L"", 2);
+		menu_text_box_wrap(named(panel, "detail_objective", 0), words ? words : L"", 1);
 		campaign_text_set_ascii(named(panel, "detail_status", 0), "A campaign map of your custom_maps folder.");
-		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", 0, TRUE);
+		visible_set(named(panel, "detail_status", 0), TRUE);
+		visible_set(named(panel, "detail_status_new", 0), FALSE);
+		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", "detail_badge_veil", 0, TRUE);
 	}
 	else
 	{
-		boolean reached = campaign.levels[mission].available;
+		boolean reached = TRUE;
+		byte beaten = campaign.levels[mission].beaten;
+		boolean saved = mission == campaign.saved_level;
 
 		campaign_level_title(mission, reached, text, MISSION_TEXT_LENGTH);
 		menu_text_box_fit(named(panel, "detail_title", 0), text, 0);
 		campaign_string("pc\\main_menu\\solo_level_select\\map_data", reached ? mission : LEVEL_UNAVAILABLE, text,
 			MISSION_TEXT_LENGTH);
-		menu_text_box_wrap(named(panel, "detail_objective", 0), text, 2);
+		menu_text_box_wrap(named(panel, "detail_objective", 0), text, 1);
 		campaign_level_status(mission, text, MISSION_TEXT_LENGTH);
-		menu_text_box_fit(named(panel, "detail_status", 0), text, 0);
-		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", campaign.levels[mission].beaten, TRUE);
+		/* (NOT YET BEATEN in its own colour, which the eye finds at once) */
+		menu_text_box_fit(named(panel, beaten || saved ? "detail_status" : "detail_status_new", 0), text, 0);
+		visible_set(named(panel, "detail_status", 0), beaten || saved);
+		visible_set(named(panel, "detail_status_new", 0), !beaten && !saved);
+		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", "detail_badge_veil", beaten, TRUE);
 	}
 	for (index = 0; index < NUMBER_OF_DIFFICULTIES; index++)
 	{
@@ -568,7 +578,7 @@ static void campaign_missions_update(struct widget_instance *list)
 	if (focused_slot != NONE && list->focused_child->visible && campaign_cards.first + focused_slot < count)
 		campaign_cards.chosen = (short)(campaign_cards.first + focused_slot);
 	campaign_cards.chosen = (short)PIN(campaign_cards.chosen, 0, MAX(count - 1, 0));
-	campaign_cards.first = mission_cards_first(campaign_cards.first, campaign_cards.chosen, count);
+	campaign_cards.first = mission_cards_first(campaign_cards.chosen, count);
 	shown = (short)MIN(count, MISSION_SLOTS);
 	mission_cards_place(shown, (short)(campaign_cards.chosen - campaign_cards.first), ui_widget_port_wide_extra(),
 		slot_x);
@@ -594,6 +604,8 @@ static void campaign_missions_update(struct widget_instance *list)
 			small->vertical_offset = (short)(MISSION_CARDS_TOP + (MISSION_BIG_HEIGHT - MISSION_SMALL_HEIGHT) / 2);
 		}
 		mission_card_show(chosen ? big : small, mission, chosen);
+		if (small)
+			small->alpha_modifier = MISSION_CARD_FAINT;
 		/* (the focus on the chosen card, which is the larger one) */
 		if (chosen && focus_on_card && big)
 			list->focused_child = big;
@@ -641,7 +653,7 @@ static boolean campaign_missions_step(struct widget_instance *widget, short step
 	if (chosen == campaign_cards.chosen)
 		return TRUE;
 	campaign_cards.chosen = chosen;
-	campaign_cards.first = mission_cards_first(campaign_cards.first, chosen, count);
+	campaign_cards.first = mission_cards_first(chosen, count);
 	/* (a card focused moves to the chosen one: the update) */
 	if (list && mission_card_slot(list->focused_child) != NONE)
 		list->focused_child = NULL;
@@ -658,8 +670,7 @@ static boolean campaign_missions_source(struct widget_instance *widget, char con
 		return TRUE;
 	campaign_cards.custom = custom;
 	campaign_cards.chosen = custom ? 0 : campaign_cards.opening_level;
-	campaign_cards.first = mission_cards_first(campaign_cards.chosen - 1, campaign_cards.chosen,
-		campaign_mission_count());
+	campaign_cards.first = mission_cards_first(campaign_cards.chosen, campaign_mission_count());
 	ui_play_audio_feedback_sound(SOUND_CURSOR);
 	return TRUE;
 }
@@ -692,8 +703,6 @@ static boolean campaign_missions_choose(struct widget_instance *widget, short co
 		ui_play_audio_feedback_sound(SOUND_FORWARD);
 		return TRUE;
 	}
-	if (!campaign.levels[mission].available)
-		return campaign_fail();
 	if (mission == campaign.saved_level)
 	{
 		campaign_continue(controller);
@@ -725,7 +734,7 @@ static boolean campaign_difficulty_initialize(struct widget_instance *list, shor
 		campaign_cards.difficulty_display_index = NONE;
 		campaign_cards.difficulty_level = level != NONE ? level : 0;
 	}
-	campaign_cards.difficulty = (short)PIN(main_get_difficulty(), 0, NUMBER_OF_DIFFICULTIES - 1);
+	campaign_cards.difficulty = (short)PIN(config_integer("game.campaign_difficulty"), 0, NUMBER_OF_DIFFICULTIES - 1);
 	snprintf(name, sizeof(name), "difficulty_%d", campaign_cards.difficulty);
 	if ((card = named(list, name, 0)) != NULL)
 	{
@@ -787,8 +796,12 @@ static void campaign_difficulty_update(struct widget_instance *list)
 		}
 		if ((widget = named(child, "difficulty_name", 0)) != NULL)
 			widget->parameters.text_box.string_list_index = index;
-		if ((widget = named(child, "difficulty_blurb", 0)) != NULL)
-			widget->parameters.text_box.string_list_index = index;
+		/* (the game's own words, its difficulty menu's; ours where the map has none) */
+		campaign_string("pc\\main_menu\\difficulty_select\\difficulty_descriptions", index, text,
+			MISSION_TEXT_LENGTH);
+		if (!text[0])
+			campaign_string("pc\\main_menu\\campaign\\difficulty_blurbs", index, text, MISSION_TEXT_LENGTH);
+		menu_text_box_wrap(named(child, "difficulty_blurb", 0), text, 6);
 		visible_set(named(child, "difficulty_beaten", 0), (beaten >> index) & 1);
 	}
 	profile_name_show(screen);
@@ -803,6 +816,13 @@ static boolean campaign_difficulty_play(struct widget_instance *widget, short co
 		!widget->name[12])
 	{
 		difficulty = (short)(widget->name[11] - '0');
+	}
+	{
+		char value[8];
+
+		snprintf(value, sizeof(value), "%d", PIN(difficulty, 0, NUMBER_OF_DIFFICULTIES - 1));
+		if (!config_write("game.campaign_difficulty", value))
+			platform_log("menus: could not keep the campaign's difficulty");
 	}
 	return difficulty_start(difficulty, controller);
 }
