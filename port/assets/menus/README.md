@@ -233,7 +233,13 @@ of levels and the difficulty menu (`difficulty item select`, and `set
 difficulty` on its OK button: the difficulty shown), and Load Game's list of
 the profiles' saved games (with `load game menu delete finish`). For our
 widgets, `initialize sp level list solo`, `solo level set map` and `set
-difficulty` are the port's, as the Xbox's take the Xbox's widgets. The
+difficulty` are the port's, as the Xbox's take the Xbox's widgets (the main
+menu's CAMPAIGN no longer opens these screens). The campaign's own screens
+(`tools/port_settings.py`'s `campaign_files`: the Campaign menu, Choose
+Mission's cards and Choose Difficulty) run `port campaign ...`
+(`port/linux/game/campaign_menu.inc`), and draw the player's ui.map's
+pictures (`sp_levels`, `difficulty_options`, `difficulty_options_small`)
+scaled, as `<frame map=...>`s. The
 settings screens': `port settings save` (OK) writes the settings changed
 (config.toml's, or `profile.<field>`: the profile being edited) and applies
 them, `port settings defaults` shows the defaults, `port settings help` the
