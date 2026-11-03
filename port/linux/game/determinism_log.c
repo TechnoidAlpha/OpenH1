@@ -15,6 +15,10 @@ Lines:
     rate <rate>                             the simulation's rate (game.sim_rate,
                                             sim_rate.c), before the first tick
                                             and when it changes
+    asserts <failed> <warnings>             the run's failed assertions and
+                                            warnings so far (assert_report.c),
+                                            before the first tick and when
+                                            they change
     t <tick> g <seed> l <seed> h <hash>     after each tick
     a <hash> <hash> ...                     the allocations' hashes, in order
     G <count>: <site>...                    the global seed's takers in the tick
@@ -91,6 +95,8 @@ static struct
 	long tick;
 	long rate;
 	long ticks_logged;
+	unsigned long asserts_failed;
+	unsigned long asserts_warned;
 	long frames_since_tick;
 	long allocation_count;
 	long allocations_written;
@@ -354,6 +360,7 @@ void determinism_log_tick_end(
 	FILE *file = determinism_log.file;
 	unsigned long hash = 2166136261UL;
 	unsigned long global_seed, local_seed;
+	unsigned long asserts_failed, asserts_warned;
 	unsigned long other_count;
 	long index;
 
@@ -397,6 +404,14 @@ void determinism_log_tick_end(
 	{
 		determinism_log.rate = sim_rate_get();
 		fprintf(file, "rate %ld\n", determinism_log.rate);
+	}
+	assert_report_counts(&asserts_failed, &asserts_warned);
+	if (!determinism_log.ticks_logged || asserts_failed != determinism_log.asserts_failed ||
+		asserts_warned != determinism_log.asserts_warned)
+	{
+		determinism_log.asserts_failed = asserts_failed;
+		determinism_log.asserts_warned = asserts_warned;
+		fprintf(file, "asserts %lu %lu\n", asserts_failed, asserts_warned);
 	}
 	random_math_port_seeds(&global_seed, &local_seed);
 	fprintf(file, "t %ld g %08lx l %08lx h %08lx\n", tick, global_seed, local_seed, hash);

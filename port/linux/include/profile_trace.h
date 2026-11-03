@@ -80,6 +80,10 @@ struct profile_trace_session
 	char gametype[16];
 	long players;
 	long players_most;
+	/* the run's failed assertions and warnings so far (debug.fatal_asserts,
+	port/linux/game/assert_report.c), sampled as the players are */
+	unsigned long asserts_failed;
+	unsigned long asserts_warned;
 };
 
 struct profile_trace_status

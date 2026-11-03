@@ -125,3 +125,16 @@ def test_rates(tmp_path):
     assert status == 2 and "different rates (A 30 Hz, B 60 Hz" in out
     status, out = run(tmp_path / "30.txt", tmp_path / "60.txt", "--across-rates")
     assert status == 0 and "comparing across simulation rates" in out, out
+
+
+def test_asserts_noted(tmp_path):
+    # (the asserts line, before a tick's line, gives the run's totals by its end: a note, not a difference)
+    ticks = [(1, 10), (2, 11), (3, 12)]
+    write_log(tmp_path / "a.txt", ticks)
+    lines = (tmp_path / "a.txt").read_text().splitlines()
+    lines.insert(lines.index("t 2 g 00000001 l 00000002 h 0000000b"), "asserts 1 3")
+    (tmp_path / "b.txt").write_text("\n".join(lines) + "\n")
+    status, out = run(tmp_path / "a.txt", tmp_path / "b.txt")
+    assert status == 0, out
+    assert "note: B's run failed 1 assertions and 3 warnings, the first by tick 2" in out
+    assert "A's run" not in out

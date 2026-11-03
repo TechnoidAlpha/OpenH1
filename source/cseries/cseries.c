@@ -158,7 +158,9 @@ enum
 #ifdef HALO_RELEASE
 #define cseries_match_assert(file, line, expr) if (!(expr)) { release_assert_failed(STRINGIFY(expr), MATCH_FILE(file), MATCH_LINE(line), TRUE); }
 #else
-#define cseries_match_assert(file, line, expr) if (!(expr)) { stack_walk(0); error(_error_silent, "EXCEPTION %s in %s,#%d: %s", "halt", MATCH_FILE(file), MATCH_LINE(line), STRINGIFY(expr)); system_exit(-1); }
+/* port: through display_assert, which does as this did (the stack walked,
+the halt logged) and counts it (port/linux/game/assert_report.c) */
+#define cseries_match_assert(file, line, expr) if (!(expr)) { display_assert(STRINGIFY(expr), MATCH_FILE(file), MATCH_LINE(line), TRUE); system_exit(-1); }
 #endif
 #define cseries_assert(expr) cseries_match_assert(__FILE__, __LINE__, expr)
 
@@ -364,41 +366,16 @@ __thread boolean display_assert_skipped = FALSE;
 /* port: a release build carries on past a failed assertion (cseries.h),
 but notes it in debug.txt, as a debug build does before it stops: each
 place's first failure, then its 10th, 100th, 1000th and so on with the
-count, so that one failing every frame does not flood the file */
+count, so that one failing every frame does not flood the file. Each is
+counted by port/linux/game/assert_report.c, and under debug.fatal_asserts
+a failed assertion then ends the run */
 void release_assert_failed(
 	char const *information,
 	char const *file,
 	long line,
 	boolean fatal)
 {
-	static struct
-	{
-		char const *file;
-		long line;
-		unsigned long count;
-	} places[512];
-	static volatile long places_lock;
-	unsigned long index = ((unsigned long)(size_t)file + (unsigned long)line * 2654435761UL) % NUMBEROF(places);
-	unsigned long count = 0;
-	unsigned long probe;
-
-	while (__sync_lock_test_and_set(&places_lock, 1))
-		;
-	for (probe = 0; probe < NUMBEROF(places); probe++)
-	{
-		if (!places[index].file)
-		{
-			places[index].file = file;
-			places[index].line = line;
-		}
-		if (places[index].file == file && places[index].line == line)
-		{
-			count = ++places[index].count;
-			break;
-		}
-		index = (index + 1) % NUMBEROF(places);
-	}
-	__sync_lock_release(&places_lock);
+	unsigned long count = assert_report_failed(information, file, line, fatal);
 
 	/* (a place the full table has no room for: every time) */
 	if (count > 1)
@@ -420,6 +397,7 @@ void release_assert_failed(
 		error(_error_log, "EXCEPTION %s in %s,#%ld: %s (release build)", fatal ? "assert" : "warn",
 			file, line, information ? information : "<no reason given>");
 	}
+	assert_report_logged(information, file, line, fatal);
 }
 #endif
 
@@ -437,12 +415,16 @@ void display_assert(
 	release_assert_failed(information, file, line, fatal);
 	display_assert_skipped = fatal;
 #else
+	/* port: counted (port/linux/game/assert_report.c) */
+	assert_report_failed(information, file, line, fatal);
 	if (fatal)
 	{
 		stack_walk(0);
 	}
-	
+
 	error(_error_silent, "EXCEPTION %s in %s,#%d: %s", fatal ? "halt" : "warn", file, line, information ? information : "<no reason given>");
+	/* port: under debug.fatal_asserts the run ends here, not in a halt */
+	assert_report_logged(information, file, line, fatal);
 #endif
 }
 

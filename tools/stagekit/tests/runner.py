@@ -254,9 +254,11 @@ def launch(machine, input, address, broadcast, test, init="", game=None, **envir
     # config.toml beside the executable, so each machine has its own settings)
     for source in [game, *game.parent.glob("lib*.so*"), *game.parent.glob("lib*.dylib")]:
         place(source, machine / ("halo" if source == game else source.name))
-    # (none of the caller's own settings; system link on the loopback only, no internet play)
+    # (none of the caller's own settings; system link on the loopback only, no internet play; a failed assertion
+    # ends the run, with its place, which play_slice then shows, rather than a release build carrying on past it or
+    # a debug build halting: debug.fatal_asserts)
     environment = dict({name: value for name, value in os.environ.items() if not name.startswith("HALO_")},
-                       HALO_NET_ONLINE="false", SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="offscreen", HALO_NO_AUDIO="1",
+                       HALO_FATAL_ASSERTS="1", HALO_NET_ONLINE="false", SDL_AUDIODRIVER="dummy", SDL_VIDEODRIVER="offscreen", HALO_NO_AUDIO="1",
                        HALO_NULL_RENDERER="1", HALO_NO_CLIPBOARD="1", HALO_UPDATE_AUTO="false", HALO_TEST_INPUT=input,
                        HALO_SAVE_ROOT=str(machine / "save"), XDG_RUNTIME_DIR=str(machine / "runtime"),
                        HALO_DATA_ROOT=str(machine), HOME=str(machine), HALO_NETWORK_TEST=test,
