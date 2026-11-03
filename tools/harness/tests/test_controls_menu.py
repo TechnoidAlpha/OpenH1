@@ -11,7 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
 
-CASES = ["click", "keys", "hover", "wide"]
+CASES = ["click", "keys", "hover", "wide", "keep-a-key"]
 
 NEGATIVE_CONTROLS = {
     "click-ignored": (("\t\tcontrols_screen.slot = control_slot_at(row, x);\n", ""), "click"),
@@ -19,6 +19,17 @@ NEGATIVE_CONTROLS = {
     "pointer-while-setting": ((" && controls_screen.capturing_control == NONE)", ")"), "hover"),
     "click-always-first": (("x >= widget_screen_x(second)", "x < 0"), "click"),
     "not-wide": ((" + ui_widget_port_wide_offset(widget->definition_tag_index)", ""), "wide"),
+    # a game control's only key taken for another control
+    "only-key-taken": (("if (other != control && control_left_without_key(other, NONE, name))", "if (FALSE)"),
+                       "keep-a-key"),
+    # a game control's only key cleared
+    "only-key-cleared": (("\t\tif (control_left_without_key(control, slot, NULL))", "\t\tif (FALSE)"), "keep-a-key"),
+    # a control with no key at all refusing every change
+    "no-key-blocks": (("\treturn taken;", "\treturn taken || TRUE;"), "keep-a-key"),
+    # every control the game's
+    "all-essential": (("\tif (!controls[control].essential)\n\t\treturn FALSE;\n", ""), "keep-a-key"),
+    # no why
+    "refusal-unexplained": (("refused ? 2 : ", ""), "keep-a-key"),
 }
 
 
@@ -27,8 +38,9 @@ def generated(fault=None):
     start = menus.index("#define CONTROL_BINDINGS")
     declarations = menus[start:menus.index("/* a setting's bindings", start)]
     code = declarations + "\n\n" + "\n\n".join(function(menus, name) for name in (
-        "widget_screen_x", "control_row", "control_of_row", "control_binding_box", "control_slot_at", "control_capture_begin",
-        "controls_update"))
+        "widget_screen_x", "control_row", "control_of_row", "control_binding_box", "control_slot_at",
+        "control_capture_begin", "control_left_without_key", "control_refuse", "control_capture_poll",
+        "controls_update", "controls_help_index"))
     if fault:
         code = mutated(code, *fault)
     return (("under_test.inc", code),)

@@ -28,6 +28,11 @@ NEGATIVE_CONTROLS = {
                                  "player_control_preferences[0]."), ["remapped"]),
     # the movement keys always separated
     "movement-slashes": ("prompts", ("if (!letters && index > 0", "if (index > 0"), ["text"]),
+    # an action with no key falls back to the controller's button
+    "unbound-is-button": ("prompts", ("\t\t\thud_key_prompt_action_name(action, name, sizeof(name));",
+                                      "\t\t\thalo_keyboard_action_name(action, name, sizeof(name));"), ["text"]),
+    "unbound-movement-is-stick": ("prompts", ("hud_key_prompt_action_name(NONE, keys[index], sizeof(keys[index]));",
+                                              "return;"), ["text"]),
 }
 
 
@@ -53,7 +58,8 @@ def generated(fault=None):
     xinput = "\n".join(function(inputs, name) for name in ["prompt_device_next", "prompts_show_keys"])
     code = "\n".join(function(abstraction, name) for name in
                      ["set_default_game_input_preferences", "input_abstraction_port_keyboard_action"])
-    text = "\n".join(function(prompts, name) for name in ["latin1_to_wide", "movement_name", "hud_key_prompt_text"])
+    text = "\n".join(function(prompts, name) for name in [
+        "latin1_to_wide", "hud_key_prompt_action_name", "movement_name", "hud_key_prompt_text"])
     if fault:
         where, change, _ = NEGATIVE_CONTROLS[fault]
         if where == "xinput":

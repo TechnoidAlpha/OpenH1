@@ -37,7 +37,9 @@ calls them from PC_MENU_FUNCTION_BASE on):
   next key or button pressed for the binding left and right choose
   ("controls binding slot"), or the pointer is over or clicked
   (ui_widget_port_take_point, take_click); the page's OK writes them, its
-  Defaults shows the defaults.
+  Defaults shows the defaults. The game's own controls (moving, the
+  weapons, action, flashlight, pause) each keep a key: a change that would
+  leave one with none is refused.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -769,8 +771,11 @@ struct campaign_saved_game
 static struct
 {
 	struct campaign_level levels[NUMBER_OF_SINGLE_PLAYER_LEVELS];
-	/* player 1's saved game's level, else NONE */
+	/* player 1's saved game's level, else NONE, and its difficulty, read
+	when a screen opens (campaign_levels_read): reading the saved game reads
+	and checks the whole of its file, too long for each frame */
 	short saved_level;
+	short saved_difficulty;
 	/* the level and saved game the lists' descriptions last showed */
 	short shown_level;
 	short shown_saved_game;
@@ -982,6 +987,7 @@ static void campaign_levels_read(struct player_profile const *profile)
 	}
 	if (player_spawn_count >= 2 || !ui_widget_port_saved_game(&map_name, &campaign.saved_level, &difficulty))
 		campaign.saved_level = NONE;
+	campaign.saved_difficulty = campaign.saved_level != NONE ? difficulty : NONE;
 }
 
 /* plays the map, at the difficulty (a saved game in it goes on: main.c's
@@ -2014,6 +2020,10 @@ places under its name (_settings_shared) */
 #define SETTINGS_PANEL_TEXT_UNDER_STILLS 122
 #define SETTINGS_PANEL_TEXT_UNDER_PICTURE 146
 #define SETTINGS_PANEL_TEXT_LENGTH 512
+/* the panels' bottom (tools/port_settings.py's SETTINGS_PANEL_BOTTOM), and
+the room kept clear above it, inside its rim */
+#define SETTINGS_PANEL_BOTTOM 400
+#define SETTINGS_PANEL_TEXT_MARGIN 6
 #define SETTINGS_FOLDER "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\"
 #define SETTINGS_SHARED "pc\\main_menu\\settings\\"
 /* the link rows' sign, after their labels (U+203A) */
@@ -2464,6 +2474,41 @@ static short settings_text_wrap(wchar_t const *text, wchar_t *wrapped, short siz
 	return lines;
 }
 
+/* the height of the panel's words of so many lines, and of its note under
+them (none: 0 lines) */
+static short settings_panel_height(short lines, short note_lines, short line)
+{
+	return (short)(lines * line + (note_lines ? line / 2 + note_lines * line : 0));
+}
+
+/* wrapped words (settings_text_wrap's) cut to so many lines, the last one's
+last word "..." if any were cut: the lines left */
+static short settings_text_lines_cut(wchar_t *wrapped, short lines)
+{
+	wchar_t *end = wrapped, *space;
+	short line = 1;
+
+	for (; *end; end++)
+	{
+		if (end[0] == '\r' && end[1] == '\n' && ++line > lines)
+			break;
+	}
+	if (!*end)
+		return line;
+	*end = 0;
+	for (space = end; space > wrapped && space[-1] != ' ' && space[-1] != '\n'; space--)
+	{
+	}
+	if (space > wrapped && space[-1] == ' ')
+		end = space;
+	if (end + 3 < wrapped + SETTINGS_PANEL_TEXT_LENGTH)
+	{
+		end[0] = end[1] = end[2] = '.';
+		end[3] = 0;
+	}
+	return lines;
+}
+
 /* a row's picture of each value (tools/port_settings.py's
 SETTINGS_VALUE_PICTURES: panel_picture_<the row's key>) shown, at the value
 shown (its spinner's index, or a slider's stop nearest it: frame), the
@@ -2868,9 +2913,10 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 	short text_width, note_width;
 	wchar_t name[ROW_TEXT_LENGTH] = { 0 }, value[ROW_TEXT_LENGTH] = { 0 };
 	wchar_t words[SETTINGS_PANEL_TEXT_LENGTH] = { 0 }, wrapped[SETTINGS_PANEL_TEXT_LENGTH];
+	wchar_t noted[SETTINGS_PANEL_TEXT_LENGTH] = { 0 };
 	wchar_t const *help = NULL;
 	wchar_t *bar;
-	short still = NONE, length, lines, index;
+	short still = NONE, length, lines, note_lines, line = 12, index;
 	boolean stills = FALSE, picture = FALSE;
 	struct widget_instance *row_spinner = NULL;
 	char const *const stills_names[] = { "panel_classic", "panel_enhanced" };
@@ -2977,37 +3023,54 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 	text_font = ui_widget_port_text_box_font(text, &text_width);
 	note_font = ui_widget_port_text_box_font(note, &note_width);
 	lines = settings_text_wrap(words, wrapped, SETTINGS_PANEL_TEXT_LENGTH, text_font, text_width);
-	text_set_length(text, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
-	/* (under the name, or under Quality's pictures) */
+	note_lines = *bar ? settings_text_wrap(bar, noted, SETTINGS_PANEL_TEXT_LENGTH, note_font, note_width) : 0;
+	if (text_font != NONE)
+	{
+		rectangle2d bounds, text_bounds, cursor;
+		static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		bounds.x0 = 0;
+		bounds.y0 = 0;
+		bounds.x1 = 0x3FFF;
+		bounds.y1 = 480;
+		/* (a line's height: two lines' less one's) */
+		draw_string_set_draw_mode(text_font, NONE, 0, 0, &white);
+		draw_unicode_string_compute_bounds(&bounds, L"X\r\nX", &text_bounds, &cursor);
+		line = (short)(text_bounds.y1 - text_bounds.y0);
+		draw_unicode_string_compute_bounds(&bounds, L"X", &text_bounds, &cursor);
+		line = (short)(line - (text_bounds.y1 - text_bounds.y0));
+	}
+	/* (under the name, or under the pictures; the words and the note kept
+	inside the panel, whatever the screen's width: the pictures left out if
+	the words do not fit under them, then the note, then the words' last
+	lines) */
 	if (text && named(panel, "panel_name", 0))
-		text->vertical_offset = (short)(named(panel, "panel_name", 0)->vertical_offset +
-			(stills ? SETTINGS_PANEL_TEXT_UNDER_STILLS : picture ? SETTINGS_PANEL_TEXT_UNDER_PICTURE :
-			SETTINGS_PANEL_TEXT_TOP));
-	settings_text_wrap(bar, wrapped, SETTINGS_PANEL_TEXT_LENGTH, note_font, note_width);
-	text_set_length(note, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
+	{
+		short name_top = named(panel, "panel_name", 0)->vertical_offset;
+		short room = (short)(SETTINGS_PANEL_BOTTOM - SETTINGS_PANEL_TEXT_MARGIN - name_top);
+		short top = stills ? SETTINGS_PANEL_TEXT_UNDER_STILLS : picture ? SETTINGS_PANEL_TEXT_UNDER_PICTURE :
+			SETTINGS_PANEL_TEXT_TOP;
+
+		if ((stills || picture) && settings_panel_height(lines, note_lines, line) > room - top)
+		{
+			settings_value_picture_show(panel, row, NONE);
+			stills = FALSE;
+			still = NONE;
+			top = SETTINGS_PANEL_TEXT_TOP;
+		}
+		if (note_lines && settings_panel_height(lines, note_lines, line) > room - top)
+			note_lines = 0;
+		if (settings_panel_height(lines, 0, line) > room - top)
+			lines = settings_text_lines_cut(wrapped, (short)MAX((room - top) / line, 1));
+		text->vertical_offset = (short)(name_top + top);
+	}
+	text_set_length(text, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
+	if (!note_lines)
+		noted[0] = 0;
+	text_set_length(note, noted, SETTINGS_PANEL_TEXT_LENGTH);
 	/* (the note a line under the words) */
 	if (note && text)
-	{
-		short line = 12;
-
-		if (text_font != NONE)
-		{
-			rectangle2d bounds, text_bounds, cursor;
-			static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-			bounds.x0 = 0;
-			bounds.y0 = 0;
-			bounds.x1 = 0x3FFF;
-			bounds.y1 = 480;
-			/* (a line's height: two lines' less one's) */
-			draw_string_set_draw_mode(text_font, NONE, 0, 0, &white);
-			draw_unicode_string_compute_bounds(&bounds, L"X\r\nX", &text_bounds, &cursor);
-			line = (short)(text_bounds.y1 - text_bounds.y0);
-			draw_unicode_string_compute_bounds(&bounds, L"X", &text_bounds, &cursor);
-			line = (short)(line - (text_bounds.y1 - text_bounds.y0));
-		}
 		note->vertical_offset = (short)(text->vertical_offset + lines * line + line / 2);
-	}
 	for (index = 0; index < 2; index++)
 	{
 		char frame_name[32];
@@ -3481,37 +3544,43 @@ bindings each */
 #define CONTROL_ROWS 7
 #define CONTROL_NAME_LENGTH 32
 
+/* (a refused change's help shown this long: control_capture_poll) */
+#define CONTROL_REFUSED_MILLISECONDS 4000
+
+/* each control's setting, label, group, and whether it is the game's own,
+which must keep a key (the game cannot be played without it) */
 static struct
 {
 	char const *setting;
 	wchar_t const *label;
 	short group;
+	boolean essential;
 } const controls[] =
 {
-	{ "controls.move_forward", L"MOVE FORWARD", 0 },
-	{ "controls.move_backward", L"MOVE BACKWARD", 0 },
-	{ "controls.strafe_left", L"STRAFE LEFT", 0 },
-	{ "controls.strafe_right", L"STRAFE RIGHT", 0 },
-	{ "controls.jump", L"JUMP", 0 },
-	{ "controls.crouch", L"CROUCH", 0 },
-	{ "controls.fire", L"FIRE", 1 },
-	{ "controls.throw_grenade", L"THROW GRENADE", 1 },
-	{ "controls.melee", L"MELEE", 1 },
-	{ "controls.reload", L"RELOAD", 1 },
-	{ "controls.zoom", L"ZOOM", 1 },
-	{ "controls.switch_weapon", L"SWITCH WEAPON", 1 },
-	{ "controls.switch_grenade", L"SWITCH GRENADE", 1 },
-	{ "controls.action", L"ACTION", 2 },
-	{ "controls.flashlight", L"FLASHLIGHT", 2 },
-	{ "controls.scoreboard", L"SHOW SCORES", 2 },
-	{ "controls.pause", L"PAUSE MENU", 2 },
-	{ "controls.screenshot", L"SCREENSHOT", 2 },
-	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
-	{ "controls.chat", L"CHAT", 3 },
-	{ "controls.team_chat", L"TEAM CHAT", 3 },
-	{ "controls.party_accept", L"ACCEPT INVITE", 3 },
-	{ "controls.vote_yes", L"VOTE YES", 3 },
-	{ "controls.vote_no", L"VOTE NO", 3 },
+	{ "controls.move_forward", L"MOVE FORWARD", 0, TRUE },
+	{ "controls.move_backward", L"MOVE BACKWARD", 0, TRUE },
+	{ "controls.strafe_left", L"STRAFE LEFT", 0, TRUE },
+	{ "controls.strafe_right", L"STRAFE RIGHT", 0, TRUE },
+	{ "controls.jump", L"JUMP", 0, TRUE },
+	{ "controls.crouch", L"CROUCH", 0, TRUE },
+	{ "controls.fire", L"FIRE", 1, TRUE },
+	{ "controls.throw_grenade", L"THROW GRENADE", 1, TRUE },
+	{ "controls.melee", L"MELEE", 1, TRUE },
+	{ "controls.reload", L"RELOAD", 1, TRUE },
+	{ "controls.zoom", L"ZOOM", 1, TRUE },
+	{ "controls.switch_weapon", L"SWITCH WEAPON", 1, TRUE },
+	{ "controls.switch_grenade", L"SWITCH GRENADE", 1, TRUE },
+	{ "controls.action", L"ACTION", 2, TRUE },
+	{ "controls.flashlight", L"FLASHLIGHT", 2, TRUE },
+	{ "controls.scoreboard", L"SHOW SCORES", 2, FALSE },
+	{ "controls.pause", L"PAUSE MENU", 2, TRUE },
+	{ "controls.screenshot", L"SCREENSHOT", 2, FALSE },
+	{ "controls.push_to_talk", L"PUSH TO TALK", 3, FALSE },
+	{ "controls.chat", L"CHAT", 3, FALSE },
+	{ "controls.team_chat", L"TEAM CHAT", 3, FALSE },
+	{ "controls.party_accept", L"ACCEPT INVITE", 3, FALSE },
+	{ "controls.vote_yes", L"VOTE YES", 3, FALSE },
+	{ "controls.vote_no", L"VOTE NO", 3, FALSE },
 };
 
 static struct
@@ -3524,7 +3593,9 @@ static struct
 	short capturing_slot;
 	/* the page the bindings were read for (a page opened reads them again) */
 	long screen_tag, screen_time;
-} controls_screen = { { { { 0 } } }, 0, NONE, 0, NONE, 0 };
+	/* when a change was refused last (its help shown a while), 0 for not */
+	unsigned long refused_time;
+} controls_screen = { { { { 0 } } }, 0, NONE, 0, NONE, 0, 0 };
 
 /* a setting's bindings ("Left Ctrl, C") into the control's */
 static void control_bindings_read(short control, char const *text)
@@ -3662,7 +3733,39 @@ static boolean control_capture_begin(struct widget_instance *widget)
 	return TRUE;
 }
 
-/* the key or button taken (then bound to no other control), or cleared */
+/* whether clearing the control's bindings that are name (NULL: the one in
+slot) would take its last key: a game control must keep one */
+static boolean control_left_without_key(short control, short slot, char const *name)
+{
+	boolean taken = FALSE;
+	short other_slot;
+
+	if (!controls[control].essential)
+		return FALSE;
+	for (other_slot = 0; other_slot < CONTROL_BINDINGS; other_slot++)
+	{
+		char const *binding = controls_screen.bindings[control][other_slot];
+
+		if (!*binding)
+			continue;
+		if (name ? _stricmp(binding, name) != 0 : other_slot != slot)
+			return FALSE;
+		taken = TRUE;
+	}
+	return taken;
+}
+
+/* a change that would leave a game control with no key: not made, the
+error's sound and the help's why (controls_update) */
+static void control_refuse(void)
+{
+	controls_screen.refused_time = system_milliseconds() ? system_milliseconds() : 1;
+	ui_play_audio_feedback_sound(SOUND_ERROR);
+}
+
+/* the key or button taken (then bound to no other control), or cleared;
+not where a game control would be left with no key (its only key taken
+for another control, or cleared) */
 static void control_capture_poll(void)
 {
 	short control = controls_screen.capturing_control;
@@ -3673,6 +3776,7 @@ static void control_capture_poll(void)
 	if (control == NONE || !(result = platform_binding_capture_poll(&input)))
 		return;
 	controls_screen.capturing_control = NONE;
+	controls_screen.refused_time = 0;
 	if (result == 1)
 	{
 		char name[CONTROL_NAME_LENGTH];
@@ -3681,6 +3785,14 @@ static void control_capture_poll(void)
 		halo_input_name(input, name, sizeof(name));
 		if (!*name)
 			return;
+		for (other = 0; other < NUMBEROF(controls); other++)
+		{
+			if (other != control && control_left_without_key(other, NONE, name))
+			{
+				control_refuse();
+				return;
+			}
+		}
 		for (other = 0; other < NUMBEROF(controls); other++)
 		{
 			for (other_slot = 0; other_slot < CONTROL_BINDINGS; other_slot++)
@@ -3693,6 +3805,11 @@ static void control_capture_poll(void)
 	}
 	else if (result == 2)
 	{
+		if (control_left_without_key(control, slot, NULL))
+		{
+			control_refuse();
+			return;
+		}
 		controls_screen.bindings[control][slot][0] = 0;
 	}
 }
@@ -3804,6 +3921,27 @@ static void controls_page_defaults(struct widget_instance *screen)
 		controls_load(TRUE);
 }
 
+/* the panel's words for an action's row (controls_help_index's): how to
+change its keys, while one is taken how to give it, and why a change was
+refused */
+static char const *const control_help[] =
+{
+	"Enter, A or a click takes the next key or button pressed for the binding chosen; left and right choose "
+	"which of the two, as does the pointer.|A key put here leaves any other action it was on.",
+	"Press a key or a mouse button, or turn the wheel.|Escape cancels; Delete leaves it without one.",
+	"That was this action's only key, and the game needs one for it. Give it another key first.",
+};
+
+/* which of control_help's words the panel shows: while a key is taken, a
+while after a change was refused, or else how to change them */
+static short controls_help_index(void)
+{
+	boolean refused = controls_screen.refused_time &&
+		system_milliseconds() - controls_screen.refused_time < CONTROL_REFUSED_MILLISECONDS;
+
+	return (short)(controls_screen.capturing_control != NONE ? 1 : refused ? 2 : 0);
+}
+
 /* the panel's name, value and words for an action's row: its name, its
 keys, and how to change them (while one is taken, how to give it) */
 static boolean controls_panel(struct widget_instance *row, wchar_t *name, wchar_t *value, wchar_t const **help)
@@ -3829,11 +3967,7 @@ static boolean controls_panel(struct widget_instance *row, wchar_t *name, wchar_
 		snprintf(text + strlen(text), sizeof(text) - strlen(text), "%s%s", text[0] ? ", " : "", shown);
 	}
 	discord_widen(text[0] ? text : "NONE", value, ROW_TEXT_LENGTH);
-	discord_widen(controls_screen.capturing_control != NONE ?
-		"Press a key or a mouse button, or turn the wheel.|Escape cancels; Delete leaves it without one." :
-		"Enter, A or a click takes the next key or button pressed for the binding chosen; left and right "
-		"choose which of the two, as does the pointer.|A key put here leaves any other action it was on.",
-		words, SETTINGS_PANEL_TEXT_LENGTH);
+	discord_widen(control_help[controls_help_index()], words, SETTINGS_PANEL_TEXT_LENGTH);
 	*help = words;
 	return TRUE;
 }
@@ -4748,7 +4882,7 @@ static struct
 
 /* the track and the thumb, as tools/port_settings.py lays them out
 (SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH) */
-#define SLIDER_TRACK_WIDTH 66
+#define SLIDER_TRACK_WIDTH 62
 #define SLIDER_THUMB_WIDTH 8
 
 /* the slider the mouse drags (its row), and the one typed into */
@@ -8833,6 +8967,9 @@ static struct
 	unsigned long read_time;
 	short games, players;
 	boolean invite;
+	/* the campaign's next level for player 1's profile, else NONE (read
+	from the profile's file with the rest, not each frame) */
+	short next_level;
 } multiplayer_status;
 
 /* "port multiplayer status end" (the menu's deleted): its looking stopped
@@ -8848,6 +8985,22 @@ static void multiplayer_status_end(void)
 static boolean multiplayer_status_online(void)
 {
 	return config_boolean("network.online") && config_boolean("network.public_lobby");
+}
+
+/* the campaign's next level for player 1's profile (the one after the last
+it finished), else NONE: without changing the profile chosen */
+static short multiplayer_status_next_level(void)
+{
+	struct player_profile profile;
+	long profile_index = player_ui_get_active_player_profile_index(0);
+	short level, difficulty;
+
+	if (profile_index == NONE)
+		profile_index = player_ui_get_player1_last_used_profile_index();
+	if (profile_index == NONE || !player_profile_get(profile_index, &profile))
+		return NONE;
+	player_profile_get_highest_completed_solo_level(&profile, &level, &difficulty);
+	return (short)PIN(level + 1, 0, NUMBER_OF_SINGLE_PLAYER_LEVELS - 1);
 }
 
 static void multiplayer_status_read(void)
@@ -8876,22 +9029,7 @@ static void multiplayer_status_read(void)
 			multiplayer_status.players = (short)(multiplayer_status.players + lobby_browser.games[index].player_count);
 	}
 	multiplayer_status.invite = platform_clipboard_has_invite() != 0;
-}
-
-/* the campaign's next level for player 1's profile (the one after the last
-it finished), else NONE: without changing the profile chosen */
-static short multiplayer_status_next_level(void)
-{
-	struct player_profile profile;
-	long profile_index = player_ui_get_active_player_profile_index(0);
-	short level, difficulty;
-
-	if (profile_index == NONE)
-		profile_index = player_ui_get_player1_last_used_profile_index();
-	if (profile_index == NONE || !player_profile_get(profile_index, &profile))
-		return NONE;
-	player_profile_get_highest_completed_solo_level(&profile, &level, &difficulty);
-	return (short)PIN(level + 1, 0, NUMBER_OF_SINGLE_PLAYER_LEVELS - 1);
+	multiplayer_status.next_level = multiplayer_status_next_level();
 }
 
 /* the width of a digit of the counts (port_settings.DIGIT_SIZE), and how
@@ -9209,11 +9347,11 @@ static void multiplayer_status_update(struct widget_instance *list)
 				L"Some players can't reach\r\nyou. Hosting on another\r\nnetwork may help." :
 				L"Some players can't reach\r\nyou. Turn on OPEN ROUTER\r\nPORT in Settings, Online.");
 		}
-		else if (item == _multiplayer_item_online_coop && multiplayer_status_next_level() != NONE)
+		else if (item == _multiplayer_item_online_coop && multiplayer_status.next_level != NONE)
 		{
 			wchar_t level[ROW_TEXT_LENGTH];
 
-			string_get("pc\\main_menu\\map_list", multiplayer_status_next_level(), level);
+			string_get("pc\\main_menu\\map_list", multiplayer_status.next_level, level);
 			usnprintf(headline, NUMBEROF(headline) - 1, L"NEXT LEVEL");
 			usnprintf(detail, NUMBEROF(detail) - 1, L"%s", level);
 		}
@@ -9228,11 +9366,11 @@ static void multiplayer_status_update(struct widget_instance *list)
 		usnprintf(detail, NUMBEROF(detail) - 1, L"Players on this network\r\nsee it in LOCAL NETWORK.");
 		break;
 	case _multiplayer_item_split_screen_coop:
-		if (multiplayer_status_next_level() != NONE)
+		if (multiplayer_status.next_level != NONE)
 		{
 			wchar_t level[ROW_TEXT_LENGTH];
 
-			string_get("pc\\main_menu\\map_list", multiplayer_status_next_level(), level);
+			string_get("pc\\main_menu\\map_list", multiplayer_status.next_level, level);
 			usnprintf(headline, NUMBEROF(headline) - 1, L"NEXT LEVEL");
 			usnprintf(detail, NUMBEROF(detail) - 1, L"%s", level);
 		}

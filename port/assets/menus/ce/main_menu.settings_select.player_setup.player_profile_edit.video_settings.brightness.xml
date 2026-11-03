@@ -55,16 +55,16 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_track" x="188" y="3"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_value" x="256" y="0"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_value" x="252" y="0"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_track" controller="1" width="66" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_thumb"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_value" type="text" controller="1" width="72" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/gamma_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/section_2" width="344" height="18" bitmap="main_menu/settings/section" platform="hdr" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/section_2_title"/>
@@ -137,7 +137,7 @@
 		<string text="How bright the picture is, the HUD and menus too, as Halo PC's gamma. Higher brightens the dark parts; lower darkens them. 1.0 shows the game as it is drawn. With HDR on an HDR display, Paper White sets the brightness instead.|Click the number (or press A) to type any from 0.5 to 2.0."/>
 		<string text=""/>
 		<string text="Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display without HDR shows the game as it was."/>
-		<string text="Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a remaster would.|The pictures are shown approximately: no SDR picture can show HDR."/>
+		<string text="Faithful keeps the picture and brightens its highlights. Punchy lifts the whole scene, as a remaster would.|The pictures are approximate: SDR cannot show HDR."/>
 		<string text="With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR brightness. Raise it in a bright room."/>
 		<string text="With HDR, how bright the HUD and the menus are, in nits, apart from the picture. Paper White keeps them where paper white is. The HUD's glows stay as far above it."/>
 		<string text=""/>
