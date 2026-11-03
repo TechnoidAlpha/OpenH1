@@ -1399,9 +1399,15 @@ boolean biped_fix_position(
 			(fix_below_new_position ? 0 : 9);
 		if (line_of_sight_object_index != NONE)
 		{
-			collision_model_instance_new(
+			/* port: an object with no collision model has no nodes to test
+			(collision_model_test_pill went through the node count the stack
+			left, and the matrices and model it pointed at) */
+			if (!collision_model_instance_new(
 				&line_of_sight_instance,
-				line_of_sight_object_index);
+				line_of_sight_object_index))
+			{
+				line_of_sight_instance.node_count = 0;
+			}
 		}
 
 		{
