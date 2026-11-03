@@ -647,10 +647,12 @@ void rasterizer_active_camouflage_draw(
 
 			rasterizer_transparent_geometry_group_draw__internal(group, FALSE);
 		}
-		/* port: not when its node matrices did not fit in the rasterizer's
-		memory pool (rasterizer_memory_alloc_const returned NULL): the model
-		would be skinned from a NULL pointer. The distortion is still drawn. */
-		else if (group->node_matrices && group->node_matrix_count)
+		/* port: not when its node matrices or its animation did not fit in
+		the rasterizer's memory pool (rasterizer_memory_alloc_const returned
+		NULL): the model would be skinned from a NULL pointer, or its change
+		colors read from one (_rasterizer_model_draw). The distortion is still
+		drawn. */
+		else if (group->node_matrices && group->node_matrix_count && group->animation)
 		{
 			/* partially cloaked: draw the model normally underneath the distortion */
 			struct rasterizer_model_begin_parameters parameters;

@@ -372,20 +372,24 @@ struct transparent_geometry_group *rasterizer_transparent_geometry_new_group2(
 
 /* port: the transparent geometry queued so far drawn, and the queue
 emptied, when it has no room for as many groups more (or the camouflaged
-transparent parts' has half its room left): a map's first frame,
-drawn through every shader, queues more than a frame's
-(port/linux/game/render_enumerate.c) */
+transparent parts' has half its room left, or the rasterizer's memory pool,
+which holds the groups' node matrices, lighting and animation, is half
+spent): a map's first frame, drawn through every shader, queues more than a
+frame's (port/linux/game/render_enumerate.c). The queue's memory in the pool
+is released with it. */
 void rasterizer_transparent_geometry_flush(
 	long room)
 {
 	if (transparent_geometry_group_count + room <= RASTERIZER_MAXIMUM_TRANSPARENT_GEOMETRY_GROUPS &&
-		transparent_geometry_group_count2 * 2 <= RASTERIZER_MAXIMUM_TRANSPARENT_GEOMETRY_GROUPS2)
+		transparent_geometry_group_count2 * 2 <= RASTERIZER_MAXIMUM_TRANSPARENT_GEOMETRY_GROUPS2 &&
+		!rasterizer_memory_pool_half_spent())
 	{
 		return;
 	}
 	rasterizer_transparent_geometry_draw(TRUE);
 	rasterizer_transparent_geometry_draw(FALSE);
 	rasterizer_transparent_geometry_begin();
+	rasterizer_memory_pool_release_queued();
 
 	return;
 }

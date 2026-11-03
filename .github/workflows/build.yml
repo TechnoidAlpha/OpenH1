@@ -24,6 +24,8 @@ name: Build
 #   build: the changes job finds that in seconds, and the platforms' jobs
 #   are skipped (still reported, as the checks that master's branch
 #   protection requires);
+# - a branch builds iOS only when it changes iOS's or Apple's own files
+#   (the changes job), since macOS runners are few; master always does;
 # - Windows, whose minutes cost twice Linux's, builds only Windows;
 # - artifacts are kept for three days.
 #
@@ -86,6 +88,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       build: ${{ steps.diff.outputs.build }}
+      ios: ${{ steps.diff.outputs.ios }}
     steps:
       # (the history's commits and trees, without their files' contents,
       # and one file checked out: seconds)
@@ -103,6 +106,7 @@ jobs:
           BEFORE: ${{ github.event.before }}
         run: |
           build=true
+          ios=true
           base=
           if [ "$EVENT" = push ]; then
             if [ "$GITHUB_REF" = refs/heads/master ]; then
@@ -120,11 +124,22 @@ jobs:
             if ! printf '%s\n' "$files" | grep -v -E -e '\.md$' -e '^website/' -e '^$' > /dev/null; then
               build=false
             fi
+            # (a branch builds iOS only when it changes what is iOS's or
+            # Apple's alone: the macOS job builds the shared Metal and Apple
+            # code, and the arm64_32 guest is linux-arm64's and Android's.
+            # macOS runners are few, so iOS's job queued behind every
+            # branch's; master always builds it)
+            if [ "$GITHUB_REF" != refs/heads/master ] && ! printf '%s\n' "$files" | grep -E \
+                -e '^port/(ios|macos|third_party)/' -e '^tools/(ios_|macos_|build_common|ci_build)' -e '^configure\.py$' \
+                -e '^\.github/' -e '[Tt]ouch' > /dev/null; then
+              ios=false
+            fi
           else
             echo "No base to compare with (event $EVENT): building"
           fi
-          echo "build: $build"
+          echo "build: $build, ios: $ios"
           echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "ios=$ios" >> "$GITHUB_OUTPUT"
 
   linux-arm64:
     needs: changes
@@ -905,7 +920,7 @@ jobs:
 
   ios:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' && needs.changes.outputs.ios != 'false' }}
     # The iOS app (port/ios/README.md), built as the macOS one is, debug only
     # and signed ad hoc: the job checks that it builds, and its .ipa is for
     # sideloading tools to sign again. The release does not publish it yet.

@@ -29,6 +29,8 @@
   reference photos by Aerocatia. The sniper rifle's zoom labels (2x, 10x)
   are set in Overpass (`port/assets/fonts`). The message icons' pictures
   are Aerocatia's and Jessie's (below).
+- **The menus' mouse cursor** (the blue arrow the menus show for the
+  mouse): by pugzysixtyfour (`port/assets/cursor`).
 
 ## Third-party art
 

@@ -4,16 +4,17 @@ settings_rows_pack packs them)."""
 import pytest
 
 from tools import port_settings
-from tools.port_settings import (PAGES, PAGE_TOP, SECTION, SETTINGS_ROW_HEIGHT,
+from tools.port_settings import (PAGES, PAGE_TOP, SECTION, SETTINGS_NOT_IN_VR, SETTINGS_ROW_HEIGHT,
                                  SETTINGS_ROW_STEP, SETTINGS_ROWS_BOTTOM, SETTINGS_SAME_PLACE, SETTINGS_SECTION_GAP,
                                  SETTINGS_SECTION_STEP, SETTINGS_TOP)
 
 # the platforms each build's menus are for (menu_files.c's for_this_platform),
 # every one the build may have at once: the desktop's (the VR build's in the
-# headset, on a renderer that draws HDR), Android's, iOS's (desktop's menus
-# but not "computer"'s, for a touchscreen)
+# headset, on a renderer that draws HDR; and out of it), Android's, iOS's
+# (desktop's menus but not "computer"'s, for a touchscreen)
 BUILDS = {
     "desktop": {"desktop", "computer", "pointer", "hdr", "vr"},
+    "desktop out of VR": {"desktop", "computer", "pointer", "hdr"},
     "android": {"android", "touch", "hdr"},
     "ios": {"desktop", "touch", "hdr"},
 }
@@ -43,6 +44,8 @@ def _rows_bottom(page, platforms, profile):
         if _key(entry) == "create_profile":
             shown = shown and not profile
         elif not profile and _profile_row(entry):
+            shown = False
+        if "vr" in platforms and _key(entry) in SETTINGS_NOT_IN_VR:
             shown = False
         # (one of the rows in the same place at most: Resolution's or Window
         # Size, the desktop's anti-aliasing or Android's)

@@ -92,12 +92,27 @@ hot corner there would act) */
 #define RAW_CURSOR_CHECK_NS 100000000ull
 #define RAW_CURSOR_INSET 4.0f
 
+/* whether the cursor is parked (host_raw_mouse_cursor), and the one shown
+otherwise: the menus' (host_raw_mouse_menu_cursor), or NULL for the
+system's */
+static int parked;
+static SDL_Cursor *raw_menu_cursor;
+
+/* (the main thread: port/linux/host/host_desktop.c's host_sdl_menu_cursor)
+the cursor shown while the mouse is not parked, set now unless it is */
+void host_raw_mouse_menu_cursor(SDL_Cursor *cursor)
+{
+	raw_menu_cursor = cursor;
+	if (!parked)
+		SDL_SetCursor(cursor ? cursor : SDL_GetDefaultCursor());
+}
+
 /* (the main thread, at each poll of the events) the cursor while the mouse
-is captured in fullscreen: shown, one black point, parked (above) */
+is captured in fullscreen: shown, one black point, parked (above); let go,
+the menus' again */
 void host_raw_mouse_cursor(void)
 {
 	static SDL_Cursor *point;
-	static int parked;
 	static unsigned long long checked_ns;
 	SDL_Window *focus = SDL_GetKeyboardFocus();
 	int wanted = focus && SDL_GetWindowRelativeMouseMode(focus) &&
@@ -124,7 +139,7 @@ void host_raw_mouse_cursor(void)
 				SDL_DestroySurface(surface);
 			}
 		}
-		SDL_SetCursor(wanted && point ? point : SDL_GetDefaultCursor());
+		SDL_SetCursor(wanted && point ? point : raw_menu_cursor ? raw_menu_cursor : SDL_GetDefaultCursor());
 		/* (let go: back in the window's middle, where SDL's relative mode
 		leaves it, not in the corner) */
 		if (!wanted && focus)
