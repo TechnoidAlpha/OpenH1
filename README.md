@@ -168,6 +168,18 @@ The `maps/` folder holds the Xbox maps only. If it holds Halo PC's maps
 instead (a Halo PC or Custom Edition install's `maps` folder), the game says
 so and stops: Custom Edition maps go in `custom_maps/`, beside `maps/`.
 
+The Halo PC multiplayer maps (Gearbox's among them) come from your own copy
+of Custom Edition's installer (`halocesetup_en_1.00.exe`): the first start
+offers to add them to `custom_maps/` on Linux, macOS and Windows, and a game
+that already has its maps adds them with `openh1 --import-maps
+<installer>` (`halo.exe` on Windows). They show in the map lists' CUSTOM
+MULTIPLAYER. The game reads the installer without running it, with
+ChupathingyCE's reader (their pull request
+[#313](https://github.com/ChupathingyCE/chupathingyce/pull/313), by
+Milenko). Halo PC's own CD has the same maps in a form OpenH1 does not play.
+Refer to "Custom Edition's maps from its installer" in
+[port/linux/README.md](port/linux/README.md).
+
 On Linux, the game puts `maps/` in the folder of the release (next to
 `bin/`). On Windows, the game puts `maps/` next to the executable. On
 macOS, a disc image's `maps/` goes in

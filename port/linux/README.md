@@ -158,6 +158,40 @@ The game writes the copy to `maps.partial`. When the copy is complete, the
 game changes the name to `maps`. If the copy stops before it is complete,
 the game asks for the disc image again at the next start.
 
+#### Custom Edition's maps from its installer
+
+The first start also offers Custom Edition's installer
+(`halocesetup_en_1.00.exe`, or another program whose name starts with
+`halo`) when it finds one in the same places, and "Browse for the disc
+image..." takes it too.
+Choosing it adds Custom Edition's maps (the Halo PC multiplayer maps,
+Gearbox's among them, with `bitmaps.map`, `sounds.map` and `loc.map`) to
+`custom_maps/` beside `maps/` (or `paths.custom_maps`), where the map
+lists' CUSTOM MULTIPLAYER shows them. Then the screen comes back: the game
+still needs the Xbox maps to start. The installer is read, not run: the game
+finds the Microsoft cabinet inside it and decompresses its maps itself
+(`src/ce_installer.c`, `src/cabinet.c`). Only maps the folder lacks are
+written, each as `<name>.partial` until it is complete, so maps you already
+have are kept. A Halo PC CD image is not copied: OpenH1 does not play Halo
+PC's own maps, and the installer has the same multiplayer maps.
+
+A game that already has its maps adds them from the command line:
+
+```sh
+openh1 --import-maps ~/Downloads/halocesetup_en_1.00.exe
+```
+
+The Windows build's first start offers the same ("Custom Edition maps"),
+and takes the same `--import-maps`. The Android app's first start takes the
+Xbox disc image only.
+
+The installer's reader is ChupathingyCE's (its pull request #313, by
+Milenko, under GPL-3.0-or-later): `src/cabinet.c` (Microsoft cabinets, with
+its own LZX decoder), `src/ce_installer.c` and `src/pc_disc.c` (a Halo PC
+CD's ISO 9660 file system, kept for a later loader of Halo PC's maps).
+`tools/test_cabinet.py` tests them on made-up cabinets, installers and CD
+images.
+
 ### Steam Deck
 
 Do the set-up in Desktop Mode:

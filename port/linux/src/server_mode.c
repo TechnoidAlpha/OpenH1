@@ -27,6 +27,7 @@ without a display to wait for, and its exits.
 #include "server_master.h"
 #include "server_netlist.h"
 #include "server_rotation.h"
+#include "map_import.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -165,14 +166,16 @@ void server_mode_fatal(const char *text)
 static void print_help(void)
 {
 	fprintf(stdout,
-		"halo [--server] [--relay] [--config <file>] [--keygen] [--sign <text>] [--probe [<invite>]] [--version] "
-		"[--help]\n"
+		"halo [--server] [--relay] [--config <file>] [--keygen] [--sign <text>] [--probe [<invite>]] "
+		"[--import-maps <file>] [--version] [--help]\n"
 		"  --server         a dedicated server (docs/dedicated_server.md)\n"
 		"  --relay          a relay alone, for players who cannot connect directly (docs/dedicated_server.md)\n"
 		"  --probe [<invite>]  prints the invite's game (or the LAN's first) as one line of JSON\n"
 		"  --config <file>  the settings file (else config.toml beside the executable)\n"
 		"  --keygen         writes a publisher key for the master servers and prints its public key\n"
 		"  --sign <text>    prints the publisher key's signature of the text (an application's proof)\n"
+		"  --import-maps <file>  adds the multiplayer maps of Custom Edition's installer (halocesetup_en_1.00.exe)\n"
+		"                   to the custom_maps folder\n"
 		"  --version        prints the build and its network version\n");
 }
 
@@ -232,6 +235,17 @@ static void answer_command_line(void)
 				exit(SERVER_EXIT_CONFIGURATION);
 			}
 			exit(server_master_sign_text(text) ? EXIT_SUCCESS : SERVER_EXIT_CONFIGURATION);
+		}
+		if (!strcmp(argument, "--import-maps"))
+		{
+			char path[1024];
+
+			if (!posix_command_line_argument(index + 1, path, sizeof(path)))
+			{
+				fprintf(stderr, "--import-maps: give Custom Edition's installer (halocesetup_en_1.00.exe)\n");
+				exit(SERVER_EXIT_CONFIGURATION);
+			}
+			map_import_command_line(path);
 		}
 	}
 }
