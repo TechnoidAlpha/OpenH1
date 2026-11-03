@@ -23,7 +23,8 @@ Lines:
                                             seed's there are the frames' seed's,
                                             random_math.c)
     o <count>: <g|l><site>...               ... the other threads' (either seed)
-    C <count>: <site>...                    the clock's readers in the tick
+    C <count>: <site>...                    the clock's readers in the tick, each
+                                            site once
     f <tick> <frame> <hash>                 each frame drawn: its pixels' hash,
                                             the frame-th since the tick
 
@@ -187,11 +188,23 @@ void determinism_log_clock_read(
 	void const *site)
 {
 	struct determinism_takers *takers = &determinism_log.takers[_determinism_takers_clock_tick];
+	unsigned long known;
+	unsigned long index;
 
 	if (!determinism_log.enabled || !determinism_log.in_tick ||
 		(determinism_main_thread_known && !determinism_main_thread))
 	{
 		return;
+	}
+	/* (each site once: the readers are compared by their sites, not how
+	often they read, and a load that waits for the disk reads in a loop, as
+	often as the disk takes, which filled the list and left the sites after
+	it out) */
+	known = takers->count < MAXIMUM_DETERMINISM_SITES ? takers->count : MAXIMUM_DETERMINISM_SITES;
+	for (index = 0; index < known; index++)
+	{
+		if (takers->sites[index] == (unsigned long)site)
+			return;
 	}
 	if (takers->count < MAXIMUM_DETERMINISM_SITES)
 		takers->sites[takers->count] = (unsigned long)site;
