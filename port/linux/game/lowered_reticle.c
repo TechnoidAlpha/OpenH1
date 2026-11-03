@@ -24,6 +24,7 @@ do, for the scope's picture is drawn about the middle.
 #include "cseries.h"
 #include "lowered_reticle.h"
 #include "view_fov.h"
+#include "panini.h"
 #include "game/players.h"
 #include "items/weapons.h"
 #include "objects/objects.h"
@@ -32,6 +33,8 @@ do, for the scope's picture is drawn about the middle.
 #include "render/render_cameras_internal.h"
 #include "units/unit_definitions.h"
 #include "units/units.h"
+
+#include "panini_projection.h"
 
 #include <math.h>
 
@@ -84,19 +87,37 @@ the screen's height (its viewport's) below the middle. The view's vertical
 angle spans its window, the safe frame, and the viewport reaches past it
 (render_camera_build_frustum_bounds), so in the view's depth the window's
 edge is tan(angle / 2) from the middle, the viewport's that times the
-viewport's height over the window's, and the aim tan(lift) */
+viewport's height over the window's. The reticle's point on the screen is
+that edge's tangent times twice the fraction; drawn as it is (rectilinear)
+the aim's tangent below the middle, tan(lift), is the same. Drawn through
+display.panini's projection (panini.c), the direction the screen shows
+there is the projection's inverse of it */
 static real lowered_reticle_lift_angle(real fraction, struct render_camera const *camera)
 {
 	real vertical_field_of_view = camera->vertical_field_of_view;
+	real viewport_width = (real)(camera->viewport_bounds.x1 - camera->viewport_bounds.x0);
 	real viewport_height = (real)(camera->viewport_bounds.y1 - camera->viewport_bounds.y0);
 	real window_height = (real)(camera->window_bounds.y1 - camera->window_bounds.y0);
+	real tangent_y, tangent_x, screen_tangent, aim_tangent;
+	struct panini_projection projection;
 
 	if (!(fraction > 0.0f) || !(vertical_field_of_view > 0.0f && vertical_field_of_view < _pi) ||
-		!(viewport_height > 0.0f && window_height > 0.0f))
+		!(viewport_width > 0.0f && viewport_height > 0.0f && window_height > 0.0f))
 	{
 		return 0.0f;
 	}
-	return atanf(2.0f * fraction * tanf(vertical_field_of_view * 0.5f) * viewport_height / window_height);
+	/* (the viewport's half tangents, up and across: its pixels square) */
+	tangent_y = tanf(vertical_field_of_view * 0.5f) * viewport_height / window_height;
+	tangent_x = tangent_y * viewport_width / viewport_height;
+	screen_tangent = 2.0f * fraction * tangent_y;
+	aim_tangent = screen_tangent;
+	if (panini_projection_of_view(tangent_x, tangent_y, &projection))
+	{
+		real aim_across;
+
+		panini_projection_inverse(&projection, 0.0f, screen_tangent, &aim_across, &aim_tangent);
+	}
+	return atanf(aim_tangent);
 }
 
 /* how much of the lowering a zoom keeps, from the view's tangent over the

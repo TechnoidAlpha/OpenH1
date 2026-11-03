@@ -16,16 +16,25 @@ from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E
 
 ROOT = Path(__file__).resolve().parents[3]
 CASES = ["off", "lands_on_the_reticle", "screen_offset", "hud_scale", "aim_camera", "zoom", "not_the_aim", "range",
-         "changed"]
+         "changed", "panini"]
 CONTROLS = [
+    # the view drawn through display.panini taken as drawn as it is: the reticle lower than asked, by the middle's
+    # magnification
+    ("panini_projection_inverse(&projection, 0.0f, screen_tangent, &aim_across, &aim_tangent);",
+     "panini_projection_inverse(&projection, 0.0f, screen_tangent, &aim_across, &aim_across);", "panini"),
+    # the projection's inverse taken from across, not up
+    ("panini_projection_inverse(&projection, 0.0f, screen_tangent, &aim_across, &aim_tangent);",
+     "panini_projection_inverse(&projection, screen_tangent, 0.0f, &aim_tangent, &aim_across);", "panini"),
     # the setting's switch unread: lowered when off
     ('config_boolean("display.lowered_reticle") ? ', "1 ? ", "off"),
     # the lift as a fraction of the half height, not of the whole
-    ("atanf(2.0f * fraction * tanf(", "atanf(fraction * tanf(", "lands_on_the_reticle"),
+    ("screen_tangent = 2.0f * fraction * tangent_y;", "screen_tangent = fraction * tangent_y;",
+     "lands_on_the_reticle"),
     # the drawn field of view's angle taken as the half angle
     ("tanf(vertical_field_of_view * 0.5f)", "tanf(vertical_field_of_view)", "lands_on_the_reticle"),
     # the safe frame's height taken for the screen's: short of the fraction on a safe frame
-    ("* viewport_height / window_height);", ");", "lands_on_the_reticle"),
+    ("tangent_y = tanf(vertical_field_of_view * 0.5f) * viewport_height / window_height;",
+     "tangent_y = tanf(vertical_field_of_view * 0.5f);", "lands_on_the_reticle"),
     # the view turned down, not up
     ("turned_forward.i = forward->i * cosine_angle + up->i * sine_angle;",
      "turned_forward.i = forward->i * cosine_angle - up->i * sine_angle;", "lands_on_the_reticle"),
@@ -56,7 +65,8 @@ def generated(fault=None):
     section = code[code.index("/* the farthest below the middle the reticle goes"):]
     if fault:
         section = mutated(section, *fault)
-    return (("under_test.inc", section),)
+    # (display.panini's arithmetic, the game's own header)
+    return (("under_test.inc", section), ("panini_projection.h", read("port/linux/include/panini_projection.h")))
 
 
 @pytest.mark.parametrize("case", CASES)

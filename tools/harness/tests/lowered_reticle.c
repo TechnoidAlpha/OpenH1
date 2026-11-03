@@ -12,11 +12,15 @@ not the player's aim. Checked against a projection of its own, the
 camera's pinhole on a 1920x1080 screen, its vertical angle across the
 window (the safe frame) as the game's frustum takes it, the whole screen or
 a smaller one in its middle: the reticle is a fraction of the screen's
-height below the middle either way.
+height below the middle either way; and drawn through display.panini's
+projection (the game's panini_projection.h), as panini.c draws the view and
+places the HUD's marks.
 */
 
 #include "harness.h"
 #include <math.h>
+
+#include "panini_projection.h"
 
 #define MAXIMUM_LOCAL_PLAYERS 4
 #define _pi 3.14159265358979323846f
@@ -63,6 +67,8 @@ static boolean fake_aiming = TRUE;
 static long fake_weapon = 7;
 static real fake_scope;
 static struct unit_datum fake_unit;
+/* display.panini's strength (0 off) and vertical compression */
+static float fake_panini_d, fake_panini_s;
 static struct unit_definition fake_definition;
 
 static unsigned long config_changes(void) { return fake_changes; }
@@ -96,15 +102,28 @@ static real weapon_get_field_of_view(long weapon_index, real field_of_view, shor
 	return fake_scope > 0.0f ? 2.0f * atanf(tanf(field_of_view * 0.5f) / fake_scope) : field_of_view;
 }
 
+/* panini.c's: the projection of a view of these half tangents at the
+viewport's edges, while display.panini is on */
+static boolean panini_projection_of_view(real tangent_x, real tangent_y, struct panini_projection *projection)
+{
+	return fake_panini_d > 0.0f && panini_projection_fit(projection, fake_panini_d, fake_panini_s, tangent_x, tangent_y);
+}
+
 /* the test's projection: the camera's pinhole, its vertical angle across the
 window's height (render_camera_build_frustum_bounds' and _build_frustum's:
-the window's middle is the view's), pixels on the screen from its top left */
+the window's middle is the view's), then display.panini's projection when it
+is on (panini.c's panini_view_to_screen), pixels on the screen from its top
+left */
 static boolean project(struct render_camera const *camera, real_point3d const *point, real_point2d *screen)
 {
 	real_vector3d right, to;
 	real depth, half = tanf(camera->vertical_field_of_view * 0.5f);
-	real width = (real)(camera->window_bounds.x1 - camera->window_bounds.x0);
-	real height = (real)(camera->window_bounds.y1 - camera->window_bounds.y0);
+	real viewport_width = (real)(camera->viewport_bounds.x1 - camera->viewport_bounds.x0);
+	real viewport_height = (real)(camera->viewport_bounds.y1 - camera->viewport_bounds.y0);
+	real tangent_y = half * viewport_height / (real)(camera->window_bounds.y1 - camera->window_bounds.y0);
+	real tangent_x = tangent_y * viewport_width / viewport_height;
+	real across, up;
+	struct panini_projection projection;
 
 	right.i = camera->forward.j * camera->up.k - camera->forward.k * camera->up.j;
 	right.j = camera->forward.k * camera->up.i - camera->forward.i * camera->up.k;
@@ -115,10 +134,12 @@ static boolean project(struct render_camera const *camera, real_point3d const *p
 	depth = to.i * camera->forward.i + to.j * camera->forward.j + to.k * camera->forward.k;
 	if (!(depth > 0.0f))
 		return FALSE;
-	screen->x = camera->window_bounds.x0 + width * 0.5f +
-		(to.i * right.i + to.j * right.j + to.k * right.k) / (depth * half * width / height) * width * 0.5f;
-	screen->y = camera->window_bounds.y0 + height * 0.5f -
-		(to.i * camera->up.i + to.j * camera->up.j + to.k * camera->up.k) / (depth * half) * height * 0.5f;
+	across = (to.i * right.i + to.j * right.j + to.k * right.k) / depth;
+	up = (to.i * camera->up.i + to.j * camera->up.j + to.k * camera->up.k) / depth;
+	if (panini_projection_of_view(tangent_x, tangent_y, &projection))
+		panini_projection_forward(&projection, across, up, &across, &up);
+	screen->x = (camera->window_bounds.x0 + camera->window_bounds.x1) * 0.5f + across / tangent_x * viewport_width * 0.5f;
+	screen->y = (camera->window_bounds.y0 + camera->window_bounds.y1) * 0.5f - up / tangent_y * viewport_height * 0.5f;
 	return TRUE;
 }
 
@@ -444,6 +465,45 @@ int main(int argc, char **argv)
 		settings(0, 20.0);
 		view = frame(aim, UNZOOMED);
 		CHECK(!memcmp(&view, &aim, sizeof(view)), "turned once off");
+	}
+	CASE("panini")
+	{
+		/* drawn through display.panini, at full strength and with some of
+		its vertical compression, and at half: the reticle the same fraction
+		of the screen below the middle, the HUD's offset there too, the view
+		turned less than drawn as it is (the middle magnified) */
+		static real const strengths[][2] = { { 1.f, 0.f }, { 1.f, 0.4f }, { 0.5f, 1.f } };
+		short window, k;
+
+		settings(1, 12.0);
+		for (window = 0; window < 2; window++)
+		for (k = 0; k < 3; k++)
+		for (a = 0; a < (short)(sizeof(angles) / sizeof(angles[0])); a++)
+		{
+			real rectilinear;
+
+			inset_x = window ? 144 : 0;
+			inset_y = window ? 81 : 0;
+			aim = camera_aimed(0.3f, 0.2f, angles[a]);
+			fake_panini_d = 0.f;
+			frame(aim, UNZOOMED);
+			rectilinear = lowered_reticle_lift(0);
+			fake_panini_d = strengths[k][0];
+			fake_panini_s = strengths[k][1];
+			view = frame(aim, UNZOOMED);
+			CHECK(lowered_reticle_lift(0) < rectilinear, "angle %f: turned %f, %f drawn as it is", angles[a],
+				lowered_reticle_lift(0), rectilinear);
+			offset = aim_on_screen(&aim, &view);
+			CHECK(NEAR(offset.x, 0.f, 0.05f) && NEAR(offset.y, 0.12f * HEIGHT, 0.1f),
+				"angle %f strength %f: the aim at %f %f", angles[a], strengths[k][0], offset.x, offset.y);
+			{
+				real_point2d hud;
+
+				CHECK(lowered_reticle_screen_offset(0, &view, &render.frustum, &hud), "no offset");
+				CHECK(NEAR(hud.x, offset.x, 0.05f) && NEAR(hud.y, offset.y, 0.05f), "the HUD at %f %f", hud.x, hud.y);
+			}
+		}
+		fake_panini_d = 0.f;
 	}
 	return 0;
 }
