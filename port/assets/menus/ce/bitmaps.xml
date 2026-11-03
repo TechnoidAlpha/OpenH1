@@ -823,7 +823,7 @@
 		<frame png="ce/port/main_menu/campaign/badge_box__0.png" width="122" height="122"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/beaten">
-		<frame png="ce/port/main_menu/campaign/beaten__0.png" width="62" height="14"/>
+		<frame png="ce/port/main_menu/campaign/beaten__0.png" width="68" height="14"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/badge_shape_36">
 		<frame png="ce/port/main_menu/campaign/badge_shape_36__0.png" width="36" height="36"/>

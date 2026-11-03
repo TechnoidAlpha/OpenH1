@@ -568,7 +568,7 @@
 	</widget>
 	<widget name="main_menu/campaign/difficulty_blurb" type="text" controller="1" left="10" top="166" width="124" height="126" font="ui\small_ui" color="#FF2896FF" wide="0 53" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/difficulty_beaten" type="text" controller="1" left="38" top="113" width="62" wide="26 0" height="14" bitmap="main_menu/campaign/beaten" text="BEATEN" text_y="-2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/difficulty_beaten" type="text" controller="1" left="35" top="113" width="68" wide="26 0" height="14" bitmap="main_menu/campaign/beaten" text="BEATEN" text_y="-2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<bitmap name="main_menu/campaign/difficulty_badges">
 		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="0" width="114" height="114" x="6" y="1"/>

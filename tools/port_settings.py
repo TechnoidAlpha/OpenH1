@@ -5736,7 +5736,7 @@ DIFFICULTY_BADGE_BOX, DIFFICULTY_BADGE = 122, 100
 # (the big badges' texels across a badge: its shield and swords with a little
 # room round them), and BEATEN's mark under the badge, in its box
 DIFFICULTY_BADGE_SPAN = 224
-DIFFICULTY_BEATEN = (62, 14)
+DIFFICULTY_BEATEN = (68, 14)
 DIFFICULTY_BLURBS = ["Fewer, weaker enemies.\\nFor learning the ropes.",
                      "The challenge as\\nintended for most\\nplayers.",
                      "Smarter, tougher\\nenemies who punish\\nmistakes.",
