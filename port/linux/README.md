@@ -1219,7 +1219,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.update_key` | `""` | `HALO_UPDATE_KEY` | A test's release key (its Ed25519 public key, 64 hex digits), trusted beside OpenH1's to sign the `SHA256SUMS` of `debug.update_url`'s releases, and only while `debug.update_url` is set: never for GitHub's (`tools/test_dedicated_server.py`). Empty: OpenH1's key alone. |
 | `debug.update_time_scale` | `1.0` | `HALO_UPDATE_TIME_SCALE` | How much faster than real time a dedicated server's `server.auto_update` counts its minutes (between checks, empty, of a game), for tests. |
 | `debug.load_trace` | `false` | `HALO_LOAD_TRACE` | Log map loading checkpoints, and start-up's from the host's `main` (`host.main`, `host.guest_main`), with absolute monotonic wall, thread and process CPU seconds. Subtract timestamps to measure phases; process CPU includes worker threads. Set `HALO_LOAD_TRACE_DETAIL=1` to add sampled preparation CPU timings and detailed renderer traces; measure final loading times without these extra diagnostics. |
-| `debug.fixed_step` | `false` | `HALO_FIXED_STEP` | `true`: a game of this computer alone runs one step a frame (a tick at `game.sim_rate` 30, a sub-step at 60 and 120), whatever time has passed, so that it plays the same every time (tests). |
+| `debug.fixed_step` | `false` | `HALO_FIXED_STEP` | `true`: a game of this computer alone runs one step a frame (a tick at `game.sim_rate` 30, a sub-step at 60 and 120), whatever time has passed, so that it plays the same every time (tests); the sound is timed by the frames too, mixed with no device. |
 | `debug.exit_after` | `0.0` | `HALO_EXIT_AFTER` | The game stops after this number of seconds (from when its window opens; with `debug.null_renderer`, or no display, from its first frame; a dedicated server stops as `quit` stops it). `0`: never. |
 | `debug.screenshot_directory`, `debug.screenshot_every` | `""`, `0` | `HALO_SCREENSHOT_DIR`, `HALO_SCREENSHOT_EVERY` | The game writes each Nth frame to this folder as a BMP file. |
 | `debug.screenshot_stream` | `""` | `HALO_SCREENSHOT_STREAM` | With `debug.screenshot_every`, a file each frame's pixels are appended to instead of the folder's BMP files: BGRA, the top row first, no header (a named pipe an encoder reads, `ffmpeg -f rawvideo -pix_fmt bgra -s <width>x<height>`), so that a long run's frames never reach the disk. |
@@ -1261,7 +1261,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.determinism_log` | `""` | `HALO_DETERMINISM_LOG` | A file to write a line a tick to: a hash of the game state as the tick left it, the random seeds, and every taker of a seed since the line before by its call site (in the tick, in the frames, on other threads). Two runs of the same input compared with `tools/determinism_compare.py` first differ where something besides the input reached the game. |
 | `debug.determinism_dump` | `0` | `HALO_DETERMINISM_DUMP` | With `debug.determinism_log`, the tick after which to write the game state too, counted as logged from 1 (its allocations in order, to `<log>.<count>.bin`), to find where two runs' game states differ (`tools/determinism_compare.py --dump`), and that tick's first frame as `<log>.<count>.bmp`; `0` none. |
 | `debug.trace`, `debug.trace_seconds`, `debug.trace_mutation` | `""`, `0.0`, `""` | `HALO_TRACE`, `HALO_TRACE_SECONDS`, `HALO_TRACE_MUTATION` | A file to write a line a simulation step to (`game/sim_trace.c`): the players' place, velocity and aim, each projectile's, and the step's shots, projectiles made, strikes and detonations, timed in seconds from the scenario's start; quit once the scenario has run `debug.trace_seconds`; `debug.trace_mutation` puts a known bug in on purpose (`head_start`, `jump`, `speed`), which the scorecard must catch (`tools/scorecard`). Off, it costs a test a call. `HALO_GUEST_IMAGE` (the environment only) runs another guest image in the game's place: StageKit's map writer (`tools/stagekit`). |
-| `debug.frame_time` | `0.0` | `HALO_FRAME_TIME` | Seconds of game time each frame runs, whatever time it took, so that two runs of the same input run the same frames (the determinism check, with `debug.determinism_log`); `0` the time each frame took. |
+| `debug.frame_time` | `0.0` | `HALO_FRAME_TIME` | Seconds of game time each frame runs, whatever time it took, so that two runs of the same input run the same frames (the determinism check, with `debug.determinism_log`); the sound is timed by the frames too, mixed with no device; `0` the time each frame took. |
 | `debug.bots_tactics_team` | `-1` | `HALO_BOTS_TACTICS_TEAM` | With `bots.tactics`, only this team's bots (`0` red, `1` blue) play together, the other team's each on its own, to measure what the team play is worth (the bots' minute line gives each team's kills); `-1` both teams'. |
 | `debug.random_seed` | `0` | `HALO_RANDOM_SEED` | The random seed of the network games this machine hosts, so that a test plays the same game again (where players spawn, the weapons' spread, the AI's choices); `0` a new one for each game, from the clock. |
 | `debug.audio_log` | `false` | `HALO_AUDIO_LOG` | Write to the log, five times a second, each sound placed in the world that plays: where it is from the listener (metres ahead, right and up), its gain in each ear (through the HRTF, its delays and filters too), the time the mixing takes, how long the sound device waited for its frames of the time it had queued, and its dropouts ("Sound delay"). |
@@ -6252,8 +6252,24 @@ contrails, which a tick adds points to, still part by the frame rate.)
   tick.
 - What the ticks keep. Not the sound manager's indices, which are the
   mixer's (a unit's speech, the first-person weapon's sound); a decal is
-  made whether or not the texture cache has its bitmap yet.
+  made whether or not the texture cache has its bitmap yet. What the game
+  fills on the stack and copies whole into the game state (a unit's speech
+  item and its AI packet, a particle's data) is zeroed first, its padding
+  too, or the bytes it leaves are whatever the stack held, which any change
+  to the code moves.
+- The sound's clock. The sound manager times its sounds by the clock, and
+  what it decides by it reaches the game state: the HUD's sounds' handles,
+  the sound classes' fades, the looping sounds' states and the slots they
+  free, which an object's next looping sound takes. With the frames' time
+  fixed (`debug.frame_time`, `debug.fixed_step`) it is the frames' time
+  instead, the mix keeps step with the frames with no device, and a sound's
+  read is waited for (`game/frames_clock.c`), so that two runs of the same
+  input hear the same.
 - A new network game's seed is the clock's (`debug.random_seed` fixes it).
+  A network test's lobby (`debug.network_test`) runs by the network's clock
+  (its messages, its joins, the start), so it is not as many ticks each
+  time; its frames and sounds leave the frames' allocations and the HUD's
+  sounds' handles as they were, after a lobby of another length.
 
 The determinism check is `debug.determinism_log`: a line a tick in a file
 of its own, with a hash of the game state as the tick left it (of each of
@@ -6288,7 +6304,8 @@ second is the same game. Left out of the hash, as they mean nothing
 between their uses: the objects' magic numbers (the collision tests'
 marks, which the frames' tests leave too) and their cached render states'
 indices (the renderer's), and the free space after the objects' last
-block.
+block. `--game` compares each log from its last game's start, where the
+tick count began again at 1: a network test's game after its lobby (above).
 
 ### Simulation rate
 
