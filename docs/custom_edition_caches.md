@@ -19,7 +19,10 @@ Custom Edition maps run when the `game.custom_edition` setting is on, as it
 is by default (`custom_edition = true` under `[game]` in `config.toml`, or
 `HALO_CUSTOM_EDITION`). Put the maps and Custom Edition's `bitmaps.map`,
 `sounds.map` and `loc.map` in the data root's `custom_maps` folder, beside
-its `maps` folder, which holds the game's own maps only; or set
+its `maps` folder, which holds the game's own maps only (the first start,
+or `halo --import-maps <installer>`, writes Custom Edition's own there from
+its installer: "Custom Edition's maps from its installer" in
+`port/linux/README.md`); or set
 `paths.custom_edition` to a Halo Custom Edition install, whose `maps` folder
 (the Xbox drive `h:\`) is looked in after `custom_maps`.
 

@@ -249,7 +249,7 @@ do nothing yet.
 ### `<data>`, `<conditional>`, `<replace>`
 
 `<data input="..."/>`: a game data function, which fills in the widget every
-frame (`build number textbox only`). `<conditional widget="..."
+frame (`get edit plyr profile name`). `<conditional widget="..."
 if_failed="true"/>`: a widget for a `branch` handler. `<replace search="..."
 function="controller"/>`: text replaced in the widget's (the controller's
 number).

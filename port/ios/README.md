@@ -158,7 +158,8 @@ before the game starts) asks for one of:
 
 - **the disc image** (`.iso` or `.xiso`), chosen with the system's document
   picker (On My iPhone, iCloud Drive, a USB drive, another app's storage)
-  and read where it lies: its `maps` folder is extracted into Documents by
+  and read where it lies: its `maps` folder (and its movies' folder, `bink`,
+  when it has one) is extracted into Documents by
   the desktop builds' extractor (`port/linux/src/xiso.c`, built into the
   host beside the renderer's shared parts), with a progress bar;
 - **a maps folder**, chosen the same way, whose files are copied;

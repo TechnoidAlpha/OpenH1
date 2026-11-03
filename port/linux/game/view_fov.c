@@ -47,9 +47,11 @@ char const *config_string(char const *name);
 static real reticle_scales[MAXIMUM_LOCAL_PLAYERS];
 static real authored_vertical[MAXIMUM_LOCAL_PLAYERS];
 
-/* the view's vertical angle for display.fov: the game's own in a vehicle,
-dead, in a cinematic, a scripted camera or a view the director holds, and
-at a scope's full zoom; between, the zoom's own transition */
+/* the view's vertical angle for display.fov: the game's own dead, in a
+cinematic, a scripted camera or a view the director holds, and at a scope's
+full zoom; between, the zoom's own transition. A vehicle's seat, first or
+third person, and its entering and exiting are widened as on foot, so the
+view and its reticle keep one size across them */
 static real render_fov_adjust(short local_player_index, real native_vertical_field_of_view)
 {
 	static boolean initialized;
@@ -58,6 +60,7 @@ static real render_fov_adjust(short local_player_index, real native_vertical_fie
 	unsigned long changes = config_changes();
 	long unit_index, weapon_index;
 	struct unit_datum *unit;
+	director_perspective perspective;
 	real unzoomed_angle, unzoomed_tangent, native_tangent, adjusted_tangent;
 
 	if (!initialized || read_at != changes)
@@ -70,8 +73,15 @@ static real render_fov_adjust(short local_player_index, real native_vertical_fie
 			(real)(tan(degrees * _pi / 360.0) * (9.0 / 16.0)) : 0.0f;
 	}
 	if (!requested_tangent || local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
-		cinematic_in_progress() || (director_camera_scripted && *director_camera_scripted) ||
-		director_get_perspective(local_player_index) != _director_perspective_first_person ||
+		cinematic_in_progress() || (director_camera_scripted && *director_camera_scripted))
+	{
+		return native_vertical_field_of_view;
+	}
+	/* (the third person is a vehicle's seat, its entering and exiting, and
+	the moment after the director leaves it) */
+	perspective = director_get_perspective(local_player_index);
+	if ((perspective != _director_perspective_first_person &&
+		perspective != _director_perspective_third_person) ||
 		director_inhibited_facing(local_player_index))
 	{
 		return native_vertical_field_of_view;
@@ -80,7 +90,7 @@ static real render_fov_adjust(short local_player_index, real native_vertical_fie
 	if (unit_index == NONE)
 		return native_vertical_field_of_view;
 	unit = unit_try_and_get(unit_index);
-	if (!unit || unit->object.parent_object_index != NONE || TEST_FLAG(unit->object.damage_flags, _object_dead_bit))
+	if (!unit || TEST_FLAG(unit->object.damage_flags, _object_dead_bit))
 		return native_vertical_field_of_view;
 
 	unzoomed_angle = unit_definition_get(unit->definition_index)->unit.camera_field_of_view;

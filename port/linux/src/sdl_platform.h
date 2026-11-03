@@ -82,6 +82,14 @@ display's modes the game can draw at, largest first, each once, but the
 display's own (Native), and display.resolution's where it is none of them;
 how many. None on Android. */
 int platform_display_resolutions(long *widths, long *heights, int maximum);
+/* whether fullscreen can set the display's refresh rate (display.refresh_rate):
+Windows, and an X server's own display; not Wayland, XWayland, gamescope,
+macOS, iOS or Android */
+int platform_refresh_rates_settable(void);
+/* Video Setup's refresh rates: those of the display's modes, whole, highest
+first, each once, and display.refresh_rate's where it is none of them; how
+many. None where they cannot be set (platform_refresh_rates_settable). */
+int platform_display_refresh_rates(long *rates, int maximum);
 /* Video Setup's window sizes: those of each shape (4:3, 16:10, 16:9, 21:9)
 that fit the desktop, and display.window_size's; how many. None on
 Android. */

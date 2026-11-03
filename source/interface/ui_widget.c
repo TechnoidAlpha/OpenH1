@@ -1412,6 +1412,8 @@ boolean hud_key_prompt_draw_key(
 	rectangle2d *bounds,
 	rectangle2d *cursor,
 	pixel32 color);
+short hud_key_prompt_cap_widening(
+	short name_width);
 int halo_keyboard_prompts(
 	void);
 static boolean ui_widget_port_key_label_text(
@@ -1419,6 +1421,15 @@ static boolean ui_widget_port_key_label_text(
 	boolean named,
 	wchar_t *keyed,
 	long length);
+static boolean ui_widget_port_key_legend_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length);
+static short ui_widget_port_key_legend_shift(
+	struct widget_instance *label);
+static short ui_widget_port_key_label_widening(
+	struct widget_instance *label);
 static boolean ui_widget_port_key_icon_hidden(
 	struct widget_instance *widget);
 static void widget_instance_initialize(
@@ -4348,9 +4359,9 @@ X as E (the delete of Load Game, Profiles and the gametypes), or in a server
 browser as Tab (its sort: halo_keyboard_browser_keys_active), Y as F (their
 favorite), LB and RB (the white and black buttons, Settings' and the
 browsers' tabs) as Q and E, the right trigger (Multiplayer's and the
-browsers' refresh) as R, back as F1;
-NULL for the others (the D-pad, which the arrow keys press, Start, the left
-trigger and the sticks), drawn as the controller's */
+browsers' refresh) as R, the left trigger (the browsers' Filters) as L, back
+as F1; NULL for the others (the D-pad, which the arrow keys press, Start and
+the sticks), drawn as the controller's */
 static char const *ui_widget_port_menu_key(
 	short icon_type)
 {
@@ -4366,6 +4377,8 @@ static char const *ui_widget_port_menu_key(
 		return "E";
 	case _icon_right_trigger:
 		return "R";
+	case _icon_left_trigger:
+		return "L";
 	case _icon_y_button:
 		return "F";
 	case _icon_white_button:
@@ -5817,15 +5830,34 @@ static void widget_instance_render_text_box(
 			ui_widget_port_key_label_text(widget, TRUE, named, NUMBEROF(named)))
 		{
 			rectangle2d text_bounds, cursor_bounds;
-			short end;
+			short end, widening;
 
+			widening = ui_widget_port_key_label_widening(widget);
+			draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
 			draw_string_set_indents(0, 0);
 			draw_unicode_string_compute_bounds(&bounds, *text, &text_bounds, &cursor_bounds);
 			end = text_bounds.x1;
 			draw_unicode_string_compute_bounds(&bounds, named, &text_bounds, &cursor_bounds);
-			/* (and the cap's edges about the name) */
-			if (end != SHORT_MIN && text_bounds.x1 > end - 6)
-				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + 6 - end));
+			/* (and the cap's edges about the name, a narrow name's cap
+			widened) */
+			if (end != SHORT_MIN && text_bounds.x1 + widening > end - 6)
+				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + widening + 6 - end));
+		}
+		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
+	}
+	/* port: the key of a button pictured just left of the words (the
+	legends' "(B) =CANCEL", ui_widget_port_key_legend_text) drawn before
+	them, the row of keys and words laid out as wide as they are
+	(ui_widget_port_key_legend_shift), not clipped by the words' box */
+	else if (ui_widget_port_key_legend_text(widget, FALSE, keyed, NUMBEROF(keyed)))
+	{
+		if (justification == _text_justification_left)
+		{
+			short shift = ui_widget_port_key_legend_shift(widget);
+
+			draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
+			bounds.x0 = (short)(bounds.x0 + shift);
+			bounds.x1 = (short)(bounds.x1 + 640);
 		}
 		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
 	}
@@ -6504,7 +6536,182 @@ static boolean ui_widget_port_key_label_text(
 	return TRUE;
 }
 
-/* whether the picture is left out, its key drawn in its words */
+/* a widget's left in its parent, as widget_instance_render_recursive
+places it */
+static short ui_widget_port_left_in_parent(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+
+	return (short)(definition->bounds.x0 + widget->horizontal_offset +
+		ui_widget_port_anchor_offset(definition->flags) +
+		ui_widget_port_wide_offset(widget->definition_tag_index));
+}
+
+/* the words a picture of a button stands just left of, in its row: the
+Xbox's legends of a picture and its words each ("(B) =CANCEL (A) =SELECT",
+ui\shell\main_menu\button_key_sm, under the campaign's pause menu), a text
+box among the picture's siblings; else NULL */
+static struct widget_instance *ui_widget_port_key_icon_legend(
+	struct widget_instance *icon)
+{
+	struct ui_widget_definition *icon_definition = ui_widget_definition_get(icon->definition_tag_index);
+	struct widget_instance *sibling;
+	short right = (short)(ui_widget_port_left_in_parent(icon) +
+		icon_definition->bounds.x1 - icon_definition->bounds.x0);
+	short top = (short)(icon_definition->bounds.y0 + icon->vertical_offset);
+	short bottom = (short)(icon_definition->bounds.y1 + icon->vertical_offset);
+
+	for (sibling = icon->parent ? icon->parent->child : NULL; sibling; sibling = sibling->next)
+	{
+		struct ui_widget_definition *definition;
+		short left;
+
+		if (sibling->type != _ui_widget_type_text_box)
+			continue;
+		definition = ui_widget_definition_get(sibling->definition_tag_index);
+		left = ui_widget_port_left_in_parent(sibling);
+		if (left >= right - 2 && left <= right + 8 &&
+			definition->bounds.y0 + sibling->vertical_offset < bottom &&
+			definition->bounds.y1 + sibling->vertical_offset > top)
+		{
+			return sibling;
+		}
+	}
+
+	return NULL;
+}
+
+/* the words of a legend with the key of the button pictured left of them
+before them, as its icon ("%b-button=CANCEL", which
+draw_string_and_hack_in_icons draws as the menus' key), or (named) as the
+key's name; FALSE where they are drawn as they are */
+static boolean ui_widget_port_key_legend_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length)
+{
+	wchar_t const *text = label->parameters.text_box.text;
+	struct widget_instance *icon;
+	wchar_t const *parts[3];
+	wchar_t name[16];
+	long used = 0;
+	long part;
+
+	for (icon = label->parent ? label->parent->child : NULL; icon; icon = icon->next)
+	{
+		if (ui_widget_port_key_icon_key(icon) && ui_widget_port_key_icon_legend(icon) == label)
+			break;
+	}
+	if (!icon || !text)
+		return FALSE;
+	name[0] = 0;
+	if (named)
+		ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+	parts[0] = named ? L"" : L"%";
+	parts[1] = named ? name : icon_names[ui_mouse_key_button(icon)];
+	parts[2] = text;
+	for (part = 0; part < NUMBEROF(parts); part++)
+	{
+		wchar_t const *letter;
+
+		for (letter = parts[part]; *letter && used < length - 1; letter++)
+			keyed[used++] = *letter;
+	}
+	keyed[used] = 0;
+
+	return TRUE;
+}
+
+/* the width of words in a text box's font, as one line from 0; 0 for none */
+static short ui_widget_port_text_width(
+	struct widget_instance *label,
+	wchar_t const *text)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(label->definition_tag_index);
+	real_argb_color color = definition->text_color;
+	rectangle2d bounds, text_bounds, cursor_bounds;
+
+	if (!text || !*text || definition->text_font.index == NONE)
+		return 0;
+	bounds.x0 = 0;
+	bounds.y0 = 0;
+	bounds.x1 = SHORT_MAX;
+	bounds.y1 = SHORT_MAX;
+	draw_string_set_draw_mode(definition->text_font.index, NONE, _text_justification_left, 0, &color);
+	draw_string_set_indents(0, 0);
+	draw_unicode_string_compute_bounds(&bounds, text, &text_bounds, &cursor_bounds);
+
+	return text_bounds.x1 == SHORT_MIN ? 0 : text_bounds.x1;
+}
+
+/* how much wider a narrow key's cap is drawn than its name and edges
+(hud_key_prompts.c's key_cap_draw), for the key pictured in a label's gap
+(ui_widget_port_key_label_text). Leaves the draw mode the measuring's: the
+caller sets its own again */
+static short ui_widget_port_key_label_widening(
+	struct widget_instance *label)
+{
+	struct widget_instance *icon = label->parent ? ui_widget_port_label_key_icon(label->parent, label, 0) : NULL;
+	wchar_t name[16];
+
+	if (!icon || !ui_widget_port_key_icon_key(icon))
+		return 0;
+	ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+
+	return hud_key_prompt_cap_widening(ui_widget_port_text_width(label, name));
+}
+
+/* how far right of its words' box a legend's key is drawn: the legends of
+the label's parent drawn in turn as each key's cap and its words, the gaps
+between them as they were, the row centred on the pictures' and words'.
+Leaves the draw mode the measuring's: the caller sets its own again */
+static short ui_widget_port_key_legend_shift(
+	struct widget_instance *label)
+{
+	struct widget_instance *icon;
+	wchar_t name[256];
+	short old_left = SHORT_MAX, old_right = SHORT_MIN;
+	short x = 0, start, label_x = 0;
+	short previous_end = SHORT_MIN;
+
+	for (icon = label->parent ? label->parent->child : NULL; icon; icon = icon->next)
+	{
+		struct widget_instance *words;
+		short icon_left, words_left, words_width, name_width;
+
+		if (!ui_widget_port_key_icon_key(icon))
+			continue;
+		words = ui_widget_port_key_icon_legend(icon);
+		if (!words || !ui_widget_port_key_legend_text(words, TRUE, name, NUMBEROF(name)))
+			continue;
+		icon_left = ui_widget_port_left_in_parent(icon);
+		words_left = ui_widget_port_left_in_parent(words);
+		words_width = ui_widget_port_text_width(words, words->parameters.text_box.text);
+		/* (the gap from the words before, as it was) */
+		if (previous_end != SHORT_MIN)
+			x = (short)(x + MAX(icon_left - previous_end, 4));
+		if (words == label)
+			label_x = x;
+		/* (the key's name and the words, and the cap's edges about the
+		name, a narrow name's cap widened: hud_key_prompts.c's
+		key_cap_draw) */
+		name_width = ui_widget_port_text_width(words, name);
+		x = (short)(x + name_width + 4 + hud_key_prompt_cap_widening(name_width));
+		previous_end = (short)(words_left + words_width);
+		old_left = MIN(old_left, icon_left);
+		old_right = MAX(old_right, previous_end);
+	}
+	if (old_left == SHORT_MAX)
+		return 0;
+	start = (short)(old_left - (x - (old_right - old_left)) / 2);
+
+	return (short)(start + label_x - ui_widget_port_left_in_parent(label));
+}
+
+/* whether the picture is left out, its key drawn in its words (in their
+gap, or before them in a legend) */
 static boolean ui_widget_port_key_icon_hidden(
 	struct widget_instance *widget)
 {
@@ -6514,8 +6721,10 @@ static boolean ui_widget_port_key_icon_hidden(
 	if (!ui_widget_port_key_icon_key(widget))
 		return FALSE;
 	label = ui_widget_port_key_icon_label(widget);
+	if (label && ui_widget_port_key_gap(label->parameters.text_box.text, &gap_length) != NONE)
+		return TRUE;
 
-	return label && ui_widget_port_key_gap(label->parameters.text_box.text, &gap_length) != NONE;
+	return ui_widget_port_key_icon_legend(widget) != NULL;
 }
 
 /* whether the d-pad moves the focus to a widget: an item of a column list,
@@ -7415,6 +7624,42 @@ boolean ui_widget_port_take_click(
 	return TRUE;
 }
 
+/* port: the latest place the pointer chose an item at without pressing it
+(passed over it, or a click that only chose it), once, if it was at most a
+quarter of a second ago, for a row of several choices (menu_functions.c's
+Controls Setup: the binding under the pointer is the one chosen) */
+static short ui_widget_port_point_x, ui_widget_port_point_y;
+static unsigned long ui_widget_port_point_time;
+static boolean ui_widget_port_point_taken = TRUE;
+
+static void ui_widget_port_note_point(
+	short x,
+	short y)
+{
+	ui_widget_port_point_x = x;
+	ui_widget_port_point_y = y;
+	ui_widget_port_point_time = widget_globals.current_system_milliseconds;
+	ui_widget_port_point_taken = FALSE;
+
+	return;
+}
+
+boolean ui_widget_port_take_point(
+	short *x,
+	short *y)
+{
+	if (ui_widget_port_point_taken ||
+		widget_globals.current_system_milliseconds - ui_widget_port_point_time > 250)
+	{
+		return FALSE;
+	}
+	ui_widget_port_point_taken = TRUE;
+	*x = ui_widget_port_point_x;
+	*y = ui_widget_port_point_y;
+
+	return TRUE;
+}
+
 /* logs a tap while the virtual keyboard is up: the key or legend that took it */
 static void ui_debug_log_keyboard_tap(
 	short x,
@@ -7595,6 +7840,9 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 						/* port: (ui_mouse_hovered_last) */
 						ui_mouse_hovered_last = TRUE;
+						/* port: (ui_widget_port_take_point) */
+						if (target->kind == _ui_mouse_target_item)
+							ui_widget_port_note_point(ui_mouse_hover_x, ui_mouse_hover_y);
 					}
 					break;
 				case _ui_mouse_target_list_slot:
@@ -7630,10 +7878,11 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 						break;
 					}
-					/* port: (ui_mouse_tap_chooses_first) */
+					/* port: (ui_mouse_tap_chooses_first; ui_widget_port_take_point) */
 					if (ui_mouse_tap_chooses_first(target->widget))
 					{
 						ui_mouse_give_focus(target->widget);
+						ui_widget_port_note_point(ui_mouse_click_x, ui_mouse_click_y);
 						break;
 					}
 					ui_mouse_give_focus(target->widget);

@@ -154,11 +154,31 @@ so players of the two versions can play together.
    file picker (a disc image next to `halo.exe` is used without one). The
    macOS app's open panel takes the disc image or the maps folder copied
    from the disc.
-3. The game extracts the `maps/` folder. Then the game starts.
+3. The game extracts the `maps/` folder, and the disc's movies (its `bink/`
+   folder, for the startup movies, `display.movies`) when the image has
+   them. Then the game starts.
+
+A game whose maps came from elsewhere, or from a version before the movies
+were extracted, copies them when Startup Movies (Settings > Video) is
+turned on, if the disc image the maps came from is still where it was.
+Otherwise put the disc's `bink/` folder (`intro.bik` and the rest) beside
+`maps/`.
 
 The `maps/` folder holds the Xbox maps only. If it holds Halo PC's maps
 instead (a Halo PC or Custom Edition install's `maps` folder), the game says
 so and stops: Custom Edition maps go in `custom_maps/`, beside `maps/`.
+
+The Halo PC multiplayer maps (Gearbox's among them) come from your own copy
+of Custom Edition's installer (`halocesetup_en_1.00.exe`): the first start
+offers to add them to `custom_maps/` on Linux, macOS and Windows, and a game
+that already has its maps adds them with `openh1 --import-maps
+<installer>` (`halo.exe` on Windows). They show in the map lists' CUSTOM
+MULTIPLAYER. The game reads the installer without running it, with
+ChupathingyCE's reader (their pull request
+[#313](https://github.com/ChupathingyCE/chupathingyce/pull/313), by
+Milenko). Halo PC's own CD has the same maps in a form OpenH1 does not play.
+Refer to "Custom Edition's maps from its installer" in
+[port/linux/README.md](port/linux/README.md).
 
 On Linux, the game puts `maps/` in the folder of the release (next to
 `bin/`). On Windows, the game puts `maps/` next to the executable. On
@@ -401,8 +421,8 @@ it calculates the game, needs `HALO_PORT_NETWORK_VERSION` and a
 players can still play together.
 
 Report problems on the [issue tracker](https://github.com/OpenH1/OpenH1/issues),
-with the build number (the main menu shows it) and `debug.txt`. For help,
-or to talk about a change before you make it, ask on the
+with the build number (Settings, Profile, About shows it) and `debug.txt`.
+For help, or to talk about a change before you make it, ask on the
 [Discord](https://discord.gg/MJa327PSWt): #help, and #dev-general.
 
 ## Licence

@@ -63,12 +63,22 @@ def test_menu_sliders_match_their_rows():
     functions = (ROOT / "port/linux/game/menu_functions.c").read_text()
     table = functions[functions.index("} const settings_sliders[] ="):]
     table = table[:table.index("};")]
-    rows = {(f"op_{row[1].split('.', 1)[1]}", row[1], row[2])
+    # (a slider's stops as their words, or numbers, and values)
+    def stops_of(choices):
+        return tuple((shown, float(value)) for shown, value in choices)
+
+    rows = {(f"op_{row[1].split('.', 1)[1]}", row[1], row[2]._replace(stops=stops_of(row[2].stops)))
             for page in port_settings.PAGES.values() for row in page["rows"]
             if row[0] != port_settings.SECTION and isinstance(row[2], port_settings.Slider)}
     assert rows
-    found = {(row, setting, port_settings.Slider(*map(float, numbers.split(", "))))
-             for row, setting, numbers in re.findall(r'\{ "(\w+)", "([\w.]+)", ([\d., ]+) \}', table)}
+    stops = {name: tuple((word or f"{float(value):g}", float(value))
+                         for value, word in re.findall(r'\{ (-?[\d.]+), (?:"(\w+)"|NULL) \}', body))
+             for name, body in re.findall(r"settings_slider_stop const (\w+)\[\] =\n\{\n(.*?)\n\};", functions, re.S)}
+    found = set()
+    for row, setting, numbers, whole, stops_name in re.findall(
+            r'\{ "(\w+)", "([\w.]+)", ([\d., ]+?), (TRUE|FALSE),\s+(?:NULL, 0|SLIDER_STOPS\((\w+)\)) \}', table):
+        found.add((row, setting, port_settings.Slider(*map(float, numbers.split(", ")), whole=whole == "TRUE",
+                                                      stops=stops[stops_name] if stops_name else ())))
     assert found == rows
     for name in ("SLIDER_TRACK_WIDTH", "SLIDER_THUMB_WIDTH"):
         assert re.search(rf"#define {name} {getattr(port_settings, name)}\b", functions), name

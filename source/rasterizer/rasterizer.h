@@ -771,6 +771,10 @@ boolean rasterizer_memory_pool_initialize(void);
 void rasterizer_memory_pool_begin(void);
 void *rasterizer_memory_alloc(const void *src, unsigned long size);
 const void *rasterizer_memory_alloc_const(const void *src, unsigned long size);
+/* port: (memory kept for the window, and the queue's released) */
+const void *rasterizer_memory_alloc_const_for_window(const void *src, unsigned long size);
+boolean rasterizer_memory_pool_half_spent(void);
+void rasterizer_memory_pool_release_queued(void);
 void rasterizer_memory_pool_end(void);
 void rasterizer_memory_pool_dispose(void);
 

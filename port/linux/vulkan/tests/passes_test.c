@@ -25,7 +25,8 @@ started again, the resolves made in the pass, the transient multisampled
 images, and what is done where the device lacks a part. And the passes put
 aside before the pass they interrupt, whose pieces are one rendering, what
 keeps the order drawn, and the buffers renamed rather than written in
-order.
+order (but not the lights' block, which the draws' set names, and not the
+lights' cells' upload put aside before a draw that reads them).
 */
 
 #include "../xgpu_vulkan.c"
@@ -3121,6 +3122,21 @@ static void VKAPI_CALL aside_copy_buffer(VkCommandBuffer commands, VkBuffer sour
 	aside_buffer_copies++;
 }
 
+static unsigned int aside_cells_copies;
+
+static void VKAPI_CALL aside_copy_cells(VkCommandBuffer commands, VkBuffer source, VkImage destination,
+	VkImageLayout layout, uint32_t count, const VkBufferImageCopy *regions)
+{
+	(void)commands; (void)source; (void)destination; (void)layout; (void)regions;
+	assert(count == 1);
+	aside_cells_copies++;
+}
+
+static void VKAPI_CALL aside_bind_pipeline(VkCommandBuffer commands, VkPipelineBindPoint point, VkPipeline pipeline)
+{
+	(void)commands; (void)point; (void)pipeline;
+}
+
 static VkResult VKAPI_CALL aside_create_buffer(VkDevice device, const VkBufferCreateInfo *info,
 	const VkAllocationCallbacks *allocator, VkBuffer *buffer)
 {
@@ -3427,6 +3443,99 @@ static void aside_test(void)
 		free(vk.spares);
 		vk.spares = NULL;
 		vk.spare_count = vk.spare_capacity = 0;
+	}
+
+	/* the lights' block, bound into the draw set, which would go on
+	reading the buffer it was bound with (a set may not be written again
+	while a recording has it bound): read by a draw and written again,
+	never renamed but written in order, which ends the chain; and the
+	lights' cells, used by the draw in its pass, so that an upload into
+	them is not put aside before it */
+	aside_reset(1);
+	{
+		static struct xgpu_vulkan_buffer block;
+		static struct xgpu_vulkan_image cells;
+		static struct xgpu_vulkan_dynamic_state dynamic;
+		static unsigned char ring[4096 + 32 * 32 * 16 * 16], grid[32 * 32 * 16 * 16];
+		struct xgpu_vulkan_draw draw;
+		unsigned char data[256] = { 5 };
+		VkBuffer bound = (VkBuffer)(uintptr_t)610;
+		int stage;
+
+		vk.ring_mapped = ring;
+		/* (a rename would have its buffer) */
+		vk.memory_properties.memoryTypeCount = 1;
+		vk.memory_properties.memoryTypes[0].propertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+		vkCreateBuffer = aside_create_buffer;
+		vkGetBufferMemoryRequirements = aside_buffer_requirements;
+		vkAllocateMemory = discards_allocate_memory;
+		vkBindBufferMemory = aside_bind_buffer;
+		vkMapMemory = aside_map;
+		vkCmdCopyBuffer = aside_copy_buffer;
+		vkCmdCopyBufferToImage = aside_copy_cells;
+		vkCmdBindPipeline = aside_bind_pipeline;
+		vkCmdBindDescriptorSets = fake_bind_sets;
+		vkCmdSetViewport = fake_viewport;
+		vkCmdSetScissor = fake_scissor;
+		vkCmdSetDepthBias = fake_bias;
+		vkCmdSetBlendConstants = fake_blend;
+		vkCmdSetStencilReference = fake_stencil;
+		vkCmdSetPrimitiveTopology = fake_topology;
+		vkCmdDraw = plain_draw;
+		aside_buffers_made = aside_buffer_copies = aside_cells_copies = 0;
+		memset(&block, 0, sizeof(block));
+		block.size = sizeof(data);
+		block.buffer = bound;
+		block.mapped = aside_memory[3];
+		block.named_by_set = 1;
+		memset(&cells, 0, sizeof(cells));
+		cells.description.type = XGPU_VULKAN_IMAGE_3D;
+		cells.description.format = XGPU_VULKAN_FORMAT_RGBA32_UINT;
+		cells.description.width = cells.description.height = 32;
+		cells.description.depth_or_layers = 16;
+		cells.description.levels = 1;
+		cells.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+		vk.lights_block = &block;
+		vk.lights_cells = &cells;
+		memset(&dynamic, 0, sizeof(dynamic));
+		dynamic.viewport[2] = 64;
+		dynamic.viewport[3] = 48;
+		dynamic.depth_range[1] = 1.0f;
+		memset(&draw, 0, sizeof(draw));
+		draw.pipeline = (VkPipeline)(uintptr_t)93;
+		draw.dynamic = &dynamic;
+		draw.count = 3;
+		draw.topology = XGPU_VULKAN_TOPOLOGY_TRIANGLES;
+		draw.dynamic_lights = 1;
+		for (stage = 0; stage < 4; stage++)
+			draw.textures[stage].kind = XGPU_VULKAN_IMAGE_2D;
+		/* (the view's pass, the chain's head, lit) */
+		discards_clear(DISCARDS_ALL);
+		vk.slot->descriptor_pools = &post_pool;
+		vk.slot->descriptor_pool_count = 1;
+		xgpu_vulkan_draw(&draw);
+		assert(vk.chain_head && block.used == vk.serial && cells.used == vk.serial);
+		assert(cells.aside_read == vk.chain_number);
+		/* (the cells written again: not put aside before the draw) */
+		xgpu_vulkan_image_upload(&cells, 0, 0, 0, 0, 0, 32, 32, 16, grid, 0, 0);
+		assert(aside_cells_copies == 1 && !vk.chain_head);
+		/* (the block written again while a chain is open: in order, which
+		ends it, not renamed) */
+		vk.ring_head = 0;
+		xgpu_vulkan_set_targets(&color_target, &depth_target, 0);
+		xgpu_vulkan_draw(&draw);
+		aside_draw(&aside_target, NULL);
+		assert(vk.chain_head);
+		xgpu_vulkan_buffer_write(&block, 0, data, sizeof(data), 0);
+		assert(!vk.statistics.buffers_renamed && !aside_buffers_made && !vk.spare_count);
+		assert(block.buffer == bound && block.ordered == vk.serial);
+		assert(aside_copy_destination == bound && aside_copy_commands != DISCARDS_EARLY);
+		assert(!vk.chain_head);
+		xgpu_vulkan_fence();
+		vk.lights_block = NULL;
+		vk.lights_cells = NULL;
+		vk.slot = NULL;
 	}
 
 	/* on with discards, unless HALO_VULKAN_ASIDE=0 */

@@ -242,6 +242,11 @@ struct xgpu_vulkan_buffer
 	last whose main commands wrote into it (which an early copy would
 	come before: not renamed in it) */
 	uint64_t renamed, ordered;
+	/* a descriptor set made once names it (the draws' set: the enhanced
+	dynamic lights' block, the visibility counts): never renamed, which
+	would leave the set naming the buffer it took the place of, a spare
+	that is reused or let go of while draws still read it */
+	uint8_t named_by_set;
 };
 
 /* things let go of, freed once the GPU has passed their submission */
@@ -3045,7 +3050,7 @@ void xgpu_vulkan_buffer_write(struct xgpu_vulkan_buffer *buffer, uint32_t offset
 	if (unused)
 		commands = early_commands();
 	else if (vk.aside && vk.recording && buffer->used == vk.serial && buffer->ordered != vk.serial &&
-		buffer_rename(buffer))
+		!buffer->named_by_set && buffer_rename(buffer))
 		commands = early_commands();
 	else
 	{
@@ -4419,6 +4424,10 @@ void xgpu_vulkan_draw(const struct xgpu_vulkan_draw *draw)
 	{
 		for (index = 0; index < 4; index++)
 			image_use(draw->textures[index].image);
+		/* (and the enhanced dynamic lights' cells, which the draws' set
+		names: no upload of them put aside before this pass) */
+		if (draw->dynamic_lights)
+			image_use(vk.lights_cells);
 	}
 	commands = vk.pass_commands;
 	if (vk.bound_pipeline != draw->pipeline)
@@ -6563,6 +6572,8 @@ static int draw_set_make(void)
 	vk.lights_cells = xgpu_vulkan_image_create(&description);
 	if (!vk.lights_block || !vk.samples || !vk.lights_cells)
 		return 0;
+	/* (named by the set below, made once: xgpu_vulkan_buffer_write) */
+	vk.lights_block->named_by_set = vk.samples->named_by_set = 1;
 	memset(buffers, 0, sizeof(buffers));
 	buffers[0].buffer = vk.ring;
 	buffers[0].range = 192 * 16;

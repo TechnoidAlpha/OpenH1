@@ -276,7 +276,7 @@ public class LauncherActivity extends Activity {
                 FileChannel channel = in.getChannel();
 
                 XisoExtractor.extractMaps(channel, dataRoot, (file, done, total) ->
-                    report("Extracting maps/" + file + " (" + (done >> 20) + " of " + (total >> 20) + " MB)",
+                    report("Extracting " + file + " (" + (done >> 20) + " of " + (total >> 20) + " MB)",
                         total > 0 ? (int) (done * 1000 / total) : 0));
             }
             handler.post(() -> {

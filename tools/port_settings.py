@@ -281,17 +281,23 @@ class Slider(NamedTuple):
     from least to most, left and right step it by step (holding them steps
     on), a click on the track or the mouse dragged along it sets it, and A, or
     a click on its number, types a value (Enter keeps it) from typed_least to
-    typed_most. menu_functions.c's settings_sliders has the same"""
+    typed_most (whole: rounded to a whole number). With stops, [(shown,
+    value)], the track is the stops, evenly spaced, and left, right and a
+    click go from stop to stop; a stop shown as a word (AUTO) is that value,
+    which may be typed as the word or the number. menu_functions.c's
+    settings_sliders has the same"""
     least: float
     most: float
     step: float
     typed_least: float
     typed_most: float
+    whole: bool = False
+    stops: tuple = ()
 
 
 # a slider's track, its thumb and its number, in the value's column
-SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH, SLIDER_TRACK_HEIGHT = 92, 8, 14
-SLIDER_VALUE_X, SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT = 94, 46, 20
+SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH, SLIDER_TRACK_HEIGHT = 66, 8, 14
+SLIDER_VALUE_X, SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT = 68, 72, 20
 # input.mouse_sensitivity's: CS2's sensitivity (port/linux/include/mouse_sensitivity.h)
 MOUSE_SENSITIVITY = Slider(0.1, 10.0, 0.05, 0.01, 100.0)
 # the geometry, in the 640x480 menu units (menu_functions.c's SETTINGS_*
@@ -310,6 +316,10 @@ SETTINGS_TAB_LAID = 86
 # (the tab keys' prompts: LB's at the margin, RB's after the last tab)
 SETTINGS_TAB_PROMPT_WIDTH = 30
 SETTINGS_PANEL_X, SETTINGS_PANEL_WIDTH, SETTINGS_PANEL_BOTTOM = 388, 224, 400
+# the footer's band (bitmaps/gradient's line, at 409, over Defaults, OK and
+# Cancel): a page's rows, packed for any platform, end above it
+# (test_port_settings.py's test_settings_rows_fit). The list does not scroll
+SETTINGS_ROWS_BOTTOM = 408
 # the value's column in a row, and the arrows either side of it
 SETTINGS_SPINNER_X, SETTINGS_SPINNER_WIDTH = 188, 140
 # small_ui's measures (ui.map's tag): draw_string puts the baseline its ascent
@@ -416,7 +426,15 @@ DISPLAY_MODES = [("FULLSCREEN", "fullscreen"), ("BORDERLESS", "borderless"), ("W
 # input.left_stick_dead_zone's and right's: the game's own (-1), or a part of
 # the stick's travel
 STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) for percent in range(0, 51, 5)]
-FIELDS_OF_VIEW = [("DEFAULT", "0")] + [(str(n), str(n)) for n in range(80, 151, 5)]
+# display.fov's and display.viewmodel_fov's stops: the game's own (0), or
+# degrees; any of 20 to 150 typed
+FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
+                        stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 151, 5)))
+# display.max_fps's stops: twice the display's refresh rate (0), the
+# displays' common rates, or no limit (-1); any of 10 to 1000 typed
+FRAME_RATE_LIMITS = Slider(30, 540, 1, 10, 1000, whole=True,
+                           stops=(("AUTO", "0"),) + tuple((str(n), str(n)) for n in (
+                               30, 60, 75, 90, 100, 120, 144, 165, 200, 240, 280, 360, 480, 540)) + (("NONE", "-1"),))
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
 SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
@@ -443,6 +461,12 @@ KEY_BINDINGS = ("controls_setup", "controls_settings_screen")
 STREAMER = ("interface_settings/streamer_mode", "streamer_mode_screen")
 # (Online's Discord account: port/linux/src/player_link.c)
 DISCORD_ACCOUNT = ("network_setup/discord_account", "discord_account_screen")
+# (the server browsers' Filters, which their FILTERS opens too: menu_functions.c's
+# browser_filters_read; its title the PC version's Filters')
+BROWSER_FILTERS = ("network_setup/browser_filters", "browser_filters_screen")
+BROWSER_FILTERS_TITLE = "main_menu/multiplayer_type_select/join_game/filters/header_filters"
+SHOW_HIDE = [("SHOW", "true"), ("HIDE", "false")]
+BROWSER_PINGS = [("ANY", "0")] + [(f"UNDER {ms} MS", str(ms)) for ms in (300, 250, 150, 100, 50)]
 # Button Remapping's rows for a group's actions (the most a group has:
 # controller_remap_menu.inl's pad_action_groups), and what each row does: A
 # (or a click) takes the next button pressed, left and right step through
@@ -456,7 +480,7 @@ REMAP_HANDLERS = ['<on event="x" run="port controller clear"/>',
 # menu_functions.c's discord_account_show fills in each frame: a link's (what
 # the page it opens is at), an action's (what it does, its state); and
 # hdr_display_show's, the display's peak
-SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink",
+SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink", "browser_search",
                         *(f"link_master_{n}" for n in range(1, 5)), "hdr_display",
                         "remap_player", "remap_group", *(f"pad_{n}" for n in range(1, REMAP_ROWS + 1))}
 # the rows whose labels menu_functions.c writes (a master server's host): the
@@ -466,6 +490,12 @@ SETTINGS_NAMED_ROWS = {*(f"link_master_{n}" for n in range(1, 5)), *(f"pad_{n}" 
 SETTINGS_NAMED_VALUE_WIDTH = 110
 # (making a profile: as the main menu's items do, its name asked, then the
 # profile made and edited, menu_functions.c's settings_profile_new)
+# display.movies's help: where the movies come from (xiso.c's
+# xiso_extract_bink, with the maps; bink_import.c's, for a data root without)
+MOVIES_HELP = ("Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu. Any "
+               "button skips the intro.|They are the bink folder of your Xbox disc image, copied with the maps. "
+               "Without them, put the disc's bink folder beside your maps folder.")
+
 CREATE_PROFILE = ("CREATE PROFILE ›", None, None,
                   "Your name, color and controller layout are kept in a player profile. Make one to set them; the "
                   "rest of Settings works without one.", None, "create_profile", "port settings new profile")
@@ -491,20 +521,25 @@ PAGES = {
              "computer"),
             ("WINDOW SIZE", "display.window_size", [("1280 x 960", "1280x960")],
              "The window's size: 4:3 first, then 16:10, 16:9 and 21:9. Its edges can also be dragged.", "computer"),
+            # (shown while Window shows FULLSCREEN where fullscreen can set
+            # the display's rate: menu_functions.c's refresh_rate_row_show;
+            # port/linux/game/menu_tags.c adds the display's rates)
+            ("REFRESH RATE", "display.refresh_rate", [("AUTO", "0")],
+             "How many times a second the display shows a picture while the game is fullscreen. Auto keeps the "
+             "display's own. VSync and Frame Rate Limit's Auto follow it.", "computer"),
             ("VSYNC", "display.vsync", ON_OFF,
              "Shows each frame at a refresh of the display: even motion that never tears, at the display's "
              "refresh rate. On Linux and the Steam Deck each frame starts just in time for its refresh, so it adds "
              "almost no input lag; it is on in the Steam Deck's Game Mode.", None),
             # (shown while VSync shows OFF: menu_functions.c's max_fps_row_show)
-            ("FRAME RATE LIMIT", "display.max_fps",
-             [("AUTO", "0"), ("30", "30"), ("60", "60"), ("120", "120"), ("144", "144"), ("165", "165"),
-              ("240", "240"), ("NONE", "-1")],
+            ("FRAME RATE LIMIT", "display.max_fps", FRAME_RATE_LIMITS,
              "The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and "
              "uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) "
-             "is shown in step with the display, as V-Sync shows it.", "desktop"),
+             "is shown in step with the display, as V-Sync shows it.|Click the number (or press A) to type any "
+             "limit from 10 to 1000.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
-             "How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
-             "more around you.", None),
+             "How wide you see, on foot and in vehicles, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
+             "more around you.|Click the number (or press A) to type any from 20 to 150.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -515,6 +550,9 @@ PAGES = {
             ("FIRST PERSON ›", None, _page_screen(*FIRST_PERSON),
              "Your weapon's field of view and whether it is drawn, your legs and arms, your shield's color, and the "
              "view from a vehicle's passenger seat.", None),
+            # (port/linux/src/bink_movie.c; the help says where the movies go:
+            # MOVIES_HELP)
+            ("STARTUP MOVIES", "display.movies", ON_OFF, MOVIES_HELP, None),
             (SECTION, "GRAPHICS"),
             # (Classic or Enhanced, CUSTOM while any setting it chooses is
             # another value: menu_functions.c's graphics_preset_show; choosing
@@ -522,23 +560,18 @@ PAGES = {
             ("QUALITY", "display.graphics", [("ENHANCED", "enhanced"), ("CLASSIC", "classic"), ("CUSTOM", "custom")],
              "Enhanced: smoother edges, sharper textures and shadows, smoother lighting. Classic looks as the "
              "Xbox did.|Changing one shows CUSTOM.", None),
-            ("SHADOW QUALITY", "display.shadow_resolution",
-             [("XBOX", "128"), ("MEDIUM", "256"), ("HIGH", "512"), ("ULTRA", "1024")],
-             "How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky "
-             "shadow; each step up is crisper, and costs a little more of the graphics card.", None),
+            # (display.battery_saver: port/linux/src/battery_saver.c)
+            ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
+             "Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns "
+             "it on while the device runs on its battery. Your own settings come back as it turns off.", None),
             # (display.hdr's page, on the renderers that draw it: menu_files.c's
             # "hdr")
             ("HDR ›", None, _page_screen(*HDR_PAGE),
              "Brighter highlights on an HDR display: whether HDR is on, its look, how bright white and the HUD "
              "are, and the display's peak.", "hdr", "hdr_settings"),
             ("ADVANCED GRAPHICS ›", None, _page_screen(*ADVANCED),
-             "Anti-aliasing, texture filtering, model detail, the lighting and the shields' glow, smooth motion "
-             "and the tick rate.", None),
-            (SECTION, "BATTERY"),
-            # (display.battery_saver: port/linux/src/battery_saver.c)
-            ("BATTERY SAVER", "display.battery_saver", [("OFF", "off"), ("ON", "on"), ("AUTO", "auto")],
-             "Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns "
-             "it on while the device runs on its battery. Your own settings come back as it turns off.", None),
+             "Anti-aliasing, texture filtering, model detail, shadows, the lighting and the shields' glow, smooth "
+             "motion and the tick rate.", None),
         ],
     },
     "audio_settings": {
@@ -583,8 +616,10 @@ PAGES = {
     "mouse_settings": {
         "screen": "mouse_settings_screen", "tab": "CONTROLS",
         "about": "The mouse, the controller and the keys.",
+        # (two sections: with VR Setup's row, the VR build's rows fill the
+        # page to the footer, as test_settings_rows_fit checks)
         "rows": [
-            (SECTION, "MOUSE"),
+            (SECTION, "MOUSE AND KEYBOARD"),
             ("SENSITIVITY", "input.mouse_sensitivity", MOUSE_SENSITIVITY,
              "How far the view turns as the mouse moves, on Counter-Strike 2's scale: your CS2 number turns the "
              "same here. Drag the slider, or press left and right. Click the number (or press A) to type an exact "
@@ -603,10 +638,27 @@ PAGES = {
             ("INSTANT AIM", "display.direct_camera", ON_OFF,
              "Turns the view the moment the mouse moves, not up to two of the game's updates later. Off feels as "
              "the original did.", "computer"),
+            # (port/linux/src/sdl_platform.c's menu_cursor_size; hidden in the
+            # headset, where VR Setup's row takes its room and the menus have
+            # no desktop pointer: menu_functions.c's menu_cursor_row_show)
+            ("MENU CURSOR", "display.menu_cursor",
+             [("OFF", "off"), ("SMALL", "small"), ("MEDIUM", "medium"), ("LARGE", "large"),
+              ("EXTRA LARGE", "extra_large")],
+             "The menus' blue arrow for the mouse, and its size. The sizes keep their share of the screen at any "
+             "resolution.|Off shows the system's pointer.", "computer"),
+            ("KEY BINDINGS ›", None, _page_screen(*KEY_BINDINGS),
+             "The keys and mouse buttons for each action, two for each.", None),
+            ("BUTTON PROMPTS", "input.button_prompts",
+             [("AUTO", "auto"), ("CONTROLLER", "controller"), ("KEYBOARD", "keyboard")],
+             "The buttons the HUD's prompts show. Auto shows the keys or the controller's buttons, as you last "
+             "played with.", None),
             (SECTION, "CONTROLLER"),
             ("CONTROLLER ›", None, _page_screen(*CONTROLLER),
              "The look sensitivity and inversion, the button and stick layouts, and vibration, kept in your player "
              "profile.", None),
+            # (VR Setup, the VR build's, while it plays in the headset)
+            ("VR SETUP ›", None, VR_CONTROLS,
+             "Your hands, aiming, turning, your height, the HUD and the menus in VR.", "vr"),
             # (input.crouch: the controller's and the keys'; input.touch_crouch: the touch controls')
             ("CROUCH", "input.crouch", [("HOLD", "hold"), ("TOGGLE", "toggle")],
              "Hold crouches while the button is held, as Halo did. Toggle crouches at a tap until you press it "
@@ -617,17 +669,6 @@ PAGES = {
             ("TOUCH CROUCH", "input.touch_crouch", [("TOGGLE", "toggle"), ("HOLD", "hold")],
              "The touch controls' Crouch. Toggle crouches at a tap until the next tap, a jump, a seat or death; "
              "Hold crouches while your finger is on it.", "touch"),
-            (SECTION, "KEYBOARD"),
-            ("KEY BINDINGS ›", None, _page_screen(*KEY_BINDINGS),
-             "The keys and mouse buttons for each action, two for each.", None),
-            ("BUTTON PROMPTS", "input.button_prompts",
-             [("AUTO", "auto"), ("CONTROLLER", "controller"), ("KEYBOARD", "keyboard")],
-             "The buttons the HUD's prompts show. Auto shows the keys or the controller's buttons, as you last "
-             "played with.", None),
-            # (VR Setup, the VR build's, while it plays in the headset)
-            (SECTION, "VR"),
-            ("VR SETUP ›", None, VR_CONTROLS,
-             "Your hands, aiming, turning, your height, the HUD and the menus in VR.", "vr"),
         ],
     },
     "network_setup": {
@@ -650,6 +691,9 @@ PAGES = {
             ("DISCORD ACCOUNT ›", None, _page_screen(*DISCORD_ACCOUNT),
              "Link your Discord account, so that servers that block VPNs let you in while you use one.", None,
              "discord_account"),
+            ("SERVER BROWSER FILTERS ›", None, _page_screen(*BROWSER_FILTERS),
+             "Which games the server browser and the local network's list show: full and empty games, a "
+             "password, the ping, the game types, and words to search for.", None),
             # (port/linux/game/map_share.c: this machine's part in another's
             # game)
             (SECTION, "MAP SHARING"),
@@ -696,11 +740,6 @@ PAGES = {
              "Draws a dark panel behind the scoreboard, for clearer text.", None),
             ("MATCH TIMER", "display.match_timer", ON_OFF,
              "Draws a clock at the bottom right in multiplayer, counting up from the start of the game.", None),
-            # (port/linux/src/bink_ffmpeg.c)
-            (SECTION, "MOVIES"),
-            ("STARTUP MOVIES", "display.movies", ON_OFF,
-             "Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu, from "
-             "the bink folder of your game data. Any button skips the intro.", None),
             # (the text chat's: port/linux/game/network_chat.c)
             (SECTION, "CHAT"),
             ("TEXT CHAT", "display.text_chat", [("SHOW", "true"), ("HIDE", "false")],
@@ -760,6 +799,11 @@ PAGES = {
              "Draws movement smoothly between the game's 30 updates a second, so that it looks fluid at any frame "
              "rate. Off shows each update as it is.", None),
             (SECTION, "LIGHTING"),
+            # (here, not on Video's tab: Refresh Rate took its row there)
+            ("SHADOW QUALITY", "display.shadow_resolution",
+             [("XBOX", "128"), ("MEDIUM", "256"), ("HIGH", "512"), ("ULTRA", "1024")],
+             "How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky "
+             "shadow; each step up is crisper, and costs a little more of the graphics card.", None),
             ("SMOOTH LIGHTING", "display.per_pixel_lighting", ON_OFF,
              "Lights characters and weapons smoothly, without the flat facets of the Xbox's lighting, at a small "
              "cost.", None),
@@ -808,9 +852,8 @@ PAGES = {
             ("DISPLAY PEAK", None, None,
              "The brightest the display shows, and its SDR white, as the system reports them.", "hdr",
              "hdr_display"),
-            # (OpenCE's OVERSHIELD and HDR DISPLAY rows are left out: OpenH1's
-            # renderers do not draw the overshield's rise, and HDR output is
-            # display.hdr's own; port/linux/README.md)
+            # (OpenCE's HDR DISPLAY row is left out: HDR output is display.hdr's
+            # own, port/linux/README.md; its OVERSHIELD row is First Person's)
         ],
     },
     FIRST_PERSON[0]: {
@@ -819,7 +862,7 @@ PAGES = {
             (SECTION, "VIEW"),
             ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", FIELDS_OF_VIEW,
              "How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the "
-             "weapon's own view.", None),
+             "weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
             ("WEAPON AND HANDS", "display.viewmodel_visible", [("SHOW", "true"), ("HIDE", "false")],
              "Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and "
              "hear them.", None),
@@ -830,10 +873,15 @@ PAGES = {
              "from your seat. Behind, the weapon cannot zoom.", None),
             (SECTION, "SHIELDS"),
             ("ARM SHIELDS", "display.viewmodel_shield", ON_OFF,
-             "Your shield's flare on your first-person arms too, as on your body.", None),
+             "When your shield takes a hit, its flare shows on your first-person arms too, as on your body, "
+             "and fades as it does there. A full, untouched shield shows nothing.|An overshield stays lit on "
+             "them with Overshield on, below.", None),
             ("SHIELD COLOR", "display.shield_color", [("DEFAULT", "default")] + [(c.upper(), c) for c in SHIELD_COLORS],
              "Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its "
              "own.", None),
+            ("OVERSHIELD", "display.overshield_effect", ON_OFF,
+             "An overshield stays lit for as long as it lasts, in its own color, on your body and, with Arm "
+             "Shields, your arms. Off draws it as the original did. Online: the host's choice.", None),
         ],
     },
     CONTROLLER[0]: {
@@ -940,6 +988,37 @@ PAGES = {
              "Swearing and sexual words. Strong and Worse leaves the mildest showing.", None),
             ("INSULTS", "streamer.insults", STREAMER_LEVELS,
              "Name-calling and insults that are not slurs.", None),
+        ],
+    },
+    BROWSER_FILTERS[0]: {
+        "screen": BROWSER_FILTERS[1], "header": BROWSER_FILTERS_TITLE,
+        "rows": [
+            # (the network.browser_* settings, which the server browser and
+            # the local network's list read as they open, not Join by
+            # Link's: menu_functions.c's browser_filters_show)
+            (SECTION, "GAMES"),
+            ("SHOW FULL GAMES", "network.browser_show_full", YES_NO,
+             "Lists the games that have no room left.", None),
+            ("SHOW EMPTY GAMES", "network.browser_show_empty", YES_NO,
+             "Lists the games that no one is playing yet.", None),
+            ("SHOW PASSWORD GAMES", "network.browser_show_password", YES_NO,
+             "Lists the games that need a password to join.", None),
+            ("PING", "network.browser_ping", BROWSER_PINGS,
+             "Lists only the games whose ping is under this.|A game whose ping is not known is listed: a local "
+             "network game's, a dedicated server's, one still being timed.", None),
+            # (the search's words typed into its value: menu_functions.c's
+            # browser_search_edit)
+            ("SEARCH", None, None,
+             "Lists only the games whose server name or map has these words. Select it and type; Enter keeps "
+             "them. Empty them to list every game.", None, "browser_search", "port browser search"),
+            (SECTION, "GAME TYPES"),
+            ("CAPTURE THE FLAG", "network.browser_show_ctf", SHOW_HIDE,
+             "Lists Capture the Flag games, OpenCE's kinds of it too.", None),
+            ("SLAYER", "network.browser_show_slayer", SHOW_HIDE,
+             "Lists Slayer games, OpenCE's kinds of it too (SWAT, Infection, Gun Game).", None),
+            ("ODDBALL", "network.browser_show_oddball", SHOW_HIDE, "Lists Oddball games.", None),
+            ("KING OF THE HILL", "network.browser_show_king", SHOW_HIDE, "Lists King of the Hill games.", None),
+            ("RACE", "network.browser_show_race", SHOW_HIDE, "Lists Race games.", None),
         ],
     },
     DISCORD_ACCOUNT[0]: {
@@ -1316,6 +1395,9 @@ def _settings_platform(rows: list, start: int):
 # them at most, or menu_functions.c showing one (video_rows_show): Window Size
 # in Resolution's, Android's anti-aliasing in the desktop's
 SETTINGS_SAME_PLACE = {"window_size", "anti_aliasing_android"}
+# the rows menu_functions.c hides while VR Setup's row is shown (the game in
+# the headset), which takes their room: Mouse's Menu Cursor (menu_cursor_row_show)
+SETTINGS_NOT_IN_VR = {"menu_cursor"}
 
 
 def _settings_page(folder: str, page: dict) -> list:
@@ -1471,8 +1553,9 @@ def _settings_page(folder: str, page: dict) -> list:
                          f'y="{SETTINGS_TABS_TOP}"/>'] if tab else []),
                       f'<child widget="{base}/options_menu"/>'])
     if not tab:
+        # (its title's picture its own, or one the PC version has: "header")
         lines += _widget(header, [("controller", 1), ("left", 35), ("top", 11), ("width", 605), ("height", 59),
-                                  ("bitmap", header), ("wide", WIDE_LEFT)], [])
+                                  ("bitmap", page.get("header", header)), ("wide", WIDE_LEFT)], [])
     # (the tabs last: up from the first row, down from the buttons)
     lines += _widget(f"{base}/options_menu",
                      [("type", "column_list"), ("width", 640), ("height", 480),
@@ -3656,6 +3739,9 @@ BROWSER_PROMPTS = [
     ("prompt_paste", "%right-trigger PASTE LINK", 156, 144, '<on event="a" run="port browser refresh"/>'),
     # (the next column's title sorts: menu_functions.c's browser_sort_choose)
     ("prompt_sort", "%x-button SORT", 304, 100, '<on event="a" run="port browser sort"/>'),
+    # (the Filters page, but Join by Link's: menu_functions.c's browser_filters_open)
+    ("prompt_filters", "%left-trigger FILTERS", 408, 100,
+     f'<on event="a" run="port browser filters" open="{_page_screen(*BROWSER_FILTERS)}"/>'),
     ("prompt_back", "%b-button BACK", 516, 96, '<on event="a" run="mouse emit back event"/>'),
 ]
 # Multiplayer's: its list's items (and its two pages': CREATE GAME's and
@@ -3928,6 +4014,7 @@ def _browser() -> list:
                      '<on event="black" run="port browser tab next"/>',
                      '<on event="x" run="port browser sort"/>', '<on event="y" run="port browser favorite"/>',
                      '<on event="right_trigger" run="port browser refresh"/>',
+                     f'<on event="left_trigger" run="port browser filters" open="{_page_screen(*BROWSER_FILTERS)}"/>',
                      f'<child widget="{base}/header_join_game"/>',
                      f'<child widget="{base}/browser_counts"/>',
                      f'<child widget="{SETTINGS}/tab_prompt_previous" x="{WIDE_MARGIN}" y="{SETTINGS_TABS_TOP}" '
@@ -3945,7 +4032,7 @@ def _browser() -> list:
                      [f'<child widget="{base}/{name}"/>' for name in
                       ("header_server_browser", "header_lan", "header_direct_link")])
     lines += _header(f"{base}/header_lan", f"{base}/header_local_network")
-    lines += _part_text(f"{base}/browser_counts", [("left", 420), ("top", 46), ("width", 192), ("height", 18),
+    lines += _part_text(f"{base}/browser_counts", [("left", 372), ("top", 46), ("width", 240), ("height", 18),
                                                   ("font", "ui\\small_ui"), ("color", PART_DIM), ("align", "right"),
                                                   ("wide", WIDE_RIGHT)])
     lines += _widget(f"{base}/browser_columns_line", [("controller", 1), ("left", BROWSER_LIST_X),

@@ -24,6 +24,7 @@ and the debug keyboard that the game's console reads.
 #include "server_master.h"
 #include "player_link.h"
 #include "xiso.h"
+#include "map_import.h"
 #ifdef HALO_VR
 #include "vr.h"
 #include "vr_host.h"
@@ -220,6 +221,15 @@ static void screen_keyboard_update(void);
 /* the windows' icon, a PNG (tools/embed_assets.py, from port/assets/icon) */
 extern const unsigned int platform_window_icon[];
 extern const unsigned long platform_window_icon_size;
+/* the menus' pointer, a PNG (tools/embed_assets.py, from port/assets/cursor) */
+extern const unsigned int platform_menu_cursor[];
+extern const unsigned long platform_menu_cursor_size;
+#endif
+
+/* the menus' own cursor (below): the desktop's guests (not iOS's, which has
+no pointer to draw), whose host makes it */
+#if defined(HALO_GUEST) && !defined(HALO_ANDROID) && !defined(HALO_IOS)
+#define PLATFORM_MENU_CURSOR
 #endif
 
 #ifndef HALO_ANDROID
@@ -380,11 +390,20 @@ BOOL platform_sdl_initialize(void)
 /* ---------- first start without game data (xbox_files.c), on Windows: the
 system's dialogs. (The Linux builds' and the macOS app's is first_start.c,
 in the game's own window; the iOS app asks before the game starts,
-port/ios/host_app.m) */
+port/ios/host_app.m)
+
+Besides the Xbox disc image the game needs, the player may add Custom
+Edition's maps from its installer (halocesetup_en_1.00.exe) into
+custom_maps (map_import.c), as ChupathingyCE's first start does (their
+pull request #313, whose choices this follows); a file picked is told apart
+by its contents. */
 
 struct data_extraction
 {
 	pthread_mutex_t lock;
+	/* Custom Edition's installer, into custom_maps (destination) */
+	BOOL installer;
+	unsigned long long written;
 	char image[1024];
 	char destination[1024];
 	char file[256];
@@ -410,18 +429,32 @@ static void data_extraction_progress(void *context, const char *file, unsigned l
 static void *data_extraction_thread(void *context)
 {
 	struct data_extraction *extraction = context;
-	BOOL succeeded = xiso_extract_maps(extraction->image, extraction->destination, data_extraction_progress,
-		extraction, extraction->error, sizeof(extraction->error)) != 0;
+	unsigned long long written = 0;
+	BOOL succeeded;
 
+	if (extraction->installer)
+	{
+		succeeded = map_import_custom_edition(extraction->image, extraction->destination, data_extraction_progress,
+			extraction, &written, extraction->error, sizeof(extraction->error)) != 0;
+	}
+	else
+	{
+		succeeded = xiso_extract_maps(extraction->image, extraction->destination, data_extraction_progress,
+			extraction, extraction->error, sizeof(extraction->error)) != 0;
+	}
 	pthread_mutex_lock(&extraction->lock);
+	extraction->written = written;
 	extraction->succeeded = succeeded;
 	extraction->finished = TRUE;
 	pthread_mutex_unlock(&extraction->lock);
 	return NULL;
 }
 
-/* copies the maps, showing how far it has got; closing the window quits */
-static BOOL data_extract(const char *image, const char *destination, char *error, int error_size)
+/* copies the maps (with installer, Custom Edition's installer's into the
+custom_maps folder destination, the bytes written in *written), showing how
+far it has got; closing the window quits */
+static BOOL data_extract(const char *image, const char *destination, BOOL installer, unsigned long long *written,
+	char *error, int error_size)
 {
 	static struct data_extraction extraction;
 	SDL_Window *window;
@@ -431,6 +464,7 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 
 	memset(&extraction, 0, sizeof(extraction));
 	pthread_mutex_init(&extraction.lock, NULL);
+	extraction.installer = installer;
 	snprintf(extraction.image, sizeof(extraction.image), "%s", image);
 	snprintf(extraction.destination, sizeof(extraction.destination), "%s", destination);
 	if (pthread_create(&thread, NULL, data_extraction_thread, &extraction) != 0)
@@ -478,7 +512,8 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 			SDL_RenderClear(renderer);
 			SDL_SetRenderDrawColor(renderer, 230, 230, 230, 255);
 			SDL_SetRenderScale(renderer, 2.0f, 2.0f);
-			SDL_RenderDebugText(renderer, 10.0f, 10.0f, "Extracting the maps folder...");
+			SDL_RenderDebugText(renderer, 10.0f, 10.0f,
+				installer ? "Adding Custom Edition's maps..." : "Extracting the maps folder...");
 			SDL_SetRenderScale(renderer, 1.0f, 1.0f);
 			snprintf(line, sizeof(line), "%s  (%llu of %llu MB)", file, done >> 20, total >> 20);
 			SDL_RenderDebugText(renderer, 20.0f, 70.0f, line);
@@ -495,6 +530,8 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 		SDL_DestroyRenderer(renderer);
 	if (window)
 		SDL_DestroyWindow(window);
+	if (written)
+		*written = extraction.written;
 	if (!extraction.succeeded)
 		snprintf(error, (size_t)error_size, "%s", extraction.error);
 	return extraction.succeeded;
@@ -551,19 +588,26 @@ static BOOL data_find_image(const char *directory, char *path, int size)
 	return FALSE;
 }
 
-/* the disc image the player picks; FALSE if they pick none, with *failed
-set (and error written) when no dialog could be shown */
-static BOOL data_choose_image(char *path, int size, BOOL *failed, char *error, int error_size)
+/* the disc image (with installer, Custom Edition's installer) the player
+picks; FALSE if they pick none, with *failed set (and error written) when no
+dialog could be shown */
+static BOOL data_choose_image(char *path, int size, BOOL installer, BOOL *failed, char *error, int error_size)
 {
-	static const SDL_DialogFileFilter filters[] =
+	static const SDL_DialogFileFilter image_filters[] =
 	{
 		{ "Xbox disc images", "iso;xiso" },
+		{ "All files", "*" },
+	};
+	static const SDL_DialogFileFilter installer_filters[] =
+	{
+		{ "Custom Edition's installer", "exe" },
 		{ "All files", "*" },
 	};
 	static struct data_image_choice choice;
 
 	memset(&choice, 0, sizeof(choice));
-	SDL_ShowOpenFileDialog(data_image_chosen, &choice, NULL, filters, 2, NULL, false);
+	SDL_ShowOpenFileDialog(data_image_chosen, &choice, NULL, installer ? installer_filters : image_filters, 2, NULL,
+		false);
 	/* the dialog answers through events (and on some systems another
 	thread) */
 	while (!SDL_GetAtomicInt(&choice.done))
@@ -580,12 +624,61 @@ static BOOL data_choose_image(char *path, int size, BOOL *failed, char *error, i
 	return TRUE;
 }
 
+/* adds Custom Edition's maps from the installer the player picks, saying
+what became of it */
+static void data_import_custom_edition(const char *destination)
+{
+	char installer[1024];
+	char folder[1024];
+	char error[512];
+	char message[1600];
+	unsigned long long written = 0;
+	BOOL failed = FALSE;
+	int kind;
+
+	if (!data_choose_image(installer, sizeof(installer), TRUE, &failed, error, sizeof(error)))
+	{
+		if (failed)
+		{
+			platform_log("no file dialog: %s", error);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", error, NULL);
+		}
+		return;
+	}
+	kind = map_import_kind(installer);
+	if (kind != _map_import_custom_edition_installer)
+	{
+		platform_log("%s is not Custom Edition's installer", installer);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", kind == _map_import_cd_image ? map_import_cd_image_text :
+			kind == _map_import_xbox_disc ? "That is an Xbox disc image: choose Xbox disc image for it." :
+			"That file is not Custom Edition's installer (halocesetup_en_1.00.exe).", NULL);
+		return;
+	}
+	map_import_custom_maps_folder(destination, folder, sizeof(folder));
+	if (!data_extract(installer, folder, TRUE, &written, error, sizeof(error)))
+	{
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", error, NULL);
+		return;
+	}
+	snprintf(message, sizeof(message), "%s %s. They show in the map lists' CUSTOM MULTIPLAYER.\n\n"
+		"Halo still needs the maps of your Xbox disc to start: choose Xbox disc image next.",
+		written ? "Custom Edition's maps are in" : "Custom Edition's maps were already in", folder);
+	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Halo", message, NULL);
+}
+
 BOOL platform_offer_game_data(const char *destination, const char *missing)
 {
+	enum
+	{
+		_choice_quit,
+		_choice_xbox,
+		_choice_custom_edition,
+	};
 	static const SDL_MessageBoxButtonData buttons[] =
 	{
-		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes" },
-		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No" },
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, _choice_xbox, "Xbox disc image" },
+		{ 0, _choice_custom_edition, "Custom Edition maps" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, _choice_quit, "Quit" },
 	};
 	char message[2600];
 	char found[1024];
@@ -604,8 +697,10 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 	{
 		snprintf(message, sizeof(message),
 			"Halo's game data (its maps folder) was not found.\n\n"
-			"Extract the maps folder from the Xbox disc image %s? "
+			"Xbox disc image: extract the maps folder from the Xbox disc image %s. "
 			"It is copied to %s/maps (about 2 GB).\n\n"
+			"Custom Edition maps (optional): add the multiplayer maps of Custom Edition's installer "
+			"(halocesetup_en_1.00.exe) to custom_maps.\n\n"
 			"(Or put the maps folder there yourself, or set paths.data in config.toml.)",
 			found, destination);
 	}
@@ -613,29 +708,36 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 	{
 		snprintf(message, sizeof(message),
 			"Halo's game data (its maps folder) was not found.\n\n"
-			"Extract the maps folder from an Xbox disc image (.iso) of Halo: Combat Evolved? "
+			"Xbox disc image: extract the maps folder from an Xbox disc image (.iso) of Halo: Combat Evolved. "
 			"It is copied to %s/maps (about 2 GB).\n\n"
+			"Custom Edition maps (optional): add the multiplayer maps of Custom Edition's installer "
+			"(halocesetup_en_1.00.exe) to custom_maps.\n\n"
 			"(Or put the maps folder there yourself, or set paths.data in config.toml.)",
 			destination);
 	}
 	for (;;)
 	{
-		SDL_MessageBoxData question = { SDL_MESSAGEBOX_INFORMATION, NULL, "Halo", message, 2, buttons, NULL };
+		SDL_MessageBoxData question = { SDL_MESSAGEBOX_INFORMATION, NULL, "Halo", message, 3, buttons, NULL };
 		char image[1024];
 		char error[512];
-		int answer = 0;
+		int answer = _choice_quit;
 		BOOL failed = FALSE;
 
-		if (!SDL_ShowMessageBox(&question, &answer) || answer != 1)
+		if (!SDL_ShowMessageBox(&question, &answer) || answer == _choice_quit)
 		{
 			platform_log("no game data: quitting");
 			exit(EXIT_SUCCESS);
+		}
+		if (answer == _choice_custom_edition)
+		{
+			data_import_custom_edition(destination);
+			continue;
 		}
 		if (image_found)
 		{
 			snprintf(image, sizeof(image), "%s", found);
 		}
-		else if (!data_choose_image(image, sizeof(image), &failed, error, sizeof(error)))
+		else if (!data_choose_image(image, sizeof(image), FALSE, &failed, error, sizeof(error)))
 		{
 			char explanation[1400];
 
@@ -652,8 +754,13 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", explanation, NULL);
 			exit(EXIT_SUCCESS);
 		}
+		if (map_import_kind(image) == _map_import_cd_image)
+		{
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", map_import_cd_image_text, NULL);
+			continue;
+		}
 		platform_log("extracting the maps folder from %s to %s", image, destination);
-		if (data_extract(image, destination, error, sizeof(error)))
+		if (data_extract(image, destination, FALSE, NULL, error, sizeof(error)))
 		{
 			platform_log("extracted the maps folder");
 			return TRUE;
@@ -752,36 +859,82 @@ static BOOL platform_display_size(SDL_DisplayID display, long *width, long *heig
 	return TRUE;
 }
 
+/* whether fullscreen can set the display's refresh rate: on Windows, and
+on an X server's display of its own; not on Wayland or XWayland (whose
+modes are pretended, the display's own kept), nor under gamescope, nor on
+macOS, iOS or Android, whose displays stay at their own rate */
+int platform_refresh_rates_settable(void)
+{
+#ifdef HALO_MACOS
+	return 0;
+#else
+	const char *driver;
+	const char *wayland = getenv("WAYLAND_DISPLAY");
+	const char *gamescope = getenv("GAMESCOPE_WAYLAND_DISPLAY");
+
+	if (!platform_sdl_initialize() || !(driver = SDL_GetCurrentVideoDriver()))
+		return 0;
+	if (!strcmp(driver, "windows"))
+		return 1;
+	return !strcmp(driver, "x11") && !(wayland && wayland[0]) && !(gamescope && gamescope[0]);
+#endif
+}
+
+/* display.refresh_rate where fullscreen can set it, else 0: the display's
+own */
+static float platform_refresh_rate_setting(void)
+{
+	double rate = config_real("display.refresh_rate");
+
+	return rate > 0.0 && rate < 1000.0 && platform_refresh_rates_settable() ? (float)rate : 0.0f;
+}
+
 /* the window's fullscreen kind (display.mode): borderless, a window over
 the whole desktop (SDL's fullscreen without a mode), or fullscreen, the
 display taken at display.resolution's mode (the one nearest it), else at its
-desktop one. F11 switches to the kind set. */
+desktop one, at display.refresh_rate's rate (the nearest the display has at
+that size), else at the desktop's. F11 switches to the kind set. */
 static void platform_fullscreen_kind_apply(void)
 {
 	static int applied = -1;
 	static long applied_width, applied_height;
+	static float applied_rate;
 	int exclusive = platform_display_mode() == _display_mode_fullscreen ? 1 : 0;
 	long width = 0, height = 0;
+	float rate = 0.0f;
 	SDL_DisplayID display;
 	SDL_DisplayMode closest;
-	const SDL_DisplayMode *mode = NULL;
+	const SDL_DisplayMode *mode = NULL, *desktop;
 
 	if (!platform_window)
 		return;
 	if (exclusive)
+	{
 		platform_resolution_setting(&width, &height);
-	if (exclusive == applied && width == applied_width && height == applied_height)
+		rate = platform_refresh_rate_setting();
+	}
+	if (exclusive == applied && width == applied_width && height == applied_height && rate == applied_rate)
 		return;
 	applied = exclusive;
 	applied_width = width;
 	applied_height = height;
+	applied_rate = rate;
 	display = SDL_GetDisplayForWindow(platform_window);
 	if (exclusive && display)
 	{
-		if (width && SDL_GetClosestFullscreenDisplayMode(display, (int)width, (int)height, 0.0f, false, &closest))
+		desktop = SDL_GetDesktopDisplayMode(display);
+		if (width && SDL_GetClosestFullscreenDisplayMode(display, (int)width, (int)height, rate, false, &closest))
 			mode = &closest;
+		else if (!width && rate > 0.0f && desktop &&
+			SDL_GetClosestFullscreenDisplayMode(display, desktop->w, desktop->h, rate, true, &closest))
+		{
+			mode = &closest;
+		}
 		else
-			mode = SDL_GetDesktopDisplayMode(display);
+			mode = desktop;
+		if (mode && rate > 0.0f)
+			platform_log("display: fullscreen at %dx%d, %.2f Hz (display.refresh_rate %.2f)", mode->w, mode->h,
+				mode->refresh_rate, rate);
 	}
 	SDL_SetWindowFullscreenMode(platform_window, mode);
 }
@@ -938,6 +1091,45 @@ int platform_display_resolutions(long *widths, long *heights, int maximum)
 	return count;
 }
 
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	SDL_DisplayID display;
+	SDL_DisplayMode **modes;
+	int mode_count = 0, count = 0, index, place;
+	long rate;
+
+	if (maximum < 1 || !platform_refresh_rates_settable())
+		return 0;
+	display = platform_window ? SDL_GetDisplayForWindow(platform_window) : 0;
+	if (!display)
+		display = SDL_GetPrimaryDisplay();
+	modes = display ? SDL_GetFullscreenDisplayModes(display, &mode_count) : NULL;
+	for (index = 0; modes && index <= mode_count; index++)
+	{
+		/* (then the one set, though this display has no such rate, so that
+		Video Setup shows it) */
+		rate = index < mode_count ? (long)(modes[index]->refresh_rate + 0.5f) :
+			(long)(config_real("display.refresh_rate") + 0.5);
+		if (rate < 24 || rate >= 1000)
+			continue;
+		for (place = 0; place < count && rates[place] != rate; place++)
+		{
+		}
+		if (place == count && count < maximum)
+			rates[count++] = rate;
+	}
+	SDL_free(modes);
+	/* highest first */
+	for (index = 1; index < count; index++)
+	{
+		rate = rates[index];
+		for (place = index; place > 0 && rates[place - 1] < rate; place--)
+			rates[place] = rates[place - 1];
+		rates[place] = rate;
+	}
+	return count;
+}
+
 /* Video Setup's window sizes, by shape (4:3, 16:10, 16:9, 21:9), each from
 the smallest */
 static const short platform_window_sizes_offered[][2] =
@@ -1026,6 +1218,19 @@ int platform_window_sizes(long *widths, long *heights, int maximum)
 {
 	(void)widths;
 	(void)heights;
+	(void)maximum;
+	return 0;
+}
+
+/* (Android's display keeps its own rate: no Refresh Rate row) */
+int platform_refresh_rates_settable(void)
+{
+	return 0;
+}
+
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	(void)rates;
 	(void)maximum;
 	return 0;
 }
@@ -1184,6 +1389,118 @@ static int platform_swap_interval(void);
 static int platform_interval_take(void);
 static int platform_interval = -1;
 
+#ifdef PLATFORM_MENU_CURSOR
+/* ---------- the menus' cursor
+
+The blue arrow the menus show for the mouse, in place of the system's. Halo
+PC drew its cursor in the menus' 640 x 480, so it took the same part of the
+screen at any resolution; this one is made again whenever the window's size
+in pixels or display.menu_cursor changes (menu_cursor_fit, from
+platform_pump_events). The guest reaches no SDL surfaces: the host makes the
+cursor from the embedded picture (host_sdl_menu_cursor). */
+
+/* the arrow's tip in the picture, past its soft edge: the click point */
+#define MENU_CURSOR_TIP 2
+
+/* port/linux/host/host_desktop.c: the window's cursor made from the PNG,
+height pixels tall (where the desktop counts in points, that size in points
+with the pixels' image as its alternate), its click point at (tip, tip) of
+the picture's pixels; the system's for a height of 0. Nonzero on success */
+int host_sdl_menu_cursor(unsigned int window, const void *png, unsigned int size, int height, int tip);
+
+/* the cursor's height made last, in pixels (0: the system's; -1: none made
+for this window yet) */
+static int menu_cursor_height = -1;
+
+/* display.menu_cursor: the arrow's height in the menus' 480 lines (medium:
+54 pixels at 1080p), or 0 for the system's pointer; read again when a
+setting changes */
+static int menu_cursor_size(void)
+{
+	static const struct { const char *name; int lines; } sizes[] =
+	{
+		{ "off", 0 }, { "small", 18 }, { "medium", 24 }, { "large", 32 }, { "extra_large", 40 }
+	};
+	static unsigned long read_at = (unsigned long)-1;
+	static int lines = 24;
+
+	if (read_at != config_changes())
+	{
+		const char *name = config_string("display.menu_cursor");
+		size_t index;
+
+		read_at = config_changes();
+		lines = 24;
+		for (index = 0; index < sizeof(sizes) / sizeof(sizes[0]); index++)
+			if (!strcmp(name, sizes[index].name))
+				lines = sizes[index].lines;
+	}
+	return lines;
+}
+
+/* the cursor made for the window's size and display.menu_cursor, when one
+has changed: its height the part of the window the menus' 480 lines take
+(their 4:3 fits a window of another shape), in pixels. Off, the system's
+pointer again */
+static void menu_cursor_fit(void)
+{
+	int width = 0, height = 0, lines, cursor_height = 0, size = menu_cursor_size();
+
+	if (!platform_menu_cursor_size || !SDL_GetWindowSizeInPixels(platform_window, &width, &height) ||
+		width <= 0 || height <= 0)
+		return;
+	if (size)
+	{
+		lines = height < width * 3 / 4 ? height : width * 3 / 4;
+		cursor_height = lines * size / 480;
+		if (cursor_height < 16)
+			cursor_height = 16;
+	}
+	if (cursor_height == menu_cursor_height)
+		return;
+	menu_cursor_height = cursor_height;
+	if (!host_sdl_menu_cursor((unsigned int)(uintptr_t)platform_window, platform_menu_cursor,
+		(unsigned int)platform_menu_cursor_size, cursor_height, MENU_CURSOR_TIP))
+		platform_log("cannot set the menus' cursor");
+}
+
+/* A controller's buttons or sticks, used while a menu is up, hide the
+cursor, and the mouse moved or clicked shows it again, so a player on a
+controller has no arrow left over the menus; a menu opened while the
+controller was used last opens without it, and play shows it again as it
+takes the mouse (platform_ui_pointer_set_active), where the relative mode
+hides it (or macOS parks it in fullscreen: port/macos/host_raw_mouse.m).
+Only these hide it, so its state is kept here, not asked of the host at
+each event. */
+static BOOL menu_cursor_controller;
+static BOOL menu_cursor_hidden;
+
+static void menu_cursor_show(BOOL show)
+{
+	if (show == !menu_cursor_hidden)
+		return;
+	menu_cursor_hidden = !show;
+	if (show)
+		SDL_ShowCursor();
+	else
+		SDL_HideCursor();
+}
+
+static void menu_cursor_controller_used(BOOL in_menus)
+{
+	menu_cursor_controller = TRUE;
+	if (in_menus)
+		menu_cursor_show(FALSE);
+}
+
+static void menu_cursor_mouse_used(BOOL in_menus)
+{
+	menu_cursor_controller = FALSE;
+	if (in_menus)
+		menu_cursor_show(TRUE);
+}
+#endif
+
 BOOL platform_video_initialize(unsigned long width, unsigned long height)
 {
 	if (platform_window)
@@ -1257,6 +1574,12 @@ BOOL platform_video_initialize(unsigned long width, unsigned long height)
 			platform_log("cannot set the window's icon: %s", SDL_GetError());
 		SDL_DestroySurface(icon);
 	}
+#endif
+#ifdef PLATFORM_MENU_CURSOR
+	/* the pointer the menus show (platform_ui_pointer_set_active), in place
+	of the system's, at the window's size */
+	menu_cursor_height = -1;
+	menu_cursor_fit();
 #endif
 	platform_fullscreen_requested = platform_fullscreen_setting();
 	platform_window_mode = platform_display_mode();
@@ -2376,6 +2699,9 @@ void platform_pump_events(void)
 		return;
 	exit_after_check();
 	platform_show_pending_message();
+#ifdef PLATFORM_MENU_CURSOR
+	menu_cursor_fit();
+#endif
 #ifndef HALO_ANDROID
 	updater_poll(platform_window);
 	/* (Settings > Audio's output device, as it changes: dsound_sdl.c) */
@@ -2449,6 +2775,11 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
 #ifndef HALO_ANDROID
+#ifdef PLATFORM_MENU_CURSOR
+			/* (not the warp to the middle as a menu opens) */
+			if (!input_state.ui_pointer || event.motion.x != ui_pointer.x || event.motion.y != ui_pointer.y)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (scoreboard_pointer_active)
 			{
 				scoreboard_pointer.x = event.motion.x;
@@ -2492,6 +2823,10 @@ void platform_pump_events(void)
 			input_presses++;
 			if (event.button.down)
 				movie_skip_presses++;
+#ifdef PLATFORM_MENU_CURSOR
+			if (event.button.down)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
@@ -2671,6 +3006,10 @@ void platform_pump_events(void)
 		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 		case SDL_EVENT_GAMEPAD_BUTTON_UP:
 			input_presses++;
+#ifdef PLATFORM_MENU_CURSOR
+			if (event.gbutton.down)
+				menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			break;
 		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
 			if (event.gaxis.axis < SDL_GAMEPAD_AXIS_COUNT)
@@ -2682,6 +3021,11 @@ void platform_pump_events(void)
 				if (beyond != input_axis_beyond[event.gaxis.axis])
 					input_presses++;
 				input_axis_beyond[event.gaxis.axis] = beyond;
+#ifdef PLATFORM_MENU_CURSOR
+				/* (a stick or trigger past its rest) */
+				if (beyond)
+					menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			}
 			break;
 		case SDL_EVENT_GAMEPAD_REMOVED:
@@ -2791,6 +3135,9 @@ void platform_ui_pointer_set_active(BOOL active)
 	memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
 	pthread_mutex_unlock(&input_lock);
 	platform_mouse_capture(!active && !input_state.mouse_released);
+#ifdef PLATFORM_MENU_CURSOR
+	menu_cursor_show(!active || !menu_cursor_controller);
+#endif
 	if (active)
 	{
 		int width, height;

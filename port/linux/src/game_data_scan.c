@@ -12,9 +12,10 @@ controller), and looks first in the maps folders its earlier versions used.
 The search is shallow and bounded: each place a few folders deep, hidden
 folders and the large folders of games (steamapps) skipped, and the whole
 within a time limit and a number of entries. An image is offered only once
-the caller's check (xiso.c) has found Halo's maps in it; a maps folder only
-when its ui.map is the Xbox game's (not Halo PC's, version 7, or Custom
-Edition's, 609). (Files are reached through posix.h, as the rest of the
+the caller's check (xiso.c) has found Halo's maps in it, or found a program
+named halo...exe Custom Edition's installer (ce_installer.c); a maps folder
+only when its ui.map is the Xbox game's (not Halo PC's, version 7, or
+Custom Edition's, 609). (Files are reached through posix.h, as the rest of the
 platform layer's: the game's ABI cannot use the C library's struct stat.)
 
 On macOS the folders the system guards (Documents, Pictures, Music, Movies,
@@ -119,9 +120,16 @@ static int name_ends_with(const char *name, const char *ending)
 	return length > ending_length && !name_compare(name + length - ending_length, ending);
 }
 
+/* a disc image, or Custom Edition's installer (halocesetup_en_1.00.exe, or
+another program whose name starts with halo), which the caller's check
+tells apart by its contents (first_start.c) */
 static int name_is_image(const char *name)
 {
-	return name_ends_with(name, ".iso") || name_ends_with(name, ".xiso");
+	char start[5];
+
+	snprintf(start, sizeof(start), "%s", name);
+	return name_ends_with(name, ".iso") || name_ends_with(name, ".xiso") ||
+		(name_ends_with(name, ".exe") && !name_compare(start, "halo"));
 }
 
 /* folders no disc image is put in, too large to look through */

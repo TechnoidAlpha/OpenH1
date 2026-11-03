@@ -163,6 +163,10 @@ static const struct config_setting config_settings[] =
 		"What fullscreen and borderless draw at: \"native\", the display's own, or\n"
 		"\"<width>x<height>\" (\"1920x1080\"), 640x480 or more. Fullscreen sets the\n"
 		"display to it; borderless draws it scaled to the display." },
+	{ "display.refresh_rate", _config_real, "0.0", "HALO_REFRESH_RATE", _environment_value, _platform_desktop,
+		"Fullscreen's refresh rate, in Hz (the nearest the display has at the\n"
+		"resolution); 0 keeps the display's own. Windows and an X server's own\n"
+		"display only: Wayland, XWayland, gamescope and macOS keep theirs." },
 	{ "display.resolution_scaling", _config_string, "\"native\"", "HALO_RESOLUTION_SCALING", _environment_value,
 		_platform_desktop,
 		"\"native\" draws at the window's resolution (fullscreen, the display's or\n"
@@ -218,6 +222,10 @@ static const struct config_setting config_settings[] =
 	{ "display.interpolation", _config_boolean, "true", "HALO_INTERPOLATION", _environment_value, _platform_all,
 		"Draw a frame for every display refresh, blending between the game's 30\n"
 		"ticks a second; false keeps the original 30 frames a second." },
+	{ "display.menu_cursor", _config_string, "\"medium\"", "HALO_MENU_CURSOR", _environment_value, _platform_desktop,
+		"The menus' pointer for the mouse: the game's blue arrow, \"small\",\n"
+		"\"medium\", \"large\" or \"extra_large\" (18, 24, 32 or 40 of the menus'\n"
+		"480 lines tall, at any resolution), or \"off\" for the system's pointer." },
 	{ "display.direct_camera", _config_boolean, "true", "HALO_DIRECT_CAMERA", _environment_value, _platform_all,
 		"Point the view where the player aims now instead of where the last\n"
 		"tick left it: the view turns the frame the mouse, the touch swipe or\n"
@@ -228,9 +236,9 @@ static const struct config_setting config_settings[] =
 		"VR mode) the vehicle and the view from it are drawn as its newest\n"
 		"step left it: not a tick (33 ms) behind." },
 	{ "display.fov", _config_real, "0.0", "HALO_FOV", _environment_value, _platform_all,
-		"The first-person view's field of view on foot, in degrees across at\n"
-		"16:9 (20 to 150); 0 keeps the stock view. Vehicles, cinematics and\n"
-		"scripted cameras keep their own." },
+		"The view's field of view on foot and in vehicles, in degrees across\n"
+		"at 16:9 (20 to 150); 0 keeps the stock view. Cinematics and scripted\n"
+		"cameras keep their own." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"
@@ -249,9 +257,10 @@ static const struct config_setting config_settings[] =
 		"gems uses shaded Xbox faces; menu_gems uses the menu's button art.\n"
 		"Requires display.high_res_hud." },
 	{ "display.high_res_text", _config_boolean, "true", "HALO_HIGH_RES_TEXT", _environment_value, _platform_all,
-		"Draw the menus' and HUD's text with the fonts in port/assets/fonts\n"
-		"(Overpass) at the resolution the game draws at, and the menus' titles\n"
-		"from port/assets/titles; false draws the maps' bitmap fonts and titles." },
+		"Draw the menus', HUD's and console's text with the fonts in\n"
+		"port/assets/fonts (Overpass, Hack) at the resolution the game draws at,\n"
+		"and the menus' titles from port/assets/titles; false draws the maps'\n"
+		"bitmap fonts and titles." },
 	{ "display.shadow_resolution", _config_integer, GRAPHICS_SHADOW_RESOLUTION, "HALO_SHADOW_RESOLUTION",
 		_environment_value, _platform_all,
 		"The size the objects' shadows are drawn at, in pixels each way: 128 as\n"
@@ -835,14 +844,14 @@ static const struct config_setting config_settings[] =
 		"Moving the mouse forward looks down." },
 	{ "network.block_mouse_aim_assist", _config_boolean, "false", "HALO_NET_BLOCK_MOUSE_AIM_ASSIST", _environment_value,
 		_platform_all, "Host: disable optional mouse magnetism for mouse/keyboard players. Controllers and touch keep their own assist." },
-	{ "network.shield_effects", _config_string, "\"stock\"", "HALO_NET_SHIELD_EFFECTS", _environment_value, _platform_all,
+	{ "network.shield_effects", _config_string, "\"overshield\"", "HALO_NET_SHIELD_EFFECTS", _environment_value, _platform_all,
 		"Host: the shield effects every player of a network game sees, whatever\n"
-		"their own: \"stock\", \"glow\", \"light_show\", \"overshield\",\n"
-		"\"glow_overshield\" or \"light_show_overshield\" (display.shield_glow,\n"
-		"its light_show intensity, display.overshield_effect); \"players\": not\n"
-		"synced, each player sees their own settings'. An online co-op game is\n"
-		"always each player's own. SHIELD EFFECTS in Server Setup > Player\n"
-		"Options writes its choice here." },
+		"their own: \"stock\", \"glow\", \"light_show\", \"overshield\" (the\n"
+		"default), \"glow_overshield\" or \"light_show_overshield\"\n"
+		"(display.shield_glow, its light_show intensity,\n"
+		"display.overshield_effect); \"players\": not synced, each player sees\n"
+		"their own settings'. An online co-op game is always each player's own.\n"
+		"SHIELD EFFECTS in Server Setup > Player Options writes its choice here." },
 	{ "network.fire_origins", _config_boolean, "true", "HALO_NET_FIRE_ORIGINS", _environment_value, _platform_all,
 		"Host: whether a reported hit the shooter's camera had no line of sight\n"
 		"to may still count from where their machine says the shot left, when\n"
@@ -1050,7 +1059,9 @@ static const struct config_setting config_settings[] =
 		"overturned. false: the bots stay on foot." },
 	{ "display.viewmodel_shield", _config_boolean, "false", "HALO_VIEWMODEL_SHIELD", _environment_value, _platform_all,
 		"The energy shield's flare on the first-person arms too, as on the body\n"
-		"(the stock game draws it on the body only)." },
+		"(the stock game draws it on the body only): it shows as the shield\n"
+		"takes hits and fades after them; a full shield untouched shows none.\n"
+		"An overshield stays lit on the arms with display.overshield_effect." },
 #ifdef HALO_VR
 	/* (the VR build's on: in the headset, your body under you, port/linux/README.md "Your body") */
 	{ "display.first_person_legs", _config_boolean, "true", "HALO_FIRST_PERSON_LEGS", _environment_value, _platform_all,
@@ -1059,14 +1070,15 @@ static const struct config_setting config_settings[] =
 #endif
 		"Your own legs in first person, seen looking down: your body as others\n"
 		"see it, drawn from the waist down, moving as it moves." },
-	{ "display.overshield_effect", _config_boolean, "false", "HALO_OVERSHIELD_EFFECT", _environment_value, _platform_all,
-		"The overshield as this machine draws it: its flare rising up the body as\n"
-		"it charges (2 seconds, 3 from a shield that was down) and staying lit,\n"
-		"its energy slower, in its own color (the powerup's), on the first-person\n"
-		"arms too with viewmodel_shield; a hit on it plays what the projectile\n"
-		"plays on an Elite's shield. Only what is drawn and heard changes.\n"
-		"In a network game, the host's network.shield_effects decides, unless\n"
-		"it is \"players\" (each player's own) or the game is co-op." },
+	{ "display.overshield_effect", _config_boolean, "true", "HALO_OVERSHIELD_EFFECT", _environment_value, _platform_all,
+		"The overshield as this machine draws it: its flare lit as it charges\n"
+		"and staying lit for as long as it lasts, its energy slower, in its own\n"
+		"color (the powerup's), on the first-person arms too with\n"
+		"viewmodel_shield; a hit on it plays what the projectile plays on an\n"
+		"Elite's shield. Only what is drawn and heard changes. false: as the\n"
+		"stock game draws it (no flare of its own). In a network game, the\n"
+		"host's network.shield_effects decides, unless it is \"players\" (each\n"
+		"player's own) or the game is co-op." },
 	{ "display.shield_glow", _config_boolean, "false", "HALO_SHIELD_GLOW", _environment_value, _platform_all,
 		"Energy shields light what is around them as they flare, as plasma\n"
 		"does, in the shield's own color. In a network game, the host's\n"
@@ -1172,6 +1184,41 @@ static const struct config_setting config_settings[] =
 		"The server browser: public games are listed through the signalling\n"
 		"brokers, and Join Game > Server Browser shows them. False lists no\n"
 		"game of this machine's and shows none." },
+	/* (the server browsers' Filters: menu_functions.c's browser_filters_read;
+	the first two named as OpenCE names them) */
+	{ "network.browser_show_full", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_FULL", _environment_value,
+		_platform_all,
+		"The server browsers list full games (their Filters page)." },
+	{ "network.browser_show_empty", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_EMPTY", _environment_value,
+		_platform_all,
+		"The server browsers list games with no player (their Filters page)." },
+	{ "network.browser_show_password", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_PASSWORD",
+		_environment_value, _platform_all,
+		"The server browsers list games that need a password (their Filters\n"
+		"page)." },
+	{ "network.browser_ping", _config_integer, "0", "HALO_NET_BROWSER_PING", _environment_value, _platform_all,
+		"The server browsers list only games whose ping is under this many\n"
+		"milliseconds (300, 250, 150, 100 or 50); 0 lists every game. A game\n"
+		"whose ping is not known (a local network game's, a dedicated\n"
+		"server's, one still being timed) is listed." },
+	{ "network.browser_show_ctf", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_CTF", _environment_value,
+		_platform_all,
+		"The server browsers list Capture the Flag games (their Filters page)." },
+	{ "network.browser_show_slayer", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_SLAYER", _environment_value,
+		_platform_all,
+		"The server browsers list Slayer games (their Filters page)." },
+	{ "network.browser_show_oddball", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_ODDBALL", _environment_value,
+		_platform_all,
+		"The server browsers list Oddball games (their Filters page)." },
+	{ "network.browser_show_king", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_KING", _environment_value,
+		_platform_all,
+		"The server browsers list King of the Hill games (their Filters page)." },
+	{ "network.browser_show_race", _config_boolean, "true", "HALO_NET_BROWSER_SHOW_RACE", _environment_value,
+		_platform_all,
+		"The server browsers list Race games (their Filters page)." },
+	{ "network.browser_search", _config_string, "\"\"", "HALO_NET_BROWSER_SEARCH", _environment_value, _platform_all,
+		"The server browsers list only games whose server name or map has\n"
+		"these words, in any case; empty lists every game (their Filters page)." },
 	{ "friends.share_status", _config_boolean, "true", "HALO_FRIENDS_SHARE_STATUS", _environment_value, _platform_all,
 		"Show your friends that you are online, and where (the menus, a party,\n"
 		"a game), and let them join you (Multiplayer > FRIENDS). Only your\n"
@@ -3483,6 +3530,7 @@ static const struct
 	{ "display.frame_style", { "plain", "halo", "xbox", NULL }, NULL },
 	{ "display.hud_button_style", { "classic", "gems", "menu_gems", NULL }, NULL },
 	{ "display.menus", { "pc", "xbox", NULL }, NULL },
+	{ "display.menu_cursor", { "off", "small", "medium", "large", "extra_large", NULL }, "medium" },
 	{ "display.player_names", { "all", "allies", "enemies", "none", NULL }, NULL },
 	{ "display.scoreboard_team_layout", { "teams", "score", NULL }, NULL },
 	{ "display.chat_style", { "colors", "white", NULL }, NULL },
@@ -3779,7 +3827,7 @@ static void config_load(void)
 	settings: the file read is left as it is) */
 	config_answer_only = config_argument("--help", NULL, 0) || config_argument("--version", NULL, 0) ||
 		config_argument("--keygen", NULL, 0) || config_argument("--sign", NULL, 0) || config_probe_mode ||
-		config_argument("--relay", NULL, 0);
+		config_argument("--relay", NULL, 0) || config_argument("--import-maps", NULL, 0);
 #endif
 	text = config_read_file(path, &size);
 	if (text)

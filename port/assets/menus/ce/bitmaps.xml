@@ -488,14 +488,14 @@
 		<frame png="ce/port/main_menu/settings/tab_current__1.png" width="90" height="22"/>
 	</bitmap>
 	<bitmap name="main_menu/settings/slider_track">
-		<frame png="ce/port/main_menu/settings/slider_track__0.png" width="92" height="14"/>
+		<frame png="ce/port/main_menu/settings/slider_track__0.png" width="66" height="14"/>
 	</bitmap>
 	<bitmap name="main_menu/settings/slider_thumb">
 		<frame png="ce/port/main_menu/settings/slider_thumb__0.png" width="8" height="14"/>
 	</bitmap>
 	<bitmap name="main_menu/settings/slider_field">
-		<frame png="ce/port/main_menu/settings/slider_field__0.png" width="46" height="20"/>
-		<frame png="ce/port/main_menu/settings/slider_field__1.png" width="46" height="20"/>
+		<frame png="ce/port/main_menu/settings/slider_field__0.png" width="72" height="20"/>
+		<frame png="ce/port/main_menu/settings/slider_field__1.png" width="72" height="20"/>
 	</bitmap>
 	<bitmap name="main_menu/settings/tab_panel">
 		<frame png="ce/port/main_menu/settings/tab_panel__0.png" width="224" height="296"/>
