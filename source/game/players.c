@@ -3661,6 +3661,17 @@ void players_reconnect_to_structure_bsp(
 	long player_unit_index;
 	short pass;
 
+	/* port: each player's last cluster is the old BSP's: forgotten before the
+	teleports below, as it is after them. A teleport's coop respawn effect
+	works out the players' combined pvs (player_teleport_on_bsp_switch), and
+	a player not moved yet, or not moved at all (one network co-op leaves
+	where it was), is outside the new BSP, where its unit has no cluster: the
+	pvs took the old BSP's cluster index for it, one of another cluster or
+	past the new BSP's clusters (structure_bsp_get_cluster_pvs's assertion) */
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+		player->cluster_index = NONE;
+
 	/* port: also on a network co-op host, whose other players are remote */
 	if (players_globals->pending_teleport_starting_location_index != NONE &&
 		(players_globals->local_player_count > 1 ||
