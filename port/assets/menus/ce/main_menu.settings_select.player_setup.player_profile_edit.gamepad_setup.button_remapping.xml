@@ -57,6 +57,8 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_value" x="188" y="2"/>
+		<child widget="main_menu/settings/stepped_left" x="182" y="4"/>
+		<child widget="main_menu/settings/stepped_right" x="328" y="4"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
@@ -71,6 +73,8 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_value" x="188" y="2"/>
+		<child widget="main_menu/settings/stepped_left" x="182" y="4"/>
+		<child widget="main_menu/settings/stepped_right" x="328" y="4"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>

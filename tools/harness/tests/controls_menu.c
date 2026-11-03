@@ -128,7 +128,7 @@ static void setup(void)
 			.next = &bindings[index][0] };
 		bindings[index][0] = (struct widget_instance){ .name = "command_binding", .horizontal_offset = 200,
 			.parent = &rows[index], .next = &bindings[index][1] };
-		bindings[index][1] = (struct widget_instance){ .name = "command_binding", .horizontal_offset = 356,
+		bindings[index][1] = (struct widget_instance){ .name = "command_binding_second", .horizontal_offset = 356,
 			.parent = &rows[index] };
 		for (slot = 0; slot < CONTROL_BINDINGS; slot++)
 			snprintf(controls_screen.bindings[index][slot], CONTROL_NAME_LENGTH, "%c%d", 'A' + index, slot);
@@ -207,18 +207,18 @@ int main(int argc, char **argv)
 	{
 		setup();
 		controls_update(&list);
-		CHECK(shows(1, 0, L"> B0 <") && shows(1, 1, L"B1"), "at first: %ls | %ls", bindings[1][0].shown,
+		CHECK(shows(1, 0, L"[ B0 ]") && shows(1, 1, L"B1"), "at first: %ls | %ls", bindings[1][0].shown,
 			bindings[1][1].shown);
 		pointed = TRUE;
 		point_x = 54 + 356 + 100;
 		controls_update(&list);
 		CHECK(controls_screen.slot == 1, "over the second binding: slot %d", controls_screen.slot);
-		CHECK(shows(1, 0, L"B0") && shows(1, 1, L"> B1 <"), "over the second: %ls | %ls", bindings[1][0].shown,
+		CHECK(shows(1, 0, L"B0") && shows(1, 1, L"[ B1 ]"), "over the second: %ls | %ls", bindings[1][0].shown,
 			bindings[1][1].shown);
 		pointed = TRUE;
 		point_x = 54 + 210;
 		controls_update(&list);
-		CHECK(controls_screen.slot == 0 && shows(1, 0, L"> B0 <"), "over the first binding: slot %d",
+		CHECK(controls_screen.slot == 0 && shows(1, 0, L"[ B0 ]"), "over the first binding: slot %d",
 			controls_screen.slot);
 		/* (no new place: the keys' choice stays) */
 		controls_screen.slot = 1;

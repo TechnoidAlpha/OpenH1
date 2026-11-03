@@ -474,6 +474,14 @@ CONTROLLER = ("gamepad_setup", "gamepad_setup_screen")
 BUTTON_REMAPPING = ("gamepad_setup/button_remapping", "button_remapping_screen")
 DEAD_ZONES = ("gamepad_setup/dead_zones", "dead_zones_screen")
 KEY_BINDINGS = ("controls_setup", "controls_settings_screen")
+# Key Bindings: the keyboard and mouse's actions, in groups (the order of
+# port/linux/game/menu_functions.c's table of them), and its rows for a
+# group's actions (the most a group has), each its action's two bindings
+CONTROL_GROUPS = ["MOVEMENT", "WEAPONS", "ACTIONS", "COMMUNICATION"]
+CONTROL_ROWS = 7
+CONTROL_COMMAND_ROWS = {f"command_{n}" for n in range(1, CONTROL_ROWS + 1)}
+# (an action's row: its name, then its two bindings' columns, to the row's end)
+CONTROL_BINDINGS_X, CONTROL_BINDING_WIDTH = (136, 240), 104
 STREAMER = ("interface_settings/streamer_mode", "streamer_mode_screen")
 # (Online's Discord account: port/linux/src/player_link.c)
 DISCORD_ACCOUNT = ("network_setup/discord_account", "discord_account_screen")
@@ -503,6 +511,9 @@ SETTINGS_STATUS_ROWS = {"discord_account", "link_status", "link_unlink", "browse
 # label's text its own, not its list's; their values the narrower column at
 # the spinners' column's right end ("CODE ABC-DEF")
 SETTINGS_NAMED_ROWS = {*(f"link_master_{n}" for n in range(1, 5)), *(f"pad_{n}" for n in range(1, REMAP_ROWS + 1))}
+# the status rows whose values left and right step through (Button
+# Remapping's player and group): a spinner's arrows either side of them
+SETTINGS_STEPPED_ROWS = {"remap_player", "remap_group"}
 SETTINGS_NAMED_VALUE_WIDTH = 110
 # (making a profile: as the main menu's items do, its name asked, then the
 # profile made and edited, menu_functions.c's settings_profile_new)
@@ -985,6 +996,20 @@ PAGES = {
               for n in range(1, REMAP_ROWS + 1)],
         ],
     },
+    KEY_BINDINGS[0]: {
+        # (its title the one the screen had: SETTINGS_TITLES)
+        "screen": KEY_BINDINGS[1], "header": f"{PE}/{KEY_BINDINGS[0]}/header_key_bindings",
+        "rows": [
+            # (the group shown, a spinner of no setting: menu_functions.c's
+            # controls_group reads it; the actions' rows, their names and
+            # keys, are its controls_update's, each frame)
+            (SECTION, "KEYBOARD AND MOUSE"),
+            ("SHOW", None, [(group, str(index)) for index, group in enumerate(CONTROL_GROUPS)],
+             "Which of the actions to show: movement, weapons, actions or communication.", None, "group"),
+            (SECTION, "ACTIONS"),
+            *[("", None, None, "", None, f"command_{n}") for n in range(1, CONTROL_ROWS + 1)],
+        ],
+    },
     DEAD_ZONES[0]: {
         "screen": DEAD_ZONES[1], "title": "STICK DEAD ZONES",
         "rows": [
@@ -1115,10 +1140,6 @@ SETTINGS_TITLES.update({f"{PE}/{folder}/header_{page['screen'][:-len('_screen')]
                         for folder, page in PAGES.items() if "title" in page})
 SETTINGS_TITLES[f"{PE}/controls_setup/header_key_bindings"] = "KEY BINDINGS"
 
-# Controls Setup: the keyboard and mouse's actions, in groups (the order of
-# port/linux/game/menu_functions.c's table of them)
-CONTROL_GROUPS = ["MOVEMENT", "WEAPONS", "ACTIONS", "COMMUNICATION"]
-CONTROL_ROWS = 7
 
 # the settings whose rows have the wider spinner (a device's name)
 WIDE_SETTINGS = {"audio.output_device", "audio.input_device", "streamer.slurs", "streamer.swearing",
@@ -1358,57 +1379,6 @@ def _setting_screen(folder: str, spec: dict) -> list:
     return _screen(folder, spec, rows, ["port settings help"], [], extra)
 
 
-def _controls_screen() -> list:
-    folder = "controls_setup"
-    base = f"{PE}/{folder}"
-    spec = {"screen": "controls_settings_screen", "spacing": 30,
-            "header": ("header_key_bindings", f"{base}/header_key_bindings")}
-    rows, extra = [(f"{base}/op_group", None)], []
-    extra += _widget(f"{base}/op_group", [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
-                                          ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                     [f'<child{attributes([("widget", f"{base}/group_label")])}/>',
-                      f'<child{attributes([("widget", f"{base}/group_spinner"), ("x", 200), ("y", 1)])}/>'])
-    extra += _widget(f"{base}/group_label",
-                     [("type", "text"), ("controller", 1), ("width", 200), ("height", 22), ("text", "SHOW:"),
-                      ("font", "ui\\large_ui"), ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    extra += _widget(f"{base}/group_spinner",
-                     [("type", "spinner"), ("left", 3), ("top", 2), ("width", 297), ("height", 20),
-                      ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
-                      ("strings", "|".join(CONTROL_GROUPS)), ("font", "ui\\large_ui"), ("color", "#FF2896FF"),
-                      ("align", "center"), ("text_y", 1), ("header_bitmap", "bitmaps/arrow_sm_left"),
-                      ("footer_bitmap", "bitmaps/arrow_sm_right"), ("header_bounds", "7 -6 19 0"),
-                      ("footer_bounds", "7 300 19 306")], [])
-    for index in range(CONTROL_ROWS):
-        row = f"{base}/op_command_{index + 1}"
-        rows.append((row, None))
-        extra += _widget(row, [("width", 512), ("height", 28), ("flags", "pass_unhandled_to_focused_child"),
-                               ("bitmap", "bitmaps/option_bkds"), ("color", "#FF2896FF")],
-                         ['<on event="a" run="controls begin binding"/>',
-                          '<on event="start" run="controls begin binding"/>',
-                          '<on event="left right" run="controls binding slot"/>',
-                          f'<child{attributes([("widget", f"{base}/command_label")])}/>',
-                          f'<child{attributes([("widget", f"{base}/command_binding"), ("x", 200)])}/>',
-                          f'<child{attributes([("widget", f"{base}/command_binding"), ("x", 356)])}/>'])
-    extra += _widget(f"{base}/command_label",
-                     [("type", "text"), ("controller", 1), ("width", 200), ("height", 22), ("font", "ui\\large_ui"),
-                      ("color", "#FF2896FF"), ("text_x", 13), ("text_y", 4)], [])
-    extra += _widget(f"{base}/command_binding",
-                     [("type", "text"), ("controller", 1), ("width", 152), ("height", 22), ("font", "ui\\small_ui"),
-                      ("color", "#FF2896FF"), ("align", "center"), ("text_y", 5), ("text_flags", "no_focus_test")],
-                     [])
-    extra += _button(f"{base}/button_defaults", 3, ['<on event="a" run="controls screen defaults"/>',
-                                                    '<on event="start" run="controls screen defaults"/>'])
-    extra += _button(f"{base}/button_ok", 1, ['<on event="a" run="controls screen change set" back="true"/>',
-                                              '<on event="start" run="controls screen change set" back="true"/>'])
-    extra += _strings(f"{base}/help_strings", [
-        "Choose what to show, with left and right.",
-        "Enter sets the key chosen; left and right choose\\nwhich of two. Then press the new key or button.",
-        "Press a key, a mouse button or turn the wheel...\\nEscape cancels, Delete clears it.",
-    ])
-    return _screen(folder, spec, rows, ["controls update menu"], ['<on event="created" run="controls screen init"/>'],
-                   extra)
-
-
 def _vr_item() -> list:
     """the profile menu's VR Setup item, below About (as its items are)"""
     return _widget(VR_ITEM, [("type", "text"), ("left", 51), ("top", 375), ("width", 232), ("height", 32),
@@ -1502,8 +1472,11 @@ def _settings_page(folder: str, page: dict) -> list:
             SETTINGS_SPINNER_X
         label_text = [] if named_row else \
             [("string_list", f"{base}/labels"), ("string_index", len(labels) or None)]
+        # (a spinner of a setting, or of none: a list of choices menu_functions.c
+        # reads, Key Bindings' group)
+        spun = bool(setting) or isinstance(choices, list)
         label_widget = _settings_text(f"{base}/{key}_label",
-                                      [("width", value_x - 4 if setting or status else SETTINGS_ROW_WIDTH - 12),
+                                      [("width", value_x - 4 if spun or status else SETTINGS_ROW_WIDTH - 12),
                                        ("height", SETTINGS_ROW_HEIGHT), *label_text, ("color", SETTINGS_BLUE),
                                        ("text_x", 10), ("text_y", caps_text_y(SETTINGS_ROW_HEIGHT)),
                                        ("wide", wide(0, SETTINGS_WIDE_ROWS))])
@@ -1511,7 +1484,36 @@ def _settings_page(folder: str, page: dict) -> list:
                      ("flags", "pass_unhandled_to_focused_child"), ("bitmap", f"{SETTINGS}/row"),
                      ("color", SETTINGS_BLUE), ("platform", platform),
                      ("wide", wide(-WIDE_HALF, SETTINGS_WIDE_ROWS))]
-        if setting and isinstance(choices, Slider):
+        if key in CONTROL_COMMAND_ROWS:
+            # (Key Bindings' action: its name and its two bindings, in the
+            # values' column's halves, menu_functions.c's controls_update
+            # writes; A, or a click, takes the next key or button for the
+            # binding left and right choose, or the one clicked)
+            first, second = CONTROL_BINDINGS_X
+            grown = SETTINGS_WIDE_ROWS // 3
+            extra += _widget(row, row_pairs,
+                             ['<on event="a" run="controls begin binding"/>',
+                              '<on event="start" run="controls begin binding"/>',
+                              '<on event="left" run="controls binding slot"/>',
+                              '<on event="right" run="controls binding slot"/>',
+                              '<on event="left_mouse" run="mouse emit accept event"/>',
+                              f'<child widget="{base}/command_label"/>',
+                              f'<child widget="{base}/command_binding" x="{first}"/>',
+                              f'<child widget="{base}/command_binding_second" x="{second}"/>'])
+            if key == "command_1":
+                # (on a wide screen the row's extra width shared by the
+                # name and the two bindings)
+                extra += _settings_text(f"{base}/command_label",
+                                        [("width", first - 4), ("height", SETTINGS_ROW_HEIGHT),
+                                         ("color", SETTINGS_BLUE), ("text_x", 10),
+                                         ("text_y", caps_text_y(SETTINGS_ROW_HEIGHT)), ("wide", wide(0, grown))])
+                for name, moved in (("command_binding", grown), ("command_binding_second", 2 * grown)):
+                    extra += _settings_text(f"{base}/{name}",
+                                            [("width", CONTROL_BINDING_WIDTH), ("height", SETTINGS_ROW_HEIGHT),
+                                             ("color", SETTINGS_BLUE), ("align", "center"),
+                                             ("text_y", caps_text_y(SETTINGS_ROW_HEIGHT)),
+                                             ("text_flags", "no_focus_test"), ("wide", wide(moved, grown))])
+        elif setting and isinstance(choices, Slider):
             # (a slider: its track, the thumb on it, and its number, which
             # menu_functions.c's "port slider ..." set and its page update
             # places and shows; while its number is typed into, Enter is
@@ -1544,7 +1546,7 @@ def _settings_page(folder: str, page: dict) -> list:
                                                             ("text_y", caps_text_y(SLIDER_VALUE_HEIGHT)),
                                                             ("text_flags", "no_focus_test"),
                                                             ("wide", wide(SETTINGS_WIDE_ROWS))])
-        elif setting:
+        elif spun:
             spinner_arrows = arrows_bounds(SETTINGS_ROW_HEIGHT, 0, SETTINGS_SPINNER_WIDTH)
             extra += _widget(row, row_pairs, [f'<child widget="{base}/{key}_label"/>',
                                               f'<child widget="{base}/{key}_spinner" x="{SETTINGS_SPINNER_X}"/>'])
@@ -1554,12 +1556,12 @@ def _settings_page(folder: str, page: dict) -> list:
                               ("height", SETTINGS_ROW_HEIGHT - 2 * SETTINGS_SPINNER_TOP),
                               ("flags", "pass_unhandled_to_focused_child left_right_tabs_items"),
                               ("strings", "|".join(shown for shown, _ in choices)), ("setting", setting),
-                              ("values", "|".join(value for _, value in choices)), ("font", "ui\\small_ui"),
-                              ("color", SETTINGS_BLUE), ("align", "center"), ("text_y", 0),
+                              ("values", "|".join(value for _, value in choices) if setting else None),
+                              ("font", "ui\\small_ui"), ("color", SETTINGS_BLUE), ("align", "center"), ("text_y", 0),
                               ("header_bitmap", "bitmaps/arrow_sm_left"), ("footer_bitmap", "bitmaps/arrow_sm_right"),
                               ("header_bounds", spinner_arrows[0]), ("footer_bounds", spinner_arrows[1]),
                               ("wide", wide(SETTINGS_WIDE_ROWS))],
-                             ['<on event="created" run="port setting load"/>'])
+                             ['<on event="created" run="port setting load"/>'] if setting else [])
         else:
             # (a row that opens a page, choices: its screen; run: a function
             # first; none: nothing to open)
@@ -1574,7 +1576,16 @@ def _settings_page(folder: str, page: dict) -> list:
                     handlers.append(f'<conditional widget="{SETTINGS}/settings_creating_profile" if_failed="true"/>')
             # (a status row's value where a spinner's would be)
             value = [f'<child widget="{base}/{key}_value" x="{value_x}" y="2"/>'] if status else []
-            extra += _widget(row, row_pairs, handlers + [f'<child widget="{base}/{key}_label"/>'] + value)
+            # (one left and right step through: a spinner's arrows either
+            # side of its value, where a spinner's are)
+            arrows = []
+            if key in SETTINGS_STEPPED_ROWS:
+                arrow_y = int(SETTINGS_ROW_HEIGHT / 2 - ARROW_SM_MIDDLE)
+                arrows = [f'<child widget="{SETTINGS}/stepped_left" x="{SETTINGS_SPINNER_X - ARROW_SM_WIDTH}" '
+                          f'y="{arrow_y}"/>',
+                          f'<child widget="{SETTINGS}/stepped_right" x="{SETTINGS_SPINNER_X + SETTINGS_SPINNER_WIDTH}" '
+                          f'y="{arrow_y}"/>']
+            extra += _widget(row, row_pairs, handlers + [f'<child widget="{base}/{key}_label"/>'] + value + arrows)
             extra += label_widget
             if status:
                 extra += _settings_text(f"{base}/{key}_value", [("width", SETTINGS_SPINNER_X + SETTINGS_SPINNER_WIDTH -
@@ -1732,6 +1743,11 @@ def _settings_shared() -> list:
     lines += _strings(f"{SETTINGS}/tab_about", [PAGES[folder]["about"] for folder in SETTINGS_TAB_PAGES])
     lines += _strings(f"{SETTINGS}/button_help", SETTINGS_BUTTON_HELP["tab"] + SETTINGS_BUTTON_HELP["page"])
     lines += _strings(f"{SETTINGS}/still_captions", ["CLASSIC", "ENHANCED"])
+    # (a stepped row's arrows: SETTINGS_STEPPED_ROWS)
+    for side in ("left", "right"):
+        lines += _widget(f"{SETTINGS}/stepped_{side}", [("controller", 1), ("width", ARROW_SM_WIDTH),
+                                                        ("height", ARROW_SM_HEIGHT), ("bitmap", f"bitmaps/arrow_sm_{side}"),
+                                                        ("wide", wide(SETTINGS_WIDE_ROWS))], [])
     return lines
 
 
@@ -1744,7 +1760,6 @@ def settings_files() -> dict:
         files[f"{PE}/{folder}".replace("/", ".") + ".xml"] = _settings_page(folder, page)
     files[SETTINGS.replace("/", ".") + ".xml"] = _settings_shared()
     files[f"{PE}/vr_controls".replace("/", ".") + ".xml"] += _vr_item()
-    files[f"{PE}/controls_setup".replace("/", ".") + ".xml"] = _controls_screen()
     return {name: ['<?xml version="1.0" encoding="UTF-8"?>',
                    "<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->",
                    "<menus>", *lines, "</menus>", ""] for name, lines in files.items()}
@@ -1754,7 +1769,7 @@ def replaced(folder: str) -> bool:
     """whether the PC version's folder of widgets is replaced by ours (and
     those below it: the controls' advanced screen, the video test)"""
     return any(folder == path or folder.startswith(f"{path}/")
-               for path in [*(f"{PE}/{name}" for name in [*SCREENS, *PAGES, "controls_setup"]), *REPLACED_FOLDERS])
+               for path in [*(f"{PE}/{name}" for name in [*SCREENS, *PAGES]), *REPLACED_FOLDERS])
 
 
 # ---------- Settings' pictures (tools/ce_menus.py draws them, with the

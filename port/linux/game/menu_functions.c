@@ -31,12 +31,13 @@ calls them from PC_MENU_FUNCTION_BASE on):
   Resolution or Window Size, for the display mode shown, Graphics' rows
   at the values of the preset chosen, display.graphics, and its SIMULATION
   row locked at ORIGINAL (30) where game.sim_rate is set aside);
-- Controls Setup's: the keyboard and mouse's controls, two bindings each,
-  shown a group at a time ("controls update menu"); "controls begin
-  binding" takes the next key or button pressed for the binding left and
-  right choose ("controls binding slot"), or the pointer is over or clicked
-  (ui_widget_port_take_point, take_click); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults.
+- Key Bindings' page (a page of Settings'): the keyboard and mouse's
+  controls, two bindings each, shown a group at a time (controls_update,
+  from the page's "port settings page"); "controls begin binding" takes the
+  next key or button pressed for the binding left and right choose
+  ("controls binding slot"), or the pointer is over or clicked
+  (ui_widget_port_take_point, take_click); the page's OK writes them, its
+  Defaults shows the defaults.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -150,6 +151,7 @@ boolean ui_widget_port_switch(struct widget_instance *widget, char const *name, 
 char const *config_string(char const *name);
 void platform_display_apply(void);
 void platform_binding_capture_begin(void);
+void platform_binding_capture_cancel(void);
 int platform_binding_capture_poll(int *input);
 void halo_input_name(int input, char *name, unsigned int size);
 void halo_input_shown_name(char const *binding, char *shown, unsigned int size);
@@ -1967,6 +1969,15 @@ static void sim_rate_row_show(struct widget_instance *list)
 /* (Controller's Button Remapping, a page of Settings') */
 #include "controller_remap_menu.inl"
 
+/* Key Bindings' page, as Button Remapping's (its code below, with the
+keyboard and mouse's controls) */
+static boolean controls_page(struct widget_instance *screen);
+static void controls_page_update(struct widget_instance *list);
+static boolean controls_page_save(struct widget_instance *screen);
+static boolean controls_page_cancel(struct widget_instance *screen);
+static void controls_page_defaults(struct widget_instance *screen);
+static boolean controls_panel(struct widget_instance *row, wchar_t *name, wchar_t *value, wchar_t const **help);
+
 /* ---------- Settings' tabs and pages (tools/port_settings.py's PAGES)
 
 "port settings begin" (the main menu's and the pause menu's SETTINGS) forgets
@@ -2184,12 +2195,13 @@ static boolean settings_function(char const *name, struct widget_instance *widge
 		settings_each(screen, setting_stash);
 		settings_pending_write(FALSE);
 		pad_editor_save(screen);
+		controls_page_save(screen);
 	}
 	else if (!strcmp(name, "page cancel"))
 	{
 		/* (Button Remapping's button being taken, or its replacement
-		asked: dropped, the page kept) */
-		if (!pad_editor_cancel(screen))
+		asked, or Key Bindings' key being taken: dropped, the page kept) */
+		if (!pad_editor_cancel(screen) || !controls_page_cancel(screen))
 		{
 			*result = FALSE;
 			return TRUE;
@@ -2932,6 +2944,9 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 		/* (Button Remapping's: a button being taken, a replacement asked) */
 		if (pad_editor_page(screen_of(list)))
 			pad_editor_panel(row, name, value, &help);
+		/* (Key Bindings': an action's name, keys and words) */
+		if (controls_page(screen_of(list)))
+			controls_panel(row, name, value, &help);
 		row_spinner = spinner;
 		/* (Quality: CLASSIC or ENHANCED framed, neither for CUSTOM) */
 		if (!strcmp(row->name, "op_graphics") && spinner)
@@ -3046,6 +3061,7 @@ static void settings_page_update(struct widget_instance *list)
 	discord_account_show(list);
 	hdr_display_show(list);
 	pad_editor_update(list);
+	controls_page_update(list);
 	graphics_preset_show(list);
 	sim_rate_row_show(list);
 	settings_each(screen, setting_stash);
@@ -3506,7 +3522,9 @@ static struct
 	short slot;
 	short capturing_control;
 	short capturing_slot;
-} controls_screen = { { { { 0 } } }, 0, NONE, 0 };
+	/* the page the bindings were read for (a page opened reads them again) */
+	long screen_tag, screen_time;
+} controls_screen = { { { { 0 } } }, 0, NONE, 0, NONE, 0 };
 
 /* a setting's bindings ("Left Ctrl, C") into the control's */
 static void control_bindings_read(short control, char const *text)
@@ -3611,11 +3629,17 @@ static short controls_group(struct widget_instance *screen)
 	return spinner ? spinner->parameters.list.selected_index : 0;
 }
 
+/* a row's text box of a binding (the first or the second) */
+static struct widget_instance *control_binding_box(struct widget_instance *row, short slot)
+{
+	return named(row, slot ? "command_binding_second" : "command_binding", 0);
+}
+
 /* the binding of a row at a place on the screen: the second from its left
 edge on, else the first */
 static short control_slot_at(struct widget_instance *row, short x)
 {
-	struct widget_instance *second = named(row, "command_binding", 1);
+	struct widget_instance *second = control_binding_box(row, 1);
 
 	return (short)(second && x >= widget_screen_x(second));
 }
@@ -3673,9 +3697,9 @@ static void control_capture_poll(void)
 	}
 }
 
-/* "controls update menu": the group's rows, their bindings (the one left
-and right choose, or the pointer is over, marked on the row chosen), and the
-help */
+/* each frame of Key Bindings' list (settings_page_update, after
+controls_page_update): the group's rows, and their bindings (the one left
+and right choose, or the pointer is over, marked on the row chosen) */
 static void controls_update(struct widget_instance *list)
 {
 	short group = controls_group(list);
@@ -3717,20 +3741,101 @@ static void controls_update(struct widget_instance *list)
 			if (controls_screen.capturing_control == control && controls_screen.capturing_slot == slot)
 				snprintf(shown, sizeof(shown), "%s", "PRESS A KEY");
 			else if (row == focused_row && controls_screen.slot == slot)
-				snprintf(shown, sizeof(shown), "> %s <", name);
+				snprintf(shown, sizeof(shown), "[ %s ]", name);
 			else
 				snprintf(shown, sizeof(shown), "%s", name);
 			for (index = 0; shown[index] && index < ROW_TEXT_LENGTH - 1; index++)
 				text[index] = (wchar_t)(unsigned char)shown[index];
 			text[index] = 0;
-			text_set(named(row, "command_binding", slot), text);
+			text_set(control_binding_box(row, slot), text);
 		}
 	}
-	if (list->parameters.list.extended_description)
+}
+
+/* whether the screen is Key Bindings' page (tools/port_settings.py's
+KEY_BINDINGS: its rows of actions, op_command_<n>) */
+static boolean controls_page(struct widget_instance *screen)
+{
+	return screen && named(screen, "op_command_1", 0) != NULL;
+}
+
+/* each frame of the page's list: the bindings read again as the page opens,
+then its rows (controls_update) */
+static void controls_page_update(struct widget_instance *list)
+{
+	struct widget_instance *screen = screen_of(list);
+
+	if (!controls_page(screen))
+		return;
+	if (screen->definition_tag_index != controls_screen.screen_tag ||
+		screen->creation_time != controls_screen.screen_time)
 	{
-		list->parameters.list.extended_description->parameters.text_box.string_list_index =
-			controls_screen.capturing_control != NONE ? 2 : focused_row ? 1 : 0;
+		controls_screen.screen_tag = screen->definition_tag_index;
+		controls_screen.screen_time = screen->creation_time;
+		controls_screen.slot = 0;
+		controls_load(FALSE);
 	}
+	controls_update(list);
+}
+
+/* the page's OK ("port settings keep"): the bindings written */
+static boolean controls_page_save(struct widget_instance *screen)
+{
+	return !controls_page(screen) || controls_save();
+}
+
+/* the page's Cancel, B and Escape ("port settings page cancel"): a key
+being taken is dropped, the page kept (FALSE); else the page is left, its
+changes forgotten (read again when it opens) */
+static boolean controls_page_cancel(struct widget_instance *screen)
+{
+	if (!controls_page(screen) || controls_screen.capturing_control == NONE)
+		return TRUE;
+	controls_screen.capturing_control = NONE;
+	platform_binding_capture_cancel();
+	return FALSE;
+}
+
+/* the page's Defaults ("port settings defaults"): every action's default
+keys shown, written by OK */
+static void controls_page_defaults(struct widget_instance *screen)
+{
+	if (controls_page(screen))
+		controls_load(TRUE);
+}
+
+/* the panel's name, value and words for an action's row: its name, its
+keys, and how to change them (while one is taken, how to give it) */
+static boolean controls_panel(struct widget_instance *row, wchar_t *name, wchar_t *value, wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	short control = control_of_row(row, controls_group(screen_of(row)));
+	char text[2 * CONTROL_NAME_LENGTH + 8];
+	short slot;
+
+	if (!row->name || strncmp(row->name, "op_command_", 11) || control == NONE)
+		return FALSE;
+	ustrncpy(name, controls[control].label, ROW_TEXT_LENGTH - 1);
+	name[ROW_TEXT_LENGTH - 1] = 0;
+	/* (its keys as the keyboard's layout labels them, NONE without one) */
+	text[0] = 0;
+	for (slot = 0; slot < CONTROL_BINDINGS; slot++)
+	{
+		char shown[CONTROL_NAME_LENGTH];
+
+		if (!controls_screen.bindings[control][slot][0])
+			continue;
+		halo_input_shown_name(controls_screen.bindings[control][slot], shown, sizeof(shown));
+		snprintf(text + strlen(text), sizeof(text) - strlen(text), "%s%s", text[0] ? ", " : "", shown);
+	}
+	discord_widen(text[0] ? text : "NONE", value, ROW_TEXT_LENGTH);
+	discord_widen(controls_screen.capturing_control != NONE ?
+		"Press a key or a mouse button, or turn the wheel.|Escape cancels; Delete leaves it without one." :
+		"Enter, A or a click takes the next key or button pressed for the binding chosen; left and right "
+		"choose which of the two, as does the pointer.|A key put here leaves any other action it was on.",
+		words, SETTINGS_PANEL_TEXT_LENGTH);
+	*help = words;
+	return TRUE;
 }
 
 /* ---------- Mods (the main menu's: tools/port_settings.py's _mods), laid
@@ -11303,6 +11408,7 @@ boolean pc_menu_event_function_invoke(
 			settings_sliders_default(screen_of(widget));
 			browser_search_default(screen_of(widget));
 			pad_editor_defaults(screen_of(widget));
+			controls_page_defaults(screen_of(widget));
 		}
 		else if (!strncmp(name, "port slider ", 12))
 		{
