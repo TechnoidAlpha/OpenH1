@@ -169,8 +169,8 @@
 		<child widget="main_menu/campaign/card_small_1" y="84"/>
 		<child widget="main_menu/campaign/card_big_2" y="84"/>
 		<child widget="main_menu/campaign/card_small_2" y="84"/>
-		<child widget="main_menu/campaign/arrow_previous" x="20" y="172"/>
-		<child widget="main_menu/campaign/arrow_next" x="596" y="172"/>
+		<child widget="main_menu/campaign/arrow_previous" x="24" y="172"/>
+		<child widget="main_menu/campaign/arrow_next" x="592" y="172"/>
 	</widget>
 	<widget name="main_menu/campaign/arrow_previous" width="24" height="64" bitmap="main_menu/campaign/arrow_left" wide="-48 0">
 		<on event="a" run="port campaign previous"/>
@@ -428,13 +428,13 @@
 	</widget>
 	<widget name="main_menu/campaign/mission_dot_15" controller="1" left="460" top="328" width="16" height="8" bitmap="main_menu/campaign/dot">
 	</widget>
-	<widget name="main_menu/campaign/detail_title" type="text" controller="1" left="42" top="344" width="340" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 212" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/detail_title" type="text" controller="1" left="42" top="344" width="326" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 212" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/detail_objective" type="text" controller="1" left="42" top="364" width="340" height="26" font="ui\small_ui" color="#FF2896FF" wide="0 212" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/detail_objective" type="text" controller="1" left="42" top="364" width="326" height="26" font="ui\small_ui" color="#FF2896FF" wide="0 212" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/detail_status" type="text" controller="1" left="42" top="387" width="340" height="18" font="ui\small_ui" color="#FF4FB3FF" wide="0 212" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/detail_status" type="text" controller="1" left="42" top="387" width="326" height="18" font="ui\small_ui" color="#FF4FB3FF" wide="0 212" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/detail_status_new" type="text" controller="1" left="42" top="387" width="340" height="18" font="ui\small_ui" color="#FFF2B34A" wide="0 212" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/detail_status_new" type="text" controller="1" left="42" top="387" width="326" height="18" font="ui\small_ui" color="#FFF2B34A" wide="0 212" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/detail_beaten" type="text" controller="1" left="358" top="342" width="240" height="16" font="ui\small_ui" color="#FF8FB3D3" align="center" wide="212 0" text="BEATEN ON" text_flags="no_focus_test">
 	</widget>
