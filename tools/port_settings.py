@@ -848,9 +848,8 @@ PAGES = {
             ("DISPLAY PEAK", None, None,
              "The brightest the display shows, and its SDR white, as the system reports them.", "hdr",
              "hdr_display"),
-            # (OpenCE's OVERSHIELD and HDR DISPLAY rows are left out: OpenH1's
-            # renderers do not draw the overshield's rise, and HDR output is
-            # display.hdr's own; port/linux/README.md)
+            # (OpenCE's HDR DISPLAY row is left out: HDR output is display.hdr's
+            # own, port/linux/README.md; its OVERSHIELD row is First Person's)
         ],
     },
     FIRST_PERSON[0]: {
@@ -871,10 +870,14 @@ PAGES = {
             (SECTION, "SHIELDS"),
             ("ARM SHIELDS", "display.viewmodel_shield", ON_OFF,
              "When your shield takes a hit, its flare shows on your first-person arms too, as on your body, "
-             "and fades as it does there. A full, untouched shield shows nothing.", None),
+             "and fades as it does there. A full, untouched shield shows nothing.|An overshield stays lit on "
+             "them with Overshield on, below.", None),
             ("SHIELD COLOR", "display.shield_color", [("DEFAULT", "default")] + [(c.upper(), c) for c in SHIELD_COLORS],
              "Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its "
              "own.", None),
+            ("OVERSHIELD", "display.overshield_effect", ON_OFF,
+             "An overshield stays lit for as long as it lasts, in its own color, on your body and, with Arm "
+             "Shields, your arms. Off draws it as the original did. Online: the host's choice.", None),
         ],
     },
     CONTROLLER[0]: {

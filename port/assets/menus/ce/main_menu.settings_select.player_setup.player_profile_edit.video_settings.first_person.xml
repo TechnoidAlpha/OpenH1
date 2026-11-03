@@ -19,6 +19,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_5" x="28" y="190"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_shield" x="28" y="210"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shield_color" x="28" y="231"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_overshield_effect" x="28" y="252"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -115,6 +116,15 @@
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|WHITE|BLACK|RED|BLUE|GRAY|YELLOW|GREEN|PINK|PURPLE|CYAN|COBALT|ORANGE|TEAL|SAGE|BROWN|TAN|MAROON|SALMON" setting="display.shield_color" values="default|white|black|red|blue|gray|yellow|green|pink|purple|cyan|cobalt|orange|teal|sage|brown|tan|maroon|salmon" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
 	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_overshield_effect" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_spinner" x="188"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.overshield_effect" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+		<on event="created" run="port setting load"/>
+	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels">
 		<string text="VIEW"/>
 		<string text="WEAPON FIELD OF VIEW"/>
@@ -124,6 +134,7 @@
 		<string text="SHIELDS"/>
 		<string text="ARM SHIELDS"/>
 		<string text="SHIELD COLOR"/>
+		<string text="OVERSHIELD"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/help_strings">
 		<string text=""/>
@@ -133,7 +144,8 @@
 		<string text="Your legs when you look down, moving as you run: your body as the others see it."/>
 		<string text="Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or from your seat. Behind, the weapon cannot zoom."/>
 		<string text=""/>
-		<string text="When your shield takes a hit, its flare shows on your first-person arms too, as on your body, and fades as it does there. A full, untouched shield shows nothing."/>
+		<string text="When your shield takes a hit, its flare shows on your first-person arms too, as on your body, and fades as it does there. A full, untouched shield shows nothing.|An overshield stays lit on them with Overshield on, below."/>
 		<string text="Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its own."/>
+		<string text="An overshield stays lit for as long as it lasts, in its own color, on your body and, with Arm Shields, your arms. Off draws it as the original did. Online: the host's choice."/>
 	</strings>
 </menus>
