@@ -774,21 +774,21 @@
 		<frame png="ce/port/main_menu/campaign/continue_280x46__0.png" width="280" height="46"/>
 		<frame png="ce/port/main_menu/campaign/continue_280x46__1.png" width="280" height="46"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/card_168x233">
-		<frame png="ce/port/main_menu/campaign/card_168x233__0.png" width="168" height="233"/>
-		<frame png="ce/port/main_menu/campaign/card_168x233__1.png" width="168" height="233"/>
-		<frame png="ce/port/main_menu/campaign/card_168x233__2.png" width="168" height="233"/>
+	<bitmap name="main_menu/campaign/card_158x240">
+		<frame png="ce/port/main_menu/campaign/card_158x240__0.png" width="158" height="240"/>
+		<frame png="ce/port/main_menu/campaign/card_158x240__1.png" width="158" height="240"/>
+		<frame png="ce/port/main_menu/campaign/card_158x240__2.png" width="158" height="240"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/art_back_160x130">
-		<frame png="ce/port/main_menu/campaign/art_back_160x130__0.png" width="160" height="130"/>
+	<bitmap name="main_menu/campaign/art_back_150x122">
+		<frame png="ce/port/main_menu/campaign/art_back_150x122__0.png" width="150" height="122"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/card_140x206">
-		<frame png="ce/port/main_menu/campaign/card_140x206__0.png" width="140" height="206"/>
-		<frame png="ce/port/main_menu/campaign/card_140x206__1.png" width="140" height="206"/>
-		<frame png="ce/port/main_menu/campaign/card_140x206__2.png" width="140" height="206"/>
+	<bitmap name="main_menu/campaign/card_132x211">
+		<frame png="ce/port/main_menu/campaign/card_132x211__0.png" width="132" height="211"/>
+		<frame png="ce/port/main_menu/campaign/card_132x211__1.png" width="132" height="211"/>
+		<frame png="ce/port/main_menu/campaign/card_132x211__2.png" width="132" height="211"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/art_back_132x107">
-		<frame png="ce/port/main_menu/campaign/art_back_132x107__0.png" width="132" height="107"/>
+	<bitmap name="main_menu/campaign/art_back_124x101">
+		<frame png="ce/port/main_menu/campaign/art_back_124x101__0.png" width="124" height="101"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/art_back_176x143">
 		<frame png="ce/port/main_menu/campaign/art_back_176x143__0.png" width="176" height="143"/>
@@ -806,7 +806,7 @@
 		<frame png="ce/port/main_menu/campaign/dot__1.png" width="16" height="8"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/panel">
-		<frame png="ce/port/main_menu/campaign/panel__0.png" width="584" height="72"/>
+		<frame png="ce/port/main_menu/campaign/panel__0.png" width="584" height="68"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/difficulty_card">
 		<frame png="ce/port/main_menu/campaign/difficulty_card__0.png" width="138" height="300"/>
@@ -815,13 +815,13 @@
 	<bitmap name="main_menu/campaign/badge_box">
 		<frame png="ce/port/main_menu/campaign/badge_box__0.png" width="122" height="122"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/badge_shape_16">
-		<frame png="ce/port/main_menu/campaign/badge_shape_16__0.png" width="16" height="16"/>
-		<frame png="ce/port/main_menu/campaign/badge_shape_16__1.png" width="16" height="16"/>
+	<bitmap name="main_menu/campaign/badge_shape_36">
+		<frame png="ce/port/main_menu/campaign/badge_shape_36__0.png" width="36" height="36"/>
+		<frame png="ce/port/main_menu/campaign/badge_shape_36__1.png" width="36" height="36"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/badge_shape_20">
-		<frame png="ce/port/main_menu/campaign/badge_shape_20__0.png" width="20" height="20"/>
-		<frame png="ce/port/main_menu/campaign/badge_shape_20__1.png" width="20" height="20"/>
+	<bitmap name="main_menu/campaign/badge_shape_28">
+		<frame png="ce/port/main_menu/campaign/badge_shape_28__0.png" width="28" height="28"/>
+		<frame png="ce/port/main_menu/campaign/badge_shape_28__1.png" width="28" height="28"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/badge_shape_30">
 		<frame png="ce/port/main_menu/campaign/badge_shape_30__0.png" width="30" height="30"/>
@@ -830,14 +830,5 @@
 	<bitmap name="main_menu/campaign/badge_shape_110">
 		<frame png="ce/port/main_menu/campaign/badge_shape_110__0.png" width="110" height="110"/>
 		<frame png="ce/port/main_menu/campaign/badge_shape_110__1.png" width="110" height="110"/>
-	</bitmap>
-	<bitmap name="main_menu/campaign/badge_veil_16">
-		<frame png="ce/port/main_menu/campaign/badge_veil_16__0.png" width="18" height="18"/>
-	</bitmap>
-	<bitmap name="main_menu/campaign/badge_veil_20">
-		<frame png="ce/port/main_menu/campaign/badge_veil_20__0.png" width="22" height="22"/>
-	</bitmap>
-	<bitmap name="main_menu/campaign/badge_veil_30">
-		<frame png="ce/port/main_menu/campaign/badge_veil_30__0.png" width="32" height="32"/>
 	</bitmap>
 </menus>

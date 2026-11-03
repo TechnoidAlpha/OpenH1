@@ -5662,17 +5662,17 @@ CAMPAIGN_ITEMS_TOP = 92
 CAMPAIGN_ART = campaign_art_size(176)
 # the mission cards: the one chosen and the others, (width, height), their
 # pictures' size in them (4 in from the edges), the badges' size and step
-MISSION_BIG, MISSION_SMALL = (168, 233), (140, 206)
+MISSION_BIG, MISSION_SMALL = (158, 240), (132, 211)
 MISSION_ART_INSET = 4
-MISSION_BADGE = {MISSION_BIG: (20, 24), MISSION_SMALL: (16, 20)}
-MISSION_CARDS_TOP = 86
+MISSION_BADGE = {MISSION_BIG: (36, 38), MISSION_SMALL: (28, 31)}
+MISSION_CARDS_TOP = 84
 MISSION_CARD_GAP = 10
 MISSION_ARROW = (24, 64)
 # (the arrows' places, and their move to a wide screen's edges)
 MISSION_ARROW_X, MISSION_ARROW_WIDE = 20, 48
-MISSION_DOTS, MISSION_DOT, MISSION_DOT_STEP, MISSION_DOTS_TOP = 16, (16, 8), 20, 324
+MISSION_DOTS, MISSION_DOT, MISSION_DOT_STEP, MISSION_DOTS_TOP = 16, (16, 8), 20, 328
 # the details' panel under the cards, across a wide screen
-MISSION_PANEL = (28, 336, 584, 72)
+MISSION_PANEL = (28, 340, 584, 68)
 MISSION_PANEL_BADGE, MISSION_PANEL_BADGE_STEP = 30, 60
 # the difficulty cards: four across, each its big badge in a box at its top
 DIFFICULTY_CARD = (138, 300)
@@ -5685,7 +5685,7 @@ DIFFICULTY_BLURBS = ["Fewer, weaker enemies.\\nFor learning the ropes.",
 CAMPAIGN_PROMPT_BACK = ("prompt_back", "%b-button BACK", 516, 96, '<on event="a" run="mouse emit back event"/>')
 CAMPAIGN_HINTS = ["Pick up where you left off: no mission or difficulty to choose.",
                   "Play any mission, on any difficulty.",
-                  "Play the campaign with a friend: online, or split screen on this computer.",
+                  "",
                   ""]
 
 
@@ -5747,11 +5747,6 @@ def campaign_pictures() -> list:
     for size in (*{badge for badge, _ in MISSION_BADGE.values()}, MISSION_PANEL_BADGE, DIFFICULTY_BADGE):
         pictures.append((f"{CAMPAIGN}/badge_shape_{size}", [(shield(size, "#2e5478"), size, size),
                                                             (shield(size, "#4fb3ff"), size, size)]))
-    # (a badge not earned, veiled: the card's and the panel's)
-    for size in (*{badge for badge, _ in MISSION_BADGE.values()}, MISSION_PANEL_BADGE):
-        pictures.append((f"{CAMPAIGN}/badge_veil_{size}", [
-            (_svg(size + 2, size + 2, [_rounded(size + 2, size + 2, 0, (size + 2) / 2, "#06101c", 0.74)]),
-             size + 2, size + 2)]))
     return pictures
 
 
@@ -5885,13 +5880,11 @@ def _mission_card(size: tuple, slot: int) -> list:
     children = [f'<child widget="{CAMPAIGN}/{name}_{kind}"/>' for name in
                 ("card_art_back", "card_art", "card_custom_art", "card_card_tag", "card_card_title", "card_resume",
                  "card_number", "card_title")]
-    # (the badges in a row under the name)
-    badges_x = 10
+    # (the badges in a row under the name, across the card)
+    badges_x = (width - 3 * step - badge) // 2
     children += [f'<child widget="{CAMPAIGN}/card_badge_shape_{kind}" x="{badges_x + step * index}"/>'
                  for index in range(4)]
     children += [f'<child widget="{CAMPAIGN}/card_badge_{kind}" x="{badges_x + step * index}"/>' for index in range(4)]
-    children += [f'<child widget="{CAMPAIGN}/card_badge_veil_{kind}" x="{badges_x - 1 + step * index}"/>'
-                 for index in range(4)]
     children.append(f'<child widget="{CAMPAIGN}/card_unbeaten_{kind}"/>')
     lines = _widget(base, [("width", width), ("height", height), ("bitmap", mission_card(size))],
                     [*(f'<on event="{event}" run="port campaign choose" open="{CAMPAIGN}/difficulty_screen"/>'
@@ -5931,13 +5924,10 @@ def _mission_card(size: tuple, slot: int) -> list:
     lines += _campaign_text(f"{CAMPAIGN}/card_title_{kind}", 10, text_top + 16, width - 20, 46, font, "#FFFFFFFF")
     for name, bitmap in (("card_badge_shape", f"{CAMPAIGN}/badge_shape_{badge}"),
                          ("card_badge", f"{CAMPAIGN}/badges_{badge}")):
-        lines += _widget(f"{CAMPAIGN}/{name}_{kind}", [("controller", 1), ("top", text_top + 64),
+        lines += _widget(f"{CAMPAIGN}/{name}_{kind}", [("controller", 1), ("top", text_top + 62),
                                                         ("width", badge), ("height", badge), ("bitmap", bitmap)], [])
-    lines += _widget(f"{CAMPAIGN}/card_badge_veil_{kind}", [("controller", 1), ("top", text_top + 63),
-                                                            ("width", badge + 2), ("height", badge + 2),
-                                                            ("bitmap", f"{CAMPAIGN}/badge_veil_{badge}")], [])
     # (a mission not beaten on any difficulty says so, in the badges' place)
-    lines += _campaign_text(f"{CAMPAIGN}/card_unbeaten_{kind}", 10, text_top + 64 + (badge - 16) // 2, width - 20, 18,
+    lines += _campaign_text(f"{CAMPAIGN}/card_unbeaten_{kind}", 10, text_top + 62 + (badge - 16) // 2, width - 20, 18,
                             "ui\\small_ui", CAMPAIGN_NEW, words="NOT YET BEATEN")
     lines += _level_pictures(f"{CAMPAIGN}/art_{art_w}x{art_h}", art_w, art_h)
     lines += _map_frames(f"{CAMPAIGN}/badges_{badge}", CAMPAIGN_BADGES_SMALL, 4, badge, badge)
@@ -6030,27 +6020,23 @@ def _missions() -> list:
     panel = [f'<child widget="{base}/{name}"/>' for name in
              ("detail_title", "detail_objective", "detail_status", "detail_status_new", "detail_beaten")]
     panel += [f'<child widget="{base}/detail_{part}" x="{step * index}"/>' for index in range(4)
-              for part in ("badge_shape", "badge", "badge_veil", "badge_name")]
+              for part in ("badge_shape", "badge", "badge_name")]
     lines += _campaign_text(f"{base}/detail_title", left + 14, top + 4, 340, 22, "ui\\large_ui", "#FFFFFFFF",
                             wide_layout=wide(0, WIDE_EXTRA))
-    lines += _campaign_text(f"{base}/detail_objective", left + 14, top + 25, 340, 28, "ui\\small_ui", SETTINGS_BLUE,
+    lines += _campaign_text(f"{base}/detail_objective", left + 14, top + 24, 340, 26, "ui\\small_ui", SETTINGS_BLUE,
                             wide_layout=wide(0, WIDE_EXTRA))
-    lines += _campaign_text(f"{base}/detail_status", left + 14, top + 51, 340, 18, "ui\\small_ui", CAMPAIGN_ACCENT,
+    lines += _campaign_text(f"{base}/detail_status", left + 14, top + 47, 340, 18, "ui\\small_ui", CAMPAIGN_ACCENT,
                             wide_layout=wide(0, WIDE_EXTRA))
-    lines += _campaign_text(f"{base}/detail_status_new", left + 14, top + 51, 340, 18, "ui\\small_ui",
+    lines += _campaign_text(f"{base}/detail_status_new", left + 14, top + 47, 340, 18, "ui\\small_ui",
                             CAMPAIGN_NEW, wide_layout=wide(0, WIDE_EXTRA))
     lines += _campaign_text(f"{base}/detail_beaten", badges_x, top + 2, 4 * step, 16, "ui\\small_ui", CAMPAIGN_DIM,
                             words="BEATEN ON", align="center", wide_layout=wide(WIDE_EXTRA))
     badge_x = badges_x + (step - badge) // 2
     for name, bitmap in (("detail_badge_shape", f"{base}/badge_shape_{badge}"),
                          ("detail_badge", f"{base}/badges_{badge}")):
-        lines += _widget(f"{base}/{name}", [("controller", 1), ("left", badge_x), ("top", top + 18), ("width", badge),
+        lines += _widget(f"{base}/{name}", [("controller", 1), ("left", badge_x), ("top", top + 17), ("width", badge),
                                             ("height", badge), ("bitmap", bitmap), ("wide", wide(WIDE_EXTRA))], [])
-    lines += _widget(f"{base}/detail_badge_veil", [("controller", 1), ("left", badge_x - 1), ("top", top + 17),
-                                                   ("width", badge + 2), ("height", badge + 2),
-                                                   ("bitmap", f"{base}/badge_veil_{badge}"), ("wide", wide(WIDE_EXTRA))],
-                     [])
-    lines += _campaign_text(f"{base}/detail_badge_name", badges_x - 6, top + 50, step + 12, 16, "ui\\small_ui", CAMPAIGN_DIM,
+    lines += _campaign_text(f"{base}/detail_badge_name", badges_x - 6, top + 48, step + 12, 16, "ui\\small_ui", CAMPAIGN_DIM,
                             align="center", wide_layout=wide(WIDE_EXTRA))
     lines += _widget(f"{base}/mission_panel", [("controller", 1), ("left", left), ("top", top), ("width", width),
                                                ("height", height), ("bitmap", f"{base}/panel"),

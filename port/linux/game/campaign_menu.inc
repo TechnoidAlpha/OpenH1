@@ -37,14 +37,16 @@ campaign_levels_read), a level started as the PC version's lists start it
 /* ---------- constants */
 
 #define MISSION_SLOTS 3
+/* a move of the row: the cards slide to their places this long */
+#define MISSION_SLIDE_MILLISECONDS 160
 /* (tools/port_settings.py's MISSION_BIG, MISSION_SMALL, MISSION_CARD_GAP,
 MISSION_CARDS_TOP, MISSION_DOTS, MISSION_DOT_STEP) */
-#define MISSION_BIG_WIDTH 168
-#define MISSION_BIG_HEIGHT 233
-#define MISSION_SMALL_WIDTH 140
-#define MISSION_SMALL_HEIGHT 206
+#define MISSION_BIG_WIDTH 158
+#define MISSION_BIG_HEIGHT 240
+#define MISSION_SMALL_WIDTH 132
+#define MISSION_SMALL_HEIGHT 211
 #define MISSION_CARD_GAP 10
-#define MISSION_CARDS_TOP 86
+#define MISSION_CARDS_TOP 84
 #define MISSION_DOTS 16
 #define MISSION_DOT_STEP 20
 /* the card's frames (port_settings.py's mission_card: its third unused) */
@@ -60,9 +62,14 @@ CAMPAIGN_CONTINUE, HUB_ITEM) */
 #define CAMPAIGN_ITEMS_TOP 92
 #define CAMPAIGN_CONTINUE_HEIGHT 46
 #define CAMPAIGN_ITEM_HEIGHT 26
+/* CO-OP's words in the panel: up from a mission's name's place to its top */
+#define CAMPAIGN_PANEL_COOP_RISE 158
 #define NUMBER_OF_DIFFICULTIES 4
-/* a card beside the chosen one: its opacity */
+/* a card beside the chosen one, a badge not earned (a card's, the panel's):
+their opacity */
 #define MISSION_CARD_FAINT 0.8f
+#define MISSION_BADGE_FAINT 0.3f
+#define MISSION_PANEL_BADGE_FAINT 0.4f
 
 /* ---------- globals */
 
@@ -81,7 +88,15 @@ static struct
 	short difficulty_display_index;
 	/* the difficulty chosen on its screen */
 	short difficulty;
-} campaign_cards = { FALSE, 0, 0, 0, NONE, NONE, 1 };
+	/* the mission chosen on Choose Mission last, if it has been open */
+	boolean viewed;
+	short viewed_level;
+	/* the row as it was laid out last (NONE: not yet), and its slide: from
+	how far, since when */
+	short shown_first;
+	real slide_from;
+	unsigned long slide_start;
+} campaign_cards = { FALSE, 0, 0, 0, NONE, NONE, 1, FALSE, 0, NONE, 0.0f, 0 };
 
 /* ---------- the row's layout (tools/harness/tests/campaign_cards.c) */
 
@@ -110,6 +125,18 @@ static void mission_cards_place(short shown, short chosen_slot, short extra, sho
 		x[slot] = left;
 		left = (short)(left + (slot == chosen_slot ? MISSION_BIG_WIDTH : MISSION_SMALL_WIDTH) + gap);
 	}
+}
+
+/* how far the row is still moved, units, elapsed milliseconds into a slide
+from `from` units: eased out over MISSION_SLIDE_MILLISECONDS to nothing */
+static real mission_cards_slide(real from, unsigned long elapsed)
+{
+	real left;
+
+	if (elapsed >= MISSION_SLIDE_MILLISECONDS)
+		return 0.0f;
+	left = 1.0f - (real)elapsed / MISSION_SLIDE_MILLISECONDS;
+	return from * left * left * left;
 }
 
 /* the mission one step from the chosen one (by -1 or 1), kept to the row's
@@ -242,10 +269,10 @@ static void campaign_level_status(short level, wchar_t *text, short size)
 /* ---------- shared parts */
 
 /* the four badges in a widget: each difficulty's own picture (ui.map's),
-veiled where the mission is not beaten on it; where the map has no badges,
-a shape, lit or not */
-static void campaign_badges_show(struct widget_instance *parent, char const *badge, char const *shape,
-	char const *veil, byte beaten, boolean shown)
+faint (faint: its opacity) where the mission is not beaten on it; where
+the map has no badges, a shape, lit or not */
+static void campaign_badges_show(struct widget_instance *parent, char const *badge, char const *shape, real faint,
+	byte beaten, boolean shown)
 {
 	boolean have_badges = tag_loaded('bitm', MISSION_BADGES) != NONE;
 	short index;
@@ -258,9 +285,11 @@ static void campaign_badges_show(struct widget_instance *parent, char const *bad
 
 		visible_set(picture, shown && have_badges);
 		visible_set(outline, shown && !have_badges);
-		visible_set(named(parent, veil, index), shown && have_badges && !lit);
 		if (picture)
+		{
 			picture->animation.current_frame_index = index;
+			picture->alpha_modifier = lit ? 1.0f : faint;
+		}
 		if (outline)
 			outline->animation.current_frame_index = lit ? 1 : 0;
 	}
@@ -338,6 +367,44 @@ static void campaign_panel_show(struct widget_instance *panel, short level)
 	menu_text_box_wrap(named(panel, "panel_objective", 0), text, 3);
 }
 
+/* the mission CHOOSE MISSION's panel shows: the one chosen there last,
+else the first not yet beaten on any difficulty */
+static short campaign_menu_mission(void)
+{
+	short level;
+
+	if (campaign_cards.viewed)
+		return campaign_cards.viewed_level;
+	for (level = 0; level < NUMBER_OF_SINGLE_PLAYER_LEVELS; level++)
+	{
+		if (!campaign.levels[level].beaten)
+			return level;
+	}
+	return campaign_cards.opening_level;
+}
+
+/* the panel as CO-OP's (a mission's parts hidden, its words), or as a
+mission's */
+static void campaign_panel_coop(struct widget_instance *panel, boolean coop)
+{
+	visible_set(named(panel, "panel_art", 0), !coop);
+	visible_set(named(panel, "panel_art_back", 0), !coop);
+	visible_set(named(panel, "panel_number", 0), !coop);
+	visible_set(named(panel, "panel_status", 0), !coop);
+	/* (CO-OP's words at the panel's top, where the picture is) */
+	if (named(panel, "panel_title", 0))
+		named(panel, "panel_title", 0)->vertical_offset = (short)(coop ? -CAMPAIGN_PANEL_COOP_RISE : 0);
+	if (named(panel, "panel_objective", 0))
+		named(panel, "panel_objective", 0)->vertical_offset = (short)(coop ? -CAMPAIGN_PANEL_COOP_RISE - 16 : 0);
+	if (coop)
+	{
+		menu_text_box_fit(named(panel, "panel_title", 0), L"Co-op", 0);
+		menu_text_box_wrap(named(panel, "panel_objective", 0),
+			L"Play the campaign with a friend: online with your invite link, or split screen with a controller "
+			L"for player 2.", 3);
+	}
+}
+
 /* "port campaign update", the menu's list's: CONTINUE shown with a saved
 game (its mission and difficulty under it), the focus off it without one,
 the panel's mission and the item chosen's hint */
@@ -389,7 +456,11 @@ static void campaign_screen_update(struct widget_instance *list)
 		if (named(item, "continue_art", 0))
 			named(item, "continue_art", 0)->animation.current_frame_index = campaign.saved_level;
 	}
-	campaign_panel_show(panel, saved ? campaign.saved_level : campaign_cards.opening_level);
+	/* (CONTINUE's mission; CHOOSE MISSION's the one chosen there last, else
+	the first not yet beaten; CO-OP's its own words) */
+	campaign_panel_coop(panel, hint == 2);
+	if (hint != 2)
+		campaign_panel_show(panel, hint == 0 && saved ? campaign.saved_level : campaign_menu_mission());
 	string_get("pc\\main_menu\\campaign\\hints", hint, text);
 	menu_text_box_wrap(named(panel, "panel_hint", 0), text, 2);
 	profile_name_show(screen_of(list));
@@ -407,6 +478,7 @@ static boolean campaign_missions_initialize(struct widget_instance *list, short 
 		campaign_cards.opening_level = campaign_opening_level(&profile);
 	}
 	campaign_cards.custom = FALSE;
+	campaign_cards.shown_first = NONE;
 	campaign_cards.chosen = campaign_cards.opening_level;
 	campaign_cards.first = mission_cards_first(campaign_cards.chosen, campaign_mission_count());
 	list->focused_child = NULL;
@@ -471,11 +543,10 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		visible_set(named(card, name, 0), FALSE);
 		snprintf(name, sizeof(name), "card_badge_%s", kind);
 		{
-			char shape[48], veil[48];
+			char shape[48];
 
 			snprintf(shape, sizeof(shape), "card_badge_shape_%s", kind);
-			snprintf(veil, sizeof(veil), "card_badge_veil_%s", kind);
-			campaign_badges_show(card, name, shape, veil, 0, FALSE);
+			campaign_badges_show(card, name, shape, MISSION_BADGE_FAINT, 0, FALSE);
 		}
 		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
 		visible_set(named(card, name, 0), FALSE);
@@ -499,14 +570,13 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 	snprintf(name, sizeof(name), "card_resume_%s", kind);
 	visible_set(named(card, name, 0), mission == campaign.saved_level);
 	{
-		char badge[48], shape[48], veil[48];
+		char badge[48], shape[48];
 		byte beaten = campaign.levels[mission].beaten;
 
 		snprintf(badge, sizeof(badge), "card_badge_%s", kind);
 		snprintf(shape, sizeof(shape), "card_badge_shape_%s", kind);
-		snprintf(veil, sizeof(veil), "card_badge_veil_%s", kind);
 		/* (not yet beaten on any: said in the badges' place) */
-		campaign_badges_show(card, badge, shape, veil, beaten, beaten != 0);
+		campaign_badges_show(card, badge, shape, MISSION_BADGE_FAINT, beaten, beaten != 0);
 		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
 		visible_set(named(card, name, 0), beaten == 0);
 	}
@@ -534,7 +604,7 @@ static void mission_panel_show(struct widget_instance *panel, short mission, sho
 		campaign_text_set_ascii(named(panel, "detail_status", 0), "A campaign map of your custom_maps folder.");
 		visible_set(named(panel, "detail_status", 0), TRUE);
 		visible_set(named(panel, "detail_status_new", 0), FALSE);
-		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", "detail_badge_veil", 0, TRUE);
+		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", MISSION_PANEL_BADGE_FAINT, 0, TRUE);
 	}
 	else
 	{
@@ -552,7 +622,7 @@ static void mission_panel_show(struct widget_instance *panel, short mission, sho
 		menu_text_box_fit(named(panel, beaten || saved ? "detail_status" : "detail_status_new", 0), text, 0);
 		visible_set(named(panel, "detail_status", 0), beaten || saved);
 		visible_set(named(panel, "detail_status_new", 0), !beaten && !saved);
-		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", "detail_badge_veil", beaten, TRUE);
+		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", MISSION_PANEL_BADGE_FAINT, beaten, TRUE);
 	}
 	for (index = 0; index < NUMBER_OF_DIFFICULTIES; index++)
 	{
@@ -582,6 +652,23 @@ static void campaign_missions_update(struct widget_instance *list)
 	shown = (short)MIN(count, MISSION_SLOTS);
 	mission_cards_place(shown, (short)(campaign_cards.chosen - campaign_cards.first), ui_widget_port_wide_extra(),
 		slot_x);
+	/* (a row moved slides there, from where it is drawn now: a press
+	during a slide carries it on) */
+	{
+		unsigned long now = system_milliseconds();
+		real pitch = (real)(MISSION_SMALL_WIDTH + MISSION_CARD_GAP + ui_widget_port_wide_extra() / 8);
+		real shift = mission_cards_slide(campaign_cards.slide_from, now - campaign_cards.slide_start);
+
+		if (campaign_cards.shown_first != NONE && campaign_cards.first != campaign_cards.shown_first)
+		{
+			campaign_cards.slide_from = shift + (campaign_cards.first - campaign_cards.shown_first) * pitch;
+			campaign_cards.slide_start = now;
+			shift = campaign_cards.slide_from;
+		}
+		campaign_cards.shown_first = campaign_cards.first;
+		for (slot = 0; slot < shown; slot++)
+			slot_x[slot] = (short)(slot_x[slot] + (shift < 0.0f ? -(short)(-shift + 0.5f) : (short)(shift + 0.5f)));
+	}
 	for (slot = 0; slot < MISSION_SLOTS; slot++)
 	{
 		short mission = (short)(campaign_cards.first + slot);
@@ -627,6 +714,11 @@ static void campaign_missions_update(struct widget_instance *list)
 		}
 	}
 	mission_panel_show(list->parameters.list.extended_description, campaign_cards.chosen, count);
+	if (!campaign_cards.custom && count > 0)
+	{
+		campaign_cards.viewed = TRUE;
+		campaign_cards.viewed_level = campaign_cards.chosen;
+	}
 	if (count <= 0)
 	{
 		campaign_widen("Put Custom Edition campaign maps in your custom_maps folder to play them here.", text,
@@ -669,6 +761,7 @@ static boolean campaign_missions_source(struct widget_instance *widget, char con
 	if (custom == campaign_cards.custom)
 		return TRUE;
 	campaign_cards.custom = custom;
+	campaign_cards.shown_first = NONE;
 	campaign_cards.chosen = custom ? 0 : campaign_cards.opening_level;
 	campaign_cards.first = mission_cards_first(campaign_cards.chosen, campaign_mission_count());
 	ui_play_audio_feedback_sound(SOUND_CURSOR);
