@@ -206,6 +206,8 @@ end, the open tick run to its end at once, and an open tick given up */
 boolean game_time_tick_open_wait(void);
 void game_time_finish_tick(void);
 void game_time_port_drop_substeps(void);
+/* port: the seconds until the clock's next step falls due (game_time.c) */
+real game_time_seconds_to_next_step(void);
 
 /* ---------- prototypes/MAIN.C */
 

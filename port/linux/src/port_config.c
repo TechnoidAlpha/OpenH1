@@ -2141,7 +2141,8 @@ static const struct config_setting config_settings[] =
 		"of the view's heading (0: ahead); empty none." },
 #endif
 	{ "debug.null_renderer", _config_boolean, "false", "HALO_NULL_RENDERER", _environment_set_is_true, _platform_all,
-		"Run without a window, drawing nothing." },
+		"Run without a window, drawing nothing: a frame a step of the game's\n"
+		"clock (game.sim_rate), not as many as it can." },
 	{ "debug.no_clipboard", _config_boolean, "false", "HALO_NO_CLIPBOARD", _environment_set_is_true, _platform_all,
 		"Leave the clipboard alone (tests and tools): no invite link is put on\n"
 		"it, and none found there is joined, as with debug.null_renderer,\n"

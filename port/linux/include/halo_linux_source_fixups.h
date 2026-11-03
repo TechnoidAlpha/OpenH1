@@ -225,6 +225,11 @@ int halo_hdr_display_text(int words, char *text, unsigned int size);
 #define HALO_HDR_KIND_SELF_ILLUMINATION 64
 #define HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(stages) ((stages) << 8)
 #endif
+/* a run whose frames nobody sees (debug.null_renderer, a dedicated server,
+no display: port/linux/src/d3d8_device.c): main.c draws none, and paces its
+frames to the game's clock (port/linux/game/unseen_frames.c) */
+int halo_frames_unseen(void);
+void unseen_frame_wait(void);
 /* network.client_timeout_seconds, in milliseconds (port/linux/src/port_config.c) */
 unsigned long network_client_timeout_milliseconds(void);
 /* a dedicated server (halo --server: port/linux/src/server_mode.c,
