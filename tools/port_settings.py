@@ -569,13 +569,6 @@ PAGES = {
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
              "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First "
              "Person.|Click the number (or press A) to type 20 to 150.", None),
-            # (display.panini, port/linux/game/panini.c: its strength and
-            # vertical compression are First Person's; none in the VR build:
-            # menu_functions.c's panini_rows_show)
-            ("PANINI PROJECTION", "display.panini", ON_OFF,
-             "Stops a wide field of view from stretching what is at the sides: you still see as far, and the "
-             "middle is drawn larger. The HUD stays flat. Its strength: First Person.|Best with Field of View "
-             "above 100.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -584,8 +577,8 @@ PAGES = {
              "Where the picture sits on a screen taller than it, its shape, and the frame around it in portrait.",
              "android"),
             ("FIRST PERSON ›", None, _page_screen(*FIRST_PERSON),
-             "Your weapon's field of view and whether it is drawn, your legs and arms, your shield's color, and the "
-             "view from a vehicle's passenger seat.", None),
+             "Your weapon's field of view and whether it is drawn, the Panini projection, your legs and arms, your "
+             "shield's color, and the view from a vehicle's passenger seat.", None),
             # (port/linux/src/bink_movie.c; the help says where the movies go:
             # MOVIES_HELP)
             ("STARTUP MOVIES", "display.movies", ON_OFF, MOVIES_HELP, None),
@@ -930,7 +923,12 @@ PAGES = {
             ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
              "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
              "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),
-            # (display.panini's, Video's Panini Projection)
+            # (display.panini, port/linux/game/panini.c, and its strength and
+            # vertical compression; none in the VR build: menu_functions.c's
+            # panini_rows_show)
+            ("PANINI PROJECTION", "display.panini", ON_OFF,
+             "Stops a wide field of view from stretching what is at the sides: you still see as far, and the "
+             "middle is drawn larger. The HUD stays flat.|Best with a Field of View above 100.", None),
             ("PANINI STRENGTH", "display.panini_strength", PANINI_AMOUNT,
              "With Panini Projection on: how much the sides are corrected. 1 keeps their shapes true; less keeps "
              "more of the flat view and enlarges the middle less.|Click the number (or press A) to type 0 to 1.",

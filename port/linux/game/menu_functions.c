@@ -1787,9 +1787,9 @@ static void gamma_row_show(struct widget_instance *list)
 #endif
 }
 
-/* Video's Panini Projection (display.panini, port/linux/game/panini.c) and
-First Person's Panini Strength and Panini Vertical: none in the VR build,
-which never draws through it */
+/* First Person's Panini Projection (display.panini, port/linux/game/panini.c),
+Panini Strength and Panini Vertical: none in the VR build, which never draws
+through it */
 static void panini_rows_show(struct widget_instance *list)
 {
 #ifdef HALO_VR
