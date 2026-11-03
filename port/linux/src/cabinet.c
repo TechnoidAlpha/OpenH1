@@ -1,6 +1,10 @@
 /*
 CABINET.C
 
+From ChupathingyCE (https://github.com/ChupathingyCE/chupathingyce, pull
+request #313, by Milenko), under GPL-3.0-or-later; OpenH1's changes to it
+are marked "OpenH1:".
+
 Writes Halo PC's maps out of Microsoft cabinets (.cab files), for the
 desktop ports' optional imports of a Halo PC disc image (pc_disc.c) and of
 Custom Edition's installer (ce_installer.c). Both keep their maps in
@@ -204,7 +208,12 @@ int cabinet_import_open(struct cabinet_import *import, const char *path, const c
 	import->error_size = error_size;
 	import->progress = progress;
 	import->context = context;
-	snprintf(import->folder, sizeof(import->folder), "%s/%s", destination, folder);
+	/* OpenH1: no folder, the maps go in destination itself (custom_maps, which
+	paths.custom_maps may put anywhere) */
+	if (folder && *folder)
+		snprintf(import->folder, sizeof(import->folder), "%s/%s", destination, folder);
+	else
+		snprintf(import->folder, sizeof(import->folder), "%s", destination);
 	import->descriptor = open(path, O_RDONLY | O_LARGEFILE | O_CLOEXEC);
 	if (import->descriptor < 0)
 		return cabinet_fail(import, "Could not open %s.", path);

@@ -1,6 +1,10 @@
 /*
 CE_INSTALLER.C
 
+From ChupathingyCE (https://github.com/ChupathingyCE/chupathingyce, pull
+request #313, by Milenko), under GPL-3.0-or-later; OpenH1's changes to it
+are marked "OpenH1:".
+
 Writes the maps of Halo PC's Custom Edition, from its installer
 (halocesetup_en_1.00.exe: Microsoft's "Games AutoRun/Setup" of 2004, a
 self-extracting program, its files packed into it),
@@ -9,6 +13,11 @@ of Custom Edition's maps (sdl_platform.c). Custom Edition's resource maps
 (bitmaps.map, sounds.map, loc.map) are what its maps, HaloMD's and Halo
 PC's are read with (halo_map_families.h); the game itself needs only the
 Xbox's maps (xiso.c).
+
+(OpenH1: the maps go in the custom_maps folder, which the caller names
+(map_import.c), where OpenH1 plays Custom Edition maps from, with their
+bitmaps.map, sounds.map and loc.map; its first start is first_start.c's on
+Linux and macOS, sdl_platform.c's on Windows.)
 
 The installer is a Windows program (it starts "MZ") with one Microsoft
 cabinet inside it, after its code: setup's own files, then everything
@@ -92,7 +101,7 @@ int ce_installer_is_installer(const char *path)
 	char error[64];
 	int result;
 
-	if (!cabinet_import_open(&import, path, ".", "maps_ce", NULL, NULL, error, sizeof(error)))
+	if (!cabinet_import_open(&import, path, ".", NULL, NULL, NULL, error, sizeof(error)))
 		return 0;
 	result = find_cabinet(&import, &offset);
 	cabinet_import_close(&import);
@@ -106,8 +115,8 @@ int ce_installer_extract_maps(const char *installer_path, const char *destinatio
 	unsigned long long offset;
 	int result = 0;
 
-	if (!cabinet_import_open(&import, installer_path, destination, "maps_ce", progress, context, error,
-		error_size))
+	/* OpenH1: into destination itself (the custom_maps folder), not maps_ce */
+	if (!cabinet_import_open(&import, installer_path, destination, NULL, progress, context, error, error_size))
 	{
 		return 0;
 	}

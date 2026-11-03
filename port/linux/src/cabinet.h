@@ -1,6 +1,10 @@
 /*
 CABINET.H
 
+From ChupathingyCE (https://github.com/ChupathingyCE/chupathingyce, pull
+request #313, by Milenko), under GPL-3.0-or-later; OpenH1's changes to it
+are marked "OpenH1:".
+
 Halo PC's maps out of Microsoft cabinets (cabinet.c), for the importers of a
 Halo PC disc image (pc_disc.c) and of Custom Edition's installer
 (ce_installer.c).
@@ -34,7 +38,8 @@ struct cabinet_import
 };
 
 /* opens the file to import from, its maps going in <destination>/<folder>
-(made if missing); 0 with the reason in error */
+(made if missing), or in destination itself when folder is NULL or ""
+(OpenH1); 0 with the reason in error */
 int cabinet_import_open(struct cabinet_import *import, const char *path, const char *destination,
 	const char *folder, cabinet_progress_proc progress, void *context, char *error, int error_size);
 void cabinet_import_close(struct cabinet_import *import);

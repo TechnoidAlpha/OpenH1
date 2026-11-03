@@ -1,6 +1,10 @@
 /*
 PC_DISC.C
 
+From ChupathingyCE (https://github.com/ChupathingyCE/chupathingyce, pull
+request #313, by Milenko), under GPL-3.0-or-later; OpenH1's changes to it
+are marked "OpenH1:".
+
 Writes the maps of Halo PC's retail CD, from an image of it (an ".iso"),
 into maps_pc beside the maps folder, for the desktop ports' optional import
 of Halo PC's maps (sdl_platform.c). The game needs only the Xbox's maps
@@ -29,6 +33,12 @@ sounds.map and ui.map, in LZX (read by cabinet.c). Every cabinet on the
 disc is read, and every map in them (a .map file in a folder named maps) is
 written, so another edition with its cabinets named or placed otherwise
 works too, as does a disc with its maps folder stored as it is.
+
+(OpenH1: OpenH1 does not play Halo PC's own maps, cache version 7, with their own
+bitmaps.map and sounds.map: only Custom Edition's, version 609. Its first
+start uses pc_disc_is_image to tell the player that a Halo PC CD has no maps
+it plays and that Custom Edition's installer has them (map_import.c); the
+extraction is kept, and tested, for a later loader of Halo PC's maps.)
 */
 
 /* (the desktop ports only: the Android app imports the game data itself) */

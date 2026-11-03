@@ -1,6 +1,10 @@
 /*
 PC_DISC.H
 
+From ChupathingyCE (https://github.com/ChupathingyCE/chupathingyce, pull
+request #313, by Milenko), under GPL-3.0-or-later; OpenH1's changes to it
+are marked "OpenH1:".
+
 Halo PC's maps out of an image of its retail CD (pc_disc.c).
 */
 
