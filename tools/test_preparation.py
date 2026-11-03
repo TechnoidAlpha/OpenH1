@@ -90,7 +90,9 @@ static int xgpu_backend_loading_owned(void) { return 0; }
 static void halo_load_trace(const char *phase, const char *detail) {
     (void)phase; (void)detail;
 }
-static int scenes, fades;
+static int scenes, fades, preparing;
+/* (the menus' pictures being prepared: menu_pictures_render.c) */
+static int menu_pictures_preparing(void) { return preparing; }
 static void halo_loading_scene(void) { assert(!epochs); scenes++; }
 static void halo_loading_fade_begin(void) { fades++; }
 static void xgpu_backend_loading_progress(float progress) { (void)progress; }
@@ -118,6 +120,13 @@ int main(void) {
     storage = borrowed = 3;
     halo_loading_retire();
     assert(!borrowed && retired == 3);
+    /* while the menus' pictures are prepared: no loading screen, the old
+    draws retired all the same */
+    platform_window = 1;
+    preparing = 1;
+    storage = borrowed = 4;
+    halo_loading_begin();
+    assert(!borrowed && retired == 4 && epochs == 1 && !loading_presentation_active);
     return 0;
 }
 '''
