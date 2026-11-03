@@ -249,10 +249,10 @@
 		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="267" height="134"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/badges_36">
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="36" height="36"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="36" height="36"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="36" height="36"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="36" height="36"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="36" height="36" x="6" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="36" height="36" x="6" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="36" height="36" x="6" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="36" height="36" x="6" y="4"/>
 	</bitmap>
 	<widget name="main_menu/campaign/card_small_0" width="132" height="211" bitmap="main_menu/campaign/card_132x211">
 		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
@@ -315,10 +315,10 @@
 		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="219" height="110"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/badges_28">
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="28" height="28"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="28" height="28"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="28" height="28"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="28" height="28"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="28" height="28" x="4" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="28" height="28" x="4" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="28" height="28" x="4" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="28" height="28" x="4" y="4"/>
 	</bitmap>
 	<widget name="main_menu/campaign/card_big_1" width="158" height="240" bitmap="main_menu/campaign/card_158x240">
 		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
@@ -480,10 +480,10 @@
 		<child widget="main_menu/campaign/detail_badge_name" x="198"/>
 	</widget>
 	<bitmap name="main_menu/campaign/badges_30">
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="30" height="30"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="30" height="30"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="30" height="30"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="30" height="30"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="30" height="30" x="5" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="1" width="30" height="30" x="5" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="2" width="30" height="30" x="5" y="4"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="3" width="30" height="30" x="5" y="4"/>
 	</bitmap>
 	<widget name="main_menu/campaign/mission_empty" type="text" controller="1" left="80" top="170" width="480" height="80" font="ui\large_ui" color="#FF2896FF" align="center" text_flags="no_focus_test">
 	</widget>
@@ -560,21 +560,21 @@
 	</widget>
 	<widget name="main_menu/campaign/difficulty_badge_box" controller="1" left="8" top="8" width="122" height="122" bitmap="main_menu/campaign/badge_box" wide="26 0">
 	</widget>
-	<widget name="main_menu/campaign/difficulty_badge_shape" controller="1" left="14" top="14" width="110" height="110" bitmap="main_menu/campaign/badge_shape_110" wide="26 0">
+	<widget name="main_menu/campaign/difficulty_badge_shape" controller="1" left="19" top="11" width="100" height="100" bitmap="main_menu/campaign/badge_shape_100" wide="26 0">
 	</widget>
-	<widget name="main_menu/campaign/difficulty_badge" controller="1" left="14" top="14" width="110" height="110" bitmap="main_menu/campaign/difficulty_badges" wide="26 0">
+	<widget name="main_menu/campaign/difficulty_badge" controller="1" left="19" top="11" width="100" height="100" bitmap="main_menu/campaign/difficulty_badges" wide="26 0">
 	</widget>
 	<widget name="main_menu/campaign/difficulty_name" type="text" controller="1" left="10" top="140" width="118" height="24" string_list="main_menu/difficulty_select/difficulty_options" font="ui\large_ui" color="#FFFFFFFF" wide="0 53" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/difficulty_blurb" type="text" controller="1" left="10" top="166" width="124" height="126" font="ui\small_ui" color="#FF2896FF" wide="0 53" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/difficulty_beaten" type="text" controller="1" left="14" top="14" width="64" wide="26 0" height="16" bitmap="main_menu/parts/pill_64" text="BEATEN" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/difficulty_beaten" type="text" controller="1" left="35" top="113" width="68" wide="26 0" height="14" bitmap="main_menu/campaign/beaten" text="BEATEN" text_y="-2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<bitmap name="main_menu/campaign/difficulty_badges">
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="0" width="110" height="110"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="1" width="110" height="110"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="2" width="110" height="110"/>
-		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="3" width="110" height="110"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="0" width="114" height="114" x="6" y="1"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="1" width="114" height="114" x="6" y="1"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="2" width="114" height="114" x="6" y="1"/>
+		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options" index="3" width="114" height="114" x="6" y="1"/>
 	</bitmap>
 	<strings name="main_menu/campaign/difficulty_blurbs">
 		<string text="Fewer, weaker enemies.\nFor learning the ropes."/>

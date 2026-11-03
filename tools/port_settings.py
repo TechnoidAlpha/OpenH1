@@ -5697,6 +5697,14 @@ def _level_pictures(name: str, width: int, height: int) -> list:
 CAMPAIGN_CUSTOM_PICTURES = "ui\\shell\\bitmaps\\mp_map_grafix"
 CAMPAIGN_BADGES_SMALL = "ui\\shell\\main_menu\\difficulty_select\\difficulty_options_small"
 CAMPAIGN_BADGES = "ui\\shell\\main_menu\\difficulty_select\\difficulty_options"
+# the Xbox's badges' frames are textures of a power of two (256 and 64 texels
+# square) with the badge at their top left, not in their middle (the big
+# ones' picture is the PC version's 200x211, as its difficulty screen drew
+# it): each one's texture size and the middle of its badges (the shield,
+# its swords either side of it), in texels, as ui.map's frames' opaque
+# texels lie (the big: 3 to 195 across, 4 to 214 down; the small: 0 to 43
+# and 1 to 47), so that a badge is drawn in the middle of its widget
+CAMPAIGN_BADGE_ART = {CAMPAIGN_BADGES: (256, 99, 109), CAMPAIGN_BADGES_SMALL: (64, 22, 24)}
 # the Campaign menu's items (Multiplayer's: HUB_ITEM), CONTINUE taller for
 # its mission under its name, and its panel (Multiplayer's: HUB_PANEL)
 CAMPAIGN_CONTINUE = (HUB_ITEM[0], 46)
@@ -5723,7 +5731,11 @@ MISSION_PANEL_BADGE, MISSION_PANEL_BADGE_STEP = 30, 66
 # the difficulty cards: four across, each its big badge in a box at its top
 DIFFICULTY_CARD = (138, 300)
 DIFFICULTY_CARDS = (28, 96, 148)
-DIFFICULTY_BADGE_BOX, DIFFICULTY_BADGE = 122, 110
+DIFFICULTY_BADGE_BOX, DIFFICULTY_BADGE = 122, 100
+# (the big badges' texels across a badge: its shield and swords with a little
+# room round them), and BEATEN's mark under the badge, in its box
+DIFFICULTY_BADGE_SPAN = 224
+DIFFICULTY_BEATEN = (68, 14)
 DIFFICULTY_BLURBS = ["Fewer, weaker enemies.\\nFor learning the ropes.",
                      "The challenge as\\nintended for most\\nplayers.",
                      "Smarter, tougher\\nenemies who punish\\nmistakes.",
@@ -5812,6 +5824,10 @@ def campaign_pictures() -> list:
                                                      framed(*DIFFICULTY_CARD, "#0f2a44", 0.95, "#4fb3ff", 12, 2.5)]))
     box = DIFFICULTY_BADGE_BOX
     pictures.append((f"{CAMPAIGN}/badge_box", [framed(box, box, "#0b2238", 1.0, "none", 10, 0)]))
+    # (BEATEN's mark under a difficulty's badge: a slim outlined pill, lighter
+    # than the browser's filled ones)
+    pictures.append((f"{CAMPAIGN}/beaten", [framed(*DIFFICULTY_BEATEN, "#0f2a44", 1.0, "#4fb3ff",
+                                                   DIFFICULTY_BEATEN[1] / 2, 1.25)]))
     # (a badge where the player's ui.map has none: a shield, lit and not)
     for size in (*{badge for badge, _ in MISSION_BADGE.values()}, MISSION_PANEL_BADGE, DIFFICULTY_BADGE):
         pictures.append((f"{CAMPAIGN}/badge_shape_{size}", [(shield(size, "#2e5478"), size, size),
@@ -5826,6 +5842,17 @@ def _map_frames(name: str, tag: str, count: int, width: int, height: int, x: int
             *(f"\t\t<frame{attributes([('map', tag), ('index', index), ('width', width), ('height', height), ('x', x or None), ('y', y or None)])}/>"
               for index in range(count)),
             "\t</bitmap>"]
+
+
+def _badge_frames(name: str, tag: str, size: int, span: int = 0) -> list:
+    """a bitmap of the four badges of one of ui.map's badge bitmaps, each in
+    the middle of a widget size square (CAMPAIGN_BADGE_ART), span texels
+    across it (its texture's width, if none): the texture laid out from x
+    and y at its scaled size, so that the badge's middle is the widget's"""
+    texture, middle_x, middle_y = CAMPAIGN_BADGE_ART[tag]
+    scaled = round(texture * size / (span or texture))
+    return _map_frames(name, tag, 4, scaled, scaled, round(size / 2 - middle_x * scaled / texture),
+                       round(size / 2 - middle_y * scaled / texture))
 
 
 def _campaign_text(name: str, x: int, y: int, width: int, height: int, font: str, color: str, words=None,
@@ -6011,7 +6038,7 @@ def _mission_card(size: tuple, slot: int) -> list:
     lines += _campaign_text(f"{CAMPAIGN}/card_unbeaten_{kind}", 10, text_top + 62 + (badge - 16) // 2, width - 20, 18,
                             "ui\\small_ui", CAMPAIGN_NEW, words="NOT YET BEATEN")
     lines += _level_pictures(f"{CAMPAIGN}/art_{art_w}x{art_h}", art_w, art_h)
-    lines += _map_frames(f"{CAMPAIGN}/badges_{badge}", CAMPAIGN_BADGES_SMALL, 4, badge, badge)
+    lines += _badge_frames(f"{CAMPAIGN}/badges_{badge}", CAMPAIGN_BADGES_SMALL, badge)
     return lines
 
 
@@ -6122,7 +6149,7 @@ def _missions() -> list:
     lines += _widget(f"{base}/mission_panel", [("controller", 1), ("left", left), ("top", top), ("width", width),
                                                ("height", height), ("bitmap", f"{base}/panel"),
                                                ("wide", spread)], panel)
-    lines += _map_frames(f"{base}/badges_{badge}", CAMPAIGN_BADGES_SMALL, 4, badge, badge)
+    lines += _badge_frames(f"{base}/badges_{badge}", CAMPAIGN_BADGES_SMALL, badge)
     # (the row's words while it has no missions: CUSTOM with no maps)
     lines += _campaign_text(f"{base}/mission_empty", 80, 170, 480, 80, "ui\\large_ui", SETTINGS_BLUE, align="center")
     # (the footer: SELECT, or RESUME on the saved game's mission, and BACK)
@@ -6180,14 +6207,18 @@ def _difficulties() -> list:
     lines += _widget(f"{base}/difficulty_badge_box", [("controller", 1), ("left", inset), ("top", inset),
                                                       ("width", box), ("height", box),
                                                       ("bitmap", f"{base}/badge_box"), ("wide", wide(grown // 2))], [])
-    badge_at = inset + (box - badge) // 2
-    lines += _widget(f"{base}/difficulty_badge_shape", [("controller", 1), ("left", badge_at), ("top", badge_at),
+    # (the badge in the middle of its box, across, and over BEATEN's mark,
+    # the two in the middle of it, down)
+    beaten_w, beaten_h = DIFFICULTY_BEATEN
+    badge_at, badge_top = inset + (box - badge) // 2, inset + (box - badge - beaten_h - 2) // 2
+    beaten_top = badge_top + badge + 2
+    lines += _widget(f"{base}/difficulty_badge_shape", [("controller", 1), ("left", badge_at), ("top", badge_top),
                                                         ("width", badge), ("height", badge),
                                                         ("bitmap", f"{base}/badge_shape_{badge}"),
                                                         ("wide", wide(grown // 2))], [])
     # (each card's badge its own frame of ui.map's difficulty_options: x is
     # the card's index, which menu_functions.c reads back as the frame)
-    lines += _widget(f"{base}/difficulty_badge", [("controller", 1), ("left", badge_at - 0), ("top", badge_at),
+    lines += _widget(f"{base}/difficulty_badge", [("controller", 1), ("left", badge_at), ("top", badge_top),
                                                   ("width", badge), ("height", badge),
                                                   ("bitmap", f"{base}/difficulty_badges"),
                                                   ("wide", wide(grown // 2))], [])
@@ -6198,13 +6229,14 @@ def _difficulties() -> list:
                                                  ("wide", wide(0, grown)), ("text_flags", "no_focus_test")], [])
     lines += _campaign_text(f"{base}/difficulty_blurb", 10, inset + box + 36, width - 14, height - inset - box - 44,
                             "ui\\small_ui", SETTINGS_BLUE, wide_layout=wide(0, grown))
-    lines += _widget(f"{base}/difficulty_beaten", [("type", "text"), ("controller", 1), ("left", inset + 6),
-                                                   ("top", inset + 6), ("width", BROWSER_PILL), ("wide", wide(grown // 2)),
-                                                   ("height", PART_PILL_HEIGHT), ("bitmap", part_pill(BROWSER_PILL)),
-                                                   ("text", "BEATEN"), ("text_y", PILL_TEXT_Y),
+    lines += _widget(f"{base}/difficulty_beaten", [("type", "text"), ("controller", 1),
+                                                   ("left", inset + (box - beaten_w) // 2), ("top", beaten_top),
+                                                   ("width", beaten_w), ("wide", wide(grown // 2)),
+                                                   ("height", beaten_h), ("bitmap", f"{base}/beaten"),
+                                                   ("text", "BEATEN"), ("text_y", caps_text_y(beaten_h)),
                                                    ("font", "ui\\small_ui"), ("color", "#FFFFFFFF"),
                                                    ("align", "center"), ("text_flags", "no_focus_test")], [])
-    lines += _map_frames(f"{base}/difficulty_badges", CAMPAIGN_BADGES, 4, badge, badge)
+    lines += _badge_frames(f"{base}/difficulty_badges", CAMPAIGN_BADGES, badge, DIFFICULTY_BADGE_SPAN)
     lines += _strings(f"{base}/difficulty_blurbs", DIFFICULTY_BLURBS)
     lines += _prompts(base, "difficulty_prompts",
                       [("prompt_play", "%a-button PLAY", 388, 124, '<on event="a" run="port campaign play"/>'),

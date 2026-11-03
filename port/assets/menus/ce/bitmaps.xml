@@ -822,6 +822,9 @@
 	<bitmap name="main_menu/campaign/badge_box">
 		<frame png="ce/port/main_menu/campaign/badge_box__0.png" width="122" height="122"/>
 	</bitmap>
+	<bitmap name="main_menu/campaign/beaten">
+		<frame png="ce/port/main_menu/campaign/beaten__0.png" width="68" height="14"/>
+	</bitmap>
 	<bitmap name="main_menu/campaign/badge_shape_36">
 		<frame png="ce/port/main_menu/campaign/badge_shape_36__0.png" width="36" height="36"/>
 		<frame png="ce/port/main_menu/campaign/badge_shape_36__1.png" width="36" height="36"/>
@@ -834,8 +837,8 @@
 		<frame png="ce/port/main_menu/campaign/badge_shape_30__0.png" width="30" height="30"/>
 		<frame png="ce/port/main_menu/campaign/badge_shape_30__1.png" width="30" height="30"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/badge_shape_110">
-		<frame png="ce/port/main_menu/campaign/badge_shape_110__0.png" width="110" height="110"/>
-		<frame png="ce/port/main_menu/campaign/badge_shape_110__1.png" width="110" height="110"/>
+	<bitmap name="main_menu/campaign/badge_shape_100">
+		<frame png="ce/port/main_menu/campaign/badge_shape_100__0.png" width="100" height="100"/>
+		<frame png="ce/port/main_menu/campaign/badge_shape_100__1.png" width="100" height="100"/>
 	</bitmap>
 </menus>
