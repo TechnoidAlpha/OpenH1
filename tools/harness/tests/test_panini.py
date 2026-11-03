@@ -27,7 +27,7 @@ CONTROLS = [
      "*screen_y = projection->scale * S * y * (projection->s + (1.0f - projection->s) / c);", "round_trip"),
     # no fit to the screen: the sides drawn inside it
     (PROJECTION, "projection->scale = (projection->d + c) / ((projection->d + 1.0f) * c);",
-     "projection->scale = 1.0f;", "edges"),
+     "projection->scale = c > 2.0f ? c : 1.0f;", "edges"),
     # the fit from the height: the view's sides cut off
     (PROJECTION, "projection->scale = (projection->d + c) / ((projection->d + 1.0f) * c);",
      "projection->scale = (projection->d + c) / ((projection->d + 1.0f) * c) * 1.1f;", "coverage"),
@@ -46,7 +46,7 @@ CONTROLS = [
     (GAME, "void panini_window_end(void)\n{\n\twindow.active = FALSE;", "void panini_window_end(void)\n{\n",
      "center"),
     # on whatever the setting says
-    (GAME, "if (!panini_settings(&d, &s) || ", "if (", "off"),
+    (GAME, "if (!panini_settings(&d, &s) || ", "if ((panini_settings(&d, &s), FALSE) || ", "off"),
     # the rectilinear view drawn again for nothing
     (GAME, "||\n\t\t(window.panini.d == 0.0f && window.panini.s == 0.0f))", ")", "off"),
     # the arrows' direction kept rectilinear

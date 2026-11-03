@@ -569,18 +569,13 @@ PAGES = {
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
              "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First "
              "Person.|Click the number (or press A) to type 20 to 150.", None),
-            # (display.panini, port/linux/game/panini.c; its strength and
-            # vertical rows shown while it shows ON: menu_functions.c's
-            # panini_rows_show; none in the VR build)
+            # (display.panini, port/linux/game/panini.c: its strength and
+            # vertical compression are First Person's; none in the VR build:
+            # menu_functions.c's panini_rows_show)
             ("PANINI PROJECTION", "display.panini", ON_OFF,
              "Stops a wide field of view from stretching what is at the sides: you still see as far, and the "
-             "middle is drawn larger. The HUD stays flat.|Best with Field of View above 100.", None),
-            ("PANINI STRENGTH", "display.panini_strength", PANINI_AMOUNT,
-             "How much the sides are corrected. 1 keeps their shapes true; less keeps more of the flat view and "
-             "enlarges the middle less.|Click the number (or press A) to type 0 to 1.", None),
-            ("PANINI VERTICAL", "display.panini_vertical", PANINI_AMOUNT,
-             "Straightens floors and ceilings above and below the middle, and stretches the sides taller. 0 keeps "
-             "the shapes at the sides true.|Click the number (or press A) to type 0 to 1.", None),
+             "middle is drawn larger. The HUD stays flat. Its strength: First Person.|Best with Field of View "
+             "above 100.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -935,6 +930,15 @@ PAGES = {
             ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
              "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
              "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),
+            # (display.panini's, Video's Panini Projection)
+            ("PANINI STRENGTH", "display.panini_strength", PANINI_AMOUNT,
+             "With Panini Projection on: how much the sides are corrected. 1 keeps their shapes true; less keeps "
+             "more of the flat view and enlarges the middle less.|Click the number (or press A) to type 0 to 1.",
+             None),
+            ("PANINI VERTICAL", "display.panini_vertical", PANINI_AMOUNT,
+             "With Panini Projection on: straightens floors and ceilings above and below the middle, and "
+             "stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1.",
+             None),
             ("WEAPON AND HANDS", "display.viewmodel_visible", [("SHOW", "true"), ("HIDE", "false")],
              "Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and "
              "hear them.", None),

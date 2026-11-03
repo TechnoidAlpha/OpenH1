@@ -1787,32 +1787,25 @@ static void gamma_row_show(struct widget_instance *list)
 #endif
 }
 
-/* Video's Panini Projection (display.panini, port/linux/game/panini.c),
-its Strength and Vertical shown while it shows ON; none in the VR build,
+/* Video's Panini Projection (display.panini, port/linux/game/panini.c) and
+First Person's Panini Strength and Panini Vertical: none in the VR build,
 which never draws through it */
 static void panini_rows_show(struct widget_instance *list)
 {
+#ifdef HALO_VR
 	static char const *const rows[] = { "op_panini", "op_panini_strength", "op_panini_vertical" };
-	struct widget_instance *spinner = named(list, "panini_spinner", 0);
-	struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
-	boolean on = FALSE;
 	short index;
 
-	if (!setting)
-		return;
-	index = spinner->parameters.list.selected_index;
-	on = index >= 0 && index < setting->value_count && !strcmp(setting->values[index], "true");
 	for (index = 0; index < (short)NUMBEROF(rows); index++)
 	{
 		struct widget_instance *row = named(list, rows[index], 0);
 
 		if (row)
-#ifdef HALO_VR
 			row->visible = FALSE;
-#else
-			row->visible = index == 0 || on;
-#endif
 	}
+#else
+	(void)list;
+#endif
 }
 
 /* Video's Frame Rate Limit, shown while VSync shows OFF (Defaults too):

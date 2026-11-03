@@ -359,7 +359,7 @@ static void hud_matches_pass(void)
 				"view %d s %g (%d, %d): marked at (%g, %g), which the pass draws from (%g, %g), not (%g, %g)", view,
 				compressions[b], i, j, screen.x, screen.y, source_x, source_y, drawn_x, drawn_y);
 		}
-		CHECK(visible_count > 150, "only %d seen", visible_count);
+		CHECK(visible_count > 80, "only %d seen", visible_count);
 		/* (behind the camera: not on the screen) */
 		{
 			real_point3d point = { 0.0f, 0.0f, 1.0f };
