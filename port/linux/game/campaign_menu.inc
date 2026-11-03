@@ -389,6 +389,7 @@ static void campaign_panel_coop(struct widget_instance *panel, boolean coop)
 {
 	visible_set(named(panel, "panel_art", 0), !coop);
 	visible_set(named(panel, "panel_art_back", 0), !coop);
+	visible_set(named(panel, "panel_art_corners", 0), !coop);
 	visible_set(named(panel, "panel_number", 0), !coop);
 	visible_set(named(panel, "panel_status", 0), !coop);
 	/* (CO-OP's words at the panel's top, where the picture is) */
@@ -455,6 +456,9 @@ static void campaign_screen_update(struct widget_instance *list)
 		menu_text_box_fit(named(item, "continue_note", 0), text, 0);
 		if (named(item, "continue_art", 0))
 			named(item, "continue_art", 0)->animation.current_frame_index = campaign.saved_level;
+		/* (its picture's corners CONTINUE's fill, focused or not) */
+		if (named(item, "continue_corners", 0))
+			named(item, "continue_corners", 0)->animation.current_frame_index = list->focused_child == item ? 1 : 0;
 	}
 	/* (CONTINUE's mission; CHOOSE MISSION's the one chosen there last, else
 	the first not yet beaten; CO-OP's its own words) */
@@ -581,6 +585,10 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		visible_set(named(card, name, 0), beaten == 0);
 	}
 	card->animation.current_frame_index = chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
+	/* (its picture's corners the card's fill, resting or chosen) */
+	snprintf(name, sizeof(name), "card_art_corners_%s", kind);
+	if (named(card, name, 0))
+		named(card, name, 0)->animation.current_frame_index = chosen ? 1 : 0;
 }
 
 /* the panel under the cards: the chosen mission's name, objective, where

@@ -779,19 +779,34 @@
 		<frame png="ce/port/main_menu/campaign/card_158x240__1.png" width="158" height="240"/>
 		<frame png="ce/port/main_menu/campaign/card_158x240__2.png" width="158" height="240"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/art_back_150x122">
-		<frame png="ce/port/main_menu/campaign/art_back_150x122__0.png" width="150" height="122"/>
+	<bitmap name="main_menu/campaign/art_back_146x119">
+		<frame png="ce/port/main_menu/campaign/art_back_146x119__0.png" width="146" height="119"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/card_132x211">
 		<frame png="ce/port/main_menu/campaign/card_132x211__0.png" width="132" height="211"/>
 		<frame png="ce/port/main_menu/campaign/card_132x211__1.png" width="132" height="211"/>
 		<frame png="ce/port/main_menu/campaign/card_132x211__2.png" width="132" height="211"/>
 	</bitmap>
-	<bitmap name="main_menu/campaign/art_back_124x101">
-		<frame png="ce/port/main_menu/campaign/art_back_124x101__0.png" width="124" height="101"/>
+	<bitmap name="main_menu/campaign/art_back_120x98">
+		<frame png="ce/port/main_menu/campaign/art_back_120x98__0.png" width="120" height="98"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/art_back_176x143">
 		<frame png="ce/port/main_menu/campaign/art_back_176x143__0.png" width="176" height="143"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/art_corners_146x119">
+		<frame png="ce/port/main_menu/campaign/art_corners_146x119__0.png" width="146" height="119"/>
+		<frame png="ce/port/main_menu/campaign/art_corners_146x119__1.png" width="146" height="119"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/art_corners_120x98">
+		<frame png="ce/port/main_menu/campaign/art_corners_120x98__0.png" width="120" height="98"/>
+		<frame png="ce/port/main_menu/campaign/art_corners_120x98__1.png" width="120" height="98"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/art_corners_176x143">
+		<frame png="ce/port/main_menu/campaign/art_corners_176x143__0.png" width="176" height="143"/>
+	</bitmap>
+	<bitmap name="main_menu/campaign/art_corners_50x41">
+		<frame png="ce/port/main_menu/campaign/art_corners_50x41__0.png" width="50" height="41"/>
+		<frame png="ce/port/main_menu/campaign/art_corners_50x41__1.png" width="50" height="41"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/arrow_left">
 		<frame png="ce/port/main_menu/campaign/arrow_left__0.png" width="24" height="64"/>

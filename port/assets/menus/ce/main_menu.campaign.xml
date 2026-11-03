@@ -23,9 +23,12 @@
 		<on event="start" run="port campaign continue"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/campaign/continue_art"/>
+		<child widget="main_menu/campaign/continue_corners"/>
 		<child widget="main_menu/campaign/continue_note"/>
 	</widget>
 	<widget name="main_menu/campaign/continue_art" controller="1" left="6" top="2" width="50" height="41" bitmap="main_menu/campaign/art_50x41">
+	</widget>
+	<widget name="main_menu/campaign/continue_corners" controller="1" left="6" top="2" width="50" height="41" bitmap="main_menu/campaign/art_corners_50x41">
 	</widget>
 	<bitmap name="main_menu/campaign/art_50x41">
 		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="91" height="46"/>
@@ -61,6 +64,8 @@
 	</widget>
 	<widget name="main_menu/campaign/panel_art" controller="1" left="376" top="92" width="176" height="143" bitmap="main_menu/campaign/art_176x143" wide="66 0">
 	</widget>
+	<widget name="main_menu/campaign/panel_art_corners" controller="1" left="376" top="92" width="176" height="143" bitmap="main_menu/campaign/art_corners_176x143" wide="66 0">
+	</widget>
 	<widget name="main_menu/campaign/panel_number" type="text" controller="1" left="330" top="238" width="268" height="16" font="ui\small_ui" color="#FF8FB3D3" wide="0 132" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/campaign/panel_title" type="text" controller="1" left="330" top="253" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
@@ -74,6 +79,7 @@
 	<widget name="main_menu/campaign/campaign_panel" controller="1" left="316" top="80" width="296" height="320" bitmap="main_menu/parts/panel_296x320" wide="-26 132">
 		<child widget="main_menu/campaign/panel_art_back"/>
 		<child widget="main_menu/campaign/panel_art"/>
+		<child widget="main_menu/campaign/panel_art_corners"/>
 		<child widget="main_menu/campaign/panel_number"/>
 		<child widget="main_menu/campaign/panel_title"/>
 		<child widget="main_menu/campaign/panel_status"/>
@@ -189,6 +195,7 @@
 		<child widget="main_menu/campaign/card_art_back_big"/>
 		<child widget="main_menu/campaign/card_art_big"/>
 		<child widget="main_menu/campaign/card_custom_art_big"/>
+		<child widget="main_menu/campaign/card_art_corners_big"/>
 		<child widget="main_menu/campaign/card_card_tag_big"/>
 		<child widget="main_menu/campaign/card_card_title_big"/>
 		<child widget="main_menu/campaign/card_resume_big"/>
@@ -204,40 +211,42 @@
 		<child widget="main_menu/campaign/card_badge_big" x="118"/>
 		<child widget="main_menu/campaign/card_unbeaten_big"/>
 	</widget>
-	<widget name="main_menu/campaign/card_art_back_big" controller="1" left="4" top="4" width="150" height="122" bitmap="main_menu/campaign/art_back_150x122">
+	<widget name="main_menu/campaign/card_art_back_big" controller="1" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_back_146x119">
 	</widget>
-	<widget name="main_menu/campaign/card_art_big" controller="1" left="4" top="4" width="150" height="122" bitmap="main_menu/campaign/art_150x122">
+	<widget name="main_menu/campaign/card_art_big" controller="1" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_146x119">
 	</widget>
-	<widget name="main_menu/campaign/card_custom_art_big" controller="1" left="4" top="4" width="150" height="122" bitmap="ui\shell\bitmaps\mp_map_grafix">
+	<widget name="main_menu/campaign/card_custom_art_big" controller="1" left="6" top="6" width="146" height="119" bitmap="ui\shell\bitmaps\mp_map_grafix">
 	</widget>
-	<widget name="main_menu/campaign/card_card_tag_big" type="text" controller="1" left="14" top="78" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_art_corners_big" controller="1" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_corners_146x119">
 	</widget>
-	<widget name="main_menu/campaign/card_card_title_big" type="text" controller="1" left="14" top="96" width="130" height="26" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_card_tag_big" type="text" controller="1" left="16" top="77" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_resume_big" type="text" controller="1" left="12" top="12" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_card_title_big" type="text" controller="1" left="16" top="95" width="126" height="26" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_number_big" type="text" controller="1" left="10" top="132" width="138" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_resume_big" type="text" controller="1" left="14" top="14" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_title_big" type="text" controller="1" left="10" top="148" width="138" height="46" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_number_big" type="text" controller="1" left="10" top="131" width="138" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_badge_shape_big" controller="1" top="194" width="36" height="36" bitmap="main_menu/campaign/badge_shape_36">
+	<widget name="main_menu/campaign/card_title_big" type="text" controller="1" left="10" top="147" width="138" height="46" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_badge_big" controller="1" top="194" width="36" height="36" bitmap="main_menu/campaign/badges_36">
+	<widget name="main_menu/campaign/card_badge_shape_big" controller="1" top="193" width="36" height="36" bitmap="main_menu/campaign/badge_shape_36">
 	</widget>
-	<widget name="main_menu/campaign/card_unbeaten_big" type="text" controller="1" left="10" top="204" width="138" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_badge_big" controller="1" top="193" width="36" height="36" bitmap="main_menu/campaign/badges_36">
 	</widget>
-	<bitmap name="main_menu/campaign/art_150x122">
-		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="274" height="137"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="274" height="137"/>
+	<widget name="main_menu/campaign/card_unbeaten_big" type="text" controller="1" left="10" top="203" width="138" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	</widget>
+	<bitmap name="main_menu/campaign/art_146x119">
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="267" height="134"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="267" height="134"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/badges_36">
 		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="36" height="36"/>
@@ -252,6 +261,7 @@
 		<child widget="main_menu/campaign/card_art_back_small"/>
 		<child widget="main_menu/campaign/card_art_small"/>
 		<child widget="main_menu/campaign/card_custom_art_small"/>
+		<child widget="main_menu/campaign/card_art_corners_small"/>
 		<child widget="main_menu/campaign/card_card_tag_small"/>
 		<child widget="main_menu/campaign/card_card_title_small"/>
 		<child widget="main_menu/campaign/card_resume_small"/>
@@ -267,40 +277,42 @@
 		<child widget="main_menu/campaign/card_badge_small" x="98"/>
 		<child widget="main_menu/campaign/card_unbeaten_small"/>
 	</widget>
-	<widget name="main_menu/campaign/card_art_back_small" controller="1" left="4" top="4" width="124" height="101" bitmap="main_menu/campaign/art_back_124x101">
+	<widget name="main_menu/campaign/card_art_back_small" controller="1" left="6" top="6" width="120" height="98" bitmap="main_menu/campaign/art_back_120x98">
 	</widget>
-	<widget name="main_menu/campaign/card_art_small" controller="1" left="4" top="4" width="124" height="101" bitmap="main_menu/campaign/art_124x101">
+	<widget name="main_menu/campaign/card_art_small" controller="1" left="6" top="6" width="120" height="98" bitmap="main_menu/campaign/art_120x98">
 	</widget>
-	<widget name="main_menu/campaign/card_custom_art_small" controller="1" left="4" top="4" width="124" height="101" bitmap="ui\shell\bitmaps\mp_map_grafix">
+	<widget name="main_menu/campaign/card_custom_art_small" controller="1" left="6" top="6" width="120" height="98" bitmap="ui\shell\bitmaps\mp_map_grafix">
 	</widget>
-	<widget name="main_menu/campaign/card_card_tag_small" type="text" controller="1" left="14" top="57" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_art_corners_small" controller="1" left="6" top="6" width="120" height="98" bitmap="main_menu/campaign/art_corners_120x98">
 	</widget>
-	<widget name="main_menu/campaign/card_card_title_small" type="text" controller="1" left="14" top="75" width="104" height="26" font="ui\small_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_card_tag_small" type="text" controller="1" left="16" top="56" width="64" height="16" bitmap="main_menu/parts/pill_64" text="CUSTOM" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_resume_small" type="text" controller="1" left="12" top="12" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_card_title_small" type="text" controller="1" left="16" top="74" width="100" height="26" font="ui\small_ui" color="#FFFFFFFF" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_number_small" type="text" controller="1" left="10" top="111" width="112" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_resume_small" type="text" controller="1" left="14" top="14" width="64" height="16" bitmap="main_menu/parts/pill_64" text="RESUME" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_title_small" type="text" controller="1" left="10" top="127" width="112" height="46" font="ui\small_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_number_small" type="text" controller="1" left="10" top="110" width="112" height="16" font="ui\small_ui" color="#FF8FB3D3" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_badge_shape_small" controller="1" top="173" width="28" height="28" bitmap="main_menu/campaign/badge_shape_28">
+	<widget name="main_menu/campaign/card_title_small" type="text" controller="1" left="10" top="126" width="112" height="46" font="ui\small_ui" color="#FFFFFFFF" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/campaign/card_badge_small" controller="1" top="173" width="28" height="28" bitmap="main_menu/campaign/badges_28">
+	<widget name="main_menu/campaign/card_badge_shape_small" controller="1" top="172" width="28" height="28" bitmap="main_menu/campaign/badge_shape_28">
 	</widget>
-	<widget name="main_menu/campaign/card_unbeaten_small" type="text" controller="1" left="10" top="179" width="112" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	<widget name="main_menu/campaign/card_badge_small" controller="1" top="172" width="28" height="28" bitmap="main_menu/campaign/badges_28">
 	</widget>
-	<bitmap name="main_menu/campaign/art_124x101">
-		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="227" height="113"/>
-		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="227" height="113"/>
+	<widget name="main_menu/campaign/card_unbeaten_small" type="text" controller="1" left="10" top="178" width="112" height="18" font="ui\small_ui" color="#FFF2B34A" text="NOT YET BEATEN" text_flags="no_focus_test">
+	</widget>
+	<bitmap name="main_menu/campaign/art_120x98">
+		<frame map="ui\shell\bitmaps\sp_levels" index="0" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="1" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="2" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="3" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="4" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="5" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="6" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="7" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="8" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="9" width="219" height="110"/>
+		<frame map="ui\shell\bitmaps\sp_levels" index="10" width="219" height="110"/>
 	</bitmap>
 	<bitmap name="main_menu/campaign/badges_28">
 		<frame map="ui\shell\main_menu\difficulty_select\difficulty_options_small" index="0" width="28" height="28"/>
@@ -315,6 +327,7 @@
 		<child widget="main_menu/campaign/card_art_back_big"/>
 		<child widget="main_menu/campaign/card_art_big"/>
 		<child widget="main_menu/campaign/card_custom_art_big"/>
+		<child widget="main_menu/campaign/card_art_corners_big"/>
 		<child widget="main_menu/campaign/card_card_tag_big"/>
 		<child widget="main_menu/campaign/card_card_title_big"/>
 		<child widget="main_menu/campaign/card_resume_big"/>
@@ -337,6 +350,7 @@
 		<child widget="main_menu/campaign/card_art_back_small"/>
 		<child widget="main_menu/campaign/card_art_small"/>
 		<child widget="main_menu/campaign/card_custom_art_small"/>
+		<child widget="main_menu/campaign/card_art_corners_small"/>
 		<child widget="main_menu/campaign/card_card_tag_small"/>
 		<child widget="main_menu/campaign/card_card_title_small"/>
 		<child widget="main_menu/campaign/card_resume_small"/>
@@ -359,6 +373,7 @@
 		<child widget="main_menu/campaign/card_art_back_big"/>
 		<child widget="main_menu/campaign/card_art_big"/>
 		<child widget="main_menu/campaign/card_custom_art_big"/>
+		<child widget="main_menu/campaign/card_art_corners_big"/>
 		<child widget="main_menu/campaign/card_card_tag_big"/>
 		<child widget="main_menu/campaign/card_card_title_big"/>
 		<child widget="main_menu/campaign/card_resume_big"/>
@@ -381,6 +396,7 @@
 		<child widget="main_menu/campaign/card_art_back_small"/>
 		<child widget="main_menu/campaign/card_art_small"/>
 		<child widget="main_menu/campaign/card_custom_art_small"/>
+		<child widget="main_menu/campaign/card_art_corners_small"/>
 		<child widget="main_menu/campaign/card_card_tag_small"/>
 		<child widget="main_menu/campaign/card_card_title_small"/>
 		<child widget="main_menu/campaign/card_resume_small"/>

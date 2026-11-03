@@ -5663,7 +5663,11 @@ CAMPAIGN_ART = campaign_art_size(176)
 # the mission cards: the one chosen and the others, (width, height), their
 # pictures' size in them (4 in from the edges), the badges' size and step
 MISSION_BIG, MISSION_SMALL = (158, 240), (132, 211)
-MISSION_ART_INSET = 4
+MISSION_ART_INSET = 6
+# a picture's corners: rounded, by a picture over them of what is around it
+# (art_corners: the card's fill, resting or chosen; the panel's; CONTINUE's,
+# focused or not), so that its square corners never cross the card's curve
+ART_CORNER_RADIUS = 5
 MISSION_BADGE = {MISSION_BIG: (36, 38), MISSION_SMALL: (28, 31)}
 MISSION_CARDS_TOP = 84
 MISSION_CARD_GAP = 10
@@ -5693,6 +5697,20 @@ def mission_card(size: tuple) -> str:
     """a mission card's picture: resting, chosen (outlined in the accent),
     and a mission not reached (fainter), by the frame menu_functions.c sets"""
     return f"{CAMPAIGN}/card_{size[0]}x{size[1]}"
+
+
+def art_corners(width: int, height: int) -> str:
+    return f"{CAMPAIGN}/art_corners_{width}x{height}"
+
+
+def corners(width: int, height: int, fill: str, opacity: float) -> tuple:
+    """a picture's corners rounded: what is around it, outside a rounded
+    rectangle of its size"""
+    r = ART_CORNER_RADIUS
+    return (_svg(width, height, [
+        f'  <path fill-rule="evenodd" fill="{fill}" fill-opacity="{opacity:g}" d="M0 0H{width}V{height}H0Z '
+        f'M{r} 0H{width - r}A{r} {r} 0 0 1 {width} {r}V{height - r}A{r} {r} 0 0 1 {width - r} {height}H{r}'
+        f'A{r} {r} 0 0 1 0 {height - r}V{r}A{r} {r} 0 0 1 {r} 0Z"/>']), width, height)
 
 
 def campaign_pictures() -> list:
@@ -5726,6 +5744,15 @@ def campaign_pictures() -> list:
         pictures.append((f"{CAMPAIGN}/art_back_{art[0]}x{art[1]}", [framed(*art, "#12304a", 1.0, "none", 7, 0)]))
     pictures.append((f"{CAMPAIGN}/art_back_{CAMPAIGN_ART[0]}x{CAMPAIGN_ART[1]}",
                      [framed(*CAMPAIGN_ART, "#12304a", 1.0, "none", 7, 0)]))
+    # (the pictures' corners: the cards', resting and chosen; the panel's;
+    # CONTINUE's, as its frames)
+    for size in (MISSION_BIG, MISSION_SMALL):
+        art = campaign_art_size(size[0] - 2 * MISSION_ART_INSET)
+        pictures.append((art_corners(*art), [corners(*art, "#0a1b2e", 0.85), corners(*art, "#0f2a44", 0.95)]))
+    pictures.append((art_corners(*CAMPAIGN_ART), [corners(*CAMPAIGN_ART, "#000e23", 0.88)]))
+    continue_art = campaign_art_size(CONTINUE_ART_WIDTH)
+    pictures.append((art_corners(*continue_art), [corners(*continue_art, "#0a1b2e", 0.9),
+                                                  corners(*continue_art, "#0f2a44", 0.95)]))
     arrow_w, arrow_h = MISSION_ARROW
     for side in ("left", "right"):
         pictures.append((f"{CAMPAIGN}/arrow_{side}", [
@@ -5808,11 +5835,15 @@ def _campaign_menu() -> list:
                                                    ("text_y", 2)],
                      [*(f'<on event="{event}" run="port campaign continue"/>' for event in ("a", "start")),
                       '<on event="left_mouse" run="mouse emit accept event"/>',
-                      f'<child widget="{CAMPAIGN}/continue_art"/>', f'<child widget="{CAMPAIGN}/continue_note"/>'])
+                      f'<child widget="{CAMPAIGN}/continue_art"/>', f'<child widget="{CAMPAIGN}/continue_corners"/>',
+                      f'<child widget="{CAMPAIGN}/continue_note"/>'])
     art_w, art_h = campaign_art_size(CONTINUE_ART_WIDTH)
     lines += _widget(f"{CAMPAIGN}/continue_art", [("controller", 1), ("left", 6), ("top", (ch - art_h) // 2),
                                                   ("width", art_w), ("height", art_h),
                                                   ("bitmap", f"{CAMPAIGN}/art_{art_w}x{art_h}")], [])
+    lines += _widget(f"{CAMPAIGN}/continue_corners", [("controller", 1), ("left", 6), ("top", (ch - art_h) // 2),
+                                                      ("width", art_w), ("height", art_h),
+                                                      ("bitmap", art_corners(art_w, art_h))], [])
     lines += _level_pictures(f"{CAMPAIGN}/art_{art_w}x{art_h}", art_w, art_h)
     lines += _campaign_text(f"{CAMPAIGN}/continue_note", CONTINUE_ART_WIDTH + 14, 24, cw - CONTINUE_ART_WIDTH - 22, 18,
                             "ui\\small_ui", CAMPAIGN_TEXT, wide_layout=wide(0, HUB_WIDE_ITEMS))
@@ -5844,6 +5875,10 @@ def _campaign_menu() -> list:
                                                    ("width", art_w), ("height", art_h),
                                                    ("bitmap", f"{CAMPAIGN}/art_{art_w}x{art_h}"), ("wide", middle)],
                          []), "panel_art")
+    lines += add(_widget(f"{CAMPAIGN}/panel_art_corners", [("controller", 1), ("left", x + (inner - art_w) // 2),
+                                                           ("top", top + 12), ("width", art_w), ("height", art_h),
+                                                           ("bitmap", art_corners(art_w, art_h)), ("wide", middle)],
+                         []), "panel_art_corners")
     lines += add(_campaign_text(f"{CAMPAIGN}/panel_number", x, top + 158, inner, 16, "ui\\small_ui", CAMPAIGN_DIM,
                                 wide_layout=grown), "panel_number")
     lines += add(_campaign_text(f"{CAMPAIGN}/panel_title", x, top + 173, inner, 24, "ui\\large_ui", "#FFFFFFFF",
@@ -5878,7 +5913,8 @@ def _mission_card(size: tuple, slot: int) -> list:
     # (the cards beside the chosen one smaller, their names too, as the design has them)
     font = "ui\\large_ui" if size == MISSION_BIG else "ui\\small_ui"
     children = [f'<child widget="{CAMPAIGN}/{name}_{kind}"/>' for name in
-                ("card_art_back", "card_art", "card_custom_art", "card_card_tag", "card_card_title", "card_resume",
+                ("card_art_back", "card_art", "card_custom_art", "card_art_corners", "card_card_tag",
+                 "card_card_title", "card_resume",
                  "card_number", "card_title")]
     # (the badges in a row under the name, across the card)
     badges_x = (width - 3 * step - badge) // 2
@@ -5902,6 +5938,9 @@ def _mission_card(size: tuple, slot: int) -> list:
     lines += _widget(f"{CAMPAIGN}/card_custom_art_{kind}", [("controller", 1), ("left", inset), ("top", inset),
                                                             ("width", art_w), ("height", art_h),
                                                             ("bitmap", CAMPAIGN_CUSTOM_PICTURES)], [])
+    lines += _widget(f"{CAMPAIGN}/card_art_corners_{kind}", [("controller", 1), ("left", inset), ("top", inset),
+                                                             ("width", art_w), ("height", art_h),
+                                                             ("bitmap", art_corners(art_w, art_h))], [])
     # (a map's title card, without a picture: CUSTOM over its name)
     lines += _widget(f"{CAMPAIGN}/card_card_tag_{kind}", [("type", "text"), ("controller", 1), ("left", inset + 10),
                                                           ("top", inset + art_h - 48), ("width", BROWSER_PILL),
