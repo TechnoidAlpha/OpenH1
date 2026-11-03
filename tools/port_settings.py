@@ -551,12 +551,10 @@ PAGES = {
             ("FRAME RATE LIMIT", "display.max_fps", FRAME_RATE_LIMITS,
              "The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and "
              "uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) "
-             "is shown in step with the display, as V-Sync shows it.|Click the number (or press A) to type any "
-             "limit from 10 to 1000.", "desktop"),
+             "is shown in step with the display.|Click the number (or press A) to type 10 to 1000.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
-             "How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
-             "more around you. Vehicles have their own, on First Person.|Click the number (or press A) to type any "
-             "from 20 to 150.", None),
+             "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First "
+             "Person.|Click the number (or press A) to type 20 to 150.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -874,8 +872,8 @@ PAGES = {
              "Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display "
              "without HDR shows the game as it was.", "hdr"),
             ("HDR MODE", "display.hdr_mode", [("FAITHFUL", "faithful"), ("PUNCHY", "punchy")],
-             "Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a "
-             "remaster would.|The pictures are shown approximately: no SDR picture can show HDR.", "hdr"),
+             "Faithful keeps the picture and brightens its highlights. Punchy lifts the whole scene, as a remaster "
+             "would.|The pictures are approximate: SDR cannot show HDR.", "hdr"),
             ("PAPER WHITE", "display.hdr_paper_white_nits", PAPER_WHITES,
              "With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR "
              "brightness. Raise it in a bright room.", "hdr"),

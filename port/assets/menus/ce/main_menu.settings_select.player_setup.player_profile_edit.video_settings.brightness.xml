@@ -137,7 +137,7 @@
 		<string text="How bright the picture is, the HUD and menus too, as Halo PC's gamma. Higher brightens the dark parts; lower darkens them. 1.0 shows the game as it is drawn. With HDR on an HDR display, Paper White sets the brightness instead.|Click the number (or press A) to type any from 0.5 to 2.0."/>
 		<string text=""/>
 		<string text="Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display without HDR shows the game as it was."/>
-		<string text="Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a remaster would.|The pictures are shown approximately: no SDR picture can show HDR."/>
+		<string text="Faithful keeps the picture and brightens its highlights. Punchy lifts the whole scene, as a remaster would.|The pictures are approximate: SDR cannot show HDR."/>
 		<string text="With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR brightness. Raise it in a bright room."/>
 		<string text="With HDR, how bright the HUD and the menus are, in nits, apart from the picture. Paper White keeps them where paper white is. The HUD's glows stay as far above it."/>
 		<string text=""/>
