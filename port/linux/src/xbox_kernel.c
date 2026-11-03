@@ -6,6 +6,7 @@ threads, asynchronous procedure calls, time, memory and debug output.
 */
 
 #include "platform.h"
+#include "port_config.h"
 
 #include <errno.h>
 #include <sched.h>
@@ -820,6 +821,9 @@ HGLOBAL WINAPI GlobalAlloc(UINT flags, SIZE_T size)
 		return NULL;
 	}
 	block->size = size;
+	/* (debug.fresh_memory_fill) */
+	if (!(flags & GMEM_ZEROINIT) && halo_fresh_memory_fill() >= 0)
+		memset((char *)block + sizeof(*block) + 8, halo_fresh_memory_fill(), size);
 	return (char *)block + sizeof(*block) + 8;
 }
 

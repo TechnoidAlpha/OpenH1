@@ -1266,6 +1266,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.determinism_log` | `""` | `HALO_DETERMINISM_LOG` | A file to write a line a tick to: a hash of the game state as the tick left it, the random seeds, and every taker of a seed since the line before by its call site (in the tick, in the frames, on other threads). Two runs of the same input compared with `tools/determinism_compare.py` first differ where something besides the input reached the game. |
 | `debug.determinism_dump` | `0` | `HALO_DETERMINISM_DUMP` | With `debug.determinism_log`, the tick after which to write the game state too, counted as logged from 1 (its allocations in order, to `<log>.<count>.bin`), to find where two runs' game states differ (`tools/determinism_compare.py --dump`), and that tick's first frame as `<log>.<count>.bmp`; `0` none. |
 | `debug.trace`, `debug.trace_seconds`, `debug.trace_mutation` | `""`, `0.0`, `""` | `HALO_TRACE`, `HALO_TRACE_SECONDS`, `HALO_TRACE_MUTATION` | A file to write a line a simulation step to (`game/sim_trace.c`): the players' place, velocity and aim, each projectile's, and the step's shots, projectiles made, strikes and detonations, timed in seconds from the scenario's start; quit once the scenario has run `debug.trace_seconds`; `debug.trace_mutation` puts a known bug in on purpose (`head_start`, `jump`, `speed`), which the scorecard must catch (`tools/scorecard`). Off, it costs a test a call. `HALO_GUEST_IMAGE` (the environment only) runs another guest image in the game's place: StageKit's map writer (`tools/stagekit`). |
+| `debug.fresh_memory_fill` | `""` | `HALO_FRESH_MEMORY_FILL` | `"zero"` or `"pattern"` (0xAA): what the allocators give out without clearing it (the game state's and the caches' memory, the game's `malloc` and `realloc`, `GlobalAlloc`) is filled with that, to find reads of memory never written ("Determinism"); empty as the game always has. |
 | `debug.frame_time` | `0.0` | `HALO_FRAME_TIME` | Seconds of game time each frame runs, whatever time it took, so that two runs of the same input run the same frames (the determinism check, with `debug.determinism_log`); the sound is timed by the frames too, mixed with no device; `0` the time each frame took. |
 | `debug.bots_tactics_team` | `-1` | `HALO_BOTS_TACTICS_TEAM` | With `bots.tactics`, only this team's bots (`0` red, `1` blue) play together, the other team's each on its own, to measure what the team play is worth (the bots' minute line gives each team's kills); `-1` both teams'. |
 | `debug.random_seed` | `0` | `HALO_RANDOM_SEED` | The random seed of the network games this machine hosts, so that a test plays the same game again (where players spawn, the weapons' spread, the AI's choices); `0` a new one for each game, from the clock. |
@@ -6310,6 +6311,17 @@ HALO_DETERMINISM_LOG=determinism.txt HALO_FRAME_TIME=0.0166667 HALO_TEST_INPUT=b
 python tools/determinism_compare.py a/determinism.txt b/determinism.txt \
     --symbols build/linux_arm64/halo_guest.elf
 ```
+
+Reads of what was never written are found the same way. Two runs with
+`debug.fresh_memory_fill` (`zero` in one, `pattern` in the other) fill
+what the allocators give out uncleared; the stack's are found with two
+builds whose guests' locals start as zero and as a pattern (clang's
+`-ftrivial-auto-var-init`). The logs part where the fill reached the game.
+With the fill, a data array is hashed by its datums in use; what is left
+apart is padding never written (`scenario globals`, `director scripting`,
+`unit globals`, `lights globals`, `object globals`, `structure decals`,
+`breakable surface globals`, `sound classes`) and `decal vertices`' part
+not yet used, for `--ignore`.
 
 `--simulation` compares only what the ticks do, for two runs at different
 frame rates: not the frames, the takers between the ticks, nor the

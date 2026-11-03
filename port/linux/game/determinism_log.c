@@ -34,6 +34,7 @@ executable's symbols, name it); a run of one site is <site>*<count>.
 
 #include "cseries.h"
 #include "math/real_math.h"
+#include "memory/data.h"
 #include "memory/memory_pool.h"
 #include "objects/objects.h"
 
@@ -297,6 +298,30 @@ static unsigned long determinism_hash_objects(
 	return determinism_hash(start, (long)(last_end > start ? last_end - start : 0), hash);
 }
 
+/* with debug.fresh_memory_fill, a data array: its header and its datums in
+use, not its free slots, which hold the fill (or what a deleted datum
+left), so that a zero and a pattern run differ only where something read
+the fill */
+static unsigned long determinism_hash_data_array(
+	struct data_array const *data,
+	long size,
+	unsigned long hash)
+{
+	long index;
+
+	hash = determinism_hash(data, sizeof(*data), hash);
+	for (index = 0; index < data->maximum_count; index++)
+	{
+		byte const *datum = (byte const *)data->data + (long)data->size * index;
+
+		if (datum + data->size > (byte const *)data + size)
+			break;
+		if (((struct datum_header const *)datum)->identifier)
+			hash = determinism_hash(datum, data->size, hash);
+	}
+	return hash;
+}
+
 static void determinism_write_takers(
 	char const *label,
 	unsigned long count,
@@ -354,6 +379,12 @@ void determinism_log_tick_end(
 			((struct memory_pool const *)allocation->address)->signature == 'pool')
 		{
 			allocation_hash = determinism_hash_objects(allocation->address, allocation->size, 2166136261UL);
+		}
+		else if (halo_fresh_memory_fill() >= 0 && allocation->size >= (long)sizeof(struct data_array) &&
+			((struct data_array const *)allocation->address)->signature == 'd@t@' &&
+			((struct data_array const *)allocation->address)->data == (struct data_array const *)allocation->address + 1)
+		{
+			allocation_hash = determinism_hash_data_array(allocation->address, allocation->size, 2166136261UL);
 		}
 		else
 			allocation_hash = determinism_hash(allocation->address, allocation->size, 2166136261UL);

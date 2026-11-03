@@ -80,6 +80,10 @@ char const *pc_menus_screen(char const *name);
 /* debug.fixed_step: a game of this machine alone runs a tick a frame
 (port/linux/src/port_config.c; game_time.c, main.c) */
 int halo_fixed_step(void);
+/* debug.fresh_memory_fill: the byte (0x00, 0xAA) the allocators fill what
+they give out uncleared with, or -1 for the game's own fill
+(port/linux/src/port_config.c; debug_memory.c, xbox_memory.c, xbox_kernel.c) */
+int halo_fresh_memory_fill(void);
 /* the frames' clock, with each frame's time fixed (debug.frame_time,
 debug.fixed_step): whether, and the frames' time since the start in
 milliseconds; and each frame's time, which main.c gives it

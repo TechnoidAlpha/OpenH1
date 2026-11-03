@@ -247,6 +247,9 @@ void *platform_contiguous_alloc(unsigned long size, unsigned long alignment,
 	}
 	block_page_count[first] = count;
 	pthread_mutex_unlock(&arena_lock);
+	/* (debug.fresh_memory_fill: its pattern over the fresh zeroed pages) */
+	if (halo_fresh_memory_fill() > 0 && (protection_to_host(protect) & PROT_WRITE))
+		memset(address, halo_fresh_memory_fill(), count * PAGE_SIZE_BYTES);
 	return address;
 }
 
