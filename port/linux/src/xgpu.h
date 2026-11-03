@@ -171,8 +171,11 @@ struct nv2a_pixel_shader_key
 their own (the vertex shader's 192 would pass the least fragment uniform
 space a GPU must have): [0] c[-82] (the translucency in z), [1] to [11] c[-79] to
 c[-69] (rasterizer_set_model_lighting's two point lights, two distant
-lights and the ambient light) */
-#define XGPU_MODEL_LIGHT_COUNT 12
+lights and the ambient light), [12] c[-57] (with the enhanced dynamic
+lights, the lights the model is not lit by: its object's own that say so,
+as four light indices, -1 none: halo_dynamic_lights.h) */
+#define XGPU_MODEL_LIGHT_COUNT 13
+#define XGPU_MODEL_LIGHT_OWN_LIGHTS 12
 
 /* ---------- enhanced dynamic lights
 

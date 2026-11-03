@@ -3239,6 +3239,11 @@ void halo_dynamic_lights_environment(int drawing)
 	}
 }
 
+/* (the register the game gives a model's own lights in is the one the
+backends read them from) */
+typedef char dynamic_lights_own_lights_register[XGPU_MODEL_LIGHT_REGISTER(XGPU_MODEL_LIGHT_OWN_LIGHTS) ==
+	XGPU_VERTEX_CONSTANT_BIAS + HALO_DYNAMIC_LIGHTS_OWN_LIGHTS_REGISTER ? 1 : -1];
+
 /* the frame's draws are lit by the enhanced dynamic lights */
 static BOOL dynamic_lights_active(void)
 {

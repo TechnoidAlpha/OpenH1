@@ -4833,7 +4833,13 @@ needles, muzzle flashes, grenades and explosions are drawn for each pixel:
   body's two nearest lights): your own muzzle flash, which is moved to the
   first-person weapon's muzzle, your grenade, the bolts passing.
 - No light is left out: each pixel takes the lights of its cell of the grid,
-  as many as the game draws (128 a window).
+  as many as the game draws (128 a window). But an object is not lit by its
+  own lights whose tag says so (dont light own object), as the game has it:
+  a Covenant door's light (`levels\a50\devices\small door\small door
+  light`, red while it is locked) sits inside the door, and lit all of it
+  grey or red, with a dark spot where it is. The game gives each model's draw the lights it leaves out
+  (`render.h`'s `RENDER_LIGHTING_OWN_LIGHT`, in c[-57], which no vertex
+  program of the game's reads), and its pixels pass over them.
 - A glow is drawn about each plasma bolt in flight (a projectile with no
   model: a needle's or a grenade's own body would hide its middle), sized
   and colored by its light, in both eyes at its depth (both eyes in one
@@ -6428,6 +6434,7 @@ Other changes:
 | `objects/object_lights.c` | Glows the port lights itself (`shield_glow.c`): dynamic lights attached to an object's node, colored and sized each frame by their maker, drawn with a light definition the map has. |
 | `render/render_objects.c`, `interface/first_person_weapons.c`, `rasterizer/xbox/rasterizer_xbox_plasma_energy.c`, `items/projectiles.c` | An overshield as `overshield_effect.c` draws it (`display.overshield_effect`): in its own color, its intensity full, its energy slower, faded above the height it has risen to; a hit on it plays the projectile's effect for an Elite's energy shield in place of its own (only the effect: the projectile's response is its own). |
 | `objects/object_lights.c`, `rasterizer/xbox/rasterizer_xbox_environment.c` | A light attached to an object is drawn where the object is drawn between ticks (its marker as drawn), not where the tick placed it: it no longer steps behind a bolt at 30 Hz (the light's own position, which the units' illumination reads, is kept). With `display.dynamic_lights = "enhanced"`, the frame's lights go to the renderer (`game/dynamic_lights.c`), a projectile's light that is only its lens flare's lights too, a muzzle flash's is moved to the first-person weapon, the structure's own pass for each light is left to the lightmap pass (but spotlights' and gelled lights'), which tells the renderer when it is drawn. |
+| `render/render.h`, `objects/object_lights.c`, `render/render_objects.c`, `rasterizer/xbox/rasterizer_xbox.c` | An object's own lights that it is not lit by (its light tags' dont light own object) are kept in its lighting's pads (`RENDER_LIGHTING_OWN_LIGHT`), and with `display.dynamic_lights = "enhanced"` each model's draw hands them to the renderer (c[-57]), which leaves them out of the lights it lights the model with, as the game leaves them out of its two. |
 | `render/render_objects.c`, `interface/first_person_weapons.c`, `rasterizer/xbox/rasterizer_xbox_plasma_energy.c` | A local player's shield plasma is drawn in the chosen armor color (`display.shield_color`, `shield_color.c`), on the body and on the first-person arms; in the VR build, the plasma over the weapon in its holster in its highlight's color, close to the weapon (`vr_holster.c`). |
 | `objects/object_lights.c` | A light attached to an object is as bright, and of the colour, that the object's function and change colour are between ticks, and an effect's light (an explosion's, an impact's) fades at the frame's time, not a step a tick (`game/render_interpolation.c`); the light's own colour and radius, which the game reads, are the tick's. |
 | `objects/object_lights.c` | An effect's light of no transition (the Scorpion's cannon's) is at its end as it is made, not faded by 0/0: its colour and reach were not a number, which the renderer's checks caught. |

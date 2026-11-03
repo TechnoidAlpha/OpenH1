@@ -941,9 +941,10 @@ static void textures_bind(void)
 /* ---------- pipelines */
 
 /* the per-pixel lighting's lights' registers (xgpu_backend.h's
-XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69]) */
+XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69], c[-57]) */
 #define MODEL_LIGHT_FIRST (96 - 82)
 #define MODEL_LIGHT_LAST (96 - 69)
+#define MODEL_LIGHT_OWN_LIGHTS (96 - 57)
 /* the screen conversion's registers (c[-38], c[-37]) */
 #define SCREEN_CONVERSION (96 - 38)
 
@@ -963,7 +964,8 @@ static void stream_set_constants(void *context, const struct xgpu_stream_constan
 	/* (the world's projection or the screen conversion: the effects' views) */
 	if (record->first < 4 || (record->first <= SCREEN_CONVERSION + 1 && record->first + count > SCREEN_CONVERSION))
 		stream.uniforms_effect = stream.effect_valid = 0;
-	if (record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST)
+	if ((record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST) ||
+		(record->first <= MODEL_LIGHT_OWN_LIGHTS && record->first + count > MODEL_LIGHT_OWN_LIGHTS))
 		stream.uniforms_dirty = 1;
 }
 
@@ -1411,11 +1413,7 @@ static int uniforms_update(int effect)
 		}
 		/* the per-pixel lighting's lights: vertex constants (xgpu_backend.h) */
 		for (light = 0; light < XGPU_MODEL_LIGHT_COUNT; light++)
-		{
-			unsigned long index = XGPU_VERTEX_CONSTANT_BIAS + (light ? -80 + light : -82);
-
-			memcpy(to->model_lights[light], stream.constants[index], sizeof(to->model_lights[0]));
-		}
+			memcpy(to->model_lights[light], stream.constants[XGPU_MODEL_LIGHT_REGISTER(light)], sizeof(to->model_lights[0]));
 		stream.uniforms_effect = 0;
 		if (effect)
 		{
