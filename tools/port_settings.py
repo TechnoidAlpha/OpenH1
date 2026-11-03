@@ -1743,10 +1743,11 @@ def _settings_shared() -> list:
     lines += _strings(f"{SETTINGS}/tab_about", [PAGES[folder]["about"] for folder in SETTINGS_TAB_PAGES])
     lines += _strings(f"{SETTINGS}/button_help", SETTINGS_BUTTON_HELP["tab"] + SETTINGS_BUTTON_HELP["page"])
     lines += _strings(f"{SETTINGS}/still_captions", ["CLASSIC", "ENHANCED"])
-    # (a stepped row's arrows: SETTINGS_STEPPED_ROWS)
+    # (a stepped row's arrows: SETTINGS_STEPPED_ROWS; their pictures' frames
+    # are 16 units square, the arrow at the top left, as a spinner draws them)
     for side in ("left", "right"):
-        lines += _widget(f"{SETTINGS}/stepped_{side}", [("controller", 1), ("width", ARROW_SM_WIDTH),
-                                                        ("height", ARROW_SM_HEIGHT), ("bitmap", f"bitmaps/arrow_sm_{side}"),
+        lines += _widget(f"{SETTINGS}/stepped_{side}", [("controller", 1), ("width", 16),
+                                                        ("height", 16), ("bitmap", f"bitmaps/arrow_sm_{side}"),
                                                         ("wide", wide(SETTINGS_WIDE_ROWS))], [])
     return lines
 
