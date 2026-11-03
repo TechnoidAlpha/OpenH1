@@ -1,0 +1,17 @@
+{
+ "picture": "ui.map sp_levels 01 (a30), near: the original stands closer and lower",
+ "scenario": "levels\\a30\\a30",
+ "bsp": 0,
+ "aspect": 1.3009,
+ "pose": {
+  "x": 40.1113,
+  "y": 46.5923,
+  "z": 66.0522,
+  "yaw": 197.7062,
+  "pitch": 10.7575,
+  "roll": -0.4317,
+  "vfov": 56.0575
+ },
+ "colour": "curve",
+ "score": 0.6884
+}

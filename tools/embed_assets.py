@@ -25,8 +25,10 @@ operands (it keeps .ascii strings as they are, but once garbled them).
 """
 
 import json
+import math
 import struct
 import sys
+import zlib
 from pathlib import Path
 from typing import Any, List
 
@@ -50,6 +52,13 @@ WINDOW_ICON = Path("port/assets/icon/openh1-icon-256.png")
 LOADING_PICTURE = Path("port/assets/loading/loading.rgba.zlib")
 # the pointer the menus show in place of the system's (port/linux/src/sdl_platform.c)
 MENU_CURSOR = Path("port/assets/cursor/menu_cursor.png")
+# the menus' pictures drawn again from the player's maps: a pose each (any
+# <bitmap>_<frame>.json dropped in), and the maps they are made for
+# (port/linux/include/menu_pictures.h)
+PICTURE_ASSETS = Path("port/assets/pictures")
+PICTURE_MAPS = PICTURE_ASSETS / "maps.json"
+# the bitmaps of ui.map whose frames a pose may draw
+PICTURE_BITMAPS = {"sp_levels": "ui\\shell\\bitmaps\\sp_levels", "mp_map_grafix": "ui\\shell\\bitmaps\\mp_map_grafix"}
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -80,6 +89,83 @@ def menu_files() -> List[str]:
     return json.loads((ROOT / MENU_LIST).read_text())["files"]
 
 
+def picture_poses() -> List[Path]:
+    """The pictures' pose files, by name."""
+    folder = ROOT / PICTURE_ASSETS
+    if not folder.is_dir():
+        return []
+    return sorted(PICTURE_ASSETS / path.name for path in folder.glob("*.json") if path.name != PICTURE_MAPS.name)
+
+
+def picture_number(value: float) -> str:
+    return ("%.4f" % value).rstrip("0").rstrip(".")
+
+
+def picture_pose(path: Path, maps: dict) -> dict:
+    """A pose file's entry in menu_picture_poses (menu_pictures.h); exits on
+    a pose the game could not use."""
+    data = (ROOT / path).read_bytes()
+    pose = json.loads(data)
+    bitmap, _, frame = path.stem.rpartition("_")
+    if bitmap not in PICTURE_BITMAPS or not frame.isdigit():
+        sys.exit(f"{path}: name it <bitmap>_<frame>.json, of {', '.join(PICTURE_BITMAPS)}")
+    scenario = pose["scenario"]
+    map_name = scenario.replace("/", "\\").rsplit("\\", 1)[-1]
+    if map_name not in maps:
+        sys.exit(f"{path}: {map_name} is not in {PICTURE_MAPS} (its cache file checksum)")
+    camera = pose["pose"]
+    # (the vertical field of view as the game's, across at 4:3; the script's
+    # camera halts at 90 degrees: camera_pose.c)
+    fov = math.degrees(2 * math.atan(math.tan(math.radians(camera["vfov"]) / 2) * 4 / 3))
+    if not 0 < fov < 90:
+        sys.exit(f"{path}: a field of view of {fov:.1f} degrees (it must be under 90)")
+    words = [camera["x"], camera["y"], camera["z"], camera["yaw"] % 360, camera["pitch"], camera["roll"], fov]
+    commands = list(pose.get("prepare", []))
+    objects = pose.get("objects", [])
+    if objects:
+        commands.append('debug_object_place "clear"')
+    for item in objects:
+        if "seat" in item:
+            line = [item["tag"], "seat", item["seat"]]
+        else:
+            line = [item["tag"]] + [picture_number(item.get(key, 0.0)) for key in ("x", "y", "z", "yaw", "pitch", "roll")]
+        if "color" in item:
+            line += ["color"] + [picture_number(value) for value in item["color"]]
+        commands.append('debug_object_place "%s"' % " ".join(line))
+    colour = pose.get("colour", "none")
+    if colour not in ("none", "curve"):
+        sys.exit(f'{path}: colour is "none" or "curve"')
+    return {"name": path.stem, "bitmap": PICTURE_BITMAPS[bitmap], "frame": int(frame), "map": map_name,
+            "scenario": scenario, "bsp": int(pose.get("bsp", 0)), "aspect": float(pose["aspect"]),
+            "colour": int(colour == "curve"), "objects": int(bool(objects)),
+            "camera": " ".join(picture_number(value) for value in words),
+            "commands": "".join(line + "\n" for line in commands),
+            "checksums": [int(value, 16) for value in maps[map_name]][:4], "hash": zlib.crc32(data)}
+
+
+def c_string(text: str) -> str:
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n") + '"'
+
+
+def picture_lines() -> List[str]:
+    """The poses' table (menu_pictures.h)."""
+    maps = json.loads((ROOT / PICTURE_MAPS).read_text())["maps"] if (ROOT / PICTURE_MAPS).is_file() else {}
+    poses = [picture_pose(path, maps) for path in picture_poses()]
+    lines = ['#include "menu_pictures.h"', "", "const struct menu_picture_pose menu_picture_poses[] =", "{"]
+    for pose in poses:
+        checksums = ", ".join(f"0x{value:08x}u" for value in pose["checksums"])
+        lines.append(f'\t{{ {c_string(pose["name"])}, {c_string(pose["bitmap"])}, {pose["frame"]}, '
+                     f'{c_string(pose["map"])}, {c_string(pose["scenario"])}, {pose["bsp"]}, {pose["aspect"]!r}f, '
+                     f'{pose["colour"]}, {pose["objects"]}, {c_string(pose["camera"])}, {c_string(pose["commands"])}, '
+                     f'{{ {checksums} }}, {len(pose["checksums"])}, 0x{pose["hash"]:08x}u }},')
+    if not poses:
+        lines.append("\t{ 0 },")
+    lines.append("};")
+    lines.append(f"const unsigned int menu_picture_pose_count = {len(poses)};")
+    lines.append("")
+    return lines
+
+
 def hud_asset_inputs() -> List[Path]:
     """The files the generated source is made from."""
     inputs = [listing for listing in (LAYOUT, CE_LAYOUT, CE_STOCK, CUSTOM_EDITION_HUD, TITLE_LIST, BUTTON_LIST, FONT_LIST, MENU_LIST)
@@ -88,7 +174,8 @@ def hud_asset_inputs() -> List[Path]:
             *(FONT_ASSETS / name for name in font_files()), *(MENU_ASSETS / name for name in menu_files()),
             *([WINDOW_ICON] if (ROOT / WINDOW_ICON).is_file() else []),
             *([LOADING_PICTURE] if (ROOT / LOADING_PICTURE).is_file() else []),
-            *([MENU_CURSOR] if (ROOT / MENU_CURSOR).is_file() else [])]
+            *([MENU_CURSOR] if (ROOT / MENU_CURSOR).is_file() else []),
+            *([PICTURE_MAPS] if (ROOT / PICTURE_MAPS).is_file() else []), *picture_poses()]
 
 
 def hud_configure_inputs() -> List[Path]:
@@ -100,6 +187,9 @@ def hud_configure_inputs() -> List[Path]:
                             (FONT_ASSETS, FONT_LIST), (MENU_ASSETS, MENU_LIST)):
         if (ROOT / listing).is_file():
             inputs += [folder, listing]
+    # (a pose dropped in changes the folder: configure.py runs again)
+    if (ROOT / PICTURE_ASSETS).is_dir():
+        inputs.append(PICTURE_ASSETS)
     return inputs
 
 
@@ -293,6 +383,7 @@ def main() -> None:
     lines.append("};")
     lines.append(f"const unsigned long platform_loading_picture_size = {len(data)};")
     lines.append("")
+    lines.extend(picture_lines())
     write_output(Path(sys.argv[1]), lines)
 
 

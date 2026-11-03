@@ -796,3 +796,256 @@ void host_server_quit_deadline(int seconds, int exit_code)
 	if (thread)
 		SDL_DetachThread(thread);
 }
+
+/* ---------- the menus' pictures' renders (port/linux/src/menu_pictures.c)
+
+A copy of the game itself, started with HALO_RENDER_PICTURE naming the
+picture's job (debug.render_picture: it renders the picture and exits), at a
+lower priority than the game's, with its own Vulkan pipeline cache (the
+game's is the game's to write), its output in a log of its own, and none of
+the game's files or sockets (which hold its network ports). On Linux it
+draws with SDL's offscreen driver: no window at all. Its number (from 1),
+or 0 if it could not start; polled until it ends (its exit status, -1 while
+it runs, 256 if it did not exit), or stopped. */
+
+#ifdef _WIN32
+#include <windows.h>
+
+#define HOST_PICTURE_WORKERS 4
+
+static HANDLE host_picture_workers[HOST_PICTURE_WORKERS];
+
+/* a variable's entry appended to a block of wide entries */
+static wchar_t *picture_environment_add(wchar_t *block, size_t *used, size_t *size, const char *name, const char *value)
+{
+	char entry[4200];
+	int length;
+
+	snprintf(entry, sizeof(entry), "%s=%s", name, value);
+	length = MultiByteToWideChar(CP_UTF8, 0, entry, -1, NULL, 0);
+	if (length <= 0)
+		return block;
+	if (*used + (size_t)length + 1 > *size)
+	{
+		wchar_t *grown = realloc(block, (*used + (size_t)length + 1) * sizeof(wchar_t));
+
+		if (!grown)
+			return block;
+		block = grown;
+		*size = *used + (size_t)length + 1;
+	}
+	MultiByteToWideChar(CP_UTF8, 0, entry, -1, block + *used, length);
+	*used += (size_t)length;
+	return block;
+}
+
+int host_picture_worker_start(const char *job, const char *pipeline_cache, const char *log)
+{
+	wchar_t executable[MAX_PATH * 2], command[MAX_PATH * 2 + 3];
+	wchar_t *inherited, *entry, *block = NULL;
+	size_t used = 0, size = 0;
+	STARTUPINFOW startup;
+	PROCESS_INFORMATION process;
+	int slot;
+	BOOL started;
+
+	(void)log;
+	for (slot = 0; slot < HOST_PICTURE_WORKERS && host_picture_workers[slot]; slot++)
+		;
+	if (slot == HOST_PICTURE_WORKERS || !GetModuleFileNameW(NULL, executable, MAX_PATH * 2))
+		return 0;
+	inherited = GetEnvironmentStringsW();
+	if (!inherited)
+		return 0;
+	/* (the game's environment but the variables set for the copy) */
+	for (entry = inherited; *entry; entry += wcslen(entry) + 1)
+	{
+		size_t length = wcslen(entry) + 1;
+
+		if (!_wcsnicmp(entry, L"HALO_RENDER_PICTURE=", 20) || !_wcsnicmp(entry, L"HALO_VULKAN_PIPELINE_CACHE=", 27))
+			continue;
+		if (used + length + 1 > size)
+		{
+			wchar_t *grown = realloc(block, (used + length + 4096) * sizeof(wchar_t));
+
+			if (!grown)
+				break;
+			block = grown;
+			size = used + length + 4096;
+		}
+		memcpy(block + used, entry, length * sizeof(wchar_t));
+		used += length;
+	}
+	FreeEnvironmentStringsW(inherited);
+	block = picture_environment_add(block, &used, &size, "HALO_RENDER_PICTURE", job);
+	block = picture_environment_add(block, &used, &size, "HALO_VULKAN_PIPELINE_CACHE", pipeline_cache);
+	if (!block)
+		return 0;
+	block[used] = 0;
+	_snwprintf(command, MAX_PATH * 2 + 3, L"\"%ls\"", executable);
+	memset(&startup, 0, sizeof(startup));
+	startup.cb = sizeof(startup);
+	started = CreateProcessW(executable, command, NULL, NULL, FALSE,
+		CREATE_UNICODE_ENVIRONMENT | CREATE_NO_WINDOW | BELOW_NORMAL_PRIORITY_CLASS, block, NULL, &startup, &process);
+	free(block);
+	if (!started)
+		return 0;
+	CloseHandle(process.hThread);
+	host_picture_workers[slot] = process.hProcess;
+	return slot + 1;
+}
+
+int host_picture_worker_poll(int worker)
+{
+	HANDLE process = worker >= 1 && worker <= HOST_PICTURE_WORKERS ? host_picture_workers[worker - 1] : NULL;
+	DWORD code = 256;
+
+	if (!process)
+		return 256;
+	if (WaitForSingleObject(process, 0) == WAIT_TIMEOUT)
+		return -1;
+	if (!GetExitCodeProcess(process, &code) || code > 255)
+		code = 256;
+	CloseHandle(process);
+	host_picture_workers[worker - 1] = NULL;
+	return (int)code;
+}
+
+void host_picture_worker_stop(int worker)
+{
+	HANDLE process = worker >= 1 && worker <= HOST_PICTURE_WORKERS ? host_picture_workers[worker - 1] : NULL;
+
+	if (!process)
+		return;
+	TerminateProcess(process, 1);
+	WaitForSingleObject(process, 5000);
+	CloseHandle(process);
+	host_picture_workers[worker - 1] = NULL;
+}
+#else
+#include <fcntl.h>
+#include <spawn.h>
+#include <sys/resource.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach-o/dyld.h>
+#endif
+
+extern char **environ;
+
+static int picture_executable(char *path, size_t size)
+{
+#ifdef __APPLE__
+	uint32_t length = (uint32_t)size;
+
+	return _NSGetExecutablePath(path, &length) == 0;
+#else
+	ssize_t length = readlink("/proc/self/exe", path, size - 1);
+
+	if (length <= 0)
+		return 0;
+	path[length] = 0;
+	return 1;
+#endif
+}
+
+int host_picture_worker_start(const char *job, const char *pipeline_cache, const char *log)
+{
+	static const char *const replaced[] = { "HALO_RENDER_PICTURE=", "HALO_VULKAN_PIPELINE_CACHE=", "SDL_VIDEO_DRIVER=" };
+	static char offscreen[] = "SDL_VIDEO_DRIVER=offscreen";
+	char executable[4096], job_entry[4200], cache_entry[4200];
+	char *arguments[2];
+	char **environment;
+	size_t count = 0, used = 0, index;
+	posix_spawn_file_actions_t actions;
+	posix_spawnattr_t attributes;
+	sigset_t signals;
+	short flags = POSIX_SPAWN_SETSIGMASK | POSIX_SPAWN_SETSIGDEF;
+	pid_t child = 0;
+	int failed;
+
+	if (!picture_executable(executable, sizeof(executable)))
+		return 0;
+	while (environ[count])
+		count++;
+	environment = calloc(count + 4, sizeof(*environment));
+	if (!environment)
+		return 0;
+	for (index = 0; index < count; index++)
+	{
+		size_t which;
+
+		for (which = 0; which < sizeof(replaced) / sizeof(replaced[0]); which++)
+		{
+			if (!strncmp(environ[index], replaced[which], strlen(replaced[which])))
+				break;
+		}
+		if (which == sizeof(replaced) / sizeof(replaced[0]))
+			environment[used++] = environ[index];
+	}
+	snprintf(job_entry, sizeof(job_entry), "HALO_RENDER_PICTURE=%s", job);
+	snprintf(cache_entry, sizeof(cache_entry), "HALO_VULKAN_PIPELINE_CACHE=%s", pipeline_cache);
+	environment[used++] = job_entry;
+	environment[used++] = cache_entry;
+#ifndef __APPLE__
+	environment[used++] = offscreen;
+#else
+	(void)offscreen;
+#endif
+	environment[used] = NULL;
+	arguments[0] = executable;
+	arguments[1] = NULL;
+	posix_spawn_file_actions_init(&actions);
+	/* (its output in its log, no input; none of the game's files) */
+	posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
+	posix_spawn_file_actions_addopen(&actions, 1, log, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	posix_spawn_file_actions_adddup2(&actions, 1, 2);
+	posix_spawnattr_init(&attributes);
+#ifdef __APPLE__
+	flags |= POSIX_SPAWN_CLOEXEC_DEFAULT;
+#elif defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 34))
+	posix_spawn_file_actions_addclosefrom_np(&actions, 3);
+#endif
+	sigemptyset(&signals);
+	posix_spawnattr_setsigmask(&attributes, &signals);
+	sigemptyset(&signals);
+	sigaddset(&signals, SIGPIPE);
+	sigaddset(&signals, SIGINT);
+	sigaddset(&signals, SIGTERM);
+	posix_spawnattr_setsigdefault(&attributes, &signals);
+	posix_spawnattr_setflags(&attributes, flags);
+	failed = posix_spawn(&child, executable, &actions, &attributes, arguments, environment);
+	posix_spawn_file_actions_destroy(&actions);
+	posix_spawnattr_destroy(&attributes);
+	free(environment);
+	if (failed || child <= 0)
+		return 0;
+	/* (behind the game's own work: the player plays on while it renders) */
+	setpriority(PRIO_PROCESS, (id_t)child, 10);
+	return (int)child;
+}
+
+int host_picture_worker_poll(int worker)
+{
+	int status = 0;
+	pid_t ended;
+
+	if (worker <= 0)
+		return 256;
+	ended = waitpid((pid_t)worker, &status, WNOHANG);
+	if (ended == 0)
+		return -1;
+	if (ended < 0)
+		return 256;
+	return WIFEXITED(status) ? WEXITSTATUS(status) : 256;
+}
+
+void host_picture_worker_stop(int worker)
+{
+	if (worker <= 0)
+		return;
+	kill((pid_t)worker, SIGKILL);
+	waitpid((pid_t)worker, NULL, 0);
+}
+#endif

@@ -54,3 +54,6 @@ host_app_playing
 host_server_signals_install
 host_server_signals_take
 host_server_quit_deadline
+host_picture_worker_start
+host_picture_worker_poll
+host_picture_worker_stop

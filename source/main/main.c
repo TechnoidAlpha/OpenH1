@@ -698,6 +698,10 @@ typedef char screenshot_and_framerate_globals_size_assert[
 void network_test_update(boolean main_menu_loaded, real seconds);
 /* port: port/linux/game/basic_training.c */
 void basic_training_update(boolean main_menu_loaded, real seconds);
+/* port: the menus' pictures drawn again from the player's maps: rendered in
+the main menu's background, or by a copy of the game started to render one
+(port/linux/game/menu_pictures_render.c) */
+void menu_pictures_frame(int main_menu_loaded);
 /* port: port/linux/game/network_distributed.c */
 void network_distributed_frame_received(void);
 int network_distributed_server_receive(long milliseconds);
@@ -3682,6 +3686,8 @@ void main_loop(
 			/* port: Basic Training's game started, its skip buttons
 			(port/linux/game/basic_training.c) */
 			basic_training_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
+			/* port: the menus' pictures (port/linux/game/menu_pictures_render.c) */
+			menu_pictures_frame(main_globals.main_menu_scenario_loaded);
 			/* port: a dedicated server's hosting, rotation and commands
 			(port/linux/game/server_director.c) */
 			server_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);

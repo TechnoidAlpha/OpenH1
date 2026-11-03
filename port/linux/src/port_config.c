@@ -268,6 +268,11 @@ static const struct config_setting config_settings[] =
 		"High-res gameplay controller buttons: classic uses plain Xbox faces;\n"
 		"gems uses shaded Xbox faces; menu_gems uses the menu's button art.\n"
 		"Requires display.high_res_hud." },
+	{ "display.menu_pictures", _config_boolean, "true", "HALO_MENU_PICTURES", _environment_value, _platform_desktop,
+		"Draw the menus' pictures of the missions and the multiplayer maps again,\n"
+		"sharp, from your own maps: once, in the background while the main menu\n"
+		"shows, kept in the data folder's menu_pictures; false keeps the\n"
+		"originals." },
 	{ "display.high_res_text", _config_boolean, "true", "HALO_HIGH_RES_TEXT", _environment_value, _platform_all,
 		"Draw the menus', HUD's and console's text with the fonts in\n"
 		"port/assets/fonts (Overpass, Hack) at the resolution the game draws at,\n"
@@ -2226,6 +2231,10 @@ static const struct config_setting config_settings[] =
 		"Skip each cinematic in a local game: as the skip button does where it can\n"
 		"be skipped, else run at sixteen times its speed (a test reaches play in\n"
 		"seconds)." },
+	{ "debug.render_picture", _config_string, "\"\"", "HALO_RENDER_PICTURE", _environment_value, _platform_desktop,
+		"A menu picture's job file (menu_pictures.c): render that picture from\n"
+		"its map, keep it and exit, in a hidden window, nothing else written.\n"
+		"The game starts a copy of itself with it; empty for none." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
@@ -2348,6 +2357,9 @@ static int config_answer_only;
 /* halo --probe [<invite>]: a list site's look at a game (network_test.c's
 "probe"), headless */
 static int config_probe_mode;
+/* debug.render_picture's job file (HALO_RENDER_PICTURE): a copy rendering a
+menu picture, which writes no settings (config_apply_picture_mode) */
+static char config_picture_job[1024];
 #define CONFIG_PLATFORM (CONFIG_BUILD_PLATFORM | (config_server_mode ? _platform_server : 0))
 
 struct config_value
@@ -3802,6 +3814,85 @@ static void config_apply_probe_mode(void)
 	}
 }
 
+/* a copy the game started to render a menu picture (debug.render_picture,
+HALO_RENDER_PICTURE: port/linux/src/menu_pictures.c): a hidden window, no
+sound, network, update or Discord, a cinematic skipped, a frame shown as
+soon as it is drawn; then its job file's settings ("name = value" lines:
+the data, saves and logs folders and the window's size; its other lines are
+menu_pictures.c's). Nothing of it is written */
+static void config_apply_picture_mode(void)
+{
+	static const char *const forced[][2] =
+	{
+		{ "debug.hidden_window", "true" },
+		{ "display.fullscreen", "false" },
+		{ "display.mode", "windowed" },
+		{ "display.vsync", "false" },
+		{ "display.max_fps", "60" },
+		{ "display.interpolation", "false" },
+		{ "display.hdr", "off" },
+		{ "display.graphics", "enhanced" },
+		{ "display.menu_pictures", "false" },
+		{ "audio.enabled", "false" },
+		{ "audio.voice_chat", "off" },
+		{ "network.online", "false" },
+		{ "network.join_from_clipboard", "false" },
+		{ "update.auto", "false" },
+		{ "crash_reports.upload", "no" },
+		{ "discord.application_id", "" },
+		{ "server.enabled", "false" },
+		{ "debug.network_test", "" },
+		{ "debug.test_input", "" },
+		{ "debug.menu_open", "" },
+		{ "debug.telnet_console", "false" },
+		{ "debug.skip_cinematics", "true" },
+		/* (a copy that does not finish goes: the game also stops it) */
+		{ "debug.exit_after", "150" },
+	};
+	const char *job = config_picture_job;
+	FILE *file;
+	char line[1200];
+	size_t index;
+
+	/* (kept as the environment gave it: a reload of the file sets it again) */
+	config_set_from_text(&config_values[config_setting_index("debug.render_picture")], _config_string, job);
+	for (index = 0; index < sizeof(forced) / sizeof(forced[0]); index++)
+	{
+		long found = config_setting_index(forced[index][0]);
+
+		if (found >= 0)
+			config_set_from_text(&config_values[found], config_settings[found].type, forced[index][1]);
+	}
+	file = fopen(job, "r");
+	if (!file)
+	{
+		platform_log("settings: cannot read the picture's job %s", job);
+		return;
+	}
+	while (fgets(line, sizeof(line), file))
+	{
+		char *equals = strchr(line, '='), *name = line, *value, *end;
+		long found;
+
+		if (!equals)
+			continue;
+		*equals = 0;
+		value = equals + 1;
+		while (*name == ' ')
+			name++;
+		for (end = equals; end > name && end[-1] == ' '; end--)
+			end[-1] = 0;
+		while (*value == ' ')
+			value++;
+		for (end = value + strlen(value); end > value && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' '); end--)
+			end[-1] = 0;
+		found = config_setting_index(name);
+		if (found >= 0)
+			config_set_from_text(&config_values[found], config_settings[found].type, value);
+	}
+	fclose(file);
+}
+
 static void config_apply_server_mode(void)
 {
 	static const char *const forced[][2] =
@@ -3882,16 +3973,21 @@ static void config_load(void)
 	probe is never one, whatever they say) */
 	config_probe_mode = config_argument("--probe", NULL, 0);
 	{
+		const char *job = getenv("HALO_RENDER_PICTURE");
+
+		snprintf(config_picture_job, sizeof(config_picture_job), "%s", job && !config_probe_mode ? job : "");
+	}
+	{
 		const char *environment = getenv("HALO_SERVER");
 
-		config_server_mode = !config_probe_mode && (config_argument("--server", NULL, 0) ||
+		config_server_mode = !config_probe_mode && !config_picture_job[0] && (config_argument("--server", NULL, 0) ||
 			(environment && config_environment_set(environment)));
 	}
 	/* (a run that only answers its command line, halo --version, writes no
-	settings: the file read is left as it is) */
+	settings: the file read is left as it is; nor does a picture's copy) */
 	config_answer_only = config_argument("--help", NULL, 0) || config_argument("--version", NULL, 0) ||
 		config_argument("--keygen", NULL, 0) || config_argument("--sign", NULL, 0) || config_probe_mode ||
-		config_argument("--relay", NULL, 0) || config_argument("--import-maps", NULL, 0);
+		config_argument("--relay", NULL, 0) || config_argument("--import-maps", NULL, 0) || config_picture_job[0];
 #endif
 	text = config_read_file(path, &size);
 	if (text)
@@ -3954,7 +4050,7 @@ static void config_load(void)
 				config_set[index] = (unsigned char)config_set_from_file(&config_values[index], &config_settings[index],
 					result.toptab);
 #ifndef HALO_ANDROID
-			if (config_values[config_setting_index("server.enabled")].boolean && !config_probe_mode)
+			if (config_values[config_setting_index("server.enabled")].boolean && !config_probe_mode && !config_picture_job[0])
 				config_server_mode = 1;
 #endif
 			config_report_unknown_keys(result.toptab);
@@ -4028,6 +4124,8 @@ static void config_load(void)
 		config_apply_server_mode();
 	else if (config_probe_mode)
 		config_apply_probe_mode();
+	else if (config_picture_job[0])
+		config_apply_picture_mode();
 #endif
 	config_check_words();
 }
@@ -4489,6 +4587,8 @@ int config_reload(const char *prefix)
 		config_apply_server_mode();
 	else if (config_probe_mode)
 		config_apply_probe_mode();
+	else if (config_picture_job[0])
+		config_apply_picture_mode();
 #endif
 	config_change_count++;
 	pthread_mutex_unlock(&config_lock);

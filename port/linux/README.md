@@ -340,6 +340,7 @@ These files are in the data root:
 | `debug.txt` | The log of the game. At start-up, the game shows the data root in the terminal. A crash writes its report (the faulting address and the calls that led to it) here as well; the `reference address` line at the top of each session places those addresses in the build. |
 | `init.txt` | Console commands that the game does at start-up. For example, `map_name levels\a10\a10` starts the first campaign level. |
 | `tags/` | Sound tag files that replace the sounds of the maps (`audio.loose_sounds`). |
+| `menu_pictures/` | The menus' pictures of the missions and the multiplayer maps, drawn again from these maps (`display.menu_pictures`): a PNG and a note of each. Deleting it draws them again. |
 | `mods/` | Mods: folders of Halo PC tag files whose sounds, bitmaps, text and models play over the maps' on this machine, in the order of Settings > Profiles > Mods (`load_order.toml`). Refer to [docs/mods.md](../../docs/mods.md). |
 
 The settings are in `config.toml` in the game's folder (the release's
@@ -733,6 +734,29 @@ path replaces one of the game's, and another `.xml` file is added.
 the game uses the Xbox's menus and the log names the file, the line and the
 problem.
 
+### Menu pictures
+
+The menus' small pictures of the missions and the multiplayer maps (ui.map's
+`sp_levels` and `mp_map_grafix`, 140x114) are drawn again from the
+player's own maps, as sharp as the screen shows them (up to 4K). Only the
+camera's place for each ships (`port/assets/pictures`), never a picture.
+While the main menu shows, the game starts a copy of itself in the
+background (`debug.render_picture`), one picture at a time, behind the
+game's priority and in no window: it loads the picture's map, sets the
+scene and keeps one frame, about 15 seconds each. A map can only be drawn
+by loading it, which the menu's own process cannot do without leaving the
+menu, so the copy is never in the menu's way; and a fresh copy for each
+picture, as switching structures again and again runs out of the
+renderer's device groups. A copy is stopped when a game starts (and started
+again later) and after 150 seconds at most. The pictures are kept in the
+data root's `menu_pictures/`, and the menus draw each in place of its
+original wherever they draw that frame (the campaign's cards, the
+multiplayer map's picture), cut to the same frame. The original stays
+where its map is missing or not the one the pose was made for (its cache
+file checksum, `port/assets/pictures/maps.json`: a modded map), where its
+render failed twice, and until it is ready; a larger screen draws it again
+larger. Not on Android or iOS (no second process).
+
 ## Bots
 
 Computer players (bots) can play every multiplayer game you host but
@@ -997,6 +1021,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.shield_color` | `default` | `HALO_SHIELD_COLOR` | Your energy shield's flare as this machine draws it: `default` (the shield's own) or a multiplayer armor color (`white`, `black`, `red`, `blue`, `gray`, `yellow`, `green`, `pink`, `purple`, `cyan`, `cobalt`, `orange`, `teal`, `sage`, `brown`, `tan`, `maroon`, `salmon`), whatever the armor's, on the body and, with `display.viewmodel_shield`, on the first-person arms. The shield's own shader is drawn with its two colors replaced at their brightness; the flare is added to what is behind it, so `black` is drawn a faint grey. Only this machine sees it. |
 | `display.high_res_hud` | `true` | `HALO_HIGH_RES_HUD` | `true`: the HUD (meters, counters, panels and their outlines, the motion sensor, reticles, waypoints, scopes) is drawn from the high-res assets in `port/assets/hud`, 8x the size of the maps' bitmaps; the message icons' pictures of the weapons and the skull from Aerocatia's and Jessie's art (`port/assets/hud/NOTICE.md`); the reticle's warnings ("Reload", "Battery Depleted") set in Overpass. Selected labels and messaging sheets (their text) are upscaled from the maps' own pixels without changing their layout. `false`: the maps' own bitmaps. |
 | `display.hud_button_style` | `classic` | `HALO_HUD_BUTTON_STYLE` | Gameplay controller icons while High-Res HUD is on: `classic` (plain Xbox faces), `gems` (shaded Xbox faces), or `menu_gems` (Dark Gems). |
+| `display.menu_pictures` | `true` | `HALO_MENU_PICTURES` | `true`: the menus' small pictures of the missions and the multiplayer maps (ui.map's 140x114 `sp_levels` and `mp_map_grafix`) are drawn again, sharp, from the player's own maps, once, and kept in the data root's `menu_pictures/` ("Menu pictures"). `false`: the originals. |
 | `display.high_res_text` | `true` | `HALO_HIGH_RES_TEXT` | `true`: the menus', HUD's and console's text is drawn with the fonts in `port/assets/fonts` (Overpass, in place of the maps' Interstate; Hack, a monospaced font, in place of the console's bitmap font) at the resolution the game draws at, laid out as before; the menus' titles are drawn from the high-res pictures in `port/assets/titles`, and the controller button icons from those in `port/assets/buttons`. `false`: the maps' bitmap fonts, titles and button icons. |
 | `display.shadow_resolution` | `display.graphics`'s | `HALO_SHADOW_RESOLUTION` | The size of the maps that the shadows of the objects are drawn in, in pixels each way: `128`, `256`, `512` or `1024` (other values go down to one of these). The game draws the shadow of each object into a map of 128x128 pixels, blurs it and projects it onto the ground. On a large screen, the edges of these shadows show steps that move when the object moves. A larger map makes the edges smooth; the blur is made wider to match, so the shadows are as soft as on the Xbox. Each doubling adds two passes of the blur, which up to `512` are drawn once a frame for all the objects (the shadow atlas: 2048x2048 at `512`, two of them, and nine maps, 41 MB of the GPU's memory; 10 MB at `256`). `128`: as on the Xbox. Commented out, `display.graphics` chooses it (refer to "Classic and Enhanced"); set, it wins over `display.graphics`. |
 | `display.menus` | `"pc"` | `HALO_MENUS` | `"pc"`: the PC version's menus, from the files in `port/assets/menus` and a `menus` folder next to `config.toml`. Refer to "Menus". `"xbox"`: the Xbox's menus. |
@@ -1238,6 +1263,7 @@ the setting for one start of the game. It has priority over the file.
 | `debug.gpu_stats`, `debug.gpu_trace_frame`, `debug.gpu_trace_constants`, `debug.gpu_dump_shaders`, `debug.texture_dump_directory`, `debug.gpu_validation` | off | `HALO_GPU_STATS`, `HALO_GPU_TRACE`, `HALO_GPU_TRACE_CONSTANTS`, `HALO_GPU_DUMP_SHADERS`, `HALO_TEXTURE_DUMP`, `HALO_GPU_VALIDATION` | Tools to find problems in the graphics: counts for each frame (with Vulkan, also its submissions, passes, clears and pipelines every 600 frames, as `HALO_VULKAN_STATS`), every draw of one frame, the shaders' code (Vulkan's SPIR-V, as `.spv` files, as `HALO_VULKAN_SHADERS`), the textures as they are read (TGA files, `tex<number>_fmt<format>_<width>x<height>.tga`), and the graphics API's errors in the log (Vulkan's validation layers, which must be installed, as `HALO_VULKAN_VALIDATION`). |
 | `debug.gl_debug` | `false` | `HALO_GL_DEBUG` | Deprecated: `debug.gpu_validation`'s old name, which still turns it on (with Vulkan, the validation layers). |
 | `debug.skip_cinematics` | `false` | `HALO_SKIP_CINEMATICS` | Skip each cinematic of a local game: as the skip button does where the level lets it be skipped, else run at sixteen times its speed (`main_skip`), so that a test reaches play in seconds (b30's opening, which cannot be skipped, in about 100 frames rather than 2,400). |
+| `debug.render_picture` | `""` | `HALO_RENDER_PICTURE` | A menu picture's job file: render that picture and exit ("Menu pictures"). The game starts a copy of itself with it; by hand, for a pose being made. |
 | `debug.menu_open` | `""` | `HALO_MENU_OPEN` | Start on this screen of the menus (`main_menu/settings_select/...`, as `port/assets/menus` names it), a player profile being edited, to look at it. |
 | `debug.matchmaking`, `debug.matchmaking_host` | `""` | `HALO_MATCHMAKING`, `HALO_MATCHMAKING_HOST` | Search a matchmaking playlist (its name, `"Team Slayer"`, or its number, 1 up) once the main menu is up, and how well this machine tells its party it can host (`"strict"` or `"open"`; empty: as its network is), for a test; with either, a player without a profile plays. |
 | `debug.party` | `""` | `HALO_PARTY` | Join this party link at the start, or lead its party (`lead:` before the link): several copies of the game in one party, for a test. |

@@ -34,6 +34,7 @@ Conventions carried over from the Xbox:
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "halo_dynamic_lights.h"
+#include "menu_pictures.h"
 #include "port_config.h"
 #include "battery_saver.h"
 #include "bink_import.h"
@@ -5282,6 +5283,15 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		xgpu_backend_visibility_frame();
 		if (screenshot_this_frame())
 			write_screenshot(back_buffer);
+		/* (a copy rendering a menu picture: the frame kept, and the copy ends:
+		menu_pictures.c) */
+		if (menu_pictures_capture_wanted())
+		{
+			unsigned char *pixels = xgpu_backend_read_target(back_buffer->target.number, -1, FALSE);
+
+			if (pixels)
+				menu_pictures_capture(pixels, back_buffer->target.pixel_width, back_buffer->target.pixel_height);
+		}
 		if (determinism_log_frames())
 		{
 			unsigned char *pixels = xgpu_backend_read_target(back_buffer->target.number, -1, FALSE);

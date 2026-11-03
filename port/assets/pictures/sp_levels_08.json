@@ -1,0 +1,16 @@
+{
+ "picture": "ui.map sp_levels 08 (d20)",
+ "scenario": "levels\\d20\\d20",
+ "bsp": 1,
+ "aspect": 1.269,
+ "pose": {
+  "x": 38.3454,
+  "y": -125.02,
+  "z": -22.4245,
+  "yaw": 126.1794,
+  "pitch": 16.1318,
+  "roll": 2.7813,
+  "vfov": 69.5678
+ },
+ "score": 0.7336
+}
