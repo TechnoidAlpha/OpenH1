@@ -754,6 +754,13 @@ boolean weapon_aim(
 
 		result = TRUE;
 	}
+	/* port: a trigger the weapon doesn't have (an AI's secondary burst with
+	a weapon of one trigger) aimed nothing and left this as the stack had it,
+	and actor_combat_update read it all the same: aim at the point */
+	else if (result_linear)
+	{
+		*result_linear = TRUE;
+	}
 
 	return result;
 }
