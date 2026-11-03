@@ -290,7 +290,9 @@ void *object_try_and_get_and_verify_type(
 	return result;
 }
 
-void *object_get_and_verify_type(
+/* port: object_get_and_verify_type (objects.h) where its fast path finds
+another type: the original, unchanged */
+void *object_get_and_verify_type_slow(
 	long object_index,
 	unsigned long valid_type_flags)
 {

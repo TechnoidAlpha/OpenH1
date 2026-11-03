@@ -94,20 +94,6 @@ enum
 
 /* ---------- structures */
 
-/* a tag in the loaded map's table (cache_files.c's) */
-struct cache_file_tag_instance
-{
-	long group_tag;
-	long parent_group_tags[2];
-	long tag_index;
-	char *name;
-	void *base_address;
-	unsigned long unused[2];
-};
-
-typedef char verify_cache_file_tag_instance_size[
-	sizeof(struct cache_file_tag_instance) == 0x20 ? 1 : -1];
-
 /* the tags the bitmaps' users are found in: a tag cache
 custom_edition_cache_load filled (`loaded_bytes` of it in use), or with no
 tag cache the loaded map's, which the validator has checked */

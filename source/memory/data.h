@@ -56,7 +56,8 @@ long data_allocation_size(short maximum_count, short size);
 void data_initialize(struct data_array *data, const char *name, short maximum_count, short size);
 void *datum_try_and_get(struct data_array *data, long index);
 void data_verify(struct data_array *data);
-void *datum_get(struct data_array *data, long index);
+/* port: datum_get where its fast path (data.h) finds nothing */
+void *datum_get_slow(struct data_array *data, long index);
 struct data_array *data_new(const char *name, short maximum_count, short size);
 void data_dispose(struct data_array *data);
 void data_make_invalid(struct data_array *data);
@@ -71,6 +72,31 @@ long data_prev_index(struct data_array *data, long index);
 void data_compact(struct data_array *data);
 void data_make_valid(struct data_array *data);
 
+/* port: datum_get without a call where all it checks holds (a large share
+of the simulation's time was the call), and the function where something
+does not, which asserts and reports as datum_get always has (__inline__:
+msvc_comdat.c makes __inline weak, which a static function cannot be) */
+static __inline__ void *datum_get(
+	struct data_array *data,
+	long index)
+{
+	short identifier = index>>16;
+	short absolute_index = index;
+
+	if (data->valid &&
+		(identifier || !data->identifier_zero_invalid) &&
+		absolute_index>=0 && absolute_index<data->count)
+	{
+		struct datum_header *header = (struct datum_header *)((char *)data->data+data->size*absolute_index);
+
+		if (header->identifier && (!identifier || identifier==header->identifier))
+		{
+			return header;
+		}
+	}
+
+	return datum_get_slow(data, index);
+}
 
 /* ---------- globals */
 
