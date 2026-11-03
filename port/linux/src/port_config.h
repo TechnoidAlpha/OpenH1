@@ -22,6 +22,9 @@ long config_integer(const char *name);
 double config_real(const char *name);
 /* never NULL; "" when unset */
 const char *config_string(const char *name);
+/* debug.fresh_memory_fill: the byte (0x00, 0xAA) the allocators fill what
+they give out uncleared with, or -1 for the game's own fill */
+int halo_fresh_memory_fill(void);
 /* sets a setting from its value as text ("true", "60", "1.5", "all"), and
 writes it into config.toml (only its line changes); 1 on success */
 int config_write(const char *name, const char *value);
