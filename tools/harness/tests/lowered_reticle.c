@@ -9,7 +9,10 @@ shake too) and at the HUD's reticle scale; the first-person weapon posed
 at the view turned back to the aim; a scope's zoom bringing the reticle
 back to the middle; nothing turned when the setting is off or the view is
 not the player's aim. Checked against a projection of its own, the
-camera's pinhole on a 1920x1080 window.
+camera's pinhole on a 1920x1080 screen, its vertical angle across the
+window (the safe frame) as the game's frustum takes it, the whole screen or
+a smaller one in its middle: the reticle is a fraction of the screen's
+height below the middle either way.
 */
 
 #include "harness.h"
@@ -29,6 +32,7 @@ struct render_camera
 	real_vector3d forward;
 	real_vector3d up;
 	real vertical_field_of_view;
+	rectangle2d viewport_bounds;
 	rectangle2d window_bounds;
 };
 
@@ -93,7 +97,8 @@ static real weapon_get_field_of_view(long weapon_index, real field_of_view, shor
 }
 
 /* the test's projection: the camera's pinhole, its vertical angle across the
-window's height, pixels from the top left */
+window's height (render_camera_build_frustum_bounds' and _build_frustum's:
+the window's middle is the view's), pixels on the screen from its top left */
 static boolean project(struct render_camera const *camera, real_point3d const *point, real_point2d *screen)
 {
 	real_vector3d right, to;
@@ -150,6 +155,9 @@ static void settings(int on, double percent)
 	fake_changes++;
 }
 
+/* the window's inset from the screen's edges (the safe frame), each side */
+static short inset_x, inset_y;
+
 /* a view aimed along yaw and pitch (radians), up square to it */
 static struct render_camera camera_aimed(real yaw, real pitch, real vertical_field_of_view)
 {
@@ -162,8 +170,12 @@ static struct render_camera camera_aimed(real yaw, real pitch, real vertical_fie
 	camera.forward = vector(cosf(yaw) * cosf(pitch), sinf(yaw) * cosf(pitch), sinf(pitch));
 	camera.up = vector(-cosf(yaw) * sinf(pitch), -sinf(yaw) * sinf(pitch), cosf(pitch));
 	camera.vertical_field_of_view = vertical_field_of_view;
-	camera.window_bounds.x1 = WIDTH;
-	camera.window_bounds.y1 = HEIGHT;
+	camera.viewport_bounds.x1 = WIDTH;
+	camera.viewport_bounds.y1 = HEIGHT;
+	camera.window_bounds.x0 = inset_x;
+	camera.window_bounds.x1 = WIDTH - inset_x;
+	camera.window_bounds.y0 = inset_y;
+	camera.window_bounds.y1 = HEIGHT - inset_y;
 	return camera;
 }
 
@@ -174,7 +186,7 @@ static struct render_camera frame(struct render_camera aim, real game_field_of_v
 {
 	struct render_camera view = aim;
 
-	lowered_reticle_view(0, game_field_of_view, view.vertical_field_of_view, &view.forward, &view.up);
+	lowered_reticle_view(0, game_field_of_view, &view);
 	render.local_player_index = 0;
 	render.camera = view;
 	render.frustum.projection_valid = TRUE;
@@ -239,11 +251,17 @@ int main(int argc, char **argv)
 	CASE("lands_on_the_reticle")
 	{
 		/* at any field of view and any aim, the aim lands the fraction of
-		the view's height below its middle, straight below it, and the view
-		looks above the aim */
+		the screen's height below its middle, straight below it, and the
+		view looks above the aim; with the window the whole screen and a
+		safe frame inside it (the game's, 85% of it) */
+		short window;
+
 		settings(1, 12.0);
+		for (window = 0; window < 2; window++)
 		for (a = 0; a < (short)(sizeof(angles) / sizeof(angles[0])); a++)
 		{
+			inset_x = window ? 144 : 0;
+			inset_y = window ? 81 : 0;
 			for (p = 0; p < (short)(sizeof(pitches) / sizeof(pitches[0])); p++)
 			{
 				aim = camera_aimed(-1.1f + p, pitches[p], angles[a]);
@@ -393,8 +411,8 @@ int main(int argc, char **argv)
 		CHECK(lowered_reticle_lift(0) > 0.f, "not turned again");
 		/* a player who is not local */
 		view = aim;
-		lowered_reticle_view(-1, UNZOOMED, view.vertical_field_of_view, &view.forward, &view.up);
-		lowered_reticle_view(MAXIMUM_LOCAL_PLAYERS, UNZOOMED, view.vertical_field_of_view, &view.forward, &view.up);
+		lowered_reticle_view(-1, UNZOOMED, &view);
+		lowered_reticle_view(MAXIMUM_LOCAL_PLAYERS, UNZOOMED, &view);
 		CHECK(!memcmp(&view, &aim, sizeof(view)), "another player's view turned");
 		CHECK(lowered_reticle_lift(-1) == 0.f && lowered_reticle_lift(MAXIMUM_LOCAL_PLAYERS) == 0.f, "a lift");
 	}

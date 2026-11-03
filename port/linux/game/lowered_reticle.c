@@ -79,14 +79,24 @@ static real lowered_reticle_fraction(void)
 	return fraction;
 }
 
-/* the angle above the aim a view of this vertical angle looks for the aim
-to land that fraction of its height below the middle: the middle is
-tan(angle / 2) from the edge in the view's depth, the aim tan(lift) */
-static real lowered_reticle_lift_angle(real fraction, real vertical_field_of_view)
+/* the angle above the aim a view looks for the aim to land that fraction of
+the screen's height (its viewport's) below the middle. The view's vertical
+angle spans its window, the safe frame, and the viewport reaches past it
+(render_camera_build_frustum_bounds), so in the view's depth the window's
+edge is tan(angle / 2) from the middle, the viewport's that times the
+viewport's height over the window's, and the aim tan(lift) */
+static real lowered_reticle_lift_angle(real fraction, struct render_camera const *camera)
 {
-	if (!(fraction > 0.0f) || !(vertical_field_of_view > 0.0f && vertical_field_of_view < _pi))
+	real vertical_field_of_view = camera->vertical_field_of_view;
+	real viewport_height = (real)(camera->viewport_bounds.y1 - camera->viewport_bounds.y0);
+	real window_height = (real)(camera->window_bounds.y1 - camera->window_bounds.y0);
+
+	if (!(fraction > 0.0f) || !(vertical_field_of_view > 0.0f && vertical_field_of_view < _pi) ||
+		!(viewport_height > 0.0f && window_height > 0.0f))
+	{
 		return 0.0f;
-	return atanf(2.0f * fraction * tanf(vertical_field_of_view * 0.5f));
+	}
+	return atanf(2.0f * fraction * tanf(vertical_field_of_view * 0.5f) * viewport_height / window_height);
 }
 
 /* how much of the lowering a zoom keeps, from the view's tangent over the
@@ -145,8 +155,7 @@ static real lowered_reticle_zoom(struct unit_datum const *unit, long unit_index,
 		zoomed_ratio);
 }
 
-void lowered_reticle_view(short local_player_index, real game_field_of_view, real vertical_field_of_view,
-	real_vector3d *forward, real_vector3d *up)
+void lowered_reticle_view(short local_player_index, real game_field_of_view, struct render_camera *camera)
 {
 	struct unit_datum *unit;
 	long unit_index;
@@ -162,9 +171,9 @@ void lowered_reticle_view(short local_player_index, real game_field_of_view, rea
 	if (fraction > 0.0f && (unit = render_fov_unit(local_player_index, &unit_index)) != NULL)
 	{
 		angle = lowered_reticle_lift_angle(fraction * lowered_reticle_zoom(unit, unit_index, game_field_of_view),
-			vertical_field_of_view);
+			camera);
 		if (angle != 0.0f)
-			lowered_reticle_turn(forward, up, angle);
+			lowered_reticle_turn(&camera->forward, &camera->up, angle);
 	}
 	lift_angles[local_player_index] = angle;
 }

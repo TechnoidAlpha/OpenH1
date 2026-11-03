@@ -9,20 +9,19 @@ reticle.
 #ifndef LOWERED_RETICLE_H
 #define LOWERED_RETICLE_H
 
-union real_vector3d;
 union real_point2d;
 union point2d;
 struct render_camera;
 struct render_frustum;
 
 /* (each frame, as the local render view is set from its observer) turns the
-view up from the aim by the angle that puts the aim the setting's fraction
-of the view's height below its middle, at the vertical angle the view is
-drawn at (after display.fov); the game's own field of view tells a scope's
-zoom, which brings the reticle back to the middle. Leaves forward and up
-alone when the setting is off or the view is not the player's aim */
-void lowered_reticle_view(short local_player_index, real game_field_of_view, real vertical_field_of_view,
-	union real_vector3d *forward, union real_vector3d *up);
+camera's forward and up from the aim by the angle that puts the aim the
+setting's fraction of the screen's height below its middle, at the camera's
+vertical angle (after display.fov) and bounds; the game's own field of view
+tells a scope's zoom, which brings the reticle back to the middle. Leaves
+the camera alone when the setting is off or the view is not the player's
+aim */
+void lowered_reticle_view(short local_player_index, real game_field_of_view, struct render_camera *camera);
 
 /* how far the local player's view looks above its aim (radians), this frame;
 0 for none */

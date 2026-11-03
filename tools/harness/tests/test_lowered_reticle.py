@@ -24,6 +24,8 @@ CONTROLS = [
     ("atanf(2.0f * fraction * tanf(", "atanf(fraction * tanf(", "lands_on_the_reticle"),
     # the drawn field of view's angle taken as the half angle
     ("tanf(vertical_field_of_view * 0.5f)", "tanf(vertical_field_of_view)", "lands_on_the_reticle"),
+    # the safe frame's height taken for the screen's: short of the fraction on a safe frame
+    ("* viewport_height / window_height);", ");", "lands_on_the_reticle"),
     # the view turned down, not up
     ("turned_forward.i = forward->i * cosine_angle + up->i * sine_angle;",
      "turned_forward.i = forward->i * cosine_angle - up->i * sine_angle;", "lands_on_the_reticle"),
@@ -76,11 +78,12 @@ def test_the_view_turns_not_the_aim():
     camera = function(read("source/main/main.c"), "set_window_camera_values")
     fov = camera.index("render_fov_vertical(")
     turned = camera.index("lowered_reticle_view(window->local_player_index, observer->field_of_view,")
-    assert fov < turned < camera.index("window->rasterizer_camera.forward = forward;")
-    assert "window->rasterizer_camera.vertical_field_of_view, &forward, &up);" in camera[turned:turned + 200]
-    assert camera.index("window->rasterizer_camera.up = up;") < camera.index("player_effect_get_camera_effect_matrix(")
-    assert "&forward, /* port: (the view's, above the aim) */\n\t\t\t\t&up);" in camera
-    assert "observer->forward;" in camera and "observer->forward =" not in camera and "observer->up =" not in camera
+    assert camera.index("window->rasterizer_camera.up = observer->up;") < fov < turned
+    assert "&window->rasterizer_camera);" in camera[turned:turned + 150]
+    assert turned < camera.index("player_effect_get_camera_effect_matrix(")
+    assert "/* port: (the view's, above the aim) */\n\t\t\t\t&window->rasterizer_camera.forward,\n" \
+        "\t\t\t\t&window->rasterizer_camera.up);" in camera
+    assert "observer->forward =" not in camera and "observer->up =" not in camera
     assert "&observer->forward" not in camera
 
 
