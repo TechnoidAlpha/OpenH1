@@ -10,8 +10,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run, structure  # noqa: E402
 
-CASES = ["long-string", "all-escaped", "too-long", "answer-only"]
-NAMES = ["config_setting_index", "config_text_is_false", "config_set_from_text", "config_append", "config_copy",
+CASES = ["long-string", "all-escaped", "too-long", "answer-only", "word-or-number"]
+NAMES = ["config_setting_index", "config_text_is_false", "config_string_takes_number", "config_text_is_number",
+         "config_set_from_text", "config_append", "config_copy",
          "config_line_key", "config_line_section", "config_find_line", "config_set_line", "config_write"]
 
 # a fault in the code, the function it is in, and the case that must catch it
@@ -20,6 +21,8 @@ NEGATIVE_CONTROLS = {
     "no-limit": (("strlen(value) > (config_settings", "strlen(value) > 99999 + 0 * (config_settings"), "config_write",
                  "too-long"),
     "probe-writes": (("\tif (config_answer_only)\n", "\tif (0)\n"), "config_write", "answer-only"),
+    "number-quoted": (("&& !strcmp(setting->name", "&& 0 && !strcmp(setting->name"), "config_string_takes_number",
+                      "word-or-number"),
 }
 
 

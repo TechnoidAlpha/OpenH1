@@ -984,7 +984,8 @@ the setting for one start of the game. It has priority over the file.
 | `display.interpolation` | `true` | `HALO_INTERPOLATION` | `true`: one frame for each refresh of the display. `false`: 30 frames each second, as on the Xbox. Refer to "Frame rate". |
 | `display.menu_cursor` | `"medium"` | `HALO_MENU_CURSOR` | The menus' pointer for the mouse (Settings > Controls > Menu Cursor): the game's blue arrow, `"small"`, `"medium"`, `"large"` or `"extra_large"` (18, 24, 32 or 40 of the menus' 480 lines tall, the same part of the screen at any resolution), or `"off"` for the system's pointer. Linux, Windows and macOS. Refer to "Controls". |
 | `display.direct_camera` | `true` | `HALO_DIRECT_CAMERA` | `true`: in first person, on foot, the view points where the player aims in each frame, not where the last tick left it; and (not in the VR mode) the view stands where the newest step left the player, and the gun and hands show the newest step's pose (a shot, a step, a reload seen 33 ms sooner). In a vehicle's seat (first or third person, not in the VR mode) the vehicle, its riders and the view from it are drawn as the vehicle's newest step left it, the view aimed where the player aims. On Android and iOS too, with the touch controls' swipe and gyroscope. Refer to "Frame rate". |
-| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot and in vehicles, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
+| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
+| `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
 | `display.passenger_third_person` | `false` | `HALO_PASSENGER_THIRD_PERSON` | Third-person view for the Warthog's passenger and the Scorpion's four passengers. Uses the gunner's camera on the Warthog and the driver's on the Scorpion, within the passenger's firing arc. Smooth entry and exit; weapon zoom is disabled while riding. The reticle follows the shot's centre ray. Local view only. In the campaign and co-op only: not in multiplayer, where seeing around the vehicle would be an advantage. Never in VR, which stays in first person in every seat. |
@@ -1958,22 +1959,30 @@ sooner than the AudioQueue.
 
 ## Field of view
 
-Video Setup's FOV AND VIEWMODELS screen sets the field of view of the
-first-person view (`display.fov`) and of the weapon and hands
-(`display.viewmodel_fov`), from 80 to 150 degrees in steps of 5, and can
-hide the weapon (`display.viewmodel_visible`). DEFAULT, the setting's `0`,
-keeps the stock view. `config.toml` takes any angle from 20 to 150.
+Video Setup's Field of View sets the view's field of view on foot
+(`display.fov`); First Person sets the vehicles' (`display.vehicle_fov`)
+and the weapon and hands' (`display.viewmodel_fov`), from 80 to 150
+degrees in steps of 5, and can hide the weapon (`display.viewmodel_visible`).
+DEFAULT, the setting's `0` (the vehicles' `"default"`), keeps the stock
+view; the vehicles' MATCH (`"match"`) takes the view on foot's. `config.toml`
+takes any angle from 20 to 150.
 
 - An angle is across the screen at 16:9. Another shape keeps the same
   angle up and down, as the stock view does.
-- The field of view applies on foot and in vehicles, in first and third
-  person, entering and leaving a seat too, so the view and the reticle keep
-  their size as you get in and out. Death, cinematics and scripted cameras
-  keep their own view.
+- `display.fov` applies on foot. In a vehicle's seat, in first and third
+  person, entering and leaving it too, the view takes `display.vehicle_fov`:
+  by default the stock view, as the Xbox drew it. Getting in or out, while
+  the two differ, the view eases from one to the other in half a second
+  (from when the player is in the seat, and from when the player is out of
+  it, while the camera flies back to the head), and turns back from where
+  it is if the player gets in or out again on the way. Death, cinematics
+  and scripted cameras keep their own view.
 - A scope's zoom levels keep their stock view: the extra width fades out as
   the zoom comes in. A view narrower than the stock one narrows the zoom
   too.
-- The reticles scale with the view, so that they stay on the aim. The
+- The reticles scale with the view, so that they stay on the aim: each
+  frame's reticle is scaled from that frame's view, so it grows or shrinks
+  with the view as you get in and out and never shows another size. The
   scopes' pictures keep their place.
 - By default the weapon keeps its stock view when the world is wider:
   arms and a gun right against the camera stretch at a wide angle.

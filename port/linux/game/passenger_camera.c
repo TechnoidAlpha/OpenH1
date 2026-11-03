@@ -171,8 +171,9 @@ boolean passenger_camera_reticle_begin(short local_player_index, long weapon_ind
 	if (!render_camera_world_to_screen(&render.camera, &render.frustum, &target, &screen))
 		return FALSE;
 	/* (where the shot lands in the drawn view: hud_draw.c scales the reticle
-	about the view's centre with display.fov, offset and all, so the offset
-	is given at the HUD's own size to land there) */
+	about the view's centre by this frame's view (display.vehicle_fov's, or
+	on the way to or from display.fov's), offset and all, so the offset is
+	given at the HUD's own size to land there; 1 at the stock view) */
 	reticle_scale = render_fov_reticle_scale(local_player_index);
 	reticle_offset.x = (screen.x - (render.camera.window_bounds.x0 + render.camera.window_bounds.x1) * 0.5f) /
 		reticle_scale;

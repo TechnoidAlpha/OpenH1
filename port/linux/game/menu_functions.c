@@ -4534,14 +4534,17 @@ spinner's is (settings_pending), which Settings' OK writes. A slider with
 stops has them along its track, evenly spaced, in place of its range: left,
 right and the track go from stop to stop, and a value typed between two
 stops sits between them; a stop shown as a word (AUTO, NONE, DEFAULT) is a
-value of its own, which may be typed as the word or as its number. */
+value of its own, which may be typed as the word or as its number. A word's
+stop may write a word of the setting's in place of its number
+(display.vehicle_fov's "default" and "match"). */
 
-/* a slider's stop: its value, and the word it is shown as (NULL: its
-number) */
+/* a slider's stop: its value, the word it is shown as (NULL: its number),
+and the setting's word it writes (NULL: its number) */
 struct settings_slider_stop
 {
 	double value;
 	char const *word;
+	char const *text;
 };
 
 /* (tools/port_settings.py's FRAME_RATE_LIMITS and FIELDS_OF_VIEW) */
@@ -4556,6 +4559,14 @@ static struct settings_slider_stop const settings_fov_stops[] =
 	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
 	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
 	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+};
+/* (tools/port_settings.py's VEHICLE_FIELDS_OF_VIEW: the game's own view, and
+display.fov's) */
+static struct settings_slider_stop const settings_vehicle_fov_stops[] =
+{
+	{ -2.0, "DEFAULT", "default" }, { -1.0, "MATCH", "match" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL },
+	{ 95.0, NULL }, { 100.0, NULL }, { 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL },
+	{ 125.0, NULL }, { 130.0, NULL }, { 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
 };
 
 #define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
@@ -4579,6 +4590,8 @@ static struct
 	{ "op_fov", "display.fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
 	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
 		SLIDER_STOPS(settings_fov_stops) },
+	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
+		SLIDER_STOPS(settings_vehicle_fov_stops) },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out
@@ -4618,6 +4631,23 @@ static short settings_slider_word(short slider, double value)
 	return NONE;
 }
 
+/* a setting's text as the slider's value: a stop's word of the setting's,
+else its number */
+static boolean settings_slider_text_value(short slider, char const *text, double *value)
+{
+	short stop;
+
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].text && !_stricmp(text, settings_sliders[slider].stops[stop].text))
+		{
+			*value = settings_sliders[slider].stops[stop].value;
+			return TRUE;
+		}
+	}
+	return text_is_number(text, value);
+}
+
 /* whether the slider takes the value: one it may be typed, or a word's */
 static boolean settings_slider_valid(short slider, double value)
 {
@@ -4632,11 +4662,14 @@ static double settings_slider_value(short slider)
 	char text[64];
 	double value;
 
-	if (!settings_value(settings_sliders[slider].setting, text, sizeof(text)) || !text_is_number(text, &value) ||
-		!settings_slider_valid(slider, value))
+	if (!settings_value(settings_sliders[slider].setting, text, sizeof(text)) ||
+		!settings_slider_text_value(slider, text, &value) || !settings_slider_valid(slider, value))
 	{
-		if (!setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) || !text_is_number(text, &value))
+		if (!setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) ||
+			!settings_slider_text_value(slider, text, &value))
+		{
 			value = settings_sliders[slider].least;
+		}
 	}
 	return value;
 }
@@ -4673,10 +4706,14 @@ static void settings_slider_text(short slider, double value, char *text, unsigne
 static void settings_slider_set(short slider, double value)
 {
 	char text[64], current[64];
+	short word = settings_slider_word(slider, value);
 
-	if (settings_slider_word(slider, value) == NONE)
+	if (word == NONE)
 		value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
-	settings_slider_number(slider, value, text, sizeof(text));
+	if (word != NONE && settings_sliders[slider].stops[word].text)
+		snprintf(text, sizeof(text), "%s", settings_sliders[slider].stops[word].text);
+	else
+		settings_slider_number(slider, value, text, sizeof(text));
 	if (setting_text(settings_sliders[slider].setting, current, sizeof(current), FALSE) &&
 		settings_values_same(current, text))
 	{
@@ -4957,7 +4994,8 @@ static void settings_sliders_default(struct widget_instance *screen)
 	for (slider = 0; slider < (short)NUMBEROF(settings_sliders); slider++)
 	{
 		if (named(screen, settings_sliders[slider].row, 0) &&
-			setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) && text_is_number(text, &value))
+			setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) &&
+			settings_slider_text_value(slider, text, &value))
 		{
 			settings_slider_set(slider, value);
 		}

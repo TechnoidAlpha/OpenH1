@@ -233,9 +233,13 @@ static const struct config_setting config_settings[] =
 		"VR mode) the vehicle and the view from it are drawn as its newest\n"
 		"step left it: not a tick (33 ms) behind." },
 	{ "display.fov", _config_real, "0.0", "HALO_FOV", _environment_value, _platform_all,
-		"The view's field of view on foot and in vehicles, in degrees across\n"
-		"at 16:9 (20 to 150); 0 keeps the stock view. Cinematics and scripted\n"
-		"cameras keep their own." },
+		"The view's field of view on foot, in degrees across at 16:9 (20 to\n"
+		"150); 0 keeps the stock view. Vehicles take display.vehicle_fov's.\n"
+		"Cinematics and scripted cameras keep their own." },
+	{ "display.vehicle_fov", _config_string, "\"default\"", "HALO_VEHICLE_FOV", _environment_value, _platform_all,
+		"The view's field of view in a vehicle's seat, first or third person,\n"
+		"getting in and out too: \"default\" keeps the stock view, \"match\" takes\n"
+		"display.fov's, and a number is degrees across at 16:9 (20 to 150)." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"
@@ -3076,6 +3080,24 @@ static int config_environment_set(const char *text)
 	return text[0] && !config_text_is_false(text);
 }
 
+/* the string settings that take a word or a number (display.vehicle_fov:
+"default", "match" or degrees), which config.toml may have unquoted */
+static int config_string_takes_number(const struct config_setting *setting)
+{
+	return setting->type == _config_string && !strcmp(setting->name, "display.vehicle_fov");
+}
+
+/* whether the text is a number in digits, all of it */
+static int config_text_is_number(const char *text)
+{
+	char *end;
+
+	if (!isdigit((unsigned char)text[text[0] == '-' || text[0] == '+']))
+		return 0;
+	strtod(text, &end);
+	return !*end && isdigit((unsigned char)end[-1]);
+}
+
 static void config_set_from_text(struct config_value *value, enum config_type type, const char *text)
 {
 	switch (type)
@@ -3146,6 +3168,15 @@ static int config_set_from_file(struct config_value *value, const struct config_
 		{
 			free(value->string);
 			value->string = strdup(datum.u.s);
+		}
+		else if ((datum.type == TOML_FP64 || datum.type == TOML_INT64) && config_string_takes_number(setting))
+		{
+			char number[64];
+
+			config_real_text(datum.type == TOML_FP64 ? datum.u.fp64 : (double)datum.u.int64, number,
+				sizeof(number));
+			free(value->string);
+			value->string = strdup(number);
 		}
 		else
 		{
@@ -4197,8 +4228,17 @@ int config_write(const char *name, const char *value)
 		break;
 	case _config_string:
 	{
-		char *end = line_text + snprintf(line_text, line_size, "%s = \"", key);
+		char *end;
 		const char *character;
+
+		/* (a number unquoted, for one that takes a word or a number) */
+		if (config_string_takes_number(&config_settings[index]) &&
+			config_text_is_number(config_values[index].string))
+		{
+			snprintf(line_text, line_size, "%s = %s\n", key, config_values[index].string);
+			break;
+		}
+		end = line_text + snprintf(line_text, line_size, "%s = \"", key);
 
 		/* (a TOML basic string: quotes and backslashes escaped, and control
 		characters, so that a value cannot end its line) */

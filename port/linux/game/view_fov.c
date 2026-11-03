@@ -1,9 +1,10 @@
 /*
 VIEW_FOV.C
 
-The first-person view's field of view (display.fov, display.viewmodel_fov)
-and whether the weapon is drawn (display.viewmodel_visible), the local
-render view only: the observer, its transitions and what the network sends
+The view's field of view (display.fov on foot, display.vehicle_fov in a
+vehicle's seat), the first-person weapon's (display.viewmodel_fov) and
+whether the weapon is drawn (display.viewmodel_visible), the local render
+view only: the observer, its transitions and what the network sends
 keep the game's own camera. Each angle is horizontal at 16:9 (the vertical
 angle is kept, so other shapes of window widen or narrow as the stock view
 does), and 0 keeps the stock view. Called from the game's camera
@@ -29,6 +30,7 @@ that draw the first-person weapon (rasterizer and render sources).
 #include "mouse_sensitivity.h"
 
 #include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* (the window's rasterizer target, as the rasterizer's sources number it) */
@@ -41,41 +43,82 @@ double config_real(const char *name);
 int config_boolean(const char *name);
 unsigned long config_changes(void);
 char const *config_string(char const *name);
+unsigned long system_milliseconds(void);
 
 /* ---------- the world's field of view */
+
+/* how long the view takes to go from one field of view to the other as the
+player gets into a vehicle's seat or out of it, when display.fov and
+display.vehicle_fov differ: about the time the director takes to fly the
+camera between the head and the seat's following camera */
+#define VEHICLE_FOV_TRANSITION_MILLISECONDS 500
 
 static real reticle_scales[MAXIMUM_LOCAL_PLAYERS];
 static real authored_vertical[MAXIMUM_LOCAL_PLAYERS];
 
-/* the view's vertical angle for display.fov: the game's own dead, in a
-cinematic, a scripted camera or a view the director holds, and at a scope's
-full zoom; between, the zoom's own transition. A vehicle's seat, first or
-third person, and its entering and exiting are widened as on foot, so the
-view and its reticle keep one size across them */
-static real render_fov_adjust(short local_player_index, real native_vertical_field_of_view)
+/* each local player's way between display.fov and display.vehicle_fov: the
+weight of the vehicle's (0 on foot, 1 seated) the view is drawn at, the
+weight it set out from, when, and toward which */
+static struct
+{
+	boolean valid;
+	boolean in_vehicle;
+	real from, weight;
+	unsigned long start;
+} vehicle_blends[MAXIMUM_LOCAL_PLAYERS];
+
+/* an angle in degrees across at 16:9 as the tangent of half the vertical
+angle, or 0 (the stock view) outside 20 to 150 */
+static real fov_tangent(double degrees)
+{
+	return degrees >= 20.0 && degrees <= 150.0 ?
+		(real)(tan(degrees * _pi / 360.0) * (9.0 / 16.0)) : 0.0f;
+}
+
+/* display.fov's and display.vehicle_fov's tangents (0: the stock view):
+the vehicle's "default" is the stock view, "match" display.fov's, and a
+number an angle as display.fov's is */
+static void fov_requested_tangents(real *on_foot, real *seated)
 {
 	static boolean initialized;
 	static unsigned long read_at;
-	static real requested_tangent;
+	static real foot_tangent, vehicle_tangent;
 	unsigned long changes = config_changes();
-	long unit_index, weapon_index;
-	struct unit_datum *unit;
-	director_perspective perspective;
-	real unzoomed_angle, unzoomed_tangent, native_tangent, adjusted_tangent;
 
 	if (!initialized || read_at != changes)
 	{
-		double degrees = config_real("display.fov");
+		char const *vehicle = config_string("display.vehicle_fov");
+		char *end;
+		double degrees = strtod(vehicle, &end);
 
 		initialized = TRUE;
 		read_at = changes;
-		requested_tangent = degrees >= 20.0 && degrees <= 150.0 ?
-			(real)(tan(degrees * _pi / 360.0) * (9.0 / 16.0)) : 0.0f;
+		foot_tangent = fov_tangent(config_real("display.fov"));
+		while (end != vehicle && (*end == ' ' || *end == '\t'))
+			end++;
+		if (!_stricmp(vehicle, "match"))
+			vehicle_tangent = foot_tangent;
+		else if (end != vehicle && !*end)
+			vehicle_tangent = fov_tangent(degrees);
+		else
+			vehicle_tangent = 0.0f;
 	}
-	if (!requested_tangent || local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
+	*on_foot = foot_tangent;
+	*seated = vehicle_tangent;
+}
+
+/* the local player's unit, when its view is one the fields of view widen:
+not dead, in a cinematic, a scripted camera or a view the director holds
+(and its index); else NULL */
+static struct unit_datum *render_fov_unit(short local_player_index, long *unit_index)
+{
+	struct unit_datum *unit;
+	director_perspective perspective;
+
+	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
 		cinematic_in_progress() || (director_camera_scripted && *director_camera_scripted))
 	{
-		return native_vertical_field_of_view;
+		return NULL;
 	}
 	/* (the third person is a vehicle's seat, its entering and exiting, and
 	the moment after the director leaves it) */
@@ -84,13 +127,88 @@ static real render_fov_adjust(short local_player_index, real native_vertical_fie
 		perspective != _director_perspective_third_person) ||
 		director_inhibited_facing(local_player_index))
 	{
-		return native_vertical_field_of_view;
+		return NULL;
 	}
-	unit_index = player_control_get_unit_index(local_player_index);
-	if (unit_index == NONE)
-		return native_vertical_field_of_view;
-	unit = unit_try_and_get(unit_index);
+	*unit_index = player_control_get_unit_index(local_player_index);
+	if (*unit_index == NONE)
+		return NULL;
+	unit = unit_try_and_get(*unit_index);
 	if (!unit || TEST_FLAG(unit->object.damage_flags, _object_dead_bit))
+		return NULL;
+	return unit;
+}
+
+/* (each frame) the weight of display.vehicle_fov in the view, from 0 on
+foot to 1 in a seat. Seated is the unit in its seat: getting in and out
+too, while it is attached; once out, the view eases to display.fov while
+the director flies the camera back to the head. It eases the same way in
+(smoothly, VEHICLE_FOV_TRANSITION_MILLISECONDS), turning back from where
+it is if the player gets in or out again on the way. A view the fields of
+view leave alone (death, a cinematic) ends the way: the next view is
+wherever the player then is */
+static real vehicle_fov_weight(short local_player_index, struct unit_datum const *unit)
+{
+	unsigned long now = system_milliseconds();
+	boolean in_vehicle;
+	real progress;
+
+	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS)
+		return 0.0f;
+	if (!unit)
+	{
+		vehicle_blends[local_player_index].valid = FALSE;
+		return 0.0f;
+	}
+	in_vehicle = unit->object.parent_object_index != NONE;
+	if (!vehicle_blends[local_player_index].valid)
+	{
+		vehicle_blends[local_player_index].valid = TRUE;
+		vehicle_blends[local_player_index].in_vehicle = in_vehicle;
+		vehicle_blends[local_player_index].weight = in_vehicle ? 1.0f : 0.0f;
+		vehicle_blends[local_player_index].from = vehicle_blends[local_player_index].weight;
+		vehicle_blends[local_player_index].start = now;
+		return vehicle_blends[local_player_index].weight;
+	}
+	if (in_vehicle != vehicle_blends[local_player_index].in_vehicle)
+	{
+		vehicle_blends[local_player_index].in_vehicle = in_vehicle;
+		vehicle_blends[local_player_index].from = vehicle_blends[local_player_index].weight;
+		vehicle_blends[local_player_index].start = now;
+	}
+	progress = (real)(now - vehicle_blends[local_player_index].start) / VEHICLE_FOV_TRANSITION_MILLISECONDS;
+	if (!(progress < 1.0f))
+	{
+		vehicle_blends[local_player_index].weight = in_vehicle ? 1.0f : 0.0f;
+	}
+	else
+	{
+		real eased = progress * progress * (3.0f - 2.0f * progress);
+		real from = vehicle_blends[local_player_index].from;
+
+		vehicle_blends[local_player_index].weight = from + ((in_vehicle ? 1.0f : 0.0f) - from) * eased;
+	}
+	return vehicle_blends[local_player_index].weight;
+}
+
+/* the view's vertical angle for display.fov on foot and display.vehicle_fov
+seated, the weight of the vehicle's between them: the game's own dead, in a
+cinematic, a scripted camera or a view the director holds, and at a scope's
+full zoom; between, the zoom's own transition. A vehicle's seat, first or
+third person, and its entering and exiting take the vehicle's, so the view
+and its reticle keep one size in the seat ("default": the stock view, its
+reticle at the stock size) */
+static real render_fov_adjust(short local_player_index, real native_vertical_field_of_view, real vehicle_weight)
+{
+	long unit_index, weapon_index;
+	struct unit_datum *unit;
+	real foot_tangent, vehicle_tangent, requested_tangent;
+	real unzoomed_angle, unzoomed_tangent, native_tangent, adjusted_tangent;
+
+	fov_requested_tangents(&foot_tangent, &vehicle_tangent);
+	if (!foot_tangent && !vehicle_tangent)
+		return native_vertical_field_of_view;
+	unit = render_fov_unit(local_player_index, &unit_index);
+	if (!unit)
 		return native_vertical_field_of_view;
 
 	unzoomed_angle = unit_definition_get(unit->definition_index)->unit.camera_field_of_view;
@@ -100,6 +218,20 @@ static real render_fov_adjust(short local_player_index, real native_vertical_fie
 		return native_vertical_field_of_view;
 	}
 	unzoomed_tangent = 0.75f * render_camera_get_adjusted_field_of_view_tangent(unzoomed_angle);
+	/* (the stock view's is the unit's own, unzoomed) */
+	if (!foot_tangent)
+		foot_tangent = unzoomed_tangent;
+	if (!vehicle_tangent)
+		vehicle_tangent = unzoomed_tangent;
+	if (!(vehicle_weight > 0.0f))
+		requested_tangent = foot_tangent;
+	else if (!(vehicle_weight < 1.0f))
+		requested_tangent = vehicle_tangent;
+	else
+		requested_tangent = foot_tangent + (vehicle_tangent - foot_tangent) * vehicle_weight;
+	if (requested_tangent == unzoomed_tangent)
+		return native_vertical_field_of_view;
+
 	native_tangent = tanf(native_vertical_field_of_view * 0.5f);
 	if (requested_tangent < unzoomed_tangent)
 	{
@@ -138,7 +270,12 @@ static real render_fov_adjust(short local_player_index, real native_vertical_fie
 
 real render_fov_vertical(short local_player_index, real native_vertical_field_of_view)
 {
-	real adjusted = render_fov_adjust(local_player_index, native_vertical_field_of_view);
+	/* (the way between the fields of view moves on once a frame, here; the
+	view and its reticle's scale below are of the same weight, so the
+	reticle is never a frame apart from the view it is drawn over) */
+	long unit_index;
+	real weight = vehicle_fov_weight(local_player_index, render_fov_unit(local_player_index, &unit_index));
+	real adjusted = render_fov_adjust(local_player_index, native_vertical_field_of_view, weight);
 
 	if (local_player_index >= 0 && local_player_index < MAXIMUM_LOCAL_PLAYERS)
 	{
@@ -194,7 +331,7 @@ real mouse_zoom_look_scale(short local_player_index, long unit_index, short zoom
 	static unsigned long read_at = (unsigned long)-1;
 	struct unit_datum *unit;
 	long weapon_index;
-	real magnification, unzoomed_angle, zoomed_angle, unzoomed_drawn, zoomed_drawn;
+	real magnification, unzoomed_angle, zoomed_angle, unzoomed_drawn, zoomed_drawn, weight;
 
 	if (unit_index == NONE || zoom_level == NONE)
 		return 1.0f;
@@ -214,10 +351,13 @@ real mouse_zoom_look_scale(short local_player_index, long unit_index, short zoom
 	if (!(unzoomed_angle >= 0.001f && unzoomed_angle <= _pi / 2.0f))
 		return mouse_zoom_scale(_mouse_zoom_halo, magnification, 0.0f, 0.0f);
 	zoomed_angle = weapon_get_field_of_view(weapon_index, unzoomed_angle, zoom_level);
+	/* (the last frame's way between display.fov and display.vehicle_fov) */
+	weight = local_player_index >= 0 && local_player_index < MAXIMUM_LOCAL_PLAYERS &&
+		vehicle_blends[local_player_index].valid ? vehicle_blends[local_player_index].weight : 0.0f;
 	unzoomed_drawn = render_fov_adjust(local_player_index,
-		2.0f * atanf(0.75f * render_camera_get_adjusted_field_of_view_tangent(unzoomed_angle)));
+		2.0f * atanf(0.75f * render_camera_get_adjusted_field_of_view_tangent(unzoomed_angle)), weight);
 	zoomed_drawn = render_fov_adjust(local_player_index,
-		2.0f * atanf(0.75f * render_camera_get_adjusted_field_of_view_tangent(zoomed_angle)));
+		2.0f * atanf(0.75f * render_camera_get_adjusted_field_of_view_tangent(zoomed_angle)), weight);
 	return mouse_zoom_scale(_mouse_zoom_cs2, magnification, fov_horizontal_4_3(zoomed_drawn),
 		fov_horizontal_4_3(unzoomed_drawn));
 }
