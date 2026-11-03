@@ -43,6 +43,9 @@ enum
 	draws into an SDR drawable, sampling the frame (texture 0) over the
 	viewport */
 	XGPU_METAL_POST_GAMMA,
+	/* display.panini's projection (the Vulkan backend's), over a window's
+	3D view in the target, sampling its copy (texture 0) */
+	XGPU_METAL_POST_PANINI,
 	XGPU_METAL_POST_FUNCTION_COUNT
 };
 
@@ -63,6 +66,12 @@ struct xgpu_metal_post_uniforms
 	float camera[4];
 	float occlusion[4];
 	float sampling[4];
+	/* display.panini's: as the Vulkan backend's (the 3D view's corners in
+	the target's pixels, the projection's d, s and magnification, and the
+	rectilinear view's tangents at the view's left, right, top and bottom) */
+	float window[4];
+	float panini[4];
+	float tangents[4];
 };
 
 /* a function's source (each its own: SPIRV-Cross names the structures

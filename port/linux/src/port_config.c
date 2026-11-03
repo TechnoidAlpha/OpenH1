@@ -240,6 +240,16 @@ static const struct config_setting config_settings[] =
 		"The view's field of view in a vehicle's seat, first or third person,\n"
 		"getting in and out too: \"default\" keeps the stock view, \"match\" takes\n"
 		"display.fov's, and a number is degrees across at 16:9 (20 to 150)." },
+	{ "display.panini", _config_real, "0.0", "HALO_PANINI", _environment_value, _platform_all,
+		"Draw the 3D view through the Panini projection, at this strength\n"
+		"(Panini's d), 0 to 1; 0 off. At a wide field of view what is at the\n"
+		"sides keeps its shape instead of stretching: 1 keeps it true along\n"
+		"the horizon. The view sees as far to the sides; its middle is drawn\n"
+		"larger. The HUD and the menus are not curved. Not in the VR build." },
+	{ "display.panini_vertical", _config_real, "0.0", "HALO_PANINI_VERTICAL", _environment_value, _platform_all,
+		"With display.panini, its vertical compression (Panini's s), 0 to 1:\n"
+		"0 keeps the shapes at the sides; more straightens the floors and\n"
+		"ceilings above and below the middle, stretching the sides taller." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"

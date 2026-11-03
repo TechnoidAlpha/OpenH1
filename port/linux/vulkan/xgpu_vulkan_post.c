@@ -96,6 +96,8 @@ static struct
 	/* display.gamma: its curve's pipeline, and the frame curved */
 	VkPipeline gamma;
 	struct xgpu_vulkan_image *curved;
+	/* display.panini's pipelines could not be made (logged once) */
+	int panini_failed;
 } post;
 
 /* display.ambient_occlusion's state (below) */
@@ -220,7 +222,8 @@ own 8-bit images */
 static struct xgpu_vulkan_pipeline_description *pipeline_of(int program, uint8_t format)
 {
 	return format == XGPU_VULKAN_FORMAT_RGBA16F && (program == XGPU_VULKAN_POST_FXAA ||
-		program == XGPU_VULKAN_POST_SMAA_BLEND) ? &post.half_float[program] : &post.pipelines[program];
+		program == XGPU_VULKAN_POST_SMAA_BLEND || program == XGPU_VULKAN_POST_PANINI) ?
+		&post.half_float[program] : &post.pipelines[program];
 }
 
 int xgpu_vulkan_post_prepare(int smaa, uint8_t format, int preparing)
@@ -308,9 +311,9 @@ int xgpu_vulkan_post_rotate_prepare(void)
 
 /* a program's triangle drawn into a layer of an image over the rectangle,
 sampling images (NULL: none) */
-static void pass_draw(int program, struct xgpu_vulkan_image *into, uint32_t layer, const int32_t rectangle[4],
+static void pass_draw_with(int program, struct xgpu_vulkan_image *into, uint32_t layer, const int32_t rectangle[4],
 	struct xgpu_vulkan_image *image0, struct xgpu_vulkan_image *image1, struct xgpu_vulkan_image *image2,
-	const float bounds[4])
+	const float bounds[4], const float window[4], const float panini[8])
 {
 	uint8_t format = xgpu_vulkan_image_description(into)->format;
 	struct xgpu_vulkan_image *images[3];
@@ -342,6 +345,13 @@ static void pass_draw(int program, struct xgpu_vulkan_image *into, uint32_t laye
 	uniforms->metrics[3] = (float)post.height;
 	if (bounds)
 		memcpy(uniforms->bounds, bounds, sizeof(uniforms->bounds));
+	if (window)
+		memcpy(uniforms->window, window, sizeof(uniforms->window));
+	if (panini)
+	{
+		memcpy(uniforms->panini, panini, sizeof(uniforms->panini));
+		memcpy(uniforms->tangents, panini + 4, sizeof(uniforms->tangents));
+	}
 	draw.constants = draw.uniforms;
 	memset(&dynamic, 0, sizeof(dynamic));
 	dynamic.viewport[0] = dynamic.scissor[0] = rectangle[0];
@@ -354,6 +364,13 @@ static void pass_draw(int program, struct xgpu_vulkan_image *into, uint32_t laye
 	draw.count = 3;
 	xgpu_vulkan_set_target_views(into, NULL, layer, 1);
 	xgpu_vulkan_draw(&draw);
+}
+
+static void pass_draw(int program, struct xgpu_vulkan_image *into, uint32_t layer, const int32_t rectangle[4],
+	struct xgpu_vulkan_image *image0, struct xgpu_vulkan_image *image1, struct xgpu_vulkan_image *image2,
+	const float bounds[4])
+{
+	pass_draw_with(program, into, layer, rectangle, image0, image1, image2, bounds, NULL, NULL);
 }
 
 /* an intermediate emptied, all of it, so that no edge of another window's
@@ -422,6 +439,91 @@ int xgpu_vulkan_post_anti_alias(int smaa, struct xgpu_vulkan_image *target, uint
 
 		pass_draw(XGPU_VULKAN_POST_SMAA_BLEND, target, layer, rectangle, post.color, post.weights, NULL, NULL);
 	}
+	return 1;
+}
+
+/* ---------- display.panini (port/linux/game/panini.c)
+
+The window's 3D view drawn again through the Panini projection, a pass like
+FXAA's: the target's pixels copied, then each pixel of the rectangle drawn
+from the copy where the rectilinear view saw what the projection puts there
+(tools/vulkan_post_shaders.py's PANINI_SOURCE). All four channels: the
+game's own values in destination alpha belong to the pixels they are moved
+with. */
+
+int xgpu_vulkan_post_panini_prepare(uint8_t format, int preparing)
+{
+	struct xgpu_vulkan_pipeline_description *description;
+
+	if (format != XGPU_VULKAN_FORMAT_RGBA16F)
+		format = XGPU_VULKAN_FORMAT_BGRA8;
+	if (post.panini_failed)
+		return 0;
+	description = pipeline_of(XGPU_VULKAN_POST_PANINI, format);
+	if (!post.vertex)
+		post.vertex = xgpu_vulkan_shader(xgpu_vulkan_post_vertex.words, xgpu_vulkan_post_vertex.count);
+	if (!post.pixel[XGPU_VULKAN_POST_PANINI])
+		post.pixel[XGPU_VULKAN_POST_PANINI] = xgpu_vulkan_shader(xgpu_vulkan_post_programs[XGPU_VULKAN_POST_PANINI].words,
+			xgpu_vulkan_post_programs[XGPU_VULKAN_POST_PANINI].count);
+	if (post.vertex && post.pixel[XGPU_VULKAN_POST_PANINI] && sampler_make())
+	{
+		memset(description, 0, sizeof(*description));
+		description->vertex_shader = post.vertex;
+		description->pixel_shader = post.pixel[XGPU_VULKAN_POST_PANINI];
+		description->primitive_class = XGPU_VULKAN_CLASS_TRIANGLES;
+		description->color_mask = 15;
+		description->color_format = format;
+		description->samples = 1;
+		if (preparing ? xgpu_vulkan_pipeline_prepare(description) : xgpu_vulkan_pipeline(description) != VK_NULL_HANDLE)
+			return 1;
+	}
+	host_logf(HOST_LOG_WARN, "vulkan: the Panini projection's pass cannot be made, so the 3D view is drawn flat");
+	post.panini_failed = 1;
+	return 0;
+}
+
+int xgpu_vulkan_post_panini(struct xgpu_vulkan_image *target, uint32_t layer, const int32_t corners[4],
+	const float projection[8])
+{
+	const struct xgpu_vulkan_image_description *description;
+	int32_t rectangle[4];
+	float bounds[4], window[4];
+	int index;
+
+	if (!target)
+		return 0;
+	description = xgpu_vulkan_image_description(target);
+	if ((description->format != XGPU_VULKAN_FORMAT_BGRA8 && description->format != XGPU_VULKAN_FORMAT_RGBA16F) ||
+		description->samples > 1)
+		return 0;
+	/* (made already, as the map was prepared, or now) */
+	if (!xgpu_vulkan_post_panini_prepare(description->format, 0))
+		return 0;
+	/* (inside the target) */
+	for (index = 0; index < 4; index++)
+	{
+		int32_t most = (int32_t)(index & 1 ? description->height : description->width);
+
+		rectangle[index] = corners[index] < 0 ? 0 : corners[index] > most ? most : corners[index];
+	}
+	if (rectangle[2] <= rectangle[0] || rectangle[3] <= rectangle[1])
+		return 1;
+	/* (the copy, FXAA's) */
+	if (!images_fit(0, description->format, description->width, description->height))
+		return 0;
+	xgpu_vulkan_image_copy_rectangle(target, layer, post.color, rectangle);
+	/* (split screen: no texel of the next window is read) */
+	bounds[0] = ((float)rectangle[0] + 0.5f) / (float)post.width;
+	bounds[1] = ((float)rectangle[1] + 0.5f) / (float)post.height;
+	bounds[2] = ((float)rectangle[2] - 0.5f) / (float)post.width;
+	bounds[3] = ((float)rectangle[3] - 0.5f) / (float)post.height;
+	/* (the view's own corners, which the tangents are at) */
+	window[0] = (float)corners[0];
+	window[1] = (float)corners[1];
+	window[2] = (float)(corners[2] - corners[0]);
+	window[3] = (float)(corners[3] - corners[1]);
+	pass_draw_with(XGPU_VULKAN_POST_PANINI, target, layer, rectangle, post.color, NULL, NULL, bounds, window,
+		projection);
 	return 1;
 }
 

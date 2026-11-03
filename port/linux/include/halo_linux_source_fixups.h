@@ -216,6 +216,11 @@ void halo_gpu_draw_preserved(void (*draw)(void *), void *data);
 /* display.anti_aliasing's pass over a window's 3D view, before the HUD and
 menus (source/render/render.c): the window's bounds on the screen */
 void halo_screen_anti_alias(short x0, short y0, short x1, short y1);
+/* display.panini's pass over a window's 3D view, after its anti-aliasing and
+before the HUD (port/linux/game/panini.c): the window's bounds on the
+screen, and the projection: d, s, the middle's magnification, 0, and the
+rectilinear view's tangents at its left, right, top and bottom */
+void halo_screen_panini(short x0, short y0, short x1, short y1, const float projection[8]);
 /* the enhanced dynamic lights (display.dynamic_lights) */
 #include "halo_dynamic_lights.h"
 /* display.hdr's tone map of a window's 3D view, before its anti-aliasing

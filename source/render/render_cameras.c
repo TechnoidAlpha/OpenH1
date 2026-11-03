@@ -137,6 +137,7 @@ symbols in this file:
 #include "render/render_cameras_internal.h"
 #include "render/render_debug.h"
 #include "structures/structure_visibility.h"
+#include "panini.h" /* port: port/linux/game/panini.c */
 
 /* ---------- constants */
 
@@ -857,6 +858,10 @@ boolean render_camera_view_to_screen(
 			return result;
 	}
 #endif
+	/* port: the window's 3D view drawn through display.panini's projection:
+	the point where that draws it (port/linux/game/panini.c) */
+	if (panini_view_to_screen(camera, frustum, view_point, screen_point, &result))
+		return result;
 	if (view_point->z < 0.0f)
 	{
 		real inverse_depth = -1.0f / view_point->z;

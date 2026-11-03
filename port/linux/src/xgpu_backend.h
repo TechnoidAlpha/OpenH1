@@ -90,6 +90,11 @@ not build); and the passes run over a target's corners (x0, y0, x1, y1 in
 its pixels from row 0) */
 void xgpu_backend_anti_aliasing_prepare(BOOL smaa);
 void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4]);
+/* display.panini: a target's corners (as anti-aliasing's) drawn again
+through the Panini projection (port/linux/include/panini_projection.h),
+projection its d, s and magnification at the middle, 0, then the
+rectilinear view's tangents at the corners' left, right, top and bottom */
+void xgpu_backend_panini(xgpu_target target, const long corners[4], const float projection[8]);
 
 /* display.hdr (xgpu_hdr.h): the frame drawn in HDR (the back buffer
 RGBA16F) or not from now on, the mode (XGPU_HDR_MODE_*) and paper white

@@ -124,6 +124,7 @@ symbols in this file:
 #include "scenario/scenario_definitions.h"
 #include "units/units.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "panini.h" /* port: port/linux/game/panini.c */
 #ifdef HALO_VR
 /* port/linux/game/vr_render.c: a waypoint on the screen drawn in the eyes
 over what it marks, not in the HUD's layer */
@@ -721,6 +722,9 @@ void custom_render_nav_point(
 	{
 		screen_position.x = position.x;
 		screen_position.y = -position.y;
+		/* port: toward where display.panini's projection draws it, so that
+		the arrow leaves the screen's edge where the waypoint did */
+		panini_view_direction(&position, &screen_position.x, &screen_position.y);
 		waypoint_type = _waypoint_off_screen;
 	}
 	else

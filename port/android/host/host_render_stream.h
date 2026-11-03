@@ -91,6 +91,9 @@ struct host_render_backend
 	void (*picture_top)(void *context, uint32_t top);
 	/* display.gamma: the setting (a float's bits), from the next present on */
 	void (*gamma)(void *context, uint32_t gamma);
+	/* display.panini: a 3D view drawn again through the Panini projection
+	(none: not drawn) */
+	void (*panini)(void *context, const struct xgpu_stream_panini *record);
 
 	void (*target_create)(void *context, const struct xgpu_stream_target_create *record);
 	void (*target_delete)(void *context, uint32_t target);
