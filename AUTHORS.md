@@ -2,7 +2,7 @@
 
 ## Art
 
-- **The loading screen**: by Paul Hontz (`port/assets/loading`).
+- **The loading screen**: by g0atbutt (`port/assets/loading`).
 
 - **The game's icon** (the macOS app's, the Android app's launcher icon,
   `halo.exe`'s, the Linux release's and the desktop windows'): the OpenH1 logo, Tail Code, by Erin Cena
