@@ -441,6 +441,30 @@ static void render_window(
 		render_enumerate_models();
 		structure_render_preprocess();
 		structure_render_lightmaps();
+		/* port: display.ambient_occlusion over the opaque surfaces' light,
+		the depth now whole (not the VR mode's eye or scope passes, whose
+		targets have a layer for each eye) */
+		if (rasterizer_target == _render_target_primary
+#ifdef HALO_VR
+			&& !render_vr_eye_pass && !render_vr_scope_pass
+#endif
+			)
+		{
+			float projection[4];
+
+			projection[0] = parameters.frustum.projection_matrix[0][0];
+			projection[1] = parameters.frustum.projection_matrix[1][1];
+			projection[2] = parameters.frustum.projection_matrix[2][0];
+			projection[3] = parameters.frustum.projection_matrix[2][1];
+			halo_screen_ambient_occlusion(
+				rasterizer_camera->viewport_bounds.x0,
+				rasterizer_camera->viewport_bounds.y0,
+				rasterizer_camera->viewport_bounds.x1,
+				rasterizer_camera->viewport_bounds.y1,
+				parameters.frustum.z_near,
+				parameters.frustum.z_far,
+				projection);
+		}
 #ifdef HALO_VR
 		/* the scope's view: no lens flares (their visibility tests are the
 		eyes', counted per frame), nor the objects' shadows, which a few

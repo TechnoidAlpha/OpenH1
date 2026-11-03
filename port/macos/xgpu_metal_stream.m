@@ -1312,6 +1312,36 @@ static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *re
 	stream_state_restore();
 }
 
+/* display.ambient_occlusion over a window's 3D view once its opaque
+surfaces have drawn their light (xgpu_metal_post.c), with the depth target
+drawn with it, or the occlusion last laid in the view's place
+(debug.ambient_occlusion_view); none over a multisampled target */
+static void stream_ambient_occlusion(void *context, const struct xgpu_stream_ambient_occlusion *record)
+{
+	struct stream_target *target = target_get(record->target);
+	struct stream_target *depth = stream.color == record->target ? target_get(stream.depth) : NULL;
+
+	(void)context;
+	if (!target || target->description.depth_or_layers > 1 || target->description.samples > 1 || !depth ||
+		depth->description.samples > 1 || record->quality < XGPU_AMBIENT_OCCLUSION_SUBTLE ||
+		record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
+		return;
+	if (stream.preparing)
+	{
+		(void)xgpu_metal_post_ambient_occlusion_prepare(target->description.format, depth->description.format);
+		return;
+	}
+	target->written++;
+	if (record->quality == XGPU_AMBIENT_OCCLUSION_SHOW)
+		xgpu_metal_post_ambient_occlusion_show(target->texture, target->description.format, target->description.width,
+			target->description.height, record->corners);
+	else
+		xgpu_metal_post_ambient_occlusion(target->texture, target->description.format, target->description.width,
+			target->description.height, depth->texture, depth->description.format, record->corners, (int)record->quality,
+			record->camera);
+	stream_state_restore();
+}
+
 /* ---------- visibility tests, frames */
 
 static void stream_visibility_begin(void *context)
@@ -1475,6 +1505,7 @@ const struct host_render_backend *xgpu_metal_stream_backend(void)
 		backend.anti_alias = stream_anti_alias;
 		backend.hdr = stream_hdr;
 		backend.tone_map = stream_tone_map;
+		backend.ambient_occlusion = stream_ambient_occlusion;
 	}
 	return &backend;
 }

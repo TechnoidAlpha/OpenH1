@@ -401,6 +401,44 @@ are made when the setting is chosen, and requested with the map's
 preparation. Android draws SMAA too. The VR mode's eyes have neither pass: the game
 antialiases only the flat screen's 3D view (`source/render/render.c`).
 
+## Ambient occlusion
+
+`display.ambient_occlusion` (`"off"`, `"subtle"`, `"strong"`: Enhanced's)
+shades each window's 3D view once its opaque surfaces have drawn their
+light, only where the game's lighting does not hold the occlusion: the game
+calls `halo_screen_ambient_occlusion` after the structure's lightmap pass
+(`source/render/render.c`), before the diffuse textures, the decals, the
+dynamic lights, the specular light, the transparent surfaces and the
+effects. As they draw, objects (models) mark their pixels in the stencil's
+bit 6 and self-illuminated surfaces in bit 7 (`pipeline_state_describe`);
+the first-person weapon's is the game's bit 0. The record
+(`XGPU_STREAM_AMBIENT_OCCLUSION`) carries the camera, and the passes
+(`xgpu_vulkan_post.c`, their GLSL in `tools/vulkan_post_shaders.py`) are:
+
+- the depth target (its first sample's, resolved where it has more) made
+  the distances along the view, each a half float and what it leaves;
+- the mask: the stencil's bits made a texture by draws tested against them
+  (red an object's pixel, green one left as it is);
+- GTAO (XeGTAO's horizon integral) at half the resolution: in two
+  directions a pixel, turned by a 4x4 Bayer matrix, the highest horizon
+  each side within 0.5 world units (each sample's rise above the pixel's
+  tangent plane, its normal from the depth), as a share of what the same
+  directions see unoccluded, so that a flat surface is exactly 1. An
+  object's pixel (one ambient sample lights it) counts every sample; the
+  level's (its radiosity lightmap holds its own occlusion) only objects',
+  so that no corner is darkened twice;
+- a blur along x and then y, nine taps weighted by their distances'
+  nearness, none across an object's edge;
+- a draw over the target multiplying its colour (not its alpha), filtered
+  up by the nearest four weighted by their distances, none over the pixels
+  the mask leaves.
+
+The target's pass ends for them and begins again, loading what it drew.
+`debug.ambient_occlusion_view` draws the occlusion alone in the view's place
+before the HUD. Metal draws the same passes (`port/macos/xgpu_metal_post.c`,
+their MSL written from this GLSL by `tools/metal_post_shaders.py`), but not
+over a multisampled target.
+
 ## HDR
 
 `display.hdr` is the shared contract of [docs/hdr.md](../../../docs/hdr.md);

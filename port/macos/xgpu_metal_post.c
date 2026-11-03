@@ -31,6 +31,7 @@ would be.
 #include "xgpu_metal.h"
 #include "xgpu_metal_post.h"
 #include "xgpu_metal_post_shaders.h"
+#include "xgpu_stream.h"
 #include "host.h"
 
 #include <stdlib.h>
@@ -52,6 +53,19 @@ static struct
 	/* display.hdr's tone map's functions could not be made */
 	int hdr_failed;
 } post;
+
+/* display.ambient_occlusion's (below): its functions could not be made
+(logged once); the distances and the mask, of the target's size, and the
+occlusion and its blur along x, of that over the preset's scale; the
+occlusion last laid over a target, for its view alone, and its uniforms */
+static struct
+{
+	int failed;
+	uint32_t distances, mask, occlusion, blurred;
+	uint32_t width, height, scale;
+	int laid;
+	struct xgpu_metal_post_uniforms laid_uniforms;
+} occlusion;
 
 /* ---------- textures */
 
@@ -361,5 +375,272 @@ int xgpu_metal_post_tone_map(uint32_t target, uint32_t width, uint32_t height, u
 	memcpy(uniforms.hdr, hdr, sizeof(uniforms.hdr));
 	xgpu_metal_set_draw_uniforms(&uniforms, sizeof(uniforms));
 	xgpu_metal_draw(XGPU_METAL_PRIMITIVE_TRIANGLES, 3, 0, 0, (struct xgpu_metal_source){ XGPU_METAL_SOURCE_NONE, 0, 0, 0 });
+	return 1;
+}
+
+/* ---------- display.ambient_occlusion
+
+The Vulkan backend's passes (xgpu_vulkan_post.c, which says what each
+does), with its functions written as MSL: the distances, the mask (the
+stencil's bits made a texture by draws tested against them), the occlusion
+at half the resolution, its blur along x and then y, and its laying over
+the target's colour. Each is a pass of the backend's: the target's pass
+ends and begins again after them. A multisampled target has none. */
+
+/* each quality's: the target's pixels to the occlusion's, the slices, the
+steps each side, the radius in world units, the strength and the power (the
+Vulkan backend's) */
+static const struct
+{
+	uint32_t scale;
+	float slices, steps, radius, strength, power;
+} occlusion_presets[2] =
+{
+	{ 2, 2.0f, 4.0f, 0.5f, 0.5f, 1.0f },
+	{ 2, 2.0f, 4.0f, 0.5f, 1.0f, 1.5f },
+};
+
+enum
+{
+	/* the occlusion laid over the light (a multiply), drawn alone, and the
+	white drawn first under it alone; the mask's emptying and its objects'
+	and kept pixels' channels */
+	OCCLUSION_LAY,
+	OCCLUSION_SHOW,
+	OCCLUSION_WHITE,
+	OCCLUSION_MASK_EMPTY,
+	OCCLUSION_MASK_OBJECTS,
+	OCCLUSION_MASK_KEPT,
+	/* an intermediate's: function the pass's */
+	OCCLUSION_INTERMEDIATE
+};
+
+/* a pass's pipeline: an intermediate's (RGBA16F, function its), over the
+target (its format: OCCLUSION_LAY, _SHOW, _WHITE), or over the mask with the
+depth target (its format), whose stencil is tested (OCCLUSION_MASK_*) */
+static void occlusion_pipeline(int kind, int function, uint8_t format, uint8_t depth_format,
+	struct xgpu_metal_pipeline *pipeline)
+{
+	memset(pipeline, 0, sizeof(*pipeline));
+	pipeline->vertex_shader = post.functions[XGPU_METAL_POST_VERTEX];
+	pipeline->pixel_shader = post.functions[kind == OCCLUSION_INTERMEDIATE ? function :
+		kind == OCCLUSION_LAY || kind == OCCLUSION_SHOW ? XGPU_METAL_POST_OCCLUSION_APPLY : XGPU_METAL_POST_OCCLUSION_FILL];
+	pipeline->color_mask = XGPU_WRITE_RED | XGPU_WRITE_GREEN | XGPU_WRITE_BLUE;
+	pipeline->color_format = format;
+	pipeline->samples = 1;
+	if (kind == OCCLUSION_INTERMEDIATE || kind >= OCCLUSION_MASK_EMPTY)
+	{
+		pipeline->color_format = XGPU_METAL_FORMAT_RGBA16F;
+		pipeline->color_mask = kind == OCCLUSION_MASK_OBJECTS ? XGPU_WRITE_RED : kind == OCCLUSION_MASK_KEPT ?
+			XGPU_WRITE_GREEN : XGPU_WRITE_RED | XGPU_WRITE_GREEN | XGPU_WRITE_BLUE | XGPU_WRITE_ALPHA;
+	}
+	if (kind >= OCCLUSION_MASK_EMPTY && kind != OCCLUSION_INTERMEDIATE)
+		pipeline->depth_format = depth_format;
+	if (kind == OCCLUSION_MASK_OBJECTS || kind == OCCLUSION_MASK_KEPT)
+	{
+		pipeline->stencil_test = 1;
+		pipeline->stencil_function = XGPU_COMPARE_NOT_EQUAL;
+		pipeline->stencil_fail = pipeline->stencil_depth_fail = pipeline->stencil_pass = XGPU_STENCIL_KEEP;
+		pipeline->stencil_read_mask = kind == OCCLUSION_MASK_OBJECTS ? XGPU_AMBIENT_OCCLUSION_OBJECT :
+			XGPU_AMBIENT_OCCLUSION_KEEP;
+	}
+	if (kind == OCCLUSION_LAY)
+	{
+		pipeline->blend = 1;
+		pipeline->blend_source = XGPU_BLEND_ZERO;
+		pipeline->blend_destination = XGPU_BLEND_SOURCE_COLOR;
+		pipeline->blend_operation = XGPU_BLEND_ADD;
+	}
+}
+
+int xgpu_metal_post_ambient_occlusion_prepare(uint8_t format, uint8_t depth_format)
+{
+	struct xgpu_metal_pipeline pipeline;
+	int function, kind;
+
+	if (occlusion.failed)
+		return 0;
+	for (function = XGPU_METAL_POST_OCCLUSION_DEPTH; function <= XGPU_METAL_POST_OCCLUSION_FILL; function++)
+	{
+		if (!function_make(function) || !function_make(XGPU_METAL_POST_VERTEX))
+		{
+			host_logf(HOST_LOG_WARN, "metal: display.ambient_occlusion's functions cannot be made: the view has none");
+			occlusion.failed = 1;
+			return 0;
+		}
+	}
+	for (function = XGPU_METAL_POST_OCCLUSION_DEPTH; function < XGPU_METAL_POST_OCCLUSION_APPLY; function++)
+	{
+		occlusion_pipeline(OCCLUSION_INTERMEDIATE, function, 0, 0, &pipeline);
+		xgpu_metal_prepare(&pipeline);
+	}
+	for (kind = OCCLUSION_LAY; kind <= OCCLUSION_MASK_KEPT; kind++)
+	{
+		occlusion_pipeline(kind, 0, format, depth_format, &pipeline);
+		xgpu_metal_prepare(&pipeline);
+	}
+	return 1;
+}
+
+/* the occlusion's textures for a target of a size, at a scale: 1 if they
+are */
+static int occlusion_textures_fit(uint32_t width, uint32_t height, uint32_t scale)
+{
+	const uint8_t usage = XGPU_METAL_USAGE_SAMPLED | XGPU_METAL_USAGE_TARGET;
+
+	if (occlusion.width != width || occlusion.height != height || occlusion.scale != scale || !occlusion.distances)
+	{
+		xgpu_metal_texture_destroy(occlusion.distances);
+		xgpu_metal_texture_destroy(occlusion.mask);
+		xgpu_metal_texture_destroy(occlusion.occlusion);
+		xgpu_metal_texture_destroy(occlusion.blurred);
+		occlusion.width = width;
+		occlusion.height = height;
+		occlusion.scale = scale;
+		occlusion.laid = 0;
+		occlusion.distances = texture_make(XGPU_METAL_FORMAT_RGBA16F, usage, width, height);
+		occlusion.mask = texture_make(XGPU_METAL_FORMAT_RGBA16F, usage, width, height);
+		occlusion.occlusion = texture_make(XGPU_METAL_FORMAT_RGBA16F, usage, (width + scale - 1) / scale,
+			(height + scale - 1) / scale);
+		occlusion.blurred = texture_make(XGPU_METAL_FORMAT_RGBA16F, usage, (width + scale - 1) / scale,
+			(height + scale - 1) / scale);
+	}
+	return occlusion.distances && occlusion.mask && occlusion.occlusion && occlusion.blurred;
+}
+
+/* a pass's triangle over a rectangle of a texture (and a depth target, for
+its stencil), sampling up to three textures (single texels), with the
+uniforms */
+static void occlusion_draw(const struct xgpu_metal_pipeline *pipeline, uint32_t into, uint32_t depth,
+	const int32_t rectangle[4], uint32_t texture0, uint32_t texture1, uint32_t texture2,
+	const struct xgpu_metal_post_uniforms *uniforms)
+{
+	struct xgpu_metal_dynamic_state dynamic;
+	struct xgpu_metal_sampler sampler;
+	const uint32_t textures[4] = { texture0, texture1, texture2, 0 };
+	uint32_t stage;
+
+	xgpu_metal_set_targets(into, 0, 0, depth, 0);
+	xgpu_metal_set_pipeline(pipeline);
+	memset(&dynamic, 0, sizeof(dynamic));
+	dynamic.viewport[0] = dynamic.scissor[0] = rectangle[0];
+	dynamic.viewport[1] = dynamic.scissor[1] = rectangle[1];
+	dynamic.viewport[2] = dynamic.scissor[2] = rectangle[2] - rectangle[0];
+	dynamic.viewport[3] = dynamic.scissor[3] = rectangle[3] - rectangle[1];
+	dynamic.depth_range[1] = 1.0f;
+	xgpu_metal_set_dynamic_state(&dynamic);
+	memset(&sampler, 0, sizeof(sampler));
+	sampler.min_filter = sampler.mag_filter = XGPU_METAL_FILTER_POINT;
+	sampler.mip_filter = XGPU_METAL_MIP_NONE;
+	sampler.address_u = sampler.address_v = sampler.address_w = XGPU_METAL_ADDRESS_CLAMP;
+	sampler.max_anisotropy = 1;
+	for (stage = 0; stage < 4; stage++)
+		xgpu_metal_set_texture(stage, textures[stage], &sampler);
+	xgpu_metal_set_draw_uniforms(uniforms, sizeof(*uniforms));
+	xgpu_metal_draw(XGPU_METAL_PRIMITIVE_TRIANGLES, 3, 0, 0, (struct xgpu_metal_source){ XGPU_METAL_SOURCE_NONE, 0, 0, 0 });
+}
+
+/* the corners inside a width and height: 0 if nothing is left */
+static int occlusion_rectangle(const int32_t corners[4], uint32_t width, uint32_t height, int32_t rectangle[4])
+{
+	int index;
+
+	for (index = 0; index < 4; index++)
+	{
+		int32_t most = (int32_t)(index & 1 ? height : width);
+
+		rectangle[index] = corners[index] < 0 ? 0 : corners[index] > most ? most : corners[index];
+	}
+	return rectangle[2] > rectangle[0] && rectangle[3] > rectangle[1];
+}
+
+int xgpu_metal_post_ambient_occlusion(uint32_t target, uint8_t format, uint32_t width, uint32_t height, uint32_t depth,
+	uint8_t depth_format, const int32_t corners[4], int quality, const float camera[6])
+{
+	struct xgpu_metal_pipeline pipeline;
+	struct xgpu_metal_post_uniforms values, fill;
+	int32_t rectangle[4], inner[4];
+	uint32_t scale;
+	int preset = quality == XGPU_AMBIENT_OCCLUSION_STRONG;
+	int function;
+
+	if (!target || !depth || !xgpu_metal_post_ambient_occlusion_prepare(format, depth_format) ||
+		!occlusion_rectangle(corners, width, height, rectangle))
+		return 0;
+	scale = occlusion_presets[preset].scale;
+	if (!occlusion_textures_fit(width, height, scale))
+		return 0;
+	/* (the view's rectangle in the occlusion's pixels) */
+	inner[0] = rectangle[0] / (int32_t)scale;
+	inner[1] = rectangle[1] / (int32_t)scale;
+	inner[2] = (rectangle[2] + (int32_t)scale - 1) / (int32_t)scale;
+	inner[3] = (rectangle[3] + (int32_t)scale - 1) / (int32_t)scale;
+	memset(&values, 0, sizeof(values));
+	values.metrics[2] = (float)((width + scale - 1) / scale);
+	values.metrics[3] = (float)((height + scale - 1) / scale);
+	values.metrics[0] = 1.0f / values.metrics[2];
+	values.metrics[1] = 1.0f / values.metrics[3];
+	values.bounds[0] = (float)inner[0];
+	values.bounds[1] = (float)inner[1];
+	values.bounds[2] = (float)inner[2];
+	values.bounds[3] = (float)inner[3];
+	memcpy(values.camera, camera + 2, sizeof(values.camera));
+	values.occlusion[0] = camera[0];
+	values.occlusion[1] = camera[1];
+	values.occlusion[2] = occlusion_presets[preset].radius;
+	values.occlusion[3] = occlusion_presets[preset].strength;
+	values.sampling[0] = occlusion_presets[preset].slices;
+	values.sampling[1] = occlusion_presets[preset].steps;
+	values.sampling[2] = occlusion_presets[preset].power;
+	values.sampling[3] = (float)scale;
+
+	occlusion_pipeline(OCCLUSION_INTERMEDIATE, XGPU_METAL_POST_OCCLUSION_DEPTH, 0, 0, &pipeline);
+	occlusion_draw(&pipeline, occlusion.distances, 0, rectangle, depth, 0, 0, &values);
+	/* (the mask: emptied, then each kind's channel where the stencil has
+	its bits) */
+	memset(&fill, 0, sizeof(fill));
+	for (function = OCCLUSION_MASK_EMPTY; function <= OCCLUSION_MASK_KEPT; function++)
+	{
+		if (function == OCCLUSION_MASK_OBJECTS)
+			fill.metrics[0] = fill.metrics[1] = fill.metrics[2] = fill.metrics[3] = 1.0f;
+		occlusion_pipeline(function, 0, format, depth_format, &pipeline);
+		occlusion_draw(&pipeline, occlusion.mask, depth, rectangle, 0, 0, 0, &fill);
+	}
+	occlusion_pipeline(OCCLUSION_INTERMEDIATE, XGPU_METAL_POST_OCCLUSION, 0, 0, &pipeline);
+	occlusion_draw(&pipeline, occlusion.occlusion, 0, inner, occlusion.distances, occlusion.mask, 0, &values);
+	occlusion_pipeline(OCCLUSION_INTERMEDIATE, XGPU_METAL_POST_OCCLUSION_BLUR, 0, 0, &pipeline);
+	values.sampling[0] = 1.0f;
+	values.sampling[1] = 0.0f;
+	occlusion_draw(&pipeline, occlusion.blurred, 0, inner, occlusion.occlusion, 0, 0, &values);
+	values.sampling[0] = 0.0f;
+	values.sampling[1] = 1.0f;
+	occlusion_draw(&pipeline, occlusion.occlusion, 0, inner, occlusion.blurred, 0, 0, &values);
+	values.sampling[0] = occlusion_presets[preset].slices;
+	values.sampling[1] = occlusion_presets[preset].steps;
+	occlusion_pipeline(OCCLUSION_LAY, 0, format, depth_format, &pipeline);
+	occlusion_draw(&pipeline, target, 0, rectangle, occlusion.occlusion, occlusion.mask, occlusion.distances, &values);
+	occlusion.laid = 1;
+	occlusion.laid_uniforms = values;
+	return 1;
+}
+
+int xgpu_metal_post_ambient_occlusion_show(uint32_t target, uint8_t format, uint32_t width, uint32_t height,
+	const int32_t corners[4])
+{
+	struct xgpu_metal_pipeline pipeline;
+	struct xgpu_metal_post_uniforms white;
+	int32_t rectangle[4];
+
+	if (!target || !occlusion.laid || width != occlusion.width || height != occlusion.height ||
+		!occlusion_rectangle(corners, width, height, rectangle))
+		return 0;
+	memset(&white, 0, sizeof(white));
+	white.metrics[0] = white.metrics[1] = white.metrics[2] = white.metrics[3] = 1.0f;
+	occlusion_pipeline(OCCLUSION_WHITE, 0, format, 0, &pipeline);
+	occlusion_draw(&pipeline, target, 0, rectangle, 0, 0, 0, &white);
+	occlusion_pipeline(OCCLUSION_SHOW, 0, format, 0, &pipeline);
+	occlusion_draw(&pipeline, target, 0, rectangle, occlusion.occlusion, occlusion.mask, occlusion.distances,
+		&occlusion.laid_uniforms);
+	occlusion.laid = 0;
 	return 1;
 }

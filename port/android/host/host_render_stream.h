@@ -84,6 +84,8 @@ struct host_render_backend
 	/* display.hdr (xgpu_hdr.h): its state, and a 3D view's tone map */
 	void (*hdr)(void *context, const struct xgpu_stream_hdr *record);
 	void (*tone_map)(void *context, const struct xgpu_stream_tone_map *record);
+	/* display.ambient_occlusion over a 3D view (none: not drawn) */
+	void (*ambient_occlusion)(void *context, const struct xgpu_stream_ambient_occlusion *record);
 	/* display.picture_position: the picture n pixels from the top of a
 	taller window (n + 1) or centered (0) */
 	void (*picture_top)(void *context, uint32_t top);
