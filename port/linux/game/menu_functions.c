@@ -767,8 +767,11 @@ struct campaign_saved_game
 static struct
 {
 	struct campaign_level levels[NUMBER_OF_SINGLE_PLAYER_LEVELS];
-	/* player 1's saved game's level, else NONE */
+	/* player 1's saved game's level, else NONE, and its difficulty, read
+	when a screen opens (campaign_levels_read): reading the saved game reads
+	and checks the whole of its file, too long for each frame */
 	short saved_level;
+	short saved_difficulty;
 	/* the level and saved game the lists' descriptions last showed */
 	short shown_level;
 	short shown_saved_game;
@@ -980,6 +983,7 @@ static void campaign_levels_read(struct player_profile const *profile)
 	}
 	if (player_spawn_count >= 2 || !ui_widget_port_saved_game(&map_name, &campaign.saved_level, &difficulty))
 		campaign.saved_level = NONE;
+	campaign.saved_difficulty = campaign.saved_level != NONE ? difficulty : NONE;
 }
 
 /* plays the map, at the difficulty (a saved game in it goes on: main.c's
@@ -8728,6 +8732,9 @@ static struct
 	unsigned long read_time;
 	short games, players;
 	boolean invite;
+	/* the campaign's next level for player 1's profile, else NONE (read
+	from the profile's file with the rest, not each frame) */
+	short next_level;
 } multiplayer_status;
 
 /* "port multiplayer status end" (the menu's deleted): its looking stopped
@@ -8743,6 +8750,22 @@ static void multiplayer_status_end(void)
 static boolean multiplayer_status_online(void)
 {
 	return config_boolean("network.online") && config_boolean("network.public_lobby");
+}
+
+/* the campaign's next level for player 1's profile (the one after the last
+it finished), else NONE: without changing the profile chosen */
+static short multiplayer_status_next_level(void)
+{
+	struct player_profile profile;
+	long profile_index = player_ui_get_active_player_profile_index(0);
+	short level, difficulty;
+
+	if (profile_index == NONE)
+		profile_index = player_ui_get_player1_last_used_profile_index();
+	if (profile_index == NONE || !player_profile_get(profile_index, &profile))
+		return NONE;
+	player_profile_get_highest_completed_solo_level(&profile, &level, &difficulty);
+	return (short)PIN(level + 1, 0, NUMBER_OF_SINGLE_PLAYER_LEVELS - 1);
 }
 
 static void multiplayer_status_read(void)
@@ -8771,22 +8794,7 @@ static void multiplayer_status_read(void)
 			multiplayer_status.players = (short)(multiplayer_status.players + lobby_browser.games[index].player_count);
 	}
 	multiplayer_status.invite = platform_clipboard_has_invite() != 0;
-}
-
-/* the campaign's next level for player 1's profile (the one after the last
-it finished), else NONE: without changing the profile chosen */
-static short multiplayer_status_next_level(void)
-{
-	struct player_profile profile;
-	long profile_index = player_ui_get_active_player_profile_index(0);
-	short level, difficulty;
-
-	if (profile_index == NONE)
-		profile_index = player_ui_get_player1_last_used_profile_index();
-	if (profile_index == NONE || !player_profile_get(profile_index, &profile))
-		return NONE;
-	player_profile_get_highest_completed_solo_level(&profile, &level, &difficulty);
-	return (short)PIN(level + 1, 0, NUMBER_OF_SINGLE_PLAYER_LEVELS - 1);
+	multiplayer_status.next_level = multiplayer_status_next_level();
 }
 
 /* the width of a digit of the counts (port_settings.DIGIT_SIZE), and how
@@ -9104,11 +9112,11 @@ static void multiplayer_status_update(struct widget_instance *list)
 				L"Some players can't reach\r\nyou. Hosting on another\r\nnetwork may help." :
 				L"Some players can't reach\r\nyou. Turn on OPEN ROUTER\r\nPORT in Settings, Online.");
 		}
-		else if (item == _multiplayer_item_online_coop && multiplayer_status_next_level() != NONE)
+		else if (item == _multiplayer_item_online_coop && multiplayer_status.next_level != NONE)
 		{
 			wchar_t level[ROW_TEXT_LENGTH];
 
-			string_get("pc\\main_menu\\map_list", multiplayer_status_next_level(), level);
+			string_get("pc\\main_menu\\map_list", multiplayer_status.next_level, level);
 			usnprintf(headline, NUMBEROF(headline) - 1, L"NEXT LEVEL");
 			usnprintf(detail, NUMBEROF(detail) - 1, L"%s", level);
 		}
@@ -9123,11 +9131,11 @@ static void multiplayer_status_update(struct widget_instance *list)
 		usnprintf(detail, NUMBEROF(detail) - 1, L"Players on this network\r\nsee it in LOCAL NETWORK.");
 		break;
 	case _multiplayer_item_split_screen_coop:
-		if (multiplayer_status_next_level() != NONE)
+		if (multiplayer_status.next_level != NONE)
 		{
 			wchar_t level[ROW_TEXT_LENGTH];
 
-			string_get("pc\\main_menu\\map_list", multiplayer_status_next_level(), level);
+			string_get("pc\\main_menu\\map_list", multiplayer_status.next_level, level);
 			usnprintf(headline, NUMBEROF(headline) - 1, L"NEXT LEVEL");
 			usnprintf(detail, NUMBEROF(detail) - 1, L"%s", level);
 		}

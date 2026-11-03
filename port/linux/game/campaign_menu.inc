@@ -232,21 +232,16 @@ static void campaign_level_status(short level, wchar_t *text, short size)
 		text[0] = 0;
 		return;
 	}
-	if (level == campaign.saved_level)
+	/* (the saved game as its screen read it when it opened: read again here,
+	each frame, its whole file held the frame rate down) */
+	if (level == campaign.saved_level && campaign.saved_difficulty != NONE)
 	{
-		short saved_difficulty;
-		char const *map_name;
-		short saved_level;
-
-		if (ui_widget_port_saved_game(&map_name, &saved_level, &saved_difficulty))
-		{
-			campaign_difficulty_name(saved_difficulty, name, ROW_TEXT_LENGTH);
-			before = "Saved game in progress, on ";
-			campaign_widen(before, text, size);
-			ustrncpy(text + ustrlen(text), name, (long)(size - 1 - (short)ustrlen(text)));
-			text[size - 1] = 0;
-			return;
-		}
+		campaign_difficulty_name(campaign.saved_difficulty, name, ROW_TEXT_LENGTH);
+		before = "Saved game in progress, on ";
+		campaign_widen(before, text, size);
+		ustrncpy(text + ustrlen(text), name, (long)(size - 1 - (short)ustrlen(text)));
+		text[size - 1] = 0;
+		return;
 	}
 	for (difficulty = NUMBER_OF_DIFFICULTIES - 1; difficulty >= 0; difficulty--)
 	{
@@ -341,6 +336,7 @@ static boolean campaign_screen_initialize(short controller)
 	else
 	{
 		campaign.saved_level = NONE;
+		campaign.saved_difficulty = NONE;
 		campaign_cards.opening_level = 0;
 	}
 	return TRUE;
@@ -443,13 +439,10 @@ static void campaign_screen_update(struct widget_instance *list)
 	}
 	if (saved)
 	{
-		short difficulty, level;
-		char const *map_name;
-
 		campaign_level_title(campaign.saved_level, TRUE, text, MISSION_TEXT_LENGTH);
-		if (ui_widget_port_saved_game(&map_name, &level, &difficulty))
+		if (campaign.saved_difficulty != NONE)
 		{
-			campaign_difficulty_name(difficulty, difficulty_name, ROW_TEXT_LENGTH);
+			campaign_difficulty_name(campaign.saved_difficulty, difficulty_name, ROW_TEXT_LENGTH);
 			ustrncat(text, L", ", MISSION_TEXT_LENGTH - 1 - (long)ustrlen(text));
 			ustrncat(text, difficulty_name, MISSION_TEXT_LENGTH - 1 - (long)ustrlen(text));
 		}
