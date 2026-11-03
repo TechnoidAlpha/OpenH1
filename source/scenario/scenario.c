@@ -193,6 +193,7 @@ symbols in this file:
 #include "sound/sound_definitions.h"
 #include "sound/sound_manager.h"
 #include "structures/structure_bsp_definitions.h"
+#include "models/models.h" /* port: (model_port_markers_forget) */
 #include "units/units.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
 #include "structure_bsp_cache.h" /* port: port/linux/game/structure_bsp_cache.c */
@@ -374,6 +375,8 @@ void scenario_unload(
 	/* port: and the copies of its bsps (port/linux/game/structure_bsp_cache.c) */
 	structure_bsp_cache_dispose();
 	scenario_tags_unload();
+	/* port: and what was kept of its tags (models.c) */
+	model_port_markers_forget();
 	global_scenario_index = NONE;
 	global_structure_bsp_index = NONE;
 	scenario_globals->structure_bsp_index = NONE;
@@ -1224,7 +1227,10 @@ boolean scenario_load(
 
 	halo_load_trace("scenario.begin", name); /* port: loading measurement */
 	check_memory_status(scenario_memory_status_attributed, "scenario_load");
+	/* port: what was kept of the last map's tags forgotten (models.c) */
+	model_port_markers_forget();
 	global_scenario_index = scenario_tags_load(name);
+	model_port_markers_forget();
 	if (global_scenario_index != NONE)
 	{
 		global_scenario = scenario_definition_get(global_scenario_index);
