@@ -183,13 +183,14 @@ boolean passenger_camera_reticle_begin(short local_player_index, long weapon_ind
 	return TRUE;
 }
 
-void passenger_camera_reticle_offset(point2d *point)
+boolean passenger_camera_reticle_offset(point2d *point)
 {
 	if (reticle_active)
 	{
 		point->x = (short)(point->x + reticle_offset.x);
 		point->y = (short)(point->y + reticle_offset.y);
 	}
+	return reticle_active;
 }
 
 void passenger_camera_reticle_end(void)

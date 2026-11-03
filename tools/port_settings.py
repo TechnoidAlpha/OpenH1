@@ -438,6 +438,9 @@ FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
 # display.viewmodel_offset_x's, _y's and _z's: centimeters, 0 the game's own
 # place; any of -20 to 20 typed
 VIEWMODEL_OFFSETS = Slider(-10, 10, 0.5, -20, 20)
+# display.lowered_reticle_amount's: percent of the view's height below its
+# middle; any of 0 to 30 typed
+LOWERED_RETICLE_AMOUNTS = Slider(1, 25, 1, 0, 30, whole=True)
 # display.vehicle_fov's: the game's own view ("default"), display.fov's
 # ("match"), or degrees; any of 20 to 150 typed
 VEHICLE_FIELDS_OF_VIEW = FIELDS_OF_VIEW._replace(
@@ -920,6 +923,12 @@ PAGES = {
             ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
              "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
              "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),
+            ("LOWERED RETICLE", "display.lowered_reticle", ON_OFF,
+             "Puts the reticle below the middle of the screen, as Halo 2 and 3 do. Your view tilts up a little, so "
+             "shots still go where the reticle points. Zooming centers it.", None),
+            ("RETICLE LOWERED BY", "display.lowered_reticle_amount", LOWERED_RETICLE_AMOUNTS,
+             "How far below the middle the lowered reticle sits, in percent of the screen's height. 10 is about "
+             "Halo 2's and 3's.|Click the number (or press A) to type any from 0 to 30.", None),
             ("WEAPON AND HANDS", "display.viewmodel_visible", [("SHOW", "true"), ("HIDE", "false")],
              "Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and "
              "hear them.", None),

@@ -4874,6 +4874,7 @@ static struct
 	{ "op_viewmodel_offset_x", "display.viewmodel_offset_x", -10.0, 10.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_viewmodel_offset_y", "display.viewmodel_offset_y", -10.0, 10.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_viewmodel_offset_z", "display.viewmodel_offset_z", -10.0, 10.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
+	{ "op_lowered_reticle_amount", "display.lowered_reticle_amount", 1.0, 25.0, 1.0, 0.0, 30.0, TRUE, NULL, 0 },
 	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
 	/* (tools/port_settings.py's GAMMA) */

@@ -990,6 +990,8 @@ the setting for one start of the game. It has priority over the file.
 | `display.viewmodel_offset_x` | `0.0` | `HALO_VIEWMODEL_OFFSET_X` | The first-person weapon and hands moved right (negative: left) along the view, in centimeters, from -20 to 20, for every weapon. `0`: where the game draws them. Only this machine's drawing changes; not in the VR mode. First Person's WEAPON HORIZONTAL is a slider (-10 to 10, any of -20 to 20 typed). Refer to "Field of view". |
 | `display.viewmodel_offset_y` | `0.0` | `HALO_VIEWMODEL_OFFSET_Y` | The same, up (negative: down): First Person's WEAPON VERTICAL. |
 | `display.viewmodel_offset_z` | `0.0` | `HALO_VIEWMODEL_OFFSET_Z` | The same, forward, away from the view (negative: closer; too close and the near plane cuts them): First Person's WEAPON DEPTH. |
+| `display.lowered_reticle` | `false` | `HALO_LOWERED_RETICLE` | `true`: the reticle is drawn below the middle of the view, as Halo 2's and Halo 3's are, and the view looks that much above the aim, so shots go where the reticle points. On foot and in a seat, first or third person; a scope's zoom brings it back to the middle. Only this machine's view changes; not in the VR mode. First Person's LOWERED RETICLE. Refer to "Lowered reticle". |
+| `display.lowered_reticle_amount` | `10.0` | `HALO_LOWERED_RETICLE_AMOUNT` | With `display.lowered_reticle`, how far below the middle the reticle is, in percent of the view's height, from 0 to 30 (about 9 is Halo 2's, 11 Halo 3's). First Person's RETICLE LOWERED BY is a slider (1 to 25, any of 0 to 30 typed). |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
 | `display.passenger_third_person` | `false` | `HALO_PASSENGER_THIRD_PERSON` | Third-person view for the Warthog's passenger and the Scorpion's four passengers. Uses the gunner's camera on the Warthog and the driver's on the Scorpion, within the passenger's firing arc. Smooth entry and exit; weapon zoom is disabled while riding. The reticle follows the shot's centre ray. Local view only. In the campaign and co-op only: not in multiplayer, where seeing around the vehicle would be an advantage. Never in VR, which stays in first person in every seat. |
 | `display.viewmodel_shield` | `false` | `HALO_VIEWMODEL_SHIELD` | `true`: the energy shield's flare is drawn on the first-person arms too, as on the body, with the unit's own shield shader, kept closer to the arms than to the body. The stock game draws it on the body only. The flare is the shield's hits: it shows as the shield takes damage and fades over the next second or two (the unit's recent shield damage), so a full shield that nothing hits shows none, on the arms as on the body. An overshield stays lit on the arms with `display.overshield_effect` (OVERSHIELD, on the same screen). |
@@ -2005,6 +2007,47 @@ weapon's markers move with it: its muzzle flash, shell casings and lights,
 the flashlight, and the arm shields' flare (on the hands' model). A scope's
 zoom does not draw the weapon, so it is unchanged. The VR mode keeps the
 weapon in the controllers' hands, without the offset.
+
+### Lowered reticle
+
+LOWERED RETICLE (`display.lowered_reticle`, off by default) draws the
+reticle below the middle of the view, as Halo 2 and Halo 3 do; RETICLE
+LOWERED BY (`display.lowered_reticle_amount`) says how far, in percent of
+the view's height (10 by default; Halo 2's is about 9, Halo 3's about 11).
+
+- The aim is the game's own. The view turns, not the aim: it looks above
+  the aim by the angle that puts the aim on the reticle, at the field of
+  view it is drawn at (`display.fov`, `display.vehicle_fov`), so what is
+  under the reticle is what the shots hit. The player's facing, the unit's
+  aim, the shots, aim assist and its magnetism, the flashlight and what the
+  network sends are as without it (`game/lowered_reticle.c`, called as
+  `main.c`'s `set_window_camera_values` sets the view from the observer,
+  which stays as it was).
+- The HUD draws the reticle where the aim lands on the screen, found by
+  projecting the aim through the view as drawn (`lowered_reticle_screen_offset`):
+  its pieces and the warnings drawn with it, scaled with the field of view
+  about that point. The scopes' pictures stay in the middle. The Warthog's
+  and Scorpion's passenger view behind the vehicle
+  (`display.passenger_third_person`) projects its shot through the turned
+  view already.
+- It applies to the player's own aim: on foot and in a seat, first or third
+  person, getting in and out too. Death, cinematics, scripted cameras and
+  the director's other views are drawn as they were. In third person the
+  view behind the vehicle turns about its own place, so the vehicle sits
+  lower on the screen.
+- A scope's zoom brings the reticle back to the middle as it zooms in, along
+  the zoom's own transition, as Halo 2 and 3 do: the scope's picture is
+  drawn about the middle. A view narrowed without a scope (a vehicle's
+  zoom) comes back by a 2x zoom.
+- The first-person weapon is posed along the aim, not the view: it sits
+  lower and points at the reticle, and its muzzle flash, shell casings and
+  lights go with it. WEAPON HORIZONTAL, VERTICAL and DEPTH move it along the
+  aim's right, up and forward, which are the view's when the reticle is in
+  the middle (`lowered_reticle_aim_camera`, the frame a weapon's own place
+  or turn would start from).
+- Off, nothing is drawn or computed differently. On, only this machine's
+  view changes: in a network game the aim travels as it always does. The VR
+  mode's view is the head's, and its reticle where the controller points.
 
 LEGS (`display.first_person_legs`) draws your own body in first person
 from the waist down, so you see your legs when you look down, walking,
@@ -6495,6 +6538,7 @@ Other changes:
 | `rasterizer/rasterizer_text.c`, `text/draw_string.c` | Text is drawn from an atlas of the fonts' glyphs, rasterized at the resolution the game draws at (`src/text_hires.c`), when the font has every character of the string. Text can be drawn scaled about a point (`rasterizer_text_set_scale`), as the players' names are. Each glyph's advance is centred on the font tag character's, so the layout is the same, and a glyph is cut at a text box only where the font tag's character visibly was. |
 | `interface/first_person_weapons.c` | The first-person hands are drawn with the unit's shield modifier shader, as its body is (`display.viewmodel_shield`). |
 | `interface/first_person_weapons.c` | The first-person weapon's and hands' node matrices are moved along the view's right, up and forward once they are posed and interpolated (`display.viewmodel_offset_x`, `_y`, `_z`; `game/view_fov.c`), but in the VR mode. |
+| `main/main.c`, `interface/hud_draw.c`, `interface/first_person_weapons.c` | With `display.lowered_reticle`, the view is turned above the observer's aim as the window's camera is set, the weapon's reticle is drawn where the aim lands on the screen, and the first-person weapon is posed at the view turned back to the aim (`game/lowered_reticle.c`). |
 | `interface/first_person_weapons.c` | With the player's own view drawn from the newest step (`display.direct_camera`), the gun's animations are sampled at the frame's time: the state and moving animations between their frame and the next, a state's blend in by its fraction, the sway's springs where their velocity has them (`game/render_interpolation.c`, `render_interpolation_first_person_phase`). |
 | `render/render_objects.c`, `objects/objects.c` | In first person, your own body is drawn from the waist down with the pose `first_person_legs.c` makes (`display.first_person_legs`); the waist it found and the mesh `object_mesh.c` read are forgotten on a new map. |
 | `objects/object_lights.c` | Glows the port lights itself (`shield_glow.c`): dynamic lights attached to an object's node, colored and sized each frame by their maker, drawn with a light definition the map has. |

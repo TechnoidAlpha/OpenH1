@@ -255,6 +255,17 @@ static const struct config_setting config_settings[] =
 		"The first-person weapon and hands moved forward, away from the view\n"
 		"(negative: closer), in centimeters (-20 to 20); 0 keeps them where\n"
 		"the game draws them." },
+	{ "display.lowered_reticle", _config_boolean, "false", "HALO_LOWERED_RETICLE", _environment_value, _platform_all,
+		"Draw the reticle below the middle of the view, as Halo 2 and 3 do\n"
+		"(display.lowered_reticle_amount: how far). The view looks a little\n"
+		"above the aim, so shots go where the reticle points; a scope's zoom\n"
+		"brings it back to the middle. Only this machine's view changes. Not\n"
+		"in VR." },
+	{ "display.lowered_reticle_amount", _config_real, "10.0", "HALO_LOWERED_RETICLE_AMOUNT", _environment_value,
+		_platform_all,
+		"With display.lowered_reticle, how far below the middle the reticle\n"
+		"is, in percent of the view's height (0 to 30); 10 is about Halo 2's\n"
+		"and Halo 3's." },
 	{ "display.viewmodel_visible", _config_boolean, "true", "HALO_VIEWMODEL_VISIBLE", _environment_value, _platform_all,
 		"Draw the first-person weapon, hands and what is attached to them.\n"
 		"Off, they are not drawn; firing, animation, sound and lights go on." },

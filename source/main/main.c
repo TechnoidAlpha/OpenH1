@@ -408,6 +408,7 @@ symbols in this file:
 #include "tag_files/files.h"
 #include "custom_edition_cache.h" /* port: custom_edition_level_name */
 #include "view_fov.h" /* port: display.fov, before the projection and culling */
+#include "lowered_reticle.h" /* port: display.lowered_reticle, the view above the aim */
 
 #if defined(HALO_WINDOWS) || defined(HALO_ANDROID) || defined(__linux__)
 #define HALO_NATIVE_BUILD_INFO 1
@@ -1195,15 +1196,24 @@ void set_window_camera_values(
 {
 	if (observer)
 	{
+		/* port: the view looks above the aim when the reticle is lowered
+		(display.lowered_reticle, lowered_reticle.c): forward and up below
+		are the observer's turned up; the observer, which aims, is left as
+		it is */
+		real_vector3d forward = observer->forward;
+		real_vector3d up = observer->up;
+
 		window->rasterizer_camera.position = observer->position;
-		window->rasterizer_camera.forward = observer->forward;
-		window->rasterizer_camera.up = observer->up;
 		/* port: display.fov's view, the local render view only (view_fov.c) */
 		window->rasterizer_camera.vertical_field_of_view =
 			render_fov_vertical(window->local_player_index, 2.0f * arctangent(
 				0.75f * render_camera_get_adjusted_field_of_view_tangent(
 					observer->field_of_view),
 				1.0f));
+		lowered_reticle_view(window->local_player_index, observer->field_of_view,
+			window->rasterizer_camera.vertical_field_of_view, &forward, &up);
+		window->rasterizer_camera.forward = forward;
+		window->rasterizer_camera.up = up;
 
 		if (window->local_player_index != NONE &&
 			!console_is_active() &&
@@ -1230,8 +1240,8 @@ void set_window_camera_values(
 			matrix4x3_from_point_and_vectors(
 				&view_matrix,
 				&observer->position,
-				&observer->forward,
-				&observer->up);
+				&forward, /* port: (the view's, above the aim) */
+				&up);
 			matrix4x3_multiply(&view_matrix, &effect_matrix, &view_matrix);
 			matrix4x3_to_point_and_vectors(
 				&view_matrix,
