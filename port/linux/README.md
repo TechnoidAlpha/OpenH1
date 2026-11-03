@@ -340,7 +340,7 @@ These files are in the data root:
 | `debug.txt` | The log of the game. At start-up, the game shows the data root in the terminal. A crash writes its report (the faulting address and the calls that led to it) here as well; the `reference address` line at the top of each session places those addresses in the build. |
 | `init.txt` | Console commands that the game does at start-up. For example, `map_name levels\a10\a10` starts the first campaign level. |
 | `tags/` | Sound tag files that replace the sounds of the maps (`audio.loose_sounds`). |
-| `mods/` | Mods: folders of Halo PC tag files whose sounds, bitmaps, text and models play over the maps' on this machine, in the order of the main menu's Mods (`load_order.toml`). Refer to [docs/mods.md](../../docs/mods.md). |
+| `mods/` | Mods: folders of Halo PC tag files whose sounds, bitmaps, text and models play over the maps' on this machine, in the order of Settings > Profiles > Mods (`load_order.toml`). Refer to [docs/mods.md](../../docs/mods.md). |
 
 The settings are in `config.toml` in the game's folder (the release's
 folder, or the folder of `build/linux_x86_64/halo`), or in
@@ -3092,7 +3092,7 @@ them: sounds, bitmaps, string lists and models that play over the maps' tags
 of the same names, on this machine only (a high-res audio or texture pack, a
 translation, higher-detail models that keep the map's nodes, markers and
 regions). Every mod in the folder is on, in alphabetical order moved as the
-mods ask (`load_after`, `load_before`); the main menu's Mods lists them as a
+mods ask (`load_after`, `load_before`); Settings > Profiles > Mods lists them as a
 resource pack list does, the mod at the top playing over those below it,
 turns them off and moves them, and keeps that in `mods/load_order.toml`.
 Mods that say they cannot be played together (`incompatible`) are asked

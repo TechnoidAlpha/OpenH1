@@ -46,15 +46,6 @@
 	<widget name="main_menu/profile_manager/pm_empty_selected_button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/profile_manager/pm_entry_creating_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1">
-		<on event="deleted" run="new campaign decision" open="main_menu/profile_manager/pm_entry_saving_profile"/>
-	</widget>
-	<widget name="main_menu/profile_manager/pm_entry_saving_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1000" auto_close_fade="500">
-		<on event="b" run="NULL"/>
-		<on event="back" run="NULL"/>
-		<on event="deleted" run="NULL" open="main_menu/profile_manager/player_profile_manager_screen"/>
-		<child widget="error/warning_creating_player_profile_screen"/>
-	</widget>
 	<widget name="main_menu/profile_manager/profile_manager_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<data input="common button bar update"/>
 		<child widget="main_menu/profile_manager/profile_manager_button_new" y="1"/>

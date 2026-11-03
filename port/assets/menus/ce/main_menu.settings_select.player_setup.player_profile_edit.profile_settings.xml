@@ -17,8 +17,11 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_name" x="28" y="124"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_color" x="28" y="145"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_create_profile" x="28" y="166"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_4" x="28" y="193"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_about" x="28" y="213"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_profiles" x="28" y="187"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5" x="28" y="214"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_mods" x="28" y="234"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_7" x="28" y="261"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_about" x="28" y="281"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_bar" y="414"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tabs" y="76"/>
 	</widget>
@@ -110,30 +113,57 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/create_profile_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="3" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_4" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_4_title"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_profiles" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="a" run="port settings profiles" open="main_menu/profile_manager/player_profile_manager"/>
+		<on event="start" run="port settings profiles" open="main_menu/profile_manager/player_profile_manager"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/profiles_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_4_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="4" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/profiles_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="5" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_mods" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="a" open="main_menu/mods/mods_screen"/>
+		<on event="start" open="main_menu/mods/mods_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/mods_label"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/mods_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_7" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_7_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_7_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="7" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_about" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/about_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/about_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="5" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/about_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels">
 		<string text="PLAYER"/>
 		<string text="NAME ›"/>
 		<string text="COLOR ›"/>
 		<string text="CREATE PROFILE ›"/>
+		<string text="MANAGE PROFILES ›"/>
+		<string text="MODS"/>
+		<string text="MODS ›"/>
 		<string text="ABOUT"/>
 		<string text="OPENH1"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/help_strings">
-		<string text="Your player profile: your name and your color."/>
+		<string text="Your player profiles, your name and color, and the mods."/>
 		<string text=""/>
 		<string text="The name the other players see, kept in your player profile."/>
 		<string text="Your armor's color in free-for-all multiplayer games, kept in your player profile."/>
 		<string text="Your name, color and controller layout are kept in a player profile. Make one to set them; the rest of Settings works without one."/>
+		<string text="Switch to another player profile, make a new one or delete one. Your changes so far are kept."/>
+		<string text=""/>
+		<string text="Texture, sound, text and model packs from the mods folder: turn each on or off, and choose which plays over which. They are this computer's, for every profile."/>
 		<string text=""/>
 		<string text="Halo: Combat Evolved, the Xbox game, on this computer, played from your own copy of its maps. OpenH1 is a free fan project."/>
 	</strings>

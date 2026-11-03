@@ -94,7 +94,7 @@
 		<string text="CONTROLS"/>
 		<string text="ONLINE"/>
 		<string text="INTERFACE"/>
-		<string text="PROFILE"/>
+		<string text="PROFILES"/>
 	</strings>
 	<strings name="main_menu/settings/tab_about">
 		<string text="The window, the frame rate and the graphics."/>
@@ -102,7 +102,7 @@
 		<string text="The mouse, the controller and the keys."/>
 		<string text="Internet play, sharing maps and updates."/>
 		<string text="The HUD, the players' names, the scoreboard and the chat."/>
-		<string text="Your player profile: your name and your color."/>
+		<string text="Your player profiles, your name and color, and the mods."/>
 	</strings>
 	<strings name="main_menu/settings/button_help">
 		<string text="Puts this tab's settings back to their defaults. Nothing changes until OK."/>

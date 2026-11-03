@@ -20,13 +20,18 @@ from typing import NamedTuple
 from xml.sax.saxutils import quoteattr
 
 PE = "main_menu/settings_select/player_setup/player_profile_edit"
-# the mods' screen, and its rows (_mods); the main menu's items
-# (ce/main_menu.xml): MODS in Credits' place (Credits is left out:
-# tools/ce_menus.py's LEFT_OUT), Quit a row below it (its CHILD_OFFSETS)
+# the mods' screen, and its rows (_mods), which Settings' PROFILES tab opens
 MODS = "main_menu/mods"
 MOD_ROWS = 11
-MODS_ITEM_PLACE = (192, 391)
-QUIT_ITEM_PLACE = (192, 427)
+# the main menu's items (ce/main_menu.xml): CAMPAIGN, MULTIPLAYER, SETTINGS
+# and QUIT, a row apart (Profile and Credits are left out: tools/ce_menus.py's
+# LEFT_OUT; its CHILD_OFFSETS move Settings and Quit up into their rows)
+SETTINGS_ITEM_PLACE = (192, 319)
+QUIT_ITEM_PLACE = (192, 355)
+# the profile manager (the PC version's, which the main menu's Profile
+# opened): the profiles listed, the one chosen made player 1's, NEW and
+# DELETE; Settings' PROFILES tab opens it (MANAGE PROFILES)
+PROFILE_MANAGER = "main_menu/profile_manager/player_profile_manager"
 # The VR Tutorial (the VR build's, port/linux/game/basic_training.c): its main
 # menu item, in the headset only, a row above the first (_training), and its
 # screen of chapters
@@ -241,7 +246,7 @@ FRAMES_ADDED = {
 # ---------- Settings: its tabs and their pages (port/linux/game/menu_functions.c's
 # "port settings ..." functions)
 #
-# Settings opens straight to its tabs, VIDEO to PROFILE across the top (LB and
+# Settings opens straight to its tabs, VIDEO to PROFILES across the top (LB and
 # RB, Q and E, or a click switch them), each a page of rows under section
 # headers, and on the right a panel saying what the row chosen does: its name,
 # its value in large type and plain words. A row ending in "›" opens a page of
@@ -252,7 +257,7 @@ FRAMES_ADDED = {
 # them all; a page's Cancel forgets its own.
 #
 # Only the controller's settings, the name and the colour are the profile's
-# ("profile.<field>"): their page and the PROFILE tab, with no profile, offer
+# ("profile.<field>"): their page and the PROFILES tab, with no profile, offer
 # to make one there (CREATE PROFILE), and Settings opens without one.
 #
 # Each page is generated laid out for every row (its rows and section headers
@@ -757,12 +762,14 @@ PAGES = {
         ],
     },
     "profile_settings": {
-        "screen": "profile_settings_screen", "tab": "PROFILE",
-        "about": "Your player profile: your name and your color.",
+        "screen": "profile_settings_screen", "tab": "PROFILES",
+        "about": "Your player profiles, your name and color, and the mods.",
         "rows": [
-            # (with no profile, NAME and COLOR are hidden and CREATE PROFILE
-            # shown; in a game, those whose screens are ui.map's: the name's
-            # keyboard, the colours' pictures: settings_rows_show)
+            # (with no profile, NAME, COLOR and MANAGE PROFILES are hidden and
+            # CREATE PROFILE shown; in a game, those whose screens are
+            # ui.map's: the name's keyboard, the colours' pictures, and those
+            # that are the main menu's: the profiles, the mods:
+            # settings_rows_show)
             (SECTION, "PLAYER"),
             ("NAME ›", None, f"{PE}/name_edit/profile_name_screen",
              "The name the other players see, kept in your player profile.", None, "name",
@@ -770,6 +777,16 @@ PAGES = {
             ("COLOR ›", None, f"{PE}/color_edit/color_select_screen",
              "Your armor's color in free-for-all multiplayer games, kept in your player profile.", None, "color"),
             CREATE_PROFILE,
+            # (the changes kept first, and on its way back the profile
+            # chosen edited: menu_functions.c's settings_profiles)
+            ("MANAGE PROFILES ›", None, PROFILE_MANAGER,
+             "Switch to another player profile, make a new one or delete one. Your changes so far are kept.", None,
+             "profiles", "port settings profiles"),
+            # (port/linux/game/mods.c: this machine's, every profile's)
+            (SECTION, "MODS"),
+            ("MODS ›", None, f"{MODS}/mods_screen",
+             "Texture, sound, text and model packs from the mods folder: turn each on or off, and choose which "
+             "plays over which. They are this computer's, for every profile.", None, "mods"),
             (SECTION, "ABOUT"),
             ("OPENH1", None, None,
              "Halo: Combat Evolved, the Xbox game, on this computer, played from your own copy of its maps. OpenH1 "
@@ -2148,14 +2165,14 @@ WIDGET_PATCHES = {
     "main_menu/main_menu_item_settings": {"handlers": [
         f'<on event="{event}" run="port settings begin" open="{PE}/video_settings/video_settings_screen"/>'
         for event in ("a", "start")] + ['<on event="left_mouse" run="mouse emit accept event"/>']},
-    # (the main menu's MODS, before Quit: _mods)
-    # (and in the headset, VR TUTORIAL above the first: _training)
+    # (in the headset, VR TUTORIAL above the first: _training)
     "main_menu/main_menu_select_list": {"insert_before": {
         "main_menu/main_menu_item_load_camp": [
             f'<child widget="main_menu/main_menu_item_training" x="{TRAINING_ITEM_PLACE[0]}" '
-            f'y="{TRAINING_ITEM_PLACE[1]}" platform="vr"/>'],
-        "main_menu/main_menu_item_quit_game": [
-            f'<child widget="main_menu/main_menu_item_mods" x="{MODS_ITEM_PLACE[0]}" y="{MODS_ITEM_PLACE[1]}"/>']}},
+            f'y="{TRAINING_ITEM_PLACE[1]}" platform="vr"/>']}},
+    # (Quit's game data input notes the main menu shown, over which the
+    # update question opens: _update)
+    "main_menu/main_menu_item_quit_game": {"inputs": ["port update question"]},
     f"{PLAYER_EDIT}/player_options_menu": {"insert_before": {
         f"{PLAYER_EDIT}/player_button_bar": [
             f'<child widget="{PLAYER_EDIT}/op_aim_assist" x="54" y="289"/>',
@@ -5646,10 +5663,10 @@ def multiplayer_files() -> dict:
 REPLACED_FOLDERS = [f"{MT}/server_settings", f"{MT}/join_game"]
 
 
-# ---------- the mods (port/linux/game/mods.c, docs/mods.md): the main menu's
-# MODS, which opens the list of the mods folder's mods, in their load order,
-# each turned on or off and moved up or down (menu_functions.c's "port mods"
-# functions)
+# ---------- the mods (port/linux/game/mods.c, docs/mods.md): Settings'
+# PROFILES tab's MODS, which opens the list of the mods folder's mods, in
+# their load order, each turned on or off and moved up or down
+# (menu_functions.c's "port mods" functions)
 
 # the redraws' main menu items (svg/shell/main_menu/menu_*.svg): their
 # letters' top and scale, and where their middle is
@@ -5658,12 +5675,11 @@ MENU_ITEM_TOP, MENU_ITEM_SCALE, MENU_ITEM_MIDDLE = 6.57, 0.9037, 130.0
 # capitals are 21.5 high), for the pairs the port's items have: no redraw has
 # these pairs, so each is the sum of a space after the first letter and one
 # before the second, fitted (least squares) to the 53 pairs the redraws' items
-# and headers have (D-I, of the main menu's Credits, gives D's right side)
-MENU_ITEM_SPACES = {"MO": 3.17, "OD": 2.8, "DS": 2.3,
-                    # VR TUTORIAL's: those the redraws have (TU, TO, OR), the others as their neighbours are
-                    # (VR between VE and VI, UT as NT, RI as RN and RU, IA as EA and NA, AL as AD and AI), and
-                    # a word's space as LOAD GAME's D to G, less D's side
-                    "VR": 0.3, "R ": 6.0, " T": 6.0, "TU": 2.12, "UT": 1.66, "TO": 0.75, "OR": 3.0, "RI": 3.25,
+# and headers have. VR TUTORIAL's: those the redraws have (TU, TO, OR), the
+# others as their neighbours are (VR between VE and VI, UT as NT, RI as RN and
+# RU, IA as EA and NA, AL as AD and AI), and a word's space as LOAD GAME's D
+# to G, less D's side
+MENU_ITEM_SPACES = {"VR": 0.3, "R ": 6.0, " T": 6.0, "TU": 2.12, "UT": 1.66, "TO": 0.75, "OR": 3.0, "RI": 3.25,
                     "IA": 1.3, "AL": 1.58}
 # a space's own width (none: the spaces about it are its pairs')
 MENU_ITEM_SPACE_WIDTH = 0.0
@@ -5754,9 +5770,10 @@ def _text_button(name: str, text: str, handlers: list) -> list:
 
 
 def _mods() -> list:
-    """the main menu's MODS and its screen, laid out as the lobby is: on the
-    left two thirds the mods as a resource pack list has them (the one at the
-    top playing over those below it: the load order upside down), a row each
+    """the Mods screen, which Settings' PROFILES tab's MODS opens (OK, Cancel
+    and B go back to Settings), laid out as the lobby is: on the left two
+    thirds the mods as a resource pack list has them (the one at the top
+    playing over those below it: the load order upside down), a row each
     with its status icon, name and ON or OFF; on the right third, in the
     lobby's frame, the mod chosen: its name, what is wrong with it, whether it
     is on and its priority, and what its mod.toml says. A turns the mod chosen
@@ -5764,14 +5781,7 @@ def _mods() -> list:
     it; OK keeps it all (load_order.toml) and plays them, Cancel forgets it
     (menu_functions.c)"""
     base = MODS
-    # (its game data input notes the main menu shown, over which the update
-    # question opens: _update)
-    lines = _widget("main_menu/main_menu_item_mods",
-                    [("type", "text"), ("width", 256), ("height", 33), ("bitmap", "main_menu/menu_mods")],
-                    ['<data input="port update question"/>',
-                     f'<on event="a" open="{base}/mods_screen"/>', f'<on event="start" open="{base}/mods_screen"/>',
-                     '<on event="left_mouse" run="mouse emit accept event"/>'])
-    lines += _widget(f"{base}/mods_screen", [("width", 640), ("height", 480),
+    lines = _widget(f"{base}/mods_screen", [("width", 640), ("height", 480),
                                              ("flags", "pass_unhandled_to_focused_child pause_game"),
                                              ("bitmap", "bitmaps/gradient")],
                      ['<on event="b" back="true"/>', '<on event="back" back="true"/>',
