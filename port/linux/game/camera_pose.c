@@ -129,9 +129,29 @@ void camera_pose_place_object(char const *line)
 		return;
 	}
 	seat[0] = 0;
-	if (!line ||
-		(sscanf(line, "%255s seat %63s", name, seat) != 2 &&
-		 sscanf(line, "%255s %f %f %f %f %f %f", name, &x, &y, &z, &yaw, &pitch, &roll) < 5))
+	name[0] = 0;
+	if (line)
+	{
+		/* (the tag's name, which may have spaces in it ("scenery\plants\plant
+		fern\plant fern"), ends at " seat " or at a space before a number) */
+		char const *end = line;
+		size_t length;
+
+		while (*end && !(end[0] == ' ' && (strncmp(end, " seat ", 6) == 0 ||
+			(end[1] >= '0' && end[1] <= '9') || end[1] == '-' || end[1] == '+' || end[1] == '.')))
+		{
+			end++;
+		}
+		length = (size_t)(end - line);
+		if (length >= sizeof(name))
+			length = 0;
+		memcpy(name, line, length);
+		name[length] = 0;
+		line = end;
+	}
+	if (!line || !name[0] ||
+		(sscanf(line, " seat %63s", seat) != 1 &&
+		 sscanf(line, "%f %f %f %f %f %f", &x, &y, &z, &yaw, &pitch, &roll) < 4))
 	{
 		console_printf(FALSE, "debug_object_place \"<tag> <x> <y> <z> <yaw> [<pitch> <roll>] [color <r> <g> <b>]\", \"<tag> seat <label>\", or \"clear\"");
 		return;
@@ -237,6 +257,51 @@ static void camera_pose_write_place(FILE *file, char const *kind, real_point3d c
 	}
 }
 
+/* a cutscene's camera, also outside the structure (a cinematic's view from
+the sky): "camera_outside" there */
+static void camera_pose_write_camera(FILE *file, struct scenario_cutscene_camera_point const *point)
+{
+	struct location location;
+
+	scenario_location_from_point(&location, &point->position);
+	fprintf(file, "%s %.3f %.3f %.3f %.2f %.2f %.2f %.2f %s\n",
+		location.cluster_index != NONE ? "camera" : "camera_outside",
+		point->position.x, point->position.y, point->position.z,
+		point->orientation.yaw / DEGREES_TO_RADIANS, point->orientation.pitch / DEGREES_TO_RADIANS,
+		point->orientation.roll / DEGREES_TO_RADIANS, point->field_of_view / DEGREES_TO_RADIANS,
+		point->name[0] ? point->name : "-");
+}
+
+/* the scenario's placed objects of one kind (their blocks' element sizes:
+the object's placement, then the kind's own fields), with their tags' names:
+"object <x> <y> <z> <yaw> <pitch> <roll> 0 <tag>" */
+static void camera_pose_write_objects(FILE *file, struct tag_block const *objects, long element_size,
+	struct tag_block const *palette)
+{
+	long i;
+
+	for (i = 0; i < objects->count && objects->address; i++)
+	{
+		struct scenario_object_datum const *object =
+			(struct scenario_object_datum const *)((byte const *)objects->address + i * element_size);
+		char const *name = "-";
+
+		if (object->palette_entry_index >= 0 && object->palette_entry_index < palette->count && palette->address)
+		{
+			struct scenario_object_palette_entry const *entry = (struct scenario_object_palette_entry const *)
+				palette->address + object->palette_entry_index;
+
+			if (entry->reference.index != NONE)
+			{
+				name = tag_get_name(entry->reference.index);
+			}
+		}
+		fprintf(file, "object %.3f %.3f %.3f %.2f %.2f %.2f 0 %s\n", object->position.x, object->position.y,
+			object->position.z, object->rotation.yaw / DEGREES_TO_RADIANS,
+			object->rotation.pitch / DEGREES_TO_RADIANS, object->rotation.roll / DEGREES_TO_RADIANS, name);
+	}
+}
+
 void camera_pose_write_places(char const *path)
 {
 	struct scenario *scenario = global_scenario_get();
@@ -266,9 +331,14 @@ void camera_pose_write_places(char const *path)
 		struct scenario_cutscene_camera_point *point = TAG_BLOCK_GET_ELEMENT(&scenario->cutscene_camera_points, i,
 			struct scenario_cutscene_camera_point);
 
-		camera_pose_write_place(file, "camera", &point->position, point->orientation.yaw, point->orientation.pitch,
-			point->orientation.roll, point->field_of_view);
+		camera_pose_write_camera(file, point);
 	}
+	/* (the scenery, vehicles, bipeds and machines placed: 72, 120, 120 and 64
+	bytes each in the scenario's blocks) */
+	camera_pose_write_objects(file, &scenario->scenery, 0x48, &scenario->scenery_palette);
+	camera_pose_write_objects(file, &scenario->vehicles, 0x78, &scenario->vehicle_palette);
+	camera_pose_write_objects(file, &scenario->bipeds, 0x78, &scenario->biped_palette);
+	camera_pose_write_objects(file, &scenario->machines, 0x40, &scenario->machine_palette);
 	for (i = 0; i < scenario->ai_encounters.count && scenario->ai_encounters.address; i++)
 	{
 		struct encounter_definition *encounter = TAG_BLOCK_GET_ELEMENT(&scenario->ai_encounters, i, struct encounter_definition);

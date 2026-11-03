@@ -23,6 +23,8 @@ def main():
     ap.add_argument("--poses", default=None)
     ap.add_argument("--objects", default=None)
     ap.add_argument("--places", action="store_true")
+    ap.add_argument("--settle", type=float, default=3.0, help="seconds the world runs after the objects are placed (0: they stay as placed)")
+    ap.add_argument("--prepare", action="append", default=[], help="console lines first (fog off, an object made)")
     ap.add_argument("--port", type=int, default=23491)
     ap.add_argument("--cols", type=int, default=4)
     ap.add_argument("--cell", type=int, default=320)
@@ -34,6 +36,8 @@ def main():
         game.connect()
         game.wait_frames(400, timeout=600)
         game.prepare_scene()
+        for line in a.prepare:
+            print("prepare:", line, game.command(line, frames=3).strip())
         if a.places:
             game.command('debug_scenario_places "places_0.txt"', frames=4)
             head = (out / "run" / "places_0.txt").read_text().splitlines()[0].split()
@@ -41,7 +45,7 @@ def main():
                 game.command("switch_bsp %d" % b, frames=30)
                 game.command('debug_scenario_places "places_%d.txt"' % b, frames=4)
         if a.objects:
-            print(game.place_objects(json.loads(Path(a.objects).read_text())))
+            print(game.place_objects(json.loads(Path(a.objects).read_text()), settle_seconds=a.settle))
         poses = json.loads(Path(a.poses).read_text()) if a.poses else []
         cells = []
         bsp = None

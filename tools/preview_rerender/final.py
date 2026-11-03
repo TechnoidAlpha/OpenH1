@@ -77,7 +77,7 @@ def main():
         # (a picture's own console lines: the map's scripted state put back)
         for line in found.get("prepare", []):
             print("prepare:", line, game.command(line, frames=3).strip())
-        game.place_objects(found.get("objects", []))
+        game.place_objects(found.get("objects", []), settle_seconds=found.get("settle_seconds", 3.0))
         load = time.time() - t0
         t = time.time()
         frame = game.render((p["x"], p["y"], p["z"], p["yaw"], p["pitch"], p["roll"], p["vfov"]), settle=3)

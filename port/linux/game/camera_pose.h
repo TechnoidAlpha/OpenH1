@@ -20,7 +20,10 @@ void camera_pose_place_object(char const *line);
 
 /* the scenario's places (players' starts, cutscene flags and cameras, the
 AI's firing positions and starts) in the loaded structure, written to a
-file: "<kind> <x> <y> <z> <yaw> <pitch> <roll> <field of view>" (degrees) */
+file: "<kind> <x> <y> <z> <yaw> <pitch> <roll> <field of view>" (degrees);
+then every cutscene camera outside the structure ("camera_outside", its name
+last), and the scenery, vehicles, bipeds and machines placed ("object", its
+tag's name last), for seeds of a view where no one stands */
 void camera_pose_write_places(char const *path);
 
 #endif

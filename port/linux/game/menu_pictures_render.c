@@ -219,10 +219,10 @@ static void render_steps_make(
 		commands = end ? end + 1 : NULL;
 	}
 	/* (a vehicle comes to rest on the ground, a rider takes its seat) */
-	if (picture->objects)
+	if (picture->settle_milliseconds > 0)
 	{
 		render_step_add(_step_command, 0, "game_speed 1");
-		render_step_add(_step_milliseconds, 3000, NULL);
+		render_step_add(_step_milliseconds, picture->settle_milliseconds, NULL);
 		render_step_add(_step_command, 0, "game_speed 0");
 		render_step_add(_step_frames, 3, NULL);
 	}

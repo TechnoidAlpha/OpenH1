@@ -132,12 +132,17 @@ def picture_pose(path: Path, maps: dict) -> dict:
         if "color" in item:
             line += ["color"] + [picture_number(value) for value in item["color"]]
         commands.append('debug_object_place "%s"' % " ".join(line))
-    colour = pose.get("colour", "none")
-    if colour not in ("none", "curve"):
-        sys.exit(f'{path}: colour is "none" or "curve"')
+    # ("raw" and "none": the picture's colours as rendered)
+    colour = pose.get("colour", "raw")
+    if colour not in ("raw", "none", "curve"):
+        sys.exit(f'{path}: colour is "raw" or "curve"')
+    # (how long the world runs for the objects to settle; 0: left as placed)
+    settle = float(pose.get("settle_seconds", 3.0)) if objects else 0.0
+    if not 0 <= settle <= 30:
+        sys.exit(f"{path}: settle_seconds is 0 to 30")
     return {"name": path.stem, "bitmap": PICTURE_BITMAPS[bitmap], "frame": int(frame), "map": map_name,
             "scenario": scenario, "bsp": int(pose.get("bsp", 0)), "aspect": float(pose["aspect"]),
-            "colour": int(colour == "curve"), "objects": int(bool(objects)),
+            "colour": int(colour == "curve"), "settle": int(round(settle * 1000)),
             "camera": " ".join(picture_number(value) for value in words),
             "commands": "".join(line + "\n" for line in commands),
             "checksums": [int(value, 16) for value in maps[map_name]][:4], "hash": zlib.crc32(data)}
@@ -156,7 +161,7 @@ def picture_lines() -> List[str]:
         checksums = ", ".join(f"0x{value:08x}u" for value in pose["checksums"])
         lines.append(f'\t{{ {c_string(pose["name"])}, {c_string(pose["bitmap"])}, {pose["frame"]}, '
                      f'{c_string(pose["map"])}, {c_string(pose["scenario"])}, {pose["bsp"]}, {pose["aspect"]!r}f, '
-                     f'{pose["colour"]}, {pose["objects"]}, {c_string(pose["camera"])}, {c_string(pose["commands"])}, '
+                     f'{pose["colour"]}, {pose["settle"]}, {c_string(pose["camera"])}, {c_string(pose["commands"])}, '
                      f'{{ {checksums} }}, {len(pose["checksums"])}, 0x{pose["hash"]:08x}u }},')
     if not poses:
         lines.append("\t{ 0 },")

@@ -64,8 +64,10 @@ struct menu_picture_pose
 	float aspect;
 	/* its colours taken toward the original's (rr_final.py's curve) */
 	int colour_curve;
-	/* objects placed: the world is let run a moment for them to settle */
-	int objects;
+	/* how long the world runs for the objects placed to settle (a vehicle
+	comes to rest, a rider takes its seat), in milliseconds; 0: left as
+	placed (settle_seconds) */
+	long settle_milliseconds;
 	/* debug_camera_set's argument */
 	char const *camera;
 	/* console lines, each ended by a new line: the pose's own, then its

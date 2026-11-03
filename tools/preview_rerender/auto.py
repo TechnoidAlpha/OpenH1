@@ -35,7 +35,11 @@ def read_places(path):
     out = []
     for line in lines[1:]:
         p = line.split()
-        out.append((p[0], *map(float, p[1:])))
+        # (cameras outside the structure and placed objects are not places to
+        # stand: seeds of their own, read by seeds.py)
+        if p[0] in ("camera_outside", "object"):
+            continue
+        out.append((p[0], *map(float, p[1:8])))
     return int(head[1]), int(head[3]), out
 
 

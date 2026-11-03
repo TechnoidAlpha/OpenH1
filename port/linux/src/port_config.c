@@ -3843,6 +3843,15 @@ static void config_apply_picture_mode(void)
 		{ "display.hdr", "off" },
 		{ "display.graphics", "enhanced" },
 		{ "display.menu_pictures", "false" },
+		/* (the view as the pose was found with: the camera's own field of
+		view, straight lines, every line drawn) */
+		{ "display.panini", "0" },
+		{ "display.panini_vertical", "0" },
+		{ "display.fov", "0" },
+		{ "display.vehicle_fov", "default" },
+		{ "display.viewmodel_fov", "0" },
+		{ "display.resolution_scaling", "native" },
+		{ "display.battery_saver", "off" },
 		{ "audio.enabled", "false" },
 		{ "audio.voice_chat", "off" },
 		{ "network.online", "false" },
