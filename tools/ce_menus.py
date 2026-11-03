@@ -63,6 +63,10 @@ TITLE_FONT = ROOT / "port/assets/fonts/OpenCE-Regular.ttf"
 LEFT_OUT = {
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\header_gamespy_logo",
     "ui\\shell\\main_menu\\main_menu_item_credits",
+    # (the main menu's build number, the Xbox build the sources come from,
+    # not this one's: Settings > Profile's ABOUT shows both, menu_functions.c's
+    # about_panel)
+    "ui\\shell\\main_menu\\build_number",
     # (the "checking for updates" dialogs, which asked the PC version's
     # servers: Create > Internet and Join > Server Browser skip them,
     # port_settings.WIDGET_PATCHES)
