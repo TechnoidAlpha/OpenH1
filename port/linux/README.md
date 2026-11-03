@@ -147,7 +147,7 @@ game's folder. The screen shows the progress, and then the game starts.
 If the game finds nothing, the screen says where to put the image: put it
 in Downloads or on the SD card (from another computer, or with Steam's file
 transfer), then choose "Look again". On a desktop (not under gamescope, and
-not in the VR build), the screen also has "Browse for the disc image or installer...",
+not in the VR build), the screen also has "Browse for the disc image...",
 the desktop's file picker (through the desktop portal or `zenity`). Where
 neither is present, the screen says so, and you can still put the image in
 Downloads and choose "Look again". The game does not stop. A copy that
@@ -162,7 +162,8 @@ the game asks for the disc image again at the next start.
 
 The first start also offers Custom Edition's installer
 (`halocesetup_en_1.00.exe`, or another program whose name starts with
-`halo`) when it finds one in the same places, and "Browse..." takes it too.
+`halo`) when it finds one in the same places, and "Browse for the disc
+image..." takes it too.
 Choosing it adds Custom Edition's maps (the Halo PC multiplayer maps,
 Gearbox's among them, with `bitmaps.map`, `sounds.map` and `loc.map`) to
 `custom_maps/` beside `maps/` (or `paths.custom_maps`), where the map
@@ -1462,7 +1463,7 @@ The game needs: glibc 2.35 or later (or the glibc of the computer that
 built it), the Vulkan loader (`libvulkan.so.1`) and a driver with Vulkan
 1.3, the X11 or Wayland client libraries, and the PipeWire, PulseAudio or
 ALSA client libraries for sound: refer to "Requirements". The first start
-finds the disc image itself; its "Browse for the disc image or installer..." is the
+finds the disc image itself; its "Browse for the disc image..." is the
 desktop's file dialog, through `xdg-desktop-portal` (or `zenity`), which
 the game does without.
 

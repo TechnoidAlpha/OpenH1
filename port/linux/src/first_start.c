@@ -336,9 +336,9 @@ static const char *item_label(const struct chooser_item *item)
 		return "Look again";
 	case _action_browse:
 #ifdef HALO_MACOS
-		return "Browse for the disc image, folder or installer...";
+		return "Browse for the disc image or folder...";
 #else
-		return "Browse for the disc image or installer...";
+		return "Browse for the disc image...";
 #endif
 	case _action_back:
 		return chooser.notice ? "Continue" : "Back";
@@ -448,8 +448,7 @@ static void draw_items(float left, float width, float top, float bottom)
 				if (chooser.installers[item->candidate])
 				{
 					fit(candidate->name, columns, line, sizeof(line));
-					snprintf(details, sizeof(details), "%s  -  Custom Edition installer: adds its multiplayer maps",
-						candidate->place);
+					snprintf(details, sizeof(details), "%s  -  Custom Edition installer (optional)", candidate->place);
 				}
 				else if (candidate->kind == _game_data_image)
 				{
