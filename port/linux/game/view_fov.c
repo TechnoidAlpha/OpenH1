@@ -392,6 +392,44 @@ static real viewmodel_vertical(void)
 	return angle;
 }
 
+/* whether the local player's view draws the weapon with its own projection:
+the player's first-person aim, not a cinematic, a scripted camera or a view
+the director holds */
+static boolean viewmodel_projection_view(short local_player_index)
+{
+	return local_player_index >= 0 && local_player_index < MAXIMUM_LOCAL_PLAYERS &&
+		!cinematic_in_progress() && !(director_camera_scripted && *director_camera_scripted) &&
+		director_get_perspective(local_player_index) == _director_perspective_first_person &&
+		!director_inhibited_facing(local_player_index);
+}
+
+/* the vertical angle display.viewmodel_fov draws the local player's weapon
+at, and the stock one it replaces: the unit's own, unzoomed, which the
+weapon keeps by default (the view's, before display.fov widens it). FALSE
+when the weapon is drawn at its stock angle: no display.viewmodel_fov, or a
+view viewmodel_projection_begin leaves alone. (display.panini widens the
+weapon's projection by the center zoom it draws the middle at, so the
+weapon is drawn this angle's size: the angle is the one seen) */
+static boolean viewmodel_angles(short local_player_index, real *drawn, real *stock)
+{
+	long unit_index;
+	struct unit_datum *unit;
+	real unzoomed;
+
+	*drawn = viewmodel_vertical();
+	if (!*drawn || !viewmodel_projection_view(local_player_index))
+		return FALSE;
+	unit_index = player_control_get_unit_index(local_player_index);
+	unit = unit_index != NONE ? unit_try_and_get(unit_index) : NULL;
+	if (!unit)
+		return FALSE;
+	unzoomed = unit_definition_get(unit->definition_index)->unit.camera_field_of_view;
+	if (!(unzoomed >= 0.001f && unzoomed <= _pi / 2.0f))
+		return FALSE;
+	*stock = 2.0f * atanf(0.75f * render_camera_get_adjusted_field_of_view_tangent(unzoomed));
+	return TRUE;
+}
+
 void viewmodel_projection_begin(void)
 {
 	real angle, panini_scale;
@@ -413,11 +451,8 @@ void viewmodel_projection_begin(void)
 		angle = render.camera.vertical_field_of_view;
 	if (panini_scale != 1.0f && angle > 0.0f && angle < _pi)
 		angle = 2.0f * atanf(tanf(angle * 0.5f) * panini_scale);
-	if (!angle || render.local_player_index < 0 || render.local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
-		global_window_parameters.rasterizer_target != _rasterizer_target_render_primary ||
-		cinematic_in_progress() || (director_camera_scripted && *director_camera_scripted) ||
-		director_get_perspective(render.local_player_index) != _director_perspective_first_person ||
-		director_inhibited_facing(render.local_player_index))
+	if (!angle || global_window_parameters.rasterizer_target != _rasterizer_target_render_primary ||
+		!viewmodel_projection_view(render.local_player_index))
 	{
 		return;
 	}
@@ -502,14 +537,38 @@ boolean viewmodel_offset(long weapon_index, real_vector3d *offset)
 	return viewmodel_offset_global(offset);
 }
 
-void viewmodel_offset_apply(long weapon_index, struct real_matrix4x3 *node_matrices, short node_count,
-	struct render_camera const *camera)
+/* what the weapon's moves right and up are multiplied by at the angle it is
+drawn at, against its stock one: the ratio of their tangents. A wider angle
+draws the weapon as the stock one draws it, shrunk toward the screen's
+middle by that ratio; a move across the view is shrunk with it, so it is
+made that much longer, and goes as far across the screen as at the stock
+angle. A move away needs nothing: it shrinks the weapon by the same part
+at any angle (a point's place on the screen is across over away, times
+the angle's own factor, and the move away changes the away alone) */
+static real viewmodel_offset_screen_scale(real drawn, real stock)
+{
+	if (!(drawn > 0.0f && drawn < _pi && stock > 0.0f && stock < _pi))
+		return 1.0f;
+	return tanf(drawn * 0.5f) / tanf(stock * 0.5f);
+}
+
+void viewmodel_offset_apply(short local_player_index, long weapon_index, struct real_matrix4x3 *node_matrices,
+	short node_count, struct render_camera const *camera)
 {
 	real_vector3d offset, right, move;
+	real drawn, stock;
 	short node_index;
 
 	if (!node_matrices || node_count <= 0 || !viewmodel_offset(weapon_index, &offset))
 		return;
+	/* (display.viewmodel_fov: on the screen as at the weapon's stock angle) */
+	if (viewmodel_angles(local_player_index, &drawn, &stock))
+	{
+		real scale = viewmodel_offset_screen_scale(drawn, stock);
+
+		offset.i *= scale;
+		offset.j *= scale;
+	}
 	/* (the view's right: forward across up, as the world has z up and y
 	left) */
 	cross_product3d(&camera->forward, &camera->up, &right);
