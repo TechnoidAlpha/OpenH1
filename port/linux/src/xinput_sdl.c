@@ -759,7 +759,11 @@ static BYTE analog(BOOL down)
 /* the game's on-screen keyboard is up (platform_text_typing): the keys type
 into it (XInputDebugGetKeystroke passes them to the game), but for the
 arrows, which move about it, enter (Done, once let go of since it came up)
-and escape (cancel) */
+and escape (cancel). A menu's text field (platform_text_field) takes its
+Enter as a key, once let go of since the field began, which the field
+makes its row's A (menu_functions.c's text_field_show): not Start, which in
+a game closes the menus and drops what was typed with every change on the
+screen */
 static BOOL text_typing;
 static BOOL text_typing_enter_armed;
 /* (the on-screen keyboard's, and a menu's text field's: menu_functions.c) */
@@ -803,7 +807,7 @@ static void typing_gamepad(const struct platform_input_state *input, XINPUT_GAME
 	if (k[SDL_SCANCODE_RIGHT]) pad->wButtons |= XINPUT_GAMEPAD_DPAD_RIGHT;
 	if (!enter)
 		text_typing_enter_armed = TRUE;
-	else if (text_typing_enter_armed)
+	else if (text_typing_enter_armed && !text_typing_field)
 		pad->wButtons |= XINPUT_GAMEPAD_START;
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_ESCAPE]);
 }
@@ -1670,6 +1674,54 @@ int platform_test_menu_click(float *x, float *y)
 		sscanf(token + 6, "%f:%f", x, y) != 2)
 		return 0;
 	clicked_step = step;
+	return 1;
+}
+
+/* debug.test_input "menu:...": its "type:<letters and digits>" typed once in
+its second, and its "enter", the Return key held for the first 150 ms of
+its second and its keystroke once, through the keyboard's own path
+(sdl_platform.c's keystroke queue and keys held): *typed the letters to type
+now (empty for none), *enter whether Return is held; 1 when the keystrokes
+are to be queued now */
+int platform_test_menu_keys(char *typed, int size, int *enter)
+{
+	static Uint64 typed_step = (Uint64)-1;
+	Uint64 elapsed, step, into;
+	const char *token = test_input_menu;
+	size_t length = 0;
+	int queue;
+
+	typed[0] = 0;
+	*enter = 0;
+	if (!test_input_menu[0] || size <= 0)
+		return 0;
+	elapsed = SDL_GetTicks() - test_input_menu_since;
+	into = elapsed % 1000;
+	for (step = elapsed / 1000;; step--)
+	{
+		token += strspn(token, " ,");
+		length = strcspn(token, " ,");
+		if (!length || !step)
+			break;
+		token += length;
+	}
+	if (!length)
+		return 0;
+	queue = typed_step != elapsed / 1000;
+	if (length == 5 && !strncmp(token, "enter", 5))
+	{
+		*enter = into < 150;
+		typed_step = elapsed / 1000;
+		return queue;
+	}
+	if (length <= 5 || strncmp(token, "type:", 5) || !queue)
+		return 0;
+	typed_step = elapsed / 1000;
+	length -= 5;
+	if (length > (size_t)size - 1)
+		length = (size_t)size - 1;
+	memcpy(typed, token + 5, length);
+	typed[length] = 0;
 	return 1;
 }
 
@@ -2668,6 +2720,13 @@ DWORD WINAPI XInputDebugGetKeystroke(PXINPUT_DEBUG_KEYSTROKE keystroke)
 		/* key ups always pass, so no key is left latched down; while typing,
 		escape does not (it cancels, as B: the game's own escape leaves the
 		menus, main.c) */
+		/* (a menu's text field's Enter, while the Enter that began the
+		field is still held: not its end) */
+		if (!key_up && next.virtual_key == 0x0D /* return */ && text_typing_field && !text_typing_enter_armed &&
+			!console_is_active() && !network_chat_typing())
+		{
+			continue;
+		}
 		if (key_up || next.virtual_key == VK_OEM_3_BACKQUOTE || console_is_active() || network_chat_typing() ||
 			(text_typing && next.virtual_key != 0x1B /* escape */))
 		{
