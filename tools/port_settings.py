@@ -436,8 +436,9 @@ STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) fo
 FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
                         stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 151, 5)))
 # display.viewmodel_offset_x's, _y's and _z's: centimeters, 0 the game's own
-# place; any of -20 to 20 typed
-VIEWMODEL_OFFSETS = Slider(-10, 10, 0.5, -20, 20)
+# place; the track goes the whole range (the depth's closer end is about
+# where the right hand reaches the eye), any of -20 to 20 typed
+VIEWMODEL_OFFSETS = Slider(-20, 20, 0.5, -20, 20)
 # display.lowered_reticle_amount's: percent of the view's height below its
 # middle; any of 0 to 30 typed
 LOWERED_RETICLE_AMOUNTS = Slider(1, 25, 1, 0, 30, whole=True)
@@ -917,11 +918,11 @@ PAGES = {
         "rows": [
             (SECTION, "VIEW"),
             ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", FIELDS_OF_VIEW,
-             "How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the "
-             "weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
+             "How wide your weapon and hands are drawn, in degrees across a 16:9 screen: wider draws them "
+             "smaller. Default keeps the weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
             ("WEAPON HORIZONTAL", "display.viewmodel_offset_x", VIEWMODEL_OFFSETS,
-             "Moves your weapon and hands right, or left below 0, in centimeters, for every weapon. 0 keeps "
-             "them where the game puts them.|Click the number (or press A) to type any from -20 to 20.", None),
+             "Moves your weapon and hands right, or left below 0, in centimeters, for every weapon, as far on "
+             "the screen at any weapon field of view. 0 keeps them where the game puts them.|Click the number (or press A) to type any from -20 to 20.", None),
             ("WEAPON VERTICAL", "display.viewmodel_offset_y", VIEWMODEL_OFFSETS,
              "Moves your weapon and hands up, or down below 0, in centimeters. Lower it to see more of the "
              "screen.|Click the number (or press A) to type any from -20 to 20.", None),

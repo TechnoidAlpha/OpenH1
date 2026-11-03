@@ -988,9 +988,9 @@ the setting for one start of the game. It has priority over the file.
 | `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
 | `display.panini`, `display.panini_vertical` | `0.0`, `0.0` | `HALO_PANINI`, `HALO_PANINI_VERTICAL` | The 3D view drawn through the Panini projection at this strength (Panini's d, `0` to `1`; `0`: off, the flat view as ever), and its vertical compression (s, `0` to `1`). First Person's Panini Projection (Off, 0.25 to 1) and Panini Vertical, sliders with a field to type any from 0 to 1. Not in the VR build. Refer to "Field of view". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
-| `display.viewmodel_offset_x` | `0.0` | `HALO_VIEWMODEL_OFFSET_X` | The first-person weapon and hands moved right (negative: left) along the view, in centimeters, from -20 to 20, for every weapon. `0`: where the game draws them. Only this machine's drawing changes; not in the VR mode. First Person's WEAPON HORIZONTAL is a slider (-10 to 10, any of -20 to 20 typed). Refer to "Field of view". |
-| `display.viewmodel_offset_y` | `0.0` | `HALO_VIEWMODEL_OFFSET_Y` | The same, up (negative: down): First Person's WEAPON VERTICAL. |
-| `display.viewmodel_offset_z` | `0.0` | `HALO_VIEWMODEL_OFFSET_Z` | The same, forward, away from the view (negative: closer; too close and the near plane cuts them): First Person's WEAPON DEPTH. |
+| `display.viewmodel_offset_x` | `0.0` | `HALO_VIEWMODEL_OFFSET_X` | The first-person weapon and hands moved right (negative: left) along the view, in centimeters, from -20 to 20, for every weapon; with `display.viewmodel_fov`, as far on the screen as at the stock angle (the move is multiplied by the ratio of the angles' tangents). `0`: where the game draws them. Only this machine's drawing changes; not in the VR mode. First Person's WEAPON HORIZONTAL is a slider (-20 to 20, any value between typed). Refer to "Field of view". |
+| `display.viewmodel_offset_y` | `0.0` | `HALO_VIEWMODEL_OFFSET_Y` | The same, up (negative: down), as far on the screen at any `display.viewmodel_fov`: First Person's WEAPON VERTICAL. |
+| `display.viewmodel_offset_z` | `0.0` | `HALO_VIEWMODEL_OFFSET_Z` | The same, forward, away from the view (negative: closer; at -20 the right hand reaches the near plane), the same centimeters at any `display.viewmodel_fov`: First Person's WEAPON DEPTH. |
 | `display.lowered_reticle` | `false` | `HALO_LOWERED_RETICLE` | `true`: the reticle is drawn below the middle of the view, as Halo 2's and Halo 3's are, and the view looks that much above the aim, so shots go where the reticle points. On foot and in a seat, first or third person; a scope's zoom brings it back to the middle. Only this machine's view changes; not in the VR mode. First Person's LOWERED RETICLE. Refer to "Field of view". |
 | `display.lowered_reticle_amount` | `10.0` | `HALO_LOWERED_RETICLE_AMOUNT` | With `display.lowered_reticle`, how far below the middle the reticle is, in percent of the view's height, from 0 to 30 (about 9 is Halo 2's, 11 Halo 3's). First Person's RETICLE LOWERED BY is a slider (1 to 25, any of 0 to 30 typed). |
 | `display.viewmodel_visible` | `true` | `HALO_VIEWMODEL_VISIBLE` | `true`: the first-person weapon, hands and what is attached to them are drawn. `false`: they are not; firing, animation, sound and lights go on, and other players' models are drawn. |
@@ -2000,14 +2000,42 @@ takes any angle from 20 to 150.
 WEAPON HORIZONTAL, VERTICAL and DEPTH (`display.viewmodel_offset_x`, `_y`
 and `_z`) move the weapon and hands right, up and away from the view, in
 centimeters (a world unit is ten feet, 304.8 cm), the same for every weapon,
-as Halo Infinite's weapon offset does: the sliders go from -10 to 10 in steps
-of 0.5, and any value from -20 to 20 can be typed. The move is along the
+as Halo Infinite's weapon offset does: the sliders go from -20 to 20 in steps
+of 0.5, and any value between can be typed. The move is along the
 view's own axes, after the weapon is posed and interpolated, so right is
 right on the screen at any field of view and weapon field of view, and the
 weapon's markers move with it: its muzzle flash, shell casings and lights,
 the flashlight, and the arm shields' flare (on the hands' model). A scope's
 zoom does not draw the weapon, so it is unchanged. The VR mode keeps the
 weapon in the controllers' hands, without the offset.
+
+A value does the same on the screen at any weapon field of view:
+
+- A point of the weapon is drawn at its distance across the view over its
+  distance ahead, divided by the tangent of half the angle. A wider weapon
+  field of view (`display.viewmodel_fov`) draws the weapon as the stock
+  angle does, shrunk toward the screen's middle by the ratio of the two
+  tangents (at 150 about 4.7 times; the stock angle, the unit's, is about
+  77 across at 16:9). The world's field of view (`display.fov`) does not:
+  by default the weapon keeps its stock angle, and Panini (`display.panini`)
+  widens the weapon's projection by its center zoom, which draws it back at
+  its own size.
+- So WEAPON HORIZONTAL and VERTICAL are multiplied by that ratio: they move
+  the weapon as far across the screen as at the stock angle, and a weapon
+  shrunk by a wide angle can be put back where the stock one is drawn with
+  values in the sliders' range (at 150 it would otherwise take more than a
+  meter). The ratio is fixed for the weapon field of view: the unit's
+  unzoomed angle, not the zoom's transition. At DEFAULT it is 1.
+- WEAPON DEPTH is not: a move closer enlarges each point by its distance
+  ahead over its distance after the move, at any angle, so it already does
+  the same on the screen. What it cannot do is give back the size a wide
+  weapon field of view takes away. That needs every point brought in to
+  the same part of its distance, which no move does: the right hand is
+  about 20 cm ahead of the eye and the gun's body 35 cm, so at 150 the gun
+  would have to come within 8 cm and the hand pass behind the eye (110
+  would take about 16 cm, at the near plane's edge for the hand). The
+  weapon's size is the weapon field of view's to set; DEPTH goes as close
+  as the hand allows, -20.
 
 PANINI PROJECTION (`display.panini`, its strength d; Off by default) draws
 the 3D view through the Panini projection (Sharpless et al., 2010), which

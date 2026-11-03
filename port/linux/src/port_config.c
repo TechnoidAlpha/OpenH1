@@ -257,10 +257,12 @@ static const struct config_setting config_settings[] =
 	{ "display.viewmodel_offset_x", _config_real, "0.0", "HALO_VIEWMODEL_OFFSET_X", _environment_value, _platform_all,
 		"The first-person weapon and hands moved right (negative: left) on\n"
 		"the screen, in centimeters (-20 to 20), for every weapon; 0 keeps them\n"
-		"where the game draws them. Not in VR." },
+		"where the game draws them. With display.viewmodel_fov, as far on the\n"
+		"screen as at the weapon's stock view. Not in VR." },
 	{ "display.viewmodel_offset_y", _config_real, "0.0", "HALO_VIEWMODEL_OFFSET_Y", _environment_value, _platform_all,
 		"The first-person weapon and hands moved up (negative: down), in\n"
-		"centimeters (-20 to 20); 0 keeps them where the game draws them." },
+		"centimeters (-20 to 20), as far on the screen at any\n"
+		"display.viewmodel_fov; 0 keeps them where the game draws them." },
 	{ "display.viewmodel_offset_z", _config_real, "0.0", "HALO_VIEWMODEL_OFFSET_Z", _environment_value, _platform_all,
 		"The first-person weapon and hands moved forward, away from the view\n"
 		"(negative: closer), in centimeters (-20 to 20); 0 keeps them where\n"
