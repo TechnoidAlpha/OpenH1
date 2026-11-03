@@ -1665,9 +1665,6 @@ int host_touch_picture_top(void);
 
 /* the picture's place last sent to the backend (-2: none yet) */
 static int picture_top_sent = -2;
-/* display.gamma's range (tools/port_settings.py's GAMMA) */
-#define GAMMA_LEAST 0.5f
-#define GAMMA_MOST 2.0f
 #endif
 
 /* where the picture's top is in a window of these pixels, in its pixels
@@ -1719,6 +1716,10 @@ static void picture_position_send(void)
 	}
 #endif
 }
+
+/* display.gamma's range (tools/port_settings.py's GAMMA) */
+#define GAMMA_LEAST 0.5f
+#define GAMMA_MOST 2.0f
 
 /* (between frames: halo_screen_commit) display.gamma, to the backend's
 present, when it changes: 0.5 to 2, 1 none. Not the VR build's: its
