@@ -92,6 +92,7 @@ symbols in this file:
 #include "models/models.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
 #include "panini.h" /* port: port/linux/game/panini.c */
+#include "menu_pictures.h" /* port: port/linux/game/menu_pictures_render.c */
 
 #ifdef HALO_VR
 #include "../../port/linux/src/vr.h"
@@ -341,6 +342,9 @@ void render_frame_pregame(
 	render_ui_widgets(0, &window->rasterizer_camera.viewport_bounds);
 	halo_screen_ui_offset(FALSE);
 	bink_playback_render();
+	/* port: the menus' pictures' preparing screen over it
+	(port/linux/game/menu_pictures_render.c) */
+	menu_pictures_screen_draw();
 
 	{
 		real progress;

@@ -61,6 +61,7 @@ skipped or made without its sampler.
 #include "bitmaps/bitmap_group_lookup.h"
 #include "cseries/cseries_windows.h"
 #include "cache/texture_cache.h"
+#include "menu_pictures.h"
 #include "game/game_globals.h"
 #include "items/weapon_definitions.h"
 #include "units/unit_definitions.h"
@@ -618,7 +619,9 @@ boolean render_enumerate_pending(boolean scope)
 
 	if (setting < 0)
 		setting = config_boolean("display.prepare_shaders") || *config_string("debug.render_manifest");
-	if (!setting || structure_bsp_index == NONE || structure_bsp_index >= LONG_BITS)
+	/* (nor a map of the menus' pictures: its one frame makes only the
+	pipelines it draws with, menu_pictures_render.c) */
+	if (!setting || structure_bsp_index == NONE || structure_bsp_index >= LONG_BITS || menu_pictures_preparing())
 		return FALSE;
 	if (enumerate.new_map)
 	{

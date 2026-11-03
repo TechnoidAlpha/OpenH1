@@ -93,11 +93,6 @@ it has in seconds */
 void host_server_signals_install(void);
 int host_server_signals_take(void);
 void host_server_quit_deadline(int seconds, int exit_code);
-/* the menus' pictures' renders: a copy of the game started for one, polled
-(its exit status, -1 while it runs) and stopped (port/linux/src/menu_pictures.c) */
-int host_picture_worker_start(const char *job, const char *pipeline_cache, const char *log);
-int host_picture_worker_poll(int worker);
-void host_picture_worker_stop(int worker);
 
 /* ---------- general */
 
@@ -1057,22 +1052,5 @@ int update_launch(const char *path)
 int update_restart(const char *path)
 {
 	return host_update_restart(path);
-}
-
-/* ---------- the menus' pictures' renders (menu_pictures.c) */
-
-int menu_pictures_worker_start(const char *job, const char *pipeline_cache, const char *log)
-{
-	return host_picture_worker_start(job, pipeline_cache, log);
-}
-
-int menu_pictures_worker_poll(int worker)
-{
-	return host_picture_worker_poll(worker);
-}
-
-void menu_pictures_worker_stop(int worker)
-{
-	host_picture_worker_stop(worker);
 }
 

@@ -5,7 +5,9 @@ The menus' pictures drawn again from the player's maps
 (port/linux/src/menu_pictures.c): the scale a screen asks for, the cache's
 decision (the cached picture drawn, rendered again, or the original kept:
 a missing or modded map, a note of another pose or map, a picture too
-small, failed renders), its notes written and read back, the colour curve,
+small, failed renders), the order the preparing pass renders them in, a
+render noted before it begins (retried after a crash, then given up), a
+pass skipped and resumed at the next start, its notes written and read back, the colour curve,
 the picture cut from the middle of a frame and laid out as the original
 frame is. test_menu_pictures.py takes the header (menu_pictures_h.inc), the
 constants (config.inc) and the code (under_test.inc).
@@ -96,8 +98,8 @@ int main(int argc, char **argv)
 		CHECK(menu_picture_decide(&pose, 0x11111111UL, &note, 3) == RENDER, "another map's picture was drawn");
 	}
 
-	/* failed renders tried again until the second; a modded map noted by
-	the copy: the original */
+	/* failed renders tried again until the second; a modded map noted: the
+	original */
 	CASE("failures")
 	{
 		struct menu_picture_note note = note_of(&pose, 0x22222222UL, _menu_picture_failed, 3, 1);
@@ -106,9 +108,106 @@ int main(int argc, char **argv)
 		note.failures = 2;
 		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == 0, "a second failure was tried again");
 		note = note_of(&pose, 0x22222222UL, _menu_picture_modded, 3, 0);
-		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == 0, "a map the copy found modded was rendered");
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == 0, "a map noted modded was rendered");
 		note = note_of(&pose, 0x22222222UL, _menu_picture_none, 3, 0);
 		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == RENDER, "a note of nothing was not rendered");
+	}
+
+	/* the poses to render in the order they are rendered: a map's together,
+	in the order of its first pose, none that is not to be rendered */
+	CASE("order")
+	{
+		struct menu_picture_pose poses[5];
+		unsigned long decisions[5] = { RENDER, USE | RENDER, RENDER, USE, RENDER };
+		static char const *const maps[5] = { "b30", "a10", "b30", "a10", "c10" };
+		long order[5], count, index;
+
+		memset(poses, 0, sizeof(poses));
+		for (index = 0; index < 5; index++)
+			poses[index].map = maps[index];
+		count = menu_picture_order(poses, 5, decisions, order, 5);
+		CHECK(count == 4, "%ld poses ordered, not 4", count);
+		CHECK(order[0] == 0 && order[1] == 2 && order[2] == 1 && order[3] == 4,
+			"the order is %ld %ld %ld %ld, not 0 2 1 4", order[0], order[1], order[2], order[3]);
+		CHECK(menu_picture_order(poses, 5, decisions, order, 2) == 2, "more poses ordered than there is room for");
+		/* (a map's first pose drawn alone does not bring its others forward) */
+		poses[0].map = "c10";
+		decisions[0] = USE;
+		count = menu_picture_order(poses, 5, decisions, order, 5);
+		CHECK(count == 3 && order[0] == 1 && order[1] == 2 && order[2] == 4,
+			"the order is %ld %ld %ld, not 1 2 4", order[0], order[1], order[2]);
+		decisions[0] = decisions[1] = decisions[2] = decisions[4] = USE;
+		CHECK(menu_picture_order(poses, 5, decisions, order, 5) == 0, "a pass with nothing to render");
+	}
+
+	/* a render noted as failed before it begins: the game gone in the middle
+	of one (a crash) tried again once, then the original kept; one that ends
+	rendered forgets its failures; a larger render that fails keeps the
+	smaller picture drawn */
+	CASE("retry")
+	{
+		struct menu_picture_note note;
+
+		memset(&note, 0, sizeof(note));
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 3);
+		CHECK(note.failures == 1 && note.pose_hash == pose.hash && note.map_checksum == 0x22222222UL,
+			"a render begun was not noted: %ld failures", note.failures);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == RENDER, "a render gone once was not tried again");
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 3);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == 0, "a render gone twice was tried again");
+		memset(&note, 0, sizeof(note));
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 3);
+		menu_picture_note_end(&note, _menu_picture_failed, 3);
+		CHECK(note.result == _menu_picture_failed && note.failures == 1, "a failure was noted %d, %ld",
+			note.result, note.failures);
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 3);
+		menu_picture_note_end(&note, _menu_picture_rendered, 3);
+		CHECK(note.result == _menu_picture_rendered && note.failures == 0 && note.scale == 3,
+			"a render after a failure was noted %d, %ld failures, scale %ld", note.result, note.failures, note.scale);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == USE, "a rendered picture was not drawn");
+		/* (a larger screen: rendered again; gone twice, the smaller drawn) */
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 6);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 6) == (USE | RENDER),
+			"a larger render gone once was not tried again, the smaller drawn");
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 6);
+		menu_picture_note_end(&note, _menu_picture_failed, 6);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 6) == USE,
+			"a larger render that failed twice did not leave the smaller picture drawn alone");
+		/* (a note of another map begun anew) */
+		note = note_of(&pose, 0x11111111UL, _menu_picture_rendered, 3, 1);
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 3);
+		CHECK(note.result == _menu_picture_none && note.failures == 1 && note.map_checksum == 0x22222222UL,
+			"another map's note was carried into a render of this one");
+	}
+
+	/* a pass skipped part way, and the game started again: what was made is
+	drawn; what was skipped (its note as it was, or none) is rendered then */
+	CASE("resume")
+	{
+		struct menu_picture_pose poses[3];
+		struct menu_picture_note notes[3], before;
+		unsigned long decisions[3];
+		long order[3], index, count;
+
+		for (index = 0; index < 3; index++)
+		{
+			poses[index] = pose;
+			poses[index].map = index == 0 ? "a10" : index == 1 ? "a30" : "a50";
+			memset(&notes[index], 0, sizeof(notes[index]));
+		}
+		/* (the first made; the second begun and skipped: its note given back) */
+		menu_picture_note_begin(&notes[0], &poses[0], 0x22222222UL, 3);
+		menu_picture_note_end(&notes[0], _menu_picture_rendered, 3);
+		before = notes[1];
+		menu_picture_note_begin(&notes[1], &poses[1], 0x22222222UL, 3);
+		notes[1] = before;
+		decisions[0] = menu_picture_decide(&poses[0], 0x22222222UL, &notes[0], 3);
+		decisions[1] = menu_picture_decide(&poses[1], 0x22222222UL, NULL, 3);
+		decisions[2] = menu_picture_decide(&poses[2], 0x22222222UL, NULL, 3);
+		CHECK(decisions[0] == USE, "a picture made before the skip was not drawn alone");
+		CHECK(decisions[1] == RENDER && decisions[2] == RENDER, "a skipped picture was not rendered at the next start");
+		count = menu_picture_order(poses, 3, decisions, order, 3);
+		CHECK(count == 2 && order[0] == 1 && order[1] == 2, "the next start renders %ld, from %ld", count, order[0]);
 	}
 
 	/* a note read back as written; another version's, or one missing a
@@ -126,9 +225,9 @@ int main(int argc, char **argv)
 		CHECK(!menu_picture_note_format(&note, text, 20), "a note that does not fit was written");
 		CHECK(!menu_picture_note_parse("version 999\nresult rendered\npose 1\nmap 2\nscale 3\n", &read),
 			"another version's note was read");
-		CHECK(!menu_picture_note_parse("version 1\nresult rendered\npose 1\nscale 3\n", &read),
+		CHECK(!menu_picture_note_parse("version 2\nresult rendered\npose 1\nscale 3\n", &read),
 			"a note without its map was read");
-		CHECK(!menu_picture_note_parse("version 1\nresult maybe\npose 1\nmap 2\nscale 3\n", &read),
+		CHECK(!menu_picture_note_parse("version 2\nresult maybe\npose 1\nmap 2\nscale 3\n", &read),
 			"a note of an unknown result was read");
 		CHECK(!menu_picture_note_parse("", &read) && read.result == _menu_picture_none, "nothing was read as a note");
 	}

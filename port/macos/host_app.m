@@ -771,9 +771,6 @@ static void update_start(void)
 
 /* ---------- start */
 
-/* a copy rendering a menu picture (HALO_RENDER_PICTURE) */
-static BOOL picture_copy;
-
 void host_app_start(void)
 {
 	@autoreleasepool
@@ -792,18 +789,6 @@ void host_app_start(void)
 			return;
 		[files createDirectoryAtURL:support withIntermediateDirectories:YES attributes:nil error:NULL];
 		[files createDirectoryAtURL:logs withIntermediateDirectories:YES attributes:nil error:NULL];
-		/* a copy the game started to render a menu picture
-		(port/linux/src/menu_pictures.c): its settings' folder alone; no
-		Dock icon or menu bar, and none of the app's log, windows' places,
-		maps' offer or updates, which are the game's */
-		if (getenv("HALO_RENDER_PICTURE") && *getenv("HALO_RENDER_PICTURE"))
-		{
-			picture_copy = YES;
-			SDL_SetHint(SDL_HINT_MAC_BACKGROUND_APP, "1");
-			support_folder = support.path;
-			snprintf(settings_folder, sizeof(settings_folder), "%s/", support_folder.fileSystemRepresentation);
-			return;
-		}
 		log_open(logs);
 		support_folder = support.path;
 		snprintf(settings_folder, sizeof(settings_folder), "%s/", support_folder.fileSystemRepresentation);
@@ -845,7 +830,7 @@ void host_app_update_tick(void)
 	static BOOL started;
 	Uint64 now = SDL_GetTicks();
 
-	if (!support_folder || picture_copy || now < next)
+	if (!support_folder || now < next)
 		return;
 	next = now + 2000;
 	@autoreleasepool

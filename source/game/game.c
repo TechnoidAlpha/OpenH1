@@ -157,6 +157,7 @@ struct game_options;
 #include "items/items.h"
 #include "items/projectiles.h"
 #include "main/main.h"
+#include "menu_pictures.h" /* port: port/linux/game/menu_pictures_render.c */
 #include "main/console.h"
 #include "math/real_math.h"
 #include "memory/data.h"
@@ -939,6 +940,13 @@ void game_precache_new_map(
 			{
 				map_status = cache_files_precache_map_status(
 					&game_globals->loading_progress);
+				/* port: not for a map of the menus' pictures: their preparing
+				screen stays as it is (port/linux/game/menu_pictures_render.c) */
+				if (menu_pictures_preparing())
+				{
+					Sleep(1);
+					continue;
+				}
 				main_pregame_render();
 				main_rasterizer_throttle();
 				main_present_frame();

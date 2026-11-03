@@ -107,6 +107,7 @@ symbols in this file:
 #include "units/units.h"
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 #include "latency_meter.h" /* port: port/linux/game/latency_meter.c */
+#include "menu_pictures.h" /* port: port/linux/game/menu_pictures_render.c */
 #include "network_host_controls.h" /* port: port/linux/game/network_host_controls.c */
 
 /* ---------- constants */
@@ -396,6 +397,9 @@ void interface_draw_fullscreen_overlays(
 	terminal_draw();
 	main_framerate_render();
 	render_debug_profile();
+	/* port: the menus' pictures' preparing screen over all of it
+	(port/linux/game/menu_pictures_render.c) */
+	menu_pictures_screen_draw();
 
 	return;
 }

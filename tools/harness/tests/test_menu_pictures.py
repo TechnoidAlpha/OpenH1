@@ -1,6 +1,6 @@
 """The menus' pictures drawn again from the player's maps (port/linux/src/menu_pictures.c): the scale a screen asks for,
-the cache's decision (drawn, rendered again, or the original kept for a missing or modded map and failed renders), its
-notes, the colour curve, and the picture cut from a frame and laid out as the original frame is."""
+the cache's decision (drawn, rendered again, or the original kept for a missing or modded map and failed renders), the
+preparing pass's order, retries (a render noted before it begins) and a skipped pass resumed, its notes, the colour curve, and the picture cut from a frame and laid out as the original frame is."""
 
 import sys
 from pathlib import Path
@@ -10,10 +10,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
 
-CASES = ["scale", "fallback", "cached", "failures", "notes", "colour", "cut", "frame"]
+CASES = ["scale", "fallback", "cached", "failures", "order", "retry", "resume", "notes", "colour", "cut", "frame"]
 
 SOURCE = "port/linux/src/menu_pictures.c"
-FUNCTIONS = ("menu_picture_scale_for_height", "menu_picture_decide", "menu_picture_note_parse",
+FUNCTIONS = ("menu_picture_scale_for_height", "menu_picture_decide", "menu_picture_order", "menu_picture_note_begin",
+             "menu_picture_note_end", "menu_picture_note_parse",
              "menu_picture_note_format", "picture_sorted_at", "picture_quantile", "menu_picture_colour_curve",
              "menu_picture_cut", "menu_picture_frame")
 
@@ -28,6 +29,17 @@ NEGATIVE_CONTROLS = {
     "another-pose-drawn": (("note->pose_hash != pose->hash || ", ""), "menu_picture_decide", "cached"),
     "another-map-drawn": ((" || note->map_checksum != map_checksum", ""), "menu_picture_decide", "cached"),
     "failures-forever": (("note->failures < MENU_PICTURE_FAILURES", "1"), "menu_picture_decide", "failures"),
+    "larger-retried-forever": (("(note->scale < wanted_scale ? retry : 0)", "(note->scale < wanted_scale ? 2UL : 0)"),
+                               "menu_picture_decide", "retry"),
+    "maps-not-together": (("if (seen)\n\t\t\tcontinue;", "if (0)\n\t\t\tcontinue;"), "menu_picture_order", "order"),
+    "unwanted-ordered": (("if (!(decisions[first] & (1UL << _menu_picture_render_bit)))\n\t\t\tcontinue;",
+                          "if (0)\n\t\t\tcontinue;"), "menu_picture_order", "order"),
+    "begin-not-counted": (("note->failures++;", ";"), "menu_picture_note_begin", "retry"),
+    "begin-keeps-other-map": (("|| note->map_checksum != map_checksum)\n\t{", "&& 0)\n\t{"), "menu_picture_note_begin",
+                              "retry"),
+    "rendered-keeps-failures": (("note->failures = 0;", ";"), "menu_picture_note_end", "retry"),
+    "larger-failure-hides-picture": (("if (note->result != _menu_picture_rendered)\n", "if (1)\n"),
+                                     "menu_picture_note_end", "retry"),
     "modded-note-rendered": (("case _menu_picture_modded:\n\t\treturn 0;", "case _menu_picture_modded:"),
                              "menu_picture_decide", "failures"),
     "any-version-read": (("version != MENU_PICTURES_VERSION", "version < 0"), "menu_picture_note_parse", "notes"),

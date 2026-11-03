@@ -6,36 +6,30 @@ sp_levels and mp_map_grafix: 140x114 in the top left of 256x128 frames)
 drawn again, sharp, from the player's own maps (menu_pictures.h).
 
 Each picture's pose (port/assets/pictures: a camera's place, numbers only)
-is rendered once by a copy of the game, which the game starts in the
-background while its main menu shows (host_desktop.c's
-host_picture_worker_start): a map can only be drawn by loading it, which
-the menu's own process cannot do without leaving the menu, and a copy of
-its own is never in the menu's way. It runs one picture at a time, behind
-the game's priority, in no window; it is stopped as soon as a game starts
-(and started again later), and after 150 seconds at most. A pose is
-rendered by a fresh copy each: switching structures again and again runs
-out of the renderer's device groups, and a map may start in another
-structure than the pose's.
-
-The copy (debug.render_picture: port/linux/game/menu_pictures_render.c)
-loads the map, sets the scene, keeps a frame of 16:9 at most 2160 lines
-high, cuts the picture's shape from its middle and scales it to 140x114
-times the scale the game asked for (menu_picture_scale_for_height: what
-the largest card needs on this screen, up to 4K's), takes its colours
-toward the original's where the pose says (rr_final.py's curve: a smooth
-rising tone curve per channel), and writes it, laid out as the original
-frame is, as a PNG and a note of what it is in the data folder's
-menu_pictures. The game then decodes the PNG on a thread of its own and
-draws it in place of the original frame wherever the menus draw that frame
+is rendered once by the game itself, in its own window, as its main menu
+first shows: "Preparing menu pictures" (port/linux/game/menu_pictures_render.c),
+a map at a time, loaded the normal way, the scene set, one frame drawn and
+kept. This file is its platform half: which pictures are rendered and in
+what order (menu_pictures_wanted), each frame kept cut to the picture's
+shape and scaled to 140x114 times the scale this screen asks for
+(menu_picture_scale_for_height: what the largest card needs, up to 4K's),
+its colours taken toward the original's where the pose says (rr_final.py's
+curve: a smooth rising tone curve per channel), and written, laid out as
+the original frame is, as a PNG and a note of what it is in the data
+folder's menu_pictures; then each picture decoded on a thread of its own
+and drawn in place of the original frame wherever the menus draw that frame
 (xbox_textures.c, menu_picture_at), whatever size or crop they draw it at.
 
 The original is drawn instead whenever the picture cannot be: the map is
 missing, or not the one the pose was made for (its cache file checksum is
-not one of the pose's: a modded map), or its render failed twice (a crash,
-a timeout); and until it is ready. A pose or map changed, a larger screen,
-or this file's version renders it again. Nothing is rendered in runs nobody
-watches (tests: debug.hidden_window, debug.exit_after...), on Android and
-iOS (no second process), or with display.menu_pictures off.
+not one of the pose's: a modded map), or its render failed twice (a
+failure, or the game gone in the middle of one: each render is noted as a
+failure before it starts, and as rendered when it ends); and until it is
+ready. A picture skipped (the preparing screen's skip) keeps its note as it
+was, and is rendered at a later start. A pose or map changed, a larger
+screen (at the next start), or this file's version renders it again.
+Nothing is rendered in runs nobody watches (tests: debug.hidden_window,
+debug.exit_after...), in VR, or with display.menu_pictures off.
 */
 
 #include "menu_pictures.h"
@@ -59,41 +53,28 @@ int mkdir(const char *path, unsigned int mode);
 
 /* the cache's notes say which version of the rendering made them: a change
 of the rendering renders every picture again */
-#define MENU_PICTURES_VERSION 1
-/* failed renders of a pose (for a map) before the original is kept */
+#define MENU_PICTURES_VERSION 2
+/* renders of a pose (for a map) that did not finish before the original is
+kept */
 #define MENU_PICTURE_FAILURES 2
-/* the most poses */
-#define MAXIMUM_MENU_PICTURES 64
-/* how long the main menu shows before the first copy starts, and the
-longest a copy runs (its own debug.exit_after is 150 s) */
-#define MENU_PICTURE_START_DELAY_MS 3000
-#define MENU_PICTURE_LONGEST_MS 160000
-/* the copy's window: 16:9, twice the picture's lines (its pixels
-averaged), from 720 to 2160 lines */
-#define MENU_PICTURE_SHORTEST_WINDOW 720
-#define MENU_PICTURE_TALLEST_WINDOW 2160
 /* the largest a menu draws a frame: the campaign's mission card, 322 of
 the 640x480 screen's units for the frame's 256 texels (main_menu.campaign.xml) */
 #define MENU_PICTURE_LARGEST_UNITS 322
-/* a copy's exit statuses: rendered, failed, the map not the pose's */
-#define MENU_PICTURE_EXIT_RENDERED 0
-#define MENU_PICTURE_EXIT_FAILED 2
-#define MENU_PICTURE_EXIT_MODDED 3
 
 /* ---------- prototypes */
 
 /* the platform layer's */
 int halo_server_mode(void);
 float halo_screen_pixel_scale(void);
+#ifdef HALO_VR
+int halo_vr_running(void);
+#endif
+/* d3d8_device.c's: the frame being drawn's pixels so far (BGRA, rows from
+the top; malloc's), and its size */
+unsigned char *d3d8_back_buffer_read(unsigned long *width, unsigned long *height);
 /* the game's zlib (source/memory/zlib, data_compress.c's) */
 int compress2(unsigned char *destination, unsigned long *destination_size, const unsigned char *source,
 	unsigned long source_size, int level);
-#if !defined(HALO_ANDROID) && !defined(HALO_IOS)
-/* the host's (port/linux/host/guest_desktop.c) */
-int menu_pictures_worker_start(const char *job, const char *pipeline_cache, const char *log);
-int menu_pictures_worker_poll(int worker);
-void menu_pictures_worker_stop(int worker);
-#endif
 
 /* ---------- the pure parts (tools/harness/tests/menu_pictures.c) */
 
@@ -123,6 +104,7 @@ unsigned long menu_picture_decide(
 {
 	long index;
 	int made_for = 0;
+	unsigned long retry;
 
 	/* (no map, 0, or not the map the pose was made for: the original) */
 	for (index = 0; index < pose->checksum_count && index < MAXIMUM_MENU_PICTURE_CHECKSUMS; index++)
@@ -132,18 +114,97 @@ unsigned long menu_picture_decide(
 	/* (a note of another pose or map: rendered again) */
 	if (!note || note->pose_hash != pose->hash || note->map_checksum != map_checksum)
 		return 1UL << _menu_picture_render_bit;
+	/* (renders since that did not finish: tried again, up to a point) */
+	retry = note->failures < MENU_PICTURE_FAILURES ? 1UL << _menu_picture_render_bit : 0;
 	switch (note->result)
 	{
 	case _menu_picture_rendered:
-		/* (too small for this screen: drawn while a larger one is rendered) */
-		return (1UL << _menu_picture_use_bit) |
-			(note->scale < wanted_scale ? 1UL << _menu_picture_render_bit : 0);
-	case _menu_picture_failed:
-		return note->failures < MENU_PICTURE_FAILURES ? 1UL << _menu_picture_render_bit : 0;
+		/* (too small for this screen: drawn, and a larger one rendered) */
+		return (1UL << _menu_picture_use_bit) | (note->scale < wanted_scale ? retry : 0);
 	case _menu_picture_modded:
 		return 0;
 	default:
-		return 1UL << _menu_picture_render_bit;
+		return retry;
+	}
+}
+
+/* the order the poses to render (render in decisions) are rendered in,
+into order: those of a map together, in the order of their maps' first
+pose, and in their own order there (each map's file decompressed into the
+cache once, the next's while the one before is drawn); how many */
+long menu_picture_order(
+	struct menu_picture_pose const *poses,
+	long count,
+	unsigned long const *decisions,
+	long *order,
+	long maximum)
+{
+	long ordered = 0, first, pose;
+
+	for (first = 0; first < count; first++)
+	{
+		long before;
+		int seen = 0;
+
+		if (!(decisions[first] & (1UL << _menu_picture_render_bit)))
+			continue;
+		for (before = 0; before < first && !seen; before++)
+		{
+			seen = (decisions[before] & (1UL << _menu_picture_render_bit)) &&
+				!strcmp(poses[before].map, poses[first].map);
+		}
+		if (seen)
+			continue;
+		for (pose = first; pose < count && ordered < maximum; pose++)
+		{
+			if ((decisions[pose] & (1UL << _menu_picture_render_bit)) && !strcmp(poses[pose].map, poses[first].map))
+				order[ordered++] = pose;
+		}
+	}
+	return ordered;
+}
+
+/* a pose's note as its render begins: counted as failed until it ends
+(what was rendered before, for this pose and map, kept meanwhile) */
+void menu_picture_note_begin(
+	struct menu_picture_note *note,
+	struct menu_picture_pose const *pose,
+	unsigned long map_checksum,
+	long scale)
+{
+	if (note->pose_hash != pose->hash || note->map_checksum != map_checksum)
+	{
+		memset(note, 0, sizeof(*note));
+		note->result = _menu_picture_none;
+		note->pose_hash = pose->hash;
+		note->map_checksum = map_checksum;
+		note->scale = scale;
+	}
+	note->failures++;
+}
+
+/* ...and as it ends: rendered at this scale (its failures forgotten), or
+not (failed: counted; modded: the map not the pose's) */
+void menu_picture_note_end(
+	struct menu_picture_note *note,
+	enum menu_picture_result result,
+	long scale)
+{
+	switch (result)
+	{
+	case _menu_picture_rendered:
+		note->result = result;
+		note->scale = scale;
+		note->failures = 0;
+		break;
+	case _menu_picture_modded:
+		note->result = result;
+		break;
+	default:
+		/* (a picture rendered before is still drawn) */
+		if (note->result != _menu_picture_rendered)
+			note->result = _menu_picture_failed;
+		break;
 	}
 }
 
@@ -443,20 +504,26 @@ void menu_picture_frame(
 static struct
 {
 	pthread_mutex_t lock;
-	int started, enabled;
+	/* the main menu first shown: the poses looked at (once a run) */
+	int started;
 	char folder[1024];
 	/* each pose's picture, as the main menu found it */
 	struct menu_picture_state
 	{
 		int checked;
-		/* this run tried to render it (once a run) */
-		int tried;
 		unsigned long map_checksum;
 		unsigned long decision;
 		struct menu_picture_note note;
 		int noted;
-		/* its pixels decoded on the loader thread (the lock's), and the
-		image made from them */
+		/* a render of it begun, and its note before it (given back if it
+		is skipped) */
+		int rendering;
+		struct menu_picture_note note_before;
+		int noted_before;
+		/* the original picture's pixels (RGBA, 140x114), for its colours */
+		unsigned char *original;
+		/* its pixels decoded on the loader thread, or kept from its render
+		(the lock's), and the image made from them */
 		int loading;
 		unsigned char *pixels;
 		unsigned long width, height;
@@ -466,9 +533,14 @@ static struct
 		long image_scale;
 	} pictures[MAXIMUM_MENU_PICTURES];
 	long wanted_scale;
-	int worker;
-	long worker_pose;
-	unsigned long long worker_started, menu_since;
+	/* the preparing screen's placeholder textures (their data's address),
+	each drawn as a pose's picture */
+	struct
+	{
+		unsigned long address;
+		long pose;
+	} thumbnails[MAXIMUM_MENU_PICTURES];
+	long thumbnail_count;
 } menu_pictures = { PTHREAD_MUTEX_INITIALIZER };
 
 /* the cache's folder: the data folder's menu_pictures */
@@ -487,6 +559,31 @@ static void picture_path(char *path, size_t size, long pose, char const *extensi
 static long picture_count(void)
 {
 	return menu_picture_pose_count < MAXIMUM_MENU_PICTURES ? (long)menu_picture_pose_count : MAXIMUM_MENU_PICTURES;
+}
+
+/* a picture's pixels (malloc's, now the picture's; NULL: none) for the
+game to make its image of */
+static void picture_pixels_set(long pose, unsigned char *pixels, unsigned long width, unsigned long height,
+	long scale)
+{
+	struct menu_picture_state *state = &menu_pictures.pictures[pose];
+
+	pthread_mutex_lock(&menu_pictures.lock);
+	/* (a smaller one decoded after a larger was rendered: let go) */
+	if (pixels && (scale < state->pixels_scale || scale < state->image_scale))
+	{
+		state->loading = 0;
+		pthread_mutex_unlock(&menu_pictures.lock);
+		free(pixels);
+		return;
+	}
+	free(state->pixels);
+	state->pixels = pixels;
+	state->width = width;
+	state->height = height;
+	state->pixels_scale = scale;
+	state->loading = 0;
+	pthread_mutex_unlock(&menu_pictures.lock);
 }
 
 /* a whole small file, NUL-ended (malloc's), or NULL */
@@ -670,212 +767,27 @@ static int picture_png_write(char const *path, unsigned char const *rgba, unsign
 	return written;
 }
 
-/* ---------- the copy that renders a picture (debug.render_picture) */
-
-static struct
-{
-	int read;
-	long pose;
-	long scale;
-	/* the original picture's pixels (RGBA, 140x114), for its colours */
-	unsigned char original[MENU_PICTURE_WIDTH * MENU_PICTURE_HEIGHT * 4];
-	int original_kept;
-	int capture_wanted;
-	unsigned long map_checksum;
-} picture_job = { 0, -1 };
-
-int menu_pictures_rendering(void)
-{
-	return config_string("debug.render_picture")[0] != 0;
-}
-
-/* the job's own lines ("pose = <name>", "scale = <n>"; the others are
-settings: port_config.c) */
-static void picture_job_read(void)
-{
-	char *text, *line;
-
-	if (picture_job.read)
-		return;
-	picture_job.read = 1;
-	picture_job.scale = MENU_PICTURE_SMALLEST_SCALE;
-	text = picture_read_file(config_string("debug.render_picture"), 65536, NULL);
-	for (line = text; line && *line;)
-	{
-		char *end = strchr(line, '\n');
-		char name[64], value[256];
-
-		if (end)
-			*end = 0;
-		if (sscanf(line, " %63[^= ] = %255s", name, value) == 2)
-		{
-			if (!strcmp(name, "pose"))
-			{
-				long pose;
-
-				for (pose = 0; pose < picture_count(); pose++)
-				{
-					if (!strcmp(menu_picture_poses[pose].name, value))
-						picture_job.pose = pose;
-				}
-			}
-			else if (!strcmp(name, "scale"))
-			{
-				picture_job.scale = strtol(value, NULL, 10);
-			}
-		}
-		line = end ? end + 1 : NULL;
-	}
-	free(text);
-	if (picture_job.scale < MENU_PICTURE_SMALLEST_SCALE || picture_job.scale > MENU_PICTURE_LARGEST_SCALE)
-		picture_job.scale = MENU_PICTURE_SMALLEST_SCALE;
-}
-
-long menu_pictures_job_pose(void)
-{
-	if (!menu_pictures_rendering())
-		return -1;
-	picture_job_read();
-	return picture_job.pose;
-}
-
-void menu_pictures_keep_original(
-	void const *texture)
-{
-	DWORD const *header = texture;
-	struct xgpu_texture_description description;
-	DWORD *pixels;
-	unsigned long x, y;
-
-	if (!header || !header[1])
-		return;
-	xgpu_texture_describe(header[3], header[4], &description);
-	if (description.width != MENU_PICTURE_FRAME_WIDTH || description.height != MENU_PICTURE_FRAME_HEIGHT ||
-		description.cube_map || description.depth > 1)
-	{
-		platform_log("menu pictures: the original frame is %lux%lu, not %dx%d: its colours are not matched",
-			description.width, description.height, MENU_PICTURE_FRAME_WIDTH, MENU_PICTURE_FRAME_HEIGHT);
-		return;
-	}
-	pixels = malloc(description.width * description.height * 4);
-	if (!pixels)
-		return;
-	if (description.compressed)
-		xgpu_texture_decode_dxt(&description, 0, PLATFORM_PHYSICAL_TO_VIRTUAL(header[1]), pixels);
-	else if (!xgpu_texture_decode_level(&description, 0, PLATFORM_PHYSICAL_TO_VIRTUAL(header[1]), NULL, pixels))
-	{
-		free(pixels);
-		return;
-	}
-	/* (ARGB words: BGRA bytes) */
-	for (y = 0; y < MENU_PICTURE_HEIGHT; y++)
-	{
-		for (x = 0; x < MENU_PICTURE_WIDTH; x++)
-		{
-			DWORD texel = pixels[y * description.width + x];
-			unsigned char *out = picture_job.original + (y * MENU_PICTURE_WIDTH + x) * 4;
-
-			out[0] = (unsigned char)(texel >> 16);
-			out[1] = (unsigned char)(texel >> 8);
-			out[2] = (unsigned char)texel;
-			out[3] = 255;
-		}
-	}
-	free(pixels);
-	picture_job.original_kept = 1;
-}
-
-void menu_pictures_capture_request(void)
-{
-	picture_job.capture_wanted = 1;
-}
-
-int menu_pictures_capture_wanted(void)
-{
-	return picture_job.capture_wanted;
-}
-
-void menu_pictures_job_end(
-	enum menu_picture_result result,
-	unsigned long map_checksum)
-{
-	long pose = menu_pictures_job_pose();
-
-	if (pose >= 0 && (result == _menu_picture_rendered || result == _menu_picture_modded))
-	{
-		struct menu_picture_note note;
-
-		memset(&note, 0, sizeof(note));
-		note.result = result;
-		note.pose_hash = menu_picture_poses[pose].hash;
-		note.map_checksum = map_checksum;
-		note.scale = picture_job.scale;
-		if (!picture_note_write(pose, &note))
-		{
-			platform_log("menu pictures: cannot write the note of %s", menu_picture_poses[pose].name);
-			result = _menu_picture_failed;
-		}
-	}
-	platform_log("menu pictures: %s %s", pose >= 0 ? menu_picture_poses[pose].name : "(no pose)",
-		menu_picture_result_names[result]);
-	exit(result == _menu_picture_rendered ? MENU_PICTURE_EXIT_RENDERED :
-		result == _menu_picture_modded ? MENU_PICTURE_EXIT_MODDED : MENU_PICTURE_EXIT_FAILED);
-}
-
-void menu_pictures_set_map_checksum(
-	unsigned long map_checksum)
-{
-	picture_job.map_checksum = map_checksum;
-}
-
-/* the frame kept (d3d8_device.c's present: BGRA, rows from the top) */
-void menu_pictures_capture(
-	unsigned char const *bgra,
-	unsigned long width,
-	unsigned long height)
-{
-	long pose = menu_pictures_job_pose();
-	unsigned long picture_width, picture_height, frame_width, frame_height;
-	unsigned char *picture, *frame;
-	char path[1100];
-	int written = 0;
-
-	picture_job.capture_wanted = 0;
-	if (pose < 0)
-		menu_pictures_job_end(_menu_picture_failed, 0);
-	picture_width = (unsigned long)(MENU_PICTURE_WIDTH * picture_job.scale);
-	picture_height = (unsigned long)(MENU_PICTURE_HEIGHT * picture_job.scale);
-	frame_width = (unsigned long)(MENU_PICTURE_FRAME_WIDTH * picture_job.scale);
-	frame_height = (unsigned long)(MENU_PICTURE_FRAME_HEIGHT * picture_job.scale);
-	picture = malloc(picture_width * picture_height * 4);
-	frame = malloc(frame_width * frame_height * 4);
-	if (picture && frame &&
-		menu_picture_cut(bgra, width, height, menu_picture_poses[pose].aspect, picture, picture_width, picture_height))
-	{
-		if (menu_picture_poses[pose].colour_curve && picture_job.original_kept)
-		{
-			menu_picture_colour_curve(picture, picture_width * picture_height, picture_job.original,
-				MENU_PICTURE_WIDTH * MENU_PICTURE_HEIGHT);
-		}
-		menu_picture_frame(picture, picture_width, picture_height, frame, frame_width, frame_height);
-		picture_path(path, sizeof(path), pose, "png");
-		written = picture_png_write(path, frame, frame_width, frame_height);
-		platform_log("menu pictures: %s, %lux%lu from a %lux%lu frame%s: %s", menu_picture_poses[pose].name,
-			picture_width, picture_height, width, height,
-			menu_picture_poses[pose].colour_curve ? (picture_job.original_kept ? ", colours matched" :
-			", colours not matched (no original)") : "", written ? path : "not written");
-	}
-	free(picture);
-	free(frame);
-	menu_pictures_job_end(written ? _menu_picture_rendered : _menu_picture_failed, picture_job.map_checksum);
-}
-
-/* ---------- the game: the pictures found, rendered, loaded and drawn */
+/* ---------- the pictures found, rendered, loaded and drawn */
 
 static int picture_enabled(void)
 {
-	return menu_picture_pose_count > 0 && !menu_pictures_rendering() && config_boolean("display.menu_pictures") &&
+	return menu_picture_pose_count > 0 && config_boolean("display.menu_pictures") &&
 		!config_boolean("debug.null_renderer") && !halo_server_mode();
+}
+
+/* runs nobody watches (tests), and those whose first screen is not the
+main menu's: nothing rendered */
+static int picture_quiet_run(void)
+{
+	if (config_boolean("debug.menu_pictures"))
+		return 0;
+	return config_boolean("debug.hidden_window") || config_real("debug.exit_after") > 0.0 ||
+		config_string("debug.network_test")[0] || config_string("debug.test_input")[0] ||
+		config_boolean("debug.fixed_step") || config_string("debug.menu_open")[0]
+#ifdef HALO_VR
+		|| halo_vr_running()
+#endif
+		;
 }
 
 /* the loader thread: a picture's PNG decoded, and kept for the game to make
@@ -906,14 +818,7 @@ static void *picture_load_thread(void *context)
 	}
 	if (!pixels)
 		platform_log("menu pictures: cannot read %s: the original is drawn", path);
-	pthread_mutex_lock(&menu_pictures.lock);
-	free(state->pixels);
-	state->pixels = pixels;
-	state->width = width;
-	state->height = height;
-	state->pixels_scale = scale;
-	state->loading = 0;
-	pthread_mutex_unlock(&menu_pictures.lock);
+	picture_pixels_set(pose, pixels, width, height, scale);
 	return NULL;
 }
 
@@ -959,187 +864,196 @@ static void picture_check(long pose)
 		picture_load(pose);
 }
 
-#if !defined(HALO_ANDROID) && !defined(HALO_IOS)
-static int picture_quiet_run(void)
+long menu_pictures_wanted(
+	long *poses,
+	long maximum)
 {
-	return config_boolean("debug.hidden_window") || config_real("debug.exit_after") > 0.0 ||
-		config_string("debug.network_test")[0] || config_string("debug.test_input")[0] ||
-		config_boolean("debug.fixed_step");
+	unsigned long decisions[MAXIMUM_MENU_PICTURES];
+	long pose;
+
+	if (menu_pictures.started)
+		return 0;
+	menu_pictures.started = 1;
+	if (!picture_enabled())
+		return 0;
+	mkdir(picture_folder(), 0755);
+	menu_pictures.wanted_scale = menu_picture_scale_for_height((long)(480.0f * halo_screen_pixel_scale() + 0.5f));
+	for (pose = 0; pose < picture_count(); pose++)
+	{
+		picture_check(pose);
+		decisions[pose] = menu_pictures.pictures[pose].decision;
+	}
+	if (picture_quiet_run())
+		return 0;
+	return menu_picture_order(menu_picture_poses, picture_count(), decisions, poses, maximum);
 }
 
-/* the window the copy draws in, for its picture's scale */
-static void picture_window_size(long scale, long *width, long *height)
+long menu_pictures_scale(void)
 {
-	long lines = 2 * MENU_PICTURE_HEIGHT * scale;
-
-	if (lines < MENU_PICTURE_SHORTEST_WINDOW)
-		lines = MENU_PICTURE_SHORTEST_WINDOW;
-	if (lines > MENU_PICTURE_TALLEST_WINDOW)
-		lines = MENU_PICTURE_TALLEST_WINDOW;
-	*height = lines & ~1L;
-	*width = (lines * 16 / 9 + 1) & ~1L;
+	return menu_pictures.wanted_scale ? menu_pictures.wanted_scale : MENU_PICTURE_SMALLEST_SCALE;
 }
 
-/* a render that failed: noted, so that it is tried no more than twice */
-static void picture_failed(long pose, char const *why)
+void menu_pictures_keep_original(
+	long pose,
+	void const *texture)
 {
+	DWORD const *header = texture;
+	struct xgpu_texture_description description;
+	DWORD *pixels;
+	unsigned char *original;
+	unsigned long x, y;
+
+	if (pose < 0 || pose >= picture_count() || !header || !header[1])
+		return;
+	xgpu_texture_describe(header[3], header[4], &description);
+	if (description.width != MENU_PICTURE_FRAME_WIDTH || description.height != MENU_PICTURE_FRAME_HEIGHT ||
+		description.cube_map || description.depth > 1)
+	{
+		platform_log("menu pictures: the original frame is %lux%lu, not %dx%d: its colours are not matched",
+			description.width, description.height, MENU_PICTURE_FRAME_WIDTH, MENU_PICTURE_FRAME_HEIGHT);
+		return;
+	}
+	pixels = malloc(description.width * description.height * 4);
+	original = malloc(MENU_PICTURE_WIDTH * MENU_PICTURE_HEIGHT * 4);
+	if (!pixels || !original || (!description.compressed &&
+		!xgpu_texture_decode_level(&description, 0, PLATFORM_PHYSICAL_TO_VIRTUAL(header[1]), NULL, pixels)))
+	{
+		free(pixels);
+		free(original);
+		return;
+	}
+	if (description.compressed)
+		xgpu_texture_decode_dxt(&description, 0, PLATFORM_PHYSICAL_TO_VIRTUAL(header[1]), pixels);
+	/* (ARGB words: BGRA bytes) */
+	for (y = 0; y < MENU_PICTURE_HEIGHT; y++)
+	{
+		for (x = 0; x < MENU_PICTURE_WIDTH; x++)
+		{
+			DWORD texel = pixels[y * description.width + x];
+			unsigned char *out = original + (y * MENU_PICTURE_WIDTH + x) * 4;
+
+			out[0] = (unsigned char)(texel >> 16);
+			out[1] = (unsigned char)(texel >> 8);
+			out[2] = (unsigned char)texel;
+			out[3] = 255;
+		}
+	}
+	free(pixels);
+	free(menu_pictures.pictures[pose].original);
+	menu_pictures.pictures[pose].original = original;
+}
+
+void menu_pictures_render_begin(
+	long pose)
+{
+	struct menu_picture_state *state = &menu_pictures.pictures[pose];
 	struct menu_picture_note note;
 
-	if (!picture_note_read(pose, &note) || note.pose_hash != menu_picture_poses[pose].hash ||
-		note.map_checksum != menu_pictures.pictures[pose].map_checksum || note.result != _menu_picture_failed)
+	/* (the note as it was, given back if the render is given up) */
+	pthread_mutex_lock(&menu_pictures.lock);
+	state->note_before = state->note;
+	state->noted_before = state->noted;
+	note = state->noted ? state->note : (struct menu_picture_note){ 0 };
+	menu_picture_note_begin(&note, &menu_picture_poses[pose], state->map_checksum, menu_pictures.wanted_scale);
+	pthread_mutex_unlock(&menu_pictures.lock);
+	if (!picture_note_write(pose, &note))
+		platform_log("menu pictures: cannot write the note of %s", menu_picture_poses[pose].name);
+	state->rendering = 1;
+}
+
+void menu_pictures_render_skipped(
+	long pose)
+{
+	struct menu_picture_state *state = &menu_pictures.pictures[pose];
+	char path[1100];
+
+	if (!state->rendering)
+		return;
+	state->rendering = 0;
+	if (state->noted_before)
+		picture_note_write(pose, &state->note_before);
+	else
 	{
-		memset(&note, 0, sizeof(note));
+		picture_path(path, sizeof(path), pose, "txt");
+		remove(path);
 	}
-	note.result = _menu_picture_failed;
-	note.pose_hash = menu_picture_poses[pose].hash;
-	note.map_checksum = menu_pictures.pictures[pose].map_checksum;
-	note.scale = menu_pictures.wanted_scale;
-	note.failures++;
+	platform_log("menu pictures: %s skipped", menu_picture_poses[pose].name);
+}
+
+void menu_pictures_render_failed(
+	long pose,
+	char const *why)
+{
+	struct menu_picture_state *state = &menu_pictures.pictures[pose];
+	struct menu_picture_note note;
+
+	if (!state->rendering)
+		return;
+	state->rendering = 0;
+	note = state->noted_before ? state->note_before : (struct menu_picture_note){ 0 };
+	menu_picture_note_begin(&note, &menu_picture_poses[pose], state->map_checksum, menu_pictures.wanted_scale);
+	menu_picture_note_end(&note, _menu_picture_failed, menu_pictures.wanted_scale);
 	picture_note_write(pose, &note);
 	platform_log("menu pictures: %s %s (%ld time%s): the original is drawn", menu_picture_poses[pose].name, why,
 		note.failures, note.failures == 1 ? "" : "s");
 }
 
-/* the game quitting: its copy goes with it */
-static void picture_worker_quit(void)
+int menu_pictures_render_kept(
+	long pose)
 {
-	if (menu_pictures.worker)
-		menu_pictures_worker_stop(menu_pictures.worker);
-	menu_pictures.worker = 0;
-}
+	unsigned long width = 0, height = 0;
+	unsigned char *bgra = d3d8_back_buffer_read(&width, &height);
+	struct menu_picture_state *state = &menu_pictures.pictures[pose];
+	struct menu_picture_pose const *picture = &menu_picture_poses[pose];
+	long scale = menu_pictures.wanted_scale;
+	unsigned long picture_width = (unsigned long)(MENU_PICTURE_WIDTH * scale);
+	unsigned long picture_height = (unsigned long)(MENU_PICTURE_HEIGHT * scale);
+	unsigned long frame_width = (unsigned long)(MENU_PICTURE_FRAME_WIDTH * scale);
+	unsigned long frame_height = (unsigned long)(MENU_PICTURE_FRAME_HEIGHT * scale);
+	unsigned char *cut = malloc(picture_width * picture_height * 4);
+	unsigned char *frame = malloc(frame_width * frame_height * 4);
+	struct menu_picture_note note;
+	char path[1100];
+	int written = 0;
 
-static void picture_worker_start(long pose)
-{
-	static int quit_hooked;
-
-	char job[1100], cache[1100], log[1100], text[4096];
-	long width, height;
-
-	menu_pictures.pictures[pose].tried = 1;
-	picture_window_size(menu_pictures.wanted_scale, &width, &height);
-	snprintf(job, sizeof(job), "%s/job.txt", picture_folder());
-	snprintf(cache, sizeof(cache), "%s/vulkan_pipelines.bin", picture_folder());
-	snprintf(log, sizeof(log), "%s/render.log", picture_folder());
-	snprintf(text, sizeof(text),
-		"pose = %s\nscale = %ld\npaths.data = %s\npaths.saves = %s/saves\npaths.logs = %s/logs\n"
-		"display.window_size = %ldx%ld\n",
-		menu_picture_poses[pose].name, menu_pictures.wanted_scale, platform_data_root(), picture_folder(),
-		picture_folder(), width, height);
-	if (!picture_write_file(job, text, strlen(text)))
+	if (bgra && cut && frame && menu_picture_cut(bgra, width, height, picture->aspect, cut, picture_width, picture_height))
 	{
-		platform_log("menu pictures: cannot write %s", job);
-		return;
+		if (picture->colour_curve && state->original)
+			menu_picture_colour_curve(cut, picture_width * picture_height, state->original,
+				MENU_PICTURE_WIDTH * MENU_PICTURE_HEIGHT);
+		menu_picture_frame(cut, picture_width, picture_height, frame, frame_width, frame_height);
+		picture_path(path, sizeof(path), pose, "png");
+		written = picture_png_write(path, frame, frame_width, frame_height);
+		platform_log("menu pictures: %s, %lux%lu from a %lux%lu frame%s: %s", picture->name, picture_width,
+			picture_height, width, height, picture->colour_curve ? (state->original ? ", colours matched" :
+			", colours not matched (no original)") : "", written ? path : "not written");
 	}
-	if (!quit_hooked)
-		quit_hooked = atexit(picture_worker_quit) == 0;
-	menu_pictures.worker = menu_pictures_worker_start(job, cache, log);
-	if (!menu_pictures.worker)
+	free(cut);
+	free(bgra);
+	if (!written)
 	{
-		platform_log("menu pictures: cannot start a copy of the game to render %s", menu_picture_poses[pose].name);
-		return;
+		free(frame);
+		menu_pictures_render_failed(pose, "was not written");
+		return 0;
 	}
-	menu_pictures.worker_pose = pose;
-	menu_pictures.worker_started = SDL_GetTicks();
-	platform_log("menu pictures: rendering %s (%ldx%ld, %ld times its size)", menu_picture_poses[pose].name,
-		width, height, menu_pictures.wanted_scale);
-}
-
-/* the copy rendering a picture: done, or stopped when a game starts or it
-takes too long */
-static void picture_worker_update(int main_menu_loaded)
-{
-	long pose = menu_pictures.worker_pose;
-	int status;
-
-	if (!menu_pictures.worker)
-		return;
-	status = menu_pictures_worker_poll(menu_pictures.worker);
-	if (status < 0)
+	note = state->noted_before ? state->note_before : (struct menu_picture_note){ 0 };
+	menu_picture_note_begin(&note, picture, state->map_checksum, scale);
+	menu_picture_note_end(&note, _menu_picture_rendered, scale);
+	if (!picture_note_write(pose, &note))
 	{
-		if (main_menu_loaded && SDL_GetTicks() - menu_pictures.worker_started < MENU_PICTURE_LONGEST_MS)
-			return;
-		menu_pictures_worker_stop(menu_pictures.worker);
-		menu_pictures.worker = 0;
-		if (main_menu_loaded)
-			picture_failed(pose, "took too long");
-		else
-		{
-			/* (a game started: tried again in the menu) */
-			menu_pictures.pictures[pose].tried = 0;
-			platform_log("menu pictures: %s stopped for the game", menu_picture_poses[pose].name);
-		}
-		return;
+		free(frame);
+		platform_log("menu pictures: cannot write the note of %s", picture->name);
+		return 0;
 	}
-	menu_pictures.worker = 0;
-	if (status == MENU_PICTURE_EXIT_RENDERED)
-		platform_log("menu pictures: %s rendered in %.1f s", menu_picture_poses[pose].name,
-			(double)(SDL_GetTicks() - menu_pictures.worker_started) / 1000.0);
-	else if (status != MENU_PICTURE_EXIT_MODDED)
-		picture_failed(pose, "failed");
-	menu_pictures.pictures[pose].checked = 0;
-}
-#endif
-
-void menu_pictures_update(
-	int main_menu_loaded)
-{
-	long pose, scale;
-
-	/* (decided once: none of these is changed by a menu; in a game, nothing
-	to do but a copy's end) */
-	if (!menu_pictures.started)
-	{
-		menu_pictures.started = 1;
-		menu_pictures.enabled = picture_enabled();
-		if (menu_pictures.enabled)
-			mkdir(picture_folder(), 0755);
-	}
-	if (!menu_pictures.enabled || (!main_menu_loaded && !menu_pictures.worker && !menu_pictures.menu_since))
-		return;
-	/* (a larger screen: each picture looked at again) */
-	scale = menu_picture_scale_for_height((long)(480.0f * halo_screen_pixel_scale() + 0.5f));
-	if (scale > menu_pictures.wanted_scale)
-	{
-		menu_pictures.wanted_scale = scale;
-		for (pose = 0; pose < picture_count(); pose++)
-			menu_pictures.pictures[pose].checked = 0;
-	}
-#if !defined(HALO_ANDROID) && !defined(HALO_IOS)
-	picture_worker_update(main_menu_loaded);
-#endif
-	if (!main_menu_loaded)
-	{
-		menu_pictures.menu_since = 0;
-		return;
-	}
-	if (!menu_pictures.menu_since)
-		menu_pictures.menu_since = SDL_GetTicks();
-	/* (one a frame: a header and a note read) */
-	for (pose = 0; pose < picture_count(); pose++)
-	{
-		if (!menu_pictures.pictures[pose].checked)
-		{
-			picture_check(pose);
-			return;
-		}
-	}
-#if !defined(HALO_ANDROID) && !defined(HALO_IOS)
-	if (menu_pictures.worker || picture_quiet_run() ||
-		SDL_GetTicks() - menu_pictures.menu_since < MENU_PICTURE_START_DELAY_MS)
-	{
-		return;
-	}
-	for (pose = 0; pose < picture_count(); pose++)
-	{
-		struct menu_picture_state *state = &menu_pictures.pictures[pose];
-
-		if ((state->decision & (1UL << _menu_picture_render_bit)) && !state->tried)
-		{
-			picture_worker_start(pose);
-			return;
-		}
-	}
-#endif
+	state->rendering = 0;
+	/* (drawn at once: the preparing screen's, then the menus') */
+	pthread_mutex_lock(&menu_pictures.lock);
+	state->note = note;
+	state->noted = 1;
+	state->decision = 1UL << _menu_picture_use_bit;
+	pthread_mutex_unlock(&menu_pictures.lock);
+	picture_pixels_set(pose, frame, frame_width, frame_height, scale);
+	return 1;
 }
 
 unsigned int menu_pictures_texture(
@@ -1177,4 +1091,40 @@ unsigned int menu_pictures_texture(
 	}
 	pthread_mutex_unlock(&menu_pictures.lock);
 	return image;
+}
+
+void menu_pictures_thumbnail_register(
+	unsigned long address,
+	long pose)
+{
+	long index;
+
+	for (index = 0; index < menu_pictures.thumbnail_count; index++)
+	{
+		if (menu_pictures.thumbnails[index].address == address)
+		{
+			menu_pictures.thumbnails[index].pose = pose;
+			return;
+		}
+	}
+	if (menu_pictures.thumbnail_count < MAXIMUM_MENU_PICTURES)
+	{
+		menu_pictures.thumbnails[menu_pictures.thumbnail_count].address = address;
+		menu_pictures.thumbnails[menu_pictures.thumbnail_count].pose = pose;
+		menu_pictures.thumbnail_count++;
+	}
+}
+
+unsigned int menu_pictures_thumbnail_texture(
+	unsigned long address,
+	unsigned long *levels)
+{
+	long index;
+
+	for (index = 0; index < menu_pictures.thumbnail_count; index++)
+	{
+		if (menu_pictures.thumbnails[index].address == address)
+			return menu_pictures_texture(menu_pictures.thumbnails[index].pose, levels);
+	}
+	return 0;
 }
