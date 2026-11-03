@@ -530,8 +530,10 @@ void rasterizer_environment_fog_screen_model_submit(
 			group->model_base_map_scale = model->base_map_scale;
 			if (!model_parameters_cached)
 			{
+				/* port: kept for the window (drawn at its end), not
+				released with the transparent geometry's queue */
 				cached_node_matrices =
-					rasterizer_memory_alloc_const(
+					rasterizer_memory_alloc_const_for_window(
 						model->skinning.node_matrices,
 						model->skinning.node_matrix_count * sizeof(real_matrix4x3));
 				cached_node_matrix_count =

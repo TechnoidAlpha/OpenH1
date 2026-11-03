@@ -8,7 +8,8 @@ no menus) with the scripted player (debug.test_input "bot"), offscreen
 recordings. A run fails on an EXCEPTION in its debug.txt or a nonzero exit,
 on a number that was not one on its way to the GPU (the command stream's
 encoder made it 0: xgpu_stream_encode.c's stream_finite, said in its output;
-or a light the rasterizer refused, rasterizer_lights.c, in debug.txt), and
+or a light the rasterizer refused, rasterizer_lights.c, in debug.txt), on the
+rasterizer's memory pool spent (rasterizer_memory_pool.c, in debug.txt), and
 the check on any draw of play the map's enumeration does not have.
 
     python tools/render_enumerate_sweep.py --data <folder of maps/> [--list maps.txt] [--seconds 90] [--jobs 8]
@@ -68,6 +69,11 @@ def run(scenario, arguments):
               if "drawn as 0" in line or "a light not a number" in line]
     if caught:
         return folder, caught[0]
+    # (the rasterizer's memory pool spent: the draws it could not hold are dropped or drawn wrong)
+    spent = [line.strip() for line in debug.read_text(errors="replace").splitlines()
+             if "rasterizer memory pool exceeded" in line] if debug.exists() else []
+    if spent:
+        return folder, spent[0]
     if status != 0:
         return folder, f"exit {status}"
     return folder, None
