@@ -826,10 +826,17 @@ static void get_particle_world_position(
 	short last_marker_index;
 	short index;
 
+	/* port: the last stretch with its end, as the path of more markers below
+	has each: a particle at the glow's end (a time of total_time, where a
+	step forward ends, or a step back wrapped round by less than total_time
+	can tell from it) was in none, the last marker its parent; with three
+	markers that left the path's middle points unset (no case for it) */
 	for (marker_index = 0; marker_index < glow->number_of_markers - 1; marker_index++)
 	{
 		if (glow->marker_time_index[marker_index] <= particle->t &&
-			glow->marker_time_index[marker_index + 1] > particle->t)
+			(glow->marker_time_index[marker_index + 1] > particle->t ||
+				(marker_index == glow->number_of_markers - 2 &&
+					glow->marker_time_index[marker_index + 1] == particle->t)))
 		{
 			break;
 		}
