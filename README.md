@@ -318,26 +318,40 @@ The profile needs clang 22 or later. With an older clang, the builds do not
 use it. The guest builds' pinned LLVM (refer to "The guests' compiler")
 reads it on all platforms. `--pgo-profile PROFDATA` uses another profile.
 
-To record the profile again (after large changes to the game's hot code),
-use a guest build of your computer. On a Mac:
+To record the profile again (after large changes to the game's hot code,
+or to how the compiler lays it out, as a change to inlining), use a guest
+build of your computer. On a Mac:
 
 1. Enter `python configure.py --release --pgo=generate`, then
    `ninja macos`. The guest is compiled with clang's instrumentation
    (`-fprofile-generate`), and its own small profile runtime
    (`port/android/guest/runtime/guest_profile.c`) writes the counters when
-   the game exits, to the file that `HALO_PGO_FILE` names.
+   the game exits, to the file that `HALO_PGO_FILE` names. The
+   instrumented image is larger than the 64 MB that the host keeps for the
+   guest image, so this build (only this one: `HALO_PGO_GENERATE`) keeps
+   128 MB for it (`HALO_GUEST_IMAGE_RESERVE`).
 2. Enter `python tools/pgo_train.py --binary build/macos/halo --data
    <game data>`. The tool plays three short system link games (a host with
    bots and a joined client, both drawing in hidden windows) and the start
    of a campaign level, silently, in approximately five minutes. Then it
    merges the recordings into `pgo/halo_linux.profdata` with the pinned
-   LLVM's `llvm-profdata`.
-3. Configure the build again without `--pgo=generate`.
+   LLVM's `llvm-profdata`. `--work FOLDER` keeps the runs' data roots and
+   logs out of `build/`, and `--output` writes the profile elsewhere.
+3. Configure the build again without `--pgo=generate` (for example
+   `python configure.py --release`), and build it.
+4. Compare the new profile with the old one before you commit it: build
+   `python configure.py --release --profile --pgo-profile <profile>` with
+   each, play the same game with each build (for example a local bot game
+   with a fixed frame time, `HALO_NETWORK_TEST=local:bloodgulch:slayer
+   HALO_BOTS=6 HALO_TEST_INPUT=bot:1 HALO_FRAME_TIME=0.0333333
+   HALO_PROFILE_RECORD=true HALO_PROFILE_RECORD_WHEN=game`), and compare
+   `game_tick` and `render` in `tools/net_report.py`'s summaries.
 
 On Linux, use `ninja linux_arm64` or `ninja linux_x86_64` and
 `build/linux_*/halo` with a display (a virtual one: Xvfb with
 `SDL_VIDEO_DRIVER=x11`). The profile was last recorded by the macOS
-build (`arm64_32`, as the Android, iOS and Linux arm64 builds are).
+build (`arm64_32`, as the Android, iOS and Linux arm64 builds are); the
+x86-64 builds use it too.
 
 ### Profiling builds
 
