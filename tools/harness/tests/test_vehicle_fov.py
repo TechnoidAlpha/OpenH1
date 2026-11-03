@@ -72,9 +72,10 @@ def test_the_reticle_takes_it():
     # the HUD scales a centred reticle by it, and the passenger view's offset (a place in the drawn view) is given at
     # the HUD's own size, so that scaling it lands it there, at any vehicle field of view
     hud = read("source/interface/hud_draw.c")
-    assert "render_fov_reticle_scale(render.local_player_index) : 1.0f);" in hud
+    # (display.panini's magnification of the middle too: test_panini.py)
+    assert "render_fov_reticle_scale(render.local_player_index) * panini_center_scale() : 1.0f);" in hud
     passenger = read("port/linux/game/passenger_camera.c")
-    assert "reticle_scale = render_fov_reticle_scale(local_player_index);" in passenger
+    assert "reticle_scale = render_fov_reticle_scale(local_player_index) * panini_center_scale();" in passenger
     assert passenger.count("/\n\t\treticle_scale;") == 2
 
 

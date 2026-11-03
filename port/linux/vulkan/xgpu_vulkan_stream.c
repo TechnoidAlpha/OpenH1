@@ -2377,6 +2377,30 @@ static void stream_anti_alias(void *context, const struct xgpu_stream_anti_alias
 	targets_bind();
 }
 
+/* display.panini over a window's 3D view, after its anti-aliasing and
+before the HUD: the target's texture, its first layer (the front end no
+longer multisamples it, as for the anti-aliasing) */
+static void stream_panini(void *context, const struct xgpu_stream_panini *record)
+{
+	struct stream_target *target = target_get(record->target);
+
+	(void)context;
+	if (!target || target->depth || target->layers > 1)
+		return;
+	if (stream.preparing)
+	{
+		/* (made as the map loads, as the game's pipelines are) */
+		(void)xgpu_vulkan_post_panini_prepare(target->format, 1);
+		return;
+	}
+	if (target->multisampled)
+		return;
+	target->written++;
+	xgpu_vulkan_post_panini(target->image, 0, record->corners, record->projection);
+	/* (the stream's targets again, for what follows) */
+	targets_bind();
+}
+
 /* ---------- display.hdr (port/linux/src/xgpu_hdr.h)
 
 The front end's state, for the tone map and the core's encoding and
@@ -2741,6 +2765,7 @@ const struct host_render_backend *xgpu_vulkan_stream_backend(void)
 		backend.ambient_occlusion = stream_ambient_occlusion;
 		backend.picture_top = stream_picture_top;
 		backend.gamma = stream_gamma;
+		backend.panini = stream_panini;
 #ifdef HALO_VR
 		host_vulkan_vr_backend(&backend);
 #endif

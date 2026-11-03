@@ -15,6 +15,7 @@ that draw the first-person weapon (rasterizer and render sources).
 
 #include "cseries.h"
 #include "view_fov.h"
+#include "panini.h"
 #include "camera/director.h"
 #include "cutscene/cinematics.h"
 #include "game/players.h"
@@ -393,7 +394,7 @@ static real viewmodel_vertical(void)
 
 void viewmodel_projection_begin(void)
 {
-	real angle;
+	real angle, panini_scale;
 	real_rectangle2d render_bounds, rasterizer_bounds;
 
 	if (projection_depth++ != 0)
@@ -405,6 +406,13 @@ void viewmodel_projection_begin(void)
 	angle = viewmodel_vertical();
 	if (!angle)
 		angle = render_fov_authored_vertical(render.local_player_index);
+	/* (display.panini draws the view's middle larger: the weapon's view as
+	much wider, so that it is drawn its own size there, panini.c) */
+	panini_scale = panini_center_scale();
+	if (!angle && panini_scale != 1.0f)
+		angle = render.camera.vertical_field_of_view;
+	if (panini_scale != 1.0f && angle > 0.0f && angle < _pi)
+		angle = 2.0f * atanf(tanf(angle * 0.5f) * panini_scale);
 	if (!angle || render.local_player_index < 0 || render.local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
 		global_window_parameters.rasterizer_target != _rasterizer_target_render_primary ||
 		cinematic_in_progress() || (director_camera_scripted && *director_camera_scripted) ||

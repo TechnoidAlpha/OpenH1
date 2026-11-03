@@ -986,6 +986,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.direct_camera` | `true` | `HALO_DIRECT_CAMERA` | `true`: in first person, on foot, the view points where the player aims in each frame, not where the last tick left it; and (not in the VR mode) the view stands where the newest step left the player, and the gun and hands show the newest step's pose (a shot, a step, a reload seen 33 ms sooner). In a vehicle's seat (first or third person, not in the VR mode) the vehicle, its riders and the view from it are drawn as the vehicle's newest step left it, the view aimed where the player aims. On Android and iOS too, with the touch controls' swipe and gyroscope. Refer to "Frame rate". |
 | `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
 | `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
+| `display.panini`, `display.panini_vertical` | `0.0`, `0.0` | `HALO_PANINI`, `HALO_PANINI_VERTICAL` | The 3D view drawn through the Panini projection at this strength (Panini's d, `0` to `1`; `0`: off, the flat view as ever), and its vertical compression (s, `0` to `1`). First Person's Panini Projection (Off, 0.25 to 1) and Panini Vertical, sliders with a field to type any from 0 to 1. Not in the VR build. Refer to "Field of view". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
 | `display.viewmodel_offset_x` | `0.0` | `HALO_VIEWMODEL_OFFSET_X` | The first-person weapon and hands moved right (negative: left) along the view, in centimeters, from -20 to 20, for every weapon. `0`: where the game draws them. Only this machine's drawing changes; not in the VR mode. First Person's WEAPON HORIZONTAL is a slider (-10 to 10, any of -20 to 20 typed). Refer to "Field of view". |
 | `display.viewmodel_offset_y` | `0.0` | `HALO_VIEWMODEL_OFFSET_Y` | The same, up (negative: down): First Person's WEAPON VERTICAL. |
@@ -2005,6 +2006,45 @@ weapon's markers move with it: its muzzle flash, shell casings and lights,
 the flashlight, and the arm shields' flare (on the hands' model). A scope's
 zoom does not draw the weapon, so it is unchanged. The VR mode keeps the
 weapon in the controllers' hands, without the offset.
+
+PANINI PROJECTION (`display.panini`, its strength d; Off by default) draws
+the 3D view through the Panini projection (Sharpless et al., 2010), which
+keeps what is at the sides of a wide view from stretching: at 1, a thing on
+the horizon keeps its true shape anywhere across. Vertical lines stay
+vertical. The view still sees exactly as far to the sides as the field of
+view says (the screen's sides are the flat view's sides), so its middle is
+drawn larger: 1.5 times at 120 degrees and strength 1, 2.4 times at 150.
+PANINI VERTICAL (`display.panini_vertical`, s, 0 by default) straightens
+the lines across above and below the middle (floors, ceilings; at strength 1
+they are straight at 0.5), stretching the sides taller. 1 and 0 are the
+settings to start from: the shapes at the sides true, the middle no larger
+than that needs.
+
+- The game draws the view as ever, rectilinear at the field of view chosen,
+  and a pass after the anti-aliasing draws it again through the projection
+  (port/linux/include/panini_projection.h has the arithmetic): at those
+  settings the flat view covers the whole screen through it, so nothing
+  wider is drawn. The pass samples each pixel over the pixels it covers, so
+  the sides, drawn smaller, do not shimmer.
+- So that the middle keeps its sharpness, the screen is supersampled (as
+  `ssaa2x` is) by the middle's magnification at the widest of
+  `display.fov`'s and `display.vehicle_fov`'s views, at most twice each way:
+  at 150 degrees the middle is drawn from 2 pixels for its 2.4. Not on
+  Android, nor with Metal (macOS, iOS), which do not supersample: there the
+  middle is drawn from the pixels the view has, a little softer.
+- The HUD and the menus are not curved. What the HUD places over the world
+  is placed through the projection: the teammates' marks and the players'
+  names, the waypoints (an arrow off the screen points where the waypoint
+  left it), the passenger view's reticle. The reticle at the middle is
+  scaled by the middle's magnification, so that it covers the angle it
+  did; the middle does not move, so the shots go where the reticle is. The
+  first-person weapon's view is widened by as much, so that it is drawn its
+  own size at the middle (toward the corners the projection draws it
+  smaller, as it draws everything there). What is drawn into the view (the
+  lens flares, the effects, the ambient occlusion) is carried with it.
+- Split screen's windows each have their own projection, about their own
+  middle. Not the VR build's: the headset's eyes need the true perspective.
+- Off, nothing of it runs: the frame is drawn as before.
 
 LEGS (`display.first_person_legs`) draws your own body in first person
 from the waist down, so you see your legs when you look down, walking,
