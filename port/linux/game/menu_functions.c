@@ -1787,6 +1787,26 @@ static void gamma_row_show(struct widget_instance *list)
 #endif
 }
 
+/* First Person's Panini Projection (display.panini, port/linux/game/panini.c)
+and Panini Vertical: none in the VR build, which never draws through it */
+static void panini_rows_show(struct widget_instance *list)
+{
+#ifdef HALO_VR
+	static char const *const rows[] = { "op_panini", "op_panini_vertical" };
+	short index;
+
+	for (index = 0; index < (short)NUMBEROF(rows); index++)
+	{
+		struct widget_instance *row = named(list, rows[index], 0);
+
+		if (row)
+			row->visible = FALSE;
+	}
+#else
+	(void)list;
+#endif
+}
+
 /* Video's Frame Rate Limit, shown while VSync shows OFF (Defaults too):
 with vsync on, the display paces the frames and the limit does nothing;
 the rows below close the gap (settings_rows_pack) */
@@ -3118,6 +3138,7 @@ static void settings_page_update(struct widget_instance *list)
 	refresh_rate_row_show(list);
 	hud_button_style_row_show(list);
 	max_fps_row_show(list);
+	panini_rows_show(list);
 	menu_cursor_row_show(list);
 	gamma_row_show(list);
 	settings_rows_show(list);
@@ -4850,6 +4871,12 @@ static struct settings_slider_stop const settings_vehicle_fov_stops[] =
 	{ 125.0, NULL }, { 130.0, NULL }, { 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
 };
 
+/* (tools/port_settings.py's PANINI_STRENGTHS: off, and strengths) */
+static struct settings_slider_stop const settings_panini_stops[] =
+{
+	{ 0.0, "OFF" }, { 0.25, NULL }, { 0.5, NULL }, { 0.75, NULL }, { 1.0, NULL },
+};
+
 #define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
 
 /* each slider by its row: its setting, its track's range and step, the
@@ -4878,6 +4905,9 @@ static struct
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
 	/* (tools/port_settings.py's GAMMA) */
 	{ "op_gamma", "display.gamma", 0.5, 2.0, 0.05, 0.5, 2.0, FALSE, NULL, 0 },
+	/* (tools/port_settings.py's PANINI_STRENGTHS and PANINI_VERTICAL) */
+	{ "op_panini", "display.panini", 0.0, 1.0, 0.25, 0.0, 1.0, FALSE, SLIDER_STOPS(settings_panini_stops) },
+	{ "op_panini_vertical", "display.panini_vertical", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out

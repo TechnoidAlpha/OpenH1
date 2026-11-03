@@ -53,6 +53,8 @@ static struct { int created, back_buffer, depth_buffer;
     struct { UINT BackBufferWidth; } presentation; } device;
 static struct { long largest_target; } xgpu_backend_capabilities = { 16384 };
 static int anti_aliasing(void) { return 0; }
+/* (display.panini supersamples nothing on Android: d3d8_device.c's) */
+static float panini_supersampling(long width, long height) { (void)width; (void)height; return 1.0f; }
 static void anti_aliasing_read(void) {}
 static unsigned long config_changes(void) { return 0; }
 static long shadow_scale_choose(void) { return 1; }

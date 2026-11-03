@@ -17,13 +17,15 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_offset_y" x="28" y="142"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_offset_z" x="28" y="163"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_vehicle_fov" x="28" y="184"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_visible" x="28" y="205"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_first_person_legs" x="28" y="226"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_passenger_third_person" x="28" y="247"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_9" x="28" y="274"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_shield" x="28" y="294"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shield_color" x="28" y="315"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_overshield_effect" x="28" y="336"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_panini" x="28" y="205"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_panini_vertical" x="28" y="226"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_visible" x="28" y="247"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_first_person_legs" x="28" y="268"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_passenger_third_person" x="28" y="289"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_11" x="28" y="316"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_shield" x="28" y="336"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_shield_color" x="28" y="357"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_overshield_effect" x="28" y="378"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/button_bar" y="414"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
@@ -146,11 +148,49 @@
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/vehicle_fov_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
 	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_panini" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_track" x="188" y="3"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_value" x="252" y="0"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_thumb"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_panini_vertical" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_track" x="188" y="3"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_value" x="252" y="0"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_thumb"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/panini_vertical_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
+	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_visible" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_visible_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_visible_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_visible_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_visible_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_visible_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="display.viewmodel_visible" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
@@ -159,7 +199,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_legs_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_legs_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_legs_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_legs_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="9" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_legs_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.first_person_legs" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
@@ -168,21 +208,21 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/passenger_third_person_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/passenger_third_person_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/passenger_third_person_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/passenger_third_person_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/passenger_third_person_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="BEHIND|SEAT" setting="display.passenger_third_person" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_9" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_9_title"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_11" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_11_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_9_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="9" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_11_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="11" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/op_viewmodel_shield" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/viewmodel_shield_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.viewmodel_shield" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
@@ -191,7 +231,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/shield_color_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|WHITE|BLACK|RED|BLUE|GRAY|YELLOW|GREEN|PINK|PURPLE|CYAN|COBALT|ORANGE|TEAL|SAGE|BROWN|TAN|MAROON|SALMON" setting="display.shield_color" values="default|white|black|red|blue|gray|yellow|green|pink|purple|cyan|cobalt|orange|teal|sage|brown|tan|maroon|salmon" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
@@ -200,7 +240,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/labels" string_index="14" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/overshield_effect_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.overshield_effect" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
 		<on event="created" run="port setting load"/>
@@ -212,6 +252,8 @@
 		<string text="WEAPON VERTICAL"/>
 		<string text="WEAPON DEPTH"/>
 		<string text="VEHICLE FIELD OF VIEW"/>
+		<string text="PANINI PROJECTION"/>
+		<string text="PANINI VERTICAL"/>
 		<string text="WEAPON AND HANDS"/>
 		<string text="LEGS"/>
 		<string text="PASSENGER VIEW"/>
@@ -228,6 +270,8 @@
 		<string text="Moves your weapon and hands up, or down below 0, in centimeters. Lower it to see more of the screen.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="Pushes your weapon and hands away from you, or closer below 0, in centimeters. Too close and they cut off.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match uses your Field of View.|Click the number (or press A) to type any from 20 to 150."/>
+		<string text="Stops a wide field of view from stretching what is at the sides; you still see as far, and the middle is drawn larger. 1 keeps their shapes true. The HUD stays flat.|Click the number (or press A) to type 0 to 1."/>
+		<string text="With Panini Projection on: straightens floors and ceilings above and below the middle, and stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1."/>
 		<string text="Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and hear them."/>
 		<string text="Your legs when you look down, moving as you run: your body as the others see it."/>
 		<string text="Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or from your seat. Behind, the weapon cannot zoom."/>

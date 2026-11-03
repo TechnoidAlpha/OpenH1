@@ -52,6 +52,8 @@ static struct
 	uint32_t area, search;
 	/* display.hdr's tone map's functions could not be made */
 	int hdr_failed;
+	/* display.panini's function could not be made */
+	int panini_failed;
 } post;
 
 /* display.ambient_occlusion's (below): its functions could not be made
@@ -148,8 +150,10 @@ static void pipeline_describe(int function, uint8_t format, struct xgpu_metal_pi
 	pipeline->color_mask = function == XGPU_METAL_POST_FXAA || function == XGPU_METAL_POST_SMAA_BLEND ?
 		XGPU_WRITE_RED | XGPU_WRITE_GREEN | XGPU_WRITE_BLUE :
 		XGPU_WRITE_RED | XGPU_WRITE_GREEN | XGPU_WRITE_BLUE | XGPU_WRITE_ALPHA;
-	pipeline->color_format = function == XGPU_METAL_POST_FXAA || function == XGPU_METAL_POST_SMAA_BLEND ? format :
-		XGPU_METAL_FORMAT_BGRA8;
+	/* (display.panini's into the target, all of it: destination alpha moves
+	with its pixels) */
+	pipeline->color_format = function == XGPU_METAL_POST_FXAA || function == XGPU_METAL_POST_SMAA_BLEND ||
+		function == XGPU_METAL_POST_PANINI ? format : XGPU_METAL_FORMAT_BGRA8;
 	pipeline->samples = 1;
 }
 
@@ -208,8 +212,8 @@ int xgpu_metal_post_prepare(int smaa)
 
 /* a function's triangle drawn into a texture over the rectangle, sampling
 textures (0: none) */
-static void pass_draw(int function, uint32_t into, uint8_t format, const int32_t rectangle[4], uint32_t texture0,
-	uint32_t texture1, uint32_t texture2, const float bounds[4])
+static void pass_draw_with(int function, uint32_t into, uint8_t format, const int32_t rectangle[4], uint32_t texture0,
+	uint32_t texture1, uint32_t texture2, const float bounds[4], const float window[4], const float panini[8])
 {
 	struct xgpu_metal_pipeline pipeline;
 	struct xgpu_metal_dynamic_state dynamic;
@@ -243,8 +247,21 @@ static void pass_draw(int function, uint32_t into, uint8_t format, const int32_t
 	uniforms.metrics[3] = (float)post.height;
 	if (bounds)
 		memcpy(uniforms.bounds, bounds, sizeof(uniforms.bounds));
+	if (window)
+		memcpy(uniforms.window, window, sizeof(uniforms.window));
+	if (panini)
+	{
+		memcpy(uniforms.panini, panini, sizeof(uniforms.panini));
+		memcpy(uniforms.tangents, panini + 4, sizeof(uniforms.tangents));
+	}
 	xgpu_metal_set_draw_uniforms(&uniforms, sizeof(uniforms));
 	xgpu_metal_draw(XGPU_METAL_PRIMITIVE_TRIANGLES, 3, 0, 0, (struct xgpu_metal_source){ XGPU_METAL_SOURCE_NONE, 0, 0, 0 });
+}
+
+static void pass_draw(int function, uint32_t into, uint8_t format, const int32_t rectangle[4], uint32_t texture0,
+	uint32_t texture1, uint32_t texture2, const float bounds[4])
+{
+	pass_draw_with(function, into, format, rectangle, texture0, texture1, texture2, bounds, NULL, NULL);
 }
 
 /* an intermediate emptied, all of it, as its pass begins, so that no edge
@@ -304,6 +321,70 @@ int xgpu_metal_post_anti_alias(int smaa, uint32_t target, uint8_t format, uint32
 
 		pass_draw(XGPU_METAL_POST_SMAA_BLEND, target, format, rectangle, post.color, post.weights, 0, NULL);
 	}
+	return 1;
+}
+
+/* ---------- display.panini (port/linux/game/panini.c)
+
+The window's 3D view drawn again through the Panini projection, as the
+Vulkan backend draws it (xgpu_vulkan_post.c): the target's pixels copied,
+then each pixel of the rectangle drawn from the copy where the rectilinear
+view saw what the projection puts there, all four channels. */
+
+int xgpu_metal_post_panini_prepare(void)
+{
+	struct xgpu_metal_pipeline pipeline;
+
+	if (post.panini_failed)
+		return 0;
+	if (!function_make(XGPU_METAL_POST_VERTEX) || !function_make(XGPU_METAL_POST_PANINI))
+	{
+		host_logf(HOST_LOG_WARN, "metal: the Panini projection's function cannot be made, so the 3D view is drawn flat");
+		post.panini_failed = 1;
+		return 0;
+	}
+	/* (made on the backend's queues: a draw waits for its own, a map's
+	preparation for all of them) */
+	pipeline_describe(XGPU_METAL_POST_PANINI, XGPU_METAL_FORMAT_BGRA8, &pipeline);
+	xgpu_metal_prepare(&pipeline);
+	pipeline_describe(XGPU_METAL_POST_PANINI, XGPU_METAL_FORMAT_RGBA16F, &pipeline);
+	xgpu_metal_prepare(&pipeline);
+	return 1;
+}
+
+int xgpu_metal_post_panini(uint32_t target, uint8_t format, uint32_t width, uint32_t height, const int32_t corners[4],
+	const float projection[8])
+{
+	int32_t rectangle[4];
+	float bounds[4], window[4];
+	int index;
+
+	if (!target || !width || !height || !xgpu_metal_post_panini_prepare())
+		return 0;
+	/* (inside the target) */
+	for (index = 0; index < 4; index++)
+	{
+		int32_t most = (int32_t)(index & 1 ? height : width);
+
+		rectangle[index] = corners[index] < 0 ? 0 : corners[index] > most ? most : corners[index];
+	}
+	if (rectangle[2] <= rectangle[0] || rectangle[3] <= rectangle[1])
+		return 1;
+	/* (the copy, FXAA's) */
+	if (!textures_fit(0, format, width, height))
+		return 0;
+	xgpu_metal_texture_copy(target, post.color);
+	/* (split screen: no texel of the next window is read) */
+	bounds[0] = ((float)rectangle[0] + 0.5f) / (float)post.width;
+	bounds[1] = ((float)rectangle[1] + 0.5f) / (float)post.height;
+	bounds[2] = ((float)rectangle[2] - 0.5f) / (float)post.width;
+	bounds[3] = ((float)rectangle[3] - 0.5f) / (float)post.height;
+	/* (the view's own corners, which the tangents are at) */
+	window[0] = (float)corners[0];
+	window[1] = (float)corners[1];
+	window[2] = (float)(corners[2] - corners[0]);
+	window[3] = (float)(corners[3] - corners[1]);
+	pass_draw_with(XGPU_METAL_POST_PANINI, target, format, rectangle, post.color, 0, 0, bounds, window, projection);
 	return 1;
 }
 
