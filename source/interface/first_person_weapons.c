@@ -1858,6 +1858,18 @@ static void first_person_weapon_build_node_matrices(
 		SIM_TRACE(sim_trace_frame(local_player_index, &render.camera.position, &render.camera.forward,
 			&render.camera.up, first_person_weapon->node_matrices,
 			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION)));
+#ifndef HALO_VR
+		/* port: moved along the view's right, up and forward
+		(display.viewmodel_offset_x, _y and _z, view_fov.c), after the
+		interpolation, which keeps the pose at the camera: the weapon, the
+		hands and their markers together. Not the VR mode's, whose hands are
+		the controllers' */
+		viewmodel_offset_apply(
+			first_person_weapon->weapon_index,
+			first_person_weapon->node_matrices,
+			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),
+			&render.camera);
+#endif
 #ifdef HALO_VR
 		{
 			/* the VR mode: the hands and arms follow the controllers
