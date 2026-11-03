@@ -103,7 +103,7 @@ def test_the_hud_and_the_weapon_take_it():
     # middle's magnification, the weapon's projection widened by it, the pass after the anti-aliasing
     assert "if (panini_view_to_screen(camera, frustum, view_point, screen_point, &result))" in \
         read("source/render/render_cameras.c")
-    assert "render_fov_reticle_scale(render.local_player_index) * panini_center_scale() : 1.0f);" in \
+    assert "render_fov_reticle_scale(render.local_player_index) * panini_center_scale() : 1.0f;" in \
         read("source/interface/hud_draw.c")
     assert "render_fov_reticle_scale(local_player_index) * panini_center_scale();" in \
         read("port/linux/game/passenger_camera.c")

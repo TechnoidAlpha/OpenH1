@@ -111,8 +111,8 @@ static void fov_requested_tangents(real *on_foot, real *seated)
 
 /* the local player's unit, when its view is one the fields of view widen:
 not dead, in a cinematic, a scripted camera or a view the director holds
-(and its index); else NULL */
-static struct unit_datum *render_fov_unit(short local_player_index, long *unit_index)
+(and its index); else NULL (the lowered reticle's too: lowered_reticle.c) */
+struct unit_datum *render_fov_unit(short local_player_index, long *unit_index)
 {
 	struct unit_datum *unit;
 	director_perspective perspective;

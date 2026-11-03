@@ -75,7 +75,8 @@ def test_applied_with_the_pose():
     assert interpolation < applied < build_matrices.index("vr_hands_pose(")
     assert build_matrices.rindex("#ifndef HALO_VR", 0, applied) > interpolation
     assert "first_person_weapon->node_matrices," in build_matrices[applied:applied + 200]
-    assert "&render.camera);" in build_matrices[applied:applied + 300]
+    # (at the camera the weapon is posed at: the view, or with display.lowered_reticle the aim, lowered_reticle.c)
+    assert "pose_camera);" in build_matrices[applied:applied + 300]
     assert weapons.count("viewmodel_offset_apply(") == 1
     # the markers: from the same matrices
     markers = function(weapons, "first_person_weapon_get_marker_by_name")

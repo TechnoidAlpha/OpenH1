@@ -16,6 +16,12 @@ last local view's own projection against the game's): 1 for the stock view */
 real render_fov_reticle_scale(short local_player_index);
 /* the view's own vertical angle when display.fov widened it, else 0 */
 real render_fov_authored_vertical(short local_player_index);
+/* the local player's unit when its view is the player's own aim, which the
+fields of view widen and the lowered reticle turns: on foot or seated,
+first or third person, not dead, in a cinematic, a scripted camera or a
+view the director holds (and its index); else NULL */
+struct unit_datum;
+struct unit_datum *render_fov_unit(short local_player_index, long *unit_index);
 
 /* what the unit's zoom multiplies the mouse's turn by (input.zoom_sensitivity,
 port/linux/include/mouse_sensitivity.h): "cs2", the zoomed field of view

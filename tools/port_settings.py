@@ -438,6 +438,9 @@ FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
 # display.viewmodel_offset_x's, _y's and _z's: centimeters, 0 the game's own
 # place; any of -20 to 20 typed
 VIEWMODEL_OFFSETS = Slider(-10, 10, 0.5, -20, 20)
+# display.lowered_reticle_amount's: percent of the view's height below its
+# middle; any of 0 to 30 typed
+LOWERED_RETICLE_AMOUNTS = Slider(1, 25, 1, 0, 30, whole=True)
 # display.vehicle_fov's: the game's own view ("default"), display.fov's
 # ("match"), or degrees; any of 20 to 150 typed
 VEHICLE_FIELDS_OF_VIEW = FIELDS_OF_VIEW._replace(
@@ -474,6 +477,9 @@ FIRST_PERSON = ("video_settings/first_person", "first_person_screen")
 BRIGHTNESS_PAGE = ("video_settings/brightness", "brightness_screen")
 # (Android's: the picture on a tall screen, and portrait's frame)
 SCREEN_LAYOUT = ("video_settings/screen_layout", "screen_layout_screen")
+# (First Person's shields: the arms' flare, its color, the overshield; their
+# own page, so that First Person's view rows fit)
+SHIELDS = ("video_settings/first_person/shields", "shields_screen")
 CONTROLLER = ("gamepad_setup", "gamepad_setup_screen")
 # (the controller's own button layout, each player's: controller_remap_menu.inl)
 BUTTON_REMAPPING = ("gamepad_setup/button_remapping", "button_remapping_screen")
@@ -936,6 +942,12 @@ PAGES = {
              "With Panini Projection on: straightens floors and ceilings above and below the middle, and "
              "stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1.",
              None),
+            ("LOWERED RETICLE", "display.lowered_reticle", ON_OFF,
+             "Puts the reticle below the middle of the screen, as Halo 2 and 3 do. Your view tilts up a little, so "
+             "shots still go where the reticle points. Zooming centers it.", None),
+            ("RETICLE LOWERED BY", "display.lowered_reticle_amount", LOWERED_RETICLE_AMOUNTS,
+             "How far below the middle the lowered reticle sits, in percent of the screen's height. 10 is about "
+             "Halo 2's and 3's.|Click the number (or press A) to type any from 0 to 30.", None),
             ("WEAPON AND HANDS", "display.viewmodel_visible", [("SHOW", "true"), ("HIDE", "false")],
              "Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and "
              "hear them.", None),
@@ -944,6 +956,13 @@ PAGES = {
             ("PASSENGER VIEW", "display.passenger_third_person", [("BEHIND", "true"), ("SEAT", "false")],
              "Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or "
              "from your seat. Behind, the weapon cannot zoom.", None),
+            ("SHIELDS ›", None, _page_screen(*SHIELDS),
+             "Your shield's flare on your first-person arms, its color, and an overshield's glow.", None),
+        ],
+    },
+    SHIELDS[0]: {
+        "screen": SHIELDS[1], "title": "SHIELDS",
+        "rows": [
             (SECTION, "SHIELDS"),
             ("ARM SHIELDS", "display.viewmodel_shield", ON_OFF,
              "When your shield takes a hit, its flare shows on your first-person arms too, as on your body, "
