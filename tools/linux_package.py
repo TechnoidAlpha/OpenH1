@@ -73,6 +73,9 @@ def notices(platform: str) -> List[Tuple[Path, str]]:
         # the console's font (port/assets/fonts), embedded in every build,
         # whose MIT and Bitstream Vera licenses ask copies to carry them
         (ROOT / "port/assets/fonts/Hack-LICENSE.txt", "Hack-LICENSE.txt"),
+        # the menus' headings' font (port/assets/fonts), embedded in every
+        # build, whose SIL Open Font License asks each copy to carry it
+        (ROOT / "port/assets/fonts/OpenCE-OFL.txt", "OpenCE-OFL.txt"),
         # the menus' XML parser (port/third_party/expat), in every build,
         # whose MIT license asks copies to carry its notice
         (ROOT / "port/third_party/expat/COPYING", "expat-COPYING.txt"),

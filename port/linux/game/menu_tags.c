@@ -39,6 +39,7 @@ menu gets FRIENDLY FIRE too.
 #include "cache/cache_files.h"
 #include "game/game.h"
 #include "tag_files/tag_groups.h"
+#include "text/font_group.h"
 #include "text/text_group.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 
@@ -610,6 +611,9 @@ static struct
 	widget's own text's and strings' (NONE: none) */
 	long *widget_tags;
 	long *bitmap_tags;
+	/* the menus' heading font (pc\heading: large_ui's measures, drawn in
+	OpenCE by the high-res text, port/assets/fonts/fonts.json), else NONE */
+	long heading_tag;
 	long *strings_tags;
 	long *text_tags;
 	long *spinner_tags;
@@ -1484,13 +1488,19 @@ static void setting_add(struct halo_menu_widget const *source, long definition_i
 	setting->value_count = spinner_split(source, TRUE, setting->values);
 }
 
-/* a font: large, small, terminal, or the map's by its path */
+/* a font: large, small, terminal, heading (the port's: large where it has
+none), or the map's by its path */
 static long font_tag(char const *font, char const *file, long line)
 {
-	char const *path = !strcmp(font, "large") ? "ui\\large_ui" :
+	char const *path;
+	long index;
+
+	if (!strcmp(font, "heading") && build.heading_tag != NONE)
+		return build.heading_tag;
+	path = !strcmp(font, "large") || !strcmp(font, "heading") ? "ui\\large_ui" :
 		!strcmp(font, "small") ? "ui\\small_ui" :
 		!strcmp(font, "terminal") ? "ui\\interstate" : font;
-	long index = map_tag(FONT_TAG, path, file, line);
+	index = map_tag(FONT_TAG, path, file, line);
 
 	return index == NONE && build.game_map ? build.map_font : index;
 }
@@ -2514,7 +2524,7 @@ void menu_tags_loaded(
 {
 	struct halo_menus const *menus;
 	struct cache_file_tag_instance *instances;
-	long widget_count, own_lists = 0, total, index;
+	long widget_count, own_lists = 0, total, index, large_font;
 	boolean locale;
 
 	boolean game_map = strcmp(map_name, "ui") != 0;
@@ -2557,7 +2567,11 @@ void menu_tags_loaded(
 			problem(menus->widgets[index].file, menus->widgets[index].line, "two widgets are named",
 				menus->widgets[index].name);
 	}
-	total = widget_count + own_lists + menus->string_list_count + menus->bitmap_count +
+	/* (the heading font: a copy of large_ui's tag, which the high-res text
+	knows by its own name, and draws in OpenCE where it is on; the bitmap
+	font's letters, as large_ui's, where it is off) */
+	large_font = tag_loaded(FONT_TAG, "ui\\large_ui");
+	total = (large_font != NONE) + widget_count + own_lists + menus->string_list_count + menus->bitmap_count +
 		(game_map ? PAUSE_PATCH_TAGS : 0);
 	instances = build.failed ? NULL : instances_grow(total, &build.first_index, &build.first_salt);
 	if (!instances)
@@ -2576,6 +2590,18 @@ void menu_tags_loaded(
 		build.strings_tags[index] = next_tag();
 	for (index = 0; index < menus->bitmap_count; index++)
 		build.bitmap_tags[index] = next_tag();
+	build.heading_tag = NONE;
+	if (large_font != NONE)
+	{
+		struct font_header *heading = allocate(sizeof(*heading));
+
+		if (heading)
+		{
+			memcpy(heading, font_definition_get(large_font), sizeof(*heading));
+			build.heading_tag = next_tag();
+			instance_set(instances, FONT_TAG, build.heading_tag, "heading", "", heading);
+		}
+	}
 	/* the tags: the bitmaps and strings first, which the widgets name; the
 	widgets' names in the table before any is built, which they find there */
 	for (index = 0; index < menus->bitmap_count && !build.failed; index++)
