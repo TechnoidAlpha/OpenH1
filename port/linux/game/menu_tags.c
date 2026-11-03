@@ -459,7 +459,7 @@ static char const *const port_function_names[] =
 	/* (a new profile's screens: Settings' is then being edited, which the
 	Xbox's leaves to its own screens) */
 	"new campaign decision",
-	/* (the main menu's Mods: menu_functions.c) */
+	/* (the Mods screen, Settings' PROFILES tab's MODS: menu_functions.c) */
 	"port mods init", "port mods close", "port mods toggle", "port mods move up", "port mods move down",
 	"port mods save",
 	/* (the update question, the Steam Frame's and gamescope's: menu_functions.c) */
@@ -469,7 +469,7 @@ static char const *const port_function_names[] =
 	/* (Settings' tabs and pages: menu_functions.c's settings_*) */
 	"port settings begin", "port settings tab", "port settings tab next", "port settings tab previous",
 	"port settings ok", "port settings cancel", "port settings keep", "port settings page cancel",
-	"port settings new profile",
+	"port settings new profile", "port settings profiles",
 	/* (Online's Discord account: menu_functions.c's discord_link and
 	discord_unlink) */
 	"port discord link", "port discord unlink",
@@ -527,8 +527,8 @@ static char const *const port_game_data_input_names[] =
 	/* (the profile settings' picture: the Xbox's of the button settings,
 	on Gamepad Setup's row) */
 	"port gamepad layout preview",
-	/* (the main menu's Mods; its item notes the main menu shown, for the
-	update question) */
+	/* (the Mods screen's list; the main menu's Quit notes the main menu
+	shown, for the update question) */
 	"port mods update", "port update question",
 	/* (network co-op's pause menu's FRIENDLY FIRE: its text, ON or OFF) */
 	"port coop friendly fire text",

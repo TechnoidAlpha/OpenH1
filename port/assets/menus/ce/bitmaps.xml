@@ -161,10 +161,6 @@
 		<frame png="ce/shell/main_menu/menu_multiplayer__0.png" width="256" height="64"/>
 		<frame png="ce/shell/main_menu/menu_multiplayer__1.png" width="256" height="64"/>
 	</bitmap>
-	<bitmap name="main_menu/menu_profile">
-		<frame png="ce/shell/main_menu/menu_profile__0.png" width="256" height="64"/>
-		<frame png="ce/shell/main_menu/menu_profile__1.png" width="256" height="64"/>
-	</bitmap>
 	<bitmap name="main_menu/menu_quit">
 		<frame png="ce/shell/main_menu/menu_quit__0.png" width="256" height="64"/>
 		<frame png="ce/shell/main_menu/menu_quit__1.png" width="256" height="64"/>
@@ -426,10 +422,6 @@
 	<bitmap name="voice/speaker">
 		<frame png="ce/port/voice/speaker__0.png" width="24" height="24"/>
 		<frame png="ce/port/voice/speaker__1.png" width="24" height="24"/>
-	</bitmap>
-	<bitmap name="main_menu/menu_mods">
-		<frame png="ce/port/main_menu/menu_mods__0.png" width="256" height="64"/>
-		<frame png="ce/port/main_menu/menu_mods__1.png" width="256" height="64"/>
 	</bitmap>
 	<bitmap name="main_menu/menu_training">
 		<frame png="ce/port/main_menu/menu_training__0.png" width="256" height="64"/>

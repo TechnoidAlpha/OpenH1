@@ -1420,7 +1420,7 @@ void port_mods_startup(void)
 	}
 	snprintf(message, sizeof(message),
 		"Mods in the mods folder say they cannot be played together:\n\n%s\n\n"
-		"Play them all anyway, turn off %s, or quit? (The main menu's Mods turns mods on and off.)",
+		"Play them all anyway, turn off %s, or quit? (Settings > Profiles > Mods turns mods on and off.)",
 		conflicts, names);
 	snprintf(disable, sizeof(disable), "Turn off %s", names);
 	/* (a long list of names is cut short on its button, at a whole

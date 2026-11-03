@@ -63,8 +63,11 @@ TITLE_FONT = ROOT / "port/assets/fonts/OpenCE-Regular.ttf"
 LEFT_OUT = {
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\header_gamespy_logo",
     "ui\\shell\\main_menu\\main_menu_item_credits",
+    # (the main menu's Profile, whose profile manager Settings' PROFILES tab
+    # opens: EXTRA_ROOTS)
+    "ui\\shell\\main_menu\\main_menu_item_profile",
     # (the main menu's build number, the Xbox build the sources come from,
-    # not this one's: Settings > Profile's ABOUT shows both, menu_functions.c's
+    # not this one's: Settings > Profiles' ABOUT shows both, menu_functions.c's
     # about_panel)
     "ui\\shell\\main_menu\\build_number",
     # (the "checking for updates" dialogs, which asked the PC version's
@@ -78,9 +81,13 @@ LEFT_OUT = {
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\filters\\op_ping",
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\filters\\op_game_options",
 }
-# children moved: (parent, child) to (x, y); the main menu's Quit a row below
-# Mods, which takes Credits' place; Multiplayer's Edit Gametypes and divider
-# below Co-op, keeping its 32-unit highlight inside the description panel's
+# the widgets written though the main menu leads to them no longer: the
+# profile manager, which Settings' PROFILES tab opens
+# (port_settings.PROFILE_MANAGER)
+EXTRA_ROOTS = ["ui\\shell\\" + port_settings.PROFILE_MANAGER.replace("/", "\\")]
+# children moved: (parent, child) to (x, y); the main menu's Settings and
+# Quit a row up each, where Profile and Settings were; Multiplayer's Edit
+# Gametypes and divider below Co-op, keeping its 32-unit highlight inside the description panel's
 # bottom curve (port_settings.WIDGET_PATCHES)
 CHILD_OFFSETS = {
     # the server browser's source tab (ALL GAMES, DEDICATED, P2P GAMES), 20
@@ -102,6 +109,8 @@ CHILD_OFFSETS = {
         "ui\\shell\\" + f"{port_settings.CTF_EDIT}/op_time_limit".replace("/", "\\")):
        (54, screen["y"] + port_settings.GAMETYPE_RULES_STEP * len(screen["rows"]))
        for folder, screen in port_settings.GAMETYPE_RULES_EXTRAS.items()},
+    ("ui\\shell\\main_menu\\main_menu_select_list", "ui\\shell\\main_menu\\main_menu_item_settings"):
+        port_settings.SETTINGS_ITEM_PLACE,
     ("ui\\shell\\main_menu\\main_menu_select_list", "ui\\shell\\main_menu\\main_menu_item_quit_game"):
         port_settings.QUIT_ITEM_PLACE,
     ("ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_select_list",
@@ -521,7 +530,7 @@ class Art:
 
 
 def reachable(tags: Tags) -> dict:
-    widgets, queue = {}, [MAIN_MENU]
+    widgets, queue = {}, [*EXTRA_ROOTS, MAIN_MENU]
     while queue:
         tag = queue.pop()
         if tag in widgets:
@@ -745,10 +754,8 @@ def main() -> None:
         ((ROOT / "port/assets/icons/lucide" / f"{icon}.svg").read_text().replace('stroke="currentColor"',
                                                                                  'stroke="#FFFFFF"'), 24, 24)
         for icon in ("volume-2", "volume-x")]))
-    # (the main menu's MODS, in the redraws' own letters, and the mods'
-    # status icons: Lucide's, port/assets/icons/lucide)
-    lines.append(art.port_picture("main_menu/menu_mods", port_settings.menu_item_frames("MODS", art.redraws)))
-    # (the VR build's VR TUTORIAL, as MODS)
+    # (the VR build's VR TUTORIAL, in the redraws' own letters, and the
+    # mods' status icons: Lucide's, port/assets/icons/lucide)
     lines.append(art.port_picture("main_menu/menu_training",
                                   port_settings.menu_item_frames("VR TUTORIAL", art.redraws)))
     lines.append(art.port_picture("mods/status", port_settings.mod_status_frames(ROOT / "port/assets/icons/lucide")))

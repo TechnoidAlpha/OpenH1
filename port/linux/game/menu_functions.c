@@ -65,7 +65,7 @@ campaign's New Game and difficulty start the game for both.
 
 The update question (the self-updater's, port/linux/src/updater.c, on the
 Steam Frame and under gamescope, where it can show no system dialog):
-"port update question", the main menu's MODS item's game data input, notes
+"port update question", the main menu's QUIT item's game data input, notes
 that the main menu is shown; pc_menu_update_question_open, from the updater
 between frames, then opens main_menu/update/update_screen over it, whose
 UPDATE runs "port update now" (updater_update_now: on the Frame, the game
@@ -1962,7 +1962,10 @@ settings ok") writes every change kept, saves the profile's and applies the
 window's. A page a row opens writes them too at its OK ("port settings
 keep": an OK saves, wherever it is), and its Cancel ("port settings page
 cancel") puts back what was kept when it opened. "port settings new profile" (CREATE PROFILE) asks for a new
-profile's name, as the main menu's items do.
+profile's name, as the main menu's items do. "port settings profiles"
+(MANAGE PROFILES, before the profile manager opens) writes every change
+kept, as an OK does, and the PROFILES tab, shown again, edits player 1's
+profile then: the one chosen there, made or left after a delete.
 
 "port settings page" (a tab's or a page's list, each frame) shows the rows
 that are for this game (settings_rows_show), packs them at the steps
@@ -2005,11 +2008,12 @@ static struct
 
 /* the rows hidden in a game (not on the main menu): those that would drop
 it or are the main menu's (internet play, the router, the clipboard, the
-updates), and those whose screens are ui.map's (the name's keyboard, the
-colours' pictures) or make a profile */
+updates, the profiles, the mods), and those whose screens are ui.map's (the
+name's keyboard, the colours' pictures) or make a profile */
 static char const *const settings_in_game_hidden[] =
 {
 	"op_online", "op_allow_upnp", "op_join_from_clipboard", "op_auto", "op_name", "op_color", "op_create_profile",
+	"op_profiles", "op_mods",
 };
 
 static struct
@@ -2018,7 +2022,9 @@ static struct
 	struct widget_instance *screen;
 	long screen_tag;
 	long screen_time;
-} settings_page = { NULL, NONE, 0 };
+	/* MANAGE PROFILES opened: the profile to edit again, as a tab shows */
+	boolean profiles_opened;
+} settings_page = { NULL, NONE, 0, FALSE };
 
 static short settings_tab_of(struct widget_instance const *screen)
 {
@@ -2176,6 +2182,15 @@ static boolean settings_function(char const *name, struct widget_instance *widge
 	{
 		*result = settings_profile_new(widget, event, widget_deleted);
 	}
+	else if (!strcmp(name, "profiles"))
+	{
+		/* (MANAGE PROFILES: the profile manager may change player 1's
+		profile, or delete the one edited, so the changes are written to
+		this one first) */
+		settings_each(screen, setting_stash);
+		settings_pending_write(TRUE);
+		settings_page.profiles_opened = TRUE;
+	}
 	else
 	{
 		return FALSE;
@@ -2184,12 +2199,12 @@ static boolean settings_function(char const *name, struct widget_instance *widge
 }
 
 /* whether the row sets one of the profile's settings ("profile.<field>"),
-or opens what is the profile's (its name, its colour) */
+or opens what is the profile's (its name, its colour, the other profiles) */
 static boolean settings_row_profile(struct widget_instance *row)
 {
 	struct widget_instance *child;
 
-	if (!strcmp(row->name, "op_name") || !strcmp(row->name, "op_color"))
+	if (!strcmp(row->name, "op_name") || !strcmp(row->name, "op_color") || !strcmp(row->name, "op_profiles"))
 		return TRUE;
 	for (child = row->child; child; child = child->next)
 	{
@@ -2994,6 +3009,14 @@ static void settings_page_update(struct widget_instance *list)
 		settings_page.screen_time = screen->creation_time;
 		if (tab == NONE)
 			settings_snapshot = settings_pending;
+		/* (back from the profile manager: player 1's profile edited, the
+		one chosen there; none, if every profile was deleted) */
+		if (tab != NONE && settings_page.profiles_opened)
+		{
+			settings_page.profiles_opened = FALSE;
+			if (!player_ui_get_edit_player_profile())
+				pc_menu_profile_edit_begin();
+		}
 	}
 	video_rows_show(list);
 	refresh_rate_row_show(list);
@@ -4158,7 +4181,7 @@ static struct
 	unsigned long main_menu_generation;
 } update_question = { FALSE, NONE, 0 };
 
-/* "port update question": the MODS item, drawn on the main menu */
+/* "port update question": the QUIT item, drawn on the main menu */
 static void update_question_note(struct widget_instance *widget)
 {
 	struct widget_instance *screen = widget;

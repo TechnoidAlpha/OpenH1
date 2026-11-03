@@ -1,6 +1,9 @@
 """The settings pages' rows fit above the footer on every platform
 (tools/port_settings.py's PAGES, packed as menu_functions.c's
 settings_rows_pack packs them)."""
+import re
+from pathlib import Path
+
 import pytest
 
 from tools import port_settings
@@ -27,7 +30,7 @@ def _key(entry):
 
 def _profile_row(entry):
     """a row settings_row_profile hides with no profile"""
-    return (entry[1] or "").startswith("profile.") or _key(entry) in ("name", "color")
+    return (entry[1] or "").startswith("profile.") or _key(entry) in ("name", "color", "profiles")
 
 
 def _rows_bottom(page, platforms, profile):
@@ -84,3 +87,35 @@ def test_rows_bottom_counts_a_page_that_overflows():
     assert _rows_bottom(page, BUILDS["desktop"], True) == SETTINGS_TOP + SETTINGS_SECTION_STEP + \
         14 * SETTINGS_ROW_STEP + SETTINGS_ROW_HEIGHT
     assert _rows_bottom(page, BUILDS["desktop"], True) > SETTINGS_ROWS_BOTTOM
+
+
+def _main_menu_items():
+    """the main menu's items (the headset's VR TUTORIAL left out), in their
+    order, with their places"""
+    menu = (Path(__file__).resolve().parent.parent / "port/assets/menus/ce/main_menu.xml").read_text()
+    select = menu.split('<widget name="main_menu/main_menu_select_list"', 1)[1].split("</widget>", 1)[0]
+    return [(name, int(x), int(y)) for name, x, y, platform in
+            re.findall(r'<child widget="main_menu/main_menu_item_(\w+)" x="(\d+)" y="(\d+)"( platform="\w+")?/>',
+                       select) if not platform]
+
+
+def test_main_menu_items():
+    """the main menu is CAMPAIGN, MULTIPLAYER, SETTINGS and QUIT (the
+    profiles and the mods are Settings' PROFILES tab's), a row apart with no
+    gap"""
+    items = _main_menu_items()
+    assert [name for name, _, _ in items] == ["load_camp", "multiplayer", "settings", "quit_game"]
+    assert {after[2] - before[2] for before, after in zip(items, items[1:])} == {36}
+    assert items[2][1:] == port_settings.SETTINGS_ITEM_PLACE
+    assert items[3][1:] == port_settings.QUIT_ITEM_PLACE
+
+
+def test_profiles_tab_opens_profiles_and_mods():
+    """the PROFILES tab opens the profile manager (the main menu's Profile's
+    was) and the Mods screen, beside its own rows"""
+    page = PAGES["profile_settings"]
+    assert page["tab"] == "PROFILES"
+    links = {_key(entry): entry[2] for entry in page["rows"] if entry[0] != SECTION and not entry[1]}
+    assert links["profiles"] == port_settings.PROFILE_MANAGER
+    assert links["mods"] == f"{port_settings.MODS}/mods_screen"
+    assert {"name", "color", "create_profile", "about"} <= set(links)
