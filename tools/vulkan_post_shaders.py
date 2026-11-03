@@ -489,7 +489,9 @@ GAMMA_SOURCE = (
 # magnification at the middle; tangents, the rectilinear view's at the
 # view's left, right, top and bottom. Each pixel takes the copy's pixel the
 # rectilinear view saw its direction at, sampled over the pixels it covers
-# there (the sides are drawn smaller: up to 4 each way, bilinearly)
+# there (the sides are drawn smaller): a bilinear tap for each two pixels
+# each way, so that the taps' filters together cover them (up to 4 taps, 8
+# pixels)
 PANINI_SOURCE = (
     "uniform sampler2D color_texture;\n"
     "\n"
@@ -518,7 +520,7 @@ PANINI_SOURCE = (
     "\tvec2 source = window.xy + window.zw * (seen - tangents.xz) / (tangents.yw - tangents.xz);\n"
     "\tvec2 across = dFdx(source);\n"
     "\tvec2 down = dFdy(source);\n"
-    "\tivec2 taps = ivec2(clamp(ceil(vec2(length(across), length(down)) - 0.01), 1.0, 4.0));\n"
+    "\tivec2 taps = ivec2(clamp(ceil(vec2(length(across), length(down)) * 0.5 - 0.01), 1.0, 4.0));\n"
     "\tvec4 sum = vec4(0.0);\n"
     "\tfor (int row = 0; row < taps.y; row++)\n"
     "\t{\n"

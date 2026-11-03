@@ -1688,7 +1688,7 @@ static const char panini_source[] =
 	"    float2 source = _18.window.xy + ((_18.window.zw * (seen - _18.tangents.xz)) / (_18.tangents.yw - _18.tangents.xz));\n"
 	"    float2 across = dfdx(source);\n"
 	"    float2 down = dfdy(source);\n"
-	"    int2 taps = int2(fast::clamp(ceil(float2(length(across), length(down)) - float2(0.00999999977648258209228515625)), float2(1.0), float2(4.0)));\n"
+	"    int2 taps = int2(fast::clamp(ceil((float2(length(across), length(down)) * 0.5) - float2(0.00999999977648258209228515625)), float2(1.0), float2(4.0)));\n"
 	"    float4 sum = float4(0.0);\n"
 	"    for (int row = 0; row < taps.y; row++)\n"
 	"    {\n"

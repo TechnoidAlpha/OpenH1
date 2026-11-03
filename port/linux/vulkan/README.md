@@ -409,7 +409,8 @@ its edges straight and its pixels square) and before the HUD: the view's
 rectangle copied, then each pixel drawn from where the flat view saw what
 the projection puts there (`PANINI_SOURCE`, the inverse of
 `port/linux/include/panini_projection.h`), sampled over the pixels it covers
-(up to 4 bilinear taps each way, from the coordinate's derivatives), all
+(a bilinear tap for each two of them each way, up to 4, from the
+coordinate's derivatives), all
 four channels (the game's values in alpha move with their pixels). The
 ambient occlusion and the lens flares are drawn before it, in the flat
 view, and carried with it. Its pipeline is requested with the map's
