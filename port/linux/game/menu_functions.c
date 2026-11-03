@@ -2009,6 +2009,10 @@ places under its name (_settings_shared) */
 #define SETTINGS_PANEL_TEXT_UNDER_STILLS 122
 #define SETTINGS_PANEL_TEXT_UNDER_PICTURE 146
 #define SETTINGS_PANEL_TEXT_LENGTH 512
+/* the panels' bottom (tools/port_settings.py's SETTINGS_PANEL_BOTTOM), and
+the room kept clear above it, inside its rim */
+#define SETTINGS_PANEL_BOTTOM 400
+#define SETTINGS_PANEL_TEXT_MARGIN 6
 #define SETTINGS_FOLDER "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\"
 #define SETTINGS_SHARED "pc\\main_menu\\settings\\"
 /* the link rows' sign, after their labels (U+203A) */
@@ -2458,6 +2462,41 @@ static short settings_text_wrap(wchar_t const *text, wchar_t *wrapped, short siz
 	return lines;
 }
 
+/* the height of the panel's words of so many lines, and of its note under
+them (none: 0 lines) */
+static short settings_panel_height(short lines, short note_lines, short line)
+{
+	return (short)(lines * line + (note_lines ? line / 2 + note_lines * line : 0));
+}
+
+/* wrapped words (settings_text_wrap's) cut to so many lines, the last one's
+last word "..." if any were cut: the lines left */
+static short settings_text_lines_cut(wchar_t *wrapped, short lines)
+{
+	wchar_t *end = wrapped, *space;
+	short line = 1;
+
+	for (; *end; end++)
+	{
+		if (end[0] == '\r' && end[1] == '\n' && ++line > lines)
+			break;
+	}
+	if (!*end)
+		return line;
+	*end = 0;
+	for (space = end; space > wrapped && space[-1] != ' ' && space[-1] != '\n'; space--)
+	{
+	}
+	if (space > wrapped && space[-1] == ' ')
+		end = space;
+	if (end + 3 < wrapped + SETTINGS_PANEL_TEXT_LENGTH)
+	{
+		end[0] = end[1] = end[2] = '.';
+		end[3] = 0;
+	}
+	return lines;
+}
+
 /* a row's picture of each value (tools/port_settings.py's
 SETTINGS_VALUE_PICTURES: panel_picture_<the row's key>) shown, at the value
 shown (its spinner's index, or a slider's stop nearest it: frame), the
@@ -2862,9 +2901,10 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 	short text_width, note_width;
 	wchar_t name[ROW_TEXT_LENGTH] = { 0 }, value[ROW_TEXT_LENGTH] = { 0 };
 	wchar_t words[SETTINGS_PANEL_TEXT_LENGTH] = { 0 }, wrapped[SETTINGS_PANEL_TEXT_LENGTH];
+	wchar_t noted[SETTINGS_PANEL_TEXT_LENGTH] = { 0 };
 	wchar_t const *help = NULL;
 	wchar_t *bar;
-	short still = NONE, length, lines, index;
+	short still = NONE, length, lines, note_lines, line = 12, index;
 	boolean stills = FALSE, picture = FALSE;
 	struct widget_instance *row_spinner = NULL;
 	char const *const stills_names[] = { "panel_classic", "panel_enhanced" };
@@ -2968,37 +3008,54 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 	text_font = ui_widget_port_text_box_font(text, &text_width);
 	note_font = ui_widget_port_text_box_font(note, &note_width);
 	lines = settings_text_wrap(words, wrapped, SETTINGS_PANEL_TEXT_LENGTH, text_font, text_width);
-	text_set_length(text, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
-	/* (under the name, or under Quality's pictures) */
+	note_lines = *bar ? settings_text_wrap(bar, noted, SETTINGS_PANEL_TEXT_LENGTH, note_font, note_width) : 0;
+	if (text_font != NONE)
+	{
+		rectangle2d bounds, text_bounds, cursor;
+		static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		bounds.x0 = 0;
+		bounds.y0 = 0;
+		bounds.x1 = 0x3FFF;
+		bounds.y1 = 480;
+		/* (a line's height: two lines' less one's) */
+		draw_string_set_draw_mode(text_font, NONE, 0, 0, &white);
+		draw_unicode_string_compute_bounds(&bounds, L"X\r\nX", &text_bounds, &cursor);
+		line = (short)(text_bounds.y1 - text_bounds.y0);
+		draw_unicode_string_compute_bounds(&bounds, L"X", &text_bounds, &cursor);
+		line = (short)(line - (text_bounds.y1 - text_bounds.y0));
+	}
+	/* (under the name, or under the pictures; the words and the note kept
+	inside the panel, whatever the screen's width: the pictures left out if
+	the words do not fit under them, then the note, then the words' last
+	lines) */
 	if (text && named(panel, "panel_name", 0))
-		text->vertical_offset = (short)(named(panel, "panel_name", 0)->vertical_offset +
-			(stills ? SETTINGS_PANEL_TEXT_UNDER_STILLS : picture ? SETTINGS_PANEL_TEXT_UNDER_PICTURE :
-			SETTINGS_PANEL_TEXT_TOP));
-	settings_text_wrap(bar, wrapped, SETTINGS_PANEL_TEXT_LENGTH, note_font, note_width);
-	text_set_length(note, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
+	{
+		short name_top = named(panel, "panel_name", 0)->vertical_offset;
+		short room = (short)(SETTINGS_PANEL_BOTTOM - SETTINGS_PANEL_TEXT_MARGIN - name_top);
+		short top = stills ? SETTINGS_PANEL_TEXT_UNDER_STILLS : picture ? SETTINGS_PANEL_TEXT_UNDER_PICTURE :
+			SETTINGS_PANEL_TEXT_TOP;
+
+		if ((stills || picture) && settings_panel_height(lines, note_lines, line) > room - top)
+		{
+			settings_value_picture_show(panel, row, NONE);
+			stills = FALSE;
+			still = NONE;
+			top = SETTINGS_PANEL_TEXT_TOP;
+		}
+		if (note_lines && settings_panel_height(lines, note_lines, line) > room - top)
+			note_lines = 0;
+		if (settings_panel_height(lines, 0, line) > room - top)
+			lines = settings_text_lines_cut(wrapped, (short)MAX((room - top) / line, 1));
+		text->vertical_offset = (short)(name_top + top);
+	}
+	text_set_length(text, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
+	if (!note_lines)
+		noted[0] = 0;
+	text_set_length(note, noted, SETTINGS_PANEL_TEXT_LENGTH);
 	/* (the note a line under the words) */
 	if (note && text)
-	{
-		short line = 12;
-
-		if (text_font != NONE)
-		{
-			rectangle2d bounds, text_bounds, cursor;
-			static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-			bounds.x0 = 0;
-			bounds.y0 = 0;
-			bounds.x1 = 0x3FFF;
-			bounds.y1 = 480;
-			/* (a line's height: two lines' less one's) */
-			draw_string_set_draw_mode(text_font, NONE, 0, 0, &white);
-			draw_unicode_string_compute_bounds(&bounds, L"X\r\nX", &text_bounds, &cursor);
-			line = (short)(text_bounds.y1 - text_bounds.y0);
-			draw_unicode_string_compute_bounds(&bounds, L"X", &text_bounds, &cursor);
-			line = (short)(line - (text_bounds.y1 - text_bounds.y0));
-		}
 		note->vertical_offset = (short)(text->vertical_offset + lines * line + line / 2);
-	}
 	for (index = 0; index < 2; index++)
 	{
 		char frame_name[32];
@@ -4706,7 +4763,7 @@ static struct
 
 /* the track and the thumb, as tools/port_settings.py lays them out
 (SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH) */
-#define SLIDER_TRACK_WIDTH 66
+#define SLIDER_TRACK_WIDTH 62
 #define SLIDER_THUMB_WIDTH 8
 
 /* the slider the mouse drags (its row), and the one typed into */

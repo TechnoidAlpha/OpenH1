@@ -301,8 +301,8 @@ class Slider(NamedTuple):
 
 
 # a slider's track, its thumb and its number, in the value's column
-SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH, SLIDER_TRACK_HEIGHT = 66, 8, 14
-SLIDER_VALUE_X, SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT = 68, 72, 20
+SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH, SLIDER_TRACK_HEIGHT = 62, 8, 14
+SLIDER_VALUE_X, SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT = 64, 76, 20
 # input.mouse_sensitivity's: CS2's sensitivity (port/linux/include/mouse_sensitivity.h)
 MOUSE_SENSITIVITY = Slider(0.1, 10.0, 0.05, 0.01, 100.0)
 # the geometry, in the 640x480 menu units (menu_functions.c's SETTINGS_*
@@ -551,12 +551,10 @@ PAGES = {
             ("FRAME RATE LIMIT", "display.max_fps", FRAME_RATE_LIMITS,
              "The most frames drawn a second. Auto is twice the display's refresh rate. More feels smoother and "
              "uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) "
-             "is shown in step with the display, as V-Sync shows it.|Click the number (or press A) to type any "
-             "limit from 10 to 1000.", "desktop"),
+             "is shown in step with the display.|Click the number (or press A) to type 10 to 1000.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
-             "How wide you see on foot, in degrees across a 16:9 screen. Default keeps the Xbox's view; wider shows "
-             "more around you. Vehicles have their own, on First Person.|Click the number (or press A) to type any "
-             "from 20 to 150.", None),
+             "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First "
+             "Person.|Click the number (or press A) to type 20 to 150.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -874,8 +872,8 @@ PAGES = {
              "Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display "
              "without HDR shows the game as it was.", "hdr"),
             ("HDR MODE", "display.hdr_mode", [("FAITHFUL", "faithful"), ("PUNCHY", "punchy")],
-             "Faithful keeps the original picture and brightens its highlights. Punchy lifts the whole scene, as a "
-             "remaster would.|The pictures are shown approximately: no SDR picture can show HDR.", "hdr"),
+             "Faithful keeps the picture and brightens its highlights. Punchy lifts the whole scene, as a remaster "
+             "would.|The pictures are approximate: SDR cannot show HDR.", "hdr"),
             ("PAPER WHITE", "display.hdr_paper_white_nits", PAPER_WHITES,
              "With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR "
              "brightness. Raise it in a bright room.", "hdr"),
@@ -1806,16 +1804,15 @@ def settings_pictures() -> list:
     pictures.append((f"{SETTINGS}/slider_thumb", [(_svg(thumb_w, track_h, [
         _rounded(thumb_w, track_h, 1, 2.5, "#8cc8ff", 1.0, "#2299ff", 1.5)]), thumb_w, track_h)]))
     # (its number's field, as the CE text fields are framed: a navy box with
-    # a blue rim and a line under the number; typed into, a brighter rim
-    # and field)
+    # a blue rim; typed into, a brighter rim and field. No line under the
+    # number: the field is too short for one clear of the rim, which it
+    # thickened into a step along the bottom)
     field_w, field_h = SLIDER_VALUE_WIDTH, SLIDER_VALUE_HEIGHT
-    underline = (f'  <rect x="6" y="{field_h - 3.5:g}" width="{field_w - 12}" height="1" fill="#2995ff" '
-                 'fill-opacity="0.8"/>')
     pictures.append((f"{SETTINGS}/slider_field", [
-        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#000e23", 0.9, "#2995ff", 1.5), underline]),
+        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#000e23", 0.9, "#2995ff", 1.5)]),
          field_w, field_h),
-        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#0d3a7a", 0.95, "#8cc8ff", 1.5),
-                                 underline.replace("#2995ff", "#8cc8ff")]), field_w, field_h)]))
+        (_svg(field_w, field_h, [_rounded(field_w, field_h, 2, 3, "#0d3a7a", 0.95, "#8cc8ff", 1.5)]),
+         field_w, field_h)]))
     for kind, top in (("tab", SETTINGS_TOP), ("page", PAGE_TOP)):
         height = SETTINGS_PANEL_BOTTOM - top
         # (list_field's framed panel: a navy field, a blue rim)

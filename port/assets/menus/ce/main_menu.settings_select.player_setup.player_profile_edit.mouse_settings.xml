@@ -103,16 +103,16 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_track" x="188" y="3"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" x="256" y="0"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" x="252" y="0"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_track" controller="1" width="66" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_thumb"/>
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" type="text" controller="1" width="72" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_vertical_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_label"/>
