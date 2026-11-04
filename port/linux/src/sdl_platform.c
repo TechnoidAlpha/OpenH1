@@ -2406,7 +2406,6 @@ static void test_menu_mouse(void)
 	memset(&event, 0, sizeof(event));
 	if (button)
 	{
-		event.button.windowID = SDL_GetWindowID(platform_window);
 		event.button.which = TEST_MENU_MOUSE_ID;
 		event.button.button = (Uint8)button;
 		event.button.clicks = 1;
@@ -2420,7 +2419,6 @@ static void test_menu_mouse(void)
 		return;
 	}
 	event.type = SDL_EVENT_MOUSE_WHEEL;
-	event.wheel.windowID = SDL_GetWindowID(platform_window);
 	event.wheel.which = TEST_MENU_MOUSE_ID;
 	event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
 	event.wheel.y = wheel / (float)events;

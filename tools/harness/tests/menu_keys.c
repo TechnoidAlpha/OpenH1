@@ -236,6 +236,9 @@ int main(int argc, char **argv)
 		int read;
 
 		text_typing = TRUE;
+		memset(&input, 0, sizeof(input));
+		input.menus = TRUE;
+		keys_held_over_switch(&input, FALSE);
 		for (read = 0; read < 2; read++)
 		{
 			memset(&input, 0, sizeof(input));
