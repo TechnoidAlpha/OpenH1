@@ -239,27 +239,16 @@ static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
 #endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
-/* the presses come (platform_pump_events), under input_lock: a key, a mouse
-or gamepad button down or up, a gamepad's trigger or stick past
-INPUT_AXIS_PRESSED (a trigger past INPUT_TRIGGER_PRESSED) or back, the
-mouse's motion after INPUT_MOUSE_STILL_NS still; the frame's wait for the
-clock ends at one (platform_video_swap). Each gamepad axis's last side of
-its threshold, any gamepad's */
-static unsigned long input_presses;
 /* the presses that skip a Bink movie (platform_movie_skip_pressed), under
 input_lock: a key down (not F11's or F12's, which work the window), a mouse
 button or a finger down; and how many were seen */
 static unsigned long movie_skip_presses, movie_skip_presses_seen;
-static Uint64 input_mouse_moved_ns;
-static unsigned char input_axis_beyond[SDL_GAMEPAD_AXIS_COUNT];
+/* a gamepad's stick or trigger past these is in use (the menus' cursor) */
 #define INPUT_AXIS_PRESSED 16000
 #define INPUT_TRIGGER_PRESSED 8000
-#define INPUT_MOUSE_STILL_NS 50000000ull
 /* port/linux/src/xinput_sdl.c: the scripted player's mouse, as its events
-would bring it (debug.test_input "latency:"), nonzero for a press come; and
-when it presses next, 0 for none */
-int halo_test_input_pump(struct platform_input_state *state, unsigned char *buttons_pressed);
-Uint64 halo_test_input_next_ns(void);
+would bring it (debug.test_input "latency:") */
+void halo_test_input_pump(struct platform_input_state *state, unsigned char *buttons_pressed);
 /* rebinding (platform_binding_capture_begin), under input_lock: waiting for
 an input, and the one taken; then the keyboard and mouse settle (their keys
 and buttons held then are let go) before they drive anything again */
@@ -1930,82 +1919,21 @@ static Uint64 frame_interval_ns(void)
 	return rate > 0.0f ? (Uint64)(1e9f / rate) : 0;
 }
 
-#ifndef HALO_ANDROID
-/* The frame's wait for the clock (platform_video_swap), until a time of
-SDL_GetTicksNS, ended by a press (input_presses): the window's events are
-taken as they come, as the next frame's reading would take them, so that a
-press is read at once, not up to an interval later. Motion is no press
-(but for the mouse's after it was still): the mouse and the sticks move
-continuously, and the frames stay at their rate. The scripted player's
-press (debug.test_input "latency:") ends it at its time, as a person's
-event does. The wait is the system's for the window's events (SDL's, which
-with a gamepad looks every millisecond), in whole milliseconds, and the
-last one's part a plain sleep: nothing runs meanwhile. TRUE for a press. */
-static BOOL platform_frame_wait(Uint64 until)
-{
-	unsigned long presses;
-
-	/* (the events are taken on the window's thread only) */
-	if (!platform_window || SDL_GetCurrentThreadID() != platform_event_thread)
-	{
-		Uint64 now = SDL_GetTicksNS();
-
-		if (until > now)
-			SDL_DelayPrecise(until - now);
-		return FALSE;
-	}
-	pthread_mutex_lock(&input_lock);
-	presses = input_presses;
-	pthread_mutex_unlock(&input_lock);
-	for (;;)
-	{
-		Uint64 now = SDL_GetTicksNS(), wake = until, scripted = halo_test_input_next_ns();
-		BOOL pressed;
-
-		if (now >= until)
-			return FALSE;
-		if (scripted && scripted < wake)
-			wake = scripted < now ? now : scripted;
-		if (wake - now >= 1000000u)
-			SDL_WaitEventTimeout(NULL, (Sint32)((wake - now) / 1000000u));
-		else if (wake > now)
-		{
-			SDL_DelayPrecise(wake - now);
-			if (wake == until)
-				return FALSE;
-		}
-		platform_pump_events();
-		pthread_mutex_lock(&input_lock);
-		pressed = input_presses != presses;
-		pthread_mutex_unlock(&input_lock);
-		if (pressed)
-			return TRUE;
-	}
-}
-#endif
-
 #ifdef HALO_METAL
-/* the last of a frame's wait for its start on the display's grid that is
-the host's precise sleep (host_metal_sleep_until) */
-#define PLATFORM_SLOT_PRECISE_NS 2000000u
-
 /* (vsync off on the Mac) the next frame's start, as SDL_GetTicksNS counts,
 on the display's grid (host_metal_frame_phase): as many times a refresh as
-the interval allows, the refresh's shown one (*shown) its budget before the
+the interval allows, the refresh's shown one its budget before the
 refresh's take, the others a whole step after it, but none before the take
 (a frame started there could be ready for the take and shown instead: it
 starts at the take). The first time half a step after the last frame's
 start (last); one already passed is skipped but for a shown one, which
 starts at once (else the refresh would show the frame before it, a step
 older), and after a frame over a refresh late the grid is joined again
-from now. *step: the times' spacing; *calm: the refresh's take, before
-which a press must not start a frame (it could be shown in place of the
-shown one; the next take shows the press anyway, the shown frame having
-read the input before it). 0 where the host gives no grid. */
-static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last, BOOL *shown, Uint64 *step, Uint64 *calm)
+from now. 0 where the host gives no grid. */
+static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last)
 {
 	unsigned long long phase = host_metal_frame_phase();
-	Uint64 period = host_metal_frame_period(), budget = host_metal_frame_budget(), count, index;
+	Uint64 period = host_metal_frame_period(), budget = host_metal_frame_budget(), count, index, step;
 	Sint64 anchor, earliest, refresh, slot;
 	struct timespec monotonic;
 
@@ -2015,12 +1943,12 @@ static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last, BOOL
 	count = (period + interval / 16u) / interval;
 	if (!count)
 		count = 1;
-	*step = period / count;
+	step = period / count;
 	clock_gettime(CLOCK_MONOTONIC, &monotonic);
 	anchor = (Sint64)phase - ((Sint64)monotonic.tv_sec * 1000000000 + monotonic.tv_nsec) + (Sint64)now;
-	earliest = last ? (Sint64)(last + *step / 2u) : (Sint64)now - (Sint64)(*step / 4u);
+	earliest = last ? (Sint64)(last + step / 2u) : (Sint64)now - (Sint64)(step / 4u);
 	if (earliest < (Sint64)now - (Sint64)period)
-		earliest = (Sint64)now - (Sint64)(*step / 4u);
+		earliest = (Sint64)now - (Sint64)(step / 4u);
 	/* (the refresh whose times may hold the first: one before earliest's) */
 	refresh = (earliest - anchor) / (Sint64)period - 1;
 	if (earliest < anchor)
@@ -2031,22 +1959,33 @@ static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last, BOOL
 		{
 			/* (none but the shown one where the budget leaves no room after
 			the take) */
-			if (index && budget + *step / 2u > period)
+			if (index && budget + step / 2u > period)
 				break;
-			slot = anchor + refresh * (Sint64)period + (Sint64)(index * *step);
+			slot = anchor + refresh * (Sint64)period + (Sint64)(index * step);
 			if (index && slot < anchor + refresh * (Sint64)period + (Sint64)budget)
 				slot = anchor + refresh * (Sint64)period + (Sint64)budget;
-			*shown = index == 0;
-			*calm = (Uint64)(anchor + refresh * (Sint64)period + (Sint64)budget);
 			if (slot < earliest)
 				continue;
-			if (slot >= (Sint64)now || *shown)
+			if (slot >= (Sint64)now || index == 0)
 				return (Uint64)slot;
 		}
 	}
 }
 #endif
 
+/* The frames' limit (display.max_fps, battery saver's without vsync): no
+frame starts before its time, whatever comes meanwhile. The wait is a plain
+sleep, not one for the window's events: the keys, the mouse, the window's
+own events and the controllers' polling neither end it nor add a frame, so
+the frame rate holds at the limit while the player plays (a press that
+began the next frame at once had added a frame each interval, up to twice
+the limit while keys were pressed, #543). The input is read as late as the
+limit lets it be: the wait comes after a frame has gone to the renderer and
+before the next one reads anything (D3DDevice_Present pumps the window's
+events once it returns, and the main loop reads them at once:
+frame_pacing.h), so a press during the wait is in the very next frame, read
+at its start, and the view reads the mouse again after the simulation
+(xinput_sdl.c's mouse look). */
 void platform_video_swap(void)
 {
 	Uint64 swap_start = SDL_GetTicks(), swap_time;
@@ -2054,12 +1993,8 @@ void platform_video_swap(void)
 #ifdef HALO_METAL
 	/* the last frame's start on the display's grid (platform_frame_slot) */
 	static Uint64 slot_last;
-	Uint64 slot, step = 0, calm = 0;
-	BOOL shown = FALSE;
+	Uint64 slot;
 #endif
-	/* a press began a frame before next_frame (platform_frame_wait): the
-	frame after it waits for next_frame without a wake */
-	static BOOL woken;
 	Uint64 interval, now;
 	/* (the host shows the frame, on its render thread: here it is paced) */
 	/* (a frame the graphics driver held for seconds: the game froze, and
@@ -2072,48 +2007,19 @@ void platform_video_swap(void)
 		return;
 	now = SDL_GetTicksNS();
 #ifdef HALO_METAL
-	slot = platform_frame_slot(interval, now, slot_last, &shown, &step, &calm);
+	slot = platform_frame_slot(interval, now, slot_last);
 	if (slot)
 	{
-		/* (a press wakes the wait, but not in the half step before a
-		refresh's shown frame: a frame begun then would only start that
-		one late, and the refresh shows that one, which reads the press
-		too) */
+		/* (the host's sleep, on time: the guest's own timed waits ended up
+		to 8 ms late) */
 		if (slot > now)
 		{
-			Uint64 wake_until = shown ? slot - step / 2u : slot;
 			struct timespec monotonic;
 
-			/* (the window's events are waited for in whole milliseconds,
-			which can end late: the last of the wait is the host's, on
-			time) */
-			if (wake_until > slot - PLATFORM_SLOT_PRECISE_NS)
-				wake_until = slot - PLATFORM_SLOT_PRECISE_NS;
-			/* (no wake before the take: a frame begun there could be ready
-			for it, and shown in place of the shown one) */
-			if (!shown && calm > now && calm < wake_until)
-			{
-				clock_gettime(CLOCK_MONOTONIC, &monotonic);
-				host_metal_sleep_until((unsigned long long)monotonic.tv_sec * 1000000000ull +
-					(unsigned long long)monotonic.tv_nsec + (calm - now));
-				now = SDL_GetTicksNS();
-			}
-			else if (!shown && calm > now)
-				wake_until = now;
-			if (!woken && wake_until > now && platform_frame_wait(wake_until))
-			{
-				woken = TRUE;
-				return;
-			}
-			now = SDL_GetTicksNS();
-			if (slot > now)
-			{
-				clock_gettime(CLOCK_MONOTONIC, &monotonic);
-				host_metal_sleep_until((unsigned long long)monotonic.tv_sec * 1000000000ull +
-					(unsigned long long)monotonic.tv_nsec + (slot - now));
-			}
+			clock_gettime(CLOCK_MONOTONIC, &monotonic);
+			host_metal_sleep_until((unsigned long long)monotonic.tv_sec * 1000000000ull +
+				(unsigned long long)monotonic.tv_nsec + (slot - now));
 		}
-		woken = FALSE;
 		slot_last = slot;
 		return;
 	}
@@ -2124,24 +2030,10 @@ void platform_video_swap(void)
 		/* (the Android guest's SDL waits in milliseconds) */
 		SDL_Delay((Uint32)((next_frame - now) / 1000000u));
 #else
-		/* A press while the frame waits begins the next at once: it is read
-		now, and acted on now if a step is due, else at the step's frame as
-		before. That frame is one more: next_frame stays, and the frame
-		after it waits for it as before, without a wake, so a frame comes
-		before its time once in an interval at most (a frame a press, which
-		are few), and none comes later than it would have. */
-		if (!woken && platform_frame_wait(next_frame))
-		{
-			woken = TRUE;
-			return;
-		}
-		now = SDL_GetTicksNS();
-		if (next_frame > now)
-			SDL_DelayPrecise(next_frame - now);
+		SDL_DelayPrecise(next_frame - now);
 #endif
 		now = next_frame;
 	}
-	woken = FALSE;
 	/* (a frame more than an interval late starts the count again) */
 	next_frame = now - next_frame > interval ? now + interval : next_frame + interval;
 }
@@ -2875,8 +2767,6 @@ void platform_pump_events(void)
 			exit(EXIT_SUCCESS);
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
-			if (!event.key.repeat)
-				input_presses++;
 			if (event.key.down && !event.key.repeat && event.key.scancode != SDL_SCANCODE_F11 &&
 				event.key.scancode != SDL_SCANCODE_F12)
 				movie_skip_presses++;
@@ -2955,17 +2845,9 @@ void platform_pump_events(void)
 #endif
 			input_state.mouse_dx += event.motion.xrel;
 			input_state.mouse_dy += event.motion.yrel;
-			{
-				Uint64 now = SDL_GetTicksNS();
-
-				if (now - input_mouse_moved_ns >= INPUT_MOUSE_STILL_NS)
-					input_presses++;
-				input_mouse_moved_ns = now;
-			}
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
-			input_presses++;
 			if (event.button.down)
 				movie_skip_presses++;
 #ifdef PLATFORM_MENU_CURSOR
@@ -3150,29 +3032,21 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 		case SDL_EVENT_GAMEPAD_BUTTON_UP:
-			input_presses++;
 #ifdef PLATFORM_MENU_CURSOR
 			if (event.gbutton.down)
 				menu_cursor_controller_used(input_state.ui_pointer);
 #endif
 			break;
-		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-			if (event.gaxis.axis < SDL_GAMEPAD_AXIS_COUNT)
-			{
-				int threshold = event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
-					event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER ? INPUT_TRIGGER_PRESSED : INPUT_AXIS_PRESSED;
-				unsigned char beyond = abs(event.gaxis.value) >= threshold;
-
-				if (beyond != input_axis_beyond[event.gaxis.axis])
-					input_presses++;
-				input_axis_beyond[event.gaxis.axis] = beyond;
 #ifdef PLATFORM_MENU_CURSOR
-				/* (a stick or trigger past its rest) */
-				if (beyond)
-					menu_cursor_controller_used(input_state.ui_pointer);
-#endif
+		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
+			/* (a stick or trigger past its rest) */
+			if (abs(event.gaxis.value) >= (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
+				event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER ? INPUT_TRIGGER_PRESSED : INPUT_AXIS_PRESSED))
+			{
+				menu_cursor_controller_used(input_state.ui_pointer);
 			}
 			break;
+#endif
 		case SDL_EVENT_GAMEPAD_REMOVED:
 			/* (SDL keeps a gamepad open until it is closed, even once the
 			controller has gone) */
@@ -3203,8 +3077,7 @@ void platform_pump_events(void)
 	}
 #endif
 	test_menu_keys();
-	if (halo_test_input_pump(&input_state, mouse_buttons_pressed))
-		input_presses++;
+	halo_test_input_pump(&input_state, mouse_buttons_pressed);
 	pthread_mutex_unlock(&input_lock);
 	looked_at_clipboard = TRUE;
 	platform_invite_clipboard(look_at_clipboard);
