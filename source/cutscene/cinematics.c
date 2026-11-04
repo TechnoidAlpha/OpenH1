@@ -83,6 +83,14 @@ enum
 	MAXIMUM_QUEUED_CINEMATIC_TITLES = 4,
 };
 
+/* port: a title's justification (draw_string.c's _text_justification_*) */
+enum
+{
+	_cinematic_title_justified_left = 0,
+	_cinematic_title_justified_right,
+	_cinematic_title_justified_center,
+};
+
 /* ---------- macros */
 
 /* ---------- structures */
@@ -463,11 +471,18 @@ void cinematic_render(
 					(title->shadow_color & 0x00FFFFFF));
 
 				{
-					/* the bounds are for 640 columns: on a wider screen move
-					them so they keep their place relative to its sides */
+					/* port: the bounds are the Xbox's 640 columns of its 4:3
+					screen, across which the letterbox's bars ran. On a wider
+					screen the bars run across it all, and the title keeps its
+					place against them: the edge its text is justified to as
+					far from the bars' end as on the Xbox (a right-justified
+					chapter title at their right end, a left one at their
+					left), a centred title in the middle, in the 480 lines
+					the text and the bars are sized by */
 					static rectangle2d wide_bounds;
-					short shift = (short)(((title_bounds->x0 + title_bounds->x1) / 2) *
-						(halo_screen_width() - 640) / 640);
+					short extra = (short)(halo_screen_width() - 640);
+					short shift = title->justification == _cinematic_title_justified_left ? 0 :
+						title->justification == _cinematic_title_justified_right ? extra : extra / 2;
 
 					wide_bounds = *title_bounds;
 					wide_bounds.x0 += shift;
