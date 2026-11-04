@@ -13,8 +13,8 @@ def run(tmp_path, body):
     binary = tmp_path / "art"
     subprocess.run([os.environ.get("CC", "cc"), "-std=gnu89", "-O2",
                     "-Wall", "-Wextra", "-Werror", "-fsanitize=undefined",
-                    "-I", str(ROOT / "port/linux/src"), str(source),
-                    "-o", str(binary)], check=True, timeout=60)
+                    "-pthread", "-I", str(ROOT / "port/linux/src"), str(source),
+                    "-o", str(binary), "-lm"], check=True, timeout=60)
     subprocess.run([str(binary)], check=True, timeout=30)
 
 

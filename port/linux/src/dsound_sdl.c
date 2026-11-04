@@ -2465,7 +2465,94 @@ they mixed, since the log last said */
 static Uint64 mix_nanoseconds;
 static unsigned long mix_frames;
 
-static void mix_buffers(float *output, unsigned long frames);
+/* ---------- buffers (the mixer's side)
+
+The game's buffers: the loading screen's chant (progress_bar.c: one sound,
+looped, as four voices at their pitches, each swelling with the load's
+progress), and a silent looping one that keeps the voice processor busy.
+A buffer's sound is decoded once as its data is set (Xbox ADPCM or 16-bit
+PCM, mono or stereo), and played from the start, looped or once, at its
+pitch (the playback rate: 48 kHz times two to the pitch over 4096) and
+volume (millibels, under audio.effects_volume and audio.volume), mixed in
+the front pair, dry. The game's side and the mixer's share buffers_lock. */
+
+struct sdl_buffer
+{
+	ULONG reference_count;
+	/* its format, and its sound decoded (frames of channels) */
+	WORD format, channels;
+	short *samples;
+	unsigned long frames;
+	/* the game's: playing, looped, its rate (frames a second) and gain */
+	BOOL playing, looping;
+	double rate;
+	float gain;
+	/* the mixer's: where it plays, in frames, and its gain as it goes to
+	the game's (no click as a voice comes in, changes or stops: Stop lets
+	it fade out first) */
+	double position;
+	float current;
+	BOOL stopping;
+	struct sdl_buffer *link;
+};
+
+static pthread_mutex_t buffers_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct sdl_buffer *buffers;
+
+/* (the mixer's thread) the buffers that play, added to output */
+static void mix_buffers(float *output, unsigned long frames)
+{
+	struct sdl_buffer *buffer;
+
+	pthread_mutex_lock(&buffers_lock);
+	for (buffer = buffers; buffer; buffer = buffer->link)
+	{
+		double step = buffer->rate / OUTPUT_RATE;
+		float gain = buffer->stopping ? 0.0f : buffer->gain * master_volume;
+		unsigned long frame;
+
+		if (!buffer->playing || !buffer->samples || !buffer->frames || step <= 0.0)
+			continue;
+		if (buffer->stopping && buffer->current < 1e-4f)
+		{
+			buffer->playing = buffer->stopping = FALSE;
+			buffer->current = 0.0f;
+			continue;
+		}
+		for (frame = 0; frame < frames; frame++)
+		{
+			/* (a twentieth of a second to a new gain) */
+			buffer->current += (gain - buffer->current) * (1.0f / (0.05f * OUTPUT_RATE / 4.0f));
+			unsigned long index = (unsigned long)buffer->position, next = index + 1;
+			float fraction = (float)(buffer->position - (double)index), left, right;
+
+			if (next >= buffer->frames)
+				next = buffer->looping ? 0 : index;
+			if (buffer->channels == 2)
+			{
+				left = buffer->samples[index * 2] + (buffer->samples[next * 2] - buffer->samples[index * 2]) * fraction;
+				right = buffer->samples[index * 2 + 1] +
+					(buffer->samples[next * 2 + 1] - buffer->samples[index * 2 + 1]) * fraction;
+			}
+			else
+				left = right = buffer->samples[index] + (buffer->samples[next] - buffer->samples[index]) * fraction;
+			output[frame * output_channels] += left * buffer->current * (1.0f / 32768.0f);
+			output[frame * output_channels + 1] += right * buffer->current * (1.0f / 32768.0f);
+			buffer->position += step;
+			if (buffer->position >= (double)buffer->frames)
+			{
+				if (!buffer->looping)
+				{
+					buffer->playing = FALSE;
+					buffer->position = 0.0;
+					break;
+				}
+				buffer->position -= (double)buffer->frames * (unsigned long)(buffer->position / (double)buffer->frames);
+			}
+		}
+	}
+	pthread_mutex_unlock(&buffers_lock);
+}
 
 /* a mix of frames into output: the game's side taken over first, waiting
 for it only without a device (wait) */
@@ -3908,94 +3995,7 @@ HRESULT WINAPI IDirectSoundStream_SetConeAngles(LPDIRECTSOUNDSTREAM stream, DWOR
 HRESULT WINAPI IDirectSoundStream_SetConeOrientation(LPDIRECTSOUNDSTREAM stream, FLOAT x, FLOAT y, FLOAT z, DWORD apply) { (void)stream; (void)x; (void)y; (void)z; (void)apply; return DS_OK; }
 HRESULT WINAPI IDirectSoundStream_SetConeOutsideVolume(LPDIRECTSOUNDSTREAM stream, LONG volume, DWORD apply) { (void)stream; (void)volume; (void)apply; return DS_OK; }
 
-/* ---------- buffers
-
-The game's buffers: the loading screen's chant (progress_bar.c: one sound,
-looped, as four voices at their pitches, each swelling with the load's
-progress), and a silent looping one that keeps the voice processor busy.
-A buffer's sound is decoded once as its data is set (Xbox ADPCM or 16-bit
-PCM, mono or stereo), and played from the start, looped or once, at its
-pitch (the playback rate: 48 kHz times two to the pitch over 4096) and
-volume (millibels, under audio.effects_volume and audio.volume), mixed in
-the front pair, dry. The game's side and the mixer's share buffers_lock. */
-
-struct sdl_buffer
-{
-	ULONG reference_count;
-	/* its format, and its sound decoded (frames of channels) */
-	WORD format, channels;
-	short *samples;
-	unsigned long frames;
-	/* the game's: playing, looped, its rate (frames a second) and gain */
-	BOOL playing, looping;
-	double rate;
-	float gain;
-	/* the mixer's: where it plays, in frames, and its gain as it goes to
-	the game's (no click as a voice comes in, changes or stops: Stop lets
-	it fade out first) */
-	double position;
-	float current;
-	BOOL stopping;
-	struct sdl_buffer *link;
-};
-
-static pthread_mutex_t buffers_lock = PTHREAD_MUTEX_INITIALIZER;
-static struct sdl_buffer *buffers;
-
-/* (the mixer's thread) the buffers that play, added to output */
-static void mix_buffers(float *output, unsigned long frames)
-{
-	struct sdl_buffer *buffer;
-
-	pthread_mutex_lock(&buffers_lock);
-	for (buffer = buffers; buffer; buffer = buffer->link)
-	{
-		double step = buffer->rate / OUTPUT_RATE;
-		float gain = buffer->stopping ? 0.0f : buffer->gain * master_volume;
-		unsigned long frame;
-
-		if (!buffer->playing || !buffer->samples || !buffer->frames || step <= 0.0)
-			continue;
-		if (buffer->stopping && buffer->current < 1e-4f)
-		{
-			buffer->playing = buffer->stopping = FALSE;
-			buffer->current = 0.0f;
-			continue;
-		}
-		for (frame = 0; frame < frames; frame++)
-		{
-			/* (a twentieth of a second to a new gain) */
-			buffer->current += (gain - buffer->current) * (1.0f / (0.05f * OUTPUT_RATE / 4.0f));
-			unsigned long index = (unsigned long)buffer->position, next = index + 1;
-			float fraction = (float)(buffer->position - (double)index), left, right;
-
-			if (next >= buffer->frames)
-				next = buffer->looping ? 0 : index;
-			if (buffer->channels == 2)
-			{
-				left = buffer->samples[index * 2] + (buffer->samples[next * 2] - buffer->samples[index * 2]) * fraction;
-				right = buffer->samples[index * 2 + 1] +
-					(buffer->samples[next * 2 + 1] - buffer->samples[index * 2 + 1]) * fraction;
-			}
-			else
-				left = right = buffer->samples[index] + (buffer->samples[next] - buffer->samples[index]) * fraction;
-			output[frame * output_channels] += left * buffer->current * (1.0f / 32768.0f);
-			output[frame * output_channels + 1] += right * buffer->current * (1.0f / 32768.0f);
-			buffer->position += step;
-			if (buffer->position >= (double)buffer->frames)
-			{
-				if (!buffer->looping)
-				{
-					buffer->playing = FALSE;
-					buffer->position = 0.0;
-					break;
-				}
-				buffer->position -= (double)buffer->frames * (unsigned long)(buffer->position / (double)buffer->frames);
-			}
-		}
-	}
-	pthread_mutex_unlock(&buffers_lock);
-}
+/* ---------- buffers (the game's side; the mixer's is mix_buffers) */
 
 HRESULT WINAPI DirectSoundCreateBuffer(LPCDSBUFFERDESC description, LPDIRECTSOUNDBUFFER *result)
 {

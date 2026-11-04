@@ -25,7 +25,7 @@ from harness import CHECK_FAILED, build, mutated, read, run  # noqa: E402
 SOURCE = "port/linux/src/dsound_sdl.c"
 CASES = ["reference", "impulse", "sines", "aliases", "silent-voice", "mono", "linear", "adpcm", "doppler", "doppler-steady",
          "limiter", "channels", "surround", "spatial-choice", "hrtf-cues", "hrtf-paths", "hrtf-switch", "dry-2d",
-         "master-volume",
+         "master-volume", "buffers",
          "hand-off-never-waits", "hand-off-settings"]
 
 # a fault in the mixer, and the case that must catch it
