@@ -10971,6 +10971,10 @@ void game_engine_postspawn_player_update(
 
 
 
+/* port: port/linux/game/hud_key_prompts.c's: a button's word in a message
+as its icon's name, which the HUD draws as the prompts draw the button */
+void hud_key_prompt_button_word(wchar_t *text, long length, wchar_t const *word, wchar_t const *icon);
+
 boolean game_engine_get_state_message(
 	long player_index,
 	wchar_t *message,
@@ -11030,6 +11034,12 @@ boolean game_engine_get_state_message(
 				NONE,
 				message,
 				message_character_count);
+			/* port: its BACK the Back button's icon, which the HUD draws as
+			the prompts draw a button: the scoreboard's key while the
+			keyboard and mouse play, else the controller's Back (the string
+			is the map's, which names the button in words) */
+			if (result)
+				hud_key_prompt_button_word(message, message_character_count, L"BACK", L"%back-button");
 		}
 		else if (player->state_message != NONE)
 		{

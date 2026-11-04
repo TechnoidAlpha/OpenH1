@@ -173,6 +173,8 @@ BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer);
 /* a scripted run's click on the menus, 0 to 1 of the window (debug.test_input
 "menu:... click:<x>:<y> ...", xinput_sdl.c) */
 int platform_test_menu_click(float *x, float *y);
+/* its typing and Enter ("type:<letters and digits>", "enter", xinput_sdl.c) */
+int platform_test_menu_keys(char *typed, int size, int *enter);
 
 /* returns the window's size in the units that pointer positions come in,
 which differ from the drawable's pixels on displays that scale */

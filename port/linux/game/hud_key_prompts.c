@@ -75,6 +75,7 @@ boolean hud_key_prompt_draw(short local_player_index, short game_control, short 
 	rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
 boolean hud_key_prompt_draw_key(char const *name, rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
 short hud_key_prompt_cap_widening(short name_width);
+void hud_key_prompt_button_word(wchar_t *text, long length, wchar_t const *word, wchar_t const *icon);
 
 /* ---------- private code */
 
@@ -395,6 +396,58 @@ void hud_key_prompt_action_name(
 {
 	if (size > 0 && (action == NONE || !halo_keyboard_action_name(action, name, (unsigned long)size)))
 		snprintf(name, (size_t)size, "%s", "Unbound");
+}
+
+/* whether a character is a letter or a digit (of the Latin alphabets) */
+static boolean word_character(wchar_t character)
+{
+	return (character >= L'0' && character <= L'9') || (character >= L'A' && character <= L'Z') ||
+		(character >= L'a' && character <= L'z') || character >= 0xC0;
+}
+
+static long wide_length(wchar_t const *text)
+{
+	long length = 0;
+
+	while (text[length])
+		length++;
+	return length;
+}
+
+/* a button's word in a message (the multiplayer start's "Hold BACK for
+score", the map's string) as its icon's name ("%back-button"), which the
+HUD's custom messages draw as the prompts draw the button
+(draw_string_and_hack_in_icons): the key bound while the keyboard and mouse
+play, else the controller's button. The first time the word stands alone (no
+letter or digit either side), if the result fits in length characters with
+its terminator; else the text is left as it is */
+void hud_key_prompt_button_word(
+	wchar_t *text,
+	long length,
+	wchar_t const *word,
+	wchar_t const *icon)
+{
+	long text_length = wide_length(text);
+	long word_length = wide_length(word);
+	long icon_length = wide_length(icon);
+	long index, at;
+
+	for (index = 0; index + word_length <= text_length; index++)
+	{
+		for (at = 0; at < word_length && text[index + at] == word[at]; at++)
+			;
+		if (at < word_length || (index > 0 && word_character(text[index - 1])) ||
+			word_character(text[index + word_length]))
+		{
+			continue;
+		}
+		if (text_length - word_length + icon_length >= length)
+			return;
+		memmove(text + index + icon_length, text + index + word_length,
+			(size_t)(text_length - index - word_length + 1) * sizeof(wchar_t));
+		memcpy(text + index, icon, (size_t)icon_length * sizeof(wchar_t));
+		return;
+	}
 }
 
 /* the key a prompt names for the keyboard and mouse, for a game control or

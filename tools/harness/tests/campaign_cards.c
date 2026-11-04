@@ -95,6 +95,23 @@ static void slide_eases(void)
 	EXPECT(MISSION_SLIDE_MILLISECONDS >= 120 && MISSION_SLIDE_MILLISECONDS <= 200);
 }
 
+/* the pointer: passing over a card lights it and chooses nothing (choosing
+moved the row under the still pointer, and the next card was chosen in turn,
+#515); a click on a card beside the chosen one chooses it, one on the chosen
+card opens it; the d-pad's focus, a click's and a tap's choose */
+static void hover_lights_only(void)
+{
+	CHECK(!mission_card_focus_chooses(2, TRUE), "a card passed over was chosen");
+	CHECK(mission_card_focus_chooses(2, FALSE), "a card clicked or tapped was not chosen");
+	CHECK(!mission_card_focus_chooses(NONE, FALSE), "no card chose one");
+	/* (first 3 of 10, the fourth chosen) */
+	CHECK(mission_card_click_chooses(3, 0, 4, 10), "a click on the card before the chosen one opened it");
+	CHECK(mission_card_click_chooses(3, 2, 4, 10), "a click on the card after the chosen one opened it");
+	CHECK(!mission_card_click_chooses(3, 1, 4, 10), "a click on the chosen card did not open it");
+	CHECK(!mission_card_click_chooses(3, NONE, 4, 10), "SELECT did not open the chosen card");
+	CHECK(!mission_card_click_chooses(8, 2, 9, 10), "a card past the row's end chosen");
+}
+
 int main(int argc, char **argv)
 {
 	char const *name = argc > 1 ? argv[1] : "";
@@ -111,6 +128,8 @@ int main(int argc, char **argv)
 		step_kept_to_row();
 	else if (!strcmp(name, "slide-eases"))
 		slide_eases();
+	else if (!strcmp(name, "hover-lights-only"))
+		hover_lights_only();
 	else
 		return 2;
 	return 0;

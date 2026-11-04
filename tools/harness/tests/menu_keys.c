@@ -27,6 +27,8 @@ struct platform_input_state
 #define SDL_BUTTON_X1 4
 typedef struct { unsigned short wButtons; BYTE bAnalogButtons[8]; SHORT sThumbLX, sThumbLY; } XINPUT_GAMEPAD;
 static BOOL text_typing, text_typing_enter_armed;
+/* (a menu's text field typed into: xinput_sdl.c's typing_gamepad) */
+BOOL text_typing_field;
 /* whether a server browser is shown (xinput_sdl.c's halo_keyboard_browser_keys) */
 static int browser_shown;
 
