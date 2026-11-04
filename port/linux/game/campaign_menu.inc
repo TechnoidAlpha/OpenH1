@@ -18,8 +18,12 @@ campaign_levels_read), a level started as the PC version's lists start it
   "tab previous" and "tab next", or a click on a tab, "tab"), three cards at
   a time, the chosen one larger, outlined and in the middle (but at the
   row's ends: mission_cards_first, mission_cards_place). Left and right
-  ("previous", "next", or the arrows) choose the one before or after it;
-  the pointer passing over a card chooses it. Each card has its level's
+  ("previous", "next", or the arrows) choose the one before or after it.
+  The pointer passing over a card beside the chosen one lights it and
+  chooses nothing: the row stays where it is under the pointer (choosing
+  it moved the row, and the next card under the pointer was chosen in
+  turn). A click or a tap on it chooses it, the row sliding it to the
+  middle; a click on the chosen card opens it (mission_card_click_chooses). Each card has its level's
   picture (ui.map's sp_levels; a Custom Edition map's own, else a title
   card), MISSION 0N, its name, a badge for each difficulty, veiled where it
   is not beaten on it (the profile's flags, as the Xbox's list marks them),
@@ -517,6 +521,21 @@ static short mission_card_slot(struct widget_instance const *widget)
 		(short)(widget->name[length - 1] - '0') : NONE;
 }
 
+/* whether a card the focus is on chooses its mission: given by the d-pad, a
+click or a tap, not by the pointer passing over it, which only lights it */
+static boolean mission_card_focus_chooses(short focused_slot, boolean hovered)
+{
+	return focused_slot != NONE && !hovered;
+}
+
+/* whether a card's A (a click's, a key's while the pointer lights it) only
+chooses its mission, a card beside the chosen one: the row slides it to the
+middle, where the next A opens it */
+static boolean mission_card_click_chooses(short first, short slot, short chosen, short count)
+{
+	return slot != NONE && first + slot < count && first + slot != chosen;
+}
+
 static struct widget_instance *mission_card(struct widget_instance *list, short slot, boolean big)
 {
 	char name[32];
@@ -682,13 +701,20 @@ static void campaign_missions_update(struct widget_instance *list)
 	short count = campaign_mission_count();
 	short slot_x[MISSION_SLOTS];
 	short focused_slot = mission_card_slot(list->focused_child);
+	/* (a card the pointer passes over: lit, and kept the focus, but not
+	chosen) */
+	boolean hovered = focused_slot != NONE && ui_widget_port_hover_focused();
 	/* (an arrow keeps the focus the pointer gave it; else the chosen card has it) */
-	boolean focus_on_card = focused_slot != NONE || !list->focused_child || !ui_widget_port_pointer_focused();
+	boolean focus_on_card = (focused_slot != NONE && !hovered) || !list->focused_child ||
+		!ui_widget_port_pointer_focused();
 	short shown, slot, index;
 	wchar_t text[MISSION_TEXT_LENGTH];
 
-	if (focused_slot != NONE && list->focused_child->visible && campaign_cards.first + focused_slot < count)
+	if (mission_card_focus_chooses(focused_slot, hovered) && list->focused_child->visible &&
+		campaign_cards.first + focused_slot < count)
+	{
 		campaign_cards.chosen = (short)(campaign_cards.first + focused_slot);
+	}
 	campaign_cards.chosen = (short)PIN(campaign_cards.chosen, 0, MAX(count - 1, 0));
 	campaign_cards.first = mission_cards_first(campaign_cards.chosen, count);
 	shown = (short)MIN(count, MISSION_SLOTS);
@@ -733,8 +759,9 @@ static void campaign_missions_update(struct widget_instance *list)
 			small->vertical_offset = (short)(MISSION_CARDS_TOP + (MISSION_BIG_HEIGHT - MISSION_SMALL_HEIGHT) / 2);
 		}
 		mission_card_show(chosen ? big : small, mission, chosen);
+		/* (fainter beside the chosen one, but the one the pointer lights) */
 		if (small)
-			small->alpha_modifier = MISSION_CARD_FAINT;
+			small->alpha_modifier = hovered && list->focused_child == small ? 1.0f : MISSION_CARD_FAINT;
 		/* (the focus on the chosen card, which is the larger one) */
 		if (chosen && focus_on_card && big)
 			list->focused_child = big;
@@ -819,6 +846,19 @@ static boolean campaign_missions_choose(struct widget_instance *widget, short co
 	short slot = mission_card_slot(widget);
 	short mission;
 
+	/* (a card beside the chosen one: chosen, slid to the middle, not
+	opened; failing, so that its screen does not open) */
+	if (mission_card_click_chooses(campaign_cards.first, slot, campaign_cards.chosen, count))
+	{
+		struct widget_instance *list = widget->parent;
+
+		campaign_cards.chosen = (short)(campaign_cards.first + slot);
+		campaign_cards.first = mission_cards_first(campaign_cards.chosen, count);
+		if (list)
+			list->focused_child = NULL;
+		ui_play_audio_feedback_sound(SOUND_CURSOR);
+		return FALSE;
+	}
 	if (slot != NONE && campaign_cards.first + slot < count)
 		campaign_cards.chosen = (short)(campaign_cards.first + slot);
 	mission = campaign_cards.chosen;
