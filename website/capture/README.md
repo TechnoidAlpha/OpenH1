@@ -188,7 +188,7 @@ tools/encode-web.sh strafe strafe 3840:2160:0:360 1280x720
 
 ### latency, 2026-10-24
 
-The race's two screens (05): one pistol shot on macOS, hidden and silent,
+The race's two screens (07): one pistol shot on macOS, hidden and silent,
 in a local SWAT game on Blood Gulch with no bots (SWAT starts with the
 pistol), seed 7, Enhanced, a 1280 × 720 window, frames of a fixed 1/60 s,
 the shot scripted and the frames saved only around it:
@@ -208,7 +208,7 @@ those pixels.
 
 ### 3D audio, 2026-11-01
 
-The clip under the head (06): Blood Gulch with every vehicle (a Custom
+The clip under the head (08): Blood Gulch with every vehicle (a Custom
 Edition map, `bloodgulch_all_vehicles`, with Custom Edition's shared maps
 in `CUSTOM_MAPS`), Team Slayer, 15 legendary bots, the player not a bot but
 standing still where it spawned, made deathless, and every vehicle dropped
@@ -246,6 +246,27 @@ samples.
   still. Bots all against the player (`bots.teams = "against"`) pin it
   down, the view shaking and darkened; even teams leave it in the fight's
   edge.
+
+### ambient occlusion and Panini, 2026-11-03
+
+Stills, each the same frame twice, from the RTX 4090, Enhanced, offscreen
+Vulkan, `HALO_FIXED_STEP=1` and a fixed seed, AI erased, the HUD hidden.
+Neither option changes the game, so one still each side shows it.
+
+- Ambient occlusion (05): `tools/preview_rerender`'s `Game`, objects placed
+  with `debug_object_place`, the world stopped (`game_speed 0`), the camera
+  set with `debug_camera_set`, a frame with `display.ambient_occlusion` off
+  and one with `"strong"`; 2560 × 1440, scaled to 1920 × 1080, WebP at
+  quality 78.
+- Panini (06): the script camera stops the game past 90 degrees
+  (`camera_pose.c`), so this is the player's own view from where it starts,
+  `HALO_FOV=150`, `HALO_VIEWMODEL_VISIBLE=false`, two runs (`HALO_PANINI` 0
+  and 1, `HALO_PANINI_VERTICAL` 0), the 300th frame streamed of each. With
+  Panini on, the screen is supersampled (2× at 150), and the screenshot
+  stream sends the supersampled frames: a 1280 × 720 window streams
+  2560 × 1440, read at that size (its frames began half a frame along, so
+  the two halves were swapped back; the scene is still). Scaled to
+  1920 × 1080, WebP at quality 78.
 
 ### Capturing on macOS: two problems, and the local workarounds used
 
