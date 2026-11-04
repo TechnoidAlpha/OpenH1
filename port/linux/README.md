@@ -3532,7 +3532,12 @@ the Metal backend (port/macos/README.md, "Metal"). On Linux:
 - The visibility tests' counts are what the GPU has written by the end of
   the frame the host plays. The game's next frame reads them while the
   host plays its frames, so they can be a frame older or newer than those
-  of a backend in the game, whose own depend on the frame's pacing.
+  of a backend in the game, whose own depend on the frame's pacing. Each
+  count is written with the number of the test it is of (the front end
+  numbers the tests, `d3d8_visibility_test_number`, and
+  `D3DDevice_GetVisibilityTestResult` gives the number as the time stamp),
+  so that the game takes a slot's count only once it is of its own test:
+  each lens flare is tested in a slot of its own (`rasterizer_lights.c`).
 
 `tools/test_render_stream.py` tests the stream with a backend of its
 own.
@@ -6663,7 +6668,7 @@ Other changes:
 | `render/render_objects.c`, `interface/first_person_weapons.c`, `rasterizer/xbox/rasterizer_xbox_plasma_energy.c` | A local player's shield plasma is drawn in the chosen armor color (`display.shield_color`, `shield_color.c`), on the body and on the first-person arms; in the VR build, the plasma over the weapon in its holster in its highlight's color, close to the weapon (`vr_holster.c`). |
 | `objects/object_lights.c` | A light attached to an object is as bright, and of the colour, that the object's function and change colour are between ticks, and an effect's light (an explosion's, an impact's) fades at the frame's time, not a step a tick (`game/render_interpolation.c`); the light's own colour and radius, which the game reads, are the tick's. |
 | `objects/object_lights.c` | An effect's light of no transition (the Scorpion's cannon's) is at its end as it is made, not faded by 0/0: its colour and reach were not a number, which the renderer's checks caught. |
-| `rasterizer/rasterizer_lights.c` | A light whose place, direction, reach or colour is not a number (or infinite) is not drawn: it is refused, as a light past the window's room is, and said in the debug log. |
+| `rasterizer/rasterizer_lights.c` | A light whose place, direction, reach or colour is not a number (or infinite) is not drawn: it is refused, as a light past the window's room is, and said in the debug log. Each lens flare's visibility test is in a slot of its own, kept while the flare is tested, and its count is read only once it is of the flare's own test (the tests' numbers), divided by that test's pixels: the counts come back frames late, and the slot of the flare's index in the frame's list (the Xbox's, read the next frame) had another flare's count whenever the list changed, so flares went out and shone through walls. |
 | `objects/objects.c`, `render/render_objects.c` | A projectile deleted in a tick is drawn through the frames after it (at 60 and 120, through the frames of the sub-step it was deleted in), on to where it was deleted (`game/render_interpolation.c`), with the lighting it was last drawn with. |
 | `game/game_engine.c`, `game/game_engine_ctf.c`, `game/game_engine_oddball.c`, `game/game_engine_slayer.c` | A goal over an object (a flag, the ball, a carrier, a target) notes the object, and its marker is drawn over the object as drawn between ticks (`game_engine_get_goal_drawn_position`); the goal's own position is the tick's. |
 | `interface/motion_sensor.c` | The motion sensor's newest blips are drawn from where their units and goals, and the player, are drawn between ticks (a copy of the drawing's own); the blips' history is the ticks'. |
