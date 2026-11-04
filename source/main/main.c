@@ -3116,10 +3116,31 @@ static void screenshot_render(
 	return;
 }
 
+/* port: Settings > Video's SHOW FRAME RATE (display.show_frame_rate, off by
+default), read again when it changes, which draws the frame rate as the
+console's display_framerate does */
+int config_boolean(const char *name);
+unsigned long config_changes(void);
+
+static boolean main_show_frame_rate_setting(
+	void)
+{
+	static boolean setting = FALSE;
+	static unsigned long read_at = (unsigned long)-1;
+
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		setting = config_boolean("display.show_frame_rate") != 0;
+	}
+
+	return setting;
+}
+
 void main_framerate_render(
 	void)
 {
-	if (display_framerate)
+	if (display_framerate || main_show_frame_rate_setting()) /* port: or the setting */
 	{
 		long font_tag_index;
 

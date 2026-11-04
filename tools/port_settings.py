@@ -731,6 +731,10 @@ PAGES = {
             ("SERVER BROWSER FILTERS ›", None, _page_screen(*BROWSER_FILTERS),
              "Which games the server browser and the local network's list show: full and empty games, a "
              "password, the ping, the game types, and words to search for.", None),
+            # (Interface's until its page had no room for SHOW FRAME RATE: what
+            # other players send, so Online's; its files keep their names)
+            ("STREAMER MODE ›", None, _page_screen(*STREAMER),
+             "Hides offensive words in names and text from other players, maps and mods, as stars.", None),
             # (port/linux/game/map_share.c: this machine's part in another's
             # game)
             (SECTION, "MAP SHARING"),
@@ -764,6 +768,11 @@ PAGES = {
              "menus' button artwork.", None),
             ("HIGH-RES TEXT", "display.high_res_text", ON_OFF,
              "Draws text and titles with sharp high-resolution fonts. Off draws the game's own.", None),
+            # (main.c's main_framerate_render, as the console's
+            # display_framerate draws it; Video's page has no room)
+            ("SHOW FRAME RATE", "display.show_frame_rate", ON_OFF,
+             "Draws the frame rate at the bottom right of the screen, to see how the game runs: the frames drawn "
+             "each second, averaged over half a second. Green is 30 or more, red under 30.", None),
             (SECTION, "MULTIPLAYER"),
             ("PLAYER NAMES", "display.player_names",
              [("ALL", "all"), ("ALLIES", "allies"), ("ENEMIES", "enemies"), ("NONE", "none")],
@@ -784,8 +793,6 @@ PAGES = {
             ("CHAT TEXT", "display.chat_style", [("COLORS", "colors"), ("WHITE", "white")],
              "Colors draws the names in their team's color; White draws it all white, as Custom Edition does.",
              None),
-            ("STREAMER MODE ›", None, _page_screen(*STREAMER),
-             "Hides offensive words in names and text from other players, maps and mods, as stars.", None),
         ],
     },
     "profile_settings": {
