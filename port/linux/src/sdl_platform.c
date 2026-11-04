@@ -174,18 +174,6 @@ void halo_loading_screen_progress(float progress, char const *caption)
 			xgpu_backend_flush();
 		}
 	}
-	/* (sent now: the game may draw nothing meanwhile, whose frames would
-	carry them; at most 30 times a second) */
-	{
-		static unsigned long long sent;
-		unsigned long long now = SDL_GetTicksNS();
-
-		if (now - sent >= 33000000ULL)
-		{
-			sent = now;
-			xgpu_backend_flush();
-		}
-	}
 }
 
 void halo_loading_screen_end(void)
