@@ -26,10 +26,12 @@ with (tools/preview_rerender/game.py): the map's opening ticks run until
 no cinematic has run for 5 seconds of its time (each skipped as the skip
 button does, debug.skip_cinematics), at least 5 and at most 20 seconds;
 then no console text, HUD, help text or AI, a cinematic still running
-stopped, the player's body gone, 1.5 seconds more, and the world stopped,
-whatever a cinematic left on the screen cleared (its letterbox, titles and
-the screen's fade); the pose's structure (always: a map may start in
-another), its own lines and objects, settled (its settle_seconds' ticks);
+stopped, 1.5 seconds more, and the world stopped, whatever a cinematic
+left on the screen cleared (its letterbox, titles and the screen's fade);
+the pose's structure (always: a map may start in another), its own lines
+and objects a frame each, each frame drawn and not shown (a camera put
+outside the map is drawn from the leaf it was last drawn in), settled (its
+settle_seconds' ticks), the player's body gone;
 the camera put at the pose (debug_camera_set, camera_pose.c); and one
 frame drawn, each texture it draws with waited for (xbox_texture_cache.c),
 with only the pipelines it draws with made (render_enumerate.c's map's
