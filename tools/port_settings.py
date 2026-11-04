@@ -632,7 +632,7 @@ PAGES = {
              "How sounds are converted to your speakers' rate. Clean is clear; Classic is brighter but harsher, and "
              "costs a little less.", None),
             ("SOUND", "audio.enabled", ON_OFF,
-             "Turns all sound off or on, from the next time the game starts.", None),
+             "Turns all sound off or on, at once.", None),
             (SECTION, "VOLUME"),
             ("MASTER VOLUME", "audio.volume", VOLUMES, "The volume of everything the game plays.", None),
             ("MUSIC VOLUME", "audio.music_volume", VOLUMES, "The music's volume.", None),

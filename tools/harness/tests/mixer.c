@@ -1684,6 +1684,50 @@ int main(int argc, char **argv)
 	/* audio.volume and a voice's own volume (SetVolume) scale every voice
 	alike, the 3D voices through the HRTF as well as the 2D ones: each
 	voice at a fifth of both is 2 x 13.98 dB down */
+	/* Settings > Audio's SOUND (audio.enabled) as the game plays: off fades
+	the output to silence over SOUND_FADE_FRAMES and keeps it silent, on
+	fades it back and then leaves it as mixed; a device is opened for it
+	once a change of the settings turns it on with none open */
+	CASE("sound-off")
+	{
+		static float output[CHUNK * 2];
+		unsigned long frame;
+		float gain = 1.0f;
+
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, FALSE);
+		CHECK(output[0] < 0.5f && output[0] > 0.49f, "the fade's first frame: %f", output[0]);
+		CHECK(output[2 * (SOUND_FADE_FRAMES / 2)] > 0.2f && output[2 * (SOUND_FADE_FRAMES / 2)] < 0.3f,
+			"half way: %f", output[2 * (SOUND_FADE_FRAMES / 2)]);
+		for (frame = SOUND_FADE_FRAMES; frame < CHUNK; frame++)
+			CHECK(output[frame * 2] == 0.0f && output[frame * 2 + 1] == 0.0f, "frame %lu after the fade", frame);
+		CHECK(gain == 0.0f, "the gain off: %f", gain);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, FALSE);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			CHECK(output[frame] == 0.0f, "off, sample %lu: %f", frame, output[frame]);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, TRUE);
+		CHECK(output[0] > 0.0f && output[0] < 0.01f, "fading in: %f", output[0]);
+		CHECK(output[2 * (CHUNK - 1)] == 0.5f && gain == 1.0f, "faded in: %f, gain %f", output[2 * (CHUNK - 1)], gain);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, TRUE);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			CHECK(output[frame] == 0.5f, "on, sample %lu: %f", frame, output[frame]);
+		/* (the device: turned on with none open, once a change; not when
+		paced by the frames, before the start, already open, off) */
+		CHECK(sound_device_wanted(TRUE, FALSE, TRUE, FALSE, 4, 5), "turned on: no device opened");
+		CHECK(!sound_device_wanted(TRUE, FALSE, TRUE, FALSE, 5, 5), "opened again with no change");
+		CHECK(!sound_device_wanted(TRUE, TRUE, TRUE, FALSE, 4, 5), "a paced mix's device");
+		CHECK(!sound_device_wanted(FALSE, FALSE, TRUE, FALSE, 4, 5), "before the start");
+		CHECK(!sound_device_wanted(TRUE, FALSE, TRUE, TRUE, 4, 5), "one open already");
+		CHECK(!sound_device_wanted(TRUE, FALSE, FALSE, FALSE, 4, 5), "a device for no sound");
+		return 0;
+	}
 	CASE("master-volume")
 	{
 		unsigned long frames = 24000, kind;

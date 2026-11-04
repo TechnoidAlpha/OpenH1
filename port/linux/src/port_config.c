@@ -444,7 +444,8 @@ static const struct config_setting config_settings[] =
 		"black, with green). It is never drawn over the picture." },
 
 	{ "audio.enabled", _config_boolean, "true", "HALO_NO_AUDIO", _environment_set_is_false, _platform_all,
-		"Play sound." },
+		"Play sound. Changed while the game runs, the sound fades out or in at\n"
+		"once (a game started without sound opens its audio device then)." },
 	{ "audio.volume", _config_real, "1.0", "HALO_VOLUME", _environment_value, _platform_all,
 		"The volume of everything, 0.0 to 1.0." },
 	{ "audio.music_volume", _config_real, "1.0", "HALO_MUSIC_VOLUME", _environment_value, _platform_all,

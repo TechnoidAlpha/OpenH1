@@ -959,8 +959,7 @@ value. A key in the wrong section is named with the section it goes under. A
 file that cannot be parsed leaves every setting at its default; a word value
 needs its quotes (`menus = "pc"`, not `menus = pc`). The Settings menu (Video, Mouse, Audio, Network and Controls Setup)
 changes the useful settings, writes them into the file (only their lines
-change) and applies them at once, but `audio.enabled`, and `display.menus`
-from the next main menu.
+change) and applies them at once, but `display.menus`, from the next main menu.
 
 Each setting has an environment variable. The environment variable changes
 the setting for one start of the game. It has priority over the file.
@@ -1034,7 +1033,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.orientation` | `"landscape"` | `HALO_ORIENTATION` | Android only. Which way up the game is held: `"landscape"`, `"portrait"` (a strip along the top, the picture under it and the touch controls below it), or `"auto"`, whichever way the device is held, as its own rotation lock allows. A change applies at once. Refer to [port/android/README.md](../android/README.md). |
 | `display.picture_shape` | `"4:3"` | `HALO_PICTURE_SHAPE` | Android only. The picture's shape on a screen taller than it: `"4:3"`, the Xbox's, or `"16:9"`, which sees more to the sides and leaves more of the screen to the touch controls. |
 | `display.frame_style` | `"plain"` | `HALO_FRAME_STYLE` | Android only. The look of the screen around the picture in portrait: `"plain"` black, `"halo"` (navy, with the HUD's cyan lines and rings) or `"xbox"` (ribbed black, with green). It is never drawn over the picture. |
-| `audio.enabled` | `true` | `HALO_NO_AUDIO=1` sets `false` | `false`: no audio device. The sound continues without output. |
+| `audio.enabled` | `true` | `HALO_NO_AUDIO=1` sets `false` | `false`: no sound. The game's sound plays on in silence, in time. A game started with it `false` opens no audio device. Changed as the game plays (Settings > Audio's SOUND), the sound fades out or in at once, and a game that started without a device opens one. |
 | `audio.volume` | `1.0` | `HALO_VOLUME` | The master volume. |
 | `audio.music_volume` | `1.0` | `HALO_MUSIC_VOLUME` | The music's volume, of the master volume. |
 | `audio.effects_volume` | `1.0` | `HALO_EFFECTS_VOLUME` | The volume of the other sounds (effects and speech), of the master volume. |
