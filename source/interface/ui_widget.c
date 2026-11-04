@@ -5657,14 +5657,17 @@ static boolean ui_widget_port_text_wrap(
 	for (index = 0; ; index++)
 	{
 		wchar_t character = text[index];
+		boolean line_end = character == L'\r' || character == L'\n';
 
-		if (character == L'\r' || character == L'\n')
+		/* (a line's end is measured as a space is: the last word of a line
+		before a break was never measured, and ran past the dialog, #523) */
+		if (line_end && index == line_start)
 		{
 			line_start = index + 1;
 			last_space = NONE;
 			continue;
 		}
-		if (character == L' ' || character == 0)
+		if (character == L' ' || character == 0 || line_end)
 		{
 			wchar_t line[256];
 			long length = MIN(index - line_start, (long)NUMBEROF(line) - 1);
@@ -5688,6 +5691,12 @@ static boolean ui_widget_port_text_wrap(
 				fits = FALSE;
 			if (character == 0)
 				break;
+			if (line_end)
+			{
+				line_start = index + 1;
+				last_space = NONE;
+				continue;
+			}
 			last_space = index;
 		}
 	}
