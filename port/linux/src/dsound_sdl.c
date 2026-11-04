@@ -2480,7 +2480,7 @@ struct sdl_buffer
 {
 	ULONG reference_count;
 	/* its format, and its sound decoded (frames of channels) */
-	WORD format, channels;
+	DWORD format, channels;
 	short *samples;
 	unsigned long frames;
 	/* the game's: playing, looped, its rate (frames a second) and gain */
@@ -4080,7 +4080,7 @@ HRESULT WINAPI IDirectSoundBuffer_SetBufferData(LPDIRECTSOUNDBUFFER buffer, LPVO
 	old = record->samples;
 	record->samples = samples;
 	record->frames = samples ? frames : 0;
-	record->channels = (WORD)channels;
+	record->channels = channels;
 	record->position = 0.0;
 	pthread_mutex_unlock(&buffers_lock);
 	free(old);
