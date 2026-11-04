@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 04 (Prisoner)",
+ "scenario": "levels\\test\\prisoner\\prisoner",
+ "bsp": 0,
+ "aspect": 1.12,
+ "pose": {
+  "x": -6.3836,
+  "y": -0.6389,
+  "z": 0.6007,
+  "yaw": 339.103,
+  "pitch": 17.6566,
+  "roll": 1.8249,
+  "vfov": 70.0919
+ },
+ "prepare": [
+  "debug_camera_set \"-9.82 7.36 0.29 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.6826
+}

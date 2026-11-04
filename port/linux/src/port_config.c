@@ -291,6 +291,11 @@ static const struct config_setting config_settings[] =
 		"High-res gameplay controller buttons: classic uses plain Xbox faces;\n"
 		"gems uses shaded Xbox faces; menu_gems uses the menu's button art.\n"
 		"Requires display.high_res_hud." },
+	{ "display.menu_pictures", _config_boolean, "true", "HALO_MENU_PICTURES", _environment_value, _platform_desktop,
+		"Draw the menus' pictures of the missions and the multiplayer maps again,\n"
+		"sharp, from your own maps: once, as the main menu first shows (\"Preparing\n"
+		"menu pictures\", about a second each), kept in the data folder's\n"
+		"menu_pictures; false keeps the originals." },
 	{ "display.high_res_text", _config_boolean, "true", "HALO_HIGH_RES_TEXT", _environment_value, _platform_all,
 		"Draw the menus', HUD's and console's text with the fonts in\n"
 		"port/assets/fonts (Overpass, Hack) at the resolution the game draws at,\n"
@@ -2256,6 +2261,10 @@ static const struct config_setting config_settings[] =
 		"Skip each cinematic in a local game: as the skip button does where it can\n"
 		"be skipped, else run at sixteen times its speed (a test reaches play in\n"
 		"seconds)." },
+	{ "debug.menu_pictures", _config_boolean, "false", "HALO_DEBUG_MENU_PICTURES", _environment_set_is_true,
+		_platform_desktop,
+		"Prepare the menus' pictures (display.menu_pictures) even in a run that\n"
+		"nobody watches (debug.hidden_window, debug.exit_after...), for tests." },
 	{ "debug.menu_open", _config_string, "\"\"", "HALO_MENU_OPEN", _environment_value, _platform_all,
 		"Start on this screen of the menus (port/assets/menus) instead of the main\n"
 		"menu, a player profile being edited; empty for the main menu." },
@@ -4089,13 +4098,69 @@ static const struct config_value *config_value(const char *name, enum config_typ
 	return &config_values[index];
 }
 
-/* a setting's value as the game reads it: battery saver's where it chooses
-it (config_battery_saving) */
+/* ---------- the menus' pictures' view (port/linux/game/menu_pictures_render.c)
+
+While the menus' pictures are rendered, the settings of the player's view
+that would change a pose's picture are read at the stock view's values: the
+pose's own field of view, no Panini projection, the reticle in the middle,
+every line drawn. Nothing of the player's is changed or written. */
+static const char *const config_picture_view_settings[][2] =
+{
+	{ "display.fov", "0" },
+	{ "display.vehicle_fov", "default" },
+	{ "display.viewmodel_fov", "0" },
+	{ "display.panini", "0" },
+	{ "display.panini_vertical", "0" },
+	{ "display.lowered_reticle", "false" },
+	{ "display.resolution_scaling", "native" },
+};
+static int config_picture_viewing;
+static struct config_value config_picture_view_values[sizeof(config_picture_view_settings) /
+	sizeof(config_picture_view_settings[0])];
+
+void config_picture_view(int on)
+{
+	static int made;
+	size_t entry;
+
+	config_ensure_loaded();
+	pthread_mutex_lock(&config_lock);
+	for (entry = 0; !made && entry < sizeof(config_picture_view_settings) / sizeof(config_picture_view_settings[0]);
+		entry++)
+	{
+		long setting = config_setting_index(config_picture_view_settings[entry][0]);
+
+		if (setting >= 0)
+			config_set_from_text(&config_picture_view_values[entry], config_settings[setting].type,
+				config_picture_view_settings[entry][1]);
+	}
+	made = 1;
+	if (!config_picture_viewing != !on)
+	{
+		config_picture_viewing = on != 0;
+		/* (what keeps one of them reads it again) */
+		config_change_count++;
+	}
+	pthread_mutex_unlock(&config_lock);
+}
+
+/* a setting's value as the game reads it: the menus' pictures' view's
+while they are rendered (config_picture_viewing), else battery saver's
+where it chooses it (config_battery_saving) */
 static const struct config_value *config_read(const char *name, enum config_type type)
 {
 	const struct config_value *value = config_value(name, type);
 	long setting, entry;
 
+	if (config_picture_viewing)
+	{
+		for (entry = 0; entry < (long)(sizeof(config_picture_view_settings) / sizeof(config_picture_view_settings[0]));
+			entry++)
+		{
+			if (!strcmp(name, config_picture_view_settings[entry][0]))
+				return value == &config_values[config_setting_index(name)] ? &config_picture_view_values[entry] : value;
+		}
+	}
 	if (!config_battery_saving)
 		return value;
 	setting = config_setting_index(name);
@@ -4620,7 +4685,7 @@ unsigned long network_client_timeout_milliseconds(void)
 
 double config_real(const char *name)
 {
-	return config_value(name, _config_real)->real;
+	return config_read(name, _config_real)->real;
 }
 
 const char *config_string(const char *name)

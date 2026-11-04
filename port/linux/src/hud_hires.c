@@ -672,6 +672,11 @@ static unsigned int png_pixels_texture(unsigned char *pixels, unsigned long widt
 	return xgpu_image_create(pixels, width, height, *levels, XGPU_IMAGE_RGBA, TRUE);
 }
 
+unsigned char *hud_hires_png_pixels(const void *png, unsigned long size, unsigned long *width, unsigned long *height)
+{
+	return png_decode(png, size, width, height);
+}
+
 unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned long *levels)
 {
 	unsigned long width = 0, height = 0;

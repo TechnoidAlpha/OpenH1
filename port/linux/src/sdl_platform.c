@@ -80,8 +80,19 @@ void halo_loading_art(void)
 void halo_loading_scene(void);
 void halo_loading_fade_begin(void);
 
+/* (port/linux/game/menu_pictures_render.c) */
+int menu_pictures_preparing(void);
+
 void halo_loading_begin(void)
 {
+	/* the menus' pictures' maps: the loading screen of their whole pass
+	stays (halo_loading_screen_begin), the old draws retired all the same */
+	if (menu_pictures_preparing())
+	{
+		if (platform_window)
+			xgpu_backend_consume();
+		return;
+	}
 	if (!loading_presentation_active && platform_window)
 	{
 		/* the main menu's scene, read before its map is disposed of, for

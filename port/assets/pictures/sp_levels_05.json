@@ -1,0 +1,50 @@
+{
+ "picture": "ui.map sp_levels 05 (c10)",
+ "scenario": "levels\\c10\\c10",
+ "bsp": 0,
+ "aspect": 1.225,
+ "pose": {
+  "x": -127.65,
+  "y": -45.188,
+  "z": 41.9,
+  "yaw": 137.0,
+  "pitch": -6.5,
+  "roll": 0,
+  "vfov": 55
+ },
+ "prepare": [
+  "object_destroy_containing pelican"
+ ],
+ "objects": [
+  {
+   "tag": "levels\\c10\\scenery\\c10_bigplant\\c10_bigplant",
+   "x": -129.712,
+   "y": -44.906,
+   "z": 40.3,
+   "yaw": 20,
+   "pitch": 0.0,
+   "roll": 0.0
+  },
+  {
+   "tag": "levels\\c10\\scenery\\c10_bigplant\\c10_bigplant",
+   "x": -128.065,
+   "y": -43.434,
+   "z": 40.1,
+   "yaw": 200,
+   "pitch": 0.0,
+   "roll": 0.0
+  },
+  {
+   "tag": "vehicles\\pelican\\pelican",
+   "x": -140.35,
+   "y": -36.83,
+   "z": 37.7,
+   "yaw": -52,
+   "pitch": -5,
+   "roll": -30
+  }
+ ],
+ "settle_seconds": 0,
+ "colour": "raw",
+ "score": 0.4088
+}

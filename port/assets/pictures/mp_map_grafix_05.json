@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 05 (Hang 'Em High)",
+ "scenario": "levels\\test\\hangemhigh\\hangemhigh",
+ "bsp": 0,
+ "aspect": 1.1392,
+ "pose": {
+  "x": 26.3371,
+  "y": -10.1143,
+  "z": -6.597,
+  "yaw": 130.041,
+  "pitch": 19.6267,
+  "roll": 0.3599,
+  "vfov": 55.6527
+ },
+ "prepare": [
+  "debug_camera_set \"25.21 -22.25 -7.25 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.8099
+}

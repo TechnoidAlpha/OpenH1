@@ -184,6 +184,10 @@ void hs_runtime_port_shift_sleep_times(
 	long ticks);
 void hs_runtime_update(
 	void);
+/* port: the console's finished commands' nodes freed, no console command
+running (hs_runtime.c) */
+void hs_runtime_node_gc_idle(
+	void);
 long hs_runtime_evaluate(
 	long expression_index);
 /* port: whether the running script waits on the call it evaluates, which

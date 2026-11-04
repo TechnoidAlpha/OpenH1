@@ -23,6 +23,7 @@ Edition channel orders, which the command stream hands the host.
 #include "xgpu_images.h"
 #include "hud_hires.h"
 #include "menu_files.h"
+#include "menu_pictures.h"
 #include "text_hires.h"
 #include "../game/cache_file_formats.h"
 
@@ -173,6 +174,9 @@ struct replacement_entry
 	unsigned int hud_upscale;
 	unsigned long hud_upscale_levels, last_used_frame;
 	BOOL hud_upscale_checked;
+	/* the menu picture's pose whose original this is (menu_pictures.h), -1
+none, -2 not yet looked for */
+	long picture;
 	/* its pages' newest generation when it was found, and the memory
 	watch serial as of which that is known (as texture_entry's) */
 	unsigned long generation, watched_serial;
@@ -248,6 +252,7 @@ static struct replacement_entry *replacement_get(const DWORD *resource, const st
 		entry->format_word = format_word;
 		entry->size_word = size_word;
 		entry->override = -1;
+		entry->picture = -2;
 		entry->next = *bucket;
 		*bucket = entry;
 	}
@@ -269,6 +274,7 @@ static struct replacement_entry *replacement_get(const DWORD *resource, const st
 		xgpu_image_delete(entry->hud_upscale);
 		entry->hud_upscale = 0;
 		entry->hud_upscale_checked = FALSE;
+		entry->picture = -2;
 		entry->override = hud_hires_override_find(address, description->width, description->height,
 			description->levels > 1 ? xgpu_texture_level_offset(description, 1) : size);
 		if (entry->override >= 0 && !hud_hires_override_texture(entry->override, &levels))
@@ -310,6 +316,21 @@ unsigned int xgpu_texture_replacement(DWORD resource, struct xgpu_texture_descri
 	entry = replacement_get(header, description);
 	if (!entry)
 		return 0;
+	/* (a menu's picture of a mission or a map, drawn again from the
+player's map: menu_pictures.c) */
+	if (entry->picture == -2)
+	{
+		entry->picture = description->width == MENU_PICTURE_FRAME_WIDTH &&
+			description->height == MENU_PICTURE_FRAME_HEIGHT ?
+			menu_picture_at((unsigned long)PLATFORM_PHYSICAL_TO_VIRTUAL(header[1]), (long)description->width,
+				(long)description->height) : -1;
+	}
+	if (entry->picture >= 0 && (image = menu_pictures_texture(entry->picture, &levels)) != 0)
+	{
+		description->levels = levels;
+		description->hires = TRUE;
+		return image;
+	}
 	override = entry->override;
 	if (override >= 0 && (image = hud_hires_override_texture(override, &levels)) != 0)
 	{
