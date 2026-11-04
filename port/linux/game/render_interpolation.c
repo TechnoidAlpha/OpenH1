@@ -26,7 +26,14 @@ unit changes (a respawn, however near the dead camera was), and a game state
 loaded (a checkpoint's revert) leaves no snapshots behind.
 
 Particles, contrails and other effects move every frame (game_frame), and
-read the drawn pose of what they hang off. A stream of particles from an
+read the drawn pose of what they hang off. A widget simulated at the
+Xbox's own step (an antenna's chain, a cloth flag) is stepped in the tick
+instead, and drawn between the shapes the last two ticks left, hung from
+its marker as drawn (render_interpolation_shape). A point the HUD works out
+from an object's state (a unit's camera, for a waypoint's distance and the
+motion tracker's centre) is taken whole as the game has it and moved with
+the object as drawn (render_interpolation_unit_camera_position), not mixed
+of the tick's position and the frame's markers. A stream of particles from an
 object, made in the tick, is held back to be made through the frames between
 the ticks (render_interpolation_particle_later).
 
@@ -2289,9 +2296,11 @@ real render_interpolation_unit_camouflage(long unit_index, real *super_amount)
 }
 
 /* a point that moves with the object's root node (its bounding sphere's
-centre: a nav point over it), from where the last tick left it to where the
-object is drawn this frame; left as it is when the object is drawn as the
-tick left it */
+centre: a nav point over it), from where the object's state has it now (the
+last tick, and at 60 and 120 the open tick's sub-steps run since: a point
+taken earlier is held to the object as it was then, game_engine.c's goals)
+to where the object is drawn this frame; left as it is when the object is
+drawn as the tick left it */
 void render_interpolation_object_point(long object_index, real_point3d *point)
 {
 	real_matrix4x3 const *drawn = render_interpolation_object_node_matrices(object_index);
