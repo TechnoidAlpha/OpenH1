@@ -1418,6 +1418,13 @@ short hud_key_prompt_cap_widening(
 	short name_width);
 int halo_keyboard_prompts(
 	void);
+/* port: a button's word in a message as its icon's name
+(port/linux/game/hud_key_prompts.c) */
+void hud_key_prompt_button_word(
+	wchar_t *text,
+	long length,
+	wchar_t const *word,
+	wchar_t const *icon);
 static boolean ui_widget_port_key_label_text(
 	struct widget_instance *label,
 	boolean named,
@@ -5607,6 +5614,51 @@ static long search_and_replace(
 	return replacements;
 }
 
+/* port: whether a widget is an error dialog's (it or a widget it is in) */
+static boolean ui_widget_port_in_error_dialog(
+	struct widget_instance const *widget)
+{
+	for (; widget; widget = widget->parent)
+	{
+		if (widget->widget_is_error_dialog)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+/* port: the port's own error text's line breaks, written for one dialog's
+lines in one font, made spaces, so that ui_widget_port_text_wrap breaks it
+where the dialog drawn needs: a line kept as written ran past a dialog
+narrower than it was written for (#523). A blank line (a paragraph) is kept.
+In place. */
+static void ui_widget_port_text_unbreak(
+	wchar_t *text)
+{
+	long from, to = 0;
+
+	for (from = 0; text[from]; from++)
+	{
+		if (text[from] == L'\r' || text[from] == L'\n')
+		{
+			long breaks = 0;
+
+			for (; text[from] == L'\r' || text[from] == L'\n'; from++)
+				breaks += text[from] == L'\n' || (text[from] == L'\r' && text[from + 1] != L'\n');
+			from--;
+			if (to > 0 && text[to - 1] == L' ')
+				to--;
+			if (breaks > 1)
+				text[to++] = L'\r';
+			text[to++] = breaks > 1 ? L'\r' : L' ';
+			continue;
+		}
+		if (text[from] == L' ' && to > 0 && (text[to - 1] == L' ' || text[to - 1] == L'\r'))
+			continue;
+		text[to++] = text[from];
+	}
+	text[to] = 0;
+}
+
 /* port: the port's own error text (display_error_text_deferred), which may be
 longer than a line of its dialog: broken at spaces (the strings' line break,
 '\r') where a line would be wider than `width` in the font drawn with.
@@ -5624,14 +5676,17 @@ static boolean ui_widget_port_text_wrap(
 	for (index = 0; ; index++)
 	{
 		wchar_t character = text[index];
+		boolean line_end = character == L'\r' || character == L'\n';
 
-		if (character == L'\r' || character == L'\n')
+		/* (a line's end is measured as a space is: the last word of a line
+		before a break was never measured, and ran past the dialog, #523) */
+		if (line_end && index == line_start)
 		{
 			line_start = index + 1;
 			last_space = NONE;
 			continue;
 		}
-		if (character == L' ' || character == 0)
+		if (character == L' ' || character == 0 || line_end)
 		{
 			wchar_t line[256];
 			long length = MIN(index - line_start, (long)NUMBEROF(line) - 1);
@@ -5655,6 +5710,12 @@ static boolean ui_widget_port_text_wrap(
 				fits = FALSE;
 			if (character == 0)
 				break;
+			if (line_end)
+			{
+				line_start = index + 1;
+				last_space = NONE;
+				continue;
+			}
 			last_space = index;
 		}
 	}
@@ -5681,6 +5742,8 @@ static void widget_instance_render_text_box(
 	/* port: (ui_widget_port_key_label_text) */
 	wchar_t keyed[256];
 	wchar_t named[256];
+	/* port: (an error dialog's button named in words) */
+	wchar_t prompted[256];
 
 	if (definition->text_label_string_list.index != NONE)
 	{
@@ -5700,6 +5763,17 @@ static void widget_instance_render_text_box(
 			string_list_index < SPINNER_EXTRA_DESCRIPTION_BASE + (short)NUMBEROF(kills_to_win_extra_descriptions))
 		{
 			string = (wchar_t *)kills_to_win_extra_descriptions[string_list_index - SPINNER_EXTRA_DESCRIPTION_BASE];
+		}
+		/* port: an error dialog's "Press START to Continue" (the map's
+		words for the button): its button the menus' accept, drawn as the
+		prompts draw it, the controller's Start or, while the keyboard plays,
+		the key that closes the dialog (Enter: #523) */
+		if (widget != ui_widget_port_error_text_box && ui_widget_port_in_error_dialog(widget))
+		{
+			ustrncpy(prompted, string, NUMBEROF(prompted) - 1);
+			prompted[NUMBEROF(prompted) - 1] = 0;
+			hud_key_prompt_button_word(prompted, NUMBEROF(prompted), L"START", L"%accept");
+			string = prompted;
 		}
 		length = ustrlen(string);
 		widget->parameters.text_box.text = pool_resize_pointer(
@@ -5821,7 +5895,7 @@ static void widget_instance_render_text_box(
 
 		if (background && background->width > 0 && background->width < width)
 			width = background->width;
-		width = (short)(width - 4 * definition->horizontal_offset);
+		width = (short)(width - 4 * definition->horizontal_offset);		ui_widget_port_text_unbreak(*text);
 		ustrncpy(wrapped, *text, NUMBEROF(wrapped) - 1);
 		wrapped[NUMBEROF(wrapped) - 1] = 0;
 		if (!ui_widget_port_text_wrap(wrapped, &bounds, width) ||
