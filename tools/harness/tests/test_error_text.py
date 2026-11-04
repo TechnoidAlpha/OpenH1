@@ -42,6 +42,19 @@ def test_negative_control(control):
     assert status == CHECK_FAILED, f"{control} was not caught: {output}"
 
 
+def test_dialog_names_its_key():
+    """An error dialog's "Press START to Continue" (the map's words) names the menus' accept, as the prompts draw it:
+    the controller's Start, or Enter while the keyboard plays (its A, which closes the dialog)."""
+    source = read("source/interface/ui_widget.c")
+    renderer = function(source, "widget_instance_render_text_box")
+    assert "if (widget != ui_widget_port_error_text_box && ui_widget_port_in_error_dialog(widget))" in renderer
+    assert 'hud_key_prompt_button_word(prompted, NUMBEROF(prompted), L"START", L"%accept");' in renderer
+    drawing = function(source, "draw_string_and_hack_in_icons")
+    assert "key_icon_type = icon_type == _icon_accept ? _icon_a_button :" in drawing
+    assert "case _icon_accept:\n\t\t\t\t\t\t\ticon_index = _icon_start_button;" in drawing
+    assert 'case _icon_a_button:\n\t\treturn "Enter";' in function(source, "ui_widget_port_menu_key")
+
+
 def test_dialog_unbreaks_before_wrapping():
     renderer = function(read("source/interface/ui_widget.c"), "widget_instance_render_text_box")
     assert "\t\tui_widget_port_text_unbreak(*text);\n\t\tustrncpy(wrapped, *text," in renderer

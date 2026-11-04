@@ -1418,6 +1418,13 @@ short hud_key_prompt_cap_widening(
 	short name_width);
 int halo_keyboard_prompts(
 	void);
+/* port: a button's word in a message as its icon's name
+(port/linux/game/hud_key_prompts.c) */
+void hud_key_prompt_button_word(
+	wchar_t *text,
+	long length,
+	wchar_t const *word,
+	wchar_t const *icon);
 static boolean ui_widget_port_key_label_text(
 	struct widget_instance *label,
 	boolean named,
@@ -5607,6 +5614,18 @@ static long search_and_replace(
 	return replacements;
 }
 
+/* port: whether a widget is an error dialog's (it or a widget it is in) */
+static boolean ui_widget_port_in_error_dialog(
+	struct widget_instance const *widget)
+{
+	for (; widget; widget = widget->parent)
+	{
+		if (widget->widget_is_error_dialog)
+			return TRUE;
+	}
+	return FALSE;
+}
+
 /* port: the port's own error text's line breaks, written for one dialog's
 lines in one font, made spaces, so that ui_widget_port_text_wrap breaks it
 where the dialog drawn needs: a line kept as written ran past a dialog
@@ -5723,6 +5742,8 @@ static void widget_instance_render_text_box(
 	/* port: (ui_widget_port_key_label_text) */
 	wchar_t keyed[256];
 	wchar_t named[256];
+	/* port: (an error dialog's button named in words) */
+	wchar_t prompted[256];
 
 	if (definition->text_label_string_list.index != NONE)
 	{
@@ -5742,6 +5763,17 @@ static void widget_instance_render_text_box(
 			string_list_index < SPINNER_EXTRA_DESCRIPTION_BASE + (short)NUMBEROF(kills_to_win_extra_descriptions))
 		{
 			string = (wchar_t *)kills_to_win_extra_descriptions[string_list_index - SPINNER_EXTRA_DESCRIPTION_BASE];
+		}
+		/* port: an error dialog's "Press START to Continue" (the map's
+		words for the button): its button the menus' accept, drawn as the
+		prompts draw it, the controller's Start or, while the keyboard plays,
+		the key that closes the dialog (Enter: #523) */
+		if (widget != ui_widget_port_error_text_box && ui_widget_port_in_error_dialog(widget))
+		{
+			ustrncpy(prompted, string, NUMBEROF(prompted) - 1);
+			prompted[NUMBEROF(prompted) - 1] = 0;
+			hud_key_prompt_button_word(prompted, NUMBEROF(prompted), L"START", L"%accept");
+			string = prompted;
 		}
 		length = ustrlen(string);
 		widget->parameters.text_box.text = pool_resize_pointer(
