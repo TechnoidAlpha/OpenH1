@@ -84,19 +84,34 @@ def test_loading_retirement_repeats_inside_one_epoch(tmp_path):
     functions = text[text.index("void halo_loading_begin(void)"):text.index("static struct platform_input_state input_state;")]
     source = r'''
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 static int platform_window = 1, loading_presentation_active;
 static int epochs, retired, borrowed, storage;
 static int xgpu_backend_loading_owned(void) { return 0; }
 static void halo_load_trace(const char *phase, const char *detail) {
     (void)phase; (void)detail;
 }
-static int scenes, fades, preparing;
+static int scenes, fades, chanting, follows = -1, captions, preparing, flushes;
+/* (read before each loading screen takes the screen) */
+static void halo_loading_scene(void) { assert(scenes == epochs); scenes++; }
 /* (the menus' pictures being prepared: menu_pictures_render.c) */
 static int menu_pictures_preparing(void) { return preparing; }
-static void halo_loading_scene(void) { assert(!epochs); scenes++; }
+static unsigned long long clock_ns;
+static unsigned long long SDL_GetTicksNS(void) { return clock_ns; }
+static void xgpu_backend_flush(void) { flushes++; }
 static void halo_loading_fade_begin(void) { fades++; }
 static void xgpu_backend_loading_progress(float progress) { (void)progress; }
 static void xgpu_backend_loading(int phase) { if (phase == 1) epochs++; }
+static void xgpu_backend_loading_mode(int follow) { follows = follow; }
+static void xgpu_backend_loading_caption(const unsigned char *coverage, unsigned long width, unsigned long height) {
+    assert(!coverage == !width && !width == !height); captions += coverage != NULL;
+}
+static void platform_loading_chant(int playing, float progress) { (void)progress; chanting = playing; }
+static unsigned char *text_hires_line(const char *tag, const char *text, float cap, int *width, int *height) {
+    (void)tag; (void)cap; *width = (int)strlen(text) * 4; *height = 8; return calloc((size_t)*width * 8, 1);
+}
 static void xgpu_backend_consume(void) {
     assert(!borrowed || storage == borrowed);
     borrowed = 0; retired++;
@@ -104,6 +119,8 @@ static void xgpu_backend_consume(void) {
 ''' + functions + r'''
 int main(void) {
     halo_loading_begin();
+    /* (a map load's sweep loops; the chant plays under it) */
+    assert(follows == 0 && chanting);
     storage = borrowed = 1;
     halo_loading_begin();
     /* the menu's scene read once, before the presenter takes the screen */
@@ -114,19 +131,45 @@ int main(void) {
     halo_loading_retire();
     assert(!borrowed && retired == 2 && epochs == 1);
     halo_loading_ready();
-    assert(fades == 1);
+    assert(fades == 1 && !chanting);
+    /* (the port's own waits are not shown over a map load's) */
+    halo_loading_screen_begin(1);
+    assert(epochs == 1 && follows == 0);
     halo_loading_end();
+    /* a wait of the port's own: the sweep following its progress, the
+    chant, a caption set once for each change, and a map load's end does
+    not take its screen */
+    halo_loading_screen_begin(1);
+    assert(epochs == 2 && follows == 1 && chanting && loading_presentation_active == 3);
+    halo_loading_screen_progress(0.25f, "Preparing menu pictures");
+    halo_loading_screen_progress(0.5f, "Preparing menu pictures");
+    assert(captions == 1);
+    halo_loading_end();
+    assert(loading_presentation_active == 3);
+    halo_loading_screen_progress(1.0f, NULL);
+    halo_loading_screen_end();
+    assert(!loading_presentation_active && !chanting && follows == 0);
     platform_window = 0;
     storage = borrowed = 3;
     halo_loading_retire();
     assert(!borrowed && retired == 3);
-    /* while the menus' pictures are prepared: no loading screen, the old
-    draws retired all the same */
+    /* while the menus' pictures are prepared: their pass's one loading
+    screen stays over each map's load, its old draws retired all the same,
+    and its progress sent as it changes (no game frame carries it) */
     platform_window = 1;
+    halo_loading_screen_begin(1);
     preparing = 1;
     storage = borrowed = 4;
     halo_loading_begin();
-    assert(!borrowed && retired == 4 && epochs == 1 && !loading_presentation_active);
+    assert(!borrowed && retired == 4 && epochs == 3 && loading_presentation_active == 3);
+    clock_ns = 1000000000ULL;
+    halo_loading_screen_progress(0.5f, "Preparing menu pictures 4 of 11");
+    assert(flushes == 1);
+    halo_loading_end();
+    assert(loading_presentation_active == 3);
+    preparing = 0;
+    halo_loading_screen_end();
+    assert(!loading_presentation_active);
     return 0;
 }
 '''

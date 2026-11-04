@@ -6277,7 +6277,7 @@ structure, 8 ms of the GPU's), and the pages copied over are let go of by
 the write tracking in runs (`host_memory_watch.c`), not one fault each.
 `debug.bsp_switch_test` times the switches.
 
-The loading panel uses Paul Hontz's redraw of the retail loading picture
+The loading panel uses g0atbutt's redraw of the retail loading picture
 (`port/assets/loading`). Its compressed pixels are embedded in every build,
 decoded once at startup and copied into the presenter's own storage. The
 shared compositor preserves the picture's colors and adds the mask and

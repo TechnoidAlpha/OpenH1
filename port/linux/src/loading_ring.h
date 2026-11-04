@@ -29,6 +29,11 @@
 #define LOADING_RING_FOCUS_RADIUS 3
 #define LOADING_RING_FOCUS_EYE_RADIUS 1
 #define LOADING_RING_FOCUS_START 80
+/* how bright the sky (its planet) is behind the ring, of 256 (its brightness
+   is then matched to the picture's with the ring's) */
+#ifndef LOADING_RING_SKY_LEVEL
+#define LOADING_RING_SKY_LEVEL 256
+#endif
 /* VR's stereo pair: the eyes' separation (metres), the game's metres to a
    world unit (vr.c's), and how much larger than the game's scale the scene
    seems (the eyes' separation that much less): the ring kilometres away */
@@ -97,6 +102,9 @@ struct loading_ring
 	float view_eye[3], view_shift[2], view_zoom;
 	/* drawing only the glint, over the frame drawn before (loading_ring_glint) */
 	int glint_only;
+	/* the sky seen turned about left for right (the stock ring's, framed as
+	the picture is: loading_ring_picture_framing) */
+	int sky_mirrored;
 };
 
 /* ---------- textures */
@@ -502,10 +510,14 @@ static inline int loading_ring_set(struct loading_ring *ring, const void *data, 
 	{
 		const struct loading_scene_part *source = &parts[index];
 		const struct loading_scene_vertex *in = (const struct loading_scene_vertex *)(base + source->vertex_offset);
-		struct loading_ring_part *part = &ring->parts[index];
+		struct loading_ring_part *part = &ring->parts[ring->part_count];
 		uint32_t vertex, row, column;
 		float matrix[3][4];
 
+		/* (of the sky, its planets alone, the parts alpha blended over it:
+		the picture's ring has a planet behind it, no stars or galaxy) */
+		if (source->layer == LOADING_SCENE_LAYER_SKY && source->blend != LOADING_SCENE_BLEND_ALPHA)
+			continue;
 		for (row = 0; row < 3; row++)
 			for (column = 0; column < 4; column++)
 				matrix[row][column] = loading_ring_finite(source->matrix[row][column]);
@@ -563,8 +575,8 @@ static inline int loading_ring_set(struct loading_ring *ring, const void *data, 
 			(size_t)source->triangle_count * 6);
 		ring->vertex_count += source->vertex_count;
 		ring->triangle_count += source->triangle_count;
+		ring->part_count++;
 	}
-	ring->part_count = header->part_count;
 	loading_ring_center(ring);
 	/* the menu's camera; or, unknown, one looking at the ring's centre */
 	for (index = 0; index < 3; index++)
@@ -596,6 +608,10 @@ static inline int loading_ring_set(struct loading_ring *ring, const void *data, 
 		/* (the stock ring as the picture shows it) */
 		if (loading_ring_picture_framing(ring, &fov))
 		{
+			/* (and its planet where the picture's is: the sky turned about,
+			its dark side low at the right, behind the far side, its lit
+			edge behind the near) */
+			ring->sky_mirrored = 1;
 			loading_ring_cross(ring->camera_forward, ring->camera_up, ring->camera_right);
 			loading_ring_normalize(ring->camera_right);
 			loading_ring_cross(ring->camera_right, ring->camera_forward, ring->camera_up);
@@ -951,6 +967,8 @@ static inline void loading_ring_transform(struct loading_ring *ring, uint32_t la
 				glint = facing * facing * 0.7f + specular;
 			}
 			point->x = loading_ring_dot(d, ring->camera_right);
+			if (layer == LOADING_SCENE_LAYER_SKY && ring->sky_mirrored)
+				point->x = -point->x;
 			point->y = loading_ring_dot(d, ring->camera_up);
 			point->z = loading_ring_dot(d, ring->camera_forward);
 			point->u = ring->texcoords[index * 2];
@@ -1165,6 +1183,15 @@ static inline const uint32_t *loading_ring_draw(struct loading_ring *ring, uint3
 		for (part = 0; part < ring->part_count; part++)
 			if (ring->parts[part].layer == LOADING_SCENE_LAYER_SKY)
 				loading_ring_part_draw(ring, &ring->parts[part], ring->sky, 1e-3f);
+		/* (dim, far behind the ring, as the picture's planet is) */
+		for (index = 0; index < pixels; index++)
+		{
+			uint32_t value = ring->sky[index];
+
+			ring->sky[index] = 0xff000000u | (((value & 0xff) * LOADING_RING_SKY_LEVEL >> 8)) |
+				((((value >> 8) & 0xff) * LOADING_RING_SKY_LEVEL >> 8) << 8) |
+				((((value >> 16) & 0xff) * LOADING_RING_SKY_LEVEL >> 8) << 16);
+		}
 		ring->sky_drawn = 1;
 	}
 	if (eye)
