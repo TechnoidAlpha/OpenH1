@@ -1956,9 +1956,8 @@ commas (all four by default). The player otherwise stands still. (A weapon
 that fires as the control is pulled: SWAT's pistol, debug.network_test
 "local:<map>:swat"; the plasma pistol, a multiplayer game's otherwise,
 fires as it is let go.) The mouse's come with the window's events
-(halo_test_input_pump), the controller's with its reading; each ends the
-frame's wait for the clock at its time, as a person's event does
-(halo_test_input_next_ns, sdl_platform.c) */
+(halo_test_input_pump), the controller's with its reading, each read by
+the first frame to start after its time, as a person's is */
 #define LATENCY_TURN_COUNTS 200.0f
 
 enum
@@ -2057,16 +2056,13 @@ static void test_latency_gamepad(XINPUT_GAMEPAD *pad)
 
 /* (sdl_platform.c's platform_pump_events, its input lock held, after the
 window's events) the scripted mouse's own, as its events would bring them:
-its button held or let go, its motion; nonzero for a press come (the
-mouse's, or the controller's, which its reading takes) */
-int halo_test_input_pump(struct platform_input_state *state, unsigned char *buttons_pressed)
+its button held or let go, its motion */
+void halo_test_input_pump(struct platform_input_state *state, unsigned char *buttons_pressed)
 {
-	unsigned long pressed;
 	int kind;
 
 	if (test_latency.state < 0 || !test_latency_on())
-		return 0;
-	pressed = test_latency.pressed;
+		return;
 	kind = test_latency_advance(SDL_GetTicksNS());
 	if (kind == _test_latency_click)
 	{
@@ -2082,14 +2078,6 @@ int halo_test_input_pump(struct platform_input_state *state, unsigned char *butt
 		test_latency.turn_direction = -test_latency.turn_direction;
 	}
 	test_latency.mouse_played = test_latency.pressed;
-	return test_latency.pressed != pressed;
-}
-
-/* when the scripted player presses next (debug.test_input "latency:"), 0
-for none */
-Uint64 halo_test_input_next_ns(void)
-{
-	return test_latency.state > 0 ? test_latency.next_ns : 0;
 }
 
 static void test_input_gamepad(XINPUT_GAMEPAD *pad)

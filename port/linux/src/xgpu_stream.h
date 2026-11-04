@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 14
+#define XGPU_STREAM_VERSION 15
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -71,7 +71,12 @@ struct xgpu_stream_ring
 	/* the host's answers, in guest memory the guest allocates:
 	visibility: XGPU_STREAM_VISIBILITY_SLOTS counts (uint32_t), the latest
 	known for each slot, each at most 0x7fffffff (the game reads them as
-	longs and halts on a negative one: XGPU_VISIBILITY_COUNT_MOST); pipelines: XGPU_STREAM_PIPELINES states (uint8_t,
+	longs and halts on a negative one: XGPU_VISIBILITY_COUNT_MOST), then
+	XGPU_STREAM_VISIBILITY_SLOTS test numbers (uint32_t), each the number
+	of the test whose count the slot's is (the visibility end record's
+	test; 0: none yet), written after its count with a release store, so
+	that a guest reading the number first (an acquire load) reads a count
+	of that test or a later one; pipelines: XGPU_STREAM_PIPELINES states (uint8_t,
 	XGPU_STREAM_PIPELINE_*) of the pipeline ids */
 	uint32_t visibility, pipelines;
 
@@ -799,6 +804,10 @@ struct xgpu_stream_visibility_end
 	float area;
 	int32_t views;
 	int32_t samples;
+	/* the guest's number for the test (never 0; one more each test, modulo
+	2^32): published with its count, so that the guest knows which test a
+	slot's count is of (a count reaches the guest frames after its test) */
+	uint32_t test;
 };
 
 /* ---------- the enhanced dynamic lights */

@@ -245,7 +245,9 @@ it, where the level's lightmap holds the level's own occlusion and only
 objects add to it), and a surface's that lights itself (a structure's
 lightmap pass or a model's with its self-illumination: halo_hdr_draw_kind),
 which with the first-person weapon's (the game's own bit) the occlusion
-leaves as it was. Read between frames (halo_screen_commit). */
+leaves as it was; every other draw that writes the depth clears the marks
+where it does (ambient_occlusion_mark). Read between frames
+(halo_screen_commit). */
 
 static struct
 {
@@ -272,6 +274,42 @@ static void ambient_occlusion_read(void)
 		platform_log("ambient occlusion: %s", quality ? setting : "off");
 	ambient_occlusion.quality = quality;
 	ambient_occlusion.view = config_boolean("debug.ambient_occlusion_view");
+}
+
+/* a draw that writes the depth, made to write the occlusion's marks of its
+pixels in the stencil with it (the bits: XGPU_AMBIENT_OCCLUSION_OBJECT,
+_SELF_ILLUMINATED, or none), where its depth passes. Its own or none: the
+objects draw before the level, so a wall drawn over an object behind it (or
+a plain object over a self-illuminated one) must take the pixel's marks with
+its depth, or the occlusion goes on finding the hidden object there. With
+the stencil's test off, or beside a test that reads none of the marks,
+changes nothing where it or the depth fails, and writes nothing (the game's
+rejection of the first-person weapon's pixels, on once it is drawn) or
+replaces its own bits (the weapon's drawing); the game's bits as they were.
+(tools/test_ambient_occlusion_marks.py) */
+static void ambient_occlusion_mark(struct xgpu_pipeline_key *key, unsigned long *reference, unsigned char bits)
+{
+	const unsigned char marks = XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED | XGPU_AMBIENT_OCCLUSION_OBJECT;
+
+	if (!key->stencil_test)
+	{
+		key->stencil_test = 1;
+		key->stencil_function = XGPU_COMPARE_ALWAYS;
+		key->stencil_read_mask = 0;
+		key->stencil_fail = XGPU_STENCIL_KEEP;
+		key->stencil_depth_fail = XGPU_STENCIL_KEEP;
+		key->stencil_pass = XGPU_STENCIL_REPLACE;
+		key->stencil_write_mask = marks;
+		*reference = bits;
+	}
+	else if (!(key->stencil_read_mask & marks) && !(key->stencil_write_mask & marks) &&
+		key->stencil_fail == XGPU_STENCIL_KEEP && key->stencil_depth_fail == XGPU_STENCIL_KEEP &&
+		(!key->stencil_write_mask || key->stencil_pass == XGPU_STENCIL_REPLACE))
+	{
+		key->stencil_pass = XGPU_STENCIL_REPLACE;
+		key->stencil_write_mask |= marks;
+		*reference = (*reference & ~(unsigned long)marks) | bits;
+	}
 }
 
 /* a draw's tag (nv2a_pixel_shader_key.hdr): 0 but into the HDR back
@@ -737,6 +775,8 @@ struct d3d8_device
 
 	/* inside a visibility test (D3DDevice_BeginVisibilityTest) */
 	BOOL visibility_test_active;
+	/* the number of the last test ended (0: none; never 0 after) */
+	unsigned long visibility_test_number;
 
 	unsigned long frame;
 	unsigned long next_vertex_shader_id;
@@ -2224,22 +2264,40 @@ HRESULT WINAPI D3DDevice_EndVisibilityTest(DWORD index)
 	if (vr_gl.multiview)
 		views = 2;
 #endif
+	/* (numbered: the count reaches the game frames later, and the slot may
+	have been tested for something else since: the number says which
+	test the count is of, D3DDevice_GetVisibilityTestResult) */
+	device.visibility_test_number = (device.visibility_test_number + 1) & 0xffffffffUL;
+	if (!device.visibility_test_number)
+		device.visibility_test_number = 1;
 	xgpu_backend_visibility_end(index % XGPU_VISIBILITY_TEST_SLOTS, target_scale[0] * target_scale[1], views,
-		target_samples);
+		target_samples, device.visibility_test_number);
 	return S_OK;
 }
 
+/* The latest count known for the slot, never pending (the Xbox's waited
+for the test, D3DERR_TESTINCOMPLETE; here the counts are the GPU's of a
+frame or more before). time_stamp: the number of the test the count is of
+(d3d8_visibility_test_number's; 0: none yet), so that a caller whose slot
+is tested for one thing frame after frame can tell a count of its own test
+from an older one of the slot */
 HRESULT WINAPI D3DDevice_GetVisibilityTestResult(DWORD index, UINT *result, ULONGLONG *time_stamp)
 {
 	UINT count = 0;
+	unsigned long test = 0;
 
-	if (time_stamp)
-		*time_stamp = 0;
 	if (device.gl_ready)
-		count = xgpu_backend_visibility_result(index % XGPU_VISIBILITY_TEST_SLOTS);
+		count = xgpu_backend_visibility_result(index % XGPU_VISIBILITY_TEST_SLOTS, &test);
+	if (time_stamp)
+		*time_stamp = test;
 	if (result)
 		*result = count;
 	return S_OK;
+}
+
+unsigned long d3d8_visibility_test_number(void)
+{
+	return device.visibility_test_number;
 }
 
 /* ---------- render and texture stage state */
@@ -3046,34 +3104,11 @@ static void pipeline_state_describe(BOOL has_depth, struct xgpu_pipeline_key *ke
 	}
 	/* display.ambient_occlusion: an object (a model: rasterizer.h's
 	_rasterizer_profile_models) and a surface that lights itself mark their
-	pixels, which the occlusion finds by: with the stencil's test off, or
-	beside a test that writes nothing and reads none of their bits (the
-	game's rejection of the first-person weapon's pixels, on once it is
-	drawn) */
-	if (ambient_occlusion.quality && key->depth_write &&
-		((hdr.kind & HALO_HDR_KIND_SELF_ILLUMINATION) || hdr.category == 2))
-	{
-		unsigned char bits = (unsigned char)(((hdr.kind & HALO_HDR_KIND_SELF_ILLUMINATION) ?
-			XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED : 0) | (hdr.category == 2 ? XGPU_AMBIENT_OCCLUSION_OBJECT : 0));
-
-		if (!key->stencil_test)
-		{
-			key->stencil_test = 1;
-			key->stencil_function = XGPU_COMPARE_ALWAYS;
-			key->stencil_read_mask = 0;
-			key->stencil_fail = XGPU_STENCIL_KEEP;
-			key->stencil_depth_fail = XGPU_STENCIL_KEEP;
-			key->stencil_pass = XGPU_STENCIL_REPLACE;
-			key->stencil_write_mask = bits;
-			dynamic->stencil_reference = bits;
-		}
-		else if (!key->stencil_write_mask && !(key->stencil_read_mask & bits))
-		{
-			key->stencil_pass = XGPU_STENCIL_REPLACE;
-			key->stencil_write_mask = bits;
-			dynamic->stencil_reference |= bits;
-		}
-	}
+	pixels (ambient_occlusion_mark) */
+	if (ambient_occlusion.quality && key->depth_write)
+		ambient_occlusion_mark(key, &dynamic->stencil_reference, (unsigned char)(
+			((hdr.kind & HALO_HDR_KIND_SELF_ILLUMINATION) ? XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED : 0) |
+			(hdr.category == 2 ? XGPU_AMBIENT_OCCLUSION_OBJECT : 0)));
 
 	key->blend = rs[D3DRS_ALPHABLENDENABLE] != 0;
 	if (key->blend)

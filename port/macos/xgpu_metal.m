@@ -166,6 +166,8 @@ struct frame_slot
 	uint16_t visibility_slots[VISIBILITY_ENTRIES];
 	uint16_t visibility_entry_passes[VISIBILITY_ENTRIES];
 	uint16_t visibility_entry_offsets[VISIBILITY_ENTRIES];
+	/* and the game's number for its test */
+	uint32_t visibility_numbers[VISIBILITY_ENTRIES];
 	uint32_t visibility_entries;
 	uint64_t fence;
 	uint64_t number;
@@ -2435,8 +2437,13 @@ static void visibility_publish(struct frame_slot *slot, uint32_t entries, uint64
 			slot->visibility_buffers[slot->visibility_entry_passes[entry]].contents)[slot->visibility_entry_offsets[entry]];
 		visibility.samples[test] = samples < XGPU_METAL_VISIBILITY_MOST ? (uint32_t)samples : XGPU_METAL_VISIBILITY_MOST;
 		if (metal.visibility_output)
+		{
 			metal.visibility_output[test] = visibility.areas[test] > 1.0f ?
 				(uint32_t)((float)visibility.samples[test] / visibility.areas[test] + 0.5f) : visibility.samples[test];
+			/* (the test's number after its count: xgpu_stream.h) */
+			__atomic_store_n(&metal.visibility_output[XGPU_METAL_VISIBILITY_SLOTS + test],
+				slot->visibility_numbers[entry], __ATOMIC_RELEASE);
+		}
 	}
 	pthread_mutex_unlock(&visibility.lock);
 }
@@ -2686,6 +2693,7 @@ static void visibility_entry_begin(void)
 	}
 	entry = (int32_t)slot->visibility_entries++;
 	slot->visibility_slots[entry] = 0;
+	slot->visibility_numbers[entry] = 0;
 	slot->visibility_entry_passes[entry] = (uint16_t)metal.visibility_pass;
 	slot->visibility_entry_offsets[entry] = slot->visibility_pass_entries[metal.visibility_pass]++;
 	metal.visibility_entry = entry;
@@ -3627,7 +3635,7 @@ void xgpu_metal_draw(uint32_t primitive, uint32_t count, uint32_t first_vertex, 
 void xgpu_metal_visibility_begin(void)
 {
 	if (metal.visibility_active)
-		xgpu_metal_visibility_end(0, 1.0f);
+		xgpu_metal_visibility_end(0, 1.0f, 0);
 	metal.visibility_active = YES;
 	metal.visibility_entry = -1;
 	metal.visibility_first = metal.slot->visibility_entries;
@@ -3636,7 +3644,7 @@ void xgpu_metal_visibility_begin(void)
 	metal.visibility_pending = YES;
 }
 
-void xgpu_metal_visibility_end(uint32_t slot, float area)
+void xgpu_metal_visibility_end(uint32_t slot, float area, uint32_t number)
 {
 	uint32_t entry;
 
@@ -3651,7 +3659,10 @@ void xgpu_metal_visibility_end(uint32_t slot, float area)
 	if (metal.encoder && metal.visibility_entry >= 0)
 		[metal.encoder setVisibilityResultMode:MTLVisibilityResultModeDisabled offset:0];
 	for (entry = metal.visibility_first; entry < metal.slot->visibility_entries; entry++)
+	{
 		metal.slot->visibility_slots[entry] = (uint16_t)(slot < XGPU_METAL_VISIBILITY_SLOTS ? slot : 0);
+		metal.slot->visibility_numbers[entry] = number;
+	}
 	metal.visibility_active = NO;
 	metal.visibility_entry = -1;
 	metal.visibility_pending = NO;

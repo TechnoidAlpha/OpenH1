@@ -1063,6 +1063,12 @@ static const struct config_setting config_settings[] =
 		"split screen and games with bots. Network games play at the rate they\n"
 		"agreed on (a Legacy game's 30, an OpenH1 game's network.sim_rate), and\n"
 		"saved films at 30, whatever this is." },
+	{ "game.auto_pickup", _config_boolean, "false", "HALO_AUTO_PICKUP", _environment_value, _platform_all,
+		"Multiplayer: a player with an empty weapon slot picks up a weapon by\n"
+		"walking over it, as Custom Edition does. false (the Xbox's way): they\n"
+		"hold the action button for it. The campaign always picks it up. In a\n"
+		"network game the host's decides, read in the lobby; a Legacy game, and\n"
+		"OpenCE's players, always walk over (OpenCE's way)." },
 	{ "game.custom_edition", _config_boolean, "true", "HALO_CUSTOM_EDITION", _environment_value, _platform_all,
 		"Load and run Halo Custom Edition maps (not those that need OpenSauce):\n"
 		"put them and Custom Edition's bitmaps.map, sounds.map and loc.map in\n"

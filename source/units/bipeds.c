@@ -5440,9 +5440,13 @@ static void biped_update_on_foot(
 				unit_get(biped_index)->unit.current_weapon_index);
 
 			/* (port: and with no weapon, which prevents it in the
-			Xbox game: a gametype's loadout of none; not from a
+			Xbox game: a gametype's loadout of none, whose blow is
+			unit_unarmed_melee_damage's; not where there is no blow
+			to give, a campaign's unarmed start (a10's), which stays
+			the Xbox's, no melee and no sound of one; not from a
 			vehicle's seat, which holds no weapon either) */
-			if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE) ||
+			if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE &&
+					unit_unarmed_melee_damage(biped_index) != NONE) ||
 				(weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index))) &&
 				biped->unit.current_zoom_level==NONE)
 			{

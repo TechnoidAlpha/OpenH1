@@ -552,12 +552,17 @@ one (rasterizer_xbox_widgets.c, "(occlusion_test_result&0x80000000)==0") */
 #define XGPU_VISIBILITY_COUNT_MOST 0x7fffffffU
 
 void xgpu_backend_visibility_begin(void);
-void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples);
+/* test: the front end's number for the test (never 0, one more each test,
+modulo 2^32), which the count is published with */
+void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples, unsigned long test);
 /* the latest count known for the slot (0: none yet; at most
-XGPU_VISIBILITY_COUNT_MOST). Answered now; it
-could wait: the counts are a frame or more old already (the GPU's), and a
-backend elsewhere would write them into guest memory the front end reads) */
-UINT xgpu_backend_visibility_result(unsigned long slot);
+XGPU_VISIBILITY_COUNT_MOST), and in test the number of the test it is of
+(0: none yet): the count is of that test or a later one of the slot.
+Answered now; it could wait: the counts are frames old already (the GPU's:
+a slot's latest count may be of a test several frames before the latest
+test of it), and a backend elsewhere would write them into guest memory
+the front end reads) */
+UINT xgpu_backend_visibility_result(unsigned long slot, unsigned long *test);
 
 /* ---------- frames */
 

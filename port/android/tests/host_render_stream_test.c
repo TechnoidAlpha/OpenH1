@@ -820,9 +820,11 @@ static void test_visibility_begin(void *context)
 static void test_visibility_end(void *context, const struct xgpu_stream_visibility_end *record)
 {
 	(void)context;
-	text_printf(&actual, "visibility end %u %x %d %d\n", record->slot, float_bits(record->area), record->views,
-		record->samples);
+	text_printf(&actual, "visibility end %u %x %d %d %u\n", record->slot, float_bits(record->area), record->views,
+		record->samples, record->test);
 	__atomic_store_n(&backend_state.visibility[record->slot], record->slot * 3 + 1, __ATOMIC_RELAXED);
+	__atomic_store_n(&backend_state.visibility[XGPU_STREAM_VISIBILITY_SLOTS + record->slot], record->test,
+		__ATOMIC_RELEASE);
 }
 
 static void test_present(void *context, uint32_t back_buffer)
@@ -1404,8 +1406,9 @@ static void front_frame(uint32_t frame, uint32_t draws)
 			unsigned long slot = random_below(XGPU_VISIBILITY_TEST_SLOTS);
 
 			xgpu_backend_visibility_begin();
-			xgpu_backend_visibility_end(slot, 1.5f, 2, 4);
-			text_printf(&expected, "visibility begin\nvisibility end %lu %x 2 4\n", slot, float_bits(1.5f));
+			xgpu_backend_visibility_end(slot, 1.5f, 2, 4, slot * 5 + 2);
+			text_printf(&expected, "visibility begin\nvisibility end %lu %x 2 4 %lu\n", slot, float_bits(1.5f),
+				slot * 5 + 2);
 		}
 		if (random_below(3) == 0 || !front.keyed)
 			front_pipeline();
@@ -1703,12 +1706,13 @@ static void test_round_trip(void)
 	CHECK(pixels != NULL);
 	for (index = 0; pixels && index < 640 * 480 * 4; index += 997)
 		CHECK(pixels[index] == (unsigned char)(index * 7 + 7));
-	CHECK(xgpu_backend_visibility_result(0) == 0 || xgpu_backend_visibility_result(0) == 1);
 	for (index = 0; index < XGPU_VISIBILITY_TEST_SLOTS; index++)
 	{
-		UINT result = xgpu_backend_visibility_result(index);
+		unsigned long test;
+		UINT result = xgpu_backend_visibility_result(index, &test);
 
-		CHECK(result == 0 || result == index * 3 + 1);
+		/* (each count with the number of its test, or neither yet) */
+		CHECK((result == 0 && test == 0) || (result == index * 3 + 1 && test == index * 5 + 2));
 	}
 	/* the screenshot key's: the target read tone mapped, handed to the
 	host's writer with its folder, and the file's name back; a failure's

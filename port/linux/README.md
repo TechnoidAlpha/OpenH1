@@ -1117,6 +1117,7 @@ the setting for one start of the game. It has priority over the file.
 | `game.language` | `""` | `HALO_LANGUAGE` | The language of the menus: `ja`, `de`, `fr`, `es` or `it`. Empty: English. |
 | `game.enhanced_animations` | `true` | `HALO_ENHANCED_ANIMATIONS` | `true`: the player bipeds' grenade throws keep their legs moving, blended by speed and direction (crouched throws stay crouched, throws in the air use the jump's legs), Warthog and Scorpion riders stay seated to throw and let go of the grips to throw and reload, and a player turns with the aim while throwing, as while meleeing, and in the air, as while running (the original froze the body in a jump and kept the aim within its aiming screen about it, so a shot after turning in the air went between the jump's facing and the crosshair). `false`: the original animations, which freeze the legs during a throw and stand a rider up and the body in the air. The turning with the aim (throwing, in the air) moves where shots go, so in a network game every player turns so whatever this says; `false` turns it off only in a game of one machine. Only in config.toml, not in the menus. |
 | `game.campaign_difficulty` | `1` | `HALO_CAMPAIGN_DIFFICULTY` | The difficulty the campaign's Choose Difficulty opens on, the one chosen there last: `0` Easy, `1` Normal, `2` Heroic, `3` Legendary. The menus write it. |
+| `game.auto_pickup` | `false` | `HALO_AUTO_PICKUP` | Multiplayer's second weapon. `false` (the Xbox's way): a player with an empty weapon slot holds the action button over a weapon to pick it up, as the prompt says. `true` (Custom Edition's way): walking over it picks it up and readies it. The campaign always picks it up on walking over, as on the Xbox, and a player with no weapon at all picks up the first one they walk over either way. Games of this computer alone (split screen, bots) take this computer's; an OpenH1 network game takes its host's, as read in the lobby, which the game record carries to its OpenH1 clients so that their prompts show the host's way (`network_standard_walk_over_pickup`, OpenH1 protocol version 18). A Legacy game, and an OpenCE player in an OpenH1 game, always walk over, as OpenCE plays. WEAPON PICKUP in Settings > Online: HOLD (XBOX) or WALK OVER (CE). |
 | `game.sim_rate` | `60` | `HALO_SIM_RATE` | How many steps a second the game takes for what a player feels in their hands: their own movement and aim, projectiles, thrown items, and the VR mode's throws and grabs. `30` (as the game was made), `60` or `120`: 1, 2 or 4 steps inside each of the game's 30 ticks a second. Everything else keeps the 30 ticks: the AI, scripts, cinematics, animations, timers, vehicles, saved games and the network. Any other value is `30` (refer to "Simulation rate" in "How the port operates"). It applies to games of this computer alone: the campaign, split screen and games with bots (a split screen game runs as a network game of one computer that takes no other). Network games with other computers use the rate the game agreed on, hosting or joining: `30` in a Legacy game (OpenCE's netcode steps at 30), and the host's `network.sim_rate` in an OpenH1 game. The playback of a saved film is always `30`. TICK RATE in Video Setup > Graphics > Advanced: ORIGINAL (30), 60 or 120. A change applies from the next tick. Where the game sets the setting aside (a network game with other computers, a film's playback), the row is locked: dimmed, at the game's rate (ORIGINAL (30) in a Legacy game), passed over, and OK leaves the setting as it was. |
 | `game.unlock_all_levels` | `false` | `HALO_UNLOCK_ALL_LEVELS` | `true`: a profile created afterward starts with all the campaign levels finished on all the difficulties. `false`: a new profile starts at The Pillar of Autumn, and each level opens when you finish the level before it, as on the Xbox. Existing profiles keep their progress. To start a profile over, type `profile_reset_campaign` in the console. |
 | `bots.count` | `0` | `HALO_BOTS` | Computer players (bots) in a game this computer hosts (any gametype but Race): `0` to `64` join its lobby with the players, as far as the game has room: a local (split screen) game, or a system link or internet one, where the host plays them and the other machines see them as players (`bots.make_room`). `0`: none, as in the stock game. The lobby's BOTS writes it (ADD n: n; FILL TO: 64). Refer to "Bots". |
@@ -3540,7 +3541,12 @@ the Metal backend (port/macos/README.md, "Metal"). On Linux:
 - The visibility tests' counts are what the GPU has written by the end of
   the frame the host plays. The game's next frame reads them while the
   host plays its frames, so they can be a frame older or newer than those
-  of a backend in the game, whose own depend on the frame's pacing.
+  of a backend in the game, whose own depend on the frame's pacing. Each
+  count is written with the number of the test it is of (the front end
+  numbers the tests, `d3d8_visibility_test_number`, and
+  `D3DDevice_GetVisibilityTestResult` gives the number as the time stamp),
+  so that the game takes a slot's count only once it is of its own test:
+  each lens flare is tested in a slot of its own (`rasterizer_lights.c`).
 
 `tools/test_render_stream.py` tests the stream with a backend of its
 own.
@@ -6422,7 +6428,11 @@ contrails, which a tick adds points to, still part by the frame rate.)
   ticks (the particles moved each frame, the camera's shake, the
   renderer, the menus) the frames' (`math/random_math.c`), so the ticks'
   moves only in the ticks and in their order, however many frames are
-  drawn between them. The sounds have a seed of their own
+  drawn between them. What is only seen and is also made between the ticks
+  takes the frames' in a tick too (`random_math_port_begin_cosmetic`): the
+  contrails, and the decals, which an effect a particle makes as it strikes
+  makes in a frame, and whose takes of the seed depended on what the frames
+  left of them (the vertex cache's room, the locked decals). The sounds have a seed of their own
   (`sound/sound_manager.c`), and the debug allocator's fill another
   (`cseries/debug_memory.c`): the sound manager picks as the mixer plays,
   by the clock. A speaker's sound is the one exception: the game picks its
@@ -6432,8 +6442,8 @@ contrails, which a tick adds points to, still part by the frame rate.)
   the ticks, from the ticks since the sound began; the wind steps once a
   tick.
 - What the ticks keep. Not the sound manager's indices, which are the
-  mixer's (a unit's speech, the first-person weapon's sound); a decal is
-  made whether or not the texture cache has its bitmap yet. What the game
+  mixer's (a unit's speech, the first-person weapon's sound), nor the
+  decals, which are the frames' (above). What the game
   fills on the stack and copies whole into the game state (a unit's speech
   item and its AI packet, a particle's data) is zeroed first, its padding
   too, or the bytes it leaves are whatever the stack held, which any change
@@ -6488,8 +6498,8 @@ not yet used, for `--ignore`.
 
 `--simulation` compares only what the ticks do, for two runs at different
 frame rates: not the frames, the takers between the ticks, nor the
-allocations that the frames move (the particles, the decals' vertices,
-the lights, the fog and the sound environment, the motion sensor, the
+allocations that the frames move (the particles, the decals and their
+vertices, the lights, the fog and the sound environment, the motion sensor, the
 first-person weapon posed at the camera, the input as the frames take
 it). With `walk:<seed>`, a scripted player that
 never turns (a turn is the stick's rate over each frame's time, so it is
@@ -6667,7 +6677,7 @@ Other changes:
 | `render/render_objects.c`, `interface/first_person_weapons.c`, `rasterizer/xbox/rasterizer_xbox_plasma_energy.c` | A local player's shield plasma is drawn in the chosen armor color (`display.shield_color`, `shield_color.c`), on the body and on the first-person arms; in the VR build, the plasma over the weapon in its holster in its highlight's color, close to the weapon (`vr_holster.c`). |
 | `objects/object_lights.c` | A light attached to an object is as bright, and of the colour, that the object's function and change colour are between ticks, and an effect's light (an explosion's, an impact's) fades at the frame's time, not a step a tick (`game/render_interpolation.c`); the light's own colour and radius, which the game reads, are the tick's. |
 | `objects/object_lights.c` | An effect's light of no transition (the Scorpion's cannon's) is at its end as it is made, not faded by 0/0: its colour and reach were not a number, which the renderer's checks caught. |
-| `rasterizer/rasterizer_lights.c` | A light whose place, direction, reach or colour is not a number (or infinite) is not drawn: it is refused, as a light past the window's room is, and said in the debug log. |
+| `rasterizer/rasterizer_lights.c` | A light whose place, direction, reach or colour is not a number (or infinite) is not drawn: it is refused, as a light past the window's room is, and said in the debug log. Each lens flare's visibility test is in a slot of its own, kept while the flare is tested, and its count is read only once it is of the flare's own test (the tests' numbers), divided by that test's pixels: the counts come back frames late, and the slot of the flare's index in the frame's list (the Xbox's, read the next frame) had another flare's count whenever the list changed, so flares went out and shone through walls. |
 | `objects/objects.c`, `render/render_objects.c` | A projectile deleted in a tick is drawn through the frames after it (at 60 and 120, through the frames of the sub-step it was deleted in), on to where it was deleted (`game/render_interpolation.c`), with the lighting it was last drawn with. |
 | `game/game_engine.c`, `game/game_engine_ctf.c`, `game/game_engine_oddball.c`, `game/game_engine_slayer.c` | A goal over an object (a flag, the ball, a carrier, a target) notes the object, and its marker is drawn over the object as drawn between ticks (`game_engine_get_goal_drawn_position`); the goal's own position is the tick's. |
 | `interface/motion_sensor.c` | The motion sensor's newest blips are drawn from where their units and goals, and the player, are drawn between ticks (a copy of the drawing's own); the blips' history is the ticks'. |
@@ -6680,7 +6690,7 @@ Other changes:
 | `rasterizer/rasterizer_memory_pool.c`, `rasterizer/rasterizer_transparent_geometry.c`, `rasterizer/xbox/rasterizer_xbox_environment_fog.c`, `rasterizer/xbox/rasterizer_xbox_active_camouflage.c` | A map's first frame, which draws every model in one window (`game/render_enumerate.c`), releases the rasterizer's memory pool each time it draws and empties the transparent geometry's queue, and does so once half the pool is spent; the fog screen's node matrices, drawn at the window's end, are kept from the pool's other end. c10's characters, camouflaged, spent the pool, and a cloaked model whose animation it could not hold was drawn from a NULL one; it is now not drawn under its distortion, as one without node matrices is not. |
 | `structures/structure_render.c` | The structure's visible surfaces are put in order by a radix sort, not `qsort_4byte`: the same order. |
 | `cache/cache_files.c`, `networking/network_client_manager.c`, `networking/network_server_manager.c`, `networking/network_server_message_handler.c`, `main/main.c`, `interface/interface.c` | Map sharing (`game/map_share.c`): a client that does not have the game's Custom Edition map asks the host for it instead of leaving, is not given time to precache it until it has it, and adds its players to a game in progress only then; the host gives the game's map its own name and its version (its hash's start), takes the requests from any machine in the game, lobby too, and does not drop a machine that downloads; the transfers run each frame, and their progress is drawn over the screen. |
-| `cutscene/cinematics.c` | A scenario's titles (some Custom Edition maps show their name for the whole game) are not drawn over a menu, as the letterbox is not: the screen's overlays are drawn after the players' menus. |
+| `cutscene/cinematics.c` | A scenario's titles (some Custom Edition maps show their name for the whole game) are not drawn over a menu, as the letterbox is not: the screen's overlays are drawn after the players' menus. On a screen wider than the Xbox's 4:3, a title keeps its place against the letterbox's bars, which run across the whole width: the edge its text is justified to stays as far from the bars' end as on the Xbox (the chapter titles, right-justified, at the bottom bar's right end), a centred one in the middle; its size, as the bars', follows the 480 lines. |
 | `tag_files/tag_groups.h` | `TAG_BLOCK_GET_ELEMENT` returns an element in the block without a call, and calls `tag_block_get_element_with_size` for anything else. |
 | `game/players.c`, `game/player_queues_new.c`, `networking/network_server_manager.c` | Bots (`game/bots.c`, `bots.count`): the lobby of a game this machine hosts (any gametype but Race) takes the bot players, each the one player of a machine of its own that no real machine is (joining machines are numbered below them), and every tick their actions come from `game/bots.c` instead of their empty queues, into the update the host relays (`update_server_take_bot_action`). A network game's bots make room for the players who join (`bots.make_room`), told the other machines by the game's own messages; the advertisement and the listing count the players apart from them. |
 | `input/input_xbox.c`, `physics/collision_usage.c` | The clock is read only for a button held, and for collision tests only when their times are shown (a read of the clock was slow in a browser, for the web port). |
@@ -6695,7 +6705,7 @@ Other changes:
 | `sound/sound_manager.c`, `sound/sound_definitions.c` | The sounds' random choices take a seed of their own. The speakers' mouths are not moved from the mixer's place in the sound. |
 | `sound/game_sound.c`, `units/unit_dialogue.c` | The speakers' mouths move in the ticks, from the permutation the game picks at the speech's start and the ticks since. A unit does not keep the sound manager's index of its speech, and a scripted sound's time ends when it is stopped, whether or not the mixer played it. |
 | `main/main.c` | Each frame can run a set time (`debug.frame_time`). |
-| `effects/decals.c` | A decal is made whether or not the texture cache has its bitmap yet (the bitmap is asked for; drawing the decal loads it). |
+| `effects/decals.c` | A decal is made whether or not the texture cache has its bitmap yet (the bitmap is asked for; drawing the decal loads it), and its randomness takes the frames' local seed, in a tick too ("Determinism"). |
 | `interface/first_person_weapons.c` | The first-person weapon's sound's index is kept beside the game state; the weapon's state holds the sound's definition. |
 | `cseries/cseries_windows.c` | The clock's readers in a tick go to the determinism check. |
 | `main/main.c`, `interface/hud.c`, `interface/hud_unit.c`, `interface/hud_draw.c`, `game/game_engine.c` | The text chat of network games (`game/network_chat.c`): its keys are read each frame, and the debug keys are not while a line is typed; each view's HUD draws its lines, above the motion sensor, whose place the HUD notes (the left of the last picture drawn); the scoreboard's menu has Mute voice and chat, and the host's Mute for everyone. |

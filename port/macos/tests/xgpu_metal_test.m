@@ -739,7 +739,7 @@ static void test_visibility(void)
 	uint32_t samples = 0;
 	uint64_t frame, fence;
 	float black[4] = { 0, 0, 0, 1 };
-	volatile uint32_t output[XGPU_METAL_VISIBILITY_SLOTS];
+	volatile uint32_t output[XGPU_METAL_VISIBILITY_SLOTS * 2];
 
 	begin("visibility");
 	memset((void *)output, 0, sizeof(output));
@@ -754,11 +754,11 @@ static void test_visibility(void)
 	as it is) */
 	xgpu_metal_visibility_begin();
 	draw_rectangle(0, 0, 16, 16, 0.25f, 0xffffffff);
-	xgpu_metal_visibility_end(7, 1.0f);
+	xgpu_metal_visibility_end(7, 1.0f, 70);
 	/* behind the depth: none */
 	xgpu_metal_visibility_begin();
 	draw_rectangle(0, 0, 16, 16, 0.75f, 0xffffffff);
-	xgpu_metal_visibility_end(8, 1.0f);
+	xgpu_metal_visibility_end(8, 1.0f, 80);
 	/* across a change of targets: 8x8 here and 8x4 there */
 	xgpu_metal_visibility_begin();
 	draw_rectangle(32, 32, 40, 40, 0.25f, 0xffffffff);
@@ -767,21 +767,21 @@ static void test_visibility(void)
 	pipeline.depth_test = 0;
 	xgpu_metal_set_pipeline(&pipeline);
 	draw_rectangle(0, 0, 8, 4, 0.25f, 0xffffffff);
-	xgpu_metal_visibility_end(9, 1.0f);
+	xgpu_metal_visibility_end(9, 1.0f, 90);
 	/* a test begun before a clear that begins its pass, and a clear
 	inside it, which counts nothing */
 	xgpu_metal_set_targets(target, 0, 0, 0, 1);
 	xgpu_metal_visibility_begin();
 	xgpu_metal_clear((const int32_t (*)[4])(int32_t[1][4]){ { 0, 0, 8, 8 } }, 1, CLEAR_COLOR, black, 0, 0);
 	draw_rectangle(0, 0, 2, 2, 0.25f, 0xffffffff);
-	xgpu_metal_visibility_end(10, 1.0f);
+	xgpu_metal_visibility_end(10, 1.0f, 100);
 	/* multisampled: samples are counted, 4 a pixel */
 	xgpu_metal_set_targets(multisampled, 0, 0, 0, 1);
 	pipeline.samples = 4;
 	xgpu_metal_set_pipeline(&pipeline);
 	xgpu_metal_visibility_begin();
 	draw_rectangle(0, 0, 4, 4, 0.25f, 0xffffffff);
-	xgpu_metal_visibility_end(11, 1.0f);
+	xgpu_metal_visibility_end(11, 1.0f, 110);
 	fence = xgpu_metal_frame_end(0);
 	xgpu_metal_frame_wait(fence);
 	frame = xgpu_metal_visibility_result(7, &samples);
@@ -795,6 +795,9 @@ static void test_visibility(void)
 	xgpu_metal_visibility_result(11, &samples);
 	CHECK(samples == 64, "multisampled: %u", samples);
 	CHECK(output[7] == 256 && output[9] == 96, "written for the guest: %u %u", output[7], output[9]);
+	CHECK(output[XGPU_METAL_VISIBILITY_SLOTS + 7] == 70 && output[XGPU_METAL_VISIBILITY_SLOTS + 9] == 90,
+		"each count's test written for the guest: %u %u", output[XGPU_METAL_VISIBILITY_SLOTS + 7],
+		output[XGPU_METAL_VISIBILITY_SLOTS + 9]);
 	xgpu_metal_set_visibility_output(NULL);
 	xgpu_metal_texture_destroy(target);
 	xgpu_metal_texture_destroy(other);

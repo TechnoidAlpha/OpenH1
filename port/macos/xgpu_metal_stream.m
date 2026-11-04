@@ -1391,7 +1391,8 @@ static void stream_visibility_end(void *context, const struct xgpu_stream_visibi
 	(void)context;
 	/* (the count written for the game is of its pixels: divided by the
 	samples one of them is, as the GL backend's) */
-	xgpu_metal_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1));
+	xgpu_metal_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1),
+		record->test);
 }
 
 static void stream_present(void *context, uint32_t back_buffer)

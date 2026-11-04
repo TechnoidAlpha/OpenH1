@@ -736,6 +736,11 @@ PAGES = {
             # other players send, so Online's; its files keep their names)
             ("STREAMER MODE ›", None, _page_screen(*STREAMER),
              "Hides offensive words in names and text from other players, maps and mods, as stars.", None),
+            # (players.c's unit_should_autopick_weapon: a network game's
+            # host's, network_standard.c's network_standard_walk_over_pickup)
+            ("WEAPON PICKUP", "game.auto_pickup", [("HOLD (XBOX)", "false"), ("WALK OVER (CE)", "true")],
+             "Multiplayer, with a weapon slot empty: Hold picks up a weapon as you hold the action button, as on "
+             "the Xbox; Walk Over as you walk over it, as in Custom Edition. Online: the host's choice.", None),
             # (port/linux/game/map_share.c: this machine's part in another's
             # game)
             (SECTION, "MAP SHARING"),

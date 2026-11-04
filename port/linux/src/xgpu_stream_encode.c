@@ -579,7 +579,8 @@ void xgpu_backend_initialize(void)
 		stream.frames_in_flight = FRAMES_IN_FLIGHT_DEFAULT;
 	ring = stream_allocate(64, sizeof(*ring));
 	stream.buffer = stream_allocate(XGPU_STREAM_RING_ALIGNMENT, stream.ring_size);
-	stream.visibility = stream_allocate(64, XGPU_STREAM_VISIBILITY_SLOTS * sizeof(uint32_t));
+	/* (the counts, then the numbers of the tests they are of) */
+	stream.visibility = stream_allocate(64, XGPU_STREAM_VISIBILITY_SLOTS * 2 * sizeof(uint32_t));
 	stream.pipelines = stream_allocate(64, XGPU_STREAM_PIPELINES);
 	stream.replies = stream_allocate(64, sizeof(*stream.replies));
 	if (!ring || !stream.buffer || !stream.visibility || !stream.pipelines || !stream.replies ||
@@ -590,7 +591,7 @@ void xgpu_backend_initialize(void)
 		return;
 	}
 	memset(ring, 0, sizeof(*ring));
-	memset((void *)stream.visibility, 0, XGPU_STREAM_VISIBILITY_SLOTS * sizeof(uint32_t));
+	memset((void *)stream.visibility, 0, XGPU_STREAM_VISIBILITY_SLOTS * 2 * sizeof(uint32_t));
 	memset((void *)stream.pipelines, 0, XGPU_STREAM_PIPELINES);
 	ring->magic = XGPU_STREAM_MAGIC;
 	ring->version = XGPU_STREAM_VERSION;
@@ -1682,7 +1683,7 @@ void xgpu_backend_visibility_begin(void)
 		record(XGPU_STREAM_VISIBILITY_BEGIN, sizeof(struct xgpu_stream_record));
 }
 
-void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples)
+void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples, unsigned long test)
 {
 	struct xgpu_stream_visibility_end *record_body;
 
@@ -1693,12 +1694,16 @@ void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int 
 	record_body->area = area;
 	record_body->views = views;
 	record_body->samples = samples;
+	record_body->test = (uint32_t)test;
 }
 
-UINT xgpu_backend_visibility_result(unsigned long slot)
+UINT xgpu_backend_visibility_result(unsigned long slot, unsigned long *test)
 {
+	*test = 0;
 	if (!stream.open || slot >= XGPU_STREAM_VISIBILITY_SLOTS)
 		return 0;
+	/* (the test's number first: the count is of it or of a later test) */
+	*test = __atomic_load_n(&stream.visibility[XGPU_STREAM_VISIBILITY_SLOTS + slot], __ATOMIC_ACQUIRE);
 	return __atomic_load_n(&stream.visibility[slot], __ATOMIC_RELAXED);
 }
 
