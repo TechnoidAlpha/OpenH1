@@ -75,6 +75,9 @@ at once, its original kept.
 #include "menu_pictures.h"
 #include "../src/loading_screen.h"
 
+/* sdl_platform.c's: a map load's loading screen given back */
+void halo_loading_end(void);
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -391,7 +394,10 @@ static void prepare_begin(
 	sound_stop_all();
 	sound_enable(FALSE);
 	/* (the loading screen the whole pass: the main menu's ring under the
-	light, crossing once as the pictures are made, the monks' chant) */
+	light, crossing once as the pictures are made, the monks' chant; the
+	main menu's own load's, still up until its first frame is shown, given
+	back first) */
+	halo_loading_end();
 	halo_loading_screen_begin(TRUE);
 	prepare.drawn = 0;
 	prepare_next();
