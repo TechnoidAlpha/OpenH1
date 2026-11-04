@@ -253,8 +253,9 @@ int main(void) {
     loading_art_set(art, input);
     loading_art_follow(art, 1);
     frame.epoch = 1; frame.active = 1;
+    loading_art_render(art, &frame);
     loading_art_progress(art, 0.5f);
-    for (step = 0; step < 600; step++) {
+    for (step = 1; step < 600; step++) {
         frame.elapsed_ns = (uint64_t)step * 16666667u;
         loading_art_render(art, &frame);
     }
