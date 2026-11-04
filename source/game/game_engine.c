@@ -8851,11 +8851,16 @@ void game_engine_set_goal_object(
 	/* (seen from the object as it is now: at 60 and 120 the goal is set in
 	a tick's work, and the object's sub-steps move it on before the frames
 	draw it, so the goal's place is held to the object as it was then, not
-	moved by how far the object has gone since) */
+	moved by how far the object has gone since; its nodes as they are, read
+	only: object_get_node_matrix poses a sub-step's view of them) */
 	if (object_index != NONE)
 	{
+		real_matrix4x3 const *nodes = (real_matrix4x3 const *)object_header_block_get(
+			object_index,
+			&object_get(object_index)->object.node_matrices);
+
 		matrix4x3_inverse_transform_point(
-			object_get_node_matrix(object_index, 0),
+			&nodes[0],
 			&global_goal[goal_index].position,
 			&global_goal_object_points[goal_index]);
 	}
@@ -8871,16 +8876,14 @@ real_point3d *game_engine_get_goal_drawn_position(
 {
 	/* (an object only of a goal set: game_engine_set_goal_position) */
 	long object_index = global_goal[goal_index].in_use ? global_goal_objects[goal_index] : NONE;
+	real_matrix4x3 const *drawn;
 
 	*position = global_goal[goal_index].position;
-	/* (the object's root node as a frame draws it, there: object_get_node_matrix) */
+	/* (from the object's root node as a frame draws it) */
 	if (object_index != NONE && object_try_and_get(object_index) &&
-		render_interpolation_object_node_matrices(object_index))
+		(drawn = render_interpolation_object_node_matrices(object_index)) != NULL)
 	{
-		matrix4x3_transform_point(
-			object_get_node_matrix(object_index, 0),
-			&global_goal_object_points[goal_index],
-			position);
+		matrix4x3_transform_point(&drawn[0], &global_goal_object_points[goal_index], position);
 	}
 
 	return position;

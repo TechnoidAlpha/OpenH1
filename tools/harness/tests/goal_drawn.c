@@ -43,11 +43,19 @@ static real_matrix4x3 *render_interpolation_object_node_matrices(long object_ind
 {
 	return rendering && object_index == FLAG_OBJECT ? &root_drawn : NULL;
 }
-/* (objects.c's: as a frame draws it, in a frame) */
-static real_matrix4x3 *object_get_node_matrix(long object_index, short node_index)
+/* the object's nodes as the game has them */
+struct object_header_block_reference { short size; };
+struct object_datum { struct { struct object_header_block_reference node_matrices; } object; };
+static struct object_datum flag_datum;
+static struct object_datum *object_get(long object_index)
 {
-	CHECK(object_index == FLAG_OBJECT && node_index == 0, "no node");
-	return rendering ? &root_drawn : &root_now;
+	CHECK(object_index == FLAG_OBJECT, "no object %lx", object_index);
+	return &flag_datum;
+}
+static void *object_header_block_get(long object_index, struct object_header_block_reference *reference)
+{
+	CHECK(object_index == FLAG_OBJECT && reference == &flag_datum.object.node_matrices, "no block");
+	return &root_now;
 }
 /* (the old way: the point moved with the object from its newest nodes to where it is drawn) */
 static void render_interpolation_object_point(long object_index, real_point3d *point)

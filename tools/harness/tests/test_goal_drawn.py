@@ -10,8 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run, structure  # noqa: E402
 
-FAULT = ("\t\tmatrix4x3_transform_point(\n\t\t\tobject_get_node_matrix(object_index, 0),\n"
-         "\t\t\t&global_goal_object_points[goal_index],\n\t\t\tposition);",
+FAULT = ("\t\tmatrix4x3_transform_point(&drawn[0], &global_goal_object_points[goal_index], position);",
          "\t\trender_interpolation_object_point(object_index, position);")
 
 
