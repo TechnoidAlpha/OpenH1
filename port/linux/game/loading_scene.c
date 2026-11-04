@@ -608,6 +608,7 @@ static void loading_scene_add_light(
 	sky = (struct loading_scene_sky const *)scenario_get_sky(0);
 	if (!sky)
 		return;
+	loading_scene_add_model(builder, sky->model.index, NULL, LOADING_SCENE_LAYER_SKY, NULL, 0);
 	if (sky->lights.count > 0 && sky->lights.address)
 	{
 		struct loading_scene_sky_light const *light = sky->lights.address;

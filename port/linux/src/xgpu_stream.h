@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 13
+#define XGPU_STREAM_VERSION 14
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -234,6 +234,9 @@ enum
 	XGPU_STREAM_LOADING_ART,            /* value: byte count, followed by owned 640x480 RGBA pixels */
 	XGPU_STREAM_LOADING_SCENE,          /* value: byte count, followed by the menu's scene (loading_scene.h) */
 	XGPU_STREAM_LOADING_PROGRESS,       /* value: the load's progress, a float's bits (0 to 1) */
+	XGPU_STREAM_LOADING_MODE,           /* value: 1 the sweep follows the progress (the Xbox's), 0 it loops */
+	XGPU_STREAM_LOADING_CAPTION,        /* value: byte count, followed by a width and a height (uint32_t)
+	                                       and that many bytes of a line's coverage; 0: none */
 	/* display.hdr (xgpu_hdr.h) */
 	XGPU_STREAM_HDR,
 	XGPU_STREAM_TONE_MAP,

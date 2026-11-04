@@ -5637,6 +5637,18 @@ void xgpu_vulkan_loading_progress(void *context, float progress)
 	loading_art_progress(&vk.loading_art, progress);
 }
 
+void xgpu_vulkan_loading_mode(void *context, int follow_progress)
+{
+	(void)context;
+	loading_art_follow(&vk.loading_art, follow_progress ? 1u : 0u);
+}
+
+void xgpu_vulkan_loading_caption(void *context, const unsigned char *coverage, uint32_t width, uint32_t height)
+{
+	(void)context;
+	loading_art_caption(&vk.loading_art, coverage, width, height);
+}
+
 void xgpu_vulkan_loading_stereo(int stereo)
 {
 	loading_art_stereo(&vk.loading_art, stereo ? 1u : 0u);
@@ -5669,7 +5681,14 @@ uint32_t xgpu_vulkan_loading_frame_width(void)
 		height = vk.swapchain_extent.width;
 	}
 	loading_art_width(&vk.loading_art, width, height);
-	return vk.loading_art.width;
+	return loading_art_frame_width(&vk.loading_art);
+}
+
+/* and its height: the screen's rows, where the loading screen draws its
+sharp frame (loading_art_hd), else 480 */
+uint32_t xgpu_vulkan_loading_frame_height(void)
+{
+	return loading_art_frame_height(&vk.loading_art);
 }
 
 struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presentation_frame *frame,
@@ -5684,6 +5703,7 @@ struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presenta
 	int test_active = vk.test_active;
 	int32_t rectangle[1][4];
 	const uint8_t *pixels;
+	uint32_t art_width, art_height;
 	int stereo;
 
 	vk.loading_stereo_drawn = 0;
@@ -5715,9 +5735,18 @@ struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presenta
 			return NULL;
 	}
 	pixels = loading_art_render(&vk.loading_art, frame);
+	/* (the picture's size: the sharp frame's, or the 480 rows') */
+	art_width = loading_art_output_width(&vk.loading_art);
+	art_height = loading_art_output_height(&vk.loading_art);
 	/* (VR's stereo pair side by side, where the image holds them) */
 	stereo = pixels && loading_art_stereo_drawn(&vk.loading_art) &&
 		width >= 2 * LOADING_PRESENTATION_VR_EYE_WIDTH && height >= LOADING_PRESENTATION_VR_EYE_HEIGHT;
+	if (pixels && vk.loading_art_image && (vk.loading_art_image->description.width < art_width ||
+		vk.loading_art_image->description.height < art_height))
+	{
+		xgpu_vulkan_image_destroy(vk.loading_art_image);
+		vk.loading_art_image = NULL;
+	}
 	if (pixels && !vk.loading_art_image)
 	{
 		memset(&description, 0, sizeof(description));
@@ -5727,6 +5756,10 @@ struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presenta
 		description.width = 2 * LOADING_ART_FRAME_WIDTH > LOADING_ART_FRAME_MAXIMUM_WIDTH ? 2 * LOADING_ART_FRAME_WIDTH :
 			LOADING_ART_FRAME_MAXIMUM_WIDTH;
 		description.height = LOADING_ART_FRAME_HEIGHT;
+		if (description.width < art_width)
+			description.width = art_width;
+		if (description.height < art_height)
+			description.height = art_height;
 		description.depth_or_layers = description.levels = 1;
 		vk.loading_art_image = xgpu_vulkan_image_create(&description);
 	}
@@ -5748,13 +5781,13 @@ struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presenta
 		VkCommandBuffer commands;
 		VkImageBlit blit;
 		uint32_t fit_width = width;
-		uint32_t fit_height = (uint32_t)((uint64_t)width * LOADING_ART_FRAME_HEIGHT / vk.loading_art.width);
+		uint32_t fit_height = (uint32_t)((uint64_t)width * art_height / art_width);
 		uint32_t x, y;
 
 		if (fit_height > height)
 		{
 			fit_height = height;
-			fit_width = (uint32_t)((uint64_t)height * vk.loading_art.width / LOADING_ART_FRAME_HEIGHT);
+			fit_width = (uint32_t)((uint64_t)height * art_width / art_height);
 		}
 		if (!fit_width)
 			fit_width = 1;
@@ -5771,7 +5804,7 @@ struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presenta
 		}
 		pass_end();
 		xgpu_vulkan_image_upload(vk.loading_art_image, 0, 0, 0, 0, 0,
-			vk.loading_art.width, LOADING_ART_FRAME_HEIGHT, 1, pixels, vk.loading_art.width * 4, 0);
+			art_width, art_height, 1, pixels, art_width * 4, 0);
 		if (stereo)
 			xgpu_vulkan_image_upload(vk.loading_art_image, 0, 0, LOADING_ART_FRAME_WIDTH, 0, 0,
 				LOADING_ART_FRAME_WIDTH, LOADING_ART_FRAME_HEIGHT, 1, vk.loading_art.output_right,
@@ -5780,8 +5813,8 @@ struct xgpu_vulkan_image *xgpu_vulkan_loading_draw(const struct loading_presenta
 		memset(&blit, 0, sizeof(blit));
 		blit.srcSubresource.aspectMask = blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		blit.srcSubresource.layerCount = blit.dstSubresource.layerCount = 1;
-		blit.srcOffsets[1].x = stereo ? 2 * LOADING_ART_FRAME_WIDTH : (int32_t)vk.loading_art.width;
-		blit.srcOffsets[1].y = LOADING_ART_FRAME_HEIGHT;
+		blit.srcOffsets[1].x = stereo ? 2 * LOADING_ART_FRAME_WIDTH : (int32_t)art_width;
+		blit.srcOffsets[1].y = stereo ? LOADING_ART_FRAME_HEIGHT : (int32_t)art_height;
 		blit.srcOffsets[1].z = 1;
 		blit.dstOffsets[0].x = (int32_t)x;
 		blit.dstOffsets[0].y = (int32_t)y;
@@ -6991,6 +7024,8 @@ void xgpu_vulkan_shutdown(void)
 	vk.loading_image = NULL;
 	xgpu_vulkan_image_destroy(vk.loading_art_image);
 	vk.loading_art_image = NULL;
+	/* (the loading screen's sharp frame and its threads) */
+	loading_art_hd_free(&vk.loading_art);
 	if (vk.recording)
 		xgpu_vulkan_fence();
 	vkDeviceWaitIdle(vk.device);

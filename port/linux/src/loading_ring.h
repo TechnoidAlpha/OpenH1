@@ -95,6 +95,8 @@ struct loading_ring
 	its scale (an off-axis view through VR's window: 0, 0 and 1 for the
 	camera's own view) */
 	float view_eye[3], view_shift[2], view_zoom;
+	/* drawing only the glint, over the frame drawn before (loading_ring_glint) */
+	int glint_only;
 };
 
 /* ---------- textures */
@@ -706,6 +708,8 @@ static inline void loading_ring_triangle(struct loading_ring *ring, const struct
 	int minimum_x, maximum_x, minimum_y, maximum_y, x, y;
 	uint32_t tint[4];
 
+	if (ring->glint_only && !depth_write)
+		return;
 	for (map = 0; map < 4; map++)
 		tint[map] = (uint32_t)(part->tint[map] * 256.0f);
 	if (!(area == area) || fabsf(area) < 1e-6f)
@@ -779,6 +783,18 @@ static inline void loading_ring_triangle(struct loading_ring *ring, const struct
 				if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f)
 					continue;
 				iz = w0 * iza + w1 * izb + w2 * izc;
+				if (ring->glint_only)
+				{
+					/* (the surface the frame shows here: the nearest's depth,
+					found again) */
+					if (iz < depth_row[x])
+						continue;
+					z = 1.0f / iz;
+					shade = (w0 * a->glint * iza + w1 * b->glint * izb + w2 * c->glint * izc) * z;
+					ring->glint[(uint32_t)y * ring->width + (uint32_t)x] = (uint8_t)(shade < 0.0f ? 0.0f :
+						shade > 1.0f ? 255.0f : shade * 255.0f);
+					continue;
+				}
 				if (depth_test && iz <= depth_row[x])
 					continue;
 				z = 1.0f / iz;
@@ -990,15 +1006,16 @@ static inline void loading_ring_focus(struct loading_ring *ring, int r)
 	}
 	if (!(nearest > 0.0f) || !(farthest < nearest))
 		return;
-	/* planes: red, green, blue, the depth's mix (of 256) where the ring is,
-	and where it is (1) */
-	planes = malloc((size_t)pixels * 5 * 2 * sizeof(uint32_t));
+	/* planes, one at a time (so that a large frame needs three): the depth's
+	mix (of 256) where the ring is, and where it is (1), boxed, to each
+	pixel's mix; then each channel boxed and mixed in */
+	planes = malloc((size_t)pixels * 3 * sizeof(uint32_t));
 	if (!planes)
 		return;
-	temporary = planes + (size_t)pixels * 5;
+	temporary = planes + (size_t)pixels * 2;
 	for (index = 0; index < pixels; index++)
 	{
-		uint32_t value = ring->color[index], mix = 0, inside = ring->depth[index] > 0.0f;
+		uint32_t mix = 0, inside = ring->depth[index] > 0.0f;
 
 		if (inside)
 		{
@@ -1008,50 +1025,59 @@ static inline void loading_ring_focus(struct loading_ring *ring, int r)
 			t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
 			mix = (uint32_t)(t * t * (3.0f - 2.0f * t) * 256.0f);
 		}
-		planes[index] = value & 255;
-		planes[pixels + index] = (value >> 8) & 255;
-		planes[pixels * 2 + index] = (value >> 16) & 255;
-		planes[pixels * 3 + index] = mix;
-		planes[pixels * 4 + index] = inside;
+		planes[index] = mix;
+		planes[pixels + index] = inside;
 	}
-	for (channel = 0; channel < 5; channel++)
+	for (channel = 0; channel < 2; channel++)
 	{
-		uint32_t *plane = planes + (size_t)pixels * channel, *scratch = temporary + (size_t)pixels * channel;
+		uint32_t *plane = planes + (size_t)pixels * channel;
 
 		for (row = 0; row < (int)height; row++)
-			loading_ring_box(plane + (uint32_t)row * width, scratch + (uint32_t)row * width, (int)width, 1, r);
+			loading_ring_box(plane + (uint32_t)row * width, temporary + (uint32_t)row * width, (int)width, 1, r);
 		for (column = 0; column < (int)width; column++)
-			loading_ring_box(scratch + column, plane + column, (int)height, (int)width, r);
+			loading_ring_box(temporary + column, plane + column, (int)height, (int)width, r);
+	}
+	/* (each pixel's mix: a pixel beside the ring by the ring's about it, the
+	ring's own by its own depth) */
+	for (index = 0; index < pixels; index++)
+	{
+		uint32_t mix;
+
+		if (ring->depth[index] > 0.0f)
+		{
+			float along = (1.0f / ring->depth[index] - 1.0f / nearest) / (1.0f / farthest - 1.0f / nearest);
+			float t = (along * 256.0f - LOADING_RING_FOCUS_START) / (256.0f - LOADING_RING_FOCUS_START);
+
+			t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
+			mix = (uint32_t)(t * t * (3.0f - 2.0f * t) * 256.0f);
+		}
+		else
+			mix = planes[pixels + index] ? planes[index] / planes[pixels + index] : 0;
+		planes[pixels + index] = mix;
 	}
 	{
 		uint32_t area = (uint32_t)((2 * r + 1) * (2 * r + 1));
+		uint32_t *mixes = planes + pixels;
 
-		for (index = 0; index < pixels; index++)
+		for (channel = 0; channel < 3; channel++)
 		{
-			uint32_t value = ring->color[index], mix, result = 0xff000000u;
-
-			if (ring->depth[index] > 0.0f)
-				mix = 0;
-			else
-				mix = planes[pixels * 4 + index] ? planes[pixels * 3 + index] / planes[pixels * 4 + index] : 0;
-			/* (the ring's own pixels by their own depth) */
-			if (ring->depth[index] > 0.0f)
+			for (index = 0; index < pixels; index++)
+				planes[index] = (ring->color[index] >> (channel * 8)) & 255;
+			for (row = 0; row < (int)height; row++)
+				loading_ring_box(planes + (uint32_t)row * width, temporary + (uint32_t)row * width, (int)width, 1, r);
+			for (column = 0; column < (int)width; column++)
+				loading_ring_box(temporary + column, planes + column, (int)height, (int)width, r);
+			for (index = 0; index < pixels; index++)
 			{
-				float along = (1.0f / ring->depth[index] - 1.0f / nearest) / (1.0f / farthest - 1.0f / nearest);
-				float t = (along * 256.0f - LOADING_RING_FOCUS_START) / (256.0f - LOADING_RING_FOCUS_START);
+				uint32_t value = ring->color[index], mix = mixes[index], sharp, soft;
 
-				t = t < 0.0f ? 0.0f : t > 1.0f ? 1.0f : t;
-				mix = (uint32_t)(t * t * (3.0f - 2.0f * t) * 256.0f);
+				if (!mix)
+					continue;
+				sharp = (value >> (channel * 8)) & 255;
+				soft = planes[index] / area;
+				ring->color[index] = (value & ~(255u << (channel * 8))) | 0xff000000u |
+					(((sharp * (256 - mix) + soft * mix) >> 8) << (channel * 8));
 			}
-			if (!mix)
-				continue;
-			for (channel = 0; channel < 3; channel++)
-			{
-				uint32_t sharp = (value >> (channel * 8)) & 255, soft = planes[pixels * channel + index] / area;
-
-				result |= ((sharp * (256 - mix) + soft * mix) >> 8) << (channel * 8);
-			}
-			ring->color[index] = result;
 		}
 	}
 	free(planes);
@@ -1114,7 +1140,16 @@ static inline const uint32_t *loading_ring_draw(struct loading_ring *ring, uint3
 		ring->sky_drawn = 0;
 		if (!ring->sky || !ring->color || !ring->depth || !ring->glint)
 		{
-			loading_ring_clear(ring);
+			/* (the frame's buffers given up, the scene kept: a smaller
+			frame may still be drawn) */
+			free(ring->sky);
+			free(ring->color);
+			free(ring->depth);
+			free(ring->glint);
+			ring->sky = ring->color = NULL;
+			ring->depth = NULL;
+			ring->glint = NULL;
+			ring->width = ring->height = 0;
 			return NULL;
 		}
 	}
@@ -1161,9 +1196,77 @@ static inline const uint32_t *loading_ring_draw(struct loading_ring *ring, uint3
 	for (part = 0; part < ring->part_count; part++)
 		if (ring->parts[part].layer == LOADING_SCENE_LAYER_WORLD && ring->parts[part].blend != LOADING_SCENE_BLEND_OPAQUE)
 			loading_ring_part_draw(ring, &ring->parts[part], ring->color, 1e-2f);
-	loading_ring_focus(ring, eye ? LOADING_RING_FOCUS_EYE_RADIUS : LOADING_RING_FOCUS_RADIUS);
+	/* (the picture's softening at its 480 rows, as much of it at any) */
+	loading_ring_focus(ring, eye ? LOADING_RING_FOCUS_EYE_RADIUS :
+		(int)((LOADING_RING_FOCUS_RADIUS * height + 240) / 480));
 	(void)seconds;
 	return ring->color;
+}
+
+/* The sweep's light on the ring again (its glint, at the sweep's place
+   glint_x), over the frame the last loading_ring_draw of this size drew
+   from the menu's camera: the ring is still, only the light moves; 0 (and
+   nothing drawn) if there is no such frame. */
+static inline int loading_ring_glint(struct loading_ring *ring, uint32_t width, uint32_t height, float glint_x)
+{
+	uint32_t part;
+
+	if (!ring->valid || !ring->color || !ring->depth || !ring->glint || ring->width != width ||
+		ring->height != height || ring->view_zoom != 1.0f || ring->view_eye[0] != 0.0f ||
+		ring->view_eye[1] != 0.0f || ring->view_eye[2] != 0.0f)
+		return 0;
+	memset(ring->glint, 0, (size_t)width * height);
+	ring->glint_x = glint_x;
+	loading_ring_transform(ring, LOADING_SCENE_LAYER_WORLD);
+	ring->glint_only = 1;
+	for (part = 0; part < ring->part_count; part++)
+		if (ring->parts[part].layer == LOADING_SCENE_LAYER_WORLD && ring->parts[part].blend == LOADING_SCENE_BLEND_OPAQUE)
+			loading_ring_part_draw(ring, &ring->parts[part], ring->color, 1e-2f);
+	ring->glint_only = 0;
+	return 1;
+}
+
+/* A frame's buffers (loading_ring_draw's), set aside while the ring is drawn
+   at another size and given back after: the loading screen's sharp picture is
+   drawn once, at the screen's size, between the small frames its sweep is
+   drawn from. */
+struct loading_ring_frame
+{
+	uint32_t width, height;
+	uint32_t *sky, *color;
+	float *depth;
+	uint8_t *glint;
+	int sky_drawn;
+};
+
+static inline void loading_ring_frame_swap(struct loading_ring *ring, struct loading_ring_frame *frame)
+{
+	struct loading_ring_frame held;
+
+	held.width = ring->width;
+	held.height = ring->height;
+	held.sky = ring->sky;
+	held.color = ring->color;
+	held.depth = ring->depth;
+	held.glint = ring->glint;
+	held.sky_drawn = ring->sky_drawn;
+	ring->width = frame->width;
+	ring->height = frame->height;
+	ring->sky = frame->sky;
+	ring->color = frame->color;
+	ring->depth = frame->depth;
+	ring->glint = frame->glint;
+	ring->sky_drawn = frame->sky_drawn;
+	*frame = held;
+}
+
+static inline void loading_ring_frame_free(struct loading_ring_frame *frame)
+{
+	free(frame->sky);
+	free(frame->color);
+	free(frame->depth);
+	free(frame->glint);
+	memset(frame, 0, sizeof(*frame));
 }
 
 #endif

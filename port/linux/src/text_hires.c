@@ -319,3 +319,79 @@ unsigned int text_hires_atlas_texture(unsigned long data)
 	}
 	return atlas_texture;
 }
+
+unsigned char *text_hires_line(char const *tag_name, char const *text, float cap_pixels,
+	int *width, int *height)
+{
+	stbtt_fontinfo info;
+	const unsigned char *data = NULL;
+	unsigned char *pixels;
+	unsigned int index;
+	int x0, y0, x1, y1, ascent, descent, gap, pass, w = 0, h, pen;
+	float scale;
+
+	*width = *height = 0;
+	if (!tag_name || !text || cap_pixels <= 0.0f || cap_pixels > 512.0f)
+		return NULL;
+	for (index = 0; index < text_hires_embedded_count && !data; index++)
+		if (text_hires_embedded[index].tag && !names_differ(text_hires_embedded[index].tag, tag_name))
+			data = (const unsigned char *)text_hires_embedded[index].data;
+	if (!data || !stbtt_InitFont(&info, data, stbtt_GetFontOffsetForIndex(data, 0)) ||
+		!stbtt_GetCodepointBox(&info, 'H', &x0, &y0, &x1, &y1) || y1 <= y0)
+		return NULL;
+	scale = cap_pixels / (float)(y1 - y0);
+	stbtt_GetFontVMetrics(&info, &ascent, &descent, &gap);
+	h = (int)ceilf((float)(ascent - descent) * scale) + 2;
+	/* (twice: the width, then the glyphs) */
+	pixels = NULL;
+	for (pass = 0; pass < 2; pass++)
+	{
+		const unsigned char *p = (const unsigned char *)text;
+		float x = 1.0f;
+		int previous = 0;
+
+		while (*p)
+		{
+			int code = *p++, advance, bearing;
+
+			/* (UTF-8's two- and three-byte letters; others as Latin-1) */
+			if ((code & 0xe0) == 0xc0 && (p[0] & 0xc0) == 0x80)
+				code = ((code & 0x1f) << 6) | (*p++ & 0x3f);
+			else if ((code & 0xf0) == 0xe0 && (p[0] & 0xc0) == 0x80 && (p[1] & 0xc0) == 0x80)
+			{
+				code = ((code & 0x0f) << 12) | ((p[0] & 0x3f) << 6) | (p[1] & 0x3f);
+				p += 2;
+			}
+			if (previous)
+				x += (float)stbtt_GetCodepointKernAdvance(&info, previous, code) * scale;
+			stbtt_GetCodepointHMetrics(&info, code, &advance, &bearing);
+			if (pass)
+			{
+				int left, top, right, bottom;
+				float shift = x - floorf(x);
+
+				stbtt_GetCodepointBitmapBoxSubpixel(&info, code, scale, scale, shift, 0.0f, &left, &top, &right, &bottom);
+				pen = (int)floorf(x) + left;
+				if (pen >= 0 && right > left && bottom > top && pen + (right - left) <= w &&
+					(int)((float)ascent * scale) + top >= 0 && (int)((float)ascent * scale) + bottom <= h)
+					stbtt_MakeCodepointBitmapSubpixel(&info,
+						pixels + ((int)((float)ascent * scale) + top + 1) * w + pen,
+						right - left, bottom - top, w, scale, scale, shift, 0.0f, code);
+			}
+			x += (float)advance * scale;
+			previous = code;
+		}
+		if (!pass)
+		{
+			w = (int)ceilf(x) + 2;
+			if (w <= 2 || w > 8192)
+				return NULL;
+			pixels = calloc((size_t)w * (size_t)(h + 1), 1);
+			if (!pixels)
+				return NULL;
+		}
+	}
+	*width = w;
+	*height = h;
+	return pixels;
+}

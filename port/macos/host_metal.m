@@ -506,6 +506,23 @@ void host_metal_loading_progress(void *context, float progress)
 	pthread_mutex_unlock(&presentation.lock);
 }
 
+void host_metal_loading_mode(void *context, int follow_progress)
+{
+	(void)context;
+	pthread_mutex_lock(&presentation.lock);
+	loading_art_follow(&presentation.loading_art, follow_progress ? 1u : 0u);
+	pthread_mutex_unlock(&presentation.lock);
+}
+
+void host_metal_loading_caption(void *context, const unsigned char *coverage, uint32_t width, uint32_t height)
+{
+	(void)context;
+	pthread_mutex_lock(&presentation.lock);
+	loading_art_caption(&presentation.loading_art, coverage, width, height);
+	presentation.loading_texture_valid = NO;
+	pthread_mutex_unlock(&presentation.lock);
+}
+
 void host_metal_loading_scene(void *context, const void *data, uint32_t bytes)
 {
 	(void)context;
@@ -518,7 +535,9 @@ void host_metal_loading_scene(void *context, const void *data, uint32_t bytes)
 static void loading_upload_initialize(void)
 {
 	MTLTextureDescriptor *description;
-	NSUInteger size = LOADING_ART_FRAME_MAXIMUM_PIXELS * 4;
+	/* (the larger of the 480 rows' widest frame and the sharp frame's) */
+	NSUInteger size = (LOADING_ART_FRAME_MAXIMUM_PIXELS > LOADING_ART_HD_BUDGET ? LOADING_ART_FRAME_MAXIMUM_PIXELS :
+		LOADING_ART_HD_BUDGET) * 4;
 	int index;
 
 	description = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
@@ -538,17 +557,34 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 	id<MTLBuffer> upload = nil;
 	id<MTLBlitCommandEncoder> blit;
 	const uint8_t *pixels;
-	unsigned int width;
+	unsigned int width, height;
 	int index;
 
 	pthread_mutex_lock(&presentation.lock);
-	/* (the frame at the screen's shape: a texture of its width) */
+	/* (the frame at the screen's shape, at its rows where the loading
+	screen draws them sharp: a texture of its size) */
 	loading_art_width(&presentation.loading_art, (unsigned int)screen_width, (unsigned int)screen_height);
-	width = presentation.loading_art.width;
-	if (presentation.loading_texture && presentation.loading_texture.width != width)
+	width = loading_art_frame_width(&presentation.loading_art);
+	height = loading_art_frame_height(&presentation.loading_art);
+	for (index = 0; index < LOADING_UPLOADS; index++)
+	{
+		if (presentation.loading_uploads[index] && !presentation.loading_upload_busy[index])
+			break;
+	}
+	pixels = presentation.loading_texture && index < LOADING_UPLOADS ?
+		loading_art_render(&presentation.loading_art, frame) : NULL;
+	/* (what the render gave: the sharp frame's size, or, without its
+	memory, the 480 rows') */
+	if (pixels)
+	{
+		width = loading_art_output_width(&presentation.loading_art);
+		height = loading_art_output_height(&presentation.loading_art);
+	}
+	if (presentation.loading_texture && (presentation.loading_texture.width != width ||
+		presentation.loading_texture.height != height))
 	{
 		MTLTextureDescriptor *description = [MTLTextureDescriptor
-			texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:width height:LOADING_ART_FRAME_HEIGHT
+			texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:width height:height
 			mipmapped:NO];
 
 		description.storageMode = MTLStorageModePrivate;
@@ -556,20 +592,14 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 		presentation.loading_texture = [xgpu_metal_device() newTextureWithDescriptor:description];
 		presentation.loading_texture_valid = NO;
 	}
-	for (index = 0; index < LOADING_UPLOADS; index++)
-	{
-		if (presentation.loading_uploads[index] && !presentation.loading_upload_busy[index])
-			break;
-	}
 	if (presentation.loading_texture && index < LOADING_UPLOADS)
 	{
-		pixels = loading_art_render(&presentation.loading_art, frame);
 		if (pixels && host_loading_capture_due(frame))
-			host_loading_capture_write(frame, pixels, width, LOADING_ART_FRAME_HEIGHT, 0, 0);
+			host_loading_capture_write(frame, pixels, width, height, 0, 0);
 		if (pixels)
 		{
 			upload = presentation.loading_uploads[index];
-			memcpy(upload.contents, pixels, (size_t)width * LOADING_ART_FRAME_HEIGHT * 4);
+			memcpy(upload.contents, pixels, (size_t)width * height * 4);
 			presentation.loading_upload_busy[index] = YES;
 			presentation.loading_texture_valid = YES;
 		}
@@ -587,7 +617,7 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 	aside cannot delay them, and CPU writes never reuse an in-flight buffer. */
 	blit = [buffer blitCommandEncoder];
 	[blit copyFromBuffer:upload sourceOffset:0 sourceBytesPerRow:width * 4
-		sourceBytesPerImage:0 sourceSize:MTLSizeMake(width, LOADING_ART_FRAME_HEIGHT, 1)
+		sourceBytesPerImage:0 sourceSize:MTLSizeMake(width, height, 1)
 		toTexture:texture destinationSlice:0 destinationLevel:0 destinationOrigin:MTLOriginMake(0, 0, 0)];
 	[blit endEncoding];
 	[buffer addCompletedHandler:^(id<MTLCommandBuffer> done) {

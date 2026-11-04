@@ -688,5 +688,12 @@ void xgpu_backend_loading_scene(const void *data, unsigned long bytes);
 /* The load's progress (0 to 1), as the loading screen's sweep is drawn: the
 picture fades out as it completes, as the original's did. */
 void xgpu_backend_loading_progress(float progress);
+/* How the sweep moves: following the progress, once across as it goes
+from 0 to 1, as the Xbox's did (1), or looping on its own clock (0, a map
+load's). */
+void xgpu_backend_loading_mode(int follow_progress);
+/* A line under the loading screen's words: its coverage, width by height
+(a byte a pixel, set at four times the 480 lines' size); NULL: none. */
+void xgpu_backend_loading_caption(const unsigned char *coverage, unsigned long width, unsigned long height);
 
 #endif

@@ -67,4 +67,11 @@ void text_hires_set_reset_hook(void (*hook)(void));
 /* d3d8_device.c: the display's pixels for each of the 480 lines */
 float halo_screen_pixel_scale(void);
 
+/* A line of text set in the font that draws `tag_name` (fonts.json), its
+capitals `cap_pixels` tall: its coverage, one byte a pixel, width by height
+(malloc'd; NULL if the font or the memory is not there). Whatever
+display.high_res_text says: for the loading screen's caption. */
+unsigned char *text_hires_line(char const *tag_name, char const *text, float cap_pixels,
+	int *width, int *height);
+
 #endif
