@@ -4697,8 +4697,14 @@ static struct
 } multiplayer = { .maximum_players_index = NUMBEROF(maximum_players) - 1 };
 
 /* ---- a text field (Direct Link's link, the game's name): the keyboard
-types into it (Ctrl+V pastes), its row's A (enter) is done, B (escape)
-cancels */
+types into it (Ctrl+V pastes), its row's A is done, B (escape) cancels.
+Enter is its row's A too, posted to the menus (text_field_show), never the
+controller's Start, which in a game closes the menus (ui_widget.c's
+ui_check_for_pause_game) and would throw away what was typed and every
+change on the screen (port/linux/src/xinput_sdl.c's typing_gamepad). A
+value's field (a slider's number) starts with its value chosen: the first
+key typed replaces it, the first backspace clears it, as a value box does
+(text_field_begin_value) */
 static struct
 {
 	struct widget_instance *row;
@@ -4708,6 +4714,9 @@ static struct
 	void (*done)(char const *text);
 	/* a password's: shown as stars (text_field_begin_masked) */
 	boolean masked;
+	/* the text is the value as it was, chosen: what is typed first
+	replaces it (text_field_begin_value) */
+	boolean chosen;
 } text_field;
 
 /* when the field was last shown (a field not shown for a while is let go
@@ -4730,6 +4739,7 @@ static void text_field_open(struct widget_instance *row, char const *text, short
 	text_field.maximum = (short)MIN(maximum, TEXT_FIELD_LENGTH - 1);
 	text_field.done = done;
 	text_field.masked = masked;
+	text_field.chosen = FALSE;
 	text_field_shown_time = system_milliseconds();
 	while (input_get_key(&key))
 		;
@@ -4740,6 +4750,15 @@ static void text_field_begin(struct widget_instance *row, char const *text, shor
 	void (*done)(char const *text))
 {
 	text_field_open(row, text, maximum, done, FALSE);
+}
+
+/* a value's field (a slider's number): as text_field_begin, its value
+chosen, which the first key typed replaces */
+static void text_field_begin_value(struct widget_instance *row, char const *text, short maximum,
+	void (*done)(char const *text))
+{
+	text_field_open(row, text, maximum, done, FALSE);
+	text_field.chosen = text[0] != 0;
 }
 
 /* a password's field: as text_field_begin, its text shown as stars */
@@ -4764,7 +4783,13 @@ static void text_field_end(boolean keep)
 
 static void text_field_insert(char const *text)
 {
-	size_t length = strlen(text_field.text);
+	size_t length;
+
+	/* (the value chosen: replaced) */
+	if (text_field.chosen)
+		text_field.text[0] = 0;
+	text_field.chosen = FALSE;
+	length = strlen(text_field.text);
 
 	for (; *text && length < (size_t)text_field.maximum; text++)
 	{
@@ -4791,10 +4816,23 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 		{
 			size_t length = strlen(text_field.text);
 
+			/* (Enter: the row's A, which ends the field as the row ends
+			it, keeping what was typed; no key after it is typed) */
+			if (key.key_code == _key_return)
+			{
+				ui_widget_port_post_button(0, BUTTON_A);
+				while (input_get_key(&key))
+					;
+				break;
+			}
 			if (key.key_code == _key_backspace)
 			{
-				if (length)
+				/* (the value chosen: cleared) */
+				if (text_field.chosen)
+					text_field.text[0] = 0;
+				else if (length)
 					text_field.text[length - 1] = 0;
+				text_field.chosen = FALSE;
 			}
 			else if (TEST_FLAG(key.modifier_flags, KEY_MODIFIER_CONTROL_BIT) && key.key_code == _key_v)
 			{
@@ -4830,7 +4868,8 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 with its thumb at the value, and the value's number. Left and right step it
 ("port slider left", "right"); a click on the track sets it where it is, and
 the mouse held drags it along; A, Start or a click elsewhere on the row
-types a value into its number ("port slider edit": Enter, which is Start
+types a value into its number ("port slider edit": the number chosen, so
+that what is typed replaces it, and a word's field empty; Enter, the row's A
 while typing, keeps it, Escape forgets it). The value is a change kept, as a
 spinner's is (settings_pending), which Settings' OK writes. A slider with
 stops has them along its track, evenly spaced, in place of its range: left,
@@ -5015,6 +5054,16 @@ static void settings_slider_text(short slider, double value, char *text, unsigne
 
 	if (word != NONE)
 		snprintf(text, size, "%s", settings_sliders[slider].stops[word].word);
+	else
+		settings_slider_number(slider, value, text, size);
+}
+
+/* a value as the slider's field starts to be typed into: its number, or
+nothing for a stop shown as a word */
+static void settings_slider_field_text(short slider, double value, char *text, unsigned int size)
+{
+	if (settings_slider_word(slider, value) != NONE)
+		text[0] = 0;
 	else
 		settings_slider_number(slider, value, text, size);
 }
@@ -5214,9 +5263,12 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 		(void)text;
 		return TRUE;
 #else
+		/* (its number, chosen, which typing replaces; a word (DEFAULT,
+		AUTO, NONE, OFF) is no number to edit: an empty field, typed into
+		at once) */
 		settings_slider.typed = slider;
-		settings_slider_text(slider, settings_slider_value(slider), text, sizeof(text));
-		text_field_begin(row, text, 7, settings_slider_typed);
+		settings_slider_field_text(slider, settings_slider_value(slider), text, sizeof(text));
+		text_field_begin_value(row, text, 7, settings_slider_typed);
 		return TRUE;
 #endif
 	}
