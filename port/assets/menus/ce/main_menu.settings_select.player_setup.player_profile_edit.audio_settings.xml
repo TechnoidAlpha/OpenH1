@@ -225,7 +225,7 @@
 		<string text="Where the sounds around you come from. Headphones places each ahead, behind, above or below you, as the Xbox's 3D audio did; Speakers pans them left and right. Auto chooses by what you are listening on, and changes when you plug headphones in or take them out."/>
 		<string text="Echoes sounds as the place you are in would, and muffles those behind walls, as the Xbox did. It costs a little of the processor."/>
 		<string text="How sounds are converted to your speakers' rate. Clean is clear; Classic is brighter but harsher, and costs a little less."/>
-		<string text="Turns all sound off or on, from the next time the game starts."/>
+		<string text="Turns all sound off or on, at once."/>
 		<string text=""/>
 		<string text="The volume of everything the game plays."/>
 		<string text="The music's volume."/>

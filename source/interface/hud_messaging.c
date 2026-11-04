@@ -473,6 +473,8 @@ struct bitmap_data const *hud_hires_sprite_bitmap(struct bitmap_data const *bitm
 /* port: the keyboard and mouse's keys in the prompts, port/linux/game/hud_key_prompts.c */
 boolean hud_key_prompt_draw(short local_player_index, short game_control, short gamepad_button,
 	rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
+/* port: whose buttons draw_string_and_hack_in_icons draws (ui_widget.c) */
+extern short local_player_index_for_draw_string_and_hack_in_icons;
 
 static void render_state_bitmap(
 	rectangle2d *bounds,
@@ -1507,6 +1509,10 @@ void hud_messaging_update(
 			{
 				if (datum->state_message.message_buffer[0])
 				{
+					/* port: the buttons in it are this player's
+					(draw_string_and_hack_in_icons: the multiplayer start's
+					score prompt, game_engine_get_state_message) */
+					local_player_index_for_draw_string_and_hack_in_icons = local_player_index;
 					render_state_text(
 						&line_bounds,
 						&line_cursor,

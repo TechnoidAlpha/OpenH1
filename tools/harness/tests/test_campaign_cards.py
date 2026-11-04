@@ -21,7 +21,7 @@ CAMPAIGN = port_settings.CAMPAIGN
 WIDTHS = port_settings.WIDE_SCREENS
 
 CASES = ["first-centred", "first-at-ends", "place-chosen-larger", "place-wide-apart", "step-kept-to-row",
-         "slide-eases"]
+         "slide-eases", "hover-lights-only"]
 
 # a fault in campaign_menu.inc, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -36,10 +36,17 @@ NEGATIVE_CONTROLS = {
                         "total = (short)(total + MISSION_SMALL_WIDTH"), "place-chosen-larger"),
     "step-wraps": (("return (short)(count > 0 ? PIN(chosen + step, 0, count - 1) : 0);",
                     "return (short)(count > 0 ? (chosen + step + count) % count : 0);"), "step-kept-to-row"),
+    # the pointer passing over a card chooses it (the row cycled under it, #515)
+    "hover-chooses": (("\treturn focused_slot != NONE && !hovered;", "\treturn focused_slot != NONE;"),
+                      "hover-lights-only"),
+    # a click on a card beside the chosen one opens it at once
+    "click-opens-side": (("\treturn slot != NONE && first + slot < count && first + slot != chosen;",
+                          "\treturn FALSE;"), "hover-lights-only"),
     "slide-linear": (("return from * left * left * left;", "return from * left;"), "slide-eases"),
 }
 
-FUNCTIONS = ("mission_cards_first", "mission_cards_place", "mission_cards_step", "mission_cards_slide")
+FUNCTIONS = ("mission_cards_first", "mission_cards_place", "mission_cards_step", "mission_cards_slide",
+             "mission_card_focus_chooses", "mission_card_click_chooses")
 
 
 def generated(fault=None):

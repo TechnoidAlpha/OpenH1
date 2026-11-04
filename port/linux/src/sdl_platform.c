@@ -2323,6 +2323,55 @@ static void queue_keystroke(const SDL_KeyboardEvent *event)
 	keystroke_count++;
 }
 
+/* (input_lock) a key pressed and let go of, as its events queue it */
+static void queue_test_keystroke(BYTE virtual_key, CHAR ascii)
+{
+	int up;
+
+	for (up = 0; up < 2; up++)
+	{
+		struct platform_keystroke *keystroke;
+
+		if (keystroke_count == KEYSTROKE_QUEUE_SIZE)
+			return;
+		keystroke = &keystroke_queue[(keystroke_head + keystroke_count) % KEYSTROKE_QUEUE_SIZE];
+		keystroke->virtual_key = virtual_key;
+		keystroke->ascii = up ? 0 : ascii;
+		keystroke->flags = up ? 0x40 : 0;
+		keystroke_count++;
+	}
+}
+
+/* (input_lock) debug.test_input "menu:...": its "type:" and "enter"
+(platform_test_menu_keys), as the keyboard would type them: the letters'
+and digits' keystrokes, and Return held and its keystroke */
+static void test_menu_keys(void)
+{
+	static int enter_held;
+	char typed[64];
+	int enter, index;
+
+	if (platform_test_menu_keys(typed, (int)sizeof(typed), &enter))
+	{
+		for (index = 0; typed[index]; index++)
+		{
+			char character = typed[index];
+
+			if (character >= 'a' && character <= 'z')
+				queue_test_keystroke((BYTE)(character - 'a' + 'A'), character);
+			else if ((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9'))
+				queue_test_keystroke((BYTE)character, character);
+		}
+		if (enter)
+			queue_test_keystroke(0x0d, '\r');
+	}
+	if (enter != enter_held)
+	{
+		enter_held = enter;
+		input_state.keys[SDL_SCANCODE_RETURN] = (unsigned char)enter;
+	}
+}
+
 BOOL platform_next_keystroke(struct platform_keystroke *keystroke)
 {
 	BOOL result = FALSE;
@@ -3142,6 +3191,7 @@ void platform_pump_events(void)
 		}
 	}
 #endif
+	test_menu_keys();
 	if (halo_test_input_pump(&input_state, mouse_buttons_pressed))
 		input_presses++;
 	pthread_mutex_unlock(&input_lock);
