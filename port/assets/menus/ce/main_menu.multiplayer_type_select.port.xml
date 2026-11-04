@@ -7,17 +7,17 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/online_now_label" type="text" controller="1" left="290" top="84" width="200" height="18" text="ONLINE NOW" font="ui\small_ui" color="#FF2896FF" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/online_games_0" controller="1" left="290" top="102" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/online_games_0" controller="1" left="290" top="102" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/online_games_1" controller="1" left="314" top="102" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/online_games_1" controller="1" left="316" top="102" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/online_games_2" controller="1" left="338" top="102" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/online_games_2" controller="1" left="342" top="102" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/online_players_0" controller="1" left="436" top="102" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/online_players_0" controller="1" left="436" top="102" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/online_players_1" controller="1" left="460" top="102" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/online_players_1" controller="1" left="462" top="102" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/online_players_2" controller="1" left="484" top="102" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/online_players_2" controller="1" left="488" top="102" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/online_games_label" type="text" controller="1" left="290" top="120" width="140" height="20" font="ui\large_ui" color="#FF2896FF" text_flags="no_focus_test">
 	</widget>

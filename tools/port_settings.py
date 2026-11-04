@@ -2175,8 +2175,10 @@ MAP_KIND_CHOOSER = "main_menu/new_select/list_item_0_map_kind"
 # Multiplayer's panel's counts: the digits' bitmap (tools/ce_menus.py's
 # Art.digits), a frame's size in units and the digits' height, white
 STATUS_DIGITS = f"{MT}/status_digits"
-DIGIT_SIZE = (24, 36)
+DIGIT_SIZE = (26, 36)
 DIGIT_CAP = 28
+# (the space either side of a digit in its frame, which it is made smaller to keep)
+DIGIT_MARGIN = 0.5
 DIGIT_COLOR = (0xFF, 0xFF, 0xFF, 255)
 # a game's ping as bars, a frame each: not measured (grey), poor (one, red),
 # fair (two, yellow), good (three, green): menu_functions.c's PING_GOOD and
