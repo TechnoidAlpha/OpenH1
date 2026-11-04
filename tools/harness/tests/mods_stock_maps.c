@@ -56,6 +56,7 @@ int main(int argc, char **argv)
 		CHECK(mods_globals.enabled, "the mods are off for a game's map");
 		mods_tags_loaded("a10");
 		CHECK(updates == 2, "the mods were not played on a game's map (%d)", updates);
+		CHECK(let_go == 1, "the map before was not let go of (%d)", let_go);
 		/* (a pass's map, then the game's: the mods back) */
 		stock_maps = 1;
 		mods_tags_loaded("a30");
