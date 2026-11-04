@@ -1024,6 +1024,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
 | `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
 | `display.panini`, `display.panini_vertical` | `0.0`, `0.0` | `HALO_PANINI`, `HALO_PANINI_VERTICAL` | The 3D view drawn through the Panini projection at this strength (Panini's d, `0` to `1`; `0`: off, the flat view as ever), and its vertical compression (s, `0` to `1`). First Person's Panini Projection (Off, 0.25 to 1) and Panini Vertical, sliders with a field to type any from 0 to 1. Not in the VR build. Refer to "Field of view". |
+| `display.draw_distance` | `1024.0` | `HALO_DRAW_DISTANCE` | How far the world is drawn: the far clip plane, in world units (about 3 m each), from `1024` (the game's own) to `10000`. Drawing alone: the simulation, the AI's sight and the network are the same at any distance. A fog that is whole nearer still ends the view there. A far clip a script or the console sets (`rasterizer_far_clip_distance`) nearer than 1024 is kept; otherwise the farther of the two. First Person's Draw Distance is a slider through Default and 1536 to 10000, with a field to type any from 1024 to 10000. Refer to "Draw distance". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
 | `display.viewmodel_offset_x` | `0.0` | `HALO_VIEWMODEL_OFFSET_X` | The first-person weapon and hands moved right (negative: left) along the view, in centimeters, from -20 to 20, for every weapon; with `display.viewmodel_fov`, as far on the screen as at the stock angle (the move is multiplied by the ratio of the angles' tangents). `0`: where the game draws them. Only this machine's drawing changes; not in the VR mode. First Person's WEAPON HORIZONTAL is a slider (-20 to 20, any value between typed). Refer to "Field of view". |
 | `display.viewmodel_offset_y` | `0.0` | `HALO_VIEWMODEL_OFFSET_Y` | The same, up (negative: down), as far on the screen at any `display.viewmodel_fov`: First Person's WEAPON VERTICAL. |
@@ -2173,6 +2174,29 @@ too, under the real head (VR, "Your body").
 
 Only this machine's view changes. Nothing the machines send each other
 changes, so players with different settings play together.
+
+## Draw distance
+
+First Person's DRAW DISTANCE (`display.draw_distance`) moves the far clip
+plane, past which nothing of the world is drawn: the game's own is 1024
+world units (about 3 km), which every stock map fits in; a large custom
+map can need more. It goes to 10000, as ChupathingyCE's Far Clip does
+(`port/linux/game/far_clip.c`).
+
+- The projection's far plane, the portals the structure's visibility
+  walks, and the objects and surfaces culled against the view all follow
+  it. It is drawing alone: nothing a tick reads sees the render camera, so
+  the game plays the same at any distance, and the network is unchanged.
+- A fog that reaches full density nearer still ends the view where it
+  does (the far plane is brought in to it, as the game always did); with no
+  fog nothing changes but how far the world goes. The teammates' marks fade
+  with distance as before (over the game's own 1024).
+- The depth buffer is reversed, in 32-bit floats (Vulkan and Metal), so a
+  farther far plane costs nothing near the camera, and surfaces far away
+  stay apart: at 10000 units the depth's step is a few millimetres.
+- A far clip a script or the console sets (`rasterizer_far_clip_distance`)
+  nearer than 1024 is kept, as a cinematic means it; otherwise the farther
+  of the two is drawn.
 
 ## System link
 

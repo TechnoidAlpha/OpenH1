@@ -408,6 +408,7 @@ symbols in this file:
 #include "tag_files/files.h"
 #include "custom_edition_cache.h" /* port: custom_edition_level_name */
 #include "view_fov.h" /* port: display.fov, before the projection and culling */
+#include "far_clip.h" /* port: display.draw_distance, the far clip plane */
 #include "lowered_reticle.h" /* port: display.lowered_reticle, the view above the aim */
 
 #if defined(HALO_WINDOWS) || defined(HALO_ANDROID) || defined(__linux__)
@@ -1268,7 +1269,8 @@ void set_window_camera_values(
 
 	window->rasterizer_camera.mirrored = FALSE;
 	window->rasterizer_camera.z_near = rasterizer_globals.near_clip_distance;
-	window->rasterizer_camera.z_far = rasterizer_globals.far_clip_distance;
+	/* port: display.draw_distance (far_clip.c) */
+	window->rasterizer_camera.z_far = render_far_clip_distance();
 	if (!debug_render_freeze)
 		window->render_camera = window->rasterizer_camera;
 

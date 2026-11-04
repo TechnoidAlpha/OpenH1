@@ -459,6 +459,12 @@ GAMMA = Slider(0.5, 2.0, 0.05, 0.5, 2.0)
 PANINI_STRENGTHS = Slider(0.0, 1.0, 0.25, 0.0, 1.0,
                           stops=(("OFF", "0"), ("0.25", "0.25"), ("0.5", "0.5"), ("0.75", "0.75"), ("1", "1")))
 PANINI_VERTICAL = Slider(0.0, 1.0, 0.05, 0.0, 1.0)
+# display.draw_distance's: the far clip plane in world units, the game's own
+# 1024 to ChupathingyCE's farthest (port/linux/game/far_clip.c); any of 1024
+# to 10000 typed (menu_functions.c's settings_sliders)
+DRAW_DISTANCES = Slider(1024, 10000, 1, 1024, 10000, whole=True,
+                        stops=(("DEFAULT", "1024"),) + tuple((str(n), str(n)) for n in (
+                            1536, 2048, 3072, 4096, 6144, 8192, 10000)))
 ANTI_ALIASING_HELP = "Smooths jagged edges. FXAA and SMAA cost little; {} sharper and {} more of the graphics card."
 STREAMER_LEVELS = [("OFF", "off"), ("SEVERE", "severe"), ("STRONG AND WORSE", "strong"), ("MILD AND WORSE", "mild")]
 SEED_UPLOADS = (64, 128, 256, 512, 1024, 2048, 4096, 8192, 10240)
@@ -586,8 +592,8 @@ PAGES = {
              "Where the picture sits on a screen taller than it, its shape, and the frame around it in portrait.",
              "android"),
             ("FIRST PERSON ›", None, _page_screen(*FIRST_PERSON),
-             "Your weapon's field of view and whether it is drawn, the Panini projection, your legs and arms, your "
-             "shield's color, and the view from a vehicle's passenger seat.", None),
+             "Your weapon's field of view and whether it is drawn, the Panini projection, how far you see, your "
+             "legs and arms, your shield's color, and the view from a vehicle's passenger seat.", None),
             # (port/linux/src/bink_movie.c; the help says where the movies go:
             # MOVIES_HELP)
             ("STARTUP MOVIES", "display.movies", ON_OFF, MOVIES_HELP, None),
@@ -950,6 +956,11 @@ PAGES = {
              "With Panini Projection on: straightens floors and ceilings above and below the middle, and "
              "stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1.",
              None),
+            # (port/linux/game/far_clip.c: the far clip plane, drawing alone)
+            ("DRAW DISTANCE", "display.draw_distance", DRAW_DISTANCES,
+             "How far the world is drawn (the far clip), in world units of about 3 meters. Default is the game's "
+             "1024, which the stock maps fit in; farther shows more of a large custom map.|Click the number (or "
+             "press A) to type any from 1024 to 10000.", None),
             ("LOWERED RETICLE", "display.lowered_reticle", ON_OFF,
              "Puts the reticle below the middle of the screen, as Halo 2 and 3 do. Your view tilts up a little, so "
              "shots still go where the reticle points. Zooming centers it.", None),

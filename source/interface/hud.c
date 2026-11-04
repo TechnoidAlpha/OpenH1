@@ -993,9 +993,11 @@ static void hud_draw_friendly_indicator(
 				(short)fast_ftol(screen_position.x) - render.camera.viewport_bounds.x0;
 			position.y =
 				(short)fast_ftol(screen_position.y) - render.camera.viewport_bounds.y0;
+			/* port: over the game's own far distance, not display.draw_
+			distance's (far_clip.c): the fade's distance stays the same */
 			depth_factor = 1.0f -
 				((-view_position.z - render.frustum.z_near) * 100.0f) /
-				(render.frustum.z_far - render.frustum.z_near);
+				(MIN(render.frustum.z_far, rasterizer_globals.far_clip_distance) - render.frustum.z_near);
 			fade = PIN(depth_factor, 0.075000003f, 1.0f);
 			clip.x0 = 0.0f;
 			clip.x1 = 1.0f;

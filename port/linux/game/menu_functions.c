@@ -4916,6 +4916,14 @@ static struct settings_slider_stop const settings_panini_stops[] =
 	{ 0.0, "OFF" }, { 0.25, NULL }, { 0.5, NULL }, { 0.75, NULL }, { 1.0, NULL },
 };
 
+/* (tools/port_settings.py's DRAW_DISTANCES: the game's own far clip, and
+farther ones) */
+static struct settings_slider_stop const settings_draw_distance_stops[] =
+{
+	{ 1024.0, "DEFAULT" }, { 1536.0, NULL }, { 2048.0, NULL }, { 3072.0, NULL }, { 4096.0, NULL }, { 6144.0, NULL },
+	{ 8192.0, NULL }, { 10000.0, NULL },
+};
+
 #define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
 
 /* each slider by its row: its setting, its track's range and step, the
@@ -4948,6 +4956,9 @@ static struct
 	/* (tools/port_settings.py's PANINI_STRENGTHS and PANINI_VERTICAL) */
 	{ "op_panini", "display.panini", 0.0, 1.0, 0.25, 0.0, 1.0, FALSE, SLIDER_STOPS(settings_panini_stops) },
 	{ "op_panini_vertical", "display.panini_vertical", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
+	/* (tools/port_settings.py's DRAW_DISTANCES; port/linux/game/far_clip.c) */
+	{ "op_draw_distance", "display.draw_distance", 1024.0, 10000.0, 1.0, 1024.0, 10000.0, TRUE,
+		SLIDER_STOPS(settings_draw_distance_stops) },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out

@@ -283,7 +283,7 @@
 		<string text="How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First Person.|Click the number (or press A) to type 20 to 150."/>
 		<string text="Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under it and the touch controls below it. Auto turns with the device."/>
 		<string text="Where the picture sits on a screen taller than it, its shape, and the frame around it in portrait."/>
-		<string text="Your weapon's field of view and whether it is drawn, the Panini projection, your legs and arms, your shield's color, and the view from a vehicle's passenger seat."/>
+		<string text="Your weapon's field of view and whether it is drawn, the Panini projection, how far you see, your legs and arms, your shield's color, and the view from a vehicle's passenger seat."/>
 		<string text="Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu. Any button skips the intro.|They are the bink folder of your Xbox disc image, copied with the maps. Without them, put the disc's bink folder beside your maps folder."/>
 		<string text=""/>
 		<string text="Enhanced: smoother edges, sharper textures and shadows, smoother lighting. Classic looks as the Xbox did.|Changing one shows CUSTOM."/>
