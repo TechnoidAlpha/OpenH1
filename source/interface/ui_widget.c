@@ -5607,6 +5607,39 @@ static long search_and_replace(
 	return replacements;
 }
 
+/* port: the port's own error text's line breaks, written for one dialog's
+lines in one font, made spaces, so that ui_widget_port_text_wrap breaks it
+where the dialog drawn needs: a line kept as written ran past a dialog
+narrower than it was written for (#523). A blank line (a paragraph) is kept.
+In place. */
+static void ui_widget_port_text_unbreak(
+	wchar_t *text)
+{
+	long from, to = 0;
+
+	for (from = 0; text[from]; from++)
+	{
+		if (text[from] == L'\r' || text[from] == L'\n')
+		{
+			long breaks = 0;
+
+			for (; text[from] == L'\r' || text[from] == L'\n'; from++)
+				breaks += text[from] == L'\n' || (text[from] == L'\r' && text[from + 1] != L'\n');
+			from--;
+			if (to > 0 && text[to - 1] == L' ')
+				to--;
+			if (breaks > 1)
+				text[to++] = L'\r';
+			text[to++] = breaks > 1 ? L'\r' : L' ';
+			continue;
+		}
+		if (text[from] == L' ' && to > 0 && (text[to - 1] == L' ' || text[to - 1] == L'\r'))
+			continue;
+		text[to++] = text[from];
+	}
+	text[to] = 0;
+}
+
 /* port: the port's own error text (display_error_text_deferred), which may be
 longer than a line of its dialog: broken at spaces (the strings' line break,
 '\r') where a line would be wider than `width` in the font drawn with.
@@ -5821,7 +5854,7 @@ static void widget_instance_render_text_box(
 
 		if (background && background->width > 0 && background->width < width)
 			width = background->width;
-		width = (short)(width - 4 * definition->horizontal_offset);
+		width = (short)(width - 4 * definition->horizontal_offset);		ui_widget_port_text_unbreak(*text);
 		ustrncpy(wrapped, *text, NUMBEROF(wrapped) - 1);
 		wrapped[NUMBEROF(wrapped) - 1] = 0;
 		if (!ui_widget_port_text_wrap(wrapped, &bounds, width) ||
