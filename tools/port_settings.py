@@ -437,7 +437,7 @@ STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) fo
 FIELDS_OF_VIEW = Slider(80, 160, 5, 20, 160,
                         stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 161, 5)))
 # display.viewmodel_fov's: to 150, the widest rectilinear view (menu_functions.c's
-# SETTINGS_VIEWMODEL_FOV_STOPS)
+# settings_viewmodel_fov_stops)
 WEAPON_FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150, stops=FIELDS_OF_VIEW.stops[:-2])
 # display.viewmodel_offset_x's, _y's and _z's: centimeters, 0 the game's own
 # place; the track goes the whole range (the depth's closer end is about

@@ -4904,7 +4904,12 @@ static struct settings_slider_stop const settings_fov_stops[] =
 /* (tools/port_settings.py's WEAPON_FIELDS_OF_VIEW: the world's, to 150, the
 widest a rectilinear view is drawn at; the projection does not widen the
 weapon's) */
-#define SETTINGS_VIEWMODEL_FOV_STOPS (short)(NUMBEROF(settings_fov_stops) - 2)
+static struct settings_slider_stop const settings_viewmodel_fov_stops[] =
+{
+	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
+	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
+	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+};
 /* (tools/port_settings.py's VEHICLE_FIELDS_OF_VIEW: the game's own view, and
 display.fov's) */
 static struct settings_slider_stop const settings_vehicle_fov_stops[] =
@@ -4943,7 +4948,7 @@ static struct
 	PANINI_FIELD_OF_VIEW_MOST) */
 	{ "op_fov", "display.fov", 80.0, 160.0, 5.0, 20.0, 160.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
 	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
-		settings_fov_stops, SETTINGS_VIEWMODEL_FOV_STOPS },
+		SLIDER_STOPS(settings_viewmodel_fov_stops) },
 	{ "op_viewmodel_offset_x", "display.viewmodel_offset_x", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_viewmodel_offset_y", "display.viewmodel_offset_y", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_viewmodel_offset_z", "display.viewmodel_offset_z", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, build, enum_with, function, inline, mutated, read, run  # noqa: E402
+from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run  # noqa: E402
 
 CASES = ["turret_default", "turret_match", "turret_number", "third_person_seat", "turret_exit",
          "leaving_third_person", "match_exit", "entering", "turned_back", "respawn", "scoped_in_seat", "dead",
@@ -52,7 +52,7 @@ def generated(fault=None):
     # (display.fov's widest, and above 150 with the projection alone: panini_projection.h)
     header = read("port/linux/include/panini_projection.h")
     widest = "\n".join(line for line in header.splitlines() if "FIELD_OF_VIEW_MOST " in line and
-                       line.startswith("#define")) + "\n" + inline(header, "panini_field_of_view")
+                       line.startswith("#define")) + "\n" + function(header, "panini_field_of_view").replace("static __inline", "static", 1)
     world = widest + "\n" + world
     if fault:
         world = mutated(world, *fault)
