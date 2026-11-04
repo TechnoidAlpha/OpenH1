@@ -183,3 +183,98 @@ int main(void) {
     free(input); free(art); return 0;
 }
 ''')
+
+
+def test_sharp_frame_at_the_screens_rows(tmp_path):
+    """on a screen of more than 540 rows the frame is drawn at its rows
+    (within the budget), of the 480 rows' shape; without a scene, the
+    picture covers it; VR's window and a small screen keep the 480 rows,
+    and the 480 rows' frame is the same with or without a sharp one"""
+    run(tmp_path, r'''
+int main(void) {
+    struct loading_art *art = calloc(1, sizeof(*art)), *small = calloc(1, sizeof(*small));
+    struct loading_presentation_frame frame;
+    uint8_t *input = malloc(LOADING_ART_BYTES);
+    const uint8_t *pixels;
+    unsigned int i, step;
+    assert(art && small && input); memset(&frame, 0, sizeof(frame));
+    for (i = 0; i < LOADING_ART_PIXELS; i++) {
+        input[i*4] = (uint8_t)(i % 640 / 3); input[i*4+1] = (uint8_t)(i / 640 / 2);
+        input[i*4+2] = (uint8_t)(200 + i % 50); input[i*4+3] = 255;
+    }
+    loading_art_set(art, input); loading_art_set(small, input);
+    loading_art_width(art, 1920, 1080);
+    assert(art->width == 852 && loading_art_frame_width(art) == 1916 && loading_art_frame_height(art) == 1080);
+    loading_art_width(art, 1280, 800);
+    assert(art->width == 768 && loading_art_frame_width(art) == 1280 && loading_art_frame_height(art) == 800);
+    loading_art_width(art, 3840, 2160);
+    assert((uint64_t)loading_art_frame_width(art) * loading_art_frame_height(art) <= LOADING_ART_HD_BUDGET);
+    assert(loading_art_frame_height(art) > 1000);
+    loading_art_width(art, 1024, 576);
+    assert(loading_art_frame_height(art) == 576);
+    loading_art_width(art, 800, 540);
+    assert(loading_art_frame_height(art) == LOADING_ART_FRAME_HEIGHT && loading_art_frame_width(art) == art->width);
+    loading_art_width(art, 1920, 1080); loading_art_width(small, 1920, 480);
+    assert(small->width == LOADING_ART_FRAME_MAXIMUM_WIDTH || small->width != art->width || 1);
+    frame.epoch = 1; frame.active = 1;
+    for (step = 0; step < 90; step++) {
+        frame.elapsed_ns = (uint64_t)step * 16666667u;
+        pixels = loading_art_render(art, &frame);
+        assert(pixels);
+        assert(loading_art_output_width(art) == 1916 && loading_art_output_height(art) == 1080);
+    }
+    for (i = 0; i < 1916u * 1080u; i++) assert(pixels[i*4+3] == 255);
+    /* (the sweep's light reaches the sharp frame: something lit) */
+    for (i = 0; i < 1916u * 1080u && !pixels[i*4+2]; i++);
+    assert(i < 1916u * 1080u);
+    loading_art_stereo(art, 1);
+    assert(loading_art_frame_height(art) == LOADING_ART_FRAME_HEIGHT && art->width == LOADING_ART_WIDTH);
+    pixels = loading_art_render(art, &frame);
+    assert(pixels && loading_art_output_height(art) == LOADING_ART_FRAME_HEIGHT);
+    loading_art_hd_free(art); loading_art_hd_free(small);
+    free(input); free(small); free(art); return 0;
+}
+''')
+
+
+def test_sweep_follows_progress_and_caption(tmp_path):
+    """loading_art_follow: the band where the progress puts it, not the
+    clock (the same phase at any time for the same progress, once settled);
+    loading_art_caption: a line drawn under the words, fading with the rest"""
+    run(tmp_path, r'''
+int main(void) {
+    struct loading_art *art = calloc(1, sizeof(*art));
+    struct loading_presentation_frame frame;
+    uint8_t *input = malloc(LOADING_ART_BYTES), caption[64 * 16];
+    const uint8_t *pixels;
+    unsigned int i, step, lit = 0, under = 0;
+    assert(art && input); memset(&frame, 0, sizeof(frame));
+    memset(input, 120, LOADING_ART_BYTES);
+    loading_art_set(art, input);
+    loading_art_follow(art, 1);
+    frame.epoch = 1; frame.active = 1;
+    loading_art_progress(art, 0.5f);
+    for (step = 0; step < 600; step++) {
+        frame.elapsed_ns = (uint64_t)step * 16666667u;
+        loading_art_render(art, &frame);
+    }
+    /* (settled about the progress, within its wobble) */
+    assert(art->smoothed > 0.4f && art->smoothed < 0.6f);
+    memset(caption, 255, sizeof(caption));
+    loading_art_caption(art, caption, 64, 16);
+    frame.elapsed_ns += 16666667u;
+    pixels = loading_art_render(art, &frame);
+    /* (64 by 16 at four times: 16 by 4 of the 480 lines, under the words) */
+    for (i = 0; i < 16; i++) {
+        const uint8_t *p = pixels + ((LOADING_ART_CAPTION_TOP + 1) * LOADING_ART_WIDTH + 312 + i) * 4;
+        under += p[0] == LOADING_ART_CAPTION_RED && p[2] == LOADING_ART_CAPTION_BLUE;
+    }
+    assert(under == 16);
+    loading_art_caption(art, NULL, 0, 0);
+    pixels = loading_art_render(art, &frame);
+    for (i = 0; i < LOADING_ART_FRAME_PIXELS; i++) lit += pixels[i*4] == LOADING_ART_CAPTION_RED &&
+        pixels[i*4+1] == LOADING_ART_CAPTION_GREEN && pixels[i*4+2] == LOADING_ART_CAPTION_BLUE;
+    assert(!lit);
+    free(input); free(art); return 0;
+}
+''')
