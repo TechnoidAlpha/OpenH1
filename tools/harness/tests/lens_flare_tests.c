@@ -32,6 +32,8 @@ typedef unsigned int UINT;
 #define rasterizer_profile_end(section) ((void)0)
 #define _rasterizer_widget_z_enable_bit 0
 #define FAKE_FLARES 8192
+/* shown wholly: within the last step the fade takes toward it (4, rasterizer_lights_begin_for_new_frame) */
+#define SHOWN(visibility) ((visibility) > 255 - 4)
 
 struct lens_flare_definition
 {
@@ -156,6 +158,8 @@ static void device_frame_end(void)
 	device_frame++;
 }
 
+/* (the game's own: a short given the dynamic light flag, 0x8000) */
+#pragma clang diagnostic ignored "-Wconstant-conversion"
 #include "under_test.inc"
 
 /* ---------- the game's frames */
@@ -276,7 +280,7 @@ static void shuffled(void)
 	for (index = 0; index < 60; index++)
 	{
 		if (flare_in_open[index])
-			CHECK(*flare_result[index] == 255, "flare %ld in the open shown wholly at the end: %d", index,
+			CHECK(SHOWN(*flare_result[index]), "flare %ld in the open shown wholly at the end: %d", index,
 				*flare_result[index]);
 	}
 }
@@ -361,7 +365,7 @@ int main(int argc, char **argv)
 			frame_end(2);
 		}
 		frame_begin();
-		CHECK(*flare_result[1] == 255 && *flare_result[2] == 0, "the first window's %d, the second's %d",
+		CHECK(SHOWN(*flare_result[1]) && *flare_result[2] == 0, "the first window's %d, the second's %d",
 			*flare_result[1], *flare_result[2]);
 		return 0;
 	}
@@ -378,7 +382,7 @@ int main(int argc, char **argv)
 			frame_end(1);
 		}
 		frame_begin();
-		CHECK(*flare_result[1] == 255, "shown at %d", *flare_result[1]);
+		CHECK(SHOWN(*flare_result[1]), "shown at %d", *flare_result[1]);
 		return 0;
 	}
 	if (!strcmp(case_name, "tests-off"))
@@ -396,7 +400,7 @@ int main(int argc, char **argv)
 			frame_end(1);
 		}
 		frame_begin();
-		CHECK(*flare_result[1] == 255 && *flare_result[2] == 255, "shown at %d and %d", *flare_result[1],
+		CHECK(SHOWN(*flare_result[1]) && SHOWN(*flare_result[2]), "shown at %d and %d", *flare_result[1],
 			*flare_result[2]);
 		return 0;
 	}
