@@ -211,6 +211,29 @@ int main(int argc, char **argv)
 			"the sticks' icons moved");
 		return 0;
 	}
+	CASE("score-hint")
+	{
+		/* the multiplayer start's "Hold BACK for score" (the map's string;
+		a Custom Edition map's 'Hold "%s" for score' converted to it): its
+		BACK the Back button's icon, which the HUD draws as the prompts draw
+		a button, and Back is the scoreboard's key on the keyboard */
+		wchar_t text[64] = L"Hold BACK for score";
+		wchar_t tight[20] = L"Hold BACK for score";
+		wchar_t other[64] = L"FALLBACK BACKPACK BACK";
+		wchar_t shown[64];
+
+		hud_key_prompt_button_word(text, NUMBEROF(text), L"BACK", L"%back-button");
+		CHECK(!wcscmp(text, L"Hold %back-button for score"), "%ls", text);
+		/* (a word that only starts with it is no button; one that does not
+		fit is left as it is) */
+		hud_key_prompt_button_word(other, NUMBEROF(other), L"BACK", L"%back-button");
+		CHECK(!wcscmp(other, L"FALLBACK BACKPACK %back-button"), "%ls", other);
+		hud_key_prompt_button_word(tight, NUMBEROF(tight), L"BACK", L"%back-button");
+		CHECK(!wcscmp(tight, L"Hold BACK for score"), "%ls", tight);
+		CHECK(hud_key_prompt_text(0, NONE, _icon_back_button, shown, NUMBEROF(shown)) && !wcscmp(shown, L"Tab"),
+			"Back's key on the keyboard: %ls", shown);
+		return 0;
+	}
 	fprintf(stderr, "unknown case: %s\n", case_name);
 	return 2;
 }

@@ -325,6 +325,12 @@ static struct listener_state
 static BOOL listener_changed;
 
 static float master_volume = 1.0f;
+/* audio.enabled, read again as the settings change (DirectSoundDoWork):
+false silences what is played, the mix going on as before so that the
+voices play out in time, as the game expects; the mixer's gain fades to it
+(sound_fade) */
+static volatile BOOL sound_on = TRUE;
+static float sound_gain = 1.0f;
 /* audio.doppler */
 static BOOL doppler_enabled = TRUE;
 /* whether mono 3D voices go through the HRTF: on headphones, audio.spatial;
@@ -2064,6 +2070,33 @@ static struct
 	BOOL initialized;
 } limiter;
 
+/* the sound turned off or on (audio.enabled, Settings > Audio's SOUND) as
+it plays: the output's gain faded to 0 or 1 over SOUND_FADE_FRAMES, with
+no click, and held there; the gain it reached */
+#define SOUND_FADE_FRAMES 480
+static float sound_fade(float *output, unsigned long frames, unsigned long channels, float gain, BOOL on)
+{
+	float target = on ? 1.0f : 0.0f;
+	unsigned long frame, channel;
+
+	if (gain == target)
+	{
+		if (!on)
+			memset(output, 0, frames * channels * sizeof(float));
+		return gain;
+	}
+	for (frame = 0; frame < frames; frame++)
+	{
+		if (gain < target)
+			gain = gain + 1.0f / SOUND_FADE_FRAMES < target ? gain + 1.0f / SOUND_FADE_FRAMES : target;
+		else if (gain > target)
+			gain = gain - 1.0f / SOUND_FADE_FRAMES > target ? gain - 1.0f / SOUND_FADE_FRAMES : target;
+		for (channel = 0; channel < channels; channel++)
+			output[frame * channels + channel] *= gain;
+	}
+	return gain;
+}
+
 static void limit(float *output, unsigned long frames)
 {
 	float release = 1.0f - expf(-1.0f / (LIMITER_RELEASE_SECONDS * OUTPUT_RATE));
@@ -2579,6 +2612,7 @@ static void mix(float *output, unsigned long frames, BOOL wait)
 		voice_audio_mix(output, frames);
 	}
 	limit(output, frames);
+	sound_gain = sound_fade(output, frames, output_channels, sound_gain, sound_on);
 	record(output, frames);
 	mix_nanoseconds += SDL_GetTicksNS() - started;
 	mix_frames += frames;
@@ -2907,6 +2941,13 @@ static pthread_mutex_t paced_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t paced_condition = PTHREAD_COND_INITIALIZER;
 static double paced_owed;
 
+/* the silent clocks running, and whether they are asked to stop (a device
+opened in their place: silent_clock_stop) */
+static pthread_mutex_t silent_clock_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t silent_clock_condition = PTHREAD_COND_INITIALIZER;
+static int silent_clocks;
+static BOOL silent_clock_stopping;
+
 static void *silent_clock_thread(void *parameter)
 {
 	float buffer[480 * MAXIMUM_OUTPUT_CHANNELS];
@@ -2928,6 +2969,15 @@ static void *silent_clock_thread(void *parameter)
 	clock_gettime(CLOCK_MONOTONIC, &next);
 	for (;;)
 	{
+		pthread_mutex_lock(&silent_clock_lock);
+		if (silent_clock_stopping)
+		{
+			silent_clocks--;
+			pthread_cond_broadcast(&silent_clock_condition);
+			pthread_mutex_unlock(&silent_clock_lock);
+			return NULL;
+		}
+		pthread_mutex_unlock(&silent_clock_lock);
 		mix(buffer, 480, TRUE);
 		next.tv_nsec += 10000000L;
 		if (next.tv_nsec >= 1000000000L)
@@ -2938,6 +2988,36 @@ static void *silent_clock_thread(void *parameter)
 		clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next, NULL);
 	}
 	return NULL;
+}
+
+/* a silent clock started: the voices drained in real time, without a device */
+static void silent_clock_start(void)
+{
+	pthread_t thread;
+
+	pthread_mutex_lock(&silent_clock_lock);
+	silent_clocks++;
+	pthread_mutex_unlock(&silent_clock_lock);
+	if (pthread_create(&thread, NULL, silent_clock_thread, NULL))
+	{
+		pthread_mutex_lock(&silent_clock_lock);
+		silent_clocks--;
+		pthread_mutex_unlock(&silent_clock_lock);
+		return;
+	}
+	pthread_detach(thread);
+}
+
+/* the silent clocks stopped, waited for, so that a device's mix is the only
+one (a paced mix's never stops: it has no device to open) */
+static void silent_clock_stop(void)
+{
+	pthread_mutex_lock(&silent_clock_lock);
+	silent_clock_stopping = TRUE;
+	while (silent_clocks > 0)
+		pthread_cond_wait(&silent_clock_condition, &silent_clock_lock);
+	silent_clock_stopping = FALSE;
+	pthread_mutex_unlock(&silent_clock_lock);
 }
 
 /* (the main thread, each frame: frames_clock.c) its time's sound owed to a
@@ -3154,11 +3234,8 @@ static void timing_check(void)
 		logged_at = now;
 		if (!audio_stream)
 		{
-			pthread_t thread;
-
 			platform_log("audio: cannot open an audio device (%s); sound is silent", SDL_GetError());
-			pthread_create(&thread, NULL, silent_clock_thread, NULL);
-			pthread_detach(thread);
+			silent_clock_start();
 		}
 		return;
 	}
@@ -3178,6 +3255,8 @@ static void audio_start(void)
 	master_volume = (float)config_real("audio.volume");
 	reverb_enabled = config_boolean("audio.reverb");
 	doppler_enabled = config_boolean("audio.doppler");
+	sound_on = config_boolean("audio.enabled");
+	sound_gain = sound_on ? 1.0f : 0.0f;
 	resampler_mode = resampler_mode_read();
 	resampler_initialize();
 	resampler_phases_initialize();
@@ -3188,7 +3267,7 @@ static void audio_start(void)
 	if (paced)
 		platform_log("sound: mixed in step with the frames (debug.frame_time, debug.fixed_step), no device");
 
-	if (!paced && config_boolean("audio.enabled") && platform_sdl_initialize())
+	if (!paced && sound_on && platform_sdl_initialize())
 	{
 		snprintf(audio_device_name, sizeof(audio_device_name), "%s", audio_device_setting());
 		output_channels = choose_output_channels(platform_audio_device(FALSE, audio_device_name));
@@ -3201,19 +3280,50 @@ static void audio_start(void)
 		platform_log("cannot open an audio device (%s); sound is silent", SDL_GetError());
 		output_channels = 2;
 	}
-	{
-		pthread_t thread;
+	silent_clock_start();
+}
 
-		pthread_create(&thread, NULL, silent_clock_thread, NULL);
-		pthread_detach(thread);
+/* whether to open a device now: the sound turned on (audio.enabled) with
+none open (the game started with it off, or none could open), once for each
+change of the settings, never for a mix paced by the frames */
+static BOOL sound_device_wanted(BOOL started, BOOL paced_mix, BOOL on, BOOL open, unsigned long read_at,
+	unsigned long changes)
+{
+	return started && !paced_mix && on && !open && read_at != changes;
+}
+
+/* the sound turned on with no device: one opened, its mix in the silent
+clock's place (which stops first, so that only one mixes) */
+static void sound_device_open(void)
+{
+	audio_device_read_at = config_changes();
+	if (!platform_sdl_initialize())
+		return;
+	silent_clock_stop();
+	snprintf(audio_device_name, sizeof(audio_device_name), "%s", audio_device_setting());
+	buffer_frames_choose();
+	audio_stream = audio_open();
+	if (audio_stream)
+	{
+		platform_log("audio: the sound is on: playing on %s (%s)", audio_device_name,
+			output_channels == 6 ? "5.1 surround" : "stereo");
+		return;
 	}
+	platform_log("audio: cannot open an audio device (%s); sound is silent", SDL_GetError());
+	silent_clock_start();
 }
 
 /* (the event thread, each frame: sdl_platform.c) audio.output_device
 changed (Settings > Audio): the sound goes on on the new device, else the
-system's default */
+system's default; audio.enabled turned on with no device open: one opened
+(sound_device_open) */
 void dsound_sdl_output_device_check(void)
 {
+	if (sound_device_wanted(audio_started, paced, sound_on, audio_stream != NULL, audio_device_read_at,
+		config_changes()))
+	{
+		sound_device_open();
+	}
 	if (!audio_stream)
 		return;
 	device_timing_changed();
@@ -3232,12 +3342,9 @@ void dsound_sdl_output_device_check(void)
 	}
 	else
 	{
-		pthread_t thread;
-
 		/* (none at all: the voices drained in real time, as at the start) */
 		platform_log("audio: cannot open an audio device (%s); sound is silent", SDL_GetError());
-		pthread_create(&thread, NULL, silent_clock_thread, NULL);
-		pthread_detach(thread);
+		silent_clock_start();
 	}
 }
 
@@ -3603,8 +3710,8 @@ VOID WINAPI DirectSoundDoWork(void)
 	static BOOL hrtf_setting;
 #endif
 
-	/* (audio.volume, audio.reverb, audio.doppler and audio.resampler read
-	again when the settings change: on the game's thread, not the mixer's,
+	/* (audio.volume, audio.reverb, audio.doppler, audio.enabled and
+	audio.resampler read again when the settings change: on the game's thread, not the mixer's,
 	whose lock the config's file I/O would hold) */
 	if (volume_read_at != config_changes())
 	{
@@ -3612,6 +3719,7 @@ VOID WINAPI DirectSoundDoWork(void)
 		master_volume = (float)config_real("audio.volume");
 		reverb_enabled = config_boolean("audio.reverb");
 		doppler_enabled = config_boolean("audio.doppler");
+		sound_on = config_boolean("audio.enabled");
 		log_voices = config_boolean("debug.audio_log");
 		snprintf(spatial_setting, sizeof(spatial_setting), "%s", config_string("audio.spatial"));
 #ifdef HALO_VR

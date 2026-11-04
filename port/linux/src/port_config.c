@@ -319,6 +319,11 @@ static const struct config_setting config_settings[] =
 		"from the game's first tick, which the items' respawn periods count from\n"
 		"too: a weapon is back on the map at every multiple of its period on the\n"
 		"clock." },
+	{ "display.show_frame_rate", _config_boolean, "false", "HALO_SHOW_FRAME_RATE", _environment_value,
+		_platform_all,
+		"Draw the frame rate at the bottom right: the frames drawn a second,\n"
+		"averaged over half a second, green at 30 and over (the console's\n"
+		"display_framerate draws it too)." },
 	{ "display.movies", _config_boolean, "false", "HALO_MOVIES", _environment_value, _platform_all,
 		"Play the Xbox's Bink movies from the game data's bink folder: the intro\n"
 		"as the game starts, the attract movies on an idle main menu and the\n"
@@ -444,7 +449,8 @@ static const struct config_setting config_settings[] =
 		"black, with green). It is never drawn over the picture." },
 
 	{ "audio.enabled", _config_boolean, "true", "HALO_NO_AUDIO", _environment_set_is_false, _platform_all,
-		"Play sound." },
+		"Play sound. Changed while the game runs, the sound fades out or in at\n"
+		"once (a game started without sound opens its audio device then)." },
 	{ "audio.volume", _config_real, "1.0", "HALO_VOLUME", _environment_value, _platform_all,
 		"The volume of everything, 0.0 to 1.0." },
 	{ "audio.music_volume", _config_real, "1.0", "HALO_MUSIC_VOLUME", _environment_value, _platform_all,
@@ -1934,7 +1940,8 @@ static const struct config_setting config_settings[] =
 		"\"menu:<buttons>\" presses menu\n"
 		"buttons one a second (a, b, x, y, up, down, left, right, start, back or\n"
 		"wait, or click:<x>:<y>, a click of the pointer there, 0 to 1 of the\n"
-		"window, separated by spaces or commas; \"back+x\" holds Back through its\n"
+		"window, type:<letters and digits> typed, or enter, the Return key,\n"
+		"separated by spaces or commas; \"back+x\" holds Back through its\n"
 		"second and presses X half way), for testing the menus;\n"
 		"\"script:<second>[-<second>] <action>;...\" presses, holds and aims (\"hunt\": at the\n"
 		"nearest enemy in sight) on the\n"
