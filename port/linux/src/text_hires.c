@@ -327,7 +327,7 @@ unsigned char *text_hires_line(char const *tag_name, char const *text, float cap
 	const unsigned char *data = NULL;
 	unsigned char *pixels;
 	unsigned int index;
-	int x0, y0, x1, y1, ascent, descent, gap, pass, w = 0, h, pen;
+	int x0, y0, x1, y1, pass, w = 0, h, pen, baseline;
 	float scale;
 
 	*width = *height = 0;
@@ -340,8 +340,11 @@ unsigned char *text_hires_line(char const *tag_name, char const *text, float cap
 		!stbtt_GetCodepointBox(&info, 'H', &x0, &y0, &x1, &y1) || y1 <= y0)
 		return NULL;
 	scale = cap_pixels / (float)(y1 - y0);
-	stbtt_GetFontVMetrics(&info, &ascent, &descent, &gap);
-	h = (int)ceilf((float)(ascent - descent) * scale) + 2;
+	/* (room above the capitals for accents, below the baseline for
+	descenders: the font's own ascent and descent are not to be trusted
+	for it, OpenCE's being smaller than its capitals) */
+	baseline = (int)ceilf(cap_pixels * 1.3f);
+	h = baseline + (int)ceilf(cap_pixels * 0.4f) + 1;
 	/* (twice: the width, then the glyphs) */
 	pixels = NULL;
 	for (pass = 0; pass < 2; pass++)
@@ -370,13 +373,30 @@ unsigned char *text_hires_line(char const *tag_name, char const *text, float cap
 				int left, top, right, bottom;
 				float shift = x - floorf(x);
 
+				unsigned char *glyph;
+
 				stbtt_GetCodepointBitmapBoxSubpixel(&info, code, scale, scale, shift, 0.0f, &left, &top, &right, &bottom);
 				pen = (int)floorf(x) + left;
-				if (pen >= 0 && right > left && bottom > top && pen + (right - left) <= w &&
-					(int)((float)ascent * scale) + top >= 0 && (int)((float)ascent * scale) + bottom <= h)
-					stbtt_MakeCodepointBitmapSubpixel(&info,
-						pixels + ((int)((float)ascent * scale) + top + 1) * w + pen,
-						right - left, bottom - top, w, scale, scale, shift, 0.0f, code);
+				glyph = right > left && bottom > top ? calloc((size_t)(right - left) * (bottom - top), 1) : NULL;
+				if (glyph)
+				{
+					int gx, gy;
+
+					stbtt_MakeCodepointBitmapSubpixel(&info, glyph, right - left, bottom - top, right - left,
+						scale, scale, shift, 0.0f, code);
+					/* (each pixel the most of the glyphs over it, the line's
+					edges clipping them) */
+					for (gy = 0; gy < bottom - top; gy++)
+						for (gx = 0; gx < right - left; gx++)
+						{
+							int px = pen + gx, py = baseline + top + gy;
+							unsigned char value = glyph[gy * (right - left) + gx];
+
+							if (px >= 0 && px < w && py >= 0 && py < h && value > pixels[py * w + px])
+								pixels[py * w + px] = value;
+						}
+					free(glyph);
+				}
 			}
 			x += (float)advance * scale;
 			previous = code;
@@ -386,7 +406,7 @@ unsigned char *text_hires_line(char const *tag_name, char const *text, float cap
 			w = (int)ceilf(x) + 2;
 			if (w <= 2 || w > 8192)
 				return NULL;
-			pixels = calloc((size_t)w * (size_t)(h + 1), 1);
+			pixels = calloc((size_t)w * (size_t)h, 1);
 			if (!pixels)
 				return NULL;
 		}
