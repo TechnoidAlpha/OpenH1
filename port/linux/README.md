@@ -1006,6 +1006,7 @@ the setting for one start of the game. It has priority over the file.
 | `display.menu_language` | `"maps"` | `HALO_MENU_LANGUAGE` | The PC menus' language. `"maps"`: the language of the Custom Edition whose `loc.map` is in `custom_maps` (English without one). `"english"`: English. The port's own lines are English. |
 | `display.player_names` | `"all"` | `HALO_PLAYER_NAMES` | In multiplayer, whose names are drawn above their heads: `"all"`, `"allies"`, `"enemies"` or `"none"`. An ally's name is drawn above the triangle the game shows over teammates. An enemy's name shows only within the motion sensor's reach, while the enemy is in sight and not camouflaged, so it never shows where an enemy hides. The gametype's motion tracker setting also applies: no names if it shows no players, only allies' if it shows only friends. |
 | `display.player_name_scale` | `0.75` | `HALO_PLAYER_NAME_SCALE` | How large the players' names are drawn: `1.0` is three quarters of the size of the HUD's text, from `0.25` to `4`. With high-res text, larger names are rasterized at their size, so they stay sharp. |
+| `display.show_frame_rate` | `false` | `HALO_SHOW_FRAME_RATE` | `true`: the frame rate is drawn at the bottom right of the screen, the frames drawn a second averaged over half a second (green at 30 and over, red under it), as the console's `display_framerate true` draws it. SHOW FRAME RATE in Settings > Interface, under HUD. Refer to "Frame rate". |
 | `display.match_timer` | `false` | `HALO_MATCH_TIMER` | `true`: a multiplayer game draws its clock at the bottom right, counting up from the game's first tick, which the items' respawn periods count from too: a weapon is back on the map at every multiple of its period on the clock. Campaign and co-op have none. MATCH TIMER in Settings > Interface, under Multiplayer. |
 | `display.text_chat` | `true` | `HALO_TEXT_CHAT` | Show the text chat of network games (Settings > Network Setup > Multiplayer HUD > TEXT CHAT). `false` hides its lines, and its keys and a controller's D-pad Up open nothing. Refer to "Text chat". |
 | `display.chat_style` | `"colors"` | `HALO_CHAT_STYLE` | The text chat's colours (Settings > Network Setup > Multiplayer HUD > CHAT TEXT): `"colors"`, the player's name in their team's colour and the text a pale blue; `"white"`, all of it white, as Custom Edition. |
@@ -1791,7 +1792,9 @@ unchanged). In VR, battery saver is off: the headset's runtime paces its
 frames, and a frame held for two of its refreshes would make the player
 sick. The log says when it turns on or off, and why for Auto.
 
-To see the frame rate:
+To see the frame rate, turn on SHOW FRAME RATE in Settings > Interface
+(`display.show_frame_rate`), which is kept with the other settings. Or, for
+the moment:
 
 1. Push \` to open the developer console.
 2. Enter `display_framerate true`.

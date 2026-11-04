@@ -319,6 +319,11 @@ static const struct config_setting config_settings[] =
 		"from the game's first tick, which the items' respawn periods count from\n"
 		"too: a weapon is back on the map at every multiple of its period on the\n"
 		"clock." },
+	{ "display.show_frame_rate", _config_boolean, "false", "HALO_SHOW_FRAME_RATE", _environment_value,
+		_platform_all,
+		"Draw the frame rate at the bottom right: the frames drawn a second,\n"
+		"averaged over half a second, green at 30 and over (the console's\n"
+		"display_framerate draws it too)." },
 	{ "display.movies", _config_boolean, "false", "HALO_MOVIES", _environment_value, _platform_all,
 		"Play the Xbox's Bink movies from the game data's bink folder: the intro\n"
 		"as the game starts, the attract movies on an idle main menu and the\n"
