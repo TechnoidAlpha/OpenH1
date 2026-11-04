@@ -365,7 +365,14 @@ apart (the relays' packets on the tunnel's socket, the signalling's relay
 offers, a dedicated server's relays told its players: below, "Relays");
 version 17 moves the bots' machines to the session's last 64 (113 to 127
 before), by which every OpenH1 machine tells a bot's player (below, "Bots
-in network games").
+in network games"); version 18 carries the host's way of picking up a
+second weapon (`game.auto_pickup`: holding the action button, the Xbox's,
+or walking over it, Custom Edition's) in the game record, in bit 3 of
+`cooperative_flags` (`_network_game_hold_to_pick_up_bit`), as read in the
+lobby with the rate, so that an OpenH1 client's prompts and pickups are the
+host's (`network_standard_walk_over_pickup`); an OpenCE machine's copy of
+the record leaves it clear, and its players, and a Legacy game's, walk over
+weapons as OpenCE's do.
 With no new version, each client then tells the
 host its build (distributed message 92, `_distributed_message_client_build`,
 reliably once a game after its ready, over its connection alone): its
