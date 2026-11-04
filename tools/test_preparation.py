@@ -94,7 +94,8 @@ static void halo_load_trace(const char *phase, const char *detail) {
     (void)phase; (void)detail;
 }
 static int scenes, fades, chanting, follows = -1, captions;
-static void halo_loading_scene(void) { assert(!epochs); scenes++; }
+/* (read before each loading screen takes the screen) */
+static void halo_loading_scene(void) { assert(scenes == epochs); scenes++; }
 static void halo_loading_fade_begin(void) { fades++; }
 static void xgpu_backend_loading_progress(float progress) { (void)progress; }
 static void xgpu_backend_loading(int phase) { if (phase == 1) epochs++; }
