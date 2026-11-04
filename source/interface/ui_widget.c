@@ -1308,6 +1308,8 @@ static short get_icon_type(
 	wchar_t const *string);
 static boolean ui_mouse_menus_active(
 	void);
+static void ui_mouse_forget_widget(
+	struct widget_instance *widget);
 static void render_state_text(
 	rectangle2d *bounds,
 	rectangle2d *cursor_bounds,
@@ -2519,6 +2521,8 @@ void ui_widget_delete(
 		break;
 	}
 	dispose_pointer(widget_memory_pool, widget);
+	/* port: the mouse's targets name widgets, and this one is gone */
+	ui_mouse_forget_widget(widget);
 	for (widget_index = 0;
 		widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS;
 		widget_index++)
@@ -6127,7 +6131,10 @@ focus, a left click presses A on it (on a spinner list, left or right by the
 half clicked), a right click presses B and the wheel the d-pad. The items and
 where they are drawn are noted while the menus draw (ui_mouse_note_target),
 for the next frame's processing (ui_widgets_process_mouse), which forgets
-them: widgets can be deleted from then on. */
+them: widgets can be deleted from then on. A widget deleted before that (a
+map changed at the next frame's start, which closes every screen) takes its
+targets with it, and what the pointer did on the screen that went is let go
+(ui_mouse_forget_widget, ui_mouse_targets_stale). */
 
 #define UI_MOUSE_MAXIMUM_TARGETS 96
 
@@ -6180,6 +6187,13 @@ mirror (render.c), and a second render would note the same widgets again
 and widen the values once more, which moves their split off the arrows.
 Cleared with the targets, by ui_widgets_process_mouse */
 static boolean ui_mouse_targets_settled = FALSE;
+/* port: whether a widget has been deleted since the menus were last drawn
+(ui_mouse_forget_targets): the screen the pointer's latest clicks, wheel
+and motion were made on is not the one up now, nor are its widgets there
+(a map changed between the frame's drawing and the next frame's
+processing: Save and Quit, whose main menu then took its clicks), so they
+are let go, not resolved against the new screen's targets */
+static boolean ui_mouse_targets_stale = FALSE;
 
 /* The presses the mouse makes, posted one a frame: the event queue keeps
 only the latest event posted between two frames (queue_event). What they
@@ -6205,6 +6219,32 @@ static short ui_mouse_click_x, ui_mouse_click_y;
 areas, the merged setting rows and the widened values are for a finger only
 (render_ui_widgets); the desktop mouse keeps their original areas */
 static boolean ui_mouse_pointer_is_touch = FALSE;
+
+/* port: whether render_ui_widgets is drawing (ui_mouse_forget_widget) */
+static boolean ui_mouse_rendering = FALSE;
+
+/* port: (ui_widget_delete) the widget is freed: no target noted keeps it
+(its memory is soon another widget's, of another screen, which a click
+resolved against it would press, or read as garbage), and, unless the
+menus are being drawn (which go on to note what is left), the pointer waits
+for them to be drawn again (ui_mouse_targets_stale) */
+static void ui_mouse_forget_widget(
+	struct widget_instance *widget)
+{
+	long index;
+	long kept = 0;
+
+	for (index = 0; index < ui_mouse_target_count; index++)
+	{
+		if (ui_mouse_targets[index].widget != widget && ui_mouse_targets[index].label != widget)
+			ui_mouse_targets[kept++] = ui_mouse_targets[index];
+	}
+	ui_mouse_target_count = kept;
+	if (!ui_mouse_rendering)
+		ui_mouse_targets_stale = TRUE;
+
+	return;
+}
 
 /* ---------- the debug view of the targets (debug.touch_targets)
 
@@ -7773,6 +7813,18 @@ static void ui_widgets_process_mouse(
 		}
 		if (pointer.right_clicks)
 			ui_mouse_press(_widget_event_b_button);
+		/* port: (ui_mouse_targets_stale) what the pointer did since the
+		screen it did it on went is let go, and the presses it queued for that
+		screen with it: a click there is no click on the next screen, which
+		has not been seen yet (nor, while it is not drawn, a press of A on a
+		screen with nothing to pick) */
+		if (ui_mouse_targets_stale)
+		{
+			ui_mouse_press_count = 0;
+			ui_mouse_hover_pending = FALSE;
+			ui_mouse_click_pending = FALSE;
+			pointer.wheel_steps = 0;
+		}
 		/* port: (ui_widget_port_finger_taken) at the finger's first move
 		sideways, by where it went down */
 		if (pointer.touch && pointer.left_held && !was_held)
@@ -8349,6 +8401,8 @@ void render_ui_widgets(
 	/* port: the port's screens laid out for the view's width (a split
 	screen's quarter has the menus' 640) */
 	ui_widget_port_wide_layout(window_bounds->x1 - window_bounds->x0);
+	/* port: (ui_mouse_forget_widget) */
+	ui_mouse_rendering = TRUE;
 	if (!virtual_keyboard_active())
 	{
 		local_player_index = PIN(
@@ -8449,6 +8503,8 @@ void render_ui_widgets(
 				ui_mouse_widen_values();
 			}
 			ui_mouse_targets_settled = TRUE;
+			/* port: (ui_mouse_targets_stale) the screen up is the one drawn */
+			ui_mouse_targets_stale = FALSE;
 		}
 		/* port: a Discord friend's ask to join, over the menus, near the top
 		of the whole screen (port/linux/game/network_party.c; the HUD shows
@@ -8481,6 +8537,7 @@ void render_ui_widgets(
 	{
 		virtual_keyboard_render();
 	}
+	ui_mouse_rendering = FALSE;
 	ui_debug_draw_targets(first_players_render);
 
 	return;
