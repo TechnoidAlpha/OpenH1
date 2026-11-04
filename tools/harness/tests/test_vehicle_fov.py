@@ -9,11 +9,11 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run  # noqa: E402
+from harness import CHECK_FAILED, build, enum_with, function, inline, mutated, read, run  # noqa: E402
 
 CASES = ["turret_default", "turret_match", "turret_number", "third_person_seat", "turret_exit",
          "leaving_third_person", "match_exit", "entering", "turned_back", "respawn", "scoped_in_seat", "dead",
-         "neutral", "scripted"]
+         "neutral", "scripted", "wider_with_panini", "past_the_widest"]
 CONTROLS = [
     # display.vehicle_fov unread: the seat at display.fov's (#449's)
     ("\t\trequested_tangent = vehicle_tangent;", "\t\trequested_tangent = foot_tangent;", "turret_default"),
@@ -33,6 +33,12 @@ CONTROLS = [
     ("\t\tvehicle_blends[local_player_index].valid = FALSE;\n", "\n", "respawn"),
     # the first person alone: the following camera's seats at the game's view
     ("perspective != _director_perspective_third_person", "TRUE", "third_person_seat"),
+    # above 150 without the projection
+    ("strength > 0.0f || degrees <= FIELD_OF_VIEW_MOST", "TRUE", "wider_with_panini"),
+    # not above 150 with it
+    ("strength > 0.0f || degrees <= FIELD_OF_VIEW_MOST", "degrees <= FIELD_OF_VIEW_MOST", "wider_with_panini"),
+    # no widest: any angle below 180
+    ("degrees <= PANINI_FIELD_OF_VIEW_MOST))", "degrees < 180.0))", "past_the_widest"),
     # the director's neutral view widened
     ("perspective != _director_perspective_first_person &&", "perspective == _director_perspective_scripted &&",
      "neutral"),
@@ -43,6 +49,11 @@ def generated(fault=None):
     code = read("port/linux/game/view_fov.c")
     world = code[code.index("/* ---------- the world's field of view */"):
                  code.index("/* ---------- the mouse's turn zoomed")]
+    # (display.fov's widest, and above 150 with the projection alone: panini_projection.h)
+    header = read("port/linux/include/panini_projection.h")
+    widest = "\n".join(line for line in header.splitlines() if "FIELD_OF_VIEW_MOST " in line and
+                       line.startswith("#define")) + "\n" + inline(header, "panini_field_of_view")
+    world = widest + "\n" + world
     if fault:
         world = mutated(world, *fault)
     config = "\n".join([
