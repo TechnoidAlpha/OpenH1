@@ -1186,11 +1186,18 @@ static inline const uint32_t *loading_ring_draw(struct loading_ring *ring, uint3
 		/* (dim, far behind the ring, as the picture's planet is) */
 		for (index = 0; index < pixels; index++)
 		{
-			uint32_t value = ring->sky[index];
+			uint32_t value = ring->sky[index], result = 0xff000000u, channel;
 
-			ring->sky[index] = 0xff000000u | (((value & 0xff) * LOADING_RING_SKY_LEVEL >> 8)) |
-				((((value >> 8) & 0xff) * LOADING_RING_SKY_LEVEL >> 8) << 8) |
-				((((value >> 16) & 0xff) * LOADING_RING_SKY_LEVEL >> 8) << 16);
+			for (channel = 0; channel < 24; channel += 8)
+			{
+				/* (its dark side's clouds lifted out of the black, a square
+				root, as the picture's faint planet is) */
+				uint32_t level = (uint32_t)sqrtf((float)(((value >> channel) & 0xff) * 255u)) *
+					LOADING_RING_SKY_LEVEL >> 8;
+
+				result |= (level < 255 ? level : 255) << channel;
+			}
+			ring->sky[index] = result;
 		}
 		ring->sky_drawn = 1;
 	}

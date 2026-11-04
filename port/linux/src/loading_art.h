@@ -29,6 +29,15 @@
 #ifndef LOADING_ART_SCENE_BASE
 #define LOADING_ART_SCENE_BASE 24
 #endif
+/* and of the planet behind the ring, of 256: more, as the picture's faint
+planet is always there (its dark side has little the sweep can catch) */
+#ifndef LOADING_ART_SKY_BASE
+#define LOADING_ART_SKY_BASE 112
+#endif
+/* (the still layers' tints: the hue, a white speck, the sky) */
+#define LOADING_ART_TINT_HUE 63u
+#define LOADING_ART_TINT_SKY 64u
+#define LOADING_ART_TINT_WHITE 128u
 /* what the sweep lights of the scene: its brightness, its detail's edges
 and the sweep's light on the ring, of 16 */
 #ifndef LOADING_ART_FEED_TONE
@@ -908,7 +917,7 @@ static inline int loading_art_scene_draw(struct loading_art *art, float seconds,
 			for (y = 0; y < LOADING_ART_FRAME_HEIGHT; y++)
 				for (x = 0; x < width; x++)
 				{
-					unsigned int pixel = y * width + x, tint = art->still_tint[pixel] & 127;
+					unsigned int pixel = y * width + x, tint = art->still_tint[pixel] & LOADING_ART_TINT_HUE;
 					unsigned int white = art->still_tint[pixel] >> 7, coverage, channel;
 					int light = (int)art->still_light[pixel] +
 						art->ring.glint[pixel] * (64 + art->still_edge[pixel]) * LOADING_ART_FEED_GLINT / 2048;
@@ -959,7 +968,8 @@ static inline int loading_art_scene_draw(struct loading_art *art, float seconds,
 				light = (level * LOADING_ART_FEED_TONE + edge * LOADING_ART_FEED_EDGE) / 16;
 				art->still_light[pixel] = (uint16_t)(light < 65535 ? light : 65535);
 				art->still_edge[pixel] = (uint8_t)(edge < 192 ? edge : 192);
-				art->still_tint[pixel] = (uint8_t)(tint | (white ? 128u : 0u));
+				art->still_tint[pixel] = (uint8_t)(tint | (white ? LOADING_ART_TINT_WHITE : 0u) |
+					(art->ring.depth[pixel] > 0.0f ? 0u : LOADING_ART_TINT_SKY));
 			}
 			if (feed)
 			{
@@ -1155,8 +1165,12 @@ static inline void loading_art_compose(struct loading_art *art, const uint8_t *p
 			(LOADING_ART_FRAME_HEIGHT - 1 - y) * 256 / 40 : 256) : 256;
 		for (x = 0; x < art->width; x++)
 		{
-			unsigned int value, edge = vy;
+			unsigned int value, edge = vy, shown = base;
 			pixel = y * art->width + x;
+			/* (the planet behind the ring more than the ring, from the
+			menu's camera) */
+			if (!art->stereo && art->still_valid && (art->still_tint[pixel] & LOADING_ART_TINT_SKY))
+				shown = base * LOADING_ART_SKY_BASE / LOADING_ART_SCENE_BASE;
 			/* (VR's window darkens toward its edges) */
 			if (art->stereo)
 				edge = (x < 48 ? x * 256 / 48 : x >= art->width - 48 ?
@@ -1164,7 +1178,7 @@ static inline void loading_art_compose(struct loading_art *art, const uint8_t *p
 			for (channel = 0; channel < 3; channel++)
 			{
 				value = ((previous[pixel * 4 + channel] * (256 - fraction) +
-					current[pixel * 4 + channel] * fraction + 128) >> 8) + (scene[pixel * 3 + channel] * base >> 16);
+					current[pixel * 4 + channel] * fraction + 128) >> 8) + (scene[pixel * 3 + channel] * shown >> 16);
 				output[pixel * 4 + channel] = (uint8_t)(((value < 255 ? value : 255) * edge) >> 8);
 			}
 			/* (the feedback's channels saturate apart, and its whites fade
@@ -1273,7 +1287,8 @@ static inline int loading_art_hd_build(struct loading_art *art)
 				light = (level * LOADING_ART_FEED_TONE + edge * LOADING_ART_FEED_EDGE) / 16;
 				hd->light[pixel] = (uint16_t)(light < 65535 ? light : 65535);
 				hd->edge[pixel] = (uint8_t)(edge < 192 ? edge : 192);
-				hd->tint[pixel] = (uint8_t)(tint | (white ? 128u : 0u));
+				hd->tint[pixel] = (uint8_t)(tint | (white ? LOADING_ART_TINT_WHITE : 0u) |
+					(art->ring.depth[pixel] > 0.0f ? 0u : LOADING_ART_TINT_SKY));
 			}
 		/* (the small frame's buffers back; the sharp one's given up) */
 		loading_ring_frame_swap(&art->ring, &frame);
@@ -1423,7 +1438,10 @@ static inline void loading_art_hd_rows(struct loading_art_hd_band *band)
 			if (scene)
 			{
 				unsigned int glint = (upper[x * 4 + 3] * (256 - fy) + lower[x * 4 + 3] * fy + 32768) >> 16;
-				unsigned int hue = tint[x] & 127, white = tint[x] >> 7, limit;
+				unsigned int hue = tint[x] & LOADING_ART_TINT_HUE, white = tint[x] >> 7, limit;
+				/* (the planet behind the ring more than the ring between
+				the sweeps) */
+				unsigned int shown = tint[x] & LOADING_ART_TINT_SKY ? base * LOADING_ART_SKY_BASE / LOADING_ART_SCENE_BASE : base;
 				int lit = (int)light[x] + (int)(glint * (64 + edge[x]) * LOADING_ART_FEED_GLINT / 2048);
 				const uint8_t *feed;
 				uint8_t worded[3];
@@ -1442,9 +1460,9 @@ static inline void loading_art_hd_rows(struct loading_art_hd_band *band)
 						worded[channel] = (uint8_t)(feed[channel] + (w[1 + channel] - feed[channel]) * w[0] / 255);
 					feed = worded;
 				}
-				r += (feed[0] * scale + 32512) / 65025 + (still[0] * base >> 16);
-				g += (feed[1] * scale + 32512) / 65025 + (still[1] * base >> 16);
-				b += (feed[2] * scale + 32512) / 65025 + (still[2] * base >> 16);
+				r += (feed[0] * scale + 32512) / 65025 + (still[0] * shown >> 16);
+				g += (feed[1] * scale + 32512) / 65025 + (still[1] * shown >> 16);
+				b += (feed[2] * scale + 32512) / 65025 + (still[2] * shown >> 16);
 				r = r < 255 ? r : 255;
 				g = g < 255 ? g : 255;
 				b = b < 255 ? b : 255;
