@@ -433,7 +433,9 @@ static int decode_record(struct host_render_decoder *decoder, const unsigned cha
 	{
 		uint32_t extent[2] = { 0, 0 };
 
-		if (size - sizeof(*value) != value->value || (value->value && value->value < sizeof(extent)))
+		/* (the record padded to its alignment: a line of any width) */
+		if (value->value > size - sizeof(*value) || size - sizeof(*value) - value->value >= XGPU_STREAM_RECORD_ALIGNMENT ||
+			(value->value && value->value < sizeof(extent)))
 			return XGPU_STREAM_ERROR_RECORD;
 		if (value->value)
 		{
