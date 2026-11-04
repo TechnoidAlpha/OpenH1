@@ -354,10 +354,12 @@ there the middle is drawn from the pixels the view has. */
 /* a field of view in degrees across 16:9 as the tangent of half the
 vertical (view_fov.c's fov_tangent), or the stock view's (the cyborg's 70
 degrees across 4:3, as the game widens it: render_camera_get_adjusted_field_
-of_view_tangent's 0.85) outside 20 to 150 */
+of_view_tangent's 0.85) outside 20 to 160 (panini_field_of_view, the
+projection on) */
 static float panini_vertical_tangent(double degrees)
 {
-	return degrees >= 20.0 && degrees <= 150.0 ? (float)(tan(degrees * M_PI / 360.0) * (9.0 / 16.0)) :
+	degrees = panini_field_of_view(degrees, 1.0f);
+	return degrees ? (float)(tan(degrees * M_PI / 360.0) * (9.0 / 16.0)) :
 		(float)(0.75 * 0.85 * tan(35.0 * M_PI / 180.0));
 }
 

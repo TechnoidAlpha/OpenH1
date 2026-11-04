@@ -4899,6 +4899,15 @@ static struct settings_slider_stop const settings_fov_stops[] =
 {
 	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
 	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
+	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL }, { 155.0, NULL }, { 160.0, NULL },
+};
+/* (tools/port_settings.py's WEAPON_FIELDS_OF_VIEW: the world's, to 150, the
+widest a rectilinear view is drawn at; the projection does not widen the
+weapon's) */
+static struct settings_slider_stop const settings_viewmodel_fov_stops[] =
+{
+	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
+	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
 	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
 };
 /* (tools/port_settings.py's VEHICLE_FIELDS_OF_VIEW: the game's own view, and
@@ -4908,6 +4917,7 @@ static struct settings_slider_stop const settings_vehicle_fov_stops[] =
 	{ -2.0, "DEFAULT", "default" }, { -1.0, "MATCH", "match" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL },
 	{ 95.0, NULL }, { 100.0, NULL }, { 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL },
 	{ 125.0, NULL }, { 130.0, NULL }, { 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+	{ 155.0, NULL }, { 160.0, NULL },
 };
 
 /* (tools/port_settings.py's PANINI_STRENGTHS: off, and strengths) */
@@ -4942,14 +4952,16 @@ static struct
 {
 	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0, FALSE, NULL, 0 },
 	{ "op_max_fps", "display.max_fps", 30.0, 540.0, 1.0, 10.0, 1000.0, TRUE, SLIDER_STOPS(settings_frame_rate_stops) },
-	{ "op_fov", "display.fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
+	/* (above 150 with display.panini on: panini_projection.h's
+	PANINI_FIELD_OF_VIEW_MOST) */
+	{ "op_fov", "display.fov", 80.0, 160.0, 5.0, 20.0, 160.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
 	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
-		SLIDER_STOPS(settings_fov_stops) },
+		SLIDER_STOPS(settings_viewmodel_fov_stops) },
 	{ "op_viewmodel_offset_x", "display.viewmodel_offset_x", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_viewmodel_offset_y", "display.viewmodel_offset_y", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_viewmodel_offset_z", "display.viewmodel_offset_z", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
 	{ "op_lowered_reticle_amount", "display.lowered_reticle_amount", 1.0, 25.0, 1.0, 0.0, 30.0, TRUE, NULL, 0 },
-	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
+	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 160.0, 5.0, 20.0, 160.0, FALSE,
 		SLIDER_STOPS(settings_vehicle_fov_stops) },
 	/* (tools/port_settings.py's GAMMA) */
 	{ "op_gamma", "display.gamma", 0.5, 2.0, 0.05, 0.5, 2.0, FALSE, NULL, 0 },

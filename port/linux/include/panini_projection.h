@@ -45,12 +45,43 @@ any d and s from 0 to 1: at the top and bottom corners exactly when s is 0
 view it always did, and the pass only redraws it. To keep the centre as
 sharp as it was, the view is drawn at the centre's magnification times the
 pixels each way (the screen's supersampling, d3d8_device.c).
+
+The widest field of view (display.fov's and display.vehicle_fov's, degrees
+across 16:9) follows from that. A rectilinear view never reaches 180
+degrees, and as it nears it the view the game draws widens without bound
+for the same screen: its tangent, and with it the centre's magnification,
+grows as 1 / cos of half the angle. The centre is then drawn from fewer of
+its pixels than the screen has, whatever the supersampling (at most twice
+the pixels each way). Through the projection at full strength, the centre
+keeps 82% of the screen's sharpness at 150 degrees, 59% at 160, 32% at 170
+and 17% at 175 (the magnification 2.43, 3.38, 6.24, 12.0 over the
+supersampling's 2); without it, 150's rectilinear view already stretches
+what is at its sides 15 times across and 3.9 times up. So the widest is 150, or 160 while the projection is on,
+the widest whose centre keeps over half its sharpness. Wider would need the
+view drawn as several views (each a part of the angle) and joined, which
+this pass does not do.
 */
 
 #ifndef PANINI_PROJECTION_H
 #define PANINI_PROJECTION_H
 
 #include <math.h>
+
+/* display.fov's and display.vehicle_fov's widest, in degrees across 16:9:
+the rectilinear view's, and while the projection is on (above) */
+#define FIELD_OF_VIEW_MOST 150.0
+#define PANINI_FIELD_OF_VIEW_MOST 160.0
+
+/* the field of view drawn for one a setting names (degrees across 16:9, at
+the projection's strength, 0 off): 0 (the stock view) outside 20 to
+PANINI_FIELD_OF_VIEW_MOST, and FIELD_OF_VIEW_MOST at most while the
+projection is off */
+static __inline double panini_field_of_view(double degrees, float strength)
+{
+	if (!(degrees >= 20.0 && degrees <= PANINI_FIELD_OF_VIEW_MOST))
+		return 0.0;
+	return strength > 0.0f || degrees <= FIELD_OF_VIEW_MOST ? degrees : FIELD_OF_VIEW_MOST;
+}
 
 struct panini_projection
 {

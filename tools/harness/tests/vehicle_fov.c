@@ -59,6 +59,8 @@ static char const *fake_vehicle_fov = "default";
 static unsigned long fake_changes = 1;
 static unsigned long fake_now = 100000;
 static real fake_scoped_angle;
+/* display.panini's strength (panini.c's panini_strength: 0 off) */
+static real fake_panini;
 
 static unsigned long config_changes(void) { return fake_changes; }
 static double config_real(const char *name) { (void)name; return fake_fov; }
@@ -75,6 +77,7 @@ static long player_control_get_unit_index(short local_player_index) { (void)loca
 static struct unit_datum *unit_try_and_get(long unit_index) { return unit_index == NONE ? NULL : &fake_unit; }
 static struct unit_definition *unit_definition_get(long index) { (void)index; return &fake_definition; }
 static long unit_inventory_get_weapon(long unit_index, short index) { (void)unit_index; return index == NONE ? NONE : 3; }
+static real panini_strength(void) { return fake_panini; }
 static real weapon_get_field_of_view(long weapon_index, real unzoomed, short zoom_level)
 {
 	(void)weapon_index; (void)unzoomed; (void)zoom_level;
@@ -340,6 +343,40 @@ int main(int argc, char **argv)
 		settings(110.0, "match");
 		drawn = frame(NONE, _director_perspective_neutral, DEGREES(70.f), &scale);
 		CHECK(drawn == native && scale == 1.f, "neutral: %f (scale %f)", drawn, scale);
+	}
+	CASE("wider_with_panini")
+	{
+		/* above 150 only with display.panini on: 160 wider than 150, the
+		vehicle's number too; without it, 150 (panini_projection.h) */
+		real foot_150_scale, foot_150 = on_foot(150.0, &foot_150_scale);
+		real foot_160_scale, foot_160;
+
+		fake_panini = 1.f;
+		settings(150.0, "match");
+		foot_160 = on_foot(160.0, &foot_160_scale);
+		CHECK(foot_160 > foot_150 && foot_160_scale < foot_150_scale && SAME(foot_160, 2.f * atanf(tanf(DEGREES(80.f)) *
+			9.f / 16.f)), "160 with the projection: %f, 150 %f", foot_160, foot_150);
+		settings(150.0, "160");
+		drawn = seated(_director_perspective_first_person, &scale);
+		CHECK(SAME(drawn, foot_160), "the turret at 160 with the projection: %f, on foot at 160 %f", drawn, foot_160);
+		fake_panini = 0.f;
+		drawn = on_foot(160.0, &scale);
+		CHECK(SAME(drawn, foot_150) && SAME(scale, foot_150_scale), "160 without the projection: %f, 150 %f", drawn,
+			foot_150);
+		settings(150.0, "160");
+		drawn = seated(_director_perspective_first_person, &scale);
+		CHECK(SAME(drawn, foot_150), "the turret at 160 without the projection: %f, 150 %f", drawn, foot_150);
+	}
+	CASE("past_the_widest")
+	{
+		/* past 160, with or without the projection, the stock view (as any
+		number out of range) */
+		fake_panini = 1.f;
+		drawn = on_foot(161.0, &scale);
+		CHECK(drawn == native && scale == 1.f, "161 with the projection: %f", drawn);
+		fake_panini = 0.f;
+		drawn = on_foot(170.0, &scale);
+		CHECK(drawn == native && scale == 1.f, "170: %f", drawn);
 	}
 	CASE("scripted")
 	{

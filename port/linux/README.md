@@ -1021,8 +1021,8 @@ the setting for one start of the game. It has priority over the file.
 | `display.interpolation` | `true` | `HALO_INTERPOLATION` | `true`: one frame for each refresh of the display. `false`: 30 frames each second, as on the Xbox. Refer to "Frame rate". |
 | `display.menu_cursor` | `"medium"` | `HALO_MENU_CURSOR` | The menus' pointer for the mouse (Settings > Controls > Menu Cursor): the game's blue arrow, `"small"`, `"medium"`, `"large"` or `"extra_large"` (18, 24, 32 or 40 of the menus' 480 lines tall, the same part of the screen at any resolution), or `"off"` for the system's pointer. Linux, Windows and macOS. Refer to "Controls". |
 | `display.direct_camera` | `true` | `HALO_DIRECT_CAMERA` | `true`: in first person, on foot, the view points where the player aims in each frame, not where the last tick left it; and (not in the VR mode) the view stands where the newest step left the player, and the gun and hands show the newest step's pose (a shot, a step, a reload seen 33 ms sooner). In a vehicle's seat (first or third person, not in the VR mode) the vehicle, its riders and the view from it are drawn as the vehicle's newest step left it, the view aimed where the player aims. On Android and iOS too, with the touch controls' swipe and gyroscope. Refer to "Frame rate". |
-| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150. `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 150, with a field to type any from 20 to 150 (Enter keeps it). Refer to "Field of view". |
-| `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 150, as `display.fov` reads it (another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 150, with a field to type any from 20 to 150. Refer to "Field of view". |
+| `display.fov` | `0.0` | `HALO_FOV` | The view's field of view on foot, in degrees across at 16:9, from 20 to 150, or to 160 with `display.panini` on (150 while it is off). `0`: the stock view. Vehicles take `display.vehicle_fov`'s. Video Setup's Field of View is a slider through Default and 80 to 160, with a field to type any from 20 to 160 (Enter keeps it). Refer to "Field of view". |
+| `display.vehicle_fov` | `"default"` | `HALO_VEHICLE_FOV` | The view's field of view in a vehicle's seat, first or third person (the turrets' and the passengers' too), and getting in and out. `"default"`: the stock view, the reticle at its stock size. `"match"`: `display.fov`'s. A number (`110`, unquoted or quoted): degrees across at 16:9, from 20 to 160, as `display.fov` reads it (above 150 with `display.panini` on; another number, the stock view). Getting in or out, the view eases between the two in half a second. First Person's Vehicle Field of View is a slider through Default, Match and 80 to 160, with a field to type any from 20 to 160. Refer to "Field of view". |
 | `display.panini`, `display.panini_vertical` | `0.0`, `0.0` | `HALO_PANINI`, `HALO_PANINI_VERTICAL` | The 3D view drawn through the Panini projection at this strength (Panini's d, `0` to `1`; `0`: off, the flat view as ever), and its vertical compression (s, `0` to `1`). First Person's Panini Projection (Off, 0.25 to 1) and Panini Vertical, sliders with a field to type any from 0 to 1. Not in the VR build. Refer to "Field of view". |
 | `display.draw_distance` | `1024.0` | `HALO_DRAW_DISTANCE` | How far the world is drawn: the far clip plane, in world units (about 3 m each), from `1024` (the game's own) to `10000`. Drawing alone: the simulation, the AI's sight and the network are the same at any distance. A fog that is whole nearer still ends the view there. A far clip a script or the console sets (`rasterizer_far_clip_distance`) nearer than 1024 is kept; otherwise the farther of the two. First Person's Draw Distance is a slider through Default and 1536 to 10000, with a field to type any from 1024 to 10000. Refer to "Draw distance". |
 | `display.viewmodel_fov` | `0.0` | `HALO_VIEWMODEL_FOV` | The first-person weapon's and hands' field of view, in degrees across at 16:9, from 20 to 150. `0`: the weapon's stock view, also when `display.fov` widens the world. First Person's Weapon Field of View is a slider like Field of View's. Refer to "Field of view". |
@@ -2016,10 +2016,12 @@ sooner than the AudioQueue.
 Video Setup's Field of View sets the view's field of view on foot
 (`display.fov`); First Person sets the vehicles' (`display.vehicle_fov`)
 and the weapon and hands' (`display.viewmodel_fov`), from 80 to 150
-degrees in steps of 5, and can hide the weapon (`display.viewmodel_visible`).
+degrees in steps of 5 (the view's, on foot and in vehicles, to 160), and can
+hide the weapon (`display.viewmodel_visible`).
 DEFAULT, the setting's `0` (the vehicles' `"default"`), keeps the stock
 view; the vehicles' MATCH (`"match"`) takes the view on foot's. `config.toml`
-takes any angle from 20 to 150.
+takes any angle from 20 to 150, and the view's to 160: above 150 it is drawn
+only with PANINI PROJECTION on (150 while it is off; below).
 
 - An angle is across the screen at 16:9. Another shape keeps the same
   angle up and down, as the stock view does.
@@ -2106,6 +2108,18 @@ than that needs.
   at 150 degrees the middle is drawn from 2 pixels for its 2.4. Not on
   Android, nor with Metal (macOS, iOS), which do not supersample: there the
   middle is drawn from the pixels the view has, a little softer.
+- With the projection on, the view's field of view goes to 160 (above 150
+  it is drawn at 150 while the projection is off). A rectilinear view never
+  reaches 180 degrees: as it nears it, the flat view the pass draws from
+  widens without bound (its tangent grows as 1 / cos of half the angle), so
+  the middle is drawn from ever fewer pixels: 2 for its 2.4 at 150, 2 for
+  3.4 at 160, 2 for 6.2 at 170, 2 for 12 at 175 (strength 1, 16:9). 160 is
+  the widest whose middle keeps over half its sharpness at the most
+  supersampling; wider would need the view drawn as several narrower views
+  and joined, three times the drawing.
+- A model's level of detail is chosen by its size on the screen: the view's
+  middle is drawn larger by the projection, so a model is chosen as large as
+  it is drawn there, not as the flat view has it.
 - The HUD and the menus are not curved. What the HUD places over the world
   is placed through the projection: the teammates' marks and the players'
   names, the waypoints (an arrow off the screen points where the waypoint
