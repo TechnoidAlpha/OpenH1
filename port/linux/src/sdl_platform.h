@@ -75,6 +75,9 @@ void platform_loading_set(int phase);
 void platform_loading_art(const unsigned char *rgba);
 void platform_loading_scene(const void *data, unsigned long bytes);
 void platform_loading_progress(float progress);
+/* The loading screen's chant (dsound_sdl.c): playing (its four voices
+swelling with progress, 0 to 1), or fading out (playing 0). */
+void platform_loading_chant(int playing, float progress);
 int platform_loading_active(void);
 BOOL platform_screen_mode(long *width, long *height);
 /* Video Setup's resolutions (port/linux/game/menu_tags.c), in pixels: the

@@ -44,9 +44,10 @@ static struct block *scene_new(uint32_t argb)
 	b->header.camera_up[2] = 1.0f;
 	b->header.camera_field_of_view = 1.2217305f;
 	b->header.light_direction[0] = -1.0f;
-	/* the sky: a triangle far ahead, untextured, added */
+	/* the sky: a triangle far ahead, untextured, alpha blended (a planet's:
+	the sky's stars and galaxy, added, are not drawn) */
 	b->parts[0].layer = LOADING_SCENE_LAYER_SKY;
-	b->parts[0].blend = LOADING_SCENE_BLEND_ADD;
+	b->parts[0].blend = LOADING_SCENE_BLEND_ALPHA;
 	b->parts[0].flags = LOADING_SCENE_PART_TWO_SIDED;
 	b->parts[0].vertex_offset = offsetof(struct block, vertices);
 	b->parts[0].vertex_count = 3;

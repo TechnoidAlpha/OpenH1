@@ -210,6 +210,8 @@ static const uint32_t record_minimum[XGPU_STREAM_RECORD_TYPES] =
 	[XGPU_STREAM_LOADING_ART] = sizeof(struct xgpu_stream_value),
 	[XGPU_STREAM_LOADING_SCENE] = sizeof(struct xgpu_stream_value),
 	[XGPU_STREAM_LOADING_PROGRESS] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_LOADING_MODE] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_LOADING_CAPTION] = sizeof(struct xgpu_stream_value),
 	[XGPU_STREAM_SKIP] = sizeof(struct xgpu_stream_record),
 	[XGPU_STREAM_INITIALIZE] = sizeof(struct xgpu_stream_reply_record),
 	[XGPU_STREAM_INVALIDATE] = sizeof(struct xgpu_stream_record),
@@ -420,6 +422,29 @@ static int decode_record(struct host_render_decoder *decoder, const unsigned cha
 		memcpy(&progress, &value->value, sizeof(progress));
 		host_load_trace("loading.progress", "progress=%.3f", (double)progress);
 		CALL(loading_progress, progress);
+		break;
+	}
+	case XGPU_STREAM_LOADING_MODE:
+		if (value->value > 1)
+			return XGPU_STREAM_ERROR_RECORD;
+		CALL(loading_mode, (int)value->value);
+		break;
+	case XGPU_STREAM_LOADING_CAPTION:
+	{
+		uint32_t extent[2] = { 0, 0 };
+
+		/* (the record padded to its alignment: a line of any width) */
+		if (value->value > size - sizeof(*value) || size - sizeof(*value) - value->value >= XGPU_STREAM_RECORD_ALIGNMENT ||
+			(value->value && value->value < sizeof(extent)))
+			return XGPU_STREAM_ERROR_RECORD;
+		if (value->value)
+		{
+			memcpy(extent, start + sizeof(*value), sizeof(extent));
+			if (!extent[0] || !extent[1] || extent[0] > 8192 || extent[1] > 512 ||
+				(uint64_t)extent[0] * extent[1] != value->value - sizeof(extent))
+				return XGPU_STREAM_ERROR_RECORD;
+		}
+		CALL(loading_caption, value->value ? start + sizeof(*value) + sizeof(extent) : NULL, extent[0], extent[1]);
 		break;
 	}
 	case XGPU_STREAM_LOADING_OWNED:

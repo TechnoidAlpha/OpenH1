@@ -1774,6 +1774,56 @@ int main(int argc, char **argv)
 		free(output);
 		return 0;
 	}
+	/* the game's buffers (the loading screen's chant): a looped buffer plays
+	at its rate and gain, under the master volume, coming in without a
+	click; stopped, it fades out and stops; one played once stops at its
+	end */
+	CASE("buffers")
+	{
+		unsigned long frames = 4800, frame;
+		struct sdl_buffer buffer;
+		float *output = calloc(frames * 2, sizeof(float));
+		short *samples = malloc(1000 * sizeof(short));
+		double first_step;
+
+		for (frame = 0; frame < 1000; frame++)
+			samples[frame] = 16384;
+		memset(&buffer, 0, sizeof(buffer));
+		buffer.channels = 1;
+		buffer.samples = samples;
+		buffer.frames = 1000;
+		buffer.rate = OUTPUT_RATE / 2.0;
+		buffer.gain = 0.5f;
+		buffer.playing = buffer.looping = TRUE;
+		buffers = &buffer;
+		master_volume = 0.5f;
+		mix_buffers(output, frames);
+		/* (no click: its gain rises from nothing) */
+		first_step = output[0];
+		CHECK(fabs(first_step) < 0.01, "a buffer comes in at %.4f", first_step);
+		/* (a half, at half its own gain under half the master volume) */
+		CHECK(fabs(output[(frames - 2) * 2] - 0.125f) < 0.001 &&
+			fabs(output[(frames - 2) * 2] - output[(frames - 2) * 2 + 1]) < 1e-6,
+			"a looped buffer at a quarter's gain plays %.4f", output[(frames - 2) * 2]);
+		CHECK(buffer.playing && buffer.position < 1000.0, "a looped buffer loops (at %.1f)", buffer.position);
+		buffer.stopping = TRUE;
+		mix_buffers(output, frames);
+		memset(output, 0, frames * 2 * sizeof(float));
+		mix_buffers(output, frames);
+		CHECK(!buffer.playing && fabs(output[0]) < 1e-6, "a stopped buffer fades out and stops (%d, %.5f)",
+			buffer.playing, output[0]);
+		buffer.playing = TRUE;
+		buffer.looping = FALSE;
+		buffer.stopping = FALSE;
+		buffer.position = 0.0;
+		mix_buffers(output, frames);
+		CHECK(!buffer.playing, "a buffer played once stops at its end");
+		buffers = NULL;
+		master_volume = 1.0f;
+		free(samples);
+		free(output);
+		return 0;
+	}
 	/* "circle <file.wav> hrtf|pan": a sound going round the listener, to
 	listen to (circle) */
 	CASE("circle")

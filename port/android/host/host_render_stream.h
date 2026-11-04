@@ -148,6 +148,11 @@ struct host_render_backend
 	void (*loading_scene)(void *context, const void *data, uint32_t bytes);
 	/* the load's progress, 0 to 1 (unchecked: the backend clamps it) */
 	void (*loading_progress)(void *context, float progress);
+	/* the sweep following the progress (1, the Xbox's) or looping (0) */
+	void (*loading_mode)(void *context, int follow_progress);
+	/* a line under the words: its coverage, width by height (checked;
+	copied before returning); NULL clears it */
+	void (*loading_caption)(void *context, const unsigned char *coverage, uint32_t width, uint32_t height);
 
 	/* nonzero if the block and cells are made */
 	int (*dynamic_lights_prepare)(void *context);
