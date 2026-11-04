@@ -53,12 +53,19 @@ struct distributed_message_header
 };
 
 /* the record, as far as the host changes it: everything else is copied */
+/* the record's pickup bit (network_game_manager.h) */
+enum { _network_game_hold_to_pick_up_bit = 3 };
+#define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
+
 struct network_game
 {
 	wchar_t name[16];
 	short machine_count;
 	byte machines[64];
 	short standard_rate;
+	/* (the host's way of picking up a second weapon: network_standard.c's
+	_network_game_hold_to_pick_up_bit) */
+	byte cooperative_flags;
 	unsigned long random_seed;
 	byte rest[32];
 };
@@ -357,6 +364,10 @@ int main(int argc, char **argv)
 		record = network_standard_game_for_machine(&server.game, TRUE);
 		memcpy(&legacy, &server.game, sizeof(legacy));
 		legacy.standard_rate = 0;
+		/* (and no word of how the host's players pick up a second weapon) */
+		CHECK(TEST_FLAG(server.game.cooperative_flags, _network_game_hold_to_pick_up_bit),
+			"the record does not say hold to pick up");
+		SET_FLAG(legacy.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
 		CHECK(!memcmp(record, &legacy, sizeof(legacy)), "an OpenCE machine's record is not a Legacy host's");
 		CHECK(server.game.standard_rate == 60, "the game's own record changed");
 		return 0;

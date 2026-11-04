@@ -288,6 +288,8 @@ boolean network_game_distributed_client(void);
 void network_distributed_player_picked_up(long player_index, short kind, long definition_index, short count);
 /* port/linux/game/network_objects.c's */
 void network_objects_client_picked_up_weapon(short local_player_index, long unit_index, long definition_index);
+/* port/linux/game/network_standard.c's */
+boolean network_standard_walk_over_pickup(long player_index);
 /* game_sound.c's */
 long unspatialized_impulse_sound_new(long sound_definition_index, real scale);
 
@@ -3831,9 +3833,12 @@ boolean unit_should_autopick_weapon(
 	if ((unit_approve_weapon_pickup(unit_index, weapon_index) &&
 		TEST_FLAG(weapon_definition->weapon.flags, _weapon_doesnt_count_toward_maximum_bit)) ||
 		weapon_count == 0 ||
-		/* port: and in multiplayer (campaign's only), a second weapon into
-		the empty slot, readied (unit_add_weapon_to_inventory) */
-		(unit_approve_weapon_pickup(unit_index, weapon_index) &&
+		/* port: and in multiplayer, where the Xbox game's player held the
+		action button for it, as Custom Edition's walks over it
+		(game.auto_pickup, a network game's host's: network_standard.c) */
+		((!game_engine_running() ||
+			network_standard_walk_over_pickup(unit_get(unit_index)->unit.player_index)) &&
+			unit_approve_weapon_pickup(unit_index, weapon_index) &&
 			weapon_count < 2) ||
 		game_engine_force_autopickup(unit_index, weapon_index))
 	{

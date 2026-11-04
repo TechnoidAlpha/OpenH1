@@ -1109,6 +1109,7 @@ the setting for one start of the game. It has priority over the file.
 | `game.language` | `""` | `HALO_LANGUAGE` | The language of the menus: `ja`, `de`, `fr`, `es` or `it`. Empty: English. |
 | `game.enhanced_animations` | `true` | `HALO_ENHANCED_ANIMATIONS` | `true`: the player bipeds' grenade throws keep their legs moving, blended by speed and direction (crouched throws stay crouched, throws in the air use the jump's legs), Warthog and Scorpion riders stay seated to throw and let go of the grips to throw and reload, and a player turns with the aim while throwing, as while meleeing, and in the air, as while running (the original froze the body in a jump and kept the aim within its aiming screen about it, so a shot after turning in the air went between the jump's facing and the crosshair). `false`: the original animations, which freeze the legs during a throw and stand a rider up and the body in the air. The turning with the aim (throwing, in the air) moves where shots go, so in a network game every player turns so whatever this says; `false` turns it off only in a game of one machine. Only in config.toml, not in the menus. |
 | `game.campaign_difficulty` | `1` | `HALO_CAMPAIGN_DIFFICULTY` | The difficulty the campaign's Choose Difficulty opens on, the one chosen there last: `0` Easy, `1` Normal, `2` Heroic, `3` Legendary. The menus write it. |
+| `game.auto_pickup` | `false` | `HALO_AUTO_PICKUP` | Multiplayer's second weapon. `false` (the Xbox's way): a player with an empty weapon slot holds the action button over a weapon to pick it up, as the prompt says. `true` (Custom Edition's way): walking over it picks it up and readies it. The campaign always picks it up on walking over, as on the Xbox, and a player with no weapon at all picks up the first one they walk over either way. Games of this computer alone (split screen, bots) take this computer's; an OpenH1 network game takes its host's, as read in the lobby, which the game record carries to its OpenH1 clients so that their prompts show the host's way (`network_standard_walk_over_pickup`, OpenH1 protocol version 18). A Legacy game, and an OpenCE player in an OpenH1 game, always walk over, as OpenCE plays. WEAPON PICKUP in Settings > Online: HOLD (XBOX) or WALK OVER (CE). |
 | `game.sim_rate` | `60` | `HALO_SIM_RATE` | How many steps a second the game takes for what a player feels in their hands: their own movement and aim, projectiles, thrown items, and the VR mode's throws and grabs. `30` (as the game was made), `60` or `120`: 1, 2 or 4 steps inside each of the game's 30 ticks a second. Everything else keeps the 30 ticks: the AI, scripts, cinematics, animations, timers, vehicles, saved games and the network. Any other value is `30` (refer to "Simulation rate" in "How the port operates"). It applies to games of this computer alone: the campaign, split screen and games with bots (a split screen game runs as a network game of one computer that takes no other). Network games with other computers use the rate the game agreed on, hosting or joining: `30` in a Legacy game (OpenCE's netcode steps at 30), and the host's `network.sim_rate` in an OpenH1 game. The playback of a saved film is always `30`. TICK RATE in Video Setup > Graphics > Advanced: ORIGINAL (30), 60 or 120. A change applies from the next tick. Where the game sets the setting aside (a network game with other computers, a film's playback), the row is locked: dimmed, at the game's rate (ORIGINAL (30) in a Legacy game), passed over, and OK leaves the setting as it was. |
 | `game.unlock_all_levels` | `false` | `HALO_UNLOCK_ALL_LEVELS` | `true`: a profile created afterward starts with all the campaign levels finished on all the difficulties. `false`: a new profile starts at The Pillar of Autumn, and each level opens when you finish the level before it, as on the Xbox. Existing profiles keep their progress. To start a profile over, type `profile_reset_campaign` in the console. |
 | `bots.count` | `0` | `HALO_BOTS` | Computer players (bots) in a game this computer hosts (any gametype but Race): `0` to `64` join its lobby with the players, as far as the game has room: a local (split screen) game, or a system link or internet one, where the host plays them and the other machines see them as players (`bots.make_room`). `0`: none, as in the stock game. The lobby's BOTS writes it (ADD n: n; FILL TO: 64). Refer to "Bots". |
@@ -6428,7 +6429,11 @@ contrails, which a tick adds points to, still part by the frame rate.)
   ticks (the particles moved each frame, the camera's shake, the
   renderer, the menus) the frames' (`math/random_math.c`), so the ticks'
   moves only in the ticks and in their order, however many frames are
-  drawn between them. The sounds have a seed of their own
+  drawn between them. What is only seen and is also made between the ticks
+  takes the frames' in a tick too (`random_math_port_begin_cosmetic`): the
+  contrails, and the decals, which an effect a particle makes as it strikes
+  makes in a frame, and whose takes of the seed depended on what the frames
+  left of them (the vertex cache's room, the locked decals). The sounds have a seed of their own
   (`sound/sound_manager.c`), and the debug allocator's fill another
   (`cseries/debug_memory.c`): the sound manager picks as the mixer plays,
   by the clock. A speaker's sound is the one exception: the game picks its
@@ -6438,8 +6443,8 @@ contrails, which a tick adds points to, still part by the frame rate.)
   the ticks, from the ticks since the sound began; the wind steps once a
   tick.
 - What the ticks keep. Not the sound manager's indices, which are the
-  mixer's (a unit's speech, the first-person weapon's sound); a decal is
-  made whether or not the texture cache has its bitmap yet. What the game
+  mixer's (a unit's speech, the first-person weapon's sound), nor the
+  decals, which are the frames' (above). What the game
   fills on the stack and copies whole into the game state (a unit's speech
   item and its AI packet, a particle's data) is zeroed first, its padding
   too, or the bytes it leaves are whatever the stack held, which any change
@@ -6494,8 +6499,8 @@ not yet used, for `--ignore`.
 
 `--simulation` compares only what the ticks do, for two runs at different
 frame rates: not the frames, the takers between the ticks, nor the
-allocations that the frames move (the particles, the decals' vertices,
-the lights, the fog and the sound environment, the motion sensor, the
+allocations that the frames move (the particles, the decals and their
+vertices, the lights, the fog and the sound environment, the motion sensor, the
 first-person weapon posed at the camera, the input as the frames take
 it). With `walk:<seed>`, a scripted player that
 never turns (a turn is the stick's rate over each frame's time, so it is
@@ -6701,7 +6706,7 @@ Other changes:
 | `sound/sound_manager.c`, `sound/sound_definitions.c` | The sounds' random choices take a seed of their own. The speakers' mouths are not moved from the mixer's place in the sound. |
 | `sound/game_sound.c`, `units/unit_dialogue.c` | The speakers' mouths move in the ticks, from the permutation the game picks at the speech's start and the ticks since. A unit does not keep the sound manager's index of its speech, and a scripted sound's time ends when it is stopped, whether or not the mixer played it. |
 | `main/main.c` | Each frame can run a set time (`debug.frame_time`). |
-| `effects/decals.c` | A decal is made whether or not the texture cache has its bitmap yet (the bitmap is asked for; drawing the decal loads it). |
+| `effects/decals.c` | A decal is made whether or not the texture cache has its bitmap yet (the bitmap is asked for; drawing the decal loads it), and its randomness takes the frames' local seed, in a tick too ("Determinism"). |
 | `interface/first_person_weapons.c` | The first-person weapon's sound's index is kept beside the game state; the weapon's state holds the sound's definition. |
 | `cseries/cseries_windows.c` | The clock's readers in a tick go to the determinism check. |
 | `main/main.c`, `interface/hud.c`, `interface/hud_unit.c`, `interface/hud_draw.c`, `game/game_engine.c` | The text chat of network games (`game/network_chat.c`): its keys are read each frame, and the debug keys are not while a line is typed; each view's HUD draws its lines, above the motion sensor, whose place the HUD notes (the left of the last picture drawn); the scoreboard's menu has Mute voice and chat, and the host's Mute for everyone. |

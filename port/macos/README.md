@@ -501,7 +501,7 @@ the Mac's default (taken as the window opens, and as Settings change it),
 the display does not pace the game: it draws as many frames as
 `display.max_fps` allows (twice the window's display's refresh rate by
 default, following the window to another display), as on Linux and
-Windows (`platform_video_swap`, a press starting the next frame at once),
+Windows (`platform_video_swap`, whose wait no input ends: #543),
 and each refresh shows the newest frame queued, the older one dropped. The
 link still presents only at its refreshes, so nothing tears, in a window
 or fullscreen. The newest frame is taken 3 ms before the link's deadline
@@ -517,9 +517,8 @@ of their own beat against the display's: the frame shown was then one just
 drawn or one an interval older, and up to 20% of the refreshes stepped by
 more than 4 ms. The budget's changes move the phase by 0.5 ms a refresh at
 most; the last 2 ms of each wait are a time constraint thread's sleep (an
-ordinary timed wait ended up to 8 ms late); a press wakes the wait at once
-(#264), but not in the half step before a shown frame, which it would only
-make late. With
+ordinary timed wait ended up to 8 ms late); no press ends the wait (#543:
+a frame begun at a press was one more than the limit). With
 battery saver on, the display link paces the game at its slower rate, vsync
 or not (frames spaced by the clock alone came at the link's rate but not in
 step with it: on a 60 Hz M2, 15% of the refreshes showed no new frame).

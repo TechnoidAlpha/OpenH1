@@ -47,15 +47,19 @@ TAKER_LABELS = {
 
 
 # the game state's allocations that the frames move, not the ticks (the
-# particles and the decals' vertices as they are drawn, the time left over
-# from the last tick, the lights each frame, the sound's update count, the
+# particles; the decals, their globals and vertices and the vertex cache,
+# which counts the frames: the frames make decals too, an effect a particle
+# makes as it strikes, and every decal takes the frames' seed, decals.c; the
+# time left over from the last tick, the lights each frame, the sound's
+# update count, the
 # motion sensor's sweep as the HUD is drawn, the fog and the sound
 # environment as they ease toward the camera's, the first-person weapon
 # posed at the camera), and the input as the
 # frames take it (player control's look, each frame's turn): two
 # runs at different frame rates differ there, and nothing the ticks do
 # reads them
-FRAME_ALLOCATIONS = ["game time globals", "lights", "decal vertex cache", "particle systems",
+FRAME_ALLOCATIONS = ["game time globals", "lights", "decals", "decal globals", "decal vertices",
+                     "decal vertex cache", "particle systems",
                      "particle system particles", "particle", "contrail", "contrail point", "game sound globals",
                      "cached object render states", "motion sensor (radar)", "object looping sounds",
                      "scenario globals", "player control globals", "first person weapons"]

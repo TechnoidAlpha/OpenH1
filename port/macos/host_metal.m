@@ -37,8 +37,8 @@ screen statistics.
 With display.vsync off (host_metal_vsync, the Mac's default), the game is
 not paced by the display: it draws as many frames as display.max_fps lets
 it (sdl_platform.c's platform_video_swap, twice the display's rate by
-default, a press starting the next frame at once), and each refresh shows
-the newest frame queued, the older one dropped. The link still presents
+default), and each refresh shows the newest frame queued, the older one
+dropped. The link still presents
 only at the refreshes, so nothing tears, in a window or fullscreen. The
 newest frame is taken just before the link's deadline for the refresh (its
 update's targetTimestamp, TAKE_MARGIN_MS before it), not as the
