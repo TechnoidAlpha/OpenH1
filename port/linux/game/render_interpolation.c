@@ -26,7 +26,14 @@ unit changes (a respawn, however near the dead camera was), and a game state
 loaded (a checkpoint's revert) leaves no snapshots behind.
 
 Particles, contrails and other effects move every frame (game_frame), and
-read the drawn pose of what they hang off. A stream of particles from an
+read the drawn pose of what they hang off. A widget simulated at the
+Xbox's own step (an antenna's chain, a cloth flag) is stepped in the tick
+instead, and drawn between the shapes the last two ticks left, hung from
+its marker as drawn (render_interpolation_shape). A point the HUD works out
+from an object's state (a unit's camera, for a waypoint's distance and the
+motion tracker's centre) is taken whole as the game has it and moved with
+the object as drawn (render_interpolation_unit_camera_position), not mixed
+of the tick's position and the frame's markers. A stream of particles from an
 object, made in the tick, is held back to be made through the frames between
 the ticks (render_interpolation_particle_later).
 
@@ -225,8 +232,26 @@ vehicle's steps), and the most blended at once */
 /* the frames' pitches kept for the view's pitch held at the seat's limit:
 more than a step's at any rate's (a tick's at 30, at 240 Hz) */
 #define NEWEST_PITCH_FRAMES 16
+/* widgets' shapes kept (render_interpolation_shape_tick: 12 antennas and 2
+cloth flags a map at most), the points each may have (a flag's 225), and
+the ticks' shapes each keeps: the two drawn and the open tick's */
+#define MAXIMUM_INTERPOLATED_SHAPES 32
+#define MAXIMUM_SHAPE_POINTS 256
+#define SHAPE_SNAPSHOTS 3
 
 /* ---------- structures */
+
+/* a widget's shape after each of its last ticks, seen from the frame of the
+marker it hangs from (render_interpolation_shape_tick) */
+struct interpolated_shape
+{
+	unsigned long owner; /* its kind (a tag group: 'ant!', 'flag'); 0: none */
+	long index; /* its datum's */
+	long newest_tick;
+	long ticks[SHAPE_SNAPSHOTS]; /* (as interpolation_tick counts them) NONE: none */
+	short counts[SHAPE_SNAPSHOTS];
+	real_point3d points[SHAPE_SNAPSHOTS][MAXIMUM_SHAPE_POINTS];
+};
 
 struct interpolation_quaternion
 {
@@ -511,6 +536,9 @@ static real interpolation_substep_fraction;
 (render_interpolation_kept_position's count) */
 static long interpolation_substep_kept = NONE;
 static struct lead_projectile lead_projectiles[MAXIMUM_LEAD_PROJECTILES];
+static struct interpolated_shape interpolated_shapes[MAXIMUM_INTERPOLATED_SHAPES];
+
+void render_interpolation_shape_forget(unsigned long owner, long index);
 
 /* ---------- blending */
 
@@ -1109,6 +1137,9 @@ void render_interpolation_reset(void)
 	later_particle_count = 0;
 	for (index = 0; index < MAXIMUM_GHOSTS; index++)
 		ghosts[index].in_use = FALSE;
+	/* (and the widgets' shapes) */
+	for (index = 0; index < MAXIMUM_INTERPOLATED_SHAPES; index++)
+		interpolated_shapes[index].owner = 0;
 	for (index = 0; index < MAXIMUM_LOCAL_PLAYERS; index++)
 	{
 		interpolated_first_person[index].node_count = 0;
@@ -2265,9 +2296,11 @@ real render_interpolation_unit_camouflage(long unit_index, real *super_amount)
 }
 
 /* a point that moves with the object's root node (its bounding sphere's
-centre: a nav point over it), from where the last tick left it to where the
-object is drawn this frame; left as it is when the object is drawn as the
-tick left it */
+centre: a nav point over it), from where the object's state has it now (the
+last tick, and at 60 and 120 the open tick's sub-steps run since: a point
+taken earlier is held to the object as it was then, game_engine.c's goals)
+to where the object is drawn this frame; left as it is when the object is
+drawn as the tick left it */
 void render_interpolation_object_point(long object_index, real_point3d *point)
 {
 	real_matrix4x3 const *drawn = render_interpolation_object_node_matrices(object_index);
@@ -2281,6 +2314,231 @@ void render_interpolation_object_point(long object_index, real_point3d *point)
 	nodes = (real_matrix4x3 const *)object_header_block_get(object_index, &object_get(object_index)->object.node_matrices);
 	matrix4x3_inverse_transform_point(&nodes[0], point, &local);
 	matrix4x3_transform_point(&drawn[0], &local, point);
+}
+
+/* A point the game works out from an object's state reads some of it as the
+tick left it (its position, its bounding sphere) and some as a frame draws
+it (its nodes and markers, object_get_node_matrices): a unit's camera on foot
+is its origin, the tick's, and in a seat its seat's marker, drawn. Mixed, it
+moves a tick's step at a time, or is drawn a tick's motion off the object.
+These take the whole of it as the tick left it and move that with the object
+as drawn (render_interpolation_object_point), the same in every case. */
+
+/* the object's origin (object_get_origin) where it is drawn */
+void render_interpolation_object_origin(long object_index, real_point3d *origin)
+{
+	boolean rendering = interpolation_rendering;
+
+	interpolation_rendering = FALSE;
+	object_get_origin(object_index, origin);
+	interpolation_rendering = rendering;
+	render_interpolation_object_point(object_index, origin);
+}
+
+/* the unit's camera (unit_get_camera_position) where it is drawn: what a
+waypoint's distance, and the motion tracker's centre, are measured from */
+void render_interpolation_unit_camera_position(long unit_index, real_point3d *position)
+{
+	boolean rendering = interpolation_rendering;
+
+	interpolation_rendering = FALSE;
+	unit_get_camera_position(unit_index, position);
+	interpolation_rendering = rendering;
+	render_interpolation_object_point(unit_index, position);
+}
+
+/* ---------- shapes */
+
+/* A widget's points (an antenna's chain, a cloth flag's grid) are a
+simulation of the Xbox's own step, an update a tick: their springs and
+cloth are per-update quantities, and stepped a frame at a time they act
+against the frames' own movement of them (an antenna swung wide, a flag's
+cloth thrashing). The tick steps them (game.c), and leaves their shape here,
+seen from the frame of the marker they hang from as the tick had it; a frame
+draws them the part of the way between the last two ticks' shapes that it
+is, hung from that marker as the frame draws it, as an object's nodes are
+drawn between their snapshots. A tick's work runs before its sub-steps
+(at game.sim_rate 60 and 120), so the shape it leaves is the tick's that
+ends after them: three are kept, the two drawn and the open tick's. */
+static struct interpolated_shape *render_interpolation_shape_find(unsigned long owner, long index, boolean make)
+{
+	struct interpolated_shape *oldest = NULL;
+	short slot;
+
+	for (slot = 0; slot < MAXIMUM_INTERPOLATED_SHAPES; slot++)
+	{
+		struct interpolated_shape *shape = &interpolated_shapes[slot];
+
+		if (shape->owner == owner && shape->index == index)
+			return shape;
+		/* (a slot of none, or the one left longest) */
+		if (!oldest || shape->owner == 0 ||
+			(oldest->owner != 0 && shape->newest_tick < oldest->newest_tick))
+		{
+			oldest = shape;
+		}
+	}
+	if (!make)
+		return NULL;
+	memset(oldest, 0, sizeof(*oldest));
+	oldest->owner = owner;
+	oldest->index = index;
+	for (slot = 0; slot < SHAPE_SNAPSHOTS; slot++)
+		oldest->ticks[slot] = NONE;
+	oldest->newest_tick = NONE;
+	return oldest;
+}
+
+/* the frame the shape is seen from: the marker's place and its axes made a
+rotation (forward kept, up square to it; a mirrored marker's left aside),
+the same at the tick and in the frame, so that what is seen from one is
+placed by the other */
+static void shape_frame(real_matrix4x3 const *anchor, real_matrix4x3 *frame)
+{
+	real length;
+	real dot;
+
+	frame->position = anchor->position;
+	frame->scale = 1.0f;
+	frame->forward = anchor->forward;
+	length = vector_length(&frame->forward);
+	if (!(length > 1e-6f))
+	{
+		/* (no rotation to speak of: the world's axes, moved) */
+		frame->forward = *global_forward3d;
+		frame->left = *global_left3d;
+		frame->up = *global_up3d;
+		return;
+	}
+	frame->forward.i /= length;
+	frame->forward.j /= length;
+	frame->forward.k /= length;
+	dot = anchor->up.i * frame->forward.i + anchor->up.j * frame->forward.j + anchor->up.k * frame->forward.k;
+	frame->up.i = anchor->up.i - frame->forward.i * dot;
+	frame->up.j = anchor->up.j - frame->forward.j * dot;
+	frame->up.k = anchor->up.k - frame->forward.k * dot;
+	length = vector_length(&frame->up);
+	if (!(length > 1e-6f))
+	{
+		frame->forward = *global_forward3d;
+		frame->left = *global_left3d;
+		frame->up = *global_up3d;
+		return;
+	}
+	frame->up.i /= length;
+	frame->up.j /= length;
+	frame->up.k /= length;
+	/* left = up x forward */
+	frame->left.i = frame->up.j * frame->forward.k - frame->up.k * frame->forward.j;
+	frame->left.j = frame->up.k * frame->forward.i - frame->up.i * frame->forward.k;
+	frame->left.k = frame->up.i * frame->forward.j - frame->up.j * frame->forward.i;
+}
+
+/* the shape this tick leaves a widget in (owner: its kind, index: its
+datum's), its points in the world and the marker they hang from as the tick
+has them */
+void render_interpolation_shape_tick(
+	unsigned long owner,
+	long index,
+	real_matrix4x3 const *anchor,
+	short count,
+	real_point3d const *points)
+{
+	struct interpolated_shape *shape;
+	/* (the tick this one ends with, as interpolation_tick counts them once
+	it has) */
+	long tick = interpolation_tick + 1;
+	real_matrix4x3 frame;
+	short slot;
+	short point_index;
+
+	if (count <= 0 || count > MAXIMUM_SHAPE_POINTS)
+	{
+		render_interpolation_shape_forget(owner, index);
+		return;
+	}
+	shape = render_interpolation_shape_find(owner, index, TRUE);
+	/* (the slot of the oldest, or of this tick again) */
+	slot = 0;
+	for (point_index = 0; point_index < SHAPE_SNAPSHOTS; point_index++)
+	{
+		if (shape->ticks[point_index] == tick)
+		{
+			slot = point_index;
+			break;
+		}
+		if (shape->ticks[point_index] == NONE ||
+			(shape->ticks[slot] != NONE && shape->ticks[point_index] < shape->ticks[slot]))
+		{
+			slot = point_index;
+		}
+	}
+	shape_frame(anchor, &frame);
+	for (point_index = 0; point_index < count; point_index++)
+		point_in_frame(&frame, &points[point_index], &shape->points[slot][point_index]);
+	shape->counts[slot] = count;
+	shape->ticks[slot] = tick;
+	shape->newest_tick = tick;
+}
+
+/* the widget's shape is none to blend from (made again, or put somewhere
+other than its last tick left it): its points are drawn as they are until
+the ticks leave two more */
+void render_interpolation_shape_forget(unsigned long owner, long index)
+{
+	struct interpolated_shape *shape = render_interpolation_shape_find(owner, index, FALSE);
+
+	if (shape)
+		shape->owner = 0;
+}
+
+static short shape_snapshot(struct interpolated_shape const *shape, long tick, short count)
+{
+	short slot;
+
+	for (slot = 0; slot < SHAPE_SNAPSHOTS; slot++)
+	{
+		if (shape->ticks[slot] == tick && shape->counts[slot] == count)
+			return slot;
+	}
+	return NONE;
+}
+
+/* where the widget's count points are drawn this frame, hung from the
+marker they hang from as the frame draws it (anchor): between the shapes
+of the last two ticks, or the last's alone after a gap. FALSE when the
+frame draws none (not between the ticks), or the ticks left none: its
+points are drawn as they are */
+boolean render_interpolation_shape(
+	unsigned long owner,
+	long index,
+	real_matrix4x3 const *anchor,
+	short count,
+	real_point3d *drawn)
+{
+	struct interpolated_shape const *shape;
+	short latest;
+	short previous;
+	real_matrix4x3 frame;
+	short point_index;
+
+	if (!interpolation_rendering || count <= 0 || count > MAXIMUM_SHAPE_POINTS ||
+		(shape = render_interpolation_shape_find(owner, index, FALSE)) == NULL ||
+		(latest = shape_snapshot(shape, interpolation_tick, count)) == NONE)
+	{
+		return FALSE;
+	}
+	previous = shape_snapshot(shape, interpolation_tick - 1, count);
+	shape_frame(anchor, &frame);
+	for (point_index = 0; point_index < count; point_index++)
+	{
+		real_point3d local = shape->points[latest][point_index];
+
+		if (previous != NONE)
+			point_lerp(&shape->points[previous][point_index], &local, interpolation_fraction, &local);
+		point_from_frame(&frame, &local, &drawn[point_index]);
+	}
+	return TRUE;
 }
 
 /* ---------- corrections */

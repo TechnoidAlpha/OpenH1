@@ -924,8 +924,10 @@ short debug_player_color = NONE;
 its goal index, so every player needs a goal slot */
 struct netgame_goal global_goal[MAX(32, MULTIPLAYER_MAXIMUM_PLAYERS)] = { 0 };
 /* port: the object each goal is over (game_engine_set_goal_object), to be
-drawn where it is drawn; nothing the ticks do reads it */
+drawn where it is drawn, and the goal's place seen from the object's root
+node as it was when the goal was set; nothing the ticks do reads them */
 static long global_goal_objects[NUMBEROF(global_goal)];
+static real_point3d global_goal_object_points[NUMBEROF(global_goal)];
 struct game_variant global_variant = { 0 };
 struct game_engine *game_engine = NULL;
 
@@ -8846,6 +8848,22 @@ void game_engine_set_goal_object(
 			player_get(item->object.owner_player_index)->unit_index;
 	}
 	global_goal_objects[goal_index] = object_index;
+	/* (seen from the object as it is now: at 60 and 120 the goal is set in
+	a tick's work, and the object's sub-steps move it on before the frames
+	draw it, so the goal's place is held to the object as it was then, not
+	moved by how far the object has gone since; its nodes as they are, read
+	only: object_get_node_matrix poses a sub-step's view of them) */
+	if (object_index != NONE)
+	{
+		real_matrix4x3 const *nodes = (real_matrix4x3 const *)object_header_block_get(
+			object_index,
+			&object_get(object_index)->object.node_matrices);
+
+		matrix4x3_inverse_transform_point(
+			&nodes[0],
+			&global_goal[goal_index].position,
+			&global_goal_object_points[goal_index]);
+	}
 
 	return;
 }
@@ -8858,10 +8876,15 @@ real_point3d *game_engine_get_goal_drawn_position(
 {
 	/* (an object only of a goal set: game_engine_set_goal_position) */
 	long object_index = global_goal[goal_index].in_use ? global_goal_objects[goal_index] : NONE;
+	real_matrix4x3 const *drawn;
 
 	*position = global_goal[goal_index].position;
-	if (object_index != NONE && object_try_and_get(object_index))
-		render_interpolation_object_point(object_index, position);
+	/* (from the object's root node as a frame draws it) */
+	if (object_index != NONE && object_try_and_get(object_index) &&
+		(drawn = render_interpolation_object_node_matrices(object_index)) != NULL)
+	{
+		matrix4x3_transform_point(&drawn[0], &global_goal_object_points[goal_index], position);
+	}
 
 	return position;
 }

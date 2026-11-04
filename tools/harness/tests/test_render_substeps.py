@@ -118,7 +118,7 @@ def generated(fault=None, newest=False):
     text = code[code.index("/* ---------- constants */"):code.index("/* ---------- structures */")] + "\n"
     for name in ("interpolation_quaternion", "interpolation_rotation", "interpolated_object", "interpolated_substeps",
                  "lead_projectile", "interpolated_camera", "newest_history", "newest_motion",
-                 "newest_vehicle"):
+                 "newest_vehicle", "interpolated_shape"):
         text += structure(code, name) + "\n"
     # the globals, but for the first-person weapon's, the particles' and the ghosts' (the test's own)
     globals_text = code[code.index("static struct interpolated_object *interpolated_objects;"):

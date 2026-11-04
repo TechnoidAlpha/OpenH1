@@ -89,6 +89,9 @@ static struct widget_type_definition data_0030b2b0[NUMBER_OF_WIDGET_TYPES] =
 		flags_dispose,
 		flag_new,
 		flag_delete,
+		/* (the frames count the frames a flag goes undrawn; the cloth
+		simulates at the Xbox's own rate, an update a tick, so the tick
+		steps it: game.c, flags.c's flags_tick) */
 		flags_update,
 		flag_render
 	},

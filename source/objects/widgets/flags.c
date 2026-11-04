@@ -210,6 +210,14 @@ void flag_set_attachment_shape(
 void flag_set_trailing_shape(
 	struct flag_definition *definition,
 	struct flag_datum_prefix *flag);
+static boolean flag_attachment_marker(
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition,
+	real_matrix4x3 *matrix);
+static void flag_record_shape(
+	long flag_index,
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition);
 
 /* ---------- globals */
 
@@ -270,15 +278,42 @@ void flags_update(
 		flag_index = data_next_index(flag_data, flag_index))
 	{
 		struct flag_datum_prefix *flag = flag_get(flag_index);
+
+		/* (the frames a flag goes undrawn; flags_tick steps the cloth) */
+		flag->updates_since_last_render++;
+	}
+
+	(void)delta;
+	return;
+}
+
+/* port: a step of each flag's cloth drawn in the last frames, in the tick */
+void flags_tick(
+	real delta)
+{
+	long flag_index;
+
+	for (flag_index = data_next_index(flag_data, NONE);
+		flag_index != NONE;
+		flag_index = data_next_index(flag_data, flag_index))
+	{
+		struct flag_datum_prefix *flag = flag_get(flag_index);
 		struct flag_definition *definition =
 			flag_definition_get(flag->definition_index);
 
-		flag->updates_since_last_render++;
 		if (flag->object_index != NONE &&
 			flag->updates_since_last_render < 5 &&
 			delta != 0.0f)
 		{
+			/* The cloth is a simulation of the Xbox's own step, an update a
+			tick: each update pulls every vertex the whole way to where its
+			neighbours put it and keeps that pull as velocity, so stepped a
+			frame at a time (as game_frame did) the pulls come several times
+			a tick, and the cloth thrashes and crumples above 30 frames a
+			second. The tick steps it (game.c), and the frames are drawn
+			between what each tick leaves (flag_render). */
 			flag_update(flag, definition, delta);
+			flag_record_shape(flag_index, flag, definition);
 		}
 	}
 
@@ -303,11 +338,37 @@ void flag_render(
 	{
 		flag_update(flag, definition, 5.0f);
 		flag->initialized = TRUE;
+		/* (put where the ticks never left it: nothing to blend from) */
+		render_interpolation_shape_forget(FLAG_TAG, flag_index);
 	}
 
 	flag->updates_since_last_render = 0;
 	if (!flag->noop)
-		flag_render_proper(flag, definition, lighting, animation);
+	{
+		/* port: the frames between the ticks draw the cloth between the
+		shapes the last two ticks left, hung from its marker as the frame
+		draws it (port/linux/game/render_interpolation.c's shapes) */
+		static struct flag_datum_prefix drawn_flag;
+		static real_point3d drawn_points[MAXIMUM_FLAG_VERTICES];
+		real_matrix4x3 marker;
+		short count = (short)(definition->width * definition->height);
+
+		if (count > 0 && count <= MAXIMUM_FLAG_VERTICES &&
+			flag_attachment_marker(flag, definition, &marker) &&
+			render_interpolation_shape(FLAG_TAG, flag_index, &marker, count, drawn_points))
+		{
+			short vertex_index;
+
+			drawn_flag = *flag;
+			for (vertex_index = 0; vertex_index < count; vertex_index++)
+				drawn_flag.vertices[vertex_index].position = drawn_points[vertex_index];
+			flag_render_proper(&drawn_flag, definition, lighting, animation);
+		}
+		else
+		{
+			flag_render_proper(flag, definition, lighting, animation);
+		}
+	}
 
 	return;
 }
@@ -578,11 +639,10 @@ void flag_update(
 					SET_FLAG(physics_flags, _point_physics_ignore_position_under_water_bit, TRUE);
 				}
 
-				/* The native builds update flags every frame, several frames a
-				tick (port/linux/game/render_interpolation.c): a new random push
-				every frame would mostly cancel out and leave the cloth stiller
-				the higher the frame rate. Keep each vertex's push for the whole
-				tick, as long as it lasted on the Xbox. */
+				/* port: each vertex's push from the tick's time and the
+				vertex, not the game's random seeds: the cloth is stepped in
+				the tick (flags_update), where a draw of the seeds would move
+				the simulation's own, and only for flags drawn. */
 				{
 					unsigned long seed = (unsigned long)game_time_get() * 0x9E3779B1UL ^
 						(unsigned long)(size_t)flag ^
@@ -683,6 +743,53 @@ void flag_update(
 }
 
 /* ---------- private code */
+
+/* the flag's first attachment point's marker (where its cloth hangs from)
+on its object: as the tick has it, in the tick, and as the frame draws it,
+in a frame */
+static boolean flag_attachment_marker(
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition,
+	real_matrix4x3 *matrix)
+{
+	struct object_marker marker;
+	struct flag_attachment_point *point;
+
+	if (flag->object_index == NONE || definition->attachment_points.count <= 0)
+		return FALSE;
+
+	point = TAG_BLOCK_GET_ELEMENT(&definition->attachment_points, 0, struct flag_attachment_point);
+	object_get_marker_by_name(flag->object_index, point->marker_name, &marker, 1);
+	*matrix = marker.matrix;
+
+	return TRUE;
+}
+
+/* the cloth's shape this tick leaves, hung from its marker as the tick has
+it, for the frames to draw between this tick's and the last's (flag_render) */
+static void flag_record_shape(
+	long flag_index,
+	struct flag_datum_prefix *flag,
+	struct flag_definition *definition)
+{
+	static real_point3d points[MAXIMUM_FLAG_VERTICES];
+	real_matrix4x3 marker;
+	short count = (short)(definition->width * definition->height);
+	short vertex_index;
+
+	if (flag->noop || count <= 0 || count > MAXIMUM_FLAG_VERTICES ||
+		!flag_attachment_marker(flag, definition, &marker))
+	{
+		render_interpolation_shape_forget(FLAG_TAG, flag_index);
+		return;
+	}
+
+	for (vertex_index = 0; vertex_index < count; vertex_index++)
+		points[vertex_index] = flag->vertices[vertex_index].position;
+	render_interpolation_shape_tick(FLAG_TAG, flag_index, &marker, count, points);
+
+	return;
+}
 
 struct flag_vertex_datum *flag_datum_get_vertex(
 	struct flag_datum_prefix *flag,

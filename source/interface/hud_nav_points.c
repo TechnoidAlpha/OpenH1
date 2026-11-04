@@ -704,7 +704,11 @@ void custom_render_nav_point(
 	{
 		real_point3d cam_pos;
 
-		unit_get_camera_position(local_player_get_player_index(local_player_index) == NONE ? NONE : player_get(local_player_get_player_index(local_player_index))->unit_index, &cam_pos);
+		/* port: from the player's camera where it is drawn, as the point is
+		(render_interpolation_unit_camera_position): on foot the camera is
+		the tick's, so the arrow's size and the distance under it moved a
+		tick's step at a time, between the ticks too */
+		render_interpolation_unit_camera_position(local_player_get_player_index(local_player_index) == NONE ? NONE : player_get(local_player_get_player_index(local_player_index))->unit_index, &cam_pos);
 		distance = distance3d(&cam_pos, position_pointer);
 	}
 
@@ -886,7 +890,9 @@ void hud_render_nav_points(
 			case _hud_nav_point_type_game_engine_flag:
 				{
 					real_point3d goal_position;
-					position = *game_engine_get_goal_position(
+					/* port: over its object as drawn, as
+					game_engine_render_nav_points draws it */
+					position = *game_engine_get_goal_drawn_position(
 						&goal_position,
 						(short)nav_point->reference_index);
 				}
