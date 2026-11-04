@@ -30,6 +30,7 @@ that draw the first-person weapon (rasterizer and render sources).
 #include "units/units.h"
 
 #include "mouse_sensitivity.h"
+#include "panini_projection.h"
 
 #include <math.h>
 #include <stdlib.h>
@@ -70,11 +71,13 @@ static struct
 } vehicle_blends[MAXIMUM_LOCAL_PLAYERS];
 
 /* an angle in degrees across at 16:9 as the tangent of half the vertical
-angle, or 0 (the stock view) outside 20 to 150 */
+angle, or 0 (the stock view) outside 20 to 160; above 150 only while
+display.panini is on, 150 otherwise (panini_projection.h's
+panini_field_of_view: why 160) */
 static real fov_tangent(double degrees)
 {
-	return degrees >= 20.0 && degrees <= 150.0 ?
-		(real)(tan(degrees * _pi / 360.0) * (9.0 / 16.0)) : 0.0f;
+	degrees = panini_field_of_view(degrees, panini_strength());
+	return degrees ? (real)(tan(degrees * _pi / 360.0) * (9.0 / 16.0)) : 0.0f;
 }
 
 /* display.fov's and display.vehicle_fov's tangents (0: the stock view):

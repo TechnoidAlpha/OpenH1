@@ -431,10 +431,14 @@ DISPLAY_MODES = [("FULLSCREEN", "fullscreen"), ("BORDERLESS", "borderless"), ("W
 # input.left_stick_dead_zone's and right's: the game's own (-1), or a part of
 # the stick's travel
 STICK_DEAD_ZONES = [("DEFAULT (27%)", "-1")] + [(f"{percent}%", str(percent)) for percent in range(0, 51, 5)]
-# display.fov's and display.viewmodel_fov's stops: the game's own (0), or
-# degrees; any of 20 to 150 typed
-FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150,
-                        stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 151, 5)))
+# display.fov's stops: the game's own (0), or degrees; any of 20 to 160
+# typed, above 150 drawn only with Panini Projection on (panini_projection.h's
+# PANINI_FIELD_OF_VIEW_MOST: why 160)
+FIELDS_OF_VIEW = Slider(80, 160, 5, 20, 160,
+                        stops=(("DEFAULT", "0"),) + tuple((str(n), str(n)) for n in range(80, 161, 5)))
+# display.viewmodel_fov's: to 150, the widest rectilinear view (menu_functions.c's
+# SETTINGS_VIEWMODEL_FOV_STOPS)
+WEAPON_FIELDS_OF_VIEW = Slider(80, 150, 5, 20, 150, stops=FIELDS_OF_VIEW.stops[:-2])
 # display.viewmodel_offset_x's, _y's and _z's: centimeters, 0 the game's own
 # place; the track goes the whole range (the depth's closer end is about
 # where the right hand reaches the eye), any of -20 to 20 typed
@@ -443,7 +447,7 @@ VIEWMODEL_OFFSETS = Slider(-20, 20, 0.5, -20, 20)
 # middle; any of 0 to 30 typed
 LOWERED_RETICLE_AMOUNTS = Slider(1, 25, 1, 0, 30, whole=True)
 # display.vehicle_fov's: the game's own view ("default"), display.fov's
-# ("match"), or degrees; any of 20 to 150 typed
+# ("match"), or degrees; any of 20 to 160 typed, as display.fov's
 VEHICLE_FIELDS_OF_VIEW = FIELDS_OF_VIEW._replace(
     stops=(("DEFAULT", "default"), ("MATCH", "match")) + FIELDS_OF_VIEW.stops[1:])
 # display.max_fps's stops: twice the display's refresh rate (0), the
@@ -576,8 +580,9 @@ PAGES = {
              "uses more power; None draws as fast as it can. On Linux, the display's refresh rate (or half of it) "
              "is shown in step with the display.|Click the number (or press A) to type 10 to 1000.", "desktop"),
             ("FIELD OF VIEW", "display.fov", FIELDS_OF_VIEW,
-             "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. In vehicles: First "
-             "Person.|Click the number (or press A) to type 20 to 150.", None),
+             "How wide you see on foot, in degrees across 16:9. Default is the Xbox's. Above 150 needs Panini "
+             "Projection (First Person). In vehicles: First Person.|Click the number (or press A) to type 20 to "
+             "160.", None),
             ("ORIENTATION", "display.orientation",
              [("LANDSCAPE", "landscape"), ("PORTRAIT", "portrait"), ("AUTO", "auto")],
              "Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under "
@@ -924,7 +929,7 @@ PAGES = {
         "screen": FIRST_PERSON[1], "title": "FIRST PERSON",
         "rows": [
             (SECTION, "VIEW"),
-            ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", FIELDS_OF_VIEW,
+            ("WEAPON FIELD OF VIEW", "display.viewmodel_fov", WEAPON_FIELDS_OF_VIEW,
              "How wide your weapon and hands are drawn, in degrees across a 16:9 screen: wider draws them "
              "smaller. Default keeps the weapon's own view.|Click the number (or press A) to type any from 20 to 150.", None),
             ("WEAPON HORIZONTAL", "display.viewmodel_offset_x", VIEWMODEL_OFFSETS,
@@ -938,14 +943,15 @@ PAGES = {
              "cut off.|Click the number (or press A) to type any from -20 to 20.", None),
             ("VEHICLE FIELD OF VIEW", "display.vehicle_fov", VEHICLE_FIELDS_OF_VIEW,
              "How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match "
-             "uses your Field of View.|Click the number (or press A) to type any from 20 to 150.", None),
+             "uses your Field of View. Above 150 needs Panini Projection.|Click the number (or press A) to type "
+             "any from 20 to 160.", None),
             # (display.panini, port/linux/game/panini.c, and its vertical
             # compression; none in the VR build: menu_functions.c's
             # panini_rows_show)
             ("PANINI PROJECTION", "display.panini", PANINI_STRENGTHS,
              "Stops a wide field of view from stretching what is at the sides; you still see as far, and the "
-             "middle is drawn larger. 1 keeps their shapes true. The HUD stays flat.|Click the number (or press "
-             "A) to type 0 to 1.", None),
+             "middle is drawn larger. 1 keeps their shapes true. The HUD stays flat. Fields of view up to 160 "
+             "need it.|Click the number (or press A) to type 0 to 1.", None),
             ("PANINI VERTICAL", "display.panini_vertical", PANINI_VERTICAL,
              "With Panini Projection on: straightens floors and ceilings above and below the middle, and "
              "stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1.",
@@ -1897,7 +1903,7 @@ SETTINGS_STILLS = [
 # their row is chosen (menu_functions.c's settings_panel_show): each value's
 # file (port/assets/menus/stills), in the row's order, and what each file is
 SETTINGS_PICTURE_WIDTH, SETTINGS_PICTURE_HEIGHT = 160, 100
-_FOV_PICTURES = (["stills/fov_default.png"] * 4 + ["stills/fov_100.png"] * 5 + ["stills/fov_130.png"] * 7)
+_FOV_PICTURES = (["stills/fov_default.png"] * 4 + ["stills/fov_100.png"] * 5 + ["stills/fov_130.png"] * 9)
 SETTINGS_VALUE_PICTURES = {
     "fov": _FOV_PICTURES,
     "viewmodel_fov": None,
@@ -1913,7 +1919,7 @@ del SETTINGS_VALUE_PICTURES["viewmodel_fov"]
 SETTINGS_PICTURE_FILES = {
     "stills/fov_default.png": "Field of view DEFAULT (`display.fov = 0`); HDR mode FAITHFUL",
     "stills/fov_100.png": "Field of view 100, for 95 to 115",
-    "stills/fov_130.png": "Field of view 130, for 120 to 150",
+    "stills/fov_130.png": "Field of view 130, for 120 to 160",
     "stills/aa_off.png": "Anti-aliasing OFF, close on an edge (each pixel twice its size)",
     "stills/aa_smaa.png": "Anti-aliasing SMAA (and FXAA), the same; render resolution FULL",
     "stills/aa_msaa.png": "Anti-aliasing MSAA 4X (and SSAA and MSAA's others), the same",

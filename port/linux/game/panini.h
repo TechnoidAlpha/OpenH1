@@ -28,6 +28,11 @@ the projection), by which the reticle (hud_draw.c) and the first-person
 weapon's projection (view_fov.c) are scaled to keep their size there */
 real panini_center_scale(void);
 
+/* the projection's strength (display.panini's), 0 while it is off (and in
+the VR build): it allows the wider fields of view (view_fov.c's, as
+panini_projection.h's panini_field_of_view) */
+real panini_strength(void);
+
 /* the projection a view will be drawn through, from its rectilinear half
 tangents at its viewport's sides and top (across and up), before its window
 is drawn (the lowered reticle's lift: lowered_reticle.c); FALSE when the

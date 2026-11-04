@@ -112,6 +112,7 @@ symbols in this file:
 #include "saved games/game_state.h"
 #include "rasterizer/rasterizer_console_vars.h"
 #include "rasterizer/rasterizer_model_types.h"
+#include "panini.h" /* port: port/linux/game/panini.c */
 
 /* ---------- constants */
 
@@ -557,7 +558,15 @@ static real object_get_level_of_detail_pixels(
 			vr_render_level_of_detail_scale();
 	}
 #else
-	return render_frustum_sphere_diameter_in_pixels(&render.frustum, &center, radius);
+	{
+		/* port: display.panini draws the view's middle larger than the
+		frustum has it (port/linux/game/panini.c): the size it is drawn at
+		there */
+		real pixels = render_frustum_sphere_diameter_in_pixels(&render.frustum, &center, radius);
+		real panini_scale = panini_center_scale();
+
+		return panini_scale != 1.0f ? pixels * panini_scale : pixels;
+	}
 #endif
 }
 

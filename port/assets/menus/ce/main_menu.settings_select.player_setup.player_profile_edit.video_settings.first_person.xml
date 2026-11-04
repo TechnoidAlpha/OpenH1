@@ -271,8 +271,8 @@
 		<string text="Moves your weapon and hands right, or left below 0, in centimeters, for every weapon, as far on the screen at any weapon field of view. 0 keeps them where the game puts them.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="Moves your weapon and hands up, or down below 0, in centimeters. Lower it to see more of the screen.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="Pushes your weapon and hands away from you, or closer below 0, in centimeters. Too close and they cut off.|Click the number (or press A) to type any from -20 to 20."/>
-		<string text="How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match uses your Field of View.|Click the number (or press A) to type any from 20 to 150."/>
-		<string text="Stops a wide field of view from stretching what is at the sides; you still see as far, and the middle is drawn larger. 1 keeps their shapes true. The HUD stays flat.|Click the number (or press A) to type 0 to 1."/>
+		<string text="How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match uses your Field of View. Above 150 needs Panini Projection.|Click the number (or press A) to type any from 20 to 160."/>
+		<string text="Stops a wide field of view from stretching what is at the sides; you still see as far, and the middle is drawn larger. 1 keeps their shapes true. The HUD stays flat. Fields of view up to 160 need it.|Click the number (or press A) to type 0 to 1."/>
 		<string text="With Panini Projection on: straightens floors and ceilings above and below the middle, and stretches the sides taller. 0 keeps their shapes true.|Click the number (or press A) to type 0 to 1."/>
 		<string text="Puts the reticle below the middle of the screen, as Halo 2 and 3 do. Your view tilts up a little, so shots still go where the reticle points. Zooming centers it."/>
 		<string text="How far below the middle the lowered reticle sits, in percent of the screen's height. 10 is about Halo 2's and 3's.|Click the number (or press A) to type any from 0 to 30."/>

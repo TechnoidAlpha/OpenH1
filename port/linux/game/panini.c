@@ -164,6 +164,13 @@ real panini_center_scale(void)
 	return window.active ? window.panini.scale : 1.0f;
 }
 
+real panini_strength(void)
+{
+	real d, s;
+
+	return panini_settings(&d, &s) ? d : 0.0f;
+}
+
 /* a term of a projection as the window's (the game's camera's frustum and
 the rasterizer's are built alike) */
 static boolean panini_same_term(real term, real window_term)

@@ -234,12 +234,14 @@ static const struct config_setting config_settings[] =
 		"step left it: not a tick (33 ms) behind." },
 	{ "display.fov", _config_real, "0.0", "HALO_FOV", _environment_value, _platform_all,
 		"The view's field of view on foot, in degrees across at 16:9 (20 to\n"
-		"150); 0 keeps the stock view. Vehicles take display.vehicle_fov's.\n"
-		"Cinematics and scripted cameras keep their own." },
+		"150, or to 160 with display.panini on); 0 keeps the stock view.\n"
+		"Vehicles take display.vehicle_fov's. Cinematics and scripted cameras\n"
+		"keep their own." },
 	{ "display.vehicle_fov", _config_string, "\"default\"", "HALO_VEHICLE_FOV", _environment_value, _platform_all,
 		"The view's field of view in a vehicle's seat, first or third person,\n"
 		"getting in and out too: \"default\" keeps the stock view, \"match\" takes\n"
-		"display.fov's, and a number is degrees across at 16:9 (20 to 150)." },
+		"display.fov's, and a number is degrees across at 16:9 (20 to 150,\n"
+		"or to 160 with display.panini on)." },
 	{ "display.panini", _config_real, "0.0", "HALO_PANINI", _environment_value, _platform_all,
 		"Draw the 3D view through the Panini projection, at this strength\n"
 		"(Panini's d), 0 to 1; 0 off. At a wide field of view what is at the\n"
