@@ -95,6 +95,8 @@ struct loading_ring
 	its scale (an off-axis view through VR's window: 0, 0 and 1 for the
 	camera's own view) */
 	float view_eye[3], view_shift[2], view_zoom;
+	/* drawing only the glint, over the frame drawn before (loading_ring_glint) */
+	int glint_only;
 };
 
 /* ---------- textures */
@@ -706,6 +708,8 @@ static inline void loading_ring_triangle(struct loading_ring *ring, const struct
 	int minimum_x, maximum_x, minimum_y, maximum_y, x, y;
 	uint32_t tint[4];
 
+	if (ring->glint_only && !depth_write)
+		return;
 	for (map = 0; map < 4; map++)
 		tint[map] = (uint32_t)(part->tint[map] * 256.0f);
 	if (!(area == area) || fabsf(area) < 1e-6f)
@@ -779,6 +783,18 @@ static inline void loading_ring_triangle(struct loading_ring *ring, const struct
 				if (w0 < 0.0f || w1 < 0.0f || w2 < 0.0f)
 					continue;
 				iz = w0 * iza + w1 * izb + w2 * izc;
+				if (ring->glint_only)
+				{
+					/* (the surface the frame shows here: the nearest's depth,
+					found again) */
+					if (iz < depth_row[x])
+						continue;
+					z = 1.0f / iz;
+					shade = (w0 * a->glint * iza + w1 * b->glint * izb + w2 * c->glint * izc) * z;
+					ring->glint[(uint32_t)y * ring->width + (uint32_t)x] = (uint8_t)(shade < 0.0f ? 0.0f :
+						shade > 1.0f ? 255.0f : shade * 255.0f);
+					continue;
+				}
 				if (depth_test && iz <= depth_row[x])
 					continue;
 				z = 1.0f / iz;
@@ -1185,6 +1201,29 @@ static inline const uint32_t *loading_ring_draw(struct loading_ring *ring, uint3
 		(int)((LOADING_RING_FOCUS_RADIUS * height + 240) / 480));
 	(void)seconds;
 	return ring->color;
+}
+
+/* The sweep's light on the ring again (its glint, at the sweep's place
+   glint_x), over the frame the last loading_ring_draw of this size drew
+   from the menu's camera: the ring is still, only the light moves; 0 (and
+   nothing drawn) if there is no such frame. */
+static inline int loading_ring_glint(struct loading_ring *ring, uint32_t width, uint32_t height, float glint_x)
+{
+	uint32_t part;
+
+	if (!ring->valid || !ring->color || !ring->depth || !ring->glint || ring->width != width ||
+		ring->height != height || ring->view_zoom != 1.0f || ring->view_eye[0] != 0.0f ||
+		ring->view_eye[1] != 0.0f || ring->view_eye[2] != 0.0f)
+		return 0;
+	memset(ring->glint, 0, (size_t)width * height);
+	ring->glint_x = glint_x;
+	loading_ring_transform(ring, LOADING_SCENE_LAYER_WORLD);
+	ring->glint_only = 1;
+	for (part = 0; part < ring->part_count; part++)
+		if (ring->parts[part].layer == LOADING_SCENE_LAYER_WORLD && ring->parts[part].blend == LOADING_SCENE_BLEND_OPAQUE)
+			loading_ring_part_draw(ring, &ring->parts[part], ring->color, 1e-2f);
+	ring->glint_only = 0;
+	return 1;
 }
 
 /* A frame's buffers (loading_ring_draw's), set aside while the ring is drawn
