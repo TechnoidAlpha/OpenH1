@@ -36,6 +36,7 @@ Conventions carried over from the Xbox:
 #include "halo_dynamic_lights.h"
 #include "port_config.h"
 #include "battery_saver.h"
+#include "menu_pictures.h"
 #include "bink_import.h"
 #include "halo_linux_source_fixups.h"
 #include "panini_projection.h"
@@ -5356,6 +5357,26 @@ static BOOL screenshot_this_frame(void)
 	return now >= from && (until <= 0.0 || now <= until);
 }
 
+/* the frame being drawn's pixels so far (BGRA, rows from the top; malloc's,
+the caller's to free), and its size; NULL if there is none: a menu
+picture's frame (port/linux/game/menu_pictures_render.c) */
+unsigned char *d3d8_back_buffer_read(unsigned long *width, unsigned long *height)
+{
+	struct render_target_entry *back_buffer;
+	unsigned char *pixels;
+
+	if (!device.gl_ready || !(back_buffer = render_target_get(&device.back_buffer)) || !back_buffer->target.number)
+		return NULL;
+	render_target_resolve(&back_buffer->target);
+	pixels = xgpu_backend_read_target(back_buffer->target.number, -1, TRUE);
+	if (pixels)
+	{
+		*width = back_buffer->target.pixel_width;
+		*height = back_buffer->target.pixel_height;
+	}
+	return pixels;
+}
+
 void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destination_rectangle,
 	void *unused, void *unused2)
 {
@@ -5398,6 +5419,9 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		}
 		if (platform_screenshot_take_request())
 			write_key_screenshot(back_buffer);
+		/* (a menu picture's frame: kept, and not shown, the preparing
+		screen staying: port/linux/game/menu_pictures_render.c) */
+		if (!menu_pictures_frame_kept())
 		xgpu_backend_present(back_buffer->target.number);
 		memory_watch_begin_frame();
 		xgpu_backend_frame_end();

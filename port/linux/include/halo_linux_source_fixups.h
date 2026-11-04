@@ -40,6 +40,17 @@ void render_interpolation_frame_end(void);
 float render_interpolation_fraction(void);
 struct real_matrix4x3 *render_interpolation_object_node_matrices(long object_index);
 void render_interpolation_object_point(long object_index, union real_point3d *point);
+/* an object's origin and a unit's camera where a frame draws them, not
+mixed of the tick's state and the frame's (render_interpolation.c) */
+void render_interpolation_object_origin(long object_index, union real_point3d *origin);
+void render_interpolation_unit_camera_position(long unit_index, union real_point3d *position);
+/* a widget's shape (an antenna's chain, a cloth flag's grid), stepped in the
+tick, drawn between the ticks hung from its marker as drawn */
+void render_interpolation_shape_tick(unsigned long owner, long index, struct real_matrix4x3 const *anchor,
+	short count, union real_point3d const *points);
+void render_interpolation_shape_forget(unsigned long owner, long index);
+unsigned char render_interpolation_shape(unsigned long owner, long index, struct real_matrix4x3 const *anchor,
+	short count, union real_point3d *drawn);
 float const *render_interpolation_object_function_values(long object_index);
 union real_rgb_color const *render_interpolation_object_change_colors(long object_index);
 float render_interpolation_unit_camouflage(long unit_index, float *super_amount);

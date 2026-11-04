@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 12 (Longest)",
+ "scenario": "levels\\test\\longest\\longest",
+ "bsp": 0,
+ "aspect": 1.2488,
+ "pose": {
+  "x": 4.1793,
+  "y": -16.8911,
+  "z": 2.5865,
+  "yaw": 167.0013,
+  "pitch": -5.1913,
+  "roll": 0.2404,
+  "vfov": 50.4024
+ },
+ "prepare": [
+  "debug_camera_set \"12.65 -7.17 0.10 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.8551
+}

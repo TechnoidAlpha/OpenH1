@@ -412,13 +412,19 @@ class Art:
         """a <bitmap> of the ten digits, a frame each, set as the titles are
         (OpenCE, the titles' colour) at port_settings.DIGIT_CAP units high,
         each in the middle of a frame of one width: Multiplayer's panel's
-        counts (menu_functions.c's multiplayer_status_number)"""
+        counts (menu_functions.c's multiplayer_status_number). Smaller where
+        the widest digit would not fit the frame's width with a margin of
+        DIGIT_MARGIN either side (OpenCE's 6 and 9 at the cap's height are
+        wider than the frame: their sides were cut, #519)"""
         from PIL import ImageDraw, ImageFont
         scale = SCALE
         width, height = port_settings.DIGIT_SIZE
         probe = ImageFont.truetype(str(TITLE_FONT), 1000)
         left, top, right, bottom = probe.getbbox("0")
-        font = ImageFont.truetype(str(TITLE_FONT), round(port_settings.DIGIT_CAP * scale * 1000 / (bottom - top)))
+        widest = max(probe.getbbox(str(digit))[2] - probe.getbbox(str(digit))[0] for digit in range(10))
+        size = min(port_settings.DIGIT_CAP * scale * 1000 / (bottom - top),
+                   (width - 2 * port_settings.DIGIT_MARGIN) * scale * 1000 / widest)
+        font = ImageFont.truetype(str(TITLE_FONT), int(size))
         lines = [f"\t<bitmap{attributes([('name', name)])}>"]
         for digit in range(10):
             image = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))

@@ -9117,7 +9117,7 @@ static void multiplayer_status_read(void)
 
 /* the width of a digit of the counts (port_settings.DIGIT_SIZE), and how
 many places a count has */
-#define MULTIPLAYER_STATUS_DIGIT_WIDTH 24
+#define MULTIPLAYER_STATUS_DIGIT_WIDTH 26
 #define MULTIPLAYER_STATUS_DIGIT_PLACES 3
 #define MULTIPLAYER_STATUS_BEST_GAMES 3
 

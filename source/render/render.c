@@ -231,6 +231,10 @@ void render_initialize_for_new_map(
 	frames the menus and the loading drew before, as many as the loading
 	took, made two runs of one game differ */
 	render.frame_index = 0;
+	/* port: and no leaf of the map before's: a camera in no leaf is drawn
+	from the leaf it was last drawn in (structure_visibility_find_camera),
+	which in another map is any leaf, or none */
+	render.leaf_index = NONE;
 	/* port: preserve retail's energy-then-two-sided-glass compositing. */
 	models_fix_transparent_part_links();
 	render_objects_initialize_for_new_map();

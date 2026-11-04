@@ -1,0 +1,16 @@
+{
+ "picture": "ui.map sp_levels 04 (b40)",
+ "scenario": "levels\\b40\\b40",
+ "bsp": 0,
+ "aspect": 1.2041,
+ "pose": {
+  "x": 30.1946,
+  "y": -59.7916,
+  "z": 1.4405,
+  "yaw": 344.4291,
+  "pitch": 12.4262,
+  "roll": 1.3939,
+  "vfov": 62.327
+ },
+ "score": 0.7881
+}

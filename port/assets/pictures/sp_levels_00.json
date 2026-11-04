@@ -1,0 +1,16 @@
+{
+ "picture": "ui.map sp_levels 00 (a10)",
+ "scenario": "levels\\a10\\a10",
+ "bsp": 0,
+ "aspect": 1.2053,
+ "pose": {
+  "x": -52.978,
+  "y": 2.698,
+  "z": 0.6926,
+  "yaw": 232.2722,
+  "pitch": 7.1982,
+  "roll": 2.4327,
+  "vfov": 48.7642
+ },
+ "score": 0.7988
+}

@@ -101,6 +101,7 @@ symbols in this file:
 #include "bitmaps/bitmaps.h"
 #include "cache/cache_files.h"
 #include "cache/texture_cache.h"
+#include "menu_pictures.h" /* port: port/linux/game/menu_pictures_render.c */
 #include "cache/physical_memory_map.h"
 #include "interface/interface.h"
 #include "interface/terminal.h"
@@ -1170,7 +1171,8 @@ void *_texture_cache_bitmap_get_hardware_format(
 	/* port: a map's first frame, drawn through every shader, waits for each
 	texture it draws with: drawn without it, a draw is skipped or made
 	without its sampler (port/linux/game/render_enumerate.c) */
-	if (render_enumerating && load)
+	/* port: and a menu picture's frame (port/linux/game/menu_pictures_render.c) */
+	if ((render_enumerating || menu_pictures_textures_wait()) && load)
 	{
 		block = TRUE;
 	}

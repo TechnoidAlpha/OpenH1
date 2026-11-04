@@ -1746,8 +1746,11 @@ static void render_weapon_hud(
 				real delta_y;
 				real delta_z;
 
-				unit_get_camera_position(unit_index, &position);
-				object_get_origin(target_object_index, &target_position);
+				/* port: both where they are drawn
+				(port/linux/game/render_interpolation.c), the numbers
+				moving with the view, not a tick's step at a time */
+				render_interpolation_unit_camera_position(unit_index, &position);
+				render_interpolation_object_origin(target_object_index, &target_position);
 				delta_x = position.x - target_position.x;
 				delta_y = position.y - target_position.y;
 				delta_z = position.z - target_position.z;

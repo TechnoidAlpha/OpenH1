@@ -1,0 +1,17 @@
+{
+ "picture": "ui.map sp_levels 02 (a50)",
+ "scenario": "levels\\a50\\a50",
+ "bsp": 0,
+ "aspect": 1.1857,
+ "pose": {
+  "x": 39.1219,
+  "y": 41.3424,
+  "z": 104.625,
+  "yaw": 216.1512,
+  "pitch": 23.2013,
+  "roll": -0.9524,
+  "vfov": 64.1669
+ },
+ "colour": "curve",
+ "score": 0.7886
+}

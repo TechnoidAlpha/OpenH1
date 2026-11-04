@@ -93,9 +93,11 @@ static int xgpu_backend_loading_owned(void) { return 0; }
 static void halo_load_trace(const char *phase, const char *detail) {
     (void)phase; (void)detail;
 }
-static int scenes, fades, chanting, follows = -1, captions;
+static int scenes, fades, chanting, follows = -1, captions, preparing;
 /* (read before each loading screen takes the screen) */
 static void halo_loading_scene(void) { assert(scenes == epochs); scenes++; }
+/* (the menus' pictures being prepared: menu_pictures_render.c) */
+static int menu_pictures_preparing(void) { return preparing; }
 static void halo_loading_fade_begin(void) { fades++; }
 static void xgpu_backend_loading_progress(float progress) { (void)progress; }
 static void xgpu_backend_loading(int phase) { if (phase == 1) epochs++; }
@@ -153,6 +155,26 @@ int main(void) {
     storage = borrowed = 3;
     halo_loading_retire();
     assert(!borrowed && retired == 3);
+    /* while the menus' pictures are prepared: their pass's one loading
+    screen stays over each map's load, its old draws retired all the same,
+    and its progress sent as it changes (no game frame carries it) */
+    platform_window = 1;
+    halo_loading_screen_begin(1);
+    preparing = 1;
+    storage = borrowed = 4;
+    halo_loading_begin();
+    assert(!borrowed && retired == 4 && epochs == 3 && loading_presentation_active == 3);
+    {
+        int before = flushes;
+
+        halo_loading_screen_progress(0.5f, "Preparing menu pictures 4 of 11");
+        assert(flushes == before + 1);
+    }
+    halo_loading_end();
+    assert(loading_presentation_active == 3);
+    preparing = 0;
+    halo_loading_screen_end();
+    assert(!loading_presentation_active);
     return 0;
 }
 '''

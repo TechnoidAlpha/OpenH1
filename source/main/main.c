@@ -699,6 +699,12 @@ typedef char screenshot_and_framerate_globals_size_assert[
 void network_test_update(boolean main_menu_loaded, real seconds);
 /* port: port/linux/game/basic_training.c */
 void basic_training_update(boolean main_menu_loaded, real seconds);
+/* port: the menus' pictures drawn again from the player's maps, rendered
+by the game itself as the main menu first shows, under the loading screen:
+which frames it draws (port/linux/game/menu_pictures_render.c) */
+void menu_pictures_frame(int main_menu_loaded);
+int menu_pictures_preparing(void);
+int menu_pictures_frame_drawn(void);
 /* port: port/linux/game/network_distributed.c */
 void network_distributed_frame_received(void);
 int network_distributed_server_receive(long milliseconds);
@@ -1569,7 +1575,8 @@ static void main_new_map(
 static void main_change_map_name(
 	void)
 {
-	if (main_globals.main_menu_scenario_loaded == TRUE)
+	/* port: (none for the menus' pictures: menu_pictures_render.c) */
+	if (main_globals.main_menu_scenario_loaded == TRUE && !menu_pictures_preparing())
 	{
 		if (!main_globals.map_change_load_timer)
 		{
@@ -1621,8 +1628,10 @@ static void main_change_map_name(
 			game_unload();
 			main_new_map(&options);
 
+			/* port: (not a map of the menus' pictures: the player's last level
+			is as it was) */
 			for (local_player_index = 0;
-				local_player_index < player_spawn_count;
+				local_player_index < player_spawn_count && !menu_pictures_preparing();
 				local_player_index++)
 			{
 				player_profile_save_last_level_played(local_player_index);
@@ -1909,7 +1918,8 @@ void main_save_current_solo_map(
 {
 	FILE *file;
 
-	if ((short)main_get_solo_level_from_name(map_name) != NONE)
+	/* port: (not a map of the menus' pictures: menu_pictures_render.c) */
+	if ((short)main_get_solo_level_from_name(map_name) != NONE && !menu_pictures_preparing())
 	{
 		file = fopen("z:\\last_solo.txt", "w");
 		if (file)
@@ -2495,6 +2505,52 @@ void main_set_map_name(
 	main_globals.allow_persistent_storage = TRUE;
 	if ((game_in_editor() || game_in_progress()) && main_globals.connection == _game_connection_local)
 		main_globals.defer_map_change = TRUE;
+	return;
+}
+
+/* port: a map loaded for the menus' pictures (port/linux/game/
+menu_pictures_render.c): as map_name loads one, at the next frame's start,
+but with no fade (main_change_map_name), at normal difficulty, and nothing
+of the player's read (their saved game) or written (their last level, last
+solo map: game.c, checkpoints: main_menu_pictures_hold) */
+static short main_menu_pictures_difficulty = NONE;
+
+void main_menu_pictures_map(
+	char const *map_name)
+{
+	main_set_map_name(map_name);
+	main_globals.allow_persistent_storage = FALSE;
+	if (main_menu_pictures_difficulty == NONE)
+		main_menu_pictures_difficulty = global_difficulty_level;
+	global_difficulty_level = _game_difficulty_level_normal;
+	return;
+}
+
+/* port: ...and then the main menu, at the player's difficulty */
+void main_menu_pictures_end(
+	void)
+{
+	if (main_menu_pictures_difficulty != NONE)
+		global_difficulty_level = main_menu_pictures_difficulty;
+	main_menu_pictures_difficulty = NONE;
+	main_goto_main_menu();
+	return;
+}
+
+/* port: while the menus' pictures are rendered, nothing a map's scripts
+ask of the game as a whole: no checkpoint saved or gone back to, no level
+won or lost, no core saved or loaded */
+static void main_menu_pictures_hold(
+	void)
+{
+	main_globals.saving_map = FALSE;
+	main_globals.save_map_completed = FALSE;
+	main_globals.won_map = FALSE;
+	main_globals.lost_map = FALSE;
+	main_globals.respawn = FALSE;
+	main_globals.revert_map = FALSE;
+	main_globals.save_core = FALSE;
+	main_globals.load_core = FALSE;
 	return;
 }
 
@@ -3598,6 +3654,10 @@ void main_loop(
 		}
 		else if (!game_in_editor())
 		{
+			/* port: (port/linux/game/menu_pictures_render.c) */
+			if (menu_pictures_preparing())
+				main_menu_pictures_hold();
+
 			if (main_globals.switch_to_structure_bsp_index!=NONE)
 			{
 				main_switch_to_structure_bsp_private();
@@ -3711,6 +3771,11 @@ void main_loop(
 			/* port: Basic Training's game started, its skip buttons
 			(port/linux/game/basic_training.c) */
 			basic_training_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
+			/* port: the menus' pictures (port/linux/game/menu_pictures_render.c) */
+			menu_pictures_frame(main_globals.main_menu_scenario_loaded);
+			/* (and what its ticks' scripts asked meanwhile) */
+			if (menu_pictures_preparing())
+				main_menu_pictures_hold();
 			/* port: a dedicated server's hosting, rotation and commands
 			(port/linux/game/server_director.c) */
 			server_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
@@ -3889,6 +3954,10 @@ void main_loop(
 					if (halo_interpolation_enabled())
 						render_frame = main_globals.main_menu_scenario_loaded || main_globals.halt_time_scale;
 					render_frame &= !game_engine_running() || game_time_get()>=3;
+					/* port: while the menus' pictures are rendered, only the frames
+					kept (menu_pictures_render.c) */
+					if (menu_pictures_preparing())
+						render_frame = menu_pictures_frame_drawn();
 
 					profile_scope_enter(main_non_deterministic_update_section)
 					collision_log_continue_period(1);
@@ -3931,7 +4000,8 @@ void main_loop(
 				profile_render_end();
 			}
 
-			if (!halo_server_mode() && !frames_unseen)
+			/* port: (none for a frame not drawn: menu_pictures_render.c) */
+			if (!halo_server_mode() && !frames_unseen && menu_pictures_frame_drawn())
 				profile_scope(main_throttle_section, main_rasterizer_throttle();)
 
 			if (render_frame && !debug_no_drawing && !frames_undrawn)

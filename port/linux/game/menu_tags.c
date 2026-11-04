@@ -82,6 +82,7 @@ char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
 boolean pc_menu_scaled_frame_at(unsigned long address, long width, long height);
+boolean pc_menu_map_frame_at(unsigned long address, long width, long height, long *tag_index, long *frame);
 
 /* ---------- constants */
 
@@ -254,6 +255,9 @@ struct menu_frame_placement
 	struct bitmap_data const *bitmap;
 	short x, y;
 	short width, height;
+	/* the map's bitmap and frame it is a copy of (menu_pictures_render.c) */
+	long source_tag_index;
+	long source_frame;
 };
 
 /* a widget's wide layout (its wide attribute): how far it moves (and what
@@ -1288,6 +1292,8 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 					placements[menu_tags.placement_count].y = (short)PIN(data->y, -2048, 2048);
 					placements[menu_tags.placement_count].width = (short)data->width;
 					placements[menu_tags.placement_count].height = (short)data->height;
+					placements[menu_tags.placement_count].source_tag_index = group_index;
+					placements[menu_tags.placement_count].source_frame = data->index;
 					menu_tags.placement_count++;
 				}
 			}
@@ -2777,6 +2783,33 @@ boolean pc_menu_scaled_frame_at(
 		if (bitmap->base_address && (unsigned long)bitmap->base_address == address && bitmap->width == width &&
 			bitmap->height == height)
 		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* the frame of a map's bitmap that a menu file scales whose texture is at
+this address, this size, loaded: its bitmap's tag and its index there
+(menu_pictures_render.c: the menus' pictures drawn again) */
+boolean pc_menu_map_frame_at(
+	unsigned long address,
+	long width,
+	long height,
+	long *tag_index,
+	long *frame)
+{
+	long index;
+
+	for (index = 0; index < menu_tags.placement_count; index++)
+	{
+		struct bitmap_data const *bitmap = menu_tags.placements[index].bitmap;
+
+		if (bitmap->base_address && (unsigned long)bitmap->base_address == address && bitmap->width == width &&
+			bitmap->height == height)
+		{
+			*tag_index = menu_tags.placements[index].source_tag_index;
+			*frame = menu_tags.placements[index].source_frame;
 			return TRUE;
 		}
 	}

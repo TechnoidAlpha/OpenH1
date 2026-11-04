@@ -1,0 +1,17 @@
+{
+ "picture": "ui.map sp_levels 07 (c40)",
+ "scenario": "levels\\c40\\c40",
+ "bsp": 2,
+ "aspect": 1.1919,
+ "pose": {
+  "x": 358.6052,
+  "y": -703.1053,
+  "z": 74.8211,
+  "yaw": 270.3839,
+  "pitch": 20.3083,
+  "roll": 1.1524,
+  "vfov": 60.7502
+ },
+ "colour": "curve",
+ "score": 0.5645
+}
