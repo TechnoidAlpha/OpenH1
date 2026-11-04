@@ -114,6 +114,15 @@ static void queue_title(real up_time, real fade_out_time)
 	titles[0].justification = _cinematic_title_justified_right;
 }
 
+/* one frame: the draws it made */
+static long frame(void)
+{
+	draws = 0;
+	ticks++;
+	cinematic_render();
+	return draws;
+}
+
 /* a title (a10's chapter titles' bounds, 0-597, at a justification) drawn once on a screen that wide: its bounds */
 static rectangle2d drawn_at(short width, short justification)
 {
@@ -124,15 +133,6 @@ static rectangle2d drawn_at(short width, short justification)
 	screen_width = width;
 	CHECK(frame() == 1, "the title was not drawn");
 	return drawn_bounds;
-}
-
-/* one frame: the draws it made */
-static long frame(void)
-{
-	draws = 0;
-	ticks++;
-	cinematic_render();
-	return draws;
 }
 
 int main(int argc, char **argv)
