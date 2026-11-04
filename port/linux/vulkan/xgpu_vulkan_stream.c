@@ -2534,10 +2534,12 @@ static void stream_visibility_end(void *context, const struct xgpu_stream_visibi
 	samples one of them is) */
 #ifdef HALO_VR
 	if (host_vulkan_vr_active() && stream.capabilities.fragment_stores)
-		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->views > 1 ? record->views : 1));
+		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->views > 1 ? record->views : 1),
+			record->test);
 	else
 #endif
-		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1));
+		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1),
+			record->test);
 	stream.uniforms_dirty = 1;
 }
 

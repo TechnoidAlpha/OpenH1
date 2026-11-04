@@ -351,13 +351,18 @@ struct query_frame
 	uint32_t count;
 	uint16_t slots[QUERIES_A_FRAME];
 	float areas[QUERIES_A_FRAME];
-	/* the test each query is of (a test of several passes: several) */
+	/* the test each query is of (a test of several passes: several), and
+	the game's number for it */
 	uint32_t tests[QUERIES_A_FRAME];
-	/* the slots of tests that drew in no pass (a count of 0) */
+	uint32_t numbers[QUERIES_A_FRAME];
+	/* the slots of tests that drew in no pass (a count of 0), and their
+	numbers */
 	uint16_t empty[QUERIES_A_FRAME];
+	uint32_t empty_numbers[QUERIES_A_FRAME];
 	uint32_t empty_count;
 	uint16_t counter_slots[XGPU_VULKAN_VISIBILITY_SLOTS];
 	float counter_areas[XGPU_VULKAN_VISIBILITY_SLOTS];
+	uint32_t counter_numbers[XGPU_VULKAN_VISIBILITY_SLOTS];
 	uint32_t counter_count;
 	/* the submission that ends the frame (0: the frame is being recorded),
 	and the frame's number */
@@ -1777,6 +1782,8 @@ static void queries_publish(uint64_t last)
 	static float areas[XGPU_VULKAN_VISIBILITY_SLOTS];
 	static uint32_t tests[XGPU_VULKAN_VISIBILITY_SLOTS];
 	static uint8_t seen[XGPU_VULKAN_VISIBILITY_SLOTS];
+	/* the game's number for the test each slot's count is of */
+	static uint32_t numbers[XGPU_VULKAN_VISIBILITY_SLOTS];
 
 	for (;;)
 	{
@@ -1810,6 +1817,7 @@ static void queries_publish(uint64_t last)
 				sums[slot] = 0;
 				areas[slot] = 1.0f;
 				tests[slot] = 0;
+				numbers[slot] = frame->empty_numbers[query];
 			}
 		}
 		if (frame->count)
@@ -1832,6 +1840,7 @@ static void queries_publish(uint64_t last)
 					}
 					sums[slot] += results[query];
 					areas[slot] = frame->areas[query];
+					numbers[slot] = frame->numbers[query];
 				}
 			}
 			free(results);
@@ -1849,6 +1858,7 @@ static void queries_publish(uint64_t last)
 			seen[slot] = 1;
 			sums[slot] = ((volatile uint32_t *)vk.samples->mapped)[base + query];
 			areas[slot] = frame->counter_areas[query];
+			numbers[slot] = frame->counter_numbers[query];
 		}
 		if (vk.visibility_output)
 		{
@@ -1863,6 +1873,9 @@ static void queries_publish(uint64_t last)
 				count = areas[query] > 1.0f ? (uint64_t)((float)sums[query] / areas[query] + 0.5f) : sums[query];
 				vk.visibility_output[query] = count < XGPU_VULKAN_VISIBILITY_MOST ? (uint32_t)count :
 					XGPU_VULKAN_VISIBILITY_MOST;
+				/* (the test's number after its count: xgpu_stream.h) */
+				__atomic_store_n(&vk.visibility_output[XGPU_VULKAN_VISIBILITY_SLOTS + query], numbers[query],
+					__ATOMIC_RELEASE);
 			}
 		}
 		frame->count = 0;
@@ -1976,7 +1989,7 @@ void xgpu_vulkan_visibility_begin(void)
 		test_query_begin();
 }
 
-void xgpu_vulkan_visibility_end(uint32_t slot, float area)
+void xgpu_vulkan_visibility_end(uint32_t slot, float area, uint32_t number)
 {
 	uint32_t index;
 
@@ -1989,6 +2002,7 @@ void xgpu_vulkan_visibility_end(uint32_t slot, float area)
 		if (frame && frame->counter_count < XGPU_VULKAN_VISIBILITY_SLOTS)
 		{
 			frame->counter_slots[frame->counter_count] = (uint16_t)slot;
+			frame->counter_numbers[frame->counter_count] = number;
 			frame->counter_areas[frame->counter_count++] = area;
 		}
 		vk.test_active = 0;
@@ -2002,7 +2016,10 @@ void xgpu_vulkan_visibility_end(uint32_t slot, float area)
 		struct query_frame *frame = queries_current();
 
 		if (frame && frame->empty_count < QUERIES_A_FRAME)
+		{
+			frame->empty_numbers[frame->empty_count] = number;
 			frame->empty[frame->empty_count++] = (uint16_t)slot;
+		}
 		vk.test_active = 0;
 		return;
 	}
@@ -2014,6 +2031,7 @@ void xgpu_vulkan_visibility_end(uint32_t slot, float area)
 		{
 			vk.queries->slots[vk.test_queries[index] + view] = (uint16_t)slot;
 			vk.queries->areas[vk.test_queries[index] + view] = area;
+			vk.queries->numbers[vk.test_queries[index] + view] = number;
 		}
 	}
 	vk.test_active = 0;

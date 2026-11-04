@@ -201,6 +201,10 @@ flag keep_ends) */
 unsigned char ui_widget_port_keep_ends(long flags);
 /* the screen's pixels to the Xbox's one (port/linux/src/d3d8_device.c) */
 float halo_screen_scale(void);
+/* the number of the last visibility test ended (D3DDevice_EndVisibilityTest;
+0: none), which D3DDevice_GetVisibilityTestResult gives as the time stamp
+of the test a slot's count is of (port/linux/src/d3d8_device.c) */
+unsigned long d3d8_visibility_test_number(void);
 /* takes up a new width between frames (F11); returns the width */
 long halo_screen_commit(void);
 /* the shadow maps' pixels for each of their 128 texels each way, a power of

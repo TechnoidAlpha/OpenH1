@@ -541,10 +541,13 @@ void xgpu_vulkan_visibility_count_samples(int enabled);
 uint32_t xgpu_vulkan_visibility_counter(void);
 VkFormat xgpu_vulkan_depth_format(void);
 /* area: the samples a pixel of the game's is, which the count written for
-the game is divided by */
-void xgpu_vulkan_visibility_end(uint32_t slot, float area);
+the game is divided by; number: the game's number for the test, written
+with its count */
+void xgpu_vulkan_visibility_end(uint32_t slot, float area, uint32_t number);
 /* where each slot's latest count is written, divided by its area (a count
-of the game's pixels, as the game reads it; any thread) */
+of the game's pixels, as the game reads it; any thread), then, after
+XGPU_VULKAN_VISIBILITY_SLOTS counts, the number of the test each count is
+of, written after the count (a release store: xgpu_stream.h) */
 void xgpu_vulkan_set_visibility_output(volatile uint32_t *counts);
 #define XGPU_VULKAN_VISIBILITY_SLOTS 4096
 /* the largest count written (the game halts on a negative one:

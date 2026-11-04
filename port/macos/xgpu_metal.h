@@ -499,13 +499,16 @@ passes the tests) for the test's slot (0 to 4095), which end names; the
 count is known when the frame is finished */
 void xgpu_metal_visibility_begin(void);
 /* area: the samples a pixel of the game's is (the target's scale, its
-samples, its views), which the count written for the game is divided by */
-void xgpu_metal_visibility_end(uint32_t slot, float area);
+samples, its views), which the count written for the game is divided by;
+number: the game's number for the test, written with its count */
+void xgpu_metal_visibility_end(uint32_t slot, float area, uint32_t number);
 /* a slot's latest count of samples and the frame it is from (0: none yet;
 any thread) */
 uint64_t xgpu_metal_visibility_result(uint32_t slot, uint32_t *samples);
 /* where each slot's latest count is also written, divided by its area: a
-count of the game's pixels, as the game reads it (any thread) */
+count of the game's pixels, as the game reads it (any thread); then, after
+XGPU_METAL_VISIBILITY_SLOTS counts, the number of the test each count is of,
+written after the count (a release store: xgpu_stream.h) */
 void xgpu_metal_set_visibility_output(volatile uint32_t *counts);
 #define XGPU_METAL_VISIBILITY_SLOTS 4096
 /* the largest count (the game halts on a negative one: xgpu_backend.h,
