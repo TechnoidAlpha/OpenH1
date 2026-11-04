@@ -364,6 +364,10 @@ int main(int argc, char **argv)
 		record = network_standard_game_for_machine(&server.game, TRUE);
 		memcpy(&legacy, &server.game, sizeof(legacy));
 		legacy.standard_rate = 0;
+		/* (and no word of how the host's players pick up a second weapon) */
+		CHECK(TEST_FLAG(server.game.cooperative_flags, _network_game_hold_to_pick_up_bit),
+			"the record does not say hold to pick up");
+		SET_FLAG(legacy.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
 		CHECK(!memcmp(record, &legacy, sizeof(legacy)), "an OpenCE machine's record is not a Legacy host's");
 		CHECK(server.game.standard_rate == 60, "the game's own record changed");
 		return 0;
