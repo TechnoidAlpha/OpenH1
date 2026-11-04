@@ -74,9 +74,58 @@ then takes to fade out, in nanoseconds */
 /* and how long it takes to come up as a load begins, in nanoseconds */
 #define LOADING_ART_SCENE_FADE_NS UINT64_C(400000000)
 
+/* The sharp frame (loading_art_hd): on a screen of more than this many rows
+ * the scene and the sweep's light are drawn at the screen's own rows (at
+ * most LOADING_ART_HD_MAXIMUM_HEIGHT, and LOADING_ART_HD_BUDGET pixels in
+ * all, the processor drawing each of them each frame), over the 480 rows'
+ * trail. */
+#define LOADING_ART_HD_MINIMUM_HEIGHT 540
+#define LOADING_ART_HD_MAXIMUM_HEIGHT 2160
+#define LOADING_ART_HD_MAXIMUM_WIDTH (LOADING_ART_HD_MAXIMUM_HEIGHT * 1152 / 480)
+#ifndef LOADING_ART_HD_BUDGET
+#define LOADING_ART_HD_BUDGET (1920u * 1080u)
+#endif
+
 struct loading_art_axis
 {
 	uint16_t index[3], weight[3];
+};
+
+/* The sharp frame: the scene drawn once a load at the screen's rows (its
+ * colour between the sweeps; what the sweep lights of it, but for the glint
+ * of the sweep's light, which moves), and each frame the 480 rows' trail
+ * scaled up to it, with the sweep's light added at its own pixels. */
+struct loading_art_hd
+{
+	/* its size (0: none, the 480 rows are shown), and whether its still
+	layers are drawn for this load */
+	unsigned int width, height, built;
+	size_t capacity;
+	/* the scene as shown between the sweeps (or the picture, without one) */
+	uint8_t *scene;
+	/* what the sweep lights of it: the light of its tone and etching, its
+	edges (for the glint), its hue in the band and whether it is a white
+	speck (loading_art_scene_draw's) */
+	uint16_t *light;
+	uint8_t *edge, *tint;
+	uint8_t *output;
+	/* the words, at the sharp frame's pixels: their box, and in it each
+	pixel's coverage and colour */
+	unsigned int word_left, word_top, word_right, word_bottom;
+	uint8_t *word;
+	/* the 480 rows' trail (the history before each step's light is added),
+	the last two steps', and between them for a frame */
+	uint8_t *trail[2], *mix;
+	/* the 480 rows' column each sharp column reads, and its fraction, of
+	256; the sweep's mask's column and fraction this frame */
+	uint16_t *column;
+	uint8_t *column_fraction;
+	int16_t *mask_column;
+	uint8_t *mask_fraction;
+	/* two of the 480 rows scaled across (trail's red, green, blue and the
+	glint, of 256), for the sharp rows between them */
+	uint16_t *rows[2];
+	int row_tags[2];
 };
 
 struct loading_art
@@ -116,6 +165,9 @@ struct loading_art
 	uint32_t histogram[256];
 	uint8_t tone[256], tints[LOADING_ART_TINTS][256][3];
 	unsigned int histogram_valid, tone_valid;
+	/* the sharp frame, and the size of what the last render gave */
+	struct loading_art_hd hd;
+	unsigned int output_width, output_height;
 };
 
 /* Average bilinear samples at +/-0.1 pixels. Two such axes are the four
@@ -366,8 +418,11 @@ static inline void loading_art_set(struct loading_art *art, const uint8_t *rgba)
 {
 	unsigned int stereo = art->stereo, width = art->width;
 	struct loading_ring ring = art->ring;
+	struct loading_art_hd hd = art->hd;
 	memset(art, 0, sizeof(*art));
 	art->ring = ring;
+	art->hd = hd;
+	art->hd.built = 0;
 	art->stereo = stereo;
 	art->width = width >= LOADING_ART_WIDTH && width <= LOADING_ART_FRAME_MAXIMUM_WIDTH ? width : LOADING_ART_WIDTH;
 	loading_art_axes(art);
@@ -379,6 +434,83 @@ static inline void loading_art_set(struct loading_art *art, const uint8_t *rgba)
 	loading_art_text(art, rgba);
 	loading_art_histogram(art, rgba);
 	art->valid = 1;
+}
+
+static inline void loading_art_hd_free(struct loading_art *art)
+{
+	struct loading_art_hd *hd = &art->hd;
+	free(hd->scene);
+	free(hd->light);
+	free(hd->edge);
+	free(hd->tint);
+	free(hd->output);
+	free(hd->word);
+	free(hd->trail[0]);
+	free(hd->trail[1]);
+	free(hd->mix);
+	free(hd->column);
+	free(hd->column_fraction);
+	free(hd->mask_column);
+	free(hd->mask_fraction);
+	free(hd->rows[0]);
+	free(hd->rows[1]);
+	memset(hd, 0, sizeof(*hd));
+}
+
+/* The sharp frame for a screen `screen_rows` high, the 480 rows' frame
+ * being art->width wide: as many rows as the screen's (within the budget),
+ * of the 480 rows' shape; none on a screen of few more rows than 480, or
+ * VR's window, or without the memory. */
+static inline void loading_art_hd_size(struct loading_art *art, unsigned int screen_rows)
+{
+	struct loading_art_hd *hd = &art->hd;
+	unsigned int height = 0, width = 0;
+	if (!art->stereo && screen_rows > LOADING_ART_HD_MINIMUM_HEIGHT)
+	{
+		height = screen_rows < LOADING_ART_HD_MAXIMUM_HEIGHT ? screen_rows : LOADING_ART_HD_MAXIMUM_HEIGHT;
+		width = (unsigned int)((uint64_t)art->width * height / LOADING_ART_FRAME_HEIGHT);
+		if ((uint64_t)width * height > LOADING_ART_HD_BUDGET)
+		{
+			height = (unsigned int)sqrt((double)LOADING_ART_HD_BUDGET * LOADING_ART_FRAME_HEIGHT / art->width);
+			width = (unsigned int)((uint64_t)art->width * height / LOADING_ART_FRAME_HEIGHT);
+		}
+		width &= ~1u;
+		height &= ~1u;
+		if (height <= LOADING_ART_HD_MINIMUM_HEIGHT)
+			width = height = 0;
+	}
+	if (width == hd->width && height == hd->height)
+		return;
+	hd->built = 0;
+	if ((size_t)width * height > hd->capacity)
+	{
+		size_t pixels = (size_t)width * height;
+		loading_art_hd_free(art);
+		hd->scene = malloc(pixels * 3);
+		hd->light = malloc(pixels * sizeof(uint16_t));
+		hd->edge = malloc(pixels);
+		hd->tint = malloc(pixels);
+		hd->output = malloc(pixels * 4);
+		hd->trail[0] = calloc(LOADING_ART_FRAME_MAXIMUM_PIXELS, 3);
+		hd->trail[1] = calloc(LOADING_ART_FRAME_MAXIMUM_PIXELS, 3);
+		hd->mix = malloc(LOADING_ART_FRAME_MAXIMUM_PIXELS * 3);
+		hd->column = malloc(LOADING_ART_HD_MAXIMUM_WIDTH * sizeof(uint16_t));
+		hd->column_fraction = malloc(LOADING_ART_HD_MAXIMUM_WIDTH);
+		hd->mask_column = malloc(LOADING_ART_HD_MAXIMUM_WIDTH * sizeof(int16_t));
+		hd->mask_fraction = malloc(LOADING_ART_HD_MAXIMUM_WIDTH);
+		hd->rows[0] = malloc(LOADING_ART_HD_MAXIMUM_WIDTH * 4 * sizeof(uint16_t));
+		hd->rows[1] = malloc(LOADING_ART_HD_MAXIMUM_WIDTH * 4 * sizeof(uint16_t));
+		if (!hd->scene || !hd->light || !hd->edge || !hd->tint || !hd->output || !hd->trail[0] ||
+			!hd->trail[1] || !hd->mix || !hd->column || !hd->column_fraction || !hd->mask_column ||
+			!hd->mask_fraction || !hd->rows[0] || !hd->rows[1])
+		{
+			loading_art_hd_free(art);
+			return;
+		}
+		hd->capacity = pixels;
+	}
+	hd->width = width;
+	hd->height = height;
 }
 
 /* The frame's width for a screen `screen_width` by `screen_height`: as wide
@@ -393,16 +525,21 @@ static inline void loading_art_width(struct loading_art *art, unsigned int scree
 		width = LOADING_ART_WIDTH;
 	if (width > LOADING_ART_FRAME_MAXIMUM_WIDTH)
 		width = LOADING_ART_FRAME_MAXIMUM_WIDTH;
-	if (width == art->width)
-		return;
-	art->width = width;
-	loading_art_axes(art);
-	if (art->valid)
+	if (width != art->width)
 	{
-		loading_art_color(art);
-		loading_art_text(art, art->picture);
+		art->width = width;
+		loading_art_axes(art);
+		if (art->valid)
+		{
+			loading_art_color(art);
+			loading_art_text(art, art->picture);
+		}
+		art->started = 0;
+		art->hd.built = 0;
+		art->hd.width = art->hd.height = 0;
 	}
-	art->started = 0;
+	/* (and the sharp frame, at the screen's rows) */
+	loading_art_hd_size(art, screen_height);
 }
 
 /* The menu's scene (loading_scene.h) to draw in the picture's place; NULL
@@ -410,6 +547,7 @@ static inline void loading_art_width(struct loading_art *art, unsigned int scree
 static inline int loading_art_scene(struct loading_art *art, const void *data, size_t bytes)
 {
 	int valid = loading_ring_set(&art->ring, data, bytes);
+	art->hd.built = 0;
 	if (art->width < LOADING_ART_WIDTH || art->width > LOADING_ART_FRAME_MAXIMUM_WIDTH)
 		art->width = LOADING_ART_WIDTH;
 	loading_art_axes(art);
@@ -426,6 +564,9 @@ static inline void loading_art_stereo(struct loading_art *art, unsigned int ster
 	{
 		art->stereo = stereo;
 		art->started = 0;
+		/* (VR's window: no sharp frame) */
+		if (stereo)
+			art->hd.width = art->hd.height = art->hd.built = 0;
 		/* (VR's window: the menus' 640) */
 		if (stereo && art->width != LOADING_ART_WIDTH)
 		{
@@ -660,6 +801,8 @@ static inline void loading_art_step(struct loading_art *art, unsigned int phase)
 	const struct loading_art_axis *ay;
 	const uint8_t *source = art->ring.valid ? art->feed : art->color;
 	const uint32_t *rows[3];
+	/* (the trail before the light is added, for the sharp frame) */
+	uint8_t *trail = art->hd.built ? art->hd.trail[art->current ^ 1] : NULL;
 	fade = phase <= 216 ? 216 : (240 - phase) * 9;
 	brightness = loading_art_brightness[phase];
 	memset(art->row_tags, 0, sizeof(art->row_tags));
@@ -705,6 +848,8 @@ static inline void loading_art_step(struct loading_art *art, unsigned int phase)
 				 * not use the near-white diffuse RGB supplied by the draw. */
 				value = (unsigned int)(((uint64_t)sum[channel] * fade + UINT64_C(503316480)) /
 					UINT64_C(1006632960));
+				if (trail)
+					trail[pixel * 3 + channel] = (uint8_t)(value < 255 ? value : 255);
 				value += (source[pixel * 3 + channel] * brightness * mask + 32512) / 65025;
 				output[pixel * 4 + channel] = (uint8_t)(value < 255 ? value : 255);
 			}
@@ -764,6 +909,337 @@ static inline void loading_art_compose(struct loading_art *art, const uint8_t *p
 	}
 }
 
+/* ---------- the sharp frame */
+
+/* The picture (640x480 RGBA) at a point of it, in its pixels (their middles
+ * at whole numbers): Catmull-Rom's cubic each way, edges clamped, so that
+ * the words and the picture scaled up stay crisp. */
+static inline void loading_art_picture_sample(const uint8_t *picture, float x, float y, uint8_t *rgb)
+{
+	int ix = (int)floorf(x), iy = (int)floorf(y), i, j, channel;
+	float fx = x - (float)ix, fy = y - (float)iy, wx[4], wy[4];
+	float sum[3] = { 0.0f, 0.0f, 0.0f };
+	wx[0] = ((-0.5f * fx + 1.0f) * fx - 0.5f) * fx;
+	wx[1] = (1.5f * fx - 2.5f) * fx * fx + 1.0f;
+	wx[2] = ((-1.5f * fx + 2.0f) * fx + 0.5f) * fx;
+	wx[3] = (0.5f * fx - 0.5f) * fx * fx;
+	wy[0] = ((-0.5f * fy + 1.0f) * fy - 0.5f) * fy;
+	wy[1] = (1.5f * fy - 2.5f) * fy * fy + 1.0f;
+	wy[2] = ((-1.5f * fy + 2.0f) * fy + 0.5f) * fy;
+	wy[3] = (0.5f * fy - 0.5f) * fy * fy;
+	for (j = 0; j < 4; j++)
+	{
+		int row = iy - 1 + j;
+		row = row < 0 ? 0 : row >= LOADING_ART_HEIGHT ? LOADING_ART_HEIGHT - 1 : row;
+		for (i = 0; i < 4; i++)
+		{
+			int column = ix - 1 + i;
+			const uint8_t *p;
+			float weight = wx[i] * wy[j];
+			column = column < 0 ? 0 : column >= LOADING_ART_WIDTH ? LOADING_ART_WIDTH - 1 : column;
+			p = picture + (row * LOADING_ART_WIDTH + column) * 4;
+			for (channel = 0; channel < 3; channel++)
+				sum[channel] += weight * (float)p[channel];
+		}
+	}
+	for (channel = 0; channel < 3; channel++)
+		rgb[channel] = (uint8_t)(sum[channel] <= 0.0f ? 0 : sum[channel] >= 255.0f ? 255 : (int)(sum[channel] + 0.5f));
+}
+
+/* The sharp frame's still layers, once a load (after its first step: the
+ * scene's brightness matched then): the scene drawn at the sharp frame's
+ * size, coloured and etched as loading_art_scene_draw colours the 480 rows,
+ * with the words, from the picture, over it; or, without a scene, the
+ * picture scaled to cover it. 0 if it cannot be (no memory). */
+static inline int loading_art_hd_build(struct loading_art *art)
+{
+	struct loading_art_hd *hd = &art->hd;
+	unsigned int width = hd->width, height = hd->height, x, y;
+	unsigned int middle = loading_art_middle(art);
+	/* (the 480 rows' pixels a sharp pixel is, each way) */
+	float across = (float)art->width / (float)width, down = (float)LOADING_ART_FRAME_HEIGHT / (float)height;
+	for (x = 0; x < width; x++)
+	{
+		/* (the 480 rows' column, in 256ths, of the sharp column's middle) */
+		int source = (int)(((2 * x + 1) * (uint64_t)art->width * 128) / width) - 128;
+		if (source < 0)
+			source = 0;
+		if (source >= (int)(art->width - 1) * 256)
+			source = (int)(art->width - 1) * 256 - 1;
+		hd->column[x] = (uint16_t)(source >> 8);
+		hd->column_fraction[x] = (uint8_t)(source & 255);
+	}
+	hd->word_left = hd->word_top = hd->word_right = hd->word_bottom = 0;
+	if (art->ring.valid)
+	{
+		struct loading_ring_frame frame;
+		const uint32_t *pixels;
+		memset(&frame, 0, sizeof(frame));
+		loading_ring_frame_swap(&art->ring, &frame);
+		pixels = loading_ring_draw(&art->ring, width, height, 0.0f, NULL, (float)width * 0.5f);
+		if (!pixels)
+		{
+			loading_ring_frame_swap(&art->ring, &frame);
+			loading_ring_frame_free(&frame);
+			return 0;
+		}
+		for (y = 0; y < height; y++)
+			for (x = 0; x < width; x++)
+			{
+				unsigned int pixel = y * width + x, value = pixels[pixel];
+				int level = (int)art->tone[loading_art_luminance(value & 255, (value >> 8) & 255, (value >> 16) & 255)];
+				int edge = 0, white = 0, light;
+				unsigned int tint;
+				if (x > 0 && y > 0 && x + 1 < width && y + 1 < height)
+				{
+					const uint32_t *p = pixels + pixel;
+					int gx = (int)((p[1] >> 8) & 255) - (int)((p[-1] >> 8) & 255);
+					int gy = (int)((p[width] >> 8) & 255) - (int)((p[-(int)width] >> 8) & 255);
+					edge = (gx < 0 ? -gx : gx) + (gy < 0 ? -gy : gy);
+				}
+				tint = loading_art_tint(value, edge, &level, &white);
+				memcpy(hd->scene + pixel * 3, art->tints[tint][level + edge > 255 ? 255 : level + edge], 3);
+				light = (level * LOADING_ART_FEED_TONE + edge * LOADING_ART_FEED_EDGE) / 16;
+				hd->light[pixel] = (uint16_t)(light < 65535 ? light : 65535);
+				hd->edge[pixel] = (uint8_t)(edge < 192 ? edge : 192);
+				hd->tint[pixel] = (uint8_t)(tint | (white ? 128u : 0u));
+			}
+		/* (the small frame's buffers back; the sharp one's given up) */
+		loading_ring_frame_swap(&art->ring, &frame);
+		loading_ring_frame_free(&frame);
+		/* the words: the picture's own, sampled at the sharp pixels in the
+		box they are drawn in (and a pixel about it) */
+		if (art->text_valid)
+		{
+			unsigned int left = (unsigned int)((float)(LOADING_ART_TEXT_LEFT + middle) / across) - 1;
+			unsigned int right = (unsigned int)((float)(LOADING_ART_TEXT_RIGHT + middle) / across) + 2;
+			unsigned int top = (unsigned int)((float)LOADING_ART_TEXT_TOP / down) - 1;
+			unsigned int bottom = (unsigned int)((float)LOADING_ART_TEXT_BOTTOM / down) + 2;
+			uint8_t *word;
+			right = right < width ? right : width;
+			bottom = bottom < height ? bottom : height;
+			free(hd->word);
+			hd->word = word = malloc((size_t)(right - left) * (bottom - top) * 4);
+			if (word)
+			{
+				hd->word_left = left;
+				hd->word_top = top;
+				hd->word_right = right;
+				hd->word_bottom = bottom;
+				for (y = top; y < bottom; y++)
+					for (x = left; x < right; x++, word += 4)
+					{
+						float px = ((float)x + 0.5f) * across - 0.5f - (float)middle;
+						float py = ((float)y + 0.5f) * down - 0.5f;
+						unsigned int pixel = y * width + x, blue, channel;
+						word[0] = 0;
+						if (px < (float)LOADING_ART_TEXT_LEFT - 0.5f || px > (float)LOADING_ART_TEXT_RIGHT - 0.5f ||
+							py < (float)LOADING_ART_TEXT_TOP - 0.5f || py > (float)LOADING_ART_TEXT_BOTTOM - 0.5f)
+							continue;
+						loading_art_picture_sample(art->picture, px, py, word + 1);
+						blue = word[3];
+						word[0] = (uint8_t)(blue <= 130 ? 0 : blue >= 210 ? 255 : (blue - 130) * 255 / 80);
+						for (channel = 0; channel < 3; channel++)
+							hd->scene[pixel * 3 + channel] = (uint8_t)(hd->scene[pixel * 3 + channel] +
+								(word[1 + channel] - hd->scene[pixel * 3 + channel]) * word[0] / 255);
+					}
+			}
+		}
+	}
+	else if (art->valid)
+	{
+		/* (the picture covering the frame, its middle in the frame's: as
+		wide as the frame, as loading_art_color has it) */
+		float step = (float)LOADING_ART_WIDTH / (float)width;
+		for (y = 0; y < height; y++)
+			for (x = 0; x < width; x++)
+				loading_art_picture_sample(art->picture, ((float)x + 0.5f) * step - 0.5f,
+					(float)LOADING_ART_HEIGHT * 0.5f + ((float)y + 0.5f - (float)height * 0.5f) * step - 0.5f,
+					hd->scene + (y * width + x) * 3);
+	}
+	else
+		return 0;
+	hd->built = 1;
+	return 1;
+}
+
+/* Two of the 480 rows' trail between the steps and its glint, scaled
+ * across to the sharp frame's columns (of 256), the last two kept. */
+static inline const uint16_t *loading_art_hd_row(struct loading_art *art, unsigned int row)
+{
+	struct loading_art_hd *hd = &art->hd;
+	const uint8_t *mix = hd->mix + (size_t)row * art->width * 3;
+	const uint8_t *glint = art->ring.valid && art->ring.glint && art->ring.width == art->width ?
+		art->ring.glint + (size_t)row * art->width : NULL;
+	unsigned int slot, x;
+	uint16_t *sums;
+	for (slot = 0; slot < 2; slot++)
+		if (hd->row_tags[slot] == (int)row + 1)
+			return hd->rows[slot];
+	/* (the rows are asked for in order: the earlier one goes) */
+	slot = hd->row_tags[0] <= hd->row_tags[1] ? 0 : 1;
+	hd->row_tags[slot] = (int)row + 1;
+	sums = hd->rows[slot];
+	for (x = 0; x < hd->width; x++)
+	{
+		unsigned int c0 = hd->column[x], c1 = c0 + 1 < art->width ? c0 + 1 : c0, f = hd->column_fraction[x];
+		const uint8_t *a = mix + c0 * 3, *b = mix + c1 * 3;
+		sums[x * 4] = (uint16_t)(a[0] * (256 - f) + b[0] * f);
+		sums[x * 4 + 1] = (uint16_t)(a[1] * (256 - f) + b[1] * f);
+		sums[x * 4 + 2] = (uint16_t)(a[2] * (256 - f) + b[2] * f);
+		sums[x * 4 + 3] = (uint16_t)(glint ? glint[c0] * (256 - f) + glint[c1] * f : 0);
+	}
+	return sums;
+}
+
+/* What the sharp frame shows: the 480 rows' trail between the last two
+ * steps (`fraction` of 256 toward the last), scaled up; the sweep's light,
+ * at the sharp pixels, where it is between them (the step's band, at its
+ * brightness, the ring etched and lit by the sweep's glint as the 480
+ * rows' feed is); the scene dimly between the sweeps (`base`, of 65536,
+ * as loading_art_compose's); as much of it as `completion` (of 256) has
+ * left as the load completes. */
+static inline void loading_art_hd_compose(struct loading_art *art, unsigned int fraction, unsigned int base,
+	unsigned int completion)
+{
+	struct loading_art_hd *hd = &art->hd;
+	unsigned int width = hd->width, height = hd->height, x, y, pixel;
+	const uint8_t *previous = hd->trail[art->current ^ 1], *current = hd->trail[art->current];
+	int scene = art->ring.valid;
+	float phase = (float)(art->step % 240) - 1.0f + (float)fraction / 256.0f, band, brightness;
+	/* (the 480 rows' pixels a sharp pixel is, across) */
+	float across = (float)art->width / (float)width;
+	/* the trail between the steps, at the 480 rows */
+	for (pixel = 0; pixel < art->width * LOADING_ART_FRAME_HEIGHT * 3; pixel++)
+		hd->mix[pixel] = (uint8_t)((previous[pixel] * (256 - fraction) + current[pixel] * fraction + 128) >> 8);
+	hd->row_tags[0] = hd->row_tags[1] = 0;
+	/* the sweep's brightness at the phase (between the steps': nothing
+	before the first) */
+	if (phase < 0.0f)
+		brightness = (phase + 1.0f) * (float)loading_art_brightness[0];
+	else
+	{
+		unsigned int whole = (unsigned int)phase;
+		float part = phase - (float)whole;
+		unsigned int next = whole + 1 < 240 ? whole + 1 : whole;
+		brightness = (float)loading_art_brightness[whole] * (1.0f - part) + (float)loading_art_brightness[next] * part;
+	}
+	/* its mask's columns: the band, 128 of the 480 rows' pixels wide,
+	crossing from 128 left of the frame past its right edge (as
+	loading_art_step's) */
+	band = 128.0f - phase * (float)(art->width + 128) / 240.0f;
+	for (x = 0; x < width; x++)
+	{
+		float column = ((float)x + 0.5f) * across - 0.5f + band;
+		float whole = floorf(column);
+		hd->mask_column[x] = (int16_t)(whole < -1.0f ? -1 : whole > 128.0f ? 128 : whole);
+		hd->mask_fraction[x] = (uint8_t)((column - whole) * 256.0f);
+	}
+	for (y = 0; y < height; y++)
+	{
+		/* (the 480 rows' row of the sharp row's middle, in 256ths) */
+		int source = (int)(((2 * y + 1) * (uint64_t)LOADING_ART_FRAME_HEIGHT * 128) / height) - 128;
+		unsigned int r0, r1, fy, my, mfy, iy;
+		const uint16_t *upper, *lower;
+		uint8_t *out = hd->output + (size_t)y * width * 4;
+		const uint8_t *still = hd->scene + (size_t)y * width * 3;
+		int in_words = hd->word && y >= hd->word_top && y < hd->word_bottom;
+		const uint8_t *word = in_words ? hd->word + (size_t)(y - hd->word_top) * (hd->word_right - hd->word_left) * 4 : NULL;
+		float mask_row;
+		if (source < 0)
+			source = 0;
+		r0 = (unsigned int)source >> 8;
+		fy = (unsigned int)source & 255;
+		if (r0 >= LOADING_ART_FRAME_HEIGHT - 1)
+		{
+			r0 = LOADING_ART_FRAME_HEIGHT - 1;
+			fy = 0;
+		}
+		r1 = r0 + (r0 < LOADING_ART_FRAME_HEIGHT - 1);
+		upper = loading_art_hd_row(art, r0);
+		lower = loading_art_hd_row(art, r1);
+		/* the mask's row (its 16 across the frame's height) */
+		mask_row = ((float)y + 0.5f) * 16.0f / (float)height - 0.5f;
+		if (mask_row < 0.0f)
+			mask_row = 0.0f;
+		if (mask_row > 15.0f)
+			mask_row = 15.0f;
+		iy = (unsigned int)mask_row;
+		my = iy;
+		mfy = (unsigned int)((mask_row - (float)iy) * 256.0f);
+		for (x = 0; x < width; x++, out += 4, still += 3)
+		{
+			unsigned int value[3], channel, mask, light_scale;
+			int mx = hd->mask_column[x];
+			unsigned int mfx = hd->mask_fraction[x];
+			uint8_t source_rgb[3];
+			const uint8_t *src;
+			unsigned int up = loading_art_mask(mx, my) * (256 - mfx) + loading_art_mask(mx + 1, my) * mfx;
+			unsigned int down = loading_art_mask(mx, my < 15 ? my + 1 : 15) * (256 - mfx) +
+				loading_art_mask(mx + 1, my < 15 ? my + 1 : 15) * mfx;
+			mask = (up * (256 - mfy) + down * mfy + 32768) >> 16;
+			light_scale = (unsigned int)(brightness * (float)mask + 0.5f);
+			for (channel = 0; channel < 3; channel++)
+				value[channel] = (upper[x * 4 + channel] * (256 - fy) + lower[x * 4 + channel] * fy + 32768) >> 16;
+			pixel = y * width + x;
+			if (scene)
+			{
+				unsigned int glint = (upper[x * 4 + 3] * (256 - fy) + lower[x * 4 + 3] * fy + 32768) >> 16;
+				unsigned int tint = hd->tint[pixel] & 127, white = hd->tint[pixel] >> 7;
+				int light = (int)hd->light[pixel] + (int)(glint * (64 + hd->edge[pixel]) * LOADING_ART_FEED_GLINT / 2048);
+				if (light > LOADING_ART_FEED_KNEE && !white)
+					light = LOADING_ART_FEED_KNEE + (light - LOADING_ART_FEED_KNEE) / 3;
+				if (light > LOADING_ART_FEED_LIMIT && !white)
+					light = LOADING_ART_FEED_LIMIT;
+				memcpy(source_rgb, art->tints[tint][light > 255 ? 255 : light], 3);
+				if (word && x >= hd->word_left && x < hd->word_right)
+				{
+					const uint8_t *w = word + (x - hd->word_left) * 4;
+					if (w[0])
+						for (channel = 0; channel < 3; channel++)
+							source_rgb[channel] = (uint8_t)(source_rgb[channel] +
+								(w[1 + channel] - source_rgb[channel]) * w[0] / 255);
+				}
+				src = source_rgb;
+			}
+			else
+				src = still;
+			for (channel = 0; channel < 3; channel++)
+			{
+				unsigned int v = value[channel] + (src[channel] * light_scale + 32512) / 65025;
+				if (scene)
+					v += still[channel] * base >> 16;
+				value[channel] = v < 255 ? v : 255;
+			}
+			if (scene)
+			{
+				/* (kept in the picture's blues, as loading_art_compose's) */
+				unsigned int limit = value[2] * LOADING_ART_GREY_RED >> 8;
+				if (value[0] > limit)
+					value[0] = limit;
+				limit = value[2] * LOADING_ART_GREY_GREEN >> 8;
+				if (value[1] > limit)
+					value[1] = limit;
+			}
+			for (channel = 0; channel < 3; channel++)
+				out[channel] = (uint8_t)(completion < 256 ? value[channel] * completion >> 8 : value[channel]);
+			out[3] = 255;
+		}
+	}
+}
+
+/* The size of the picture the last render gave (the sharp frame's, or the
+ * 480 rows'): what a presenter uploads and fills the screen with. */
+static inline unsigned int loading_art_output_width(const struct loading_art *art)
+{
+	return art->output_width ? art->output_width : art->width;
+}
+
+static inline unsigned int loading_art_output_height(const struct loading_art *art)
+{
+	return art->output_height ? art->output_height : LOADING_ART_FRAME_HEIGHT;
+}
+
 static inline const uint8_t *loading_art_render(struct loading_art *art,
 	const struct loading_presentation_frame *frame)
 {
@@ -779,9 +1255,21 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 	reset = !art->started || art->epoch != frame->epoch || target < art->step;
 	skipped = art->started && target > art->step && target - art->step > 1;
 	if (reset || (target != art->step && target / 240 != art->step / 240))
+	{
 		memset(art->history, 0, sizeof(art->history));
+		if (art->hd.built)
+		{
+			memset(art->hd.trail[0], 0, LOADING_ART_FRAME_MAXIMUM_PIXELS * 3);
+			memset(art->hd.trail[1], 0, LOADING_ART_FRAME_MAXIMUM_PIXELS * 3);
+		}
+	}
 	if (reset)
+	{
 		art->tone_valid = 0;
+		/* (the sharp frame's still layers again: the scene's brightness is
+		matched again) */
+		art->hd.built = 0;
+	}
 	/* At most one feedback step, even after a producer or display stall.
 	 * Elapsed time selects the sweep phase; no costly fast-forward loop. */
 	stepped = reset || target != art->step;
@@ -800,10 +1288,27 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 			if (stereo)
 				loading_art_scene_draw(art, seconds, phase, eyes[1], art->scene_right, NULL);
 		}
+		/* (the sharp frame's still layers, once the scene's brightness is
+		known; without the memory, the 480 rows are shown) */
+		if (art->hd.width && !stereo && !art->hd.built)
+		{
+			if (loading_art_hd_build(art))
+			{
+				memset(art->hd.trail[0], 0, LOADING_ART_FRAME_MAXIMUM_PIXELS * 3);
+				memset(art->hd.trail[1], 0, LOADING_ART_FRAME_MAXIMUM_PIXELS * 3);
+			}
+			else
+				art->hd.width = art->hd.height = 0;
+		}
 		loading_art_step(art, phase);
 		if (reset || skipped)
+		{
 			memcpy(art->history[art->current ^ 1], art->history[art->current],
 				sizeof(art->history[0]));
+			if (art->hd.built)
+				memcpy(art->hd.trail[art->current ^ 1], art->hd.trail[art->current],
+					LOADING_ART_FRAME_MAXIMUM_PIXELS * 3);
+		}
 	}
 	art->epoch = frame->epoch;
 	art->step = target;
@@ -820,6 +1325,16 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 		UINT64_C(1000000000)) * 256 / UINT64_C(1000000000));
 	base = frame->elapsed_ns >= LOADING_ART_SCENE_FADE_NS ? LOADING_ART_SCENE_BASE * 256u :
 		(unsigned int)(LOADING_ART_SCENE_BASE * 256u * frame->elapsed_ns / LOADING_ART_SCENE_FADE_NS);
+	/* (the sharp frame, where there is one) */
+	if (art->hd.built && art->hd.width && !stereo)
+	{
+		loading_art_hd_compose(art, fraction, base, completion);
+		art->output_width = art->hd.width;
+		art->output_height = art->hd.height;
+		return art->hd.output;
+	}
+	art->output_width = art->width;
+	art->output_height = LOADING_ART_FRAME_HEIGHT;
 	loading_art_compose(art, art->history[art->current ^ 1], art->history[art->current], fraction,
 		art->ring.valid ? art->scene : NULL, base, art->output);
 	if (stereo)
