@@ -1,0 +1,22 @@
+{
+ "picture": "ui.map mp_map_grafix 11 (Chiron TL-34)",
+ "scenario": "levels\\test\\putput\\putput",
+ "bsp": 0,
+ "aspect": 1.13,
+ "pose": {
+  "x": 13.6442,
+  "y": -37.0115,
+  "z": 1.5445,
+  "yaw": 116.5774,
+  "pitch": 14.0562,
+  "roll": 0.4083,
+  "vfov": 48.4397
+ },
+ "prepare": [
+  "debug_camera_set \"-5.62 -2.84 1.60 0 0 0 60\"",
+  "cheat_teleport_to_camera",
+  "debug_camera_set \"13.60 -35.90 1.60 116.58 14.06 0.41 60\""
+ ],
+ "colour": "curve",
+ "score": 0.0
+}
