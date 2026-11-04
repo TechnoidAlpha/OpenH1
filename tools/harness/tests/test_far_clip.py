@@ -21,7 +21,7 @@ CONTROLS = [
     ("if (!(game_distance >= rasterizer_global_defaults.far_clip_distance) || !(distance > game_distance))",
      "if (!(game_distance >= rasterizer_global_defaults.far_clip_distance) || !distance)", "script_farther"),
     # read once, never again
-    ("if (!initialized || read_at != changes)", "if (!initialized)", "farther"),
+    ("if (!initialized || read_at != changes)", "if (!initialized || !read_at)", "farther"),
     # no upper bound
     ("setting <= DRAW_DISTANCE_MOST", "TRUE", "out_of_range"),
 ]
