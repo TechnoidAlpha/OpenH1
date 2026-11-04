@@ -9,8 +9,8 @@ rendered once by the game itself, in its own window, as the main menu first
 shows ("Preparing menu pictures": port/linux/game/menu_pictures_render.c),
 kept in the data folder, and drawn in place of the original frame
 (port/linux/src/menu_pictures.c). Any picture that cannot be (its map
-missing or not the one the pose was made for, a render that failed, one
-skipped) stays the original.
+missing or not the one the pose was made for, a render that failed twice)
+stays the original.
 */
 
 #ifndef MENU_PICTURES_H
@@ -111,20 +111,13 @@ long menu_pictures_wanted(long *poses, long maximum);
 /* a picture's high-res image, once it is ready, else 0 (the original is
 drawn) */
 unsigned int menu_pictures_texture(long pose, unsigned long *levels);
-/* a placeholder texture of the preparing screen's (its data's address)
-drawn as a pose's picture (menu_pictures_render.c); and that texture's
-image, once the picture is ready, else 0 */
-void menu_pictures_thumbnail_register(unsigned long address, long pose);
-unsigned int menu_pictures_thumbnail_texture(unsigned long address, unsigned long *levels);
 /* the original frame's texels (a D3D texture of ui.map's), kept for the
 colour curve */
 void menu_pictures_keep_original(long pose, void const *texture);
 /* a pose's render begun (noted first: a game gone in the middle of it
-counts it as failed), given up unfinished (skipped: its note as it was),
-failed, or its frame kept (the frame being drawn's, so far: cut, its
+counts it as failed), failed, or its frame kept (the frame being drawn's, so far: cut, its
 colours matched, written and noted; 0 if that failed) */
 void menu_pictures_render_begin(long pose);
-void menu_pictures_render_skipped(long pose);
 void menu_pictures_render_failed(long pose, char const *why);
 int menu_pictures_render_kept(long pose);
 /* the scale the pictures are rendered at (menu_picture_scale_for_height) */

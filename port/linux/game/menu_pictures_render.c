@@ -43,10 +43,11 @@ meanwhile.
 While the pictures are rendered the window shows a screen of its own,
 about 30 times a second while a map is set up (nothing else: the frames
 between are not drawn, and the map's loading screen and the frames of its
-file's decompression are not shown: the screen stays): "Preparing menu
-pictures", each picture in a grid as it is made, a bar, and how to skip.
-Escape, or the controller's B or Back, skips the rest: those keep the
-originals (their notes as they were) and are rendered at a later start.
+file's decompression are not shown: the screen stays): a bar and
+"Preparing menu pictures", "4 of 11", counting only the pictures that can
+be made (menu_pictures_wanted: none whose map is missing or modded, nor one
+that failed twice; with none, no screen at all). Nothing stops it: a
+picture that fails is noted and passed at once, its original kept.
 */
 
 #include "cseries.h"
@@ -63,7 +64,6 @@ originals (their notes as they were) and are rendered at a later start.
 #include "interface/ui_widget.h"
 #include "main/main.h"
 #include "rasterizer/rasterizer.h"
-#include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 #include "render/render.h"
 #include "scenario/scenario.h"
 #include "sound/sound_manager.h"
@@ -96,15 +96,6 @@ enum
 	PREPARE_LOAD_FRAMES = 30,
 	/* (nanoseconds) the screen's frames, at most this often */
 	PREPARE_SCREEN_INTERVAL = 33000000,
-};
-
-/* (bitmaps.c's, as menu_tags.c has them: the placeholders' textures) */
-enum
-{
-	_bitmap_type_2d = 0,
-	_bitmap_format_a8r8g8b8 = 11,
-	_bitmap_has_power_of_two_dimensions_bit = 0,
-	PLACEHOLDER_SIZE = 4,
 };
 
 enum prepare_state
@@ -161,14 +152,11 @@ static struct
 {
 	enum prepare_state state;
 	/* the poses to render, in order, the one rendered, and how many are
-	done (rendered, failed or skipped) */
+	done (rendered or failed) */
 	long poses[MAXIMUM_MENU_PICTURES];
 	long count;
 	long index;
 	long done, made;
-	int skip_asked, skipped;
-	/* (to see the skip's press, not its hold) */
-	int skip_down;
 	long frames, picture_frames;
 	long ticks, quiet_ticks;
 	/* the frame drawn this frame: none, the screen alone, or the game's
@@ -180,9 +168,6 @@ static struct
 	unsigned long long began, picture_began, phase_began;
 	double phases[NUMBER_OF_PHASES];
 	double totals[NUMBER_OF_PHASES];
-	/* the screen's pictures: placeholder bitmaps drawn as the pictures */
-	struct bitmap_data thumbnails[MAXIMUM_MENU_PICTURES];
-	int thumbnails_made[MAXIMUM_MENU_PICTURES];
 } prepare;
 
 /* ---------- public code */
@@ -319,49 +304,6 @@ static void prepare_keep_original(
 		menu_pictures_keep_original(pose, texture);
 }
 
-/* the screen's picture of a pose: a placeholder texture, drawn as the
-picture once it is made (menu_pictures_thumbnail_texture) */
-static void prepare_thumbnail_make(
-	long index)
-{
-	struct bitmap_data *bitmap = &prepare.thumbnails[index];
-
-	csmemset(bitmap, 0, sizeof(*bitmap));
-	bitmap->signature = 'bitm';
-	bitmap->width = PLACEHOLDER_SIZE;
-	bitmap->height = PLACEHOLDER_SIZE;
-	bitmap->depth = 1;
-	bitmap->type = _bitmap_type_2d;
-	bitmap->format = _bitmap_format_a8r8g8b8;
-	bitmap->flags = FLAG(_bitmap_has_power_of_two_dimensions_bit);
-	bitmap->tag_index = NONE;
-	bitmap->cache_block_index = NONE;
-	if (!rasterizer_bitmap_new(bitmap) || !bitmap->hardware_format)
-		return;
-	/* (drawn in the frame's units, whatever its texture's size) */
-	bitmap->width = MENU_PICTURE_FRAME_WIDTH;
-	bitmap->height = MENU_PICTURE_FRAME_HEIGHT;
-	menu_pictures_thumbnail_register(((unsigned long const *)bitmap->hardware_format)[1], prepare.poses[index]);
-	prepare.thumbnails_made[index] = TRUE;
-}
-
-static void prepare_thumbnails_delete(
-	void)
-{
-	long index;
-
-	for (index = 0; index < prepare.count; index++)
-	{
-		if (prepare.thumbnails_made[index])
-		{
-			prepare.thumbnails[index].width = PLACEHOLDER_SIZE;
-			prepare.thumbnails[index].height = PLACEHOLDER_SIZE;
-			rasterizer_bitmap_delete(&prepare.thumbnails[index]);
-			prepare.thumbnails_made[index] = FALSE;
-		}
-	}
-}
-
 static void prepare_picture_log(
 	long pose,
 	char const *how)
@@ -378,8 +320,7 @@ static void prepare_picture_log(
 		prepare.totals[phase] += prepare.phases[phase];
 }
 
-/* the next picture's map asked for, or the main menu after the last (or a
-skip) */
+/* the next picture's map asked for, or the main menu after the last */
 static void prepare_next(
 	void)
 {
@@ -387,20 +328,11 @@ static void prepare_next(
 
 	prepare.capture_wanted = FALSE;
 	prepare.captured = FALSE;
-	if (prepare.skip_asked)
-	{
-		long index;
-
-		for (index = prepare.index; index < prepare.count; index++)
-			menu_pictures_render_skipped(prepare.poses[index]);
-		prepare.skipped = prepare.count - prepare.index;
-		prepare.done = prepare.count;
-		prepare.index = prepare.count;
-	}
 	if (prepare.index >= prepare.count)
 	{
 		platform_log("menu pictures: %ld of %ld made%s in %.2f s (load %.2f, opening %.2f, scene %.2f, objects %.2f, "
-			"frame %.2f, kept %.2f, after %.2f)", prepare.made, prepare.count, prepare.skipped ? ", the rest skipped" : "",
+			"frame %.2f, kept %.2f, after %.2f)", prepare.made, prepare.count, prepare.made < prepare.count ?
+			", the rest failed (their originals kept)" : "",
 			(double)(prepare_now() - prepare.began) / 1e9, prepare.totals[_phase_load], prepare.totals[_phase_opening],
 			prepare.totals[_phase_scene], prepare.totals[_phase_objects], prepare.totals[_phase_frame],
 			prepare.totals[_phase_keep], prepare.totals[_phase_after]);
@@ -447,16 +379,12 @@ static void prepare_begin(
 		return;
 	platform_log("menu pictures: preparing %ld at %ld times their size", prepare.count, menu_pictures_scale());
 	prepare.began = prepare_now();
-	prepare.index = prepare.done = prepare.made = prepare.skipped = 0;
-	prepare.skip_asked = FALSE;
-	/* (the skip's key held as the menu showed is not a press) */
-	prepare.skip_down = TRUE;
+	prepare.index = prepare.done = prepare.made = 0;
 	csmemset(prepare.totals, 0, sizeof(prepare.totals));
 	for (index = 0; index < prepare.count; index++)
 	{
 		if (menu_picture_poses[prepare.poses[index]].colour_curve)
 			prepare_keep_original(prepare.poses[index]);
-		prepare_thumbnail_make(index);
 	}
 	config_picture_view(TRUE);
 	sound_stop_all();
@@ -466,21 +394,10 @@ static void prepare_begin(
 	prepare_next();
 }
 
-/* the skip: Escape, the controller's B or Back, or a click */
-static void prepare_skip_input(
+/* (Escape and Start open no pause menu meanwhile) */
+static void prepare_input(
 	void)
 {
-	struct gamepad_state const *pad = input_get_gamepad_state(0);
-	int down = input_key_is_down(_key_escape) ||
-		(pad && (pad->buttons[_gamepad_analog_button_b] > 0 || pad->buttons[_gamepad_binary_button_back] > 0));
-
-	if (down && !prepare.skip_down && !prepare.skip_asked && prepare.state != _prepare_menu)
-	{
-		prepare.skip_asked = TRUE;
-		platform_log("menu pictures: skipped");
-	}
-	prepare.skip_down = down;
-	/* (Escape and Start open no pause menu meanwhile) */
 	ui_widgets_disable_pause_game(2);
 }
 
@@ -636,7 +553,6 @@ static void prepare_update(
 	case _prepare_menu:
 		if (main_menu_loaded)
 		{
-			prepare_thumbnails_delete();
 			config_picture_view(FALSE);
 			prepare.state = _prepare_off;
 			prepare.drawn = 0;
@@ -667,7 +583,7 @@ void menu_pictures_frame(
 	else
 	{
 		prepare.picture_frames++;
-		prepare_skip_input();
+		prepare_input();
 		prepare_update(main_menu_loaded);
 	}
 	if (prepare.state == _prepare_off)
@@ -742,71 +658,31 @@ static void screen_text(
 void menu_pictures_screen_draw(
 	void)
 {
-	/* the menus' colours: their blue (#2896FF), white, a dark night blue */
-	static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
-	static real_argb_color const grey = { 1.0f, 0.62f, 0.69f, 0.78f };
-	pixel32 const background = 0xFF07101C, panel = 0xFF0F1F33, edge = 0xFF1C3654, blue = 0xFF2896FF;
+	/* the menus' colours: their blue (#2896FF), a soft white, a dark night
+	blue */
+	static real_argb_color const caption = { 1.0f, 0.78f, 0.84f, 0.92f };
+	pixel32 const background = 0xFF07101C, track = 0xFF0F1F33, blue = 0xFF2896FF;
 	rectangle2d viewport = render.camera.viewport_bounds;
 	real x0 = viewport.x0, y0 = viewport.y0, width = viewport.x1 - viewport.x0, height = viewport.y1 - viewport.y0;
-	long title_font, text_font;
-	long columns, rows, index;
-	real cell_width, cell_height, gap, grid_width, grid_x, grid_y, bar_y, unit;
-	char text[128];
+	real unit, bar_x, bar_width, bar_y;
+	long font;
+	char text[160];
 
 	if (prepare.state == _prepare_off || prepare.drawn == 2 || width <= 0 || height <= 0 || !global_scenario_get())
 		return;
-	title_font = interface_get_tag_index(_interface_font_system);
-	text_font = interface_get_tag_index(_interface_font_terminal);
+	/* (the menus' own face, as the high-res text draws it: Overpass) */
+	font = interface_get_tag_index(_interface_font_system);
 	/* (laid out in a 4:3 frame's units, centred) */
 	unit = MIN(width / 640.0f, height / 480.0f);
 	screen_rectangle(x0, y0, x0 + width, y0 + height, background);
-	screen_text(title_font, 2, &white, x0, y0 + 70.0f * unit, x0 + width, y0 + 110.0f * unit,
-		"Preparing menu pictures");
-	screen_text(text_font, 2, &grey, x0, y0 + 100.0f * unit, x0 + width, y0 + 130.0f * unit,
-		"Drawn once, sharp, from your own maps");
-	/* the pictures: as many columns as fit two rows, at the cards' shape */
-	columns = prepare.count <= 4 ? prepare.count : (prepare.count + 1) / 2;
-	columns = MAX(columns, 1);
-	rows = (prepare.count + columns - 1) / columns;
-	gap = 8.0f * unit;
-	cell_width = MIN((560.0f * unit - gap * (columns - 1)) / columns, 112.0f * unit);
-	cell_height = cell_width * MENU_PICTURE_HEIGHT / MENU_PICTURE_WIDTH;
-	grid_width = cell_width * columns + gap * (columns - 1);
-	grid_x = x0 + (width - grid_width) / 2.0f;
-	grid_y = y0 + 150.0f * unit;
-	for (index = 0; index < prepare.count; index++)
-	{
-		long row = index / columns, column = index % columns;
-		long in_row = row == rows - 1 ? prepare.count - row * columns : columns;
-		real row_x = grid_x + (grid_width - (cell_width * in_row + gap * (in_row - 1))) / 2.0f;
-		real x = row_x + column * (cell_width + gap), y = grid_y + row * (cell_height + gap);
-		unsigned long levels;
-		long pose = prepare.poses[index];
-		int current = index == prepare.index && prepare.state != _prepare_menu;
-
-		screen_rectangle(x - unit, y - unit, x + cell_width + unit, y + cell_height + unit, current ? blue : edge);
-		screen_rectangle(x, y, x + cell_width, y + cell_height, panel);
-		if (prepare.thumbnails_made[index] && menu_pictures_texture(pose, &levels))
-		{
-			real_rectangle2d clip = { 0.0f, (real)MENU_PICTURE_WIDTH / MENU_PICTURE_FRAME_WIDTH, 0.0f,
-				(real)MENU_PICTURE_HEIGHT / MENU_PICTURE_FRAME_HEIGHT };
-			point2d point;
-
-			point.x = (short)x;
-			point.y = (short)y;
-			interface_draw_bitmap(&prepare.thumbnails[index], &point, &clip, cell_width / MENU_PICTURE_WIDTH, 0.0f, 1.0f);
-		}
-	}
-	/* the bar, and how far it is */
-	bar_y = grid_y + rows * (cell_height + gap) + 14.0f * unit;
-	screen_rectangle(grid_x, bar_y, grid_x + grid_width, bar_y + 4.0f * unit, panel);
-	screen_rectangle(grid_x, bar_y, grid_x + grid_width * prepare.done / MAX(prepare.count, 1), bar_y + 4.0f * unit,
+	bar_width = 320.0f * unit;
+	bar_x = x0 + (width - bar_width) / 2.0f;
+	bar_y = y0 + height - 70.0f * unit;
+	/* (the bar and the count say the same: the pictures made, all of them
+	at the end) */
+	screen_rectangle(bar_x, bar_y, bar_x + bar_width, bar_y + 2.0f * unit, track);
+	screen_rectangle(bar_x, bar_y, bar_x + bar_width * prepare.done / MAX(prepare.count, 1), bar_y + 2.0f * unit,
 		blue);
-	if (prepare.state == _prepare_menu)
-		snprintf(text, sizeof(text), "%ld of %ld ready", prepare.made, prepare.count);
-	else
-		snprintf(text, sizeof(text), "%ld of %ld", prepare.done + 1, prepare.count);
-	screen_text(text_font, 0, &grey, grid_x, bar_y + 10.0f * unit, grid_x + grid_width, bar_y + 30.0f * unit, text);
-	screen_text(text_font, 1, &grey, grid_x, bar_y + 10.0f * unit, grid_x + grid_width, bar_y + 30.0f * unit,
-		prepare.skip_asked || prepare.state == _prepare_menu ? "Starting..." : "Esc or B: skip (they keep the originals)");
+	snprintf(text, sizeof(text), "Preparing menu pictures \xB7 %ld of %ld", prepare.done, prepare.count);
+	screen_text(font, 2, &caption, x0, bar_y + 8.0f * unit, x0 + width, bar_y + 26.0f * unit, text);
 }

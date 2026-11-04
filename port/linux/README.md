@@ -743,11 +743,12 @@ camera's place for each ships (`port/assets/pictures`), never a picture.
 
 The first time the main menu shows, if any picture is to be drawn (none
 yet, a pose or a map changed, a larger screen than the last), the game
-draws them itself, in its own window: "Preparing menu pictures", each
-picture appearing in a grid as it is made, under a bar, about a second
-each (11 in about 9 seconds), then the main menu. Escape, or the
-controller's B or Back, skips the rest: they keep the originals and are
-drawn at a later start. Each map is loaded as a mission is (and torn down
+draws them itself, in its own window: a bar and "Preparing menu pictures",
+"4 of 11", about a second each (11 in about 9 seconds), then the main
+menu. Only the pictures that can be made are counted: one whose map is
+missing or modded is passed over (its original kept), and with none there
+is no such screen at all. Nothing stops it: a picture that fails is passed
+at once, its original kept. Each map is loaded as a mission is (and torn down
 by the next), the next one's file decompressed meanwhile; its opening
 ticks are run at once, the world otherwise stopped, the scene set as the
 pose was found with (no HUD, AI, player or letterbox), the pose's

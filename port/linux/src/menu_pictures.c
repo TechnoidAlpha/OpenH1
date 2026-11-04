@@ -25,8 +25,7 @@ missing, or not the one the pose was made for (its cache file checksum is
 not one of the pose's: a modded map), or its render failed twice (a
 failure, or the game gone in the middle of one: each render is noted as a
 failure before it starts, and as rendered when it ends); and until it is
-ready. A picture skipped (the preparing screen's skip) keeps its note as it
-was, and is rendered at a later start. A pose or map changed, a larger
+ready. A pose or map changed, a larger
 screen (at the next start), or this file's version renders it again.
 Nothing is rendered in runs nobody watches (tests: debug.hidden_window,
 debug.exit_after...), in VR, or with display.menu_pictures off.
@@ -515,8 +514,7 @@ static struct
 		unsigned long decision;
 		struct menu_picture_note note;
 		int noted;
-		/* a render of it begun, and its note before it (given back if it
-		is skipped) */
+		/* a render of it begun, and its note before it */
 		int rendering;
 		struct menu_picture_note note_before;
 		int noted_before;
@@ -533,14 +531,6 @@ static struct
 		long image_scale;
 	} pictures[MAXIMUM_MENU_PICTURES];
 	long wanted_scale;
-	/* the preparing screen's placeholder textures (their data's address),
-	each drawn as a pose's picture */
-	struct
-	{
-		unsigned long address;
-		long pose;
-	} thumbnails[MAXIMUM_MENU_PICTURES];
-	long thumbnail_count;
 } menu_pictures = { PTHREAD_MUTEX_INITIALIZER };
 
 /* the cache's folder: the data folder's menu_pictures */
@@ -961,25 +951,6 @@ void menu_pictures_render_begin(
 	state->rendering = 1;
 }
 
-void menu_pictures_render_skipped(
-	long pose)
-{
-	struct menu_picture_state *state = &menu_pictures.pictures[pose];
-	char path[1100];
-
-	if (!state->rendering)
-		return;
-	state->rendering = 0;
-	if (state->noted_before)
-		picture_note_write(pose, &state->note_before);
-	else
-	{
-		picture_path(path, sizeof(path), pose, "txt");
-		remove(path);
-	}
-	platform_log("menu pictures: %s skipped", menu_picture_poses[pose].name);
-}
-
 void menu_pictures_render_failed(
 	long pose,
 	char const *why)
@@ -1091,40 +1062,4 @@ unsigned int menu_pictures_texture(
 	}
 	pthread_mutex_unlock(&menu_pictures.lock);
 	return image;
-}
-
-void menu_pictures_thumbnail_register(
-	unsigned long address,
-	long pose)
-{
-	long index;
-
-	for (index = 0; index < menu_pictures.thumbnail_count; index++)
-	{
-		if (menu_pictures.thumbnails[index].address == address)
-		{
-			menu_pictures.thumbnails[index].pose = pose;
-			return;
-		}
-	}
-	if (menu_pictures.thumbnail_count < MAXIMUM_MENU_PICTURES)
-	{
-		menu_pictures.thumbnails[menu_pictures.thumbnail_count].address = address;
-		menu_pictures.thumbnails[menu_pictures.thumbnail_count].pose = pose;
-		menu_pictures.thumbnail_count++;
-	}
-}
-
-unsigned int menu_pictures_thumbnail_texture(
-	unsigned long address,
-	unsigned long *levels)
-{
-	long index;
-
-	for (index = 0; index < menu_pictures.thumbnail_count; index++)
-	{
-		if (menu_pictures.thumbnails[index].address == address)
-			return menu_pictures_texture(menu_pictures.thumbnails[index].pose, levels);
-	}
-	return 0;
 }

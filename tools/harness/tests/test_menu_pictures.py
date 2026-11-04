@@ -1,6 +1,7 @@
 """The menus' pictures drawn again from the player's maps (port/linux/src/menu_pictures.c): the scale a screen asks for,
 the cache's decision (drawn, rendered again, or the original kept for a missing or modded map and failed renders), the
-preparing pass's order, retries (a render noted before it begins) and a skipped pass resumed, its notes, the colour curve, and the picture cut from a frame and laid out as the original frame is."""
+preparing pass's order and the pictures it counts (none with a missing or modded map; none at all, no pass), retries
+(a render noted before it begins) and a pass resumed after a failure or a crash, its notes, the colour curve, and the picture cut from a frame and laid out as the original frame is."""
 
 import sys
 from pathlib import Path
@@ -10,7 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
 
-CASES = ["scale", "fallback", "cached", "failures", "order", "retry", "resume", "notes", "colour", "cut", "frame"]
+CASES = ["scale", "fallback", "cached", "failures", "order", "makeable", "retry", "resume", "notes", "colour", "cut", "frame"]
 
 SOURCE = "port/linux/src/menu_pictures.c"
 FUNCTIONS = ("menu_picture_scale_for_height", "menu_picture_decide", "menu_picture_order", "menu_picture_note_begin",

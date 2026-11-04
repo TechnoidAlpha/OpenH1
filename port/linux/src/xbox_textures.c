@@ -305,14 +305,6 @@ unsigned int xgpu_texture_replacement(DWORD resource, struct xgpu_texture_descri
 		description->hires = TRUE;
 		return image;
 	}
-	/* (a menu picture on the screen that prepares them, for its
-	placeholder: menu_pictures.h) */
-	if ((image = menu_pictures_thumbnail_texture(header[1], &levels)) != 0)
-	{
-		description->levels = levels;
-		description->hires = TRUE;
-		return image;
-	}
 	/* (a high-res texture drawn for some sprites, for the placeholder the
 	game draws them from: hud_hires.h) */
 	if ((image = hud_hires_placeholder_texture(header[1], &levels)) != 0)
