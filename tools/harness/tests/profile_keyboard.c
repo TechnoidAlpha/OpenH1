@@ -7,7 +7,7 @@ typedef unsigned char BYTE;
 typedef short SHORT;
 #include "config.inc"
 
-struct platform_input_state { unsigned char keys[TEST_SCANCODE_COUNT], mouse_buttons[8]; BOOL mouse_released, menus; };
+struct platform_input_state { unsigned char keys[TEST_SCANCODE_COUNT], mouse_buttons[8]; BOOL mouse_released, menus, menu_back; };
 #define SDL_SCANCODE_COUNT TEST_SCANCODE_COUNT
 #define console_is_active() FALSE
 #define network_chat_typing() FALSE

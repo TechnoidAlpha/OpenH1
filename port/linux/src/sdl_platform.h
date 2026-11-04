@@ -28,7 +28,21 @@ struct platform_input_state
 	/* a menu is up (platform_menus_set_active): the keys drive the first
 	controller, to move about it, instead of the player's actions */
 	BOOL menus;
+	/* the mouse's Back button (platform_mouse_button_backs) is held in the
+	menus, or was pressed there since the controller's last reading: their
+	B, as Escape is (xinput_sdl.c's keyboard_gamepad); a binding of it is
+	the game's alone, never the menus' */
+	BOOL menu_back;
 };
+
+/* whether a mouse button (SDL's numbering) is the one a web browser goes
+back with: SDL's X1 (Windows' XBUTTON1, macOS's fourth button, Linux's
+BTN_SIDE), or a Linux mouse's BTN_BACK, which SDL numbers 7 (Wayland's
+SDL_BUTTON_X1 + BTN_BACK - BTN_SIDE; X11's button 11, less 4). Forward (X2,
+BTN_EXTRA; BTN_FORWARD, 6) has no meaning in the menus. */
+#define PLATFORM_MOUSE_BUTTON_LINUX_BACK 7
+#define platform_mouse_button_backs(button) \
+	((button) == SDL_BUTTON_X1 || (button) == PLATFORM_MOUSE_BUTTON_LINUX_BACK)
 
 /* an input of the keyboard and mouse's controls (xinput_sdl.c): a scancode,
 a mouse button (INPUT_MOUSE + SDL_BUTTON_*), or the wheel */
@@ -175,6 +189,10 @@ BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer);
 int platform_test_menu_click(float *x, float *y);
 /* its typing and Enter ("type:<letters and digits>", "enter", xinput_sdl.c) */
 int platform_test_menu_keys(char *typed, int size, int *enter);
+/* its mouse's ("mouse:<button>", "wheel:<notches>[*<events>]", xinput_sdl.c):
+1 once in its second, with the button to click (SDL's numbering, 0 for
+none), or the wheel's turn and in how many events it comes */
+int platform_test_menu_mouse(int *button, float *wheel, int *wheel_events);
 
 /* returns the window's size in the units that pointer positions come in,
 which differ from the drawable's pixels on displays that scale */

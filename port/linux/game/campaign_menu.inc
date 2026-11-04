@@ -18,7 +18,8 @@ campaign_levels_read), a level started as the PC version's lists start it
   "tab previous" and "tab next", or a click on a tab, "tab"), three cards at
   a time, the chosen one larger, outlined and in the middle (but at the
   row's ends: mission_cards_first, mission_cards_place). Left and right
-  ("previous", "next", or the arrows) choose the one before or after it.
+  ("previous", "next", or the arrows) choose the one before or after it,
+  as the mouse's wheel does, a card a notch (the row's wheel_sideways).
   The pointer passing over a card beside the chosen one lights it and
   chooses nothing: the row stays where it is under the pointer (choosing
   it moved the row, and the next card under the pointer was chosen in

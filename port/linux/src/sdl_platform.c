@@ -237,6 +237,10 @@ static unsigned char mouse_buttons_pressed[PLATFORM_MOUSE_BUTTON_COUNT];
 /* the menus' pointer (platform_ui_pointer_set_active), under input_lock */
 static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
+/* the mouse's Back button pressed in the menus since the controller's last
+reading (input_state.menu_back), so that a click quicker than a frame still
+backs out */
+static BOOL menu_back_pressed;
 #endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
 /* the presses that skip a Bink movie (platform_movie_skip_pressed), under
@@ -2275,6 +2279,55 @@ static void test_menu_keys(void)
 	}
 }
 
+#ifndef HALO_ANDROID
+/* the scripted run's mouse (test_menu_mouse): its events' mouse */
+#define TEST_MENU_MOUSE_ID ((SDL_MouseID)0x7e57)
+
+/* (the event thread, before the window's events are read) debug.test_input
+"menu:...": its "mouse:<button>" and "wheel:<notches>[*<events>]"
+(platform_test_menu_mouse) come as a mouse's events, which take the mouse's
+own way to the menus (platform_pump_events) */
+static void test_menu_mouse(void)
+{
+	int button, events, index;
+	float wheel;
+	SDL_Event event;
+
+	if (!platform_test_menu_mouse(&button, &wheel, &events))
+		return;
+	memset(&event, 0, sizeof(event));
+	if (button)
+	{
+		event.button.which = TEST_MENU_MOUSE_ID;
+		event.button.button = (Uint8)button;
+		event.button.clicks = 1;
+		event.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+		event.button.down = true;
+		SDL_PushEvent(&event);
+		event.type = SDL_EVENT_MOUSE_BUTTON_UP;
+		event.button.down = false;
+		SDL_PushEvent(&event);
+		platform_log("test input: mouse button %d clicked", button);
+		return;
+	}
+	event.type = SDL_EVENT_MOUSE_WHEEL;
+	event.wheel.which = TEST_MENU_MOUSE_ID;
+	event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+	event.wheel.y = wheel / (float)events;
+	for (index = 0; index < events; index++)
+		SDL_PushEvent(&event);
+	platform_log("test input: wheel turned %g in %d events", wheel, events);
+}
+
+/* whether a mouse's event is left out of a scripted run of the menus
+(debug.test_input "menu:..."), which takes its presses alone: any mouse's
+but its own (test_menu_mouse) */
+static BOOL test_menu_mouse_ignored(SDL_MouseID which)
+{
+	return which != TEST_MENU_MOUSE_ID && !strncmp(config_string("debug.test_input"), "menu:", 5);
+}
+#endif
+
 BOOL platform_next_keystroke(struct platform_keystroke *keystroke)
 {
 	BOOL result = FALSE;
@@ -2748,6 +2801,9 @@ void platform_pump_events(void)
 	/* (display.orientation, as it changes) */
 	orientation_apply();
 #endif
+#ifndef HALO_ANDROID
+	test_menu_mouse();
+#endif
 	pthread_mutex_lock(&input_lock);
 #ifndef HALO_ANDROID
 	/* (the scoreboard closed, or no longer offering it: the pointer goes) */
@@ -2848,6 +2904,10 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
+#ifndef HALO_ANDROID
+			if (test_menu_mouse_ignored(event.button.which))
+				break;
+#endif
 			if (event.button.down)
 				movie_skip_presses++;
 #ifdef PLATFORM_MENU_CURSOR
@@ -2908,6 +2968,14 @@ void platform_pump_events(void)
 				{
 					ui_pointer.right_clicks++;
 				}
+				/* (the Back button: the menus' B, held as long as it is, as
+				Escape's; let go of, or the menus closing, it lets B go) */
+				else if (platform_mouse_button_backs(event.button.button))
+				{
+					input_state.menu_back = event.button.down;
+					if (event.button.down)
+						menu_back_pressed = TRUE;
+				}
 				break;
 			}
 #endif
@@ -2919,6 +2987,10 @@ void platform_pump_events(void)
 			}
 			break;
 		case SDL_EVENT_MOUSE_WHEEL:
+#ifndef HALO_ANDROID
+			if (test_menu_mouse_ignored(event.wheel.which))
+				break;
+#endif
 			if (binding_capture == _binding_capture_waiting && event.wheel.y != 0.0f)
 			{
 				binding_capture = _binding_capture_taken;
@@ -2967,6 +3039,10 @@ void platform_pump_events(void)
 			memset(input_state.keys, 0, sizeof(input_state.keys));
 			memset(input_state.mouse_buttons, 0, sizeof(input_state.mouse_buttons));
 			memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
+			input_state.menu_back = FALSE;
+#ifndef HALO_ANDROID
+			menu_back_pressed = FALSE;
+#endif
 			input_state.focused = FALSE;
 			/* (the scoreboard's pointer goes; the mouse is taken back for
 			the aim as the window has the focus again) */
@@ -3147,6 +3223,8 @@ void platform_ui_pointer_set_active(BOOL active)
 	input_state.ui_pointer = active;
 	memset(&ui_pointer, 0, sizeof(ui_pointer));
 	ui_pointer_wheel = 0.0f;
+	input_state.menu_back = FALSE;
+	menu_back_pressed = FALSE;
 	input_state.mouse_dx = 0.0f;
 	input_state.mouse_dy = 0.0f;
 	input_state.mouse_wheel = 0.0f;
@@ -3188,14 +3266,21 @@ BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer)
 	presses alone: the mouse of whoever is at the computer moves no focus) */
 	if (!strncmp(config_string("debug.test_input"), "menu:", 5))
 	{
-		/* (but its own clicks: "click:<x>:<y>", platform_test_menu_click) */
+		/* (but its own clicks: "click:<x>:<y>", platform_test_menu_click;
+		and its own mouse's wheel, the others' events left out:
+		test_menu_mouse_ignored) */
 		float x, y;
 		int width, height;
+		int wheel_steps = pointer->wheel_steps;
+		BOOL clicked = active && platform_test_menu_click(&x, &y);
 
-		if (!active || !platform_test_menu_click(&x, &y))
+		if (!active || (!clicked && !wheel_steps))
 			return FALSE;
-		SDL_GetWindowSize(platform_window, &width, &height);
 		memset(pointer, 0, sizeof(*pointer));
+		pointer->wheel_steps = wheel_steps;
+		if (!clicked)
+			return TRUE;
+		SDL_GetWindowSize(platform_window, &width, &height);
 		pointer->x = pointer->click_x = x * width;
 		pointer->y = pointer->click_y = y * height;
 		pointer->moved = TRUE;
@@ -3352,6 +3437,10 @@ void platform_input_read(struct platform_input_state *state, BOOL consume_motion
 		memset(state->mouse_buttons, 0, sizeof(state->mouse_buttons));
 		memset(keys_pressed, 0, sizeof(keys_pressed));
 		memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
+		state->menu_back = FALSE;
+#ifndef HALO_ANDROID
+		menu_back_pressed = FALSE;
+#endif
 		state->mouse_wheel = 0.0f;
 		/* (and the motion of the while, which would otherwise pile up for
 		the aim) */
@@ -3378,6 +3467,10 @@ void platform_input_read(struct platform_input_state *state, BOOL consume_motion
 			state->mouse_buttons[scancode] |= mouse_buttons_pressed[scancode];
 			mouse_buttons_pressed[scancode] = 0;
 		}
+#ifndef HALO_ANDROID
+		state->menu_back |= menu_back_pressed;
+		menu_back_pressed = FALSE;
+#endif
 	}
 	if (consume_motion)
 	{

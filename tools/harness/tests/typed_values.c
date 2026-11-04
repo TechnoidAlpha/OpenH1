@@ -92,7 +92,7 @@ static void text_set(struct widget_instance *widget, wchar_t const *text)
 
 /* (xinput_sdl.c) */
 typedef struct { WORD wButtons; BYTE bAnalogButtons[8]; SHORT sThumbLX, sThumbLY; } XINPUT_GAMEPAD;
-struct platform_input_state { unsigned char keys[TEST_SCANCODE_COUNT]; };
+struct platform_input_state { unsigned char keys[TEST_SCANCODE_COUNT]; BOOL menu_back; };
 static BOOL text_typing_enter_armed;
 BOOL text_typing_field;
 BOOL text_typing_keyboard;
