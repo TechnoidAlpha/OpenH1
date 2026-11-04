@@ -775,6 +775,8 @@ struct d3d8_device
 
 	/* inside a visibility test (D3DDevice_BeginVisibilityTest) */
 	BOOL visibility_test_active;
+	/* the number of the last test ended (0: none; never 0 after) */
+	unsigned long visibility_test_number;
 
 	unsigned long frame;
 	unsigned long next_vertex_shader_id;
@@ -2262,22 +2264,40 @@ HRESULT WINAPI D3DDevice_EndVisibilityTest(DWORD index)
 	if (vr_gl.multiview)
 		views = 2;
 #endif
+	/* (numbered: the count reaches the game frames later, and the slot may
+	have been tested for something else since: the number says which
+	test the count is of, D3DDevice_GetVisibilityTestResult) */
+	device.visibility_test_number = (device.visibility_test_number + 1) & 0xffffffffUL;
+	if (!device.visibility_test_number)
+		device.visibility_test_number = 1;
 	xgpu_backend_visibility_end(index % XGPU_VISIBILITY_TEST_SLOTS, target_scale[0] * target_scale[1], views,
-		target_samples);
+		target_samples, device.visibility_test_number);
 	return S_OK;
 }
 
+/* The latest count known for the slot, never pending (the Xbox's waited
+for the test, D3DERR_TESTINCOMPLETE; here the counts are the GPU's of a
+frame or more before). time_stamp: the number of the test the count is of
+(d3d8_visibility_test_number's; 0: none yet), so that a caller whose slot
+is tested for one thing frame after frame can tell a count of its own test
+from an older one of the slot */
 HRESULT WINAPI D3DDevice_GetVisibilityTestResult(DWORD index, UINT *result, ULONGLONG *time_stamp)
 {
 	UINT count = 0;
+	unsigned long test = 0;
 
-	if (time_stamp)
-		*time_stamp = 0;
 	if (device.gl_ready)
-		count = xgpu_backend_visibility_result(index % XGPU_VISIBILITY_TEST_SLOTS);
+		count = xgpu_backend_visibility_result(index % XGPU_VISIBILITY_TEST_SLOTS, &test);
+	if (time_stamp)
+		*time_stamp = test;
 	if (result)
 		*result = count;
 	return S_OK;
+}
+
+unsigned long d3d8_visibility_test_number(void)
+{
+	return device.visibility_test_number;
 }
 
 /* ---------- render and texture stage state */

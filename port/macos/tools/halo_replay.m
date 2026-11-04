@@ -424,7 +424,7 @@ static int memory_make(void)
 		return 0;
 	/* the ring's header, its bytes and the host's answers, where they were */
 	pages_mark(ring->buffer, ring->size, 0);
-	pages_mark(ring->visibility, XGPU_STREAM_VISIBILITY_SLOTS * 4, 0);
+	pages_mark(ring->visibility, XGPU_STREAM_VISIBILITY_SLOTS * 2 * 4, 0);
 	pages_mark(ring->pipelines, XGPU_STREAM_PIPELINES, 0);
 	return 1;
 }
