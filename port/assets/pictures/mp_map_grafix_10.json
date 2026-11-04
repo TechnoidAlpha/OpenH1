@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 10 (Wizard)",
+ "scenario": "levels\\test\\wizard\\wizard",
+ "bsp": 0,
+ "aspect": 1.2584,
+ "pose": {
+  "x": -3.4562,
+  "y": 4.2322,
+  "z": -2.0362,
+  "yaw": 325.7599,
+  "pitch": 8.6271,
+  "roll": 2.226,
+  "vfov": 57.3794
+ },
+ "prepare": [
+  "debug_camera_set \"-12.05 3.43 -2.05 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.8264
+}

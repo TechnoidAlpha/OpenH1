@@ -1,0 +1,22 @@
+{
+ "picture": "ui.map mp_map_grafix 06 (Chill Out)",
+ "scenario": "levels\\test\\chillout\\chillout",
+ "bsp": 0,
+ "aspect": 1.1587,
+ "pose": {
+  "x": -2.2204,
+  "y": 3.6618,
+  "z": 2.5586,
+  "yaw": 305.7322,
+  "pitch": 6.1416,
+  "roll": 1.3986,
+  "vfov": 52.7959
+ },
+ "prepare": [
+  "debug_camera_set \"5.83 12.58 2.65 0 0 0 60\"",
+  "cheat_teleport_to_camera",
+  "debug_camera_set \"-1.83 4.08 2.75 305.73 6.14 1.40 60\""
+ ],
+ "colour": "curve",
+ "score": -0.0446
+}

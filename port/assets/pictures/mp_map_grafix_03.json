@@ -1,0 +1,22 @@
+{
+ "picture": "ui.map mp_map_grafix 03 (Rat Race)",
+ "scenario": "levels\\test\\ratrace\\ratrace",
+ "bsp": 0,
+ "aspect": 1.1591,
+ "pose": {
+  "x": 12.6727,
+  "y": -21.7616,
+  "z": -2.7543,
+  "yaw": 212.9162,
+  "pitch": 3.0933,
+  "roll": 0.5354,
+  "vfov": 51.9612
+ },
+ "prepare": [
+  "debug_camera_set \"6.64 2.90 0.11 0 0 0 60\"",
+  "cheat_teleport_to_camera",
+  "debug_camera_set \"12.67 -21.76 -1.55 212.92 3.09 0.54 60\""
+ ],
+ "colour": "raw",
+ "score": 0.8116
+}

@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 01 (Sidewinder)",
+ "scenario": "levels\\test\\sidewinder\\sidewinder",
+ "bsp": 0,
+ "aspect": 1.2448,
+ "pose": {
+  "x": -34.5833,
+  "y": -22.2002,
+  "z": -3.2276,
+  "yaw": 305.3585,
+  "pitch": 19.0373,
+  "roll": -0.3986,
+  "vfov": 55.8842
+ },
+ "prepare": [
+  "debug_camera_set \"-50 24 1 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.9296
+}
