@@ -250,6 +250,10 @@ static const struct config_setting config_settings[] =
 		"With display.panini, its vertical compression (Panini's s), 0 to 1:\n"
 		"0 keeps the shapes at the sides; more straightens the floors and\n"
 		"ceilings above and below the middle, stretching the sides taller." },
+	{ "display.draw_distance", _config_real, "1024.0", "HALO_DRAW_DISTANCE", _environment_value, _platform_all,
+		"How far the world is drawn: the far clip plane, in world units\n"
+		"(about 3 m each), 1024 (the game's own) to 10000. Drawing alone: the\n"
+		"game plays the same. A script's nearer far clip is kept." },
 	{ "display.viewmodel_fov", _config_real, "0.0", "HALO_VIEWMODEL_FOV", _environment_value, _platform_all,
 		"The first-person weapon's and hands' field of view, in degrees across\n"
 		"at 16:9 (20 to 150); 0 keeps the weapon's stock view, also when\n"

@@ -56,7 +56,7 @@ CONTROLS = {
     "rebuild-kept": (("structure_culling = *kept;", "free(kept->allocation);"), "structure_culling_switch", "switch-kept"),
     "drop-structure-check": (("structure_culling.structure == structure &&", "TRUE &&"), "structure_culling_data_matches", "stale-structure"),
     "ignore-zero-mask": (("!structure_culling_tests || ", ""), "structure_culling_traverse", "walk-fallback"),
-    "use-fog-far": (("rasterizer_globals.far_clip_distance", "render.camera.z_far"), "structure_culling_traverse", "walk-planes"),
+    "use-fog-far": (("render_far_clip_distance()", "render.camera.z_far"), "structure_culling_traverse", "walk-planes"),
     "skip-forward-normalization": (("scale_vector3d(&render.camera.forward, 1.0f / square_root(magnitude_squared3d(&render.camera.forward)),\n\t\t&planes[_structure_culling_frustum_plane_far].n);", "planes[_structure_culling_frustum_plane_far].n = render.camera.forward;"), "structure_culling_traverse", "walk-unit-forward"),
     "drop-source-box": (("if (bucket->source_bounds && !render_frustum_cube_visible", "if (FALSE && bucket->source_bounds && !render_frustum_cube_visible"), "structure_culling_traverse", "source-fog-rejected"),
     "clamp-finer-box": (("render_frustum_cube_visible(frustum, bucket->source_bounds, FALSE)", "render_frustum_cube_visible(frustum, &bucket->bounds, FALSE)"), "structure_culling_traverse", "source-fog-straddling"),

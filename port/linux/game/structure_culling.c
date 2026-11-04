@@ -7,6 +7,7 @@ Six-plane rejection and conservative facing summaries for structure buckets.
 /* ---------- headers */
 
 #include "structure_culling.h"
+#include "far_clip.h"
 #include "custom_edition_cache.h"
 #include "cseries/cseries_windows.h"
 #include "cseries/errors.h"
@@ -1080,7 +1081,7 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 		planes[_structure_culling_frustum_plane_far].n.i * render.camera.position.x +
 		planes[_structure_culling_frustum_plane_far].n.j * render.camera.position.y +
 		planes[_structure_culling_frustum_plane_far].n.k * render.camera.position.z +
-		rasterizer_globals.far_clip_distance;
+		render_far_clip_distance();
 	/* mirror projections are oblique: this perpendicular plane is not their GPU far clip */
 	if (render.camera.z_near == 0.0f)
 	{

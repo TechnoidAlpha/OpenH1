@@ -18,6 +18,11 @@ tools/test_reversed_depth.py):
                                  as the emitters write it, the game's (z / w)
                                  and reversed (from the rows); how many of the
                                  light's points pass the depth test
+  check precision <far> <distance> <gap>
+                                 the same with another far plane
+                                 (display.draw_distance's, port/linux/game/
+                                 far_clip.c), the wall that far away and the
+                                 light that much in front of it (world units)
 
 Built by tools/test_reversed_depth.py with the shader decoders and the
 Metal emitter, as tools/msl_corpus is, the arithmetic of the shaders done
@@ -93,13 +98,13 @@ static float dph(const float p[3], const float row[4])
 	return sum + row[3];
 }
 
-static int precision(void)
+static int precision(double far, double distance, double gap)
 {
 	/* the game's projection (rasterizer_set_frustum_z: Direct3D's, depth 0
 	to 1, its near and far planes) of a camera at (0, 0, 2) looking along
 	(1, 1, 0) / sqrt 2, and a wall facing it 100 m away, about (120, -50)
 	from the origin; the sniper rifle's zoom changes x and y alone */
-	const double near = 0.0625, far = 1024.0, distance = 100.0, gap = 0.0015;
+	const double near = 0.0625;
 	const double camera[3] = { 49.3, -120.7, 2.0 }, forward[3] = { 0.70710678, 0.70710678, 0.0 };
 	double alpha = far / (far - near), beta = -far * near / (far - near);
 	float z_row[4], w_row[4];
@@ -155,7 +160,9 @@ int main(int argc, char **argv)
 	if (argc == 3 && !strcmp(argv[1], "programs"))
 		return programs(argv[2]);
 	if (argc == 2 && !strcmp(argv[1], "precision"))
-		return precision();
-	fprintf(stderr, "usage: check programs <capture dir> | check precision\n");
+		return precision(1024.0, 100.0, 0.0015);
+	if (argc == 5 && !strcmp(argv[1], "precision"))
+		return precision(atof(argv[2]), atof(argv[3]), atof(argv[4]));
+	fprintf(stderr, "usage: check programs <capture dir> | check precision [<far> <distance> <gap>]\n");
 	return 2;
 }
