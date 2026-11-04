@@ -168,6 +168,10 @@ main menu again, under the loading screen): the main loop draws only the
 frames kept (menu_pictures_frame_drawn) */
 int menu_pictures_preparing(void);
 int menu_pictures_frame_drawn(void);
+/* the maps loaded now are the pass's, drawn as they shipped: no mod is
+played on them (mods.c), so a picture never shows a mod, and turning mods
+on or off leaves the cached pictures right */
+int menu_pictures_stock_maps(void);
 /* a frame to keep, as it is presented (d3d8_device.c's present: kept, and
 not shown); TRUE if it was one */
 int menu_pictures_frame_kept(void);

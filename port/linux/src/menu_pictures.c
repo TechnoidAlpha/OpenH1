@@ -51,8 +51,9 @@ int mkdir(const char *path, unsigned int mode);
 /* ---------- constants */
 
 /* the cache's notes say which version of the rendering made them: a change
-of the rendering renders every picture again */
-#define MENU_PICTURES_VERSION 2
+of the rendering renders every picture again (3: drawn without mods, as
+the maps shipped: those drawn with mods before are drawn again) */
+#define MENU_PICTURES_VERSION 3
 /* renders of a pose (for a map) that did not finish before the original is
 kept */
 #define MENU_PICTURE_FAILURES 2
