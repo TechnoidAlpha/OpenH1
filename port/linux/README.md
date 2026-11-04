@@ -6414,7 +6414,11 @@ contrails, which a tick adds points to, still part by the frame rate.)
   ticks (the particles moved each frame, the camera's shake, the
   renderer, the menus) the frames' (`math/random_math.c`), so the ticks'
   moves only in the ticks and in their order, however many frames are
-  drawn between them. The sounds have a seed of their own
+  drawn between them. What is only seen and is also made between the ticks
+  takes the frames' in a tick too (`random_math_port_begin_cosmetic`): the
+  contrails, and the decals, which an effect a particle makes as it strikes
+  makes in a frame, and whose takes of the seed depended on what the frames
+  left of them (the vertex cache's room, the locked decals). The sounds have a seed of their own
   (`sound/sound_manager.c`), and the debug allocator's fill another
   (`cseries/debug_memory.c`): the sound manager picks as the mixer plays,
   by the clock. A speaker's sound is the one exception: the game picks its
@@ -6424,8 +6428,8 @@ contrails, which a tick adds points to, still part by the frame rate.)
   the ticks, from the ticks since the sound began; the wind steps once a
   tick.
 - What the ticks keep. Not the sound manager's indices, which are the
-  mixer's (a unit's speech, the first-person weapon's sound); a decal is
-  made whether or not the texture cache has its bitmap yet. What the game
+  mixer's (a unit's speech, the first-person weapon's sound), nor the
+  decals, which are the frames' (above). What the game
   fills on the stack and copies whole into the game state (a unit's speech
   item and its AI packet, a particle's data) is zeroed first, its padding
   too, or the bytes it leaves are whatever the stack held, which any change
@@ -6480,8 +6484,8 @@ not yet used, for `--ignore`.
 
 `--simulation` compares only what the ticks do, for two runs at different
 frame rates: not the frames, the takers between the ticks, nor the
-allocations that the frames move (the particles, the decals' vertices,
-the lights, the fog and the sound environment, the motion sensor, the
+allocations that the frames move (the particles, the decals and their
+vertices, the lights, the fog and the sound environment, the motion sensor, the
 first-person weapon posed at the camera, the input as the frames take
 it). With `walk:<seed>`, a scripted player that
 never turns (a turn is the stick's rate over each frame's time, so it is
@@ -6687,7 +6691,7 @@ Other changes:
 | `sound/sound_manager.c`, `sound/sound_definitions.c` | The sounds' random choices take a seed of their own. The speakers' mouths are not moved from the mixer's place in the sound. |
 | `sound/game_sound.c`, `units/unit_dialogue.c` | The speakers' mouths move in the ticks, from the permutation the game picks at the speech's start and the ticks since. A unit does not keep the sound manager's index of its speech, and a scripted sound's time ends when it is stopped, whether or not the mixer played it. |
 | `main/main.c` | Each frame can run a set time (`debug.frame_time`). |
-| `effects/decals.c` | A decal is made whether or not the texture cache has its bitmap yet (the bitmap is asked for; drawing the decal loads it). |
+| `effects/decals.c` | A decal is made whether or not the texture cache has its bitmap yet (the bitmap is asked for; drawing the decal loads it), and its randomness takes the frames' local seed, in a tick too ("Determinism"). |
 | `interface/first_person_weapons.c` | The first-person weapon's sound's index is kept beside the game state; the weapon's state holds the sound's definition. |
 | `cseries/cseries_windows.c` | The clock's readers in a tick go to the determinism check. |
 | `main/main.c`, `interface/hud.c`, `interface/hud_unit.c`, `interface/hud_draw.c`, `game/game_engine.c` | The text chat of network games (`game/network_chat.c`): its keys are read each frame, and the debug keys are not while a line is typed; each view's HUD draws its lines, above the motion sensor, whose place the HUD notes (the left of the last picture drawn); the scoreboard's menu has Mute voice and chat, and the host's Mute for everyone. |
