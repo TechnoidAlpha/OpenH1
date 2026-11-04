@@ -6246,6 +6246,24 @@ static void ui_mouse_forget_widget(
 	return;
 }
 
+/* port: (ui_widgets_process_mouse, ui_mouse_targets_stale) what the pointer
+did since the screen it did it on went is let go, and the presses it
+queued for that screen with it: a click there is no click on the next
+screen, which has not been seen yet (nor, while that is not drawn, a press
+of A on a screen with nothing to pick) */
+static void ui_mouse_let_go_if_stale(
+	struct halo_ui_pointer *pointer)
+{
+	if (!ui_mouse_targets_stale)
+		return;
+	ui_mouse_press_count = 0;
+	ui_mouse_hover_pending = FALSE;
+	ui_mouse_click_pending = FALSE;
+	pointer->wheel_steps = 0;
+
+	return;
+}
+
 /* ---------- the debug view of the targets (debug.touch_targets)
 
 Drawn by render_ui_widgets in the pass that noted the targets: the list is
@@ -7813,18 +7831,7 @@ static void ui_widgets_process_mouse(
 		}
 		if (pointer.right_clicks)
 			ui_mouse_press(_widget_event_b_button);
-		/* port: (ui_mouse_targets_stale) what the pointer did since the
-		screen it did it on went is let go, and the presses it queued for that
-		screen with it: a click there is no click on the next screen, which
-		has not been seen yet (nor, while it is not drawn, a press of A on a
-		screen with nothing to pick) */
-		if (ui_mouse_targets_stale)
-		{
-			ui_mouse_press_count = 0;
-			ui_mouse_hover_pending = FALSE;
-			ui_mouse_click_pending = FALSE;
-			pointer.wheel_steps = 0;
-		}
+		ui_mouse_let_go_if_stale(&pointer);
 		/* port: (ui_widget_port_finger_taken) at the finger's first move
 		sideways, by where it went down */
 		if (pointer.touch && pointer.left_held && !was_held)
