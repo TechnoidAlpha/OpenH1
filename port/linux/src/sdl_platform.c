@@ -85,11 +85,12 @@ int menu_pictures_preparing(void);
 
 void halo_loading_begin(void)
 {
-	/* the menus' pictures' maps: their preparing screen stays, the old
-	draws retired all the same */
-	if (!loading_presentation_active && platform_window && menu_pictures_preparing())
+	/* the menus' pictures' maps: the loading screen of their whole pass
+	stays (halo_loading_screen_begin), the old draws retired all the same */
+	if (menu_pictures_preparing())
 	{
-		xgpu_backend_consume();
+		if (platform_window)
+			xgpu_backend_consume();
 		return;
 	}
 	if (!loading_presentation_active && platform_window)

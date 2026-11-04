@@ -700,12 +700,11 @@ void network_test_update(boolean main_menu_loaded, real seconds);
 /* port: port/linux/game/basic_training.c */
 void basic_training_update(boolean main_menu_loaded, real seconds);
 /* port: the menus' pictures drawn again from the player's maps, rendered
-by the game itself as the main menu first shows: its preparing screen, and
+by the game itself as the main menu first shows, under the loading screen:
 which frames it draws (port/linux/game/menu_pictures_render.c) */
 void menu_pictures_frame(int main_menu_loaded);
 int menu_pictures_preparing(void);
 int menu_pictures_frame_drawn(void);
-int menu_pictures_screen_only(void);
 /* port: port/linux/game/network_distributed.c */
 void network_distributed_frame_received(void);
 int network_distributed_server_receive(long milliseconds);
@@ -3934,8 +3933,8 @@ void main_loop(
 					if (halo_interpolation_enabled())
 						render_frame = main_globals.main_menu_scenario_loaded || main_globals.halt_time_scale;
 					render_frame &= !game_engine_running() || game_time_get()>=3;
-					/* port: while the menus' pictures are rendered, the frames it
-					draws alone (menu_pictures_render.c) */
+					/* port: while the menus' pictures are rendered, only the frames
+					kept (menu_pictures_render.c) */
 					if (menu_pictures_preparing())
 						render_frame = menu_pictures_frame_drawn();
 
@@ -3964,11 +3963,6 @@ void main_loop(
 						load_trace_first_frame = 2;
 					}
 					LATENCY_LOG(latency_log_frame_begin()); /* port: debug.latency_log */
-					/* port: the menus' pictures' preparing screen alone, or the game's
-					frame (menu_pictures_render.c) */
-					if (menu_pictures_screen_only())
-						main_pregame_render();
-					else
 					main_game_render((double)main_globals.seconds_elapsed);
 					LATENCY_LOG(latency_log_frame_rendered()); /* port: debug.latency_log */
 					halo_loading_ready(); /* port: a picture with no player window has no enumeration handoff */

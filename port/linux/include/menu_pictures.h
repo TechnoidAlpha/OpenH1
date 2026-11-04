@@ -5,8 +5,9 @@ The menus' small pictures of the missions and the multiplayer maps (ui.map's
 ui\shell\bitmaps\sp_levels and mp_map_grafix, 140x114 in 256x128 frames)
 drawn again, sharp, from the player's own maps: a camera's place for each
 (port/assets/pictures, embedded by tools/embed_assets.py: never a picture),
-rendered once by the game itself, in its own window, as the main menu first
-shows ("Preparing menu pictures": port/linux/game/menu_pictures_render.c),
+rendered once by the game itself, in its own window, under the loading
+screen as the main menu first shows ("Preparing menu pictures":
+port/linux/game/menu_pictures_render.c),
 kept in the data folder, and drawn in place of the original frame
 (port/linux/src/menu_pictures.c). Any picture that cannot be (its map
 missing or not the one the pose was made for, a render that failed twice)
@@ -151,15 +152,10 @@ rendered in turn (its map loaded, the scene set, a frame drawn and kept),
 the preparing screen shown meanwhile, then the main menu again */
 void menu_pictures_frame(int main_menu_loaded);
 /* while the pictures are rendered (from the main menu first shown to the
-main menu again): the main loop draws the preparing screen alone
-(menu_pictures_screen_only), the game's own frame when one is kept, or
-nothing (menu_pictures_frame_drawn) */
+main menu again, under the loading screen): the main loop draws only the
+frames kept (menu_pictures_frame_drawn) */
 int menu_pictures_preparing(void);
 int menu_pictures_frame_drawn(void);
-int menu_pictures_screen_only(void);
-/* the preparing screen, drawn over whatever the frame has (the 640x480
-screen's 2D pass) */
-void menu_pictures_screen_draw(void);
 /* a frame to keep, as it is presented (d3d8_device.c's present: kept, and
 not shown); TRUE if it was one */
 int menu_pictures_frame_kept(void);

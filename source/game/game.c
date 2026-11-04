@@ -940,8 +940,8 @@ void game_precache_new_map(
 			{
 				map_status = cache_files_precache_map_status(
 					&game_globals->loading_progress);
-				/* port: not for a map of the menus' pictures: their preparing
-				screen stays as it is (port/linux/game/menu_pictures_render.c) */
+				/* port: not for a map of the menus' pictures: the loading screen
+				of their pass is up (port/linux/game/menu_pictures_render.c) */
 				if (menu_pictures_preparing())
 				{
 					Sleep(1);

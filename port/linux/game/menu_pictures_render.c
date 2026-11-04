@@ -40,14 +40,16 @@ pose's own field of view, no Panini projection, the reticle in the middle
 and every line drawn (port_config.c's config_picture_view). Sound is off
 meanwhile.
 
-While the pictures are rendered the window shows a screen of its own,
-about 30 times a second while a map is set up (nothing else: the frames
-between are not drawn, and the map's loading screen and the frames of its
-file's decompression are not shown: the screen stays): a bar and
-"Preparing menu pictures", "4 of 11", counting only the pictures that can
-be made (menu_pictures_wanted: none whose map is missing or modded, nor one
-that failed twice; with none, no screen at all). Nothing stops it: a
-picture that fails is noted and passed at once, its original kept.
+While the pictures are rendered the window shows the loading screen, one
+for the whole pass (loading_screen.h: the main menu's ring, the light
+crossing it once as the pictures are made, the monks' chant swelling),
+with the caption "Preparing menu pictures", "4 of 11"; the maps' own
+loading screens are not shown, nor any frame of the game's (the frames
+kept are not presented). It fades out over the main menu loading. It
+counts only the pictures that can be made (menu_pictures_wanted: none
+whose map is missing or modded, nor one that failed twice; with none, no
+screen at all). Nothing stops it: a picture that fails is noted and passed
+at once, its original kept.
 */
 
 #include "cseries.h"
@@ -71,6 +73,7 @@ picture that fails is noted and passed at once, its original kept.
 #include "text/draw_string.h"
 
 #include "menu_pictures.h"
+#include "../src/loading_screen.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -94,8 +97,8 @@ enum
 	PREPARE_TICKS_A_FRAME = 120,
 	/* (frames) a map not loaded after this many is given up */
 	PREPARE_LOAD_FRAMES = 30,
-	/* (nanoseconds) the screen's frames, at most this often */
-	PREPARE_SCREEN_INTERVAL = 33000000,
+	/* (nanoseconds) the loading screen's fade at the end */
+	PREPARE_SCREEN_FADE = 550000000,
 };
 
 enum prepare_state
@@ -159,10 +162,10 @@ static struct
 	long done, made;
 	long frames, picture_frames;
 	long ticks, quiet_ticks;
-	/* the frame drawn this frame: none, the screen alone, or the game's
-	kept (with the screen over it); and when the screen was last drawn */
+	/* the frame drawn this frame (the one kept), and when the loading
+	screen began its fade (its progress at 1) */
 	int drawn;
-	unsigned long long screen_drawn;
+	unsigned long long faded;
 	/* the frame is kept as it is drawn */
 	int capture_wanted, captured;
 	unsigned long long began, picture_began, phase_began;
@@ -216,11 +219,6 @@ int menu_pictures_preparing(void)
 int menu_pictures_frame_drawn(void)
 {
 	return prepare.state == _prepare_off || prepare.drawn;
-}
-
-int menu_pictures_screen_only(void)
-{
-	return prepare.state != _prepare_off && prepare.drawn == 1;
 }
 
 int menu_pictures_textures_wait(void)
@@ -337,6 +335,9 @@ static void prepare_next(
 			prepare.totals[_phase_scene], prepare.totals[_phase_objects], prepare.totals[_phase_frame],
 			prepare.totals[_phase_keep], prepare.totals[_phase_after]);
 		main_queue_map_name(NULL);
+		/* (the loading screen fades out, over the main menu loading) */
+		halo_loading_screen_progress(1.0f, NULL);
+		prepare.faded = prepare_now();
 		sound_enable(TRUE);
 		game_time_set_speed(1.0f);
 		main_menu_pictures_end();
@@ -389,8 +390,10 @@ static void prepare_begin(
 	config_picture_view(TRUE);
 	sound_stop_all();
 	sound_enable(FALSE);
-	prepare.drawn = 1;
-	prepare.screen_drawn = 0;
+	/* (the loading screen the whole pass: the main menu's ring under the
+	light, crossing once as the pictures are made, the monks' chant) */
+	halo_loading_screen_begin(TRUE);
+	prepare.drawn = 0;
 	prepare_next();
 }
 
@@ -545,14 +548,13 @@ static void prepare_update(
 			prepare.index++;
 			prepare.done++;
 			prepare.made++;
-			/* (shown at once) */
-			prepare.screen_drawn = 0;
 			prepare_next();
 		}
 		break;
 	case _prepare_menu:
-		if (main_menu_loaded)
+		if (main_menu_loaded && prepare_now() - prepare.faded >= PREPARE_SCREEN_FADE)
 		{
+			halo_loading_screen_end();
 			config_picture_view(FALSE);
 			prepare.state = _prepare_off;
 			prepare.drawn = 0;
@@ -564,11 +566,35 @@ static void prepare_update(
 	}
 }
 
+/* the loading screen's progress (the pictures made, and how far the one
+being made has come) and its caption ("4 of 11": the pictures made) */
+static void prepare_screen(
+	void)
+{
+	static real const parts[] =
+	{
+		0.0f, /* _prepare_off */
+		0.0f, /* _prepare_load */
+		0.0f, /* _prepare_loading */
+		0.6f, /* _prepare_opening */
+		0.75f, /* _prepare_structure */
+		0.85f, /* _prepare_objects */
+		0.9f, /* _prepare_pose */
+		0.95f, /* _prepare_capture */
+		1.0f, /* _prepare_menu */
+	};
+	char caption[96];
+
+	if (prepare.state == _prepare_menu || prepare.count <= 0)
+		return;
+	snprintf(caption, sizeof(caption), "Preparing menu pictures \xB7 %ld of %ld", prepare.done, prepare.count);
+	halo_loading_screen_progress((prepare.done + parts[prepare.state]) / (real)prepare.count, caption);
+}
+
 void menu_pictures_frame(
 	int main_menu_loaded)
 {
 	static int looked;
-	unsigned long long now;
 
 	if (prepare.state == _prepare_off)
 	{
@@ -588,17 +614,10 @@ void menu_pictures_frame(
 	}
 	if (prepare.state == _prepare_off)
 		return;
-	/* this frame: the game's kept, the screen alone (about 30 a second), or
-	none */
-	now = prepare_now();
-	if (prepare.state == _prepare_capture && prepare.capture_wanted && !prepare.captured)
-		prepare.drawn = 2;
-	else if (!prepare.screen_drawn || now - prepare.screen_drawn >= PREPARE_SCREEN_INTERVAL)
-		prepare.drawn = 1;
-	else
-		prepare.drawn = 0;
-	if (prepare.drawn)
-		prepare.screen_drawn = now;
+	/* this frame: the game's kept, or none (the loading screen's own on
+	its clock, with its progress and caption) */
+	prepare.drawn = prepare.state == _prepare_capture && prepare.capture_wanted && !prepare.captured ? 2 : 0;
+	prepare_screen();
 }
 
 int menu_pictures_frame_kept(
@@ -613,76 +632,4 @@ int menu_pictures_frame_kept(
 		prepare.frames = 1000;
 	prepare_phase(_phase_keep);
 	return TRUE;
-}
-
-/* ---------- the preparing screen */
-
-static void screen_rectangle(
-	real x0,
-	real y0,
-	real x1,
-	real y1,
-	pixel32 color)
-{
-	rectangle2d rectangle;
-
-	rectangle.x0 = (short)x0;
-	rectangle.y0 = (short)y0;
-	rectangle.x1 = (short)x1;
-	rectangle.y1 = (short)y1;
-	draw_quad(&rectangle, color);
-}
-
-static void screen_text(
-	long font,
-	short justification,
-	real_argb_color const *color,
-	real x0,
-	real y0,
-	real x1,
-	real y1,
-	char const *text)
-{
-	rectangle2d bounds;
-
-	if (font == NONE)
-		return;
-	bounds.x0 = (short)x0;
-	bounds.y0 = (short)y0;
-	bounds.x1 = (short)x1;
-	bounds.y1 = (short)y1;
-	draw_string_set_draw_mode(font, NONE, justification, 0, color);
-	rasterizer_draw_string(&bounds, NULL, NULL, 0, text);
-}
-
-void menu_pictures_screen_draw(
-	void)
-{
-	/* the menus' colours: their blue (#2896FF), a soft white, a dark night
-	blue */
-	static real_argb_color const caption = { 1.0f, 0.78f, 0.84f, 0.92f };
-	pixel32 const background = 0xFF07101C, track = 0xFF0F1F33, blue = 0xFF2896FF;
-	rectangle2d viewport = render.camera.viewport_bounds;
-	real x0 = viewport.x0, y0 = viewport.y0, width = viewport.x1 - viewport.x0, height = viewport.y1 - viewport.y0;
-	real unit, bar_x, bar_width, bar_y;
-	long font;
-	char text[160];
-
-	if (prepare.state == _prepare_off || prepare.drawn == 2 || width <= 0 || height <= 0 || !global_scenario_get())
-		return;
-	/* (the menus' own face, as the high-res text draws it: Overpass) */
-	font = interface_get_tag_index(_interface_font_system);
-	/* (laid out in a 4:3 frame's units, centred) */
-	unit = MIN(width / 640.0f, height / 480.0f);
-	screen_rectangle(x0, y0, x0 + width, y0 + height, background);
-	bar_width = 320.0f * unit;
-	bar_x = x0 + (width - bar_width) / 2.0f;
-	bar_y = y0 + height - 70.0f * unit;
-	/* (the bar and the count say the same: the pictures made, all of them
-	at the end) */
-	screen_rectangle(bar_x, bar_y, bar_x + bar_width, bar_y + 2.0f * unit, track);
-	screen_rectangle(bar_x, bar_y, bar_x + bar_width * prepare.done / MAX(prepare.count, 1), bar_y + 2.0f * unit,
-		blue);
-	snprintf(text, sizeof(text), "Preparing menu pictures \xB7 %ld of %ld", prepare.done, prepare.count);
-	screen_text(font, 2, &caption, x0, bar_y + 8.0f * unit, x0 + width, bar_y + 26.0f * unit, text);
 }
