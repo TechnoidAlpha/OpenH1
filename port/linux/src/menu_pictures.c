@@ -59,6 +59,12 @@ kept */
 /* the largest a menu draws a frame: the campaign's mission card, 322 of
 the 640x480 screen's units for the frame's 256 texels (main_menu.campaign.xml) */
 #define MENU_PICTURE_LARGEST_UNITS 322
+/* (nanoseconds) the most a picture's render may take, from its map's file
+read to its frame kept, and the whole pass: past either, the pass ends and
+the main menu shows, the pictures not made keeping their originals (a slow
+disc's ten seconds a map is a third of a picture's) */
+#define MENU_PICTURE_TIME_BUDGET 30000000000ULL
+#define MENU_PICTURES_TIME_BUDGET 120000000000ULL
 
 /* ---------- prototypes */
 
@@ -205,6 +211,32 @@ void menu_picture_note_end(
 			note->result = _menu_picture_failed;
 		break;
 	}
+}
+
+/* ...or given up on at once: a render that stopped the game (its map's file
+not read, the error a damaged disc gives): never tried again for this pose
+and map (a picture rendered before is still drawn) */
+void menu_picture_note_give_up(
+	struct menu_picture_note *note)
+{
+	if (note->result != _menu_picture_rendered)
+		note->result = _menu_picture_failed;
+	if (note->failures < MENU_PICTURE_FAILURES)
+		note->failures = MENU_PICTURE_FAILURES;
+}
+
+/* whether the pass has taken too long (now, when it began and when the
+picture being made began, in nanoseconds of one clock): the picture's own
+budget or the pass's spent */
+int menu_picture_overdue(
+	unsigned long long now,
+	unsigned long long pass_began,
+	unsigned long long picture_began)
+{
+	/* (a clock gone back: not overdue, the budget counted from now) */
+	if (now < pass_began || now < picture_began)
+		return 0;
+	return now - picture_began > MENU_PICTURE_TIME_BUDGET || now - pass_began > MENU_PICTURES_TIME_BUDGET;
 }
 
 static char const *const menu_picture_result_names[] = { "none", "rendered", "failed", "modded" };
@@ -650,25 +682,11 @@ static int picture_note_write(long pose, struct menu_picture_note const *note)
 }
 
 /* the checksum of the player's map (its cache file header's, as saved
-games check it), 0 if there is none */
+games check it), 0 if there is none: the map the game itself would load,
+found where and as it finds it (menu_picture_map_checksum) */
 static unsigned long picture_map_checksum(long pose)
 {
-	unsigned char header[0x68];
-	char path[1100];
-	FILE *file;
-	size_t read;
-
-	snprintf(path, sizeof(path), "%s/maps/%s.map", platform_data_root(), menu_picture_poses[pose].map);
-	file = fopen(path, "rb");
-	if (!file)
-		return 0;
-	read = fread(header, 1, sizeof(header), file);
-	fclose(file);
-	/* ('head', as the file has it: little-endian) */
-	if (read != sizeof(header) || memcmp(header, "daeh", 4))
-		return 0;
-	return (unsigned long)header[0x64] | (unsigned long)header[0x65] << 8 | (unsigned long)header[0x66] << 16 |
-		(unsigned long)header[0x67] << 24;
+	return menu_picture_map_checksum(menu_picture_poses[pose].map);
 }
 
 /* ---------- PNGs (8-bit RGBA, which hud_hires.c reads) */
@@ -967,6 +985,24 @@ void menu_pictures_render_failed(
 	picture_note_write(pose, &note);
 	platform_log("menu pictures: %s %s (%ld time%s): the original is drawn", menu_picture_poses[pose].name, why,
 		note.failures, note.failures == 1 ? "" : "s");
+}
+
+void menu_pictures_render_given_up(
+	long pose,
+	char const *why)
+{
+	struct menu_picture_state *state = &menu_pictures.pictures[pose];
+	struct menu_picture_note note;
+
+	if (pose < 0 || pose >= picture_count() || !state->rendering)
+		return;
+	state->rendering = 0;
+	note = state->noted_before ? state->note_before : (struct menu_picture_note){ 0 };
+	menu_picture_note_begin(&note, &menu_picture_poses[pose], state->map_checksum, menu_pictures.wanted_scale);
+	menu_picture_note_end(&note, _menu_picture_failed, menu_pictures.wanted_scale);
+	menu_picture_note_give_up(&note);
+	picture_note_write(pose, &note);
+	platform_log("menu pictures: %s %s: given up, the original is drawn", menu_picture_poses[pose].name, why);
 }
 
 int menu_pictures_render_kept(

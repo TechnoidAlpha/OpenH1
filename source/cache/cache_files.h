@@ -180,6 +180,9 @@ void cache_files_precache_map_queue_end(
 boolean cache_files_precache_map_begin(
 	char const *map_name,
 	boolean copy_map);
+/* port: a map's checksum as the precache would copy it; 0 if it would not */
+unsigned long cache_files_map_copyable_checksum(
+	char const *map_name);
 
 void cache_file_promote_read(
 	short request_index);

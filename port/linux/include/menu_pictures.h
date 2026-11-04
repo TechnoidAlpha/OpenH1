@@ -121,6 +121,9 @@ colours matched, written and noted; 0 if that failed) */
 void menu_pictures_render_begin(long pose);
 void menu_pictures_render_failed(long pose, char const *why);
 int menu_pictures_render_kept(long pose);
+/* ...or given up on for good (its pose and map's), as one that stopped the
+game: not tried again */
+void menu_pictures_render_given_up(long pose, char const *why);
 /* the scale the pictures are rendered at (menu_picture_scale_for_height) */
 long menu_pictures_scale(void);
 
@@ -133,6 +136,8 @@ long menu_picture_order(struct menu_picture_pose const *poses, long count, unsig
 void menu_picture_note_begin(struct menu_picture_note *note, struct menu_picture_pose const *pose,
 	unsigned long map_checksum, long scale);
 void menu_picture_note_end(struct menu_picture_note *note, enum menu_picture_result result, long scale);
+void menu_picture_note_give_up(struct menu_picture_note *note);
+int menu_picture_overdue(unsigned long long now, unsigned long long pass_began, unsigned long long picture_began);
 int menu_picture_note_parse(char const *text, struct menu_picture_note *note);
 int menu_picture_note_format(struct menu_picture_note const *note, char *text, long size);
 void menu_picture_colour_curve(unsigned char *pixels, unsigned long count, unsigned char const *reference,
@@ -146,6 +151,13 @@ void menu_picture_frame(unsigned char const *picture, unsigned long width, unsig
 
 /* the pose whose original frame is this texture's, or -1 */
 long menu_picture_at(unsigned long address, long width, long height);
+/* the checksum of the map (a10) the game would load, found as it finds its
+maps (paths.data, the language's maps folder, any case), and only if its
+loader would take it; else 0 (cache_files_map_copyable_checksum) */
+unsigned long menu_picture_map_checksum(char const *map);
+/* the pass stopped where it is, as the game stops (the error a damaged
+disc gives): the picture being made given up, the loading screen given back */
+void menu_pictures_abandon(char const *why);
 /* each frame of the game's main loop, before it is drawn: in the main menu
 first shown, the pictures to render looked for, and if there are any, each
 rendered in turn (its map loaded, the scene set, a frame drawn and kept),
