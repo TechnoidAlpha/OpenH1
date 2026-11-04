@@ -79,7 +79,7 @@ case "$(dumpsys power | grep -m1 mWakefulness=)" in
 	*) die "the screen is off: unlock the phone, unfold it, and run again" ;;
 esac
 
-# ---- write_config <aa> <discards 0|1> <timing|pictures> <seconds> [ao] [ao view 0|1]
+# ---- write_config <aa> <discards 0|1|"" (the build's default)> <timing|pictures> <seconds> [ao] [ao view 0|1]
 write_config() {
 	{
 		echo "[display]"
@@ -93,7 +93,7 @@ write_config() {
 		echo "skip_cinematics = true"
 		echo "test_input = \"bot:$SEED\""
 		echo "exit_after = $4"
-		echo "host_environment = \"HALO_VULKAN_STATS=1 HALO_VULKAN_DISCARDS=$2\""
+		echo "host_environment = \"HALO_VULKAN_STATS=1${2:+ HALO_VULKAN_DISCARDS=$2}\""
 		[ "$6" = 1 ] && echo "ambient_occlusion_view = true"
 		if [ "$3" = pictures ]; then
 			echo "frame_time = 0.0166667"
@@ -117,7 +117,7 @@ run() {
 	logcat -c
 	logcat -v time -s 'halo:*' > "$dir/log.txt" 2>&1 &
 	LOGPID=$!
-	say "run $name: $(short "$MAP"), $2, discards $3, ao ${6:-default}${7:+ view $7}, $4, ${5}s"
+	say "run $name: $(short "$MAP"), $2, discards ${3:-default}, ao ${6:-default}${7:+ view $7}, $4, ${5}s"
 	am start -n "$PKG/com.halo.decomp.LauncherActivity" > /dev/null 2>&1
 	waited=0
 	while [ -z "$(pidof "$PKG:game")" ] && [ $waited -lt 40 ]; do sleep 1; waited=$((waited + 1)); done
@@ -226,14 +226,14 @@ plan_ao() {
 		# off first in odd rounds, strong first in even ones, so the heat evens out
 		if [ $((r % 2)) = 1 ]; then order="off strong"; else order="strong off"; fi
 		for aa in smaa msaa4x; do
-			for ao in $order; do run "t$r-$m-$aa-$ao" $aa 0 timing "$TIMING_SECONDS" $ao 0; done
+			for ao in $order; do run "t$r-$m-$aa-$ao" $aa "" timing "$TIMING_SECONDS" $ao 0; done
 		done
 		r=$((r + 1))
 	done
 	for MAP in $AO_MAPS; do
 		m=$(short "$MAP")
-		for ao in off subtle strong; do run "p-$m-$ao" smaa 0 pictures "$PICTURE_SECONDS" $ao 0; done
-		run "p-$m-view" smaa 0 pictures "$PICTURE_SECONDS" strong 1
+		for ao in off subtle strong; do run "p-$m-$ao" smaa "" pictures "$PICTURE_SECONDS" $ao 0; done
+		run "p-$m-view" smaa "" pictures "$PICTURE_SECONDS" strong 1
 	done
 	{
 		echo "OpenH1 ambient occlusion (display.ambient_occlusion), bot:$SEED"

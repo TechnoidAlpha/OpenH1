@@ -116,6 +116,9 @@ rish -c 'SEED=5 AO_MAPS="levels\a30\a30" sh /sdcard/Download/fold_test.sh ao 1'
 | `PICTURE_SECONDS` | 35 | each picture run (shots from 3 s to 20 s) |
 | `KEEP` | 2 (`ao`: 4) | every KEEPth screenshot copied out (about 17 MB each) |
 
+The `ao` runs leave `HALO_VULKAN_DISCARDS` at the build's default (on since
+#302), as players get it; `discards` sets it to 0 and 1.
+
 Timing runs are unpaced (`display.vsync = false`), so the GPU runs flat out
 instead of clocking down, and the order swaps each round (off first, then on
 first) so the phone warming up evens out. The first two 600-frame windows of
