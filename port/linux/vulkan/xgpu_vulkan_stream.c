@@ -941,9 +941,10 @@ static void textures_bind(void)
 /* ---------- pipelines */
 
 /* the per-pixel lighting's lights' registers (xgpu_backend.h's
-XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69]) */
+XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69], c[-57]) */
 #define MODEL_LIGHT_FIRST (96 - 82)
 #define MODEL_LIGHT_LAST (96 - 69)
+#define MODEL_LIGHT_OWN_LIGHTS (96 - 57)
 /* the screen conversion's registers (c[-38], c[-37]) */
 #define SCREEN_CONVERSION (96 - 38)
 
@@ -963,7 +964,8 @@ static void stream_set_constants(void *context, const struct xgpu_stream_constan
 	/* (the world's projection or the screen conversion: the effects' views) */
 	if (record->first < 4 || (record->first <= SCREEN_CONVERSION + 1 && record->first + count > SCREEN_CONVERSION))
 		stream.uniforms_effect = stream.effect_valid = 0;
-	if (record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST)
+	if ((record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST) ||
+		(record->first <= MODEL_LIGHT_OWN_LIGHTS && record->first + count > MODEL_LIGHT_OWN_LIGHTS))
 		stream.uniforms_dirty = 1;
 }
 
@@ -1411,11 +1413,7 @@ static int uniforms_update(int effect)
 		}
 		/* the per-pixel lighting's lights: vertex constants (xgpu_backend.h) */
 		for (light = 0; light < XGPU_MODEL_LIGHT_COUNT; light++)
-		{
-			unsigned long index = XGPU_VERTEX_CONSTANT_BIAS + (light ? -80 + light : -82);
-
-			memcpy(to->model_lights[light], stream.constants[index], sizeof(to->model_lights[0]));
-		}
+			memcpy(to->model_lights[light], stream.constants[XGPU_MODEL_LIGHT_REGISTER(light)], sizeof(to->model_lights[0]));
 		stream.uniforms_effect = 0;
 		if (effect)
 		{
@@ -1969,8 +1967,10 @@ static void stream_draw_indexed(void *context, const struct xgpu_stream_draw_ind
 		input.index_range.buffer = xgpu_vulkan_buffer_handle(buffer);
 		input.index_range.offset = record->offset;
 		/* (a loop's indices, made into a list, are read from the mirror's
-		bytes) */
-		input.indices = (const uint16_t *)((const unsigned char *)xgpu_vulkan_buffer_contents(buffer) + record->offset);
+		bytes; others are not read) */
+		if (record->primitive == _primitive_line_loop)
+			input.indices = (const uint16_t *)((const unsigned char *)xgpu_vulkan_buffer_contents(buffer) +
+				record->offset);
 	}
 	else
 	{
@@ -2377,6 +2377,30 @@ static void stream_anti_alias(void *context, const struct xgpu_stream_anti_alias
 	targets_bind();
 }
 
+/* display.panini over a window's 3D view, after its anti-aliasing and
+before the HUD: the target's texture, its first layer (the front end no
+longer multisamples it, as for the anti-aliasing) */
+static void stream_panini(void *context, const struct xgpu_stream_panini *record)
+{
+	struct stream_target *target = target_get(record->target);
+
+	(void)context;
+	if (!target || target->depth || target->layers > 1)
+		return;
+	if (stream.preparing)
+	{
+		/* (made as the map loads, as the game's pipelines are) */
+		(void)xgpu_vulkan_post_panini_prepare(target->format, 1);
+		return;
+	}
+	if (target->multisampled)
+		return;
+	target->written++;
+	xgpu_vulkan_post_panini(target->image, 0, record->corners, record->projection);
+	/* (the stream's targets again, for what follows) */
+	targets_bind();
+}
+
 /* ---------- display.hdr (port/linux/src/xgpu_hdr.h)
 
 The front end's state, for the tone map and the core's encoding and
@@ -2390,11 +2414,22 @@ static void stream_picture_top(void *context, uint32_t top)
 	xgpu_vulkan_picture_top(top ? (int)(top - 1) : -1);
 }
 
+/* display.gamma: the core's present curves an SDR frame by it */
+static void stream_gamma(void *context, uint32_t gamma)
+{
+	float value;
+
+	(void)context;
+	memcpy(&value, &gamma, sizeof(value));
+	xgpu_vulkan_gamma(value);
+}
+
 static void stream_hdr(void *context, const struct xgpu_stream_hdr *record)
 {
 	(void)context;
 	stream.hdr_active = record->active != 0 && stream.capabilities.color_read;
-	xgpu_vulkan_hdr_state(stream.hdr_active, (int)record->mode, (int)record->paper_white);
+	xgpu_vulkan_hdr_state(stream.hdr_active, (int)record->mode, (int)record->paper_white_nits,
+		(int)record->paper_white, (int)record->ui_nits);
 	/* (the tone map's pipeline for the back buffer's pass, made as HDR is
 	chosen, not in the middle of a frame) */
 	if (stream.hdr_active)
@@ -2428,11 +2463,57 @@ static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *re
 	xgpu_vulkan_hdr_frame(&frame);
 	hdr[0] = (float)frame.mode;
 	hdr[1] = frame.peak;
-	hdr[2] = hdr[3] = 0.0f;
+	/* (the view's light over the UI's white) */
+	hdr[2] = frame.ui;
+	hdr[3] = 0.0f;
 	target->written++;
 	if (color_image == target->multisampled)
 		target->unresolved = 1;
 	xgpu_vulkan_post_tone_map(color_image, depth_image, record->corners, hdr);
+	/* (the stream's targets again: the same, so that the pass goes on) */
+	targets_bind();
+}
+
+/* display.ambient_occlusion over a window's 3D view, once its opaque
+surfaces have drawn their light (xgpu_vulkan_post.c), with the depth target
+drawn with it: its stencil marks the pixels left, and its depth (its first
+sample's, resolved where it has more) gives the occlusion. Or the occlusion
+last laid drawn in the view's place (debug.ambient_occlusion_view) */
+static void stream_ambient_occlusion(void *context, const struct xgpu_stream_ambient_occlusion *record)
+{
+	struct stream_target *target = target_get(record->target);
+	struct stream_target *depth = stream.color == record->target ? target_get(stream.depth) : NULL;
+	struct xgpu_vulkan_image *color_image, *depth_image;
+
+	(void)context;
+	if (!target || target->depth || target->layers > 1 || !depth || !depth->depth ||
+		record->quality < XGPU_AMBIENT_OCCLUSION_SUBTLE || record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
+		return;
+	/* (the attachments the view is drawn into: multisampled where they
+	are, and both of a number of samples) */
+	color_image = stream.samples && target->multisampled ? target->multisampled : target->image;
+	depth_image = stream.samples && depth->multisampled ? depth->multisampled : depth->image;
+	if (xgpu_vulkan_image_description(depth_image)->samples != xgpu_vulkan_image_description(color_image)->samples)
+		return;
+	if (stream.preparing)
+	{
+		(void)xgpu_vulkan_post_ambient_occlusion_prepare(xgpu_vulkan_image_description(color_image)->format,
+			xgpu_vulkan_image_description(color_image)->samples, 1);
+		return;
+	}
+	target->written++;
+	if (color_image == target->multisampled)
+		target->unresolved = 1;
+	if (record->quality == XGPU_AMBIENT_OCCLUSION_SHOW)
+		xgpu_vulkan_post_ambient_occlusion_show(color_image, record->corners);
+	else
+	{
+		/* (the first sample's depth, to find the occlusion from) */
+		if (depth_image == depth->multisampled)
+			xgpu_vulkan_image_resolve(depth->multisampled, depth->image);
+		xgpu_vulkan_post_ambient_occlusion(color_image, depth_image, depth->image, record->corners, (int)record->quality,
+			record->camera);
+	}
 	/* (the stream's targets again: the same, so that the pass goes on) */
 	targets_bind();
 }
@@ -2453,10 +2534,12 @@ static void stream_visibility_end(void *context, const struct xgpu_stream_visibi
 	samples one of them is) */
 #ifdef HALO_VR
 	if (host_vulkan_vr_active() && stream.capabilities.fragment_stores)
-		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->views > 1 ? record->views : 1));
+		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->views > 1 ? record->views : 1),
+			record->test);
 	else
 #endif
-		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1));
+		xgpu_vulkan_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1),
+			record->test);
 	stream.uniforms_dirty = 1;
 }
 
@@ -2499,7 +2582,8 @@ static void stream_frame_end(void *context)
 			host_logf(HOST_LOG_INFO, "vulkan: %u frames: %u submissions, %u passes, %u draws, %u clears (%u drawn), "
 				"%u attachment loads, %u attachment clears, %u texture sets written, %u reused, %u pipelines made "
 				"(%.1f ms), %u uploads ordered, %u early, %llu ring bytes; %u stores discarded (%u at frames' ends), "
-				"%u resolves in passes, %u skipped; textures %u made, %u remade, %u images, %u effects' thicknesses baked (%.1f ms); "
+				"%u resolves in passes, %u skipped; %u passes continued, %u put aside, %u buffers renamed; "
+				"textures %u made, %u remade, %u images, %u effects' thicknesses baked (%.1f ms); "
 				"GPU %.3f ms a frame, %.3f ms between frames",
 				statistics.frames, statistics.submissions, statistics.passes, statistics.draws, statistics.clears,
 				statistics.clears_as_draws, statistics.attachment_loads, statistics.attachment_clears,
@@ -2507,7 +2591,8 @@ static void stream_frame_end(void *context)
 				statistics.texture_sets_reused,
 				statistics.pipelines_made, statistics.pipeline_seconds * 1000.0, statistics.uploads_ordered,
 				statistics.uploads_early, (unsigned long long)statistics.ring_bytes, statistics.stores_discarded,
-				statistics.frame_end_discards, statistics.resolves_in_pass, statistics.resolves_skipped, textures.made, textures.remade,
+				statistics.frame_end_discards, statistics.resolves_in_pass, statistics.resolves_skipped,
+				statistics.passes_continued, statistics.passes_aside, statistics.buffers_renamed, textures.made, textures.remade,
 				textures.images, textures.thickness, textures.thickness_seconds * 1000.0,
 				statistics.gpu_frames ? statistics.gpu_milliseconds / statistics.gpu_frames : 0.0,
 				statistics.frames_timed ? statistics.frame_seconds * 1000.0 / statistics.frames_timed : 0.0);
@@ -2669,6 +2754,8 @@ const struct host_render_backend *xgpu_vulkan_stream_backend(void)
 		backend.loading_art = xgpu_vulkan_loading_art;
 		backend.loading_scene = xgpu_vulkan_loading_scene;
 		backend.loading_progress = xgpu_vulkan_loading_progress;
+		backend.loading_mode = xgpu_vulkan_loading_mode;
+		backend.loading_caption = xgpu_vulkan_loading_caption;
 		backend.frame_end = stream_frame_end;
 		backend.prepare = stream_prepare;
 		backend.prepared = stream_prepared;
@@ -2679,7 +2766,10 @@ const struct host_render_backend *xgpu_vulkan_stream_backend(void)
 		backend.anti_alias = stream_anti_alias;
 		backend.hdr = stream_hdr;
 		backend.tone_map = stream_tone_map;
+		backend.ambient_occlusion = stream_ambient_occlusion;
 		backend.picture_top = stream_picture_top;
+		backend.gamma = stream_gamma;
+		backend.panini = stream_panini;
 #ifdef HALO_VR
 		host_vulkan_vr_backend(&backend);
 #endif

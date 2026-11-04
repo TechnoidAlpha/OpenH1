@@ -63,6 +63,13 @@ TITLE_FONT = ROOT / "port/assets/fonts/OpenCE-Regular.ttf"
 LEFT_OUT = {
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\header_gamespy_logo",
     "ui\\shell\\main_menu\\main_menu_item_credits",
+    # (the main menu's Profile, whose profile manager Settings' PROFILES tab
+    # opens: EXTRA_ROOTS)
+    "ui\\shell\\main_menu\\main_menu_item_profile",
+    # (the main menu's build number, the Xbox build the sources come from,
+    # not this one's: Settings > Profiles' ABOUT shows both, menu_functions.c's
+    # about_panel)
+    "ui\\shell\\main_menu\\build_number",
     # (the "checking for updates" dialogs, which asked the PC version's
     # servers: Create > Internet and Join > Server Browser skip them,
     # port_settings.WIDGET_PATCHES)
@@ -74,9 +81,13 @@ LEFT_OUT = {
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\filters\\op_ping",
     "ui\\shell\\main_menu\\multiplayer_type_select\\join_game\\filters\\op_game_options",
 }
-# children moved: (parent, child) to (x, y); the main menu's Quit a row below
-# Mods, which takes Credits' place; Multiplayer's Edit Gametypes and divider
-# below Co-op, keeping its 32-unit highlight inside the description panel's
+# the widgets written though the main menu leads to them no longer: the
+# profile manager, which Settings' PROFILES tab opens
+# (port_settings.PROFILE_MANAGER)
+EXTRA_ROOTS = ["ui\\shell\\" + port_settings.PROFILE_MANAGER.replace("/", "\\")]
+# children moved: (parent, child) to (x, y); the main menu's Settings and
+# Quit a row up each, where Profile and Settings were; Multiplayer's Edit
+# Gametypes and divider below Co-op, keeping its 32-unit highlight inside the description panel's
 # bottom curve (port_settings.WIDGET_PATCHES)
 CHILD_OFFSETS = {
     # the server browser's source tab (ALL GAMES, DEDICATED, P2P GAMES), 20
@@ -98,6 +109,8 @@ CHILD_OFFSETS = {
         "ui\\shell\\" + f"{port_settings.CTF_EDIT}/op_time_limit".replace("/", "\\")):
        (54, screen["y"] + port_settings.GAMETYPE_RULES_STEP * len(screen["rows"]))
        for folder, screen in port_settings.GAMETYPE_RULES_EXTRAS.items()},
+    ("ui\\shell\\main_menu\\main_menu_select_list", "ui\\shell\\main_menu\\main_menu_item_settings"):
+        port_settings.SETTINGS_ITEM_PLACE,
     ("ui\\shell\\main_menu\\main_menu_select_list", "ui\\shell\\main_menu\\main_menu_item_quit_game"):
         port_settings.QUIT_ITEM_PLACE,
     ("ui\\shell\\main_menu\\multiplayer_type_select\\multiplayer_type_select_list",
@@ -399,13 +412,19 @@ class Art:
         """a <bitmap> of the ten digits, a frame each, set as the titles are
         (OpenCE, the titles' colour) at port_settings.DIGIT_CAP units high,
         each in the middle of a frame of one width: Multiplayer's panel's
-        counts (menu_functions.c's multiplayer_status_number)"""
+        counts (menu_functions.c's multiplayer_status_number). Smaller where
+        the widest digit would not fit the frame's width with a margin of
+        DIGIT_MARGIN either side (OpenCE's 6 and 9 at the cap's height are
+        wider than the frame: their sides were cut, #519)"""
         from PIL import ImageDraw, ImageFont
         scale = SCALE
         width, height = port_settings.DIGIT_SIZE
         probe = ImageFont.truetype(str(TITLE_FONT), 1000)
         left, top, right, bottom = probe.getbbox("0")
-        font = ImageFont.truetype(str(TITLE_FONT), round(port_settings.DIGIT_CAP * scale * 1000 / (bottom - top)))
+        widest = max(probe.getbbox(str(digit))[2] - probe.getbbox(str(digit))[0] for digit in range(10))
+        size = min(port_settings.DIGIT_CAP * scale * 1000 / (bottom - top),
+                   (width - 2 * port_settings.DIGIT_MARGIN) * scale * 1000 / widest)
+        font = ImageFont.truetype(str(TITLE_FONT), int(size))
         lines = [f"\t<bitmap{attributes([('name', name)])}>"]
         for digit in range(10):
             image = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
@@ -517,7 +536,7 @@ class Art:
 
 
 def reachable(tags: Tags) -> dict:
-    widgets, queue = {}, [MAIN_MENU]
+    widgets, queue = {}, [*EXTRA_ROOTS, MAIN_MENU]
     while queue:
         tag = queue.pop()
         if tag in widgets:
@@ -722,7 +741,8 @@ def main() -> None:
             lines += widget_xml(tag, widgets[tag], tags, functions, inputs, fonts, {})
         lines.append("</menus>")
         (CE / f"{folder.replace('/', '.')}.xml").write_text("\n".join(lines) + "\n")
-    for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items()]:
+    for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items(),
+                        *port_settings.campaign_files().items()]:
         (CE / name).write_text("\n".join(lines))
     # their strings
     (CE / "strings.xml").write_text(strings_xml({
@@ -741,9 +761,10 @@ def main() -> None:
         ((ROOT / "port/assets/icons/lucide" / f"{icon}.svg").read_text().replace('stroke="currentColor"',
                                                                                  'stroke="#FFFFFF"'), 24, 24)
         for icon in ("volume-2", "volume-x")]))
-    # (the main menu's MODS, in the redraws' own letters, and the mods'
-    # status icons: Lucide's, port/assets/icons/lucide)
-    lines.append(art.port_picture("main_menu/menu_mods", port_settings.menu_item_frames("MODS", art.redraws)))
+    # (the VR build's VR TUTORIAL, in the redraws' own letters, and the
+    # mods' status icons: Lucide's, port/assets/icons/lucide)
+    lines.append(art.port_picture("main_menu/menu_training",
+                                  port_settings.menu_item_frames("VR TUTORIAL", art.redraws)))
     lines.append(art.port_picture("mods/status", port_settings.mod_status_frames(ROOT / "port/assets/icons/lucide")))
     lines.append(art.port_picture("mods/status_small",
                                   port_settings.mod_status_frames(ROOT / "port/assets/icons/lucide", 16)))
@@ -767,6 +788,8 @@ def main() -> None:
     # Multiplayer's tabs, rows, panels, pills, button and prompts, and the
     # touchscreen's chips, rows, tiles and buttons)
     lines += [art.port_picture(name, frames) for name, frames in port_settings.parts_pictures()]
+    # (the campaign's cards, arrows, dots and panels: port_settings.campaign_pictures)
+    lines += [art.port_picture(name, frames) for name, frames in port_settings.campaign_pictures()]
     lines.append("</menus>")
     (CE / "bitmaps.xml").write_text("\n".join(lines) + "\n")
     # what is not hand-drawn

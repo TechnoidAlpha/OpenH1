@@ -89,6 +89,9 @@ cache_files_structures.hpp, s_cache_tag_header and s_cache_tag_instance) */
 #define TAG_INSTANCE_NAME_OFFSET 0x10
 #define TAG_INSTANCE_ADDRESS_OFFSET 0x14
 #define TAG_INSTANCE_IN_RESOURCE_MAP_OFFSET 0x18
+/* the second of the instance's unused words, left zero: its first byte is
+an empty name for tags whose own is unusable */
+#define TAG_INSTANCE_EMPTY_NAME_OFFSET 0x1C
 /* the longest tag path a name may hold, terminator excluded */
 #define TAG_NAME_MAXIMUM_LENGTH 255
 
@@ -334,6 +337,13 @@ Xbox's 102 (ui_widget_event_handler_functions.c), which this build has not */
 #define MULTIPLAYER_PAUSE_LIST_NAME "ui\\shell\\multiplayer_game\\pause_game\\mp_pause_list"
 #define MULTIPLAYER_PAUSE_RESUME_NAME "resume_game_button"
 #define MULTIPLAYER_PAUSE_QUIT_NAME "quit_netgame_button"
+/* the campaign's pause menu's lists, and the Xbox's four items of its own
+(single player's: co-op's are named coop_) */
+#define SOLO_PAUSE_FOLDER "ui\\shell\\solo_game\\pause_game\\"
+#define SOLO_PAUSE_RESUME_NAME "resume_game_button"
+#define SOLO_PAUSE_REVERT_NAME "restart_at_save_point_button"
+#define SOLO_PAUSE_RESTART_NAME "restart_level_button"
+#define SOLO_PAUSE_QUIT_NAME "quit_to_main_menu_button"
 #define UNICODE_STRING_LIST_BYTES 0x0C
 #define UNICODE_STRING_LIST_STRINGS_OFFSET 0x00
 #define SCORE_KEY_PLACEHOLDER_CHARACTERS 4
@@ -752,7 +762,15 @@ static struct element_layout const transparent_chicago_extended_layout =
 {
 	TRANSPARENT_CHICAGO_EXTENDED_BYTES, transparent_chicago_extended_blocks, 3, NULL, 0, NULL
 };
+static custom_edition_structure_bsp_proc structure_bsp_proc = NULL;
 
+void custom_edition_structure_bsp_proc_set(
+	custom_edition_structure_bsp_proc proc)
+{
+	structure_bsp_proc = proc;
+
+	return;
+}
 /* The value of the type field each shader group has in Custom Edition, which
 inserted transparent chicago extended at 7 (OpenSauce
 shader_definitions.hpp, e_shader_type), and in this build (shaders.c); a
@@ -1858,7 +1876,7 @@ static enum cache_file_status structure_bsp_geometry_verify(
 
 static enum cache_file_status structure_bsps_verify(
 	struct load_state *state,
-	uint8_t const *tag_instances,
+	uint8_t *tag_instances,
 	int32_t tag_count,
 	uint32_t scenario_offset,
 	uint32_t *checksum)
@@ -1891,6 +1909,23 @@ static enum cache_file_status structure_bsps_verify(
 		uint32_t bsp_pointer;
 		enum cache_file_status status;
 
+		/* port: map protection can rename a structure BSP's group, as it does the
+		scenario's; a tag the scenario names as one, with no address yet (a BSP has
+		none until it loads) and not held by a resource map, is one */
+		if (tag_index < (uint32_t)tag_count)
+		{
+			uint8_t *bsp_instance = tag_instances + tag_index * TAG_INSTANCE_BYTES;
+
+			if (read_u32(bsp_instance + TAG_INSTANCE_HANDLE_OFFSET) == tag_handle &&
+				read_u32(bsp_instance + TAG_INSTANCE_GROUP_OFFSET) != STRUCTURE_BSP_GROUP_TAG &&
+				!read_u32(bsp_instance + TAG_INSTANCE_ADDRESS_OFFSET) &&
+				!read_u32(bsp_instance + TAG_INSTANCE_IN_RESOURCE_MAP_OFFSET))
+			{
+				write_u32(bsp_instance + TAG_INSTANCE_GROUP_OFFSET, STRUCTURE_BSP_GROUP_TAG);
+				write_u32(bsp_instance + TAG_INSTANCE_PARENT_GROUP_OFFSET, NO_GROUP_TAG);
+				write_u32(bsp_instance + TAG_INSTANCE_PARENT_GROUP_OFFSET + 4, NO_GROUP_TAG);
+			}
+		}
 		/* the tag the reference names: a structure BSP, not yet loaded */
 		if (tag_index >= (uint32_t)tag_count ||
 			read_u32(tag_instances + tag_index * TAG_INSTANCE_BYTES + TAG_INSTANCE_HANDLE_OFFSET) != tag_handle ||
@@ -1929,6 +1964,19 @@ static enum cache_file_status structure_bsps_verify(
 		{
 			free(bsp);
 			return load_fail(state, _cache_file_status_bad_structure_bsp_header, (uint32_t)file_offset);
+		}
+		/* port: the references a protected map's bsp holds name the groups of
+		tags whose own are scrambled (tag_validate.c) */
+		if (structure_bsp_proc)
+		{
+			structure_bsp_proc(
+				state->tag_cache,
+				state->used_bytes,
+				bsp_index,
+				bsp,
+				(uint32_t)size,
+				bsp_address,
+				state->report->identity.name);
 		}
 		status = structure_bsp_geometry_verify(state, bsp, (uint32_t)size, bsp_address);
 		free(bsp);
@@ -2324,7 +2372,11 @@ enum cache_file_status custom_edition_cache_load(
 		{
 			return load_fail(&state, _cache_file_status_bad_tag_handle, handle);
 		}
-		if (!tag_name_get(&state, instance))
+		/* port: a protected map's tag names may lie anywhere; only a tag held by a
+		resource map needs its name (to find its entry), and is checked again
+		below. The others are given an empty name after the checksum. */
+		if (read_u32(instance + TAG_INSTANCE_IN_RESOURCE_MAP_OFFSET) &&
+			!tag_name_get(&state, instance))
 		{
 			return load_fail(&state, _cache_file_status_bad_tag_name, read_u32(instance + TAG_INSTANCE_NAME_OFFSET));
 		}
@@ -2347,7 +2399,10 @@ enum cache_file_status custom_edition_cache_load(
 			is past the tags */
 			write_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET, 0);
 		}
-		else if (!address || !tag_cache_offset(&state, address, 1, &offset))
+		/* port: a protected map may leave a tag without data (address 0), which
+		Halo PC tolerates while nothing reads it; the validator refuses any
+		reference to such a tag (tag_validate.c) */
+		else if (address && !tag_cache_offset(&state, address, 1, &offset))
 		{
 			return load_fail(&state, _cache_file_status_bad_tag_address, address);
 		}
@@ -2403,6 +2458,26 @@ enum cache_file_status custom_edition_cache_load(
 	{
 		report->warnings |= 1UL << _custom_edition_warning_checksum_mismatch_bit;
 	}
+
+	/* port: a name that lies outside the tag data or is not terminated (map
+	protection scrambles them; Halo PC never needed them) becomes an empty
+	one: a zero byte in the tag's own instance. tag_validate.c then makes
+	it its own empty name. */
+	for (tag_index_value = 0; tag_index_value < tag_count; tag_index_value++)
+	{
+		uint8_t *instance = tag_instances + (uint32_t)tag_index_value * TAG_INSTANCE_BYTES;
+
+		state.tag_index = tag_index_value;
+		if (!read_u32(instance + TAG_INSTANCE_IN_RESOURCE_MAP_OFFSET) && !tag_name_get(&state, instance))
+		{
+			write_u32(instance + TAG_INSTANCE_EMPTY_NAME_OFFSET, 0);
+			write_u32(
+				instance + TAG_INSTANCE_NAME_OFFSET,
+				CUSTOM_EDITION_TAG_CACHE_ADDRESS + instances_offset +
+					(uint32_t)tag_index_value * TAG_INSTANCE_BYTES + TAG_INSTANCE_EMPTY_NAME_OFFSET);
+		}
+	}
+	state.tag_index = NO_TAG_INDEX;
 
 	/* the tags held by resource maps, placed after the tag data */
 	for (tag_index_value = 0; tag_index_value < tag_count; tag_index_value++)
@@ -2460,6 +2535,10 @@ enum cache_file_status custom_edition_cache_load(
 			continue;
 		}
 		state.tag_index = tag_index_value;
+		if (!read_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET))
+		{
+			continue;
+		}
 		if (!tag_cache_offset(&state, read_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET), layout->bytes, &offset))
 		{
 			return load_fail(&state, _cache_file_status_bad_tag_address, read_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET));
@@ -3500,22 +3579,47 @@ static int tag_name_item_is(
 	return !strcmp(last ? last + 1 : name, item);
 }
 
+/* whether a pause list's row is one of the Xbox's: 1, or 2 for the campaign
+one's REVERT TO SAVED; else 0 */
+static int pause_list_item(
+	struct load_state const *state,
+	uint8_t const *child,
+	int solo)
+{
+	uint32_t handle = read_u32(child + TAG_REFERENCE_INDEX_OFFSET);
+	char const *name = custom_edition_cache_tag_name(state->tag_cache, state->used_bytes, (int32_t)(handle & 0xFFFF));
+
+	if (!solo)
+		return tag_name_item_is(name, MULTIPLAYER_PAUSE_RESUME_NAME) || tag_name_item_is(name, MULTIPLAYER_PAUSE_QUIT_NAME);
+	if (tag_name_item_is(name, SOLO_PAUSE_REVERT_NAME))
+		return 2;
+	return tag_name_item_is(name, SOLO_PAUSE_RESUME_NAME) || tag_name_item_is(name, SOLO_PAUSE_RESTART_NAME) ||
+		tag_name_item_is(name, SOLO_PAUSE_QUIT_NAME);
+}
+
 /* Halo PC's multiplayer pause menu has its game options and settings
 between the Xbox's resume and quit, and they open screens of Halo PC's
 functions (none here, widget_pc_functions_clear). The list keeps the Xbox's
-two, moved to the middle of its box of rows. */
-static void multiplayer_pause_list_convert(
+two, moved to the middle of its box of rows. Its campaign pause menu has
+SAVE LAST CHECKPOINT and CHANGE SETTINGS among the Xbox's resume, revert,
+restart and quit, which run Halo PC's functions too: that list keeps the
+Xbox's four, from its first row, as the Xbox's pause menu has them (to which
+port/linux/game/menu_tags.c adds SETTINGS). */
+static void pause_list_convert(
 	struct load_state const *state,
 	uint32_t widget_offset,
+	int solo,
 	struct custom_edition_conversion_report *report)
 {
 	uint8_t *block = state->tag_cache + widget_offset + UI_WIDGET_CHILD_WIDGETS_OFFSET;
 	int32_t child_count;
 	uint32_t children_offset;
 	uint8_t *children;
+	int16_t first;
 	int16_t row;
 	int32_t child_index;
 	int32_t kept = 0;
+	int reverts = 0;
 
 	if (!loaded_block_get(
 			block,
@@ -3530,32 +3634,40 @@ static void multiplayer_pause_list_convert(
 	}
 	children = state->tag_cache + children_offset;
 	/* (the rows' spacing, from the first two) */
-	row = (int16_t)(read_s16(children + UI_WIDGET_CHILD_BYTES + UI_WIDGET_CHILD_VERTICAL_OFFSET) -
-		read_s16(children + UI_WIDGET_CHILD_VERTICAL_OFFSET));
+	first = read_s16(children + UI_WIDGET_CHILD_VERTICAL_OFFSET);
+	row = (int16_t)(read_s16(children + UI_WIDGET_CHILD_BYTES + UI_WIDGET_CHILD_VERTICAL_OFFSET) - first);
+	for (child_index = 0; child_index < child_count; child_index++)
+	{
+		int item = pause_list_item(state, children + (uint32_t)child_index * UI_WIDGET_CHILD_BYTES, solo);
+
+		kept += item != 0;
+		reverts += item == 2;
+	}
+	/* (a campaign list is the one with REVERT TO SAVED, as menu_tags.c finds
+	it) */
+	if (kept == 0 || kept == child_count || (solo && !reverts))
+	{
+		return;
+	}
+	kept = 0;
 	for (child_index = 0; child_index < child_count; child_index++)
 	{
 		uint8_t *child = children + (uint32_t)child_index * UI_WIDGET_CHILD_BYTES;
-		uint32_t handle = read_u32(child + TAG_REFERENCE_INDEX_OFFSET);
-		char const *name = custom_edition_cache_tag_name(state->tag_cache, state->used_bytes, (int32_t)(handle & 0xFFFF));
 
-		if (name && (tag_name_item_is(name, MULTIPLAYER_PAUSE_RESUME_NAME) || tag_name_item_is(name, MULTIPLAYER_PAUSE_QUIT_NAME)))
+		if (pause_list_item(state, child, solo))
 		{
 			if (kept != child_index)
 				memmove(children + (uint32_t)kept * UI_WIDGET_CHILD_BYTES, child, UI_WIDGET_CHILD_BYTES);
 			kept++;
 		}
 	}
-	if (kept == 0 || kept == child_count)
-	{
-		return;
-	}
 	for (child_index = 0; child_index < kept; child_index++)
 	{
 		write_u16(children + (uint32_t)child_index * UI_WIDGET_CHILD_BYTES + UI_WIDGET_CHILD_VERTICAL_OFFSET,
-			(uint16_t)(row * (child_index + (child_count - kept) / 2)));
+			(uint16_t)(solo ? first + row * child_index : row * (child_index + (child_count - kept) / 2)));
 	}
 	write_u32(block + TAG_BLOCK_COUNT_OFFSET, (uint32_t)kept);
-	report->pause_menu_trimmed = 1;
+	report->pause_menu_trimmed |= solo ? 2 : 1;
 
 	return;
 }
@@ -3777,11 +3889,19 @@ enum cache_file_status custom_edition_cache_convert(
 		if (group_tag == UI_WIDGET_DEFINITION_GROUP_TAG &&
 			tag_cache_offset(&state, read_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET), UI_WIDGET_DEFINITION_BYTES, &offset))
 		{
+			char const *name = custom_edition_cache_tag_name(tag_cache, loaded_bytes, tag_index);
+
 			widget_pc_functions_clear(&state, offset, report);
-			if (!strcmp(custom_edition_cache_tag_name(tag_cache, loaded_bytes, tag_index), MULTIPLAYER_PAUSE_LIST_NAME))
-				multiplayer_pause_list_convert(&state, offset, report);
+			if (!strcmp(name, MULTIPLAYER_PAUSE_LIST_NAME))
+				pause_list_convert(&state, offset, 0, report);
+			else if (!strncmp(name, SOLO_PAUSE_FOLDER, strlen(SOLO_PAUSE_FOLDER)))
+				pause_list_convert(&state, offset, 1, report);
 		}
 		if (!shader_type)
+		{
+			continue;
+		}
+		if (!read_u32(instance + TAG_INSTANCE_ADDRESS_OFFSET))
 		{
 			continue;
 		}

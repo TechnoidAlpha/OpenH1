@@ -90,21 +90,45 @@ not build); and the passes run over a target's corners (x0, y0, x1, y1 in
 its pixels from row 0) */
 void xgpu_backend_anti_aliasing_prepare(BOOL smaa);
 void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4]);
+/* display.panini: a target's corners (as anti-aliasing's) drawn again
+through the Panini projection (port/linux/include/panini_projection.h),
+projection its d, s and magnification at the middle, 0, then the
+rectilinear view's tangents at the corners' left, right, top and bottom */
+void xgpu_backend_panini(xgpu_target target, const long corners[4], const float projection[8]);
 
 /* display.hdr (xgpu_hdr.h): the frame drawn in HDR (the back buffer
 RGBA16F) or not from now on, the mode (XGPU_HDR_MODE_*) and paper white
-(percent of the system's SDR white); a window's 3D view in the back buffer
-tone mapped over its corners (as xgpu_backend_anti_alias's); and the
-display, as the backend last looked (answered now, from what the backend
-writes where the front end reads it: the stream's ring): whether it shows
-HDR, and its headroom */
-void xgpu_backend_hdr(BOOL active, int mode, int paper_white);
+(in nits; 0: the system's SDR white, in percent of it:
+xgpu_hdr_paper_white_nits) and the UI's white (in nits; 0: paper
+white's); a window's 3D view in the back buffer tone mapped over its
+corners (as xgpu_backend_anti_alias's); and the display, as the backend
+last looked (answered now, from what the backend writes where the front end
+reads it: the stream's ring): whether it shows HDR, and its headroom; its
+SDR white in nits, and whether the system reported it (else it is the one
+the encoding takes) */
+void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white, int ui_nits);
 /* display.picture_position: the presented picture letterboxed this many
 pixels from the top of a window taller than it (no lower than its bottom),
 or centered (-1), from the next present on */
 void xgpu_backend_picture_top(int top);
+/* display.gamma: an SDR frame curved by one over this as it is presented
+(each channel raised to that power: past 1 brighter), from the next present
+on; 1 none, which costs nothing. An HDR swapchain's frame never is. */
+void xgpu_backend_gamma(float gamma);
 void xgpu_backend_tone_map(xgpu_target target, const long corners[4]);
+/* display.ambient_occlusion: the occlusion of a window's 3D view (its
+corners in the target's pixels), from the depth target drawn with it, laid
+over the light of its opaque surfaces where the lighting does not hold it
+(an object's pixel by all about it, the level's by objects alone: the
+stencil's XGPU_AMBIENT_OCCLUSION_OBJECT bit), none over the pixels its
+XGPU_AMBIENT_OCCLUSION_KEEP bits mark: quality XGPU_AMBIENT_OCCLUSION_SUBTLE
+or _STRONG (xgpu_stream.h), and the camera (near, far, the projection's x and
+y scales and offsets). XGPU_AMBIENT_OCCLUSION_SHOW draws the occlusion last
+laid over the target in its place (debug.ambient_occlusion_view: the term
+in grey, white where it was not laid), once the view is drawn */
+void xgpu_backend_ambient_occlusion(xgpu_target target, const long corners[4], int quality, const float camera[6]);
 BOOL xgpu_backend_display_hdr(float *headroom);
+BOOL xgpu_backend_display_white(float *nits);
 
 /* ---------- render targets
 
@@ -253,8 +277,10 @@ uploads to each program only what changed since it last had them */
 void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], unsigned long count);
 
 /* the vertex constant register of each of the per-pixel lighting's
-(XGPU_MODEL_LIGHT_COUNT): c[-82], then c[-79] to c[-69] */
-#define XGPU_MODEL_LIGHT_REGISTER(light) ((unsigned long)(XGPU_VERTEX_CONSTANT_BIAS + ((light) ? -80 + (light) : -82)))
+(XGPU_MODEL_LIGHT_COUNT): c[-82], then c[-79] to c[-69], then c[-57]
+(halo_dynamic_lights.h's HALO_DYNAMIC_LIGHTS_OWN_LIGHTS_REGISTER) */
+#define XGPU_MODEL_LIGHT_REGISTER(light) ((unsigned long)(XGPU_VERTEX_CONSTANT_BIAS + \
+	((light) == XGPU_MODEL_LIGHT_OWN_LIGHTS ? -57 : (light) ? -80 + (light) : -82)))
 
 /* the uniforms a draw sets besides the vertex constants, converted from
 the render and texture stage states */
@@ -526,12 +552,17 @@ one (rasterizer_xbox_widgets.c, "(occlusion_test_result&0x80000000)==0") */
 #define XGPU_VISIBILITY_COUNT_MOST 0x7fffffffU
 
 void xgpu_backend_visibility_begin(void);
-void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples);
+/* test: the front end's number for the test (never 0, one more each test,
+modulo 2^32), which the count is published with */
+void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples, unsigned long test);
 /* the latest count known for the slot (0: none yet; at most
-XGPU_VISIBILITY_COUNT_MOST). Answered now; it
-could wait: the counts are a frame or more old already (the GPU's), and a
-backend elsewhere would write them into guest memory the front end reads) */
-UINT xgpu_backend_visibility_result(unsigned long slot);
+XGPU_VISIBILITY_COUNT_MOST), and in test the number of the test it is of
+(0: none yet): the count is of that test or a later one of the slot.
+Answered now; it could wait: the counts are frames old already (the GPU's:
+a slot's latest count may be of a test several frames before the latest
+test of it), and a backend elsewhere would write them into guest memory
+the front end reads) */
+UINT xgpu_backend_visibility_result(unsigned long slot, unsigned long *test);
 
 /* ---------- frames */
 
@@ -643,6 +674,14 @@ struct xgpu_vr_frame
 void xgpu_backend_vr_compose(const struct xgpu_vr_frame *frame);
 void xgpu_backend_vr_submit(const struct xgpu_vr_frame *frame, BOOL screenshot);
 
+/* The time the frame after the one being written will take more than the
+frames do (a load zone's switch, which it begins with), told with this
+frame and each after it until 0, or XGPU_FRAME_EXTRA_FRAMES of them (a
+switch put off while a tick's sub-steps run, or not made): the host starts
+that frame so much earlier, so that it is on screen at its refresh all the
+same. */
+#define XGPU_FRAME_EXTRA_FRAMES 4
+void xgpu_backend_frame_extra(unsigned long microseconds);
 /* Acknowledged loading ownership change, before map storage is reused. */
 void xgpu_backend_loading(int active);
 int xgpu_backend_loading_owned(void);
@@ -654,5 +693,12 @@ void xgpu_backend_loading_scene(const void *data, unsigned long bytes);
 /* The load's progress (0 to 1), as the loading screen's sweep is drawn: the
 picture fades out as it completes, as the original's did. */
 void xgpu_backend_loading_progress(float progress);
+/* How the sweep moves: following the progress, once across as it goes
+from 0 to 1, as the Xbox's did (1), or looping on its own clock (0, a map
+load's). */
+void xgpu_backend_loading_mode(int follow_progress);
+/* A line under the loading screen's words: its coverage, width by height
+(a byte a pixel, set at four times the 480 lines' size); NULL: none. */
+void xgpu_backend_loading_caption(const unsigned char *coverage, unsigned long width, unsigned long height);
 
 #endif

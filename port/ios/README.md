@@ -158,7 +158,8 @@ before the game starts) asks for one of:
 
 - **the disc image** (`.iso` or `.xiso`), chosen with the system's document
   picker (On My iPhone, iCloud Drive, a USB drive, another app's storage)
-  and read where it lies: its `maps` folder is extracted into Documents by
+  and read where it lies: its `maps` folder (and its movies' folder, `bink`,
+  when it has one) is extracted into Documents by
   the desktop builds' extractor (`port/linux/src/xiso.c`, built into the
   host beside the renderer's shared parts), with a progress bar;
 - **a maps folder**, chosen the same way, whose files are copied;
@@ -245,7 +246,7 @@ and these of iOS's own:
 
 | Setting | Meaning |
 | --- | --- |
-| `display.render_scale` | The fraction of the screen's pixels the game draws, each way, from 0.25 to 1.0 (the default): the game's frames and the presentation's drawables are that size, and the display scales them up. 0.67 draws less than half the pixels. Read at start (`HALO_RENDER_SCALE`). |
+| `display.render_scale` | The fraction of the screen's pixels the game draws, each way, from 0.25 to 1.0: the game's frames and the presentation's drawables are that size, and the display scales them up. 0.67 draws less than half the pixels. The default, 0, is the device's: 0.67 on an iPhone whose screen has 3 pixels to the point (it keeps the 120 Hz frame there, where all of them took 8 to 10 ms of GPU a frame on an iPhone 15 Pro Max and ran at 60 Hz), 1.0 on an iPad or a 2x iPhone. Read at start (`HALO_RENDER_SCALE`). |
 
 The host logs the device's thermal state at the start and as it changes
 (`thermal state: nominal`, `fair`, `serious`, `critical`): a hot phone
@@ -270,7 +271,16 @@ The Metal backend is the macOS one. What differs:
   loading times say nothing of a device's; `HALO_METAL_STATS` logs the
   textures' bytes every 10 seconds.
 - The screen is a `UIScreen`: its refresh rate (ProMotion's 120 Hz), and
-  its EDR headroom for `display.hdr`.
+  its EDR headroom for `display.hdr`. The display link runs at 120 while
+  the frames keep up and at a steady 60 while they do not ("The window and
+  presentation" in [port/macos/README.md](../macos/README.md)).
+- The back buffer stays RGBA16F with `display.hdr` (not a 32-bit
+  extended-range format): it holds the game's values in sRGB's curve past
+  1 (the tone map's input, and after it up to the display's headroom),
+  which `BGR10_XR`'s 1.25 (1.66 times paper white in linear light) does
+  not reach, and the destination alpha the game blends with, which
+  `BGR10_XR` has none of (`BGRA10_XR` has it, in 64 bits a pixel, as
+  RGBA16F).
 - The Simulator's GPU has no binary archives (the pipelines' archive is not
   used there) and its drawables say nothing of their presentation.
 - The 3D view and the HUD are drawn in one pass (the aside passes' break,
@@ -278,7 +288,7 @@ The Metal backend is the macOS one. What differs:
   [port/macos/README.md](../macos/README.md)), and the frame's last pass
   discards what the next frame clears ("Frame-end discards" there): a
   phone's tile-based GPU stores none of the screen's depth and samples.
-- `display.graphics = "enhanced"` gives MSAA 4x on iOS (not SMAA), resolved
+- `display.graphics = "enhanced"` gives MSAA 2x on iOS (not SMAA), resolved
   in tile memory: at the iPhone 15 Pro Max's 2796x1290, measured on an M1
   (the same family of GPU), about SMAA's cost (a10: 7.1 ms of the GPU a
   frame against 6.8; Blood Gulch alone: 5.2 against 7.5), with the

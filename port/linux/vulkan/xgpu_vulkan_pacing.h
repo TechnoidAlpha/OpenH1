@@ -58,7 +58,15 @@ present of a frame (its input the command stream's frame's); serial: the
 submission whose work the present shows */
 VkResult xgpu_vulkan_pacing_present(PFN_vkQueuePresentKHR queue_present, VkQueue queue, VkPresentInfoKHR *info,
 	int frame, uint64_t serial);
+/* (render thread) vkAcquireNextImageKHR's call (no fence), one at a time
+with the thread's calls on the swapchain (display timing's), which must
+have it to themselves */
+VkResult xgpu_vulkan_pacing_acquire(PFN_vkAcquireNextImageKHR acquire, VkDevice device, VkSwapchainKHR swapchain,
+	uint64_t timeout, VkSemaphore semaphore, uint32_t *index);
 /* (render thread) a frame ended with nothing presented */
 void xgpu_vulkan_pacing_unshown(void);
+/* (render thread) the swapchain has given no image for seconds: the thread
+stops waiting for presents, and the game is no longer paced */
+void xgpu_vulkan_pacing_silence(void);
 
 #endif

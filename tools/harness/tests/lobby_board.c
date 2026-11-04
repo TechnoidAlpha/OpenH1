@@ -189,15 +189,17 @@ static void case_controls(void)
 {
 	struct lobby_board_controls controls;
 
-	/* (host, alone, bots play, teams, own player, invite, room) */
-	lobby_board_controls_for(TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, &controls);
+	/* (host, co-op, bots play, teams, own player, invite, room) */
+	lobby_board_controls_for(TRUE, FALSE, TRUE, TRUE, TRUE, FALSE, TRUE, &controls);
 	CHECK(controls.start && controls.settings && !controls.waiting, "the host's controls");
-	CHECK(controls.bots && !controls.bots_locked, "a game of this machine alone's bots");
+	CHECK(controls.bots && !controls.bots_locked, "the host's bots");
 	CHECK(controls.team_change && !controls.invite && controls.add_player, "the host's prompts");
-	lobby_board_controls_for(TRUE, TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, &controls);
+	lobby_board_controls_for(TRUE, FALSE, FALSE, TRUE, TRUE, FALSE, TRUE, &controls);
 	CHECK(controls.bots && controls.bots_locked, "a gametype the bots do not play leaves them unlocked");
 	lobby_board_controls_for(TRUE, FALSE, TRUE, TRUE, TRUE, TRUE, TRUE, &controls);
-	CHECK(!controls.bots && controls.invite, "a network game's host has bots, or no invite");
+	CHECK(controls.bots && controls.invite, "a network game's host has no bots, or no invite");
+	lobby_board_controls_for(TRUE, TRUE, FALSE, FALSE, TRUE, TRUE, TRUE, &controls);
+	CHECK(!controls.bots, "a co-op game's host has bots");
 	lobby_board_controls_for(FALSE, FALSE, TRUE, TRUE, TRUE, TRUE, FALSE, &controls);
 	CHECK(!controls.start && !controls.settings && controls.waiting, "a player has the host's controls");
 	CHECK(!controls.bots && controls.team_change && !controls.add_player, "a player's prompts");

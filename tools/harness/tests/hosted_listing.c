@@ -224,10 +224,24 @@ static boolean network_host_game_limits_waiting(long *score, short *minutes)
 static boolean network_host_game_set_limits(long score, short minutes) { (void)score; (void)minutes; return TRUE; }
 static boolean network_host_game_announce(char const *text) { (void)text; return TRUE; }
 
+/* an admin's Host Controls (host_controls_menu.inc's, network_admin.c's):
+this machine hosts, and is no dedicated server's admin */
+static boolean host_remote(void) { return FALSE; }
+static boolean host_flag(short flag) { (void)flag; return FALSE; }
+static boolean host_lobby(void) { return network_host_controls_in_lobby(); }
+static boolean host_ask(short verb, void const *player, long number, char const *text)
+{
+	(void)verb; (void)player; (void)number; (void)text;
+	return FALSE;
+}
+static boolean host_next(struct server_entry *entry, boolean *now) { return network_host_game_next(entry, now); }
+
 /* Host Controls' screen state (host_controls_menu.inc's host_menu) */
 static struct
 {
 	short tab, first;
+	/* (MAPS' gametype: CHANGE MAP... opens it on CURRENT) */
+	short gametype;
 	boolean focus_first;
 	short game_rows[MAXIMUM_HOST_GAME_ROWS];
 	short game_row_count;

@@ -40,6 +40,31 @@ def test_vulkan_passes(tmp_path):
     assert run.returncode == 0, run.stdout + run.stderr
 
 
+def test_pacing_presents_before_the_display_answers(tmp_path):
+    # display.low_latency over a present wait that says nothing until a
+    # frame is shown, or nothing ever (the Steam Deck's gamescope, where
+    # build 940 showed no frame): the first frames go unpaced, no present
+    # waits, a silent display is given up on, an answering one paces the
+    # frames from the present after its first answer
+    cc = os.environ.get("CC") or shutil.which("clang") or shutil.which("cc")
+    if not cc or not sys.platform.startswith("linux"):
+        pytest.skip("needs a C compiler on Linux")
+    candidates = [ROOT / f"build/{name}/third_party/vulkan-headers" for name in ("linux_x86_64", "linux_arm64")]
+    headers = next((path for path in candidates + [Path("/usr/include")]
+                    if (path / "vulkan/vulkan_core.h").exists()), None)
+    if headers is None:
+        pytest.skip("needs Vulkan headers (configure.py fetches them for the Linux build)")
+    binary = tmp_path / "pacing"
+    subprocess.run([
+        cc, "-std=gnu11", "-O1", "-Wall", "-Wextra", "-Werror", "-Wno-unused-function",
+        f"-I{headers}", f"-I{ROOT / 'port/android/host'}", f"-I{ROOT / 'port/android/include'}",
+        f"-I{ROOT / 'port/linux/src'}", str(ROOT / "port/linux/vulkan/tests/pacing_test.c"), "-o", str(binary),
+        "-pthread",
+    ], check=True)
+    run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stdout + run.stderr
+
+
 def test_vr_required_capabilities(tmp_path):
     cc = os.environ.get("CC") or shutil.which("clang") or shutil.which("cc")
     if not cc:
@@ -95,7 +120,8 @@ int main(void)
 
 def test_post_shaders(tmp_path):
     # The anti-aliasing passes' generated file (tools/vulkan_post_shaders.py),
-    # with display.hdr's tone map and encoding: SMAA's lookup textures are
+    # with display.hdr's tone map and encoding and display.ambient_occlusion's
+    # passes: SMAA's lookup textures are
     # port/third_party/smaa's, inflated, and each module is valid for Vulkan
     # 1.1 where spirv-val is installed.
     text = (ROOT / "port/linux/vulkan/xgpu_vulkan_post_shaders.c").read_text()
@@ -107,8 +133,10 @@ def test_post_shaders(tmp_path):
         assert len(texels) == size
         assert struct.pack(f"<{len(words)}I", *words)[:size] == texels
     modules = sorted(name for name in arrays if name.endswith(("_vert", "_frag")))
-    assert modules == ["clear_frag", "fxaa_frag", "hdr_encode_frag", "hdr_tone_map_frag", "hdr_tone_map_ms_frag",
-                       "post_vert", "rotate_frag", "smaa_blend_frag", "smaa_edges_frag", "smaa_weights_frag"]
+    assert modules == ["clear_frag", "fxaa_frag", "gamma_frag", "hdr_encode_frag", "hdr_tone_map_frag", "hdr_tone_map_ms_frag",
+                       "occlusion_apply_frag", "occlusion_blur_frag", "occlusion_depth_frag", "occlusion_frag",
+                       "panini_frag", "post_vert", "rotate_frag", "smaa_blend_frag", "smaa_edges_frag",
+                       "smaa_weights_frag"]
     validator = shutil.which("spirv-val")
     if not validator:
         pytest.skip("needs spirv-val (SPIRV-Tools)")

@@ -11,60 +11,73 @@ Two kinds of a map's levels are not made for those sizes:
 - a permutation may have no geometry at a level, and draw nothing there:
   "highest" would leave the part out at every distance, so it draws its
   most detailed level below that has some;
-- a level whose cutoff is over 1000 pixels is the model's inside, made for
-  a camera within it (a10's cryotube's top level, at 3000, is the inside of
-  the tube without its outside), so it is drawn only while the camera is
-  inside the model's bounding sphere, and the level below otherwise.
+- a level whose cutoff is over 1000 pixels is a close-up's: a10's
+  cryotube's top level, at 3000, is the tube with the Master Chief lying in
+  it, which the Xbox reached only with the camera inside the tube (the
+  player in it at the level's start) or for the tube a cinematic made its
+  movie star (object_get_level_of_detail_pixels, render_objects.c:
+  REAL_MAX). It is drawn only when the model's size in the Xbox's 480 lines
+  reaches the level, as the Xbox chose it, never because the display's
+  lines or "highest" do; the level below otherwise, so that the empty tubes
+  stay empty however close the camera comes.
 */
 
 #include "cseries.h"
 #include "model_detail.h"
 #include "models/model_definitions.h"
 #include "rasterizer/rasterizer_console_vars.h"
-#include "render/render.h"
-#include "render/render_cameras.h"
 
 /* ---------- constants */
 
 enum
 {
-	/* the cutoff over which a level is a model's inside */
-	MODEL_DETAIL_INTERIOR_CUTOFF_PIXELS = 1000,
+	/* the cutoff over which a level is a close-up's */
+	MODEL_DETAIL_CLOSE_UP_CUTOFF_PIXELS = 1000,
 };
+
+/* ---------- prototypes */
+
+#ifdef HALO_VR
+/* port/linux/game/vr_render.c */
+real vr_render_level_of_detail_scale(void);
+#endif
 
 /* ---------- public code */
 
-short model_detail_rules(struct model const *model, real_point3d const *centroid, real radius)
+short model_detail_rules(struct model const *model, real stock_pixels)
 {
 	if (halo_model_detail_stock() || rasterizer_debug_options.debug_model_lod!=NONE)
 	{
 		return _model_detail_rules_stock;
 	}
-	return model_detail_camera_inside(model, &render.camera.position, centroid, radius) ?
-		_model_detail_rules_inside :
-		_model_detail_rules_outside;
+#ifdef HALO_VR
+	{
+		/* the size in the centre view's 480 lines, not the eye's
+		(object_get_level_of_detail_pixels) */
+		real scale = vr_render_level_of_detail_scale();
+
+		if (scale>1.f)
+		{
+			stock_pixels /= scale;
+		}
+	}
+#endif
+	return model_detail_stock_close_up(model, stock_pixels) ?
+		_model_detail_rules_close_up :
+		_model_detail_rules_ordinary;
 }
 
-boolean model_detail_camera_inside(struct model const *model, real_point3d const *camera,
-	real_point3d const *centroid, real radius)
+boolean model_detail_stock_close_up(struct model const *model, real stock_pixels)
 {
 	short level;
 
 	for (level = 0; level<(short)NUMBEROF(model->detail_cutoff_pixels); level++)
 	{
-		if (model->detail_cutoff_pixels[level]>MODEL_DETAIL_INTERIOR_CUTOFF_PIXELS)
+		if (model->detail_cutoff_pixels[level]>MODEL_DETAIL_CLOSE_UP_CUTOFF_PIXELS)
 		{
-			real x, y, z;
-
-			/* (a sphere of no size, infinite or not a number holds nothing) */
-			if (!(radius>0.f && radius<=REAL_MAX))
-			{
-				return FALSE;
-			}
-			x = camera->x-centroid->x;
-			y = camera->y-centroid->y;
-			z = camera->z-centroid->z;
-			return x*x+y*y+z*z<radius*radius;
+			/* (render_model's walk keeps a level whose cutoff the size
+			reaches; a size that is not a number reaches none) */
+			return stock_pixels>=model->detail_cutoff_pixels[level];
 		}
 	}
 	return FALSE;
@@ -80,8 +93,8 @@ short model_detail_geometry_index(struct model const *model,
 	for (; level>=0; level--)
 	{
 		if (permutation->geometry_indices[level]!=NONE &&
-			(rules==_model_detail_rules_inside ||
-				model->detail_cutoff_pixels[level]<=MODEL_DETAIL_INTERIOR_CUTOFF_PIXELS))
+			(rules==_model_detail_rules_close_up ||
+				model->detail_cutoff_pixels[level]<=MODEL_DETAIL_CLOSE_UP_CUTOFF_PIXELS))
 		{
 			return permutation->geometry_indices[level];
 		}

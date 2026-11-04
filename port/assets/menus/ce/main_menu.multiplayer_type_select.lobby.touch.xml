@@ -9,11 +9,9 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_limits" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_section_bots" type="text" width="164" height="20" wide="0 72" bitmap="main_menu/parts/section_164" text="BOTS" font="ui\small_ui" color="#FF6F9CD0" text_x="4">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_after_label" type="text" controller="1" width="42" height="16" font="ui\small_ui" color="#FF6F9CD0" text="THEN" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_after_label" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 72" text="THEN" text_flags="no_focus_test">
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_after" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_after" type="text" controller="1" width="120" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_status" type="text" controller="1" width="164" height="24" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
 	</widget>
@@ -27,41 +25,40 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/board_kind" x="434" y="162"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tick" x="502" y="162"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_opence" x="434" y="180"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_section_bots" x="434" y="200"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_after_label" x="434" y="200"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_after" x="434" y="216"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_after_label" x="434" y="196"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_after" x="478" y="196"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_status" x="434" y="380"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_waiting" x="434" y="222"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_waiting" x="434" y="220"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count" width="164" height="52" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/tile_164x52" wide="34 72">
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_label" x="10" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_spinner"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_label" x="10" y="30"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_label" type="text" controller="1" width="144" height="16" text="BOTS" font="ui\small_ui" color="#FF6F9CD0" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_label" type="text" controller="1" width="144" height="16" text="BOTS" font="ui\small_ui" color="#FF6F9CD0" align="center" wide="0 72" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_spinner" type="spinner" width="164" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15" setting="bots.count" values="0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="27" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="28 8 40 14" footer_bounds="28 150 40 156" wide="0 72">
-		<on event="created" run="port setting load"/>
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_spinner" type="spinner" width="164" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|ADD 1|ADD 2|ADD 3|ADD 4|ADD 5|ADD 6|ADD 7|ADD 8|ADD 9|ADD 10|ADD 11|ADD 12|ADD 13|ADD 14|ADD 15|ADD 16|ADD 20|ADD 24|ADD 28|ADD 32|ADD 36|ADD 40|ADD 44|ADD 48|ADD 52|ADD 56|ADD 60|ADD 64|FILL TO 2|FILL TO 3|FILL TO 4|FILL TO 5|FILL TO 6|FILL TO 7|FILL TO 8|FILL TO 9|FILL TO 10|FILL TO 11|FILL TO 12|FILL TO 13|FILL TO 14|FILL TO 15|FILL TO 16|FILL TO 20|FILL TO 24|FILL TO 28|FILL TO 32|FILL TO 36|FILL TO 40|FILL TO 44|FILL TO 48|FILL TO 52|FILL TO 56|FILL TO 60|FILL TO 64" font="ui\small_ui" color="#FFFFFFFF" align="center" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="8 8 20 14" footer_bounds="8 150 20 156" wide="0 72">
+		<on event="created" run="port lobby bots load"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill" width="164" height="52" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/tile_164x52" wide="34 72">
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_label" x="10" y="5"/>
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill" width="84" height="52" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/touch_button_84x52" wide="34 36">
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_spinner"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_label" x="10" y="30"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_label" type="text" controller="1" width="144" height="16" text="BOT SKILL" font="ui\small_ui" color="#FF6F9CD0" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_label" type="text" controller="1" width="64" height="16" text="SKILL" font="ui\small_ui" color="#FF6F9CD0" align="center" wide="0 36" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_spinner" type="spinner" width="164" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EASY|NORMAL|HEROIC|LEGENDARY" setting="bots.skill" values="easy|normal|heroic|legendary" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="27" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="28 8 40 14" footer_bounds="28 150 40 156" wide="0 72">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_spinner" type="spinner" width="84" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EASY|NORMAL|HEROIC|LEGENDARY" setting="bots.skill" values="easy|normal|heroic|legendary" font="ui\small_ui" color="#FFFFFFFF" align="center" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="8 4 20 10" footer_bounds="8 74 20 80" wide="0 36">
 		<on event="created" run="port setting load"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams" width="164" height="52" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/tile_164x52" wide="34 72">
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_label" x="10" y="5"/>
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams" width="84" height="52" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/touch_button_84x52" wide="70 36">
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_spinner"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_label" x="10" y="30"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_label" type="text" controller="1" width="144" height="16" text="BOT TEAMS" font="ui\small_ui" color="#FF6F9CD0" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_label" type="text" controller="1" width="64" height="16" text="TEAMS" font="ui\small_ui" color="#FF6F9CD0" align="center" wide="0 36" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_spinner" type="spinner" width="164" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EVEN|AGAINST YOU" setting="bots.teams" values="even|against" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="27" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="28 8 40 14" footer_bounds="28 150 40 156" wide="0 72">
+	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_spinner" type="spinner" width="84" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EVEN|VS YOU" setting="bots.teams" values="even|against" font="ui\small_ui" color="#FFFFFFFF" align="center" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="8 4 20 10" footer_bounds="8 74 20 80" wide="0 36">
 		<on event="created" run="port setting load"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
@@ -75,10 +72,10 @@
 		<data input="net splitscreen prejoin players"/>
 		<data input="port lobby board update"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_players" x="28" y="80"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_count" x="434" y="222"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill" x="434" y="276"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams" x="434" y="330"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_host" x="434" y="240"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_count" x="434" y="216"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill" x="431" y="270"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams" x="516" y="270"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_host" x="434" y="324"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_prompts" y="414"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/lobby/touch/board_prompts" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items">

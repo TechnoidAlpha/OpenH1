@@ -31,6 +31,10 @@ int server_master_keygen(void);
 /* --sign <text>: the key's signature of the text printed in hex; 1 */
 int server_master_sign_text(const char *text);
 
+/* the publisher key's public key (SERVER_MASTER_PUBLIC_KEY_SIZE bytes) and,
+given a message, its signature (P2P_SIGNATURE_SIZE bytes): 0 if there is
+no key (a front's registration, p2p_front.c) */
+int server_master_sign(const void *message, int size, unsigned char *public_key, unsigned char *signature);
 /* the publisher key (HALO_SERVER_PUBLISHER_KEY, else the file): 1 with its
 public key and id (16 hex) */
 int server_master_publisher(unsigned char *public_key, char *key_id);
@@ -63,6 +67,16 @@ int server_master_probe(const unsigned char *data, int size, unsigned long addre
 (else a slug of server.name), and the publisher key's id (16 hex; empty
 without a key), as the start read them */
 void server_master_identity(char *instance, int instance_size, char *key_id, int key_id_size);
+
+/* the masters this server publishes to (the masters of
+server.masters_file, with server.master_publish and a publisher key): their
+URLs (urls may be NULL) and pinned keys, up to maximum; how many (none for
+a server that publishes nowhere, and a player's machine). The netlists
+(server_netlist.c) and the Discord links' passes (player_link.c) are taken
+from them alone */
+int server_master_publishing_masters(char (*urls)[256], unsigned char (*keys)[SERVER_MASTER_PUBLIC_KEY_SIZE],
+	int maximum);
+#define server_master_publishing_keys(keys, maximum) server_master_publishing_masters(NULL, (keys), (maximum))
 
 /* each master's state, for the status (masters[]) */
 void server_master_status(struct server_json *json);

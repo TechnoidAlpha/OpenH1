@@ -29,6 +29,10 @@ struct network_advertised_game_summary
 	boolean dedicated;
 	word version;
 	byte kind;
+	/* port: (an OpenH1 game's rate and protocol version, a mixed one's too; 30 and
+	0 for a Legacy game: port/linux/game/network_standard.c) */
+	short rate;
+	word openh1_version;
 };
 
 struct network_advertised_game;

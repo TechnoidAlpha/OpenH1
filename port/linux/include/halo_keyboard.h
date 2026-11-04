@@ -45,6 +45,10 @@ enum halo_keyboard_action
 	/* (a party invite's, which the game itself does not read: accepting
 	the newest one a player of the game sent, port/linux/game/network_party.c) */
 	HALO_KEYBOARD_PARTY_ACCEPT,
+	/* (the players' votes', yes and no in the vote running: port/linux/game/
+	network_votekick.c, read with the chat's keys) */
+	HALO_KEYBOARD_VOTE_YES,
+	HALO_KEYBOARD_VOTE_NO,
 	NUMBER_OF_HALO_KEYBOARD_ACTIONS
 };
 
@@ -95,6 +99,8 @@ enum halo_chat_pad_button
 };
 
 unsigned long halo_chat_pad_buttons(void);
+/* Raw physical snapshot: suppress the button which opened controller chat. */
+unsigned long halo_chat_pad_buttons_for_port(short port);
 
 /* the scoreboard's player menu by controller and keyboard (source/game/
 game_engine.c): each frame a local player's scoreboard shows its player menu
@@ -145,6 +151,10 @@ enum
 };
 
 unsigned long halo_scoreboard_pad(short controller_index, int hold);
+/* whether the first player last used a controller (a button pressed, a
+stick moved) rather than the keyboard and mouse: the vote's box shows the
+D-pad's keys then (port/linux/game/network_votekick.c) */
+int halo_gamepad_last_used(void);
 /* the taps on the touchscreen outside the menus since the last call while
 that keyboard is up, and where the latest was (0 to 1 across and down the
 window) */

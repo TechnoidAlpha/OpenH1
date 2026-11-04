@@ -340,6 +340,8 @@ static void network_connection_flush_reliable_last(
 	struct network_connection *connection);
 static long network_connection_datagram_size(
 	byte const *datagram);
+static boolean network_connection_read_unreliable_endpoint(
+	struct network_connection *connection);
 
 /* ---------- globals */
 
@@ -1409,6 +1411,23 @@ boolean network_connection_last_read_was_unreliable(
 	return network_connection_last_read_unreliable;
 }
 
+/* port: the datagrams that came for a connection read into its queue, for
+network_connection_read, and nothing else of its idle (its streams, its
+timeout): a dedicated server reads them as they come, between its frames
+(network_server_manager.c's network_game_server_port_read_datagrams); and
+the socket they come to (NONE: none) */
+boolean network_connection_read_datagrams(
+	struct network_connection *connection)
+{
+	return !connection->unreliable_endpoint || network_connection_read_unreliable_endpoint(connection);
+}
+
+long network_connection_datagram_socket(
+	struct network_connection *connection)
+{
+	return connection->unreliable_endpoint ? connection->unreliable_endpoint->socket : NONE;
+}
+
 boolean network_server_close_client_connection(
 	struct network_connection *server_connection,
 	struct network_connection *client_connection)
@@ -1671,8 +1690,7 @@ boolean network_connection_idle(
 	long timeout,
 	struct network_connection **new_client_connection)
 {
-	/* port: room for the source's port too (DATAGRAM_SOURCE_SIZE) */
-	byte buffer[DATAGRAM_MAXIMUM_SIZE + DATAGRAM_SOURCE_SIZE];
+	/* port: (the datagrams' buffer in network_connection_read_unreliable_endpoint) */
 	unsigned long current_time = system_milliseconds();
 	boolean success = TRUE;
 
@@ -1751,112 +1769,125 @@ boolean network_connection_idle(
 		}
 	}
 
+	/* port: (the datagrams' part, which a dedicated server runs on its own
+	too: network_connection_read_datagrams) */
 	if (success && connection->unreliable_endpoint)
-	{
-		long free_space = circular_queue_free_space(connection->unreliable_incoming_queue);
-		/* port: the datagrams that could not be read, skipped (one too large,
-		or empty, which anyone may send), up to this many a frame */
-		long skipped = 0;
-
-		while (success &&
-			/* port: (DATAGRAM_SOURCE_SIZE) */
-			free_space >= DATAGRAM_MAXIMUM_SIZE + DATAGRAM_SOURCE_SIZE)
-		{
-			struct transport_address source_address;
-			long buffer_size;
-			unsigned long source_ipv4_address;
-
-			if ((boolean)endpoint_connected(connection->unreliable_endpoint))
-			{
-				buffer_size = read_endpoint(
-					connection->unreliable_endpoint,
-					buffer,
-					DATAGRAM_MAXIMUM_SIZE);
-				if (buffer_size > 0)
-				{
-					network_connection_get_address(connection, NULL, &source_address);
-					network_connection_log_traffic_event(
-						_network_connection_traffic_event_datagram_received,
-						buffer_size,
-						connection);
-				}
-			}
-			else
-			{
-				buffer_size = read_from_endpoint(
-					connection->unreliable_endpoint,
-					buffer,
-					DATAGRAM_MAXIMUM_SIZE,
-					&source_address);
-				if (buffer_size > 0)
-				{
-					network_connection_log_traffic_event(
-						_network_connection_traffic_event_datagram_received,
-						buffer_size,
-						connection);
-				}
-			}
-
-			match_vassert(
-				"c:\\halo\\SOURCE\\networking\\network_connection.c",
-				0x26D,
-				buffer_size <= DATAGRAM_MAXIMUM_SIZE,
-				"endpoint read buffer overflowed");
-			if (buffer_size <= 0)
-			{
-				if ((buffer_size == 0 || buffer_size == _transport_error_endpoint_io) &&
-					++skipped < MAXIMUM_SKIPPED_DATAGRAMS_PER_IDLE)
-				{
-					continue;
-				}
-				return success;
-			}
-
-			source_ipv4_address = source_address.address.long_words[0];
-			/* the queue frames a datagram by its header's length, the source
-			address after it: one whose header said otherwise than what came
-			would be read with its own bytes for a source address, the rest
-			as more datagrams from wherever they said (the host knows its
-			clients by their addresses). Such a datagram, or one with nothing
-			after its header, is dropped (unlogged: anyone can send them) */
-			if (buffer_size < (long)sizeof(message_header) + 1 ||
-				network_connection_datagram_size(buffer) != buffer_size)
-			{
-				/* (dropped) */
-			}
-			else if (source_ipv4_address)
-			{
-				csmemcpy(
-					buffer + buffer_size,
-					&source_ipv4_address,
-					sizeof(source_ipv4_address));
-				buffer_size += sizeof(source_ipv4_address);
-				/* port: and its source port, which the readers take back */
-				csmemcpy(buffer + buffer_size, &source_address.port, sizeof(source_address.port));
-				buffer_size += sizeof(source_address.port);
-				success = circular_queue_queue_data(
-					connection->unreliable_incoming_queue,
-					buffer,
-					buffer_size);
-				match_vassert(
-					"c:\\halo\\SOURCE\\networking\\network_connection.c",
-					0x279,
-					success,
-					"circular_queue_queue_data() failed though it should have had enough room");
-			}
-			else
-			{
-				error(_error_silent, "datagram received from unknown address");
-			}
-
-			free_space = circular_queue_free_space(connection->unreliable_incoming_queue);
-		}
-	}
+		success = network_connection_read_unreliable_endpoint(connection);
 
 	return success;
 }
 
 /* ---------- private code */
+
+/* port: the unreliable endpoint's datagrams read into the connection's
+queue, network_connection_idle's last part, apart */
+static boolean network_connection_read_unreliable_endpoint(
+	struct network_connection *connection)
+{
+	/* port: room for the source's port too (DATAGRAM_SOURCE_SIZE) */
+	byte buffer[DATAGRAM_MAXIMUM_SIZE + DATAGRAM_SOURCE_SIZE];
+	boolean success = TRUE;
+	long free_space = circular_queue_free_space(connection->unreliable_incoming_queue);
+	/* port: the datagrams that could not be read, skipped (one too large,
+	or empty, which anyone may send), up to this many a frame */
+	long skipped = 0;
+
+	while (success &&
+		/* port: (DATAGRAM_SOURCE_SIZE) */
+		free_space >= DATAGRAM_MAXIMUM_SIZE + DATAGRAM_SOURCE_SIZE)
+	{
+		struct transport_address source_address;
+		long buffer_size;
+		unsigned long source_ipv4_address;
+
+		if ((boolean)endpoint_connected(connection->unreliable_endpoint))
+		{
+			buffer_size = read_endpoint(
+				connection->unreliable_endpoint,
+				buffer,
+				DATAGRAM_MAXIMUM_SIZE);
+			if (buffer_size > 0)
+			{
+				network_connection_get_address(connection, NULL, &source_address);
+				network_connection_log_traffic_event(
+					_network_connection_traffic_event_datagram_received,
+					buffer_size,
+					connection);
+			}
+		}
+		else
+		{
+			buffer_size = read_from_endpoint(
+				connection->unreliable_endpoint,
+				buffer,
+				DATAGRAM_MAXIMUM_SIZE,
+				&source_address);
+			if (buffer_size > 0)
+			{
+				network_connection_log_traffic_event(
+					_network_connection_traffic_event_datagram_received,
+					buffer_size,
+					connection);
+			}
+		}
+
+		match_vassert(
+			"c:\\halo\\SOURCE\\networking\\network_connection.c",
+			0x26D,
+			buffer_size <= DATAGRAM_MAXIMUM_SIZE,
+			"endpoint read buffer overflowed");
+		if (buffer_size <= 0)
+		{
+			if ((buffer_size == 0 || buffer_size == _transport_error_endpoint_io) &&
+				++skipped < MAXIMUM_SKIPPED_DATAGRAMS_PER_IDLE)
+			{
+				continue;
+			}
+			return success;
+		}
+
+		source_ipv4_address = source_address.address.long_words[0];
+		/* the queue frames a datagram by its header's length, the source
+		address after it: one whose header said otherwise than what came
+		would be read with its own bytes for a source address, the rest
+		as more datagrams from wherever they said (the host knows its
+		clients by their addresses). Such a datagram, or one with nothing
+		after its header, is dropped (unlogged: anyone can send them) */
+		if (buffer_size < (long)sizeof(message_header) + 1 ||
+			network_connection_datagram_size(buffer) != buffer_size)
+		{
+			/* (dropped) */
+		}
+		else if (source_ipv4_address)
+		{
+			csmemcpy(
+				buffer + buffer_size,
+				&source_ipv4_address,
+				sizeof(source_ipv4_address));
+			buffer_size += sizeof(source_ipv4_address);
+			/* port: and its source port, which the readers take back */
+			csmemcpy(buffer + buffer_size, &source_address.port, sizeof(source_address.port));
+			buffer_size += sizeof(source_address.port);
+			success = circular_queue_queue_data(
+				connection->unreliable_incoming_queue,
+				buffer,
+				buffer_size);
+			match_vassert(
+				"c:\\halo\\SOURCE\\networking\\network_connection.c",
+				0x279,
+				success,
+				"circular_queue_queue_data() failed though it should have had enough room");
+		}
+		else
+		{
+			error(_error_silent, "datagram received from unknown address");
+		}
+
+		free_space = circular_queue_free_space(connection->unreliable_incoming_queue);
+	}
+
+	return success;
+}
 
 /* the message after what the stream has waiting; FALSE when the stream is
 lost (the caller closes the connection) */

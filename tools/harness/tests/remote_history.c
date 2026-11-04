@@ -2,7 +2,9 @@
 (distributed_correct_remote_unit, #287 stage 2c): the host's word names the
 end of their client's tick, compared with where this machine had its copy
 after running that tick's input. Positions along x; the copy runs ahead on
-fresher input. The apply stub puts the unit where it is told (no blend). */
+fresher input. The apply stub puts the unit where it is told (no blend). A
+word of one of the host's sub-steps (#287 stage 2d) is compared with where
+this machine had the copy as the same sub-step of that tick ended. */
 #include "harness.h"
 typedef unsigned short word;
 enum { _distributed_unit_predicted_bit = 7, MAXIMUM_TRACKED_PLAYERS = 4 };
@@ -49,12 +51,20 @@ int main(int argc, char **argv) {
     struct distributed_unit_state state = {0};
     boolean handled;
     short tick;
+    short substep = NONE;
+    short k;
     /* this machine ran the input of the other client's ticks 96 to 100,
     0.1 a tick: after 98's it had the copy at 9.8, now at 10.0 */
     for (tick = 96; tick <= 100; tick++) {
         struct distributed_remote_position *noted = &distributed_remote_positions[1][tick & (REMOTE_POSITION_TICKS - 1)];
         noted->key = tick; noted->unit_index = 1; noted->position.x = tick / 10.0f;
         noted->velocity.i = 0.1f;
+        /* (and as each of the tick's first three sub-steps of four ended) */
+        for (k = 0; k < MAXIMUM_SIM_SUBSTEPS - 1; k++) {
+            noted = &distributed_remote_substep_positions[1][tick & (REMOTE_POSITION_TICKS - 1)][k];
+            noted->key = tick; noted->unit_index = 1; noted->position.x = (tick - 1) / 10.0f + 0.025f * (k + 1);
+            noted->velocity.i = 0.1f;
+        }
     }
     objects[1].object.position.x = 10.0f;
     objects[1].object.translational_velocity.i = 0.1f;
@@ -79,7 +89,15 @@ int main(int argc, char **argv) {
     if (!strcmp(name, "unpredicted")) state.flags = 0;
     if (!strcmp(name, "relayed")) forwarded_key = NONE;
     if (!strcmp(name, "inactive")) substeps_active = FALSE;
-    handled = distributed_correct_remote_unit(1, 1, &state);
+    /* the host's word as its sub-step 0 of the tick that ran their 98 ended
+    (9.725), and as its sub-step 1 did, 0.3 behind (9.75) */
+    if (!strcmp(name, "substep-ahead")) { substep = 0; state.position.x = 9.725f; }
+    if (!strcmp(name, "substep-apart")) { substep = 1; state.position.x = 9.45f; }
+    if (!strcmp(name, "substep-no-history")) {
+        substep = 2;
+        distributed_remote_substep_positions[1][98 & (REMOTE_POSITION_TICKS - 1)][2].key = NONE;
+    }
+    handled = distributed_correct_remote_unit(1, 1, &state, substep);
     if (!strcmp(name, "ahead") || !strcmp(name, "wrapped")) {
         /* (where it had them then: not pulled back from where fresher input
         has it now) */
@@ -98,8 +116,28 @@ int main(int argc, char **argv) {
         CHECK(distributed_remote_positions[1][97 & (REMOTE_POSITION_TICKS - 1)].position.x > 9.69f,
             "a tick before the named one was moved");
         CHECK(applied_velocity.i > 0.099f && applied_velocity.i < 0.101f, "its speed taken as %f", applied_velocity.i);
+    } else if (!strcmp(name, "substep-ahead")) {
+        /* (where it had them as that sub-step ended, not as the tick did) */
+        CHECK(handled && !applied && objects[1].object.position.x == 10.0f,
+            "a sub-step's word pulled the copy back to %f", objects[1].object.position.x);
+    } else if (!strcmp(name, "substep-apart")) {
+        struct distributed_remote_position (*sub)[MAXIMUM_SIM_SUBSTEPS - 1] = distributed_remote_substep_positions[1];
+        CHECK(handled && applied == 1, "a sub-step's disagreement was not corrected");
+        CHECK(objects[1].object.position.x > 9.69f && objects[1].object.position.x < 9.71f,
+            "corrected to %f, not 9.7", objects[1].object.position.x);
+        /* (from the sub-step named on: the tick's end, its later sub-steps and
+        the ticks after; not its sub-steps before, nor the ticks before) */
+        CHECK(sub[98 & (REMOTE_POSITION_TICKS - 1)][1].position.x < 9.46f &&
+            sub[98 & (REMOTE_POSITION_TICKS - 1)][2].position.x < 9.48f &&
+            sub[99 & (REMOTE_POSITION_TICKS - 1)][0].position.x < 9.53f &&
+            distributed_remote_positions[1][98 & (REMOTE_POSITION_TICKS - 1)].position.x < 9.51f,
+            "the sub-steps and ticks since were not moved with it");
+        CHECK(sub[98 & (REMOTE_POSITION_TICKS - 1)][0].position.x > 9.72f &&
+            sub[97 & (REMOTE_POSITION_TICKS - 1)][2].position.x > 9.67f &&
+            distributed_remote_positions[1][97 & (REMOTE_POSITION_TICKS - 1)].position.x > 9.69f,
+            "a sub-step before the named one was moved");
     } else if (!strcmp(name, "no-history") || !strcmp(name, "unpredicted") || !strcmp(name, "relayed") ||
-        !strcmp(name, "inactive")) {
+        !strcmp(name, "inactive") || !strcmp(name, "substep-no-history")) {
         /* (put where the host has it, as before: the caller's) */
         CHECK(!handled && !applied, "%s: taken without a tick of its own to compare", name);
     } else {

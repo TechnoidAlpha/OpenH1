@@ -13,6 +13,7 @@ anywhere and starts with bin/openh1:
     lib/openh1/libSDL3.so.0                    its SDL (the rpath is $ORIGIN:$ORIGIN/../lib/openh1)
     share/openh1/brokers.txt                   internet play's brokers (network.brokers_file)
     share/openh1/masters.txt                   the master servers (network.masters_file)
+    share/openh1/relays.txt                    the relays offered (network.relays_file: none in it)
     share/openh1/vr                            only in the VR build's (--vr): install.sh's sign of it
     share/openh1/steam/<kind>.png              Steam's library artwork, which install.sh gives its shortcut
                                                (port/assets/steam, tools/steam_art.py; the VR build's OpenH1 VR's)
@@ -51,6 +52,7 @@ DESKTOP_ENTRY = ROOT / "port/assets/linux/openh1.desktop"
 ICONS = ROOT / "port/assets/icon/hicolor"  # openh1-<size>.png (tools/app_icon.py)
 BROKERS = ROOT / "port/assets/network/brokers.txt"
 MASTERS = ROOT / "port/assets/network/masters.txt"
+RELAYS = ROOT / "port/assets/network/relays.txt"
 INSTALLER = ROOT / "tools/linux_install.sh"  # the tree's install.sh (and the Steam Frame package's)
 STEAM_ART = ROOT / "port/assets/steam"  # <variant>/<kind>.png (tools/steam_art.py)
 DOCUMENTS = [(ROOT / "README.md", "README.md"), (ROOT / "port/linux/README.md", "README.linux.md")]
@@ -68,12 +70,21 @@ def notices(platform: str) -> List[Tuple[Path, str]]:
         # the text's fonts (port/assets/fonts), embedded in every build, whose
         # SIL Open Font License asks each copy to carry it
         (ROOT / "port/assets/fonts/Overpass-OFL.txt", "Overpass-OFL.txt"),
+        # the console's font (port/assets/fonts), embedded in every build,
+        # whose MIT and Bitstream Vera licenses ask copies to carry them
+        (ROOT / "port/assets/fonts/Hack-LICENSE.txt", "Hack-LICENSE.txt"),
+        # the menus' headings' font (port/assets/fonts), embedded in every
+        # build, whose SIL Open Font License asks each copy to carry it
+        (ROOT / "port/assets/fonts/OpenCE-OFL.txt", "OpenCE-OFL.txt"),
         # the menus' XML parser (port/third_party/expat), in every build,
         # whose MIT license asks copies to carry its notice
         (ROOT / "port/third_party/expat/COPYING", "expat-COPYING.txt"),
         # voice chat's codec (port/third_party/opus), in every build, whose
         # BSD license asks binaries to carry its notice
         (ROOT / "port/third_party/opus/COPYING", "opus-COPYING.txt"),
+        # the Bink movies' decoders (port/third_party/ffmpeg), in every
+        # build, whose LGPL asks copies to carry it
+        (ROOT / "port/third_party/ffmpeg/COPYING.LGPLv2.1", "ffmpeg-COPYING.LGPLv2.1.txt"),
         # voice chat's speaker icons (port/assets/icons/lucide, drawn into
         # the menus' bitmaps), whose ISC license asks copies to carry its
         # notice
@@ -119,6 +130,7 @@ def stage_tree(dist: Path, executable: Path, library: Optional[Path], notices: I
         _copy(library, dist / "lib" / NAME / library.name)
     _copy(BROKERS, dist / "share" / NAME / BROKERS.name)
     _copy(MASTERS, dist / "share" / NAME / MASTERS.name)
+    _copy(RELAYS, dist / "share" / NAME / RELAYS.name)
     if vr:
         (dist / "share" / NAME / "vr").write_text(
             "The VR build (HALO_VR). install.sh installs it in ~/Applications/OpenH1-VR, beside the other build.\n")

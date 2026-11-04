@@ -805,7 +805,8 @@ static void vr_draw_cockpit_display(void)
 		"		discard;\n"
 		"	if (depth_map.x > 0.0)\n"
 		"	{\n"
-		"		float z = texture(depth_texture, vec3(f, float(layers == 4 ? 2 * eye : eye))).r;\n"
+		/* (the eyes' depth is kept reversed: as the game has it, 1 - it) */
+		"		float z = 1.0 - texture(depth_texture, vec3(f, float(layers == 4 ? 2 * eye : eye))).r;\n"
 		"		if (z < depth_map.x * (1.0 - depth_map.y / (0.96 * s)))\n"
 		"			discard;\n"
 		"	}\n"
@@ -1031,7 +1032,8 @@ static void vr_draw_scope_window(void)
 		"	vec4 c = texture(window_texture, vec2(0.5 + 0.5 * q.x, 0.5 + 0.5 * q.y * height));\n"
 		"	if (gun != 0)\n"
 		"	{\n"
-		"		float z = texture(depth_texture, vec3(f, float(layers == 4 ? 2 * eye : eye))).r;\n"
+		/* (the eyes' depth is kept reversed: as the game has it, 1 - it) */
+		"		float z = 1.0 - texture(depth_texture, vec3(f, float(layers == 4 ? 2 * eye : eye))).r;\n"
 		"		if (z < gun_depth)\n"
 		"			c *= gun == 1 ? 0.8 : 0.0;\n"
 		"	}\n"

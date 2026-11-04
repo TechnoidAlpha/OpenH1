@@ -47,7 +47,7 @@ def test_loading_embedding(tmp_path, monkeypatch, present):
         pytest.skip("needs a C preprocessor")
     # Use the generated declarations after preprocessing; a source-text
     # search alone misses guard mistakes.
-    for name in ("hud_hires.h", "text_hires.h", "menu_files.h"):
+    for name in ("hud_hires.h", "text_hires.h", "menu_files.h", "menu_pictures.h"):
         (tmp_path / name).write_text("")
     result = subprocess.run([compiler, "-E", "-P", "-I", str(tmp_path), str(output)],
                             check=True, capture_output=True, text=True).stdout

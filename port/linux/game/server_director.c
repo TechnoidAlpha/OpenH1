@@ -36,6 +36,9 @@ Called from the main loop every frame (main.c).
 #include "text/unicode.h"
 #include "game_modes.h"
 #include "network_distributed.h"
+#include "network_map_vote.h"
+#include "network_admin.h"
+#include "network_standard.h"
 #include "server_director.h"
 #include "server_gametypes.h"
 
@@ -46,7 +49,9 @@ Called from the main loop every frame (main.c).
 #include "../src/server_json.h" /* port: port/linux/src/server_json.c */
 #include "../src/server_log.h" /* port: port/linux/src/server_log.c */
 #include "../src/server_master.h" /* port: port/linux/src/server_master.c */
+#include "../src/server_netlist.h" /* port: port/linux/src/server_netlist.c */
 #include "../src/posix_server.h" /* port: port/linux/src/posix_server.c */
+#include "../src/port_config.h" /* port: port/linux/src/port_config.c */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -60,14 +65,19 @@ double config_real(char const *name);
 int config_write(char const *name, char const *value);
 int config_reload(char const *prefix);
 void platform_log(char const *format, ...);
+unsigned long system_milliseconds(void);
 extern boolean debug_no_drawing;
 /* (menu_functions.c's) */
 extern boolean ui_widget_port_cooperative_level_choose(char const *map_name, short difficulty);
+extern void ui_widget_port_cooperative_settings_apply(void);
 /* (port/linux/src/updater.c's) */
 int updater_server_check(void);
 long updater_server_available(void);
+long updater_server_available_network_version(void);
+long updater_server_available_standard_version(void);
 int updater_server_install_start(void);
 int updater_server_install_poll(char *error, int size);
+const char *updater_server_unable(void);
 
 #if HALO_SERVER_BUILD
 
@@ -95,10 +105,14 @@ enum
 	/* seconds a joined player waits for the message of the day (the game
 	loading on its machine) */
 	MOTD_DELAY_SECONDS = 5,
-	/* server.auto_update: seconds between looks for a new release, and the
-	seconds the server must have been empty before one is installed */
-	UPDATE_CHECK_SECONDS = 6 * 60 * 60,
+	/* server.auto_update: the seconds the server must have been empty before
+	a build of the same network version is started; a new network version's
+	notice in the lobby before the server stops; the first look's latest
+	second after the start (spread, so that a machine's servers do not all
+	ask GitHub at once) */
 	UPDATE_EMPTY_SECONDS = 10 * 60,
+	UPDATE_LOBBY_NOTICE_SECONDS = 30,
+	UPDATE_FIRST_CHECK_SECONDS = 120,
 	MAXIMUM_SLOTS = HALO_PORT_MAXIMUM_NETWORK_PLAYERS,
 	MAXIMUM_MACHINES = HALO_PORT_MAXIMUM_NETWORK_MACHINES,
 	/* the game's name's characters, with its end (network_game's) */
@@ -109,7 +123,7 @@ enum
 };
 
 static char const *const server_end_names[NUMBER_OF_SERVER_ENDS] =
-	{ "score", "time", "idle", "empty", "command", "next" };
+	{ "score", "time", "idle", "empty", "command", "next", "update", "vote" };
 
 static struct
 {
@@ -169,6 +183,11 @@ static struct
 	for the readers who see them) */
 	char seen_addresses[MAXIMUM_SLOTS][16];
 	char seen_hardware_ids[MAXIMUM_SLOTS][40];
+	/* (and its Discord account as it joined: a verified one's, else what it
+	said of itself) */
+	char seen_discord_ids[MAXIMUM_SLOTS][32];
+	char seen_discord_names[MAXIMUM_SLOTS][48];
+	boolean seen_discord_verified[MAXIMUM_SLOTS];
 	/* why each machine's players leave, a moment after a command dropped it
 	("kicked", "banned"; NULL: they left), and the seconds since */
 	char const *leave_reasons[MAXIMUM_MACHINES];
@@ -193,10 +212,25 @@ static struct
 	long update_told;
 	real update_empty_seconds;
 	/* the install of it under way (on a thread of its own: the server goes
-	on), and the build it installs; done, the server stops once empty */
+	on), and the build it installs; done, the server stops once empty, or,
+	for a new network version, once the game being played is over */
 	boolean update_installing;
 	boolean update_installed;
 	long update_installing_build;
+	/* the build installed plays another network version; whether a game was
+	under way when it was installed, the seconds since, those of the
+	lobby's notice, and whether its end was asked */
+	boolean update_new_network;
+	boolean update_after_game;
+	real update_installed_seconds;
+	real update_lobby_seconds;
+	boolean update_end_asked;
+	boolean update_checked_once;
+	/* this lobby's map vote: over (or not held), and the rotation's entries
+	it offers (server.map_vote) */
+	boolean map_vote_done;
+	short map_vote_count;
+	long map_vote_entries[NETWORK_MAP_VOTE_MAXIMUM_CHOICES];
 } server;
 
 /* ---------- the server's game */
@@ -296,6 +330,91 @@ real server_director_game_seconds(
 	return server.state == _server_state_playing || server.state == _server_state_postgame ? server.game_seconds : 0.0f;
 }
 
+long server_director_game_mode(
+	char *word,
+	long word_size,
+	char *title,
+	long title_size,
+	boolean *opence)
+{
+	boolean joins;
+	long rate = network_standard_server_hosted(&joins);
+
+	if (word)
+	{
+		if (rate)
+			snprintf(word, (size_t)word_size, "openh1_%ld", rate);
+		else
+			snprintf(word, (size_t)word_size, "legacy");
+	}
+	if (title)
+	{
+		if (rate)
+			snprintf(title, (size_t)title_size, "OpenH1 %ld Tick%s", rate, joins ? ", OpenCE can join" : "");
+		else
+			snprintf(title, (size_t)title_size, "Legacy");
+	}
+	if (opence)
+		*opence = joins;
+	return rate ? rate : 30;
+}
+
+/* a player host's network.game_mode and network.sim_rate set (in
+config.toml or the environment), which a server leaves aside for
+server.game_mode: said once, as a server that took its kind of game from
+them before server.game_mode (a sim_rate of 60, say) hosts OpenH1 120 Tick
+games now unless server.game_mode says otherwise */
+static void server_warn_player_host_modes(
+	void)
+{
+	static char const *const names[] = { "network.game_mode", "network.sim_rate" };
+	long index;
+
+	for (index = 0; index < (long)NUMBEROF(names); index++)
+	{
+		struct config_setting_info info;
+		char value[64];
+		int setting;
+
+		for (setting = 0; config_setting_info(setting, &info) && strcmp(info.name, names[index]); setting++)
+		{
+		}
+		if (!info.name || strcmp(info.name, names[index]) || !config_text(names[index], value, sizeof(value)))
+			continue;
+		if (info.pinned || strcmp(value, info.default_text))
+		{
+			server_log(_server_log_warning, "server", "%s = %s is a player's host's setting, which a dedicated server "
+				"leaves aside: server.game_mode (%s) says what it hosts", names[index], value,
+				config_string("server.game_mode"));
+		}
+	}
+}
+
+/* the kind of game hosted taken again from server.game_mode (and
+network.allow_opence) in the lobby, while no other machine is in it and no
+start was sent (network_standard_server_mode_read: players keep the kind
+they joined, and a game its rate), and said when it changes; an OpenH1
+game's frames at least its rate */
+static void server_game_mode_update(
+	void)
+{
+	struct network_game_server *network_server = global_network_game_server_get();
+	char before[64], after[64];
+	long rate;
+
+	if (network_server && server_network_state() == SERVER_PREGAME &&
+		!network_game_server_port_start_sent(network_server))
+	{
+		server_director_game_mode(NULL, 0, before, sizeof(before), NULL);
+		network_standard_server_mode_read();
+		server_director_game_mode(NULL, 0, after, sizeof(after), NULL);
+		if (strcmp(before, after))
+			server_log(_server_log_info, "lobby", "hosting: %s (server.game_mode)", after);
+	}
+	rate = network_standard_server_hosted(NULL);
+	server_mode_set_minimum_frame_rate(network_server ? rate : 0);
+}
+
 /* ---------- events */
 
 /* a variant's name, as the lobby shows it, in printable ASCII */
@@ -339,6 +458,14 @@ static void server_game_event(
 		server_variant_name(&game->variant, variant, sizeof(variant));
 		server_json_string(&json, "variant", cooperative ? "Co-op" : variant);
 		server_json_boolean(&json, "teams", !cooperative && game->variant.universal_variant.teams);
+	}
+	/* (the kind of game, and its tick rate) */
+	{
+		char mode[16];
+		long rate = server_director_game_mode(mode, sizeof(mode), NULL, 0, NULL);
+
+		server_json_string(&json, "game_mode", mode);
+		server_json_integer(&json, "tick_rate", rate);
 	}
 	if (reason)
 	{
@@ -433,15 +560,21 @@ static long server_rotation_after(
 	return NONE;
 }
 
+/* the level the network game is first set up on: the entry being played,
+else the rotation's next. A co-op entry's own level too (its campaign map,
+which the rotation found present), which server_apply_entry then makes the
+co-op game: else the game's stock default, carousel, which a server's maps
+need not have (or not readable as this build's), and a lobby that fails to
+read its map is fatal: a rotation of co-op entries alone never started */
 char const *server_director_first_level(
 	void)
 {
 	struct server_entry const *entry;
 
-	if (server.current_set && strcmp(server.current.gametype, "coop"))
+	if (server.current_set)
 		return server.current.level;
 	entry = server_director_next();
-	return entry && strcmp(entry->gametype, "coop") ? entry->level : NULL;
+	return entry ? entry->level : NULL;
 }
 
 struct server_entry const *server_director_next(
@@ -479,6 +612,9 @@ static void server_apply_game_settings(
 	if (!length)
 		ustrncpy(wide, L"OpenH1 Server", NETWORK_GAME_NAME_LENGTH - 1);
 	network_game_server_port_set_settings(wide, PIN(maximum, 2, HALO_PORT_MAXIMUM_NETWORK_PLAYERS - 1));
+	/* (a co-op game's clients told the host has no player: its loading zones
+	ask for most of them, network_coop_host_dedicated) */
+	network_game_server_port_set_cooperative_dedicated(TRUE);
 }
 
 /* the listing: internet play (network.online), public or by invite, and
@@ -536,6 +672,12 @@ static boolean server_apply_entry(
 			server_log(_server_log_warning, "lobby", "%s cannot be played as co-op", entry->level);
 			return FALSE;
 		}
+		/* (and as the player's Server Setup gives a co-op game: its friendly
+		fire, player collisions and ally friendly fire from config.toml,
+		which a dedicated server had never applied; and server.max_players
+		again, which choosing the level holds to the co-op default of 16) */
+		ui_widget_port_cooperative_settings_apply();
+		server_apply_game_settings();
 	}
 	else
 	{
@@ -682,8 +824,20 @@ boolean server_director_end_game(
 	return TRUE;
 }
 
-boolean server_director_interpose(
+boolean server_director_playing(
+	void)
+{
+	boolean cooperative = server_cooperative();
+
+	return server.state == _server_state_playing && !server.end_asked &&
+		(cooperative ? game_in_progress() : game_engine_running() && game_engine_can_score());
+}
+
+/* the entry played next: now (as soon as it can be), or once the game
+played (or the lobby's, about to be) is over */
+static boolean server_interpose(
 	char const *text,
+	boolean now,
 	char *reason,
 	long reason_size)
 {
@@ -703,12 +857,16 @@ boolean server_director_interpose(
 	}
 	server.interposed = entry;
 	server.has_interposed = TRUE;
+	/* (the owner chose: no map vote) */
+	if (network_map_vote_running())
+		network_map_vote_cancel();
+	server.map_vote_done = TRUE;
 	/* (a new one: not the one being played, if that was interposed too) */
 	server.current_is_interposed = FALSE;
 	/* (now: in the lobby the entry is set again, a game ends at once; once
 	the lobby's start was sent, its machines load the game, and this one is
 	the next) */
-	if (server.state == _server_state_lobby &&
+	if (now && server.state == _server_state_lobby &&
 		!network_game_server_port_start_sent(global_network_game_server_get()))
 	{
 		/* (the rotation's entry it takes the place of played after it) */
@@ -720,7 +878,7 @@ boolean server_director_interpose(
 		server.entry_applied = FALSE;
 		snprintf(reason, (size_t)reason_size, "now");
 	}
-	else if (server.state == _server_state_playing && server_director_end_game(_server_end_next, TRUE))
+	else if (now && server.state == _server_state_playing && server_director_end_game(_server_end_next, TRUE))
 	{
 		snprintf(reason, (size_t)reason_size, "now: this game ends");
 	}
@@ -729,6 +887,22 @@ boolean server_director_interpose(
 		snprintf(reason, (size_t)reason_size, "once this game is over");
 	}
 	return TRUE;
+}
+
+boolean server_director_interpose(
+	char const *text,
+	char *reason,
+	long reason_size)
+{
+	return server_interpose(text, TRUE, reason, reason_size);
+}
+
+boolean server_director_interpose_after(
+	char const *text,
+	char *reason,
+	long reason_size)
+{
+	return server_interpose(text, FALSE, reason, reason_size);
 }
 
 /* the entry of the rotation with the text that is nearest index (an entry
@@ -759,6 +933,13 @@ static void server_adopt_rotation(
 	struct server_rotation const *rotation)
 {
 	long anchor = rotation->count - 1;
+
+	/* (a map vote's choices were the old rotation's: a new vote) */
+	if (network_map_vote_running())
+	{
+		network_map_vote_cancel();
+		server.map_vote_done = FALSE;
+	}
 
 	if (server.index_anchored && server.index >= 0 && server.index < server.rotation.count && rotation->count)
 	{
@@ -859,6 +1040,8 @@ void server_director_reload(
 		server_log(_server_log_warning, "server", "config.toml cannot be read again: nothing changed");
 		return;
 	}
+	/* (server.vpn_list's file, vpn_allow.txt and vpn_block.txt too) */
+	server_netlist_reload();
 	server_read_rotation(&rotation, config_string("server.rotation"));
 	server_rotation_text(&rotation, after, sizeof(after));
 	/* (the same entries, checked again: a map or gametype file added or
@@ -1102,18 +1285,127 @@ static boolean server_empty(
 	return server_player_count() == 0 && server.state != _server_state_playing && server.state != _server_state_loading;
 }
 
+/* the seconds between looks for a new release (server.update_check_minutes,
+5 to 1440), a tenth of it either way at random so that a machine's servers
+spread their asking */
+static real server_update_interval(
+	void)
+{
+	long minutes = PIN(config_integer("server.update_check_minutes"), 5, 24 * 60);
+	long long spread = posix_server_unix_milliseconds() % 2001 - 1000;
+
+	return (real)(minutes * 60) * (1.0f + (real)spread / 10000.0f);
+}
+
+/* the server stopped (exit code 5) to be started again as the build
+installed */
+static void server_update_restart(
+	char const *why)
+{
+	server_log(_server_log_info, "update", "build %ld installed: stopping to be started again (%s)",
+		server.update_installing_build, why);
+	server_director_quit(SERVER_EXIT_RESTART, "update installed");
+}
+
+/* a build installed, for when the server stops to start it: one of the same
+network version once nobody has played for UPDATE_EMPTY_SECONDS; one of a
+new network version (which no player of this one can join once the others
+update) at the end of the game being played, at once with nobody on, after
+UPDATE_LOBBY_NOTICE_SECONDS in the lobby, and after server.update_game_minutes
+of a game that does not end (ended as sv_end_game ends it, its scores and
+postgame shown) */
+static void server_update_installed(
+	real seconds)
+{
+	boolean playing = server.state == _server_state_playing || server.state == _server_state_loading;
+
+	server.update_installed_seconds += seconds;
+	if (!server.update_new_network)
+	{
+		if (!server_empty())
+		{
+			server.update_empty_seconds = 0.0f;
+			return;
+		}
+		server.update_empty_seconds += seconds;
+		if (server.update_empty_seconds >= UPDATE_EMPTY_SECONDS)
+			server_update_restart("empty for 10 minutes");
+		return;
+	}
+	if (server_empty() && !playing)
+	{
+		server_update_restart("a new network version, and nobody plays");
+		return;
+	}
+	if (playing)
+	{
+		long minutes = config_integer("server.update_game_minutes");
+
+		server.update_after_game = TRUE;
+		if (minutes > 0 && server.update_installed_seconds >= 60.0f * (real)minutes && !server.update_end_asked &&
+			server.state == _server_state_playing)
+		{
+			server.update_end_asked = TRUE;
+			distributed_send_notice("This server ends the game to update");
+			server_log(_server_log_info, "update", "the game has gone on %ld minutes since the update was installed: "
+				"it ends (server.update_game_minutes)", minutes);
+			server_director_end_game(_server_end_update, FALSE);
+		}
+		return;
+	}
+	if (server.state == _server_state_postgame)
+		return;
+	/* (the game it waited for is over, and its postgame shown: at once) */
+	if (server.update_after_game)
+	{
+		server_update_restart("a new network version, after the game");
+		return;
+	}
+	/* (in the lobby: a short notice first) */
+	if (server.update_lobby_seconds == 0.0f)
+	{
+		char notice[128];
+
+		snprintf(notice, sizeof(notice), "This server restarts to update in %d seconds", UPDATE_LOBBY_NOTICE_SECONDS);
+		distributed_send_notice(notice);
+	}
+	server.update_lobby_seconds += seconds;
+	if (server.update_lobby_seconds >= UPDATE_LOBBY_NOTICE_SECONDS)
+		server_update_restart("a new network version, from the lobby");
+}
+
+/* a warning event and log line, once a build is out */
+static void server_update_warning(
+	char const *text)
+{
+	struct server_json json;
+
+	server_log(_server_log_warning, "update", "%s", text);
+	server_json_begin(&json);
+	server_json_object_begin(&json, NULL);
+	server_json_string(&json, "event", "warning");
+	server_json_string(&json, "text", text);
+	server_json_object_end(&json);
+	server_event_add("server", server_json_text(&json));
+	server_json_free(&json);
+}
+
 /* server.auto_update: "check" looks for a new release every
-UPDATE_CHECK_SECONDS and says when one is out (a warning event); "install"
-also installs it once nobody has played for UPDATE_EMPTY_SECONDS (on a
-thread of its own: the server goes on meanwhile), and stops with
-SERVER_EXIT_RESTART for what runs the server to start the new build */
+server.update_check_minutes and says when one is out (a warning event);
+"install" (the default) also installs it at once (on a thread of its own:
+the server goes on meanwhile), and stops with SERVER_EXIT_RESTART, for what
+runs the server to start the new build, when server_update_installed says */
 static void server_auto_update(
 	real seconds)
 {
 	char const *mode = config_string("server.auto_update");
 	boolean install = !strcmp(mode, "install");
+	double time_scale = config_real("debug.update_time_scale");
 	long available;
 
+	/* (a test's faster clock: debug.update_time_scale) */
+	if (time_scale > 1.0)
+		seconds *= (real)time_scale;
 	/* (the install under way, or done: nothing else looked for) */
 	if (server.update_installing)
 	{
@@ -1126,74 +1418,87 @@ static void server_auto_update(
 		if (installed > 0)
 		{
 			server.update_installed = TRUE;
-			server_log(_server_log_info, "update", "build %ld installed: stopping to be started again%s",
-				server.update_installing_build, server_empty() ? "" : " once nobody plays");
+			server.update_installed_seconds = 0.0f;
+			server.update_empty_seconds = 0.0f;
+			server.update_after_game = server.state == _server_state_playing || server.state == _server_state_loading;
+			if (server.update_new_network)
+			{
+				server_log(_server_log_info, "update", "build %ld installed: a new network version, started %s",
+					server.update_installing_build, server.update_after_game ? "once this game is over" :
+						"after a notice");
+				if (server.update_after_game)
+					distributed_send_notice("This server updates after this game");
+			}
+			else
+			{
+				server_log(_server_log_info, "update", "build %ld installed: started once the server has been empty "
+					"for 10 minutes", server.update_installing_build);
+			}
 		}
 		else
 		{
 			/* (the next look finds it again) */
-			server.update_check_seconds = UPDATE_CHECK_SECONDS;
-			server.update_empty_seconds = 0.0f;
-			server_log(_server_log_error, "update", "build %ld could not be installed: %s (tried again in %d hours)",
-				server.update_installing_build, error, UPDATE_CHECK_SECONDS / (60 * 60));
+			server.update_check_seconds = server_update_interval();
+			server_log(_server_log_error, "update", "build %ld could not be installed: %s (tried again in %ld "
+				"minutes)", server.update_installing_build, error, (long)(server.update_check_seconds / 60.0f));
 			return;
 		}
 	}
 	if (server.update_installed)
 	{
-		/* (a player who joined while it installed plays on: the server
-		stops once empty) */
-		if (server_empty())
-			server_director_quit(SERVER_EXIT_RESTART, "update installed");
+		server_update_installed(seconds);
 		return;
 	}
 	if (!install && strcmp(mode, "check"))
 		return;
+	/* (the first look soon after the start, at a moment of its own) */
+	if (!server.update_checked_once)
+	{
+		server.update_checked_once = TRUE;
+		server.update_check_seconds = (real)(posix_server_unix_milliseconds() % (UPDATE_FIRST_CHECK_SECONDS * 1000)) /
+			1000.0f;
+	}
 	server.update_check_seconds -= seconds;
 	if (server.update_check_seconds <= 0.0f)
 	{
-		server.update_check_seconds = UPDATE_CHECK_SECONDS;
+		server.update_check_seconds = server_update_interval();
 		if (!updater_server_check())
 		{
 			/* (never again: this build has no number to compare) */
 			server.update_check_seconds = 1e30f;
 			server_log(_server_log_warning, "update", "server.auto_update is %s, but this build does not update "
-				"itself: what runs it updates it", mode);
+				"itself (%s): what runs it updates it", mode, updater_server_unable());
 			return;
 		}
 	}
 	available = updater_server_available();
 	if (!available)
 		return;
-	if (available != server.update_told)
 	{
-		struct server_json json;
-		char text[160];
+		/* (a new network version, or a new one of OpenH1's Standard games,
+		which the release's notes give: halo_port_limits.h) */
+		long network_version = updater_server_available_network_version();
+		long standard_version = updater_server_available_standard_version();
+		boolean new_network = (network_version > 0 && network_version != HALO_PORT_NETWORK_VERSION) ||
+			(standard_version > 0 && standard_version != HALO_PORT_STANDARD_NETWORK_VERSION);
 
-		server.update_told = available;
-		snprintf(text, sizeof(text), "build %ld is out (this is build %s)%s", available, server_mode_build(),
-			install ? ": installed once the server has been empty for 10 minutes" : "");
-		server_log(_server_log_warning, "update", "%s", text);
-		server_json_begin(&json);
-		server_json_object_begin(&json, NULL);
-		server_json_string(&json, "event", "warning");
-		server_json_string(&json, "text", text);
-		server_json_object_end(&json);
-		server_event_add("server", server_json_text(&json));
-		server_json_free(&json);
-	}
-	if (!install)
-		return;
-	if (!server_empty())
-	{
-		server.update_empty_seconds = 0.0f;
-		return;
-	}
-	server.update_empty_seconds += seconds;
-	if (server.update_empty_seconds >= UPDATE_EMPTY_SECONDS)
-	{
-		server.update_empty_seconds = 0.0f;
+		if (available != server.update_told)
+		{
+			char text[200];
+
+			server.update_told = available;
+			snprintf(text, sizeof(text), "build %ld is out (this is build %s)%s%s", available, server_mode_build(),
+				new_network ? ", a new network version" : "",
+				!install ? "" : new_network ? ": installed now, and started once this game is over" :
+					": installed now, and started once the server has been empty for 10 minutes");
+			server_update_warning(text);
+		}
+		if (!install)
+			return;
 		server.update_installing_build = available;
+		server.update_new_network = new_network;
+		server.update_lobby_seconds = 0.0f;
+		server.update_end_asked = FALSE;
 		if (updater_server_install_start())
 		{
 			server.update_installing = TRUE;
@@ -1204,9 +1509,9 @@ static void server_auto_update(
 			char error[512];
 
 			updater_server_install_poll(error, sizeof(error));
-			server.update_check_seconds = UPDATE_CHECK_SECONDS;
-			server_log(_server_log_error, "update", "build %ld could not be installed: %s (tried again in %d hours)",
-				available, error, UPDATE_CHECK_SECONDS / (60 * 60));
+			server.update_check_seconds = server_update_interval();
+			server_log(_server_log_error, "update", "build %ld could not be installed: %s (tried again in %ld "
+				"minutes)", available, error, (long)(server.update_check_seconds / 60.0f));
 		}
 	}
 }
@@ -1258,6 +1563,9 @@ static void server_player_event(
 		{
 			server_json_string(&json[pass], "address", server.seen_addresses[slot]);
 			server_json_string(&json[pass], "hwid", server.seen_hardware_ids[slot]);
+			server_json_string(&json[pass], "discord_id", server.seen_discord_ids[slot]);
+			server_json_string(&json[pass], "discord_name", server.seen_discord_names[slot]);
+			server_json_boolean(&json[pass], "discord_verified", server.seen_discord_verified[slot]);
 		}
 		server_json_object_end(&json[pass]);
 	}
@@ -1309,6 +1617,9 @@ static void server_note_players(
 			server.seen_machines[slot] = machine;
 			server.seen_addresses[slot][0] = 0;
 			server.seen_hardware_ids[slot][0] = 0;
+			server.seen_discord_ids[slot][0] = 0;
+			server.seen_discord_names[slot][0] = 0;
+			server.seen_discord_verified[slot] = FALSE;
 			if (name[0])
 			{
 				unsigned long address = distributed_machine_real_address(machine);
@@ -1323,6 +1634,9 @@ static void server_note_players(
 				}
 				snprintf(server.seen_hardware_ids[slot], sizeof(server.seen_hardware_ids[slot]), "%s",
 					hardware_id ? hardware_id : "");
+				server.seen_discord_verified[slot] = network_distributed_machine_discord(machine,
+					server.seen_discord_ids[slot], sizeof(server.seen_discord_ids[slot]),
+					server.seen_discord_names[slot], sizeof(server.seen_discord_names[slot]));
 				server_player_event("player_joined", slot, game->variant.universal_variant.teams ?
 					game->players[slot].team_index : -1, machine, NULL);
 			}
@@ -1416,7 +1730,12 @@ static void server_hosting(
 	server.lobby_seconds = 0.0f;
 	server.back_to_lobby = FALSE;
 	server_set_state(_server_state_lobby);
-	server_log(_server_log_info, "lobby", "hosting");
+	{
+		char title[64];
+
+		server_director_game_mode(NULL, 0, title, sizeof(title), NULL);
+		server_log(_server_log_info, "lobby", "hosting: %s (server.game_mode)", title);
+	}
 }
 
 /* whether the entry is a team game's */
@@ -1445,6 +1764,135 @@ static boolean server_rotation_has_solo_entry(
 	return FALSE;
 }
 
+/* the lobby's map vote (server.map_vote): after a game with players in
+it, server.map_vote_choices entries of the rotation at random (not the one
+just played, nor one twice), for server.map_vote_seconds; the one that won
+the next. TRUE while it runs (the lobby's entry waits for it) */
+static boolean server_map_vote(
+	void)
+{
+	short winner;
+	long index;
+
+	if (server.map_vote_done)
+		return FALSE;
+	if (!network_map_vote_running())
+	{
+		char map_names[NETWORK_MAP_VOTE_MAXIMUM_CHOICES][NETWORK_MAP_VOTE_MAP_SIZE];
+		char gametypes[NETWORK_MAP_VOTE_MAXIMUM_CHOICES][NETWORK_MAP_VOTE_GAMETYPE_SIZE];
+		long candidates[SERVER_ROTATION_MAXIMUM_ENTRIES];
+		long candidate_count = 0;
+		long wanted = PIN(config_integer("server.map_vote_choices"), 2, NETWORK_MAP_VOTE_MAXIMUM_CHOICES);
+		long seconds = PIN(config_integer("server.map_vote_seconds"), 5, 120);
+		struct server_json json;
+
+		server.map_vote_done = TRUE;
+		if (!config_boolean("server.map_vote") || server.has_interposed || !server.games_hosted ||
+			server_player_count() == 0)
+		{
+			return FALSE;
+		}
+		for (index = 0; index < server.rotation.count; index++)
+		{
+			long other;
+
+			if (server.rotation.entries[index].rejected[0])
+				continue;
+			for (other = 0; other < candidate_count &&
+				strcmp(server.rotation.entries[candidates[other]].text, server.rotation.entries[index].text); other++)
+			{
+			}
+			if (other == candidate_count)
+				candidates[candidate_count++] = index;
+		}
+		/* (not the one just played, when there are others enough) */
+		if (candidate_count > 2 && server.current_set && server.current_index != NONE)
+		{
+			for (index = 0; index < candidate_count; index++)
+			{
+				if (!strcmp(server.rotation.entries[candidates[index]].text, server.current.text))
+				{
+					candidates[index] = candidates[--candidate_count];
+					break;
+				}
+			}
+		}
+		if (candidate_count < 2)
+			return FALSE;
+		/* (shuffled: the first wanted) */
+		for (index = candidate_count - 1; index > 0; index--)
+		{
+			long other = (long)(((unsigned long)rand() ^ system_milliseconds()) % (unsigned long)(index + 1));
+			long swap = candidates[index];
+
+			candidates[index] = candidates[other];
+			candidates[other] = swap;
+		}
+		server.map_vote_count = (short)MIN(wanted, candidate_count);
+		server_json_begin(&json);
+		server_json_object_begin(&json, NULL);
+		server_json_string(&json, "event", "map_vote_started");
+		server_json_integer(&json, "seconds", seconds);
+		server_json_array_begin(&json, "choices");
+		for (index = 0; index < server.map_vote_count; index++)
+		{
+			struct server_entry const *entry = &server.rotation.entries[candidates[index]];
+
+			server.map_vote_entries[index] = candidates[index];
+			snprintf(map_names[index], sizeof(map_names[index]), "%s", entry->map_name);
+			snprintf(gametypes[index], sizeof(gametypes[index]), "%s", entry->gametype);
+			server_json_object_begin(&json, NULL);
+			server_json_string(&json, "map", entry->map_name);
+			server_json_string(&json, "gametype", entry->gametype);
+			server_json_integer(&json, "index", candidates[index]);
+			server_json_object_end(&json);
+		}
+		server_json_array_end(&json);
+		server_json_object_end(&json);
+		server_event_add("game", server_json_text(&json));
+		server_json_free(&json);
+		network_map_vote_begin((char const (*)[NETWORK_MAP_VOTE_MAP_SIZE])map_names,
+			(char const (*)[NETWORK_MAP_VOTE_GAMETYPE_SIZE])gametypes, server.map_vote_count, (short)seconds);
+		server_log(_server_log_info, "lobby", "map vote: %d choices for %ld s", server.map_vote_count, seconds);
+		server.map_vote_done = FALSE;
+		return TRUE;
+	}
+	/* (everyone gone: no vote) */
+	if (server_player_count() == 0)
+	{
+		network_map_vote_cancel();
+		server.map_vote_done = TRUE;
+		return FALSE;
+	}
+	winner = network_map_vote_host_update();
+	if (winner == NONE)
+		return TRUE;
+	server.map_vote_done = TRUE;
+	index = server.map_vote_entries[winner];
+	if (index < 0 || index >= server.rotation.count || server.rotation.entries[index].rejected[0])
+		return FALSE;
+	server.index = (index + server.rotation.count - 1) % server.rotation.count;
+	server.index_anchored = TRUE;
+	server_log(_server_log_info, "lobby", "map vote: %s on %s won (%d vote%s)", server.rotation.entries[index].gametype,
+		server.rotation.entries[index].map_name, network_map_vote_votes(winner),
+		network_map_vote_votes(winner) == 1 ? "" : "s");
+	{
+		struct server_json json;
+
+		server_json_begin(&json);
+		server_json_object_begin(&json, NULL);
+		server_json_string(&json, "event", "map_vote_ended");
+		server_json_string(&json, "map", server.rotation.entries[index].map_name);
+		server_json_string(&json, "gametype", server.rotation.entries[index].gametype);
+		server_json_integer(&json, "index", index);
+		server_json_integer(&json, "votes", network_map_vote_votes(winner));
+		server_json_object_end(&json);
+		server_event_add("game", server_json_text(&json));
+		server_json_free(&json);
+	}
+	return FALSE;
+}
+
 static void server_lobby(
 	real seconds)
 {
@@ -1461,6 +1909,9 @@ static void server_lobby(
 		long index;
 
 		if (server.lobby_seconds < LOBBY_SETUP_SECONDS)
+			return;
+		/* (the players' vote for it first: server.map_vote) */
+		if (server_map_vote())
 			return;
 		/* (a team entry skipped while one player waits: server.team_start skip) */
 		entry = server_lobby_entry(&index);
@@ -1684,6 +2135,7 @@ static void server_back_in_lobby(
 	server.back_to_lobby = FALSE;
 	server_advance();
 	server.entry_applied = FALSE;
+	server.map_vote_done = FALSE;
 	server.lobby_seconds = 0.0f;
 	server.end_asked = FALSE;
 	server.skip_postgame = FALSE;
@@ -1849,6 +2301,7 @@ void server_update(
 		for (index = 0; index < MAXIMUM_SLOTS; index++)
 			server.seen_machines[index] = NONE;
 		server_read_rotation(&server.rotation, config_string("server.rotation"));
+		server_warn_player_host_modes();
 		server.index = server.rotation.count - 1;
 		server.current_index = NONE;
 		server.last_countdown_seconds = NONE;
@@ -1862,6 +2315,13 @@ void server_update(
 			server_json_string(&json, "name", config_string("server.name"));
 			server_json_string(&json, "build", server_mode_build());
 			server_json_integer(&json, "network_version", HALO_PORT_NETWORK_VERSION);
+			server_json_integer(&json, "openh1_version", HALO_PORT_STANDARD_NETWORK_VERSION);
+			{
+				char mode[16];
+
+				server_director_game_mode(mode, sizeof(mode), NULL, 0, NULL);
+				server_json_string(&json, "game_mode", mode);
+			}
 			server_status_identity(&json);
 			server_json_array_begin(&json, "rotation");
 			for (entry = 0; entry < server.rotation.count; entry++)
@@ -1873,6 +2333,8 @@ void server_update(
 		}
 	}
 	server_signals();
+	/* (the admins in the game: network_admin.c) */
+	network_admin_server_update();
 	server_console_frame();
 	while (server_console_next(line, sizeof(line), &origin))
 	{
@@ -1910,6 +2372,7 @@ void server_update(
 	server.state_seconds += seconds;
 	server_mode_set_idle(!network_server ||
 		(network_state == SERVER_PREGAME && !network_game_server_port_remote_machine_count(network_server, FALSE)));
+	server_game_mode_update();
 
 	if (!network_server)
 	{
@@ -2055,6 +2518,22 @@ void server_fatal(char const *text)
 boolean server_director_refuses_joins(void)
 {
 	return FALSE;
+}
+
+/* (the players' votes and the AFK kick ask these only of a dedicated
+server: network_votekick.c, network_afk.c) */
+boolean server_director_playing(void)
+{
+	return FALSE;
+}
+
+boolean server_director_end_game(short reason, boolean skip_postgame)
+{
+	return FALSE;
+}
+
+void server_director_player_removed(long machine_index, char const *reason)
+{
 }
 
 #endif

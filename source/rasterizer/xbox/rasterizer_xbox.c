@@ -1204,6 +1204,9 @@ void rasterizer_set_model_lighting(
 	}
 	else
 	{
+		/* port: the registers' pads too (sent to the GPU, which a stack's
+		leftovers made not a number) */
+		csmemset(&lighting_constants, 0, sizeof(lighting_constants));
 		for (light_index = 0; light_index < MAXIMUM_RENDERED_POINT_LIGHTS; light_index++)
 			rasterizer_set_model_lighting_point_light(
 				lighting->point_light_count > light_index ?
@@ -1222,6 +1225,30 @@ void rasterizer_set_model_lighting(
 		-79,
 		&lighting_constants,
 		NUMBER_OF_MODEL_LIGHTING_CONSTANTS);
+	/* port: with the enhanced dynamic lights, which light the model by every
+	light near it, the object's own lights it is not lit by
+	(RENDER_LIGHTING_OWN_LIGHT: a Covenant door's light, inside the door,
+	lit all of it and left a dark spot where it is) */
+	if (halo_dynamic_lights_enhanced())
+	{
+		real own_lights[4];
+		short slot;
+
+		for (slot = 0; slot < RENDER_LIGHTING_OWN_LIGHTS; slot++)
+		{
+			long own_light = RENDER_LIGHTING_OWN_LIGHT(lighting, slot);
+
+			own_lights[slot] = -1.0f;
+			/* (a light this frame, which says so: not what a lighting made
+			elsewhere left in the pads) */
+			if (own_light != NONE && own_light < rasterizer_lights.light_count &&
+				TEST_FLAG(rasterizer_lights.lights[own_light].definition->flags, 2 /* dont light own object */))
+			{
+				own_lights[slot] = (real)own_light;
+			}
+		}
+		D3DDevice_SetVertexShaderConstant(HALO_DYNAMIC_LIGHTS_OWN_LIGHTS_REGISTER, own_lights, 1);
+	}
 	if (rasterizer_debug_options.statistics_mode)
 		rasterizer_frame_statistics.vertex_shader_lighting_constant_bytes +=
 			sizeof(lighting_constants);

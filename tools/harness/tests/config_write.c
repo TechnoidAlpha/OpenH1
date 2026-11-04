@@ -19,6 +19,7 @@ static const struct config_setting config_settings[] =
 {
 	{ "display.vsync", _config_boolean, "true", NULL, _environment_value, _platform_all, "" },
 	{ "server.rotation", _config_string, "\"\"", NULL, _environment_value, _platform_all, "" },
+	{ "display.vehicle_fov", _config_string, "\"default\"", NULL, _environment_value, _platform_all, "" },
 };
 #define NUMBER_OF_CONFIG_SETTINGS (sizeof(config_settings) / sizeof(config_settings[0]))
 
@@ -186,6 +187,27 @@ int main(int argc, char **argv)
 		CHECK(config_write("server.rotation", "prisoner"), "the write was refused");
 		CHECK(!strcmp(config_values[1].string, "prisoner"), "the value was not set");
 		CHECK(file_writes == 0 && answering_writes == 0 && strstr(file_text, "bloodgulch"), "config.toml was written");
+		return 0;
+	}
+	/* a string that takes a word or a number (display.vehicle_fov): a
+	number unquoted, as TOML has one, a word quoted, a number of another
+	string quoted */
+	CASE("word-or-number")
+	{
+		config_values[2].string = strdup("default");
+		CHECK(config_write("display.vehicle_fov", "110.0") && file_line("vehicle_fov") &&
+			!strncmp(file_line("vehicle_fov"), "vehicle_fov = 110.0\n", 20),
+			"a number's line was %.40s", file_line("vehicle_fov") ? file_line("vehicle_fov") : "none");
+		CHECK(config_write("display.vehicle_fov", "match") &&
+			!strncmp(file_line("vehicle_fov"), "vehicle_fov = \"match\"\n", 22),
+			"a word's line was %.40s", file_line("vehicle_fov"));
+		/* (not a number in digits: quoted) */
+		CHECK(config_write("display.vehicle_fov", "110.") &&
+			!strncmp(file_line("vehicle_fov"), "vehicle_fov = \"110.\"\n", 21),
+			"110.'s line was %.40s", file_line("vehicle_fov"));
+		CHECK(config_write("server.rotation", "110") &&
+			!strncmp(file_line("rotation"), "rotation = \"110\"\n", 17),
+			"another string's number was %.40s", file_line("rotation"));
 		return 0;
 	}
 	fprintf(stderr, "unknown case: %s\n", case_name);

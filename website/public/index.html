@@ -36,6 +36,7 @@
   --muted: #8e9a89;
   --green: #9dff3c;
   --glow: rgba(157, 255, 60, 0.42);
+  --amber: #ffb84a;
   --display: "Archivo", "Arial Black", system-ui, sans-serif;
   --body: "Inter", system-ui, sans-serif;
   --mono: "Overpass Mono", ui-monospace, monospace;
@@ -135,6 +136,8 @@ h1 .lit { text-shadow: 0 0 40px var(--glow), 0 0 2px rgba(157, 255, 60, 0.8); }
 .feat h3 { margin: 16px 0 4px; font: 700 18px/1.3 var(--body); }
 .feat p { margin: 0; color: var(--muted); font-size: 15px; }
 .feat .soonish { color: var(--green); }
+.feat.wide { grid-column: 1 / -1; display: grid; grid-template-columns: auto 1fr; gap: 0 clamp(24px, 4vw, 56px); align-items: center; }
+.feat.wide h3 { margin-top: 0; }
 
 /* ---------- picture sections */
 .sec { padding: clamp(96px, 13vw, 180px) 0 0; }
@@ -320,6 +323,8 @@ h2 { margin: 0; font: 900 clamp(40px, 6vw, 92px)/0.92 var(--display); font-stret
 .pair { position: relative; aspect-ratio: 16 / 9; }
 .pair .layer { position: absolute; inset: 0; }
 .pair .layer > img, .pair .layer > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* (side by side, a still on its own: the whole picture) */
+.pair > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .side { position: absolute; top: 14px; z-index: 4; padding: 7px 11px; border-radius: 4px; background: rgba(4, 5, 4, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); color: var(--text); font: 600 12px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; box-shadow: inset 0 0 0 1px rgba(238, 244, 234, 0.2); transition: box-shadow .3s; white-space: nowrap; pointer-events: none; }
 .side.l { left: 14px; }
 .side.r { right: 14px; }
@@ -356,6 +361,39 @@ h2 { margin: 0; font: 900 clamp(40px, 6vw, 92px)/0.92 var(--display); font-stret
 /* motion clips, side by side */
 .clips { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .clips .side { top: 12px; }
+
+/* 3D audio: a wireframe head (three.js, vendor/, loaded as the section
+   nears) with a sound source circling it; the poster until it draws, and
+   in its place when WebGL fails */
+.head-stage { position: relative; aspect-ratio: 16 / 9; min-height: 360px; background: radial-gradient(70% 80% at 50% 45%, #0d150b 0%, #050705 70%); touch-action: pan-y; }
+.head-stage > img, .head-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.head-stage > img { object-fit: cover; }
+.head-stage canvas { cursor: grab; opacity: 0; transition: opacity .6s ease; }
+.head-stage.live canvas { opacity: 1; }
+.head-stage.live > img { visibility: hidden; transition: visibility 0s .6s; }
+.hud { position: absolute; z-index: 2; right: 16px; bottom: 16px; min-width: 210px; padding: 10px 12px; border-radius: 6px; background: rgba(4, 5, 4, 0.6); box-shadow: inset 0 0 0 1px var(--line); color: var(--soft); font-size: 11px; line-height: 1.8; letter-spacing: 0.1em; pointer-events: none; }
+.hud .k { display: inline-block; width: 92px; color: var(--muted); }
+.hud [data-k="itd"] { text-transform: none; }
+.meters { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; margin-top: 4px; }
+.meters i { display: block; height: 6px; border-radius: 3px; background: rgba(238, 244, 234, 0.08); overflow: hidden; }
+.meters b { display: block; width: 50%; height: 100%; background: var(--green); box-shadow: 0 0 10px var(--glow); }
+.occl { margin-top: 6px; color: var(--green); }
+.occl.muffled { color: var(--amber); }
+.head-stage:not(.live) .hud, .head-stage:not(.live) #listen, .head-stage:not(.live) #head-mode { display: none; }
+.callouts { position: absolute; inset: 0; z-index: 2; margin: 0; padding: 0; list-style: none; pointer-events: none; }
+.callouts li { position: absolute; left: var(--x); top: var(--y); max-width: 230px; padding: 2px 0 2px 10px; border-left: 2px solid var(--green); background: linear-gradient(90deg, rgba(4, 5, 4, 0.7), rgba(4, 5, 4, 0)); color: var(--soft); font-size: 13px; line-height: 1.4; }
+.callouts li.r { left: auto; right: var(--x); padding: 2px 10px 2px 0; border-left: 0; border-right: 2px solid var(--green); text-align: right; background: linear-gradient(270deg, rgba(4, 5, 4, 0.7), rgba(4, 5, 4, 0)); }
+.callouts b { display: block; margin-bottom: 2px; font: 700 15px/1.2 var(--display); color: var(--text); }
+.stage-bar { position: absolute; z-index: 3; left: 16px; right: 16px; bottom: 16px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; pointer-events: none; }
+.stage-bar > * { pointer-events: auto; }
+.stage-bar .hp { color: var(--muted); }
+.head-stage .toggle { background: rgba(4, 5, 4, 0.6); }
+/* Stereo or 3D: two buttons, one pressed */
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; background: rgba(4, 5, 4, 0.6); }
+.seg button { background: none; border: 0; color: var(--muted); padding: 10px 14px; border-radius: 999px; cursor: pointer; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-pressed="true"] { color: var(--bg); background: var(--green); }
+.seg button:focus-visible, .toggle:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
 
 /* VR */
 .vr-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -421,6 +459,7 @@ footer nav a { text-decoration: none; }
 footer nav a:hover { color: var(--text); }
 footer .legal { margin: 26px 0 0; max-width: 920px; font-size: 13px; line-height: 1.6; }
 footer .legal a { color: var(--soft); }
+footer .legal + .legal { margin-top: 12px; }
 
 /* scroll reveals; none for reduced motion */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
@@ -449,6 +488,14 @@ footer .legal a { color: var(--soft); }
   .co .pin { width: 22px; height: 22px; left: -11px; top: -11px; }
   .co .pin::after { display: grid; }
   .legend { display: block; }
+  .head-stage { aspect-ratio: auto; height: 520px; min-height: 0; }
+  .callouts li { max-width: 46%; font-size: 12px; }
+  .callouts li:nth-child(2), .callouts li:nth-child(4) { top: auto; bottom: 118px; }
+  .hud { display: none; }
+  /* (the switch beside Listen, in one row; the surround line is in the caption) */
+  .stage-bar { gap: 8px; }
+  .stage-bar .hp { display: none; }
+  .stage-bar .toggle, .stage-bar .seg button { padding: 10px 11px; letter-spacing: .08em; }
 }
 @media (max-width: 560px) {
   .feats, .vr-grid, .plat, .dl { grid-template-columns: 1fr; }
@@ -518,6 +565,7 @@ footer .legal a { color: var(--soft); }
         <div class="feat reveal"><b>64<small>bit</small></b><h3>Native everywhere</h3><p>Windows, Mac, Linux and Android: a 64-bit program on every one.</p></div>
         <div class="feat reveal d1"><b>Vulkan</b><h3>A modern renderer</h3><p>On Windows, Linux, Android and the Steam Frame; Metal on the Mac.</p></div>
         <div class="feat reveal d2"><b>Metal</b><h3>A native Apple renderer</h3><p>Built for the Mac and Apple silicon.</p></div>
+        <div class="feat wide reveal"><b>3D</b><div><h3>Audio all around you</h3><p>On headphones, every sound comes from its direction, muffled by walls, in the room's echo.</p></div></div>
       </div>
     </div>
   </section>
@@ -639,12 +687,79 @@ footer .legal a { color: var(--soft); }
     </div>
   </section>
 
-  <!-- 05: responsiveness, measured -->
+  <!-- 05: ambient occlusion, a wipe of one still frame, off and on -->
+  <section class="sec" id="grounded" aria-labelledby="grounded-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="reveal">
+          <p class="kicker mono">05 · Ambient occlusion</p>
+          <h2 id="grounded-title">Everything <span class="lit">sits in the world.</span></h2>
+        </div>
+        <p class="reveal d1">Vehicles, players and objects get a soft shadow where they touch the ground and in their creases, so a Warthog looks parked on the sand instead of hovering over it. The level's own lighting stays as it shipped. Optional, and off by default while we polish it. Drag across the shot.</p>
+      </div>
+      <div class="shot pair wipe reveal" data-pair data-before="Off" data-after="On" tabindex="0" role="slider" aria-label="Compare ambient occlusion off and on" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-valuetext="Half off, half on">
+        <div class="layer before">
+          <img src="media/ao-off.webp" width="1920" height="1080" loading="lazy" decoding="async" alt="A Warthog parked on the sand by a base, ambient occlusion off: the ground under it is lit as evenly as the open sand, so it seems to float a little">
+        </div>
+        <div class="layer after">
+          <img src="media/ao-on.webp" width="1920" height="1080" loading="lazy" decoding="async" alt="The same frame with ambient occlusion on: soft shade under the Warthog where its wheels meet the sand, and in its wheel wells and seats">
+          <span class="side r">On</span>
+        </div>
+        <div class="lclip"><span class="side l">Off</span></div>
+        <span class="bar" aria-hidden="true"></span>
+        <span class="knob" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></span>
+        <span class="hint" aria-hidden="true">◀ Off · On ▶</span>
+      </div>
+      <ol class="legend always" aria-label="What ambient occlusion changes in this shot">
+        <li>Soft shade under the Warthog, where its wheels meet the sand.</li>
+        <li>Its wheel wells, seats and gun get depth in their creases.</li>
+        <li>The sand, the rocks and the base keep the level's own lighting.</li>
+      </ol>
+      <div class="under">
+        <span class="key mono"><span>Settings › Video › Advanced Graphics › Ambient Occlusion</span><span>Off by default</span></span>
+      </div>
+      <p class="caption mono">Real capture, the same frame twice · Blood Gulch, a parked Warthog · Enhanced, ambient occlusion off, then Strong · Vulkan and Metal</p>
+    </div>
+  </section>
+
+  <!-- 06: Panini projection, two stills side by side -->
+  <section class="sec" id="wide" aria-labelledby="wide-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="reveal">
+          <p class="kicker mono">06 · Wide field of view</p>
+          <h2 id="wide-title">See more, <span class="lit">without the stretch.</span></h2>
+        </div>
+        <p class="reveal d1">Turn your field of view up to see more around you, and a normal view smears everything at the sides like a funhouse mirror. OpenH1 can keep it in shape: upright edges stay straight, players at the sides keep their real shape, and your aim stays dead center. Few shooters offer it. (It's called Panini projection, after Giovanni Paolo Panini, who painted wide views of buildings.)</p>
+      </div>
+      <div class="clips" id="wide-shots">
+        <div class="shot pair reveal">
+          <img src="media/panini-off.webp" width="1920" height="1080" loading="lazy" decoding="async" alt="A wide view across a canyon to a base, at a field of view of 150 degrees, drawn the normal way: the cliff and the ground at the sides are smeared outward, and the base in the middle looks small and far off">
+          <span class="side l">Normal <small>150°</small></span>
+        </div>
+        <div class="shot pair reveal d1">
+          <img src="media/panini-on.webp" width="1920" height="1080" loading="lazy" decoding="async" alt="The same view with Panini projection: the cliff's edge stands straight, the ground at the sides keeps its shape, and the base in the middle is drawn larger">
+          <span class="side l">Panini <small>150°</small></span>
+        </div>
+      </div>
+      <ol class="legend always" aria-label="What Panini projection changes in this shot">
+        <li>The ground and the cliffs at the sides keep their shape instead of smearing outward.</li>
+        <li>Upright edges, like the cliff's, stay straight.</li>
+        <li>You see just as far to the sides; the middle is drawn larger.</li>
+      </ol>
+      <div class="under">
+        <span class="key mono"><span>Settings › Video › First Person › Panini Projection</span><span>Off by default</span></span>
+      </div>
+      <p class="caption mono">Real capture, the same frame twice · Blood Gulch · a field of view of 150° across 16:9 · Normal, then Panini projection at strength 1 · HUD hidden; in play it stays flat</p>
+    </div>
+  </section>
+
+  <!-- 07: responsiveness, measured -->
   <section class="sec" id="fast" aria-labelledby="fast-title">
     <div class="wrap">
       <div class="sec-head">
         <div class="reveal">
-          <p class="kicker mono">05 · Responsive</p>
+          <p class="kicker mono">07 · Responsive</p>
           <h2 id="fast-title">Built for <span class="lit">the fight.</span></h2>
         </div>
         <p class="reveal d1">The time from your click to the shot on screen, measured in the game. The view turns the frame you move the mouse, your gun is drawn from the newest moment, and on OpenH1's own servers your input lands on a step up to 120 times a second instead of 30. Here is one click, slowed down.</p>
@@ -713,12 +828,49 @@ footer .legal a { color: var(--soft); }
     </div>
   </section>
 
-  <!-- 06: VR -->
+  <!-- 08: 3D audio, a wireframe head with the sound circling it -->
+  <section class="sec" id="audio" aria-labelledby="audio-title">
+    <div class="wrap">
+      <div class="sec-head">
+        <div class="reveal">
+          <p class="kicker mono">08 · 3D audio</p>
+          <h2 id="audio-title">Hear it <span class="lit">behind you.</span></h2>
+        </div>
+        <p class="reveal d1">Put on headphones. Every shot, engine and voice comes from where it is: behind you, above you, through a wall. It's the Xbox's 3D audio, rebuilt for every platform, with cover that muffles and rooms that ring.</p>
+      </div>
+      <div class="shot head-stage reveal" id="head-stage">
+        <img src="media/audio-head-poster.webp" alt="" loading="lazy" decoding="async">
+        <canvas role="img" aria-label="A wireframe head in green, with a glowing sound source circling it; a wall panel muffles the source when it passes behind it. Drag to turn the view."></canvas>
+        <div class="hud mono" aria-hidden="true">
+          <div><span class="k">Azimuth</span> <span data-k="az">0°</span></div>
+          <div><span class="k">Height</span> <span data-k="el">0°</span></div>
+          <div><span class="k">Ear delay</span> <span data-k="itd">0.00 ms</span></div>
+          <div class="meters"><span>L</span><i><b data-k="ml"></b></i><span>R</span><i><b data-k="mr"></b></i></div>
+          <div class="occl" data-k="oc">Clear line of sight</div>
+        </div>
+        <ul class="callouts">
+          <li style="--x:4%;--y:10%"><b>Around your head</b>A model of a head on headphones, as the Xbox's 3D audio did</li>
+          <li style="--x:4%;--y:46%"><b>Walls muffle</b>The game's obstruction and occlusion, as the Xbox's audio standard means them</li>
+          <li class="r" style="--x:4%;--y:10%"><b>Rooms echo</b>The reverb of the room you're standing in</li>
+          <li class="r" style="--x:4%;--y:40%"><b>Engines bend</b>Doppler that stays steady at 60 and 120 ticks</li>
+        </ul>
+        <div class="stage-bar">
+          <button class="toggle" id="listen" type="button" aria-pressed="false">Listen (headphones)</button>
+          <span class="seg" id="head-mode" role="group" aria-label="How the tone is placed"><button type="button" data-mode="stereo" aria-pressed="false">Stereo</button><button type="button" data-mode="3d" aria-pressed="true">3D</button></span>
+          <span class="hp mono">5.1 surround on surround systems · in VR, your real head</span>
+        </div>
+      </div>
+      <p class="caption mono">The sound here is your browser's own: Stereo pans it left and right, 3D is the browser's head model, a hint of the idea. In the game it's OpenH1's own mixer: a model of a head on headphones, the levels' obstruction, occlusion and reverb, Doppler · 5.1 surround on surround systems · in VR, your real head</p>
+
+    </div>
+  </section>
+
+  <!-- 09: VR -->
   <section class="sec" id="vr" aria-labelledby="vr-title">
     <div class="wrap">
       <div class="sec-head">
         <div class="reveal">
-          <p class="kicker mono">06 · VR on the Steam Frame</p>
+          <p class="kicker mono">09 · VR on the Steam Frame</p>
           <h2 id="vr-title">Step <span class="lit">inside it.</span></h2>
         </div>
         <p class="reveal d1">Made on a Steam Frame and drawn with Vulkan: the game in stereo, your head tracked, and your hands doing what the buttons did. It plays on PC headsets through OpenXR too.</p>
@@ -734,12 +886,12 @@ footer .legal a { color: var(--soft); }
     </div>
   </section>
 
-  <!-- 07: platforms -->
+  <!-- 10: platforms -->
   <section class="sec" id="platforms" aria-labelledby="platforms-title">
     <div class="wrap">
       <div class="sec-head">
         <div class="reveal">
-          <p class="kicker mono">07 · Platforms</p>
+          <p class="kicker mono">10 · Platforms</p>
           <h2 id="platforms-title">Wherever <span class="lit">you play.</span></h2>
         </div>
         <p class="reveal d1">One game, compiled for each machine and drawn by its own renderer. Keyboard and mouse, controllers, touch, or your own two hands.</p>
@@ -755,12 +907,12 @@ footer .legal a { color: var(--soft); }
     </div>
   </section>
 
-  <!-- 08: under the hood, dense -->
+  <!-- 11: under the hood, dense -->
   <section class="sec" id="hood" aria-labelledby="hood-title">
     <div class="wrap">
       <div class="sec-head">
         <div class="reveal">
-          <p class="kicker mono">08 · Under the hood</p>
+          <p class="kicker mono">11 · Under the hood</p>
           <h2 id="hood-title">For the <span class="lit">purists.</span></h2>
         </div>
         <p class="reveal d1">What makes it the original, and what it adds. Every line is in the project's documentation.</p>
@@ -786,12 +938,12 @@ footer .legal a { color: var(--soft); }
     </div>
   </section>
 
-  <!-- 09: your copy -->
+  <!-- 12: your copy -->
   <section class="sec" id="start" aria-labelledby="start-title">
     <div class="wrap">
       <div class="byo reveal">
         <div>
-          <p class="kicker mono">09 · Your copy</p>
+          <p class="kicker mono">12 · Your copy</p>
           <h2 id="start-title">Bring your <span class="lit">own game.</span></h2>
           <p style="color:var(--soft);max-width:460px">OpenH1 contains none of the game's data. You need your own Xbox disc image of the game. Any version works.</p>
         </div>
@@ -804,13 +956,13 @@ footer .legal a { color: var(--soft); }
     </div>
   </section>
 
-  <!-- 09: the downloads, each the latest release's (the visitor's machine
+  <!-- 13: the downloads, each the latest release's (the visitor's machine
        first, by the script) -->
   <section class="sec" id="get" aria-labelledby="get-title">
     <div class="wrap">
       <div class="sec-head">
         <div class="reveal">
-          <p class="kicker mono">10 · Get it</p>
+          <p class="kicker mono">13 · Get it</p>
           <h2 id="get-title">Pick your <span class="lit">machine.</span></h2>
         </div>
         <p class="reveal d1">Free, and always the latest build. More machines are on the way.</p>
@@ -1094,36 +1246,40 @@ footer .legal a { color: var(--soft); }
     if (e.isIntersecting) hero.play().catch(() => {}); else hero.pause();
   }).observe(hero);
 
-  // the wipe: callouts on the OpenH1 side show as it is revealed
-  const wipe = document.getElementById("wipe");
-  const wipeCos = [...wipe.querySelectorAll(".co")];
-  const sideL = wipe.querySelector(".side.l"), sideR = wipe.querySelector(".side.r");
-  function setWipe(p) {
-    p = Math.max(0, Math.min(100, p));
-    wipe.style.setProperty("--pos", p + "%");
-    wipe.setAttribute("aria-valuenow", Math.round(p));
-    wipe.setAttribute("aria-valuetext", `${Math.round(p)}% Original, ${100 - Math.round(p)}% OpenH1`);
-    sideL.classList.toggle("big", p > 55); sideR.classList.toggle("big", p < 45);
-    wipeCos.forEach((c) => c.classList.toggle("on", parseFloat(c.style.getPropertyValue("--x")) > p + 3));
-  }
-  let stopWipe = () => {};
-  const wipeAt = (e) => { const r = wipe.getBoundingClientRect(); setWipe(((e.clientX - r.left) / r.width) * 100); };
-  let dragging = false;
-  wipe.addEventListener("pointerdown", (e) => { stopWipe(); dragging = true; wipe.setPointerCapture(e.pointerId); wipeAt(e); });
-  wipe.addEventListener("pointermove", (e) => { if (dragging) wipeAt(e); });
-  addEventListener("pointerup", () => { dragging = false; });
-  wipe.addEventListener("keydown", (e) => {
-    const now = +wipe.getAttribute("aria-valuenow");
-    const step = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5, PageDown: -20, PageUp: 20 }[e.key];
-    const to = step ? now + step : e.key === "Home" ? 0 : e.key === "End" ? 100 : null;
-    if (to !== null) { stopWipe(); setWipe(to); e.preventDefault(); }
+  // the wipes: callouts on the right-hand side show as it is revealed; each
+  // names its sides in data-before and data-after (the Original and OpenH1
+  // when it does not)
+  document.querySelectorAll(".wipe").forEach((wipe) => {
+    const wipeCos = [...wipe.querySelectorAll(".co")];
+    const sideL = wipe.querySelector(".side.l"), sideR = wipe.querySelector(".side.r");
+    const before = wipe.dataset.before || "Original", after = wipe.dataset.after || "OpenH1";
+    function setWipe(p) {
+      p = Math.max(0, Math.min(100, p));
+      wipe.style.setProperty("--pos", p + "%");
+      wipe.setAttribute("aria-valuenow", Math.round(p));
+      wipe.setAttribute("aria-valuetext", `${Math.round(p)}% ${before}, ${100 - Math.round(p)}% ${after}`);
+      sideL.classList.toggle("big", p > 55); sideR.classList.toggle("big", p < 45);
+      wipeCos.forEach((c) => c.classList.toggle("on", parseFloat(c.style.getPropertyValue("--x")) > p + 3));
+    }
+    let stopWipe = () => {};
+    const wipeAt = (e) => { const r = wipe.getBoundingClientRect(); setWipe(((e.clientX - r.left) / r.width) * 100); };
+    let dragging = false;
+    wipe.addEventListener("pointerdown", (e) => { stopWipe(); dragging = true; wipe.setPointerCapture(e.pointerId); wipeAt(e); });
+    wipe.addEventListener("pointermove", (e) => { if (dragging) wipeAt(e); });
+    addEventListener("pointerup", () => { dragging = false; });
+    wipe.addEventListener("keydown", (e) => {
+      const now = +wipe.getAttribute("aria-valuenow");
+      const step = { ArrowLeft: -5, ArrowDown: -5, ArrowRight: 5, ArrowUp: 5, PageDown: -20, PageUp: 20 }[e.key];
+      const to = step ? now + step : e.key === "Home" ? 0 : e.key === "End" ? 100 : null;
+      if (to !== null) { stopWipe(); setWipe(to); e.preventDefault(); }
+    });
+    setWipe(still ? 40 : 100);
+    // demo: from the left-hand side, a glide that reveals the right's across most of the shot, then a resting split
+    if (!still) once(wipe, () => {
+      stopWipe = demo(2400, (t) => setWipe(t < 0.6 ? 100 - 92 * ease(t / 0.6) : 8 + 32 * ease((t - 0.6) / 0.4)));
+    });
+    group([...wipe.querySelectorAll("video")], wipe);
   });
-  setWipe(still ? 40 : 100);
-  // demo: from the Original, a glide that reveals OpenH1 across most of the shot, then a resting split
-  if (!still) once(wipe, () => {
-    stopWipe = demo(2400, (t) => setWipe(t < 0.6 ? 100 - 92 * ease(t / 0.6) : 8 + 32 * ease((t - 0.6) / 0.4)));
-  });
-  group([...wipe.querySelectorAll("video")], wipe);
 
   // the lens
   const box = document.getElementById("lensbox"), all = document.getElementById("lens-all");
@@ -1149,6 +1305,230 @@ footer .legal a { color: var(--soft); }
   // the clips
   group([...document.querySelectorAll("#glow-clips video")], document.getElementById("glow-clips"));
   group([...document.querySelectorAll("#clips video")], document.getElementById("clips"), document.getElementById("clips-play"));
+
+  // 3D audio: the wireframe head, three.js loaded only as the section nears;
+  // drawn only on screen, one still frame for reduced motion, the poster
+  // left in place if WebGL fails
+  const stage = document.getElementById("head-stage");
+  new IntersectionObserver(([e], o) => {
+    if (!e.isIntersecting || !window.WebGLRenderingContext) return;
+    o.disconnect();
+    const s = document.createElement("script");
+    s.src = "vendor/three-r128.min.js";
+    s.onload = () => {
+      const gl = document.createElement("canvas").getContext("webgl");
+      if (!gl) return;
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      try { head(); } catch (err) { stage.classList.remove("live"); }
+    };
+    document.head.appendChild(s);
+  }, { rootMargin: "600px 0px" }).observe(stage);
+
+  function head() {
+    const THREE = window.THREE, canvas = stage.querySelector("canvas");
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(2, devicePixelRatio || 1));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
+    const green = 0x9dff3c, amber = 0xffb84a;
+
+    // the head: a deformed sphere (skull, jaw, nose, brow), ears and a neck
+    const g = new THREE.SphereGeometry(1, 40, 30), p = g.attributes.position, v = new THREE.Vector3();
+    const sm = (a, b, x) => { x = Math.min(1, Math.max(0, (x - a) / (b - a))); return x * x * (3 - 2 * x); };
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i);
+      let x = v.x * 0.82, y = v.y * 1.18, z = v.z * 0.98;
+      const jaw = sm(0.05, -0.9, v.y);                  // narrow towards the chin
+      x *= 1 - 0.32 * jaw; z *= 1 - 0.12 * jaw;
+      if (v.y < -0.55) z += 0.08 * sm(-0.55, -0.95, v.y) * Math.max(0, v.z);
+      const front = Math.max(0, v.z);                   // nose and brow on the face
+      const ny = v.y + 0.02, nose = Math.exp(-((v.x * v.x) / (0.006 + 0.01 * Math.max(0, -ny)) + (ny * ny) / 0.045)) * front * front;
+      z += 0.38 * nose * (ny < 0 ? 1 : Math.max(0, 1 - ny * 3.5));
+      z += 0.06 * Math.exp(-((v.x * v.x) / 0.03 + ((v.y + 0.42) * (v.y + 0.42)) / 0.006)) * front;   // lips
+      z += 0.1 * Math.exp(-((v.x * v.x) / 0.05 + ((v.y + 0.66) * (v.y + 0.66)) / 0.012)) * front;   // chin
+      z += 0.08 * Math.exp(-((v.y - 0.28) * (v.y - 0.28)) / 0.006) * front * (1 - Math.abs(v.x) * 0.6);   // brow
+      z -= 0.11 * Math.exp(-(((Math.abs(v.x) - 0.3) * (Math.abs(v.x) - 0.3)) / 0.01 + ((v.y - 0.16) * (v.y - 0.16)) / 0.008)) * front;   // eyes
+      p.setXYZ(i, x, y, z);
+    }
+    g.computeVertexNormals();
+    const head = new THREE.Group();
+    const shell = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0x050805 }));
+    shell.scale.setScalar(0.985); head.add(shell);
+    head.add(new THREE.LineSegments(new THREE.WireframeGeometry(g), new THREE.LineBasicMaterial({ color: green, transparent: true, opacity: 0.38 })));
+    for (const s of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.TorusGeometry(0.15, 0.045, 8, 18, Math.PI * 1.4), new THREE.MeshBasicMaterial({ color: green, wireframe: true, transparent: true, opacity: 0.6 }));
+      ear.position.set(s * 0.84, 0.02, -0.05); ear.rotation.set(0, s * Math.PI / 2, -Math.PI * 0.7); head.add(ear);
+    }
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.42, 0.7, 20, 4, true), new THREE.MeshBasicMaterial({ color: green, wireframe: true, transparent: true, opacity: 0.22 }));
+    neck.position.y = -1.35; head.add(neck);
+    scene.add(head);
+
+    // the floor ring, the wall, the source and its pulses
+    const ring = new THREE.Mesh(new THREE.RingGeometry(2.55, 2.57, 96), new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = -0.4; scene.add(ring);
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.6, 0.06), new THREE.MeshBasicMaterial({ color: 0x26301f, transparent: true, opacity: 0.75 }));
+    const wallAngle = Math.PI * 0.78;
+    wall.position.set(Math.sin(wallAngle) * 1.85, 0.2, Math.cos(wallAngle) * 1.85); wall.lookAt(0, 0.2, 0); scene.add(wall);
+    wall.add(new THREE.LineSegments(new THREE.EdgesGeometry(wall.geometry), new THREE.LineBasicMaterial({ color: 0x8e9a89, transparent: true, opacity: 0.6 })));
+    const src = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 12), new THREE.MeshBasicMaterial({ color: green }));
+    const halo = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 12), new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0.18 }));
+    src.add(halo); scene.add(src);
+    const pulses = [];
+    for (let k = 0; k < 4; k++) {
+      const m = new THREE.Mesh(new THREE.RingGeometry(0.98, 1, 48), new THREE.MeshBasicMaterial({ color: green, transparent: true, opacity: 0, side: THREE.DoubleSide }));
+      scene.add(m); pulses.push({ m, t: k / 4 });
+    }
+
+    // the view: drag to orbit
+    let yaw = 0.4, pitch = 0.14, drag = null;
+    canvas.addEventListener("pointerdown", (e) => { drag = { x: e.clientX, y: e.clientY, yaw, pitch }; canvas.setPointerCapture(e.pointerId); canvas.style.cursor = "grabbing"; });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!drag) return;
+      yaw = drag.yaw - (e.clientX - drag.x) * 0.006;
+      pitch = Math.max(-0.3, Math.min(0.9, drag.pitch + (e.clientY - drag.y) * 0.004));
+      if (still) draw();
+    });
+    const release = () => { drag = null; canvas.style.cursor = "grab"; };
+    canvas.addEventListener("pointerup", release); canvas.addEventListener("pointercancel", release);
+
+    const resize = () => {
+      const r = canvas.getBoundingClientRect();
+      renderer.setSize(r.width, r.height, false); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix();
+    };
+
+    // sound: soft taps and a chime, low passed when the wall is in the way,
+    // placed by the browser's own HRTF panner (3D) or an equal-power pan of
+    // the source's left and right in the view (Stereo), the two crossfaded
+    let ctx = null, panner = null, lp = null, gain = null, stereo = null, near = null, mode3d = null, modeStereo = null;
+    let mode = "3d";
+    const btn = document.getElementById("listen");
+    const modes = document.getElementById("head-mode");
+    const setMode = (m) => {
+      mode = m;
+      modes.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === m)));
+      if (ctx) { mode3d.gain.setTargetAtTime(m === "3d" ? 1 : 0, ctx.currentTime, 0.02); modeStereo.gain.setTargetAtTime(m === "3d" ? 0 : 1, ctx.currentTime, 0.02); }
+    };
+    modes.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setMode(b.dataset.mode); });
+    const listen = (on) => {
+      btn.setAttribute("aria-pressed", String(on)); btn.textContent = on ? "Stop" : "Listen (headphones)";
+      if (ctx) gain.gain.setTargetAtTime(on ? 0.5 : 0, ctx.currentTime, 0.08);
+    };
+    btn.addEventListener("click", () => {
+      try {
+        if (!ctx) {
+          ctx = new (window.AudioContext || window.webkitAudioContext)();
+          // a two-second loop: soft shaker taps eight times a second (broadband,
+          // easy to place) and a quiet four-note chime
+          const rate = ctx.sampleRate, n = rate * 2, buf = ctx.createBuffer(1, n, rate), d = buf.getChannelData(0);
+          let lpState = 0, hpPrev = 0;
+          for (let i = 0; i < n; i++) {
+            const tt = i / rate, tap = tt % 0.125, env = Math.exp(-tap / 0.016) * (Math.floor(tt / 0.125) % 2 ? 0.55 : 1);
+            const w = Math.random() * 2 - 1; lpState += 0.35 * (w - lpState); const band = lpState - hpPrev; hpPrev = lpState;
+            d[i] = band * env * 0.5;
+          }
+          [659.25, 987.77, 830.61, 1318.51].forEach((f, k) => {
+            const start = Math.floor(k * 0.5 * rate);
+            for (let i = 0; start + i < n && i < rate * 0.5; i++) {
+              const tt = i / rate, env = Math.min(1, tt / 0.004) * Math.exp(-tt / 0.16);
+              d[start + i] += 0.16 * env * (Math.sin(2 * Math.PI * f * tt) + 0.25 * Math.sin(4 * Math.PI * f * tt));
+            }
+          });
+          const loop = ctx.createBufferSource(); loop.buffer = buf; loop.loop = true;
+          const mix = ctx.createGain(); mix.gain.value = 0.7; loop.connect(mix);
+          lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 6000;
+          panner = ctx.createPanner(); panner.panningModel = "HRTF"; panner.distanceModel = "inverse"; panner.refDistance = 1.5;
+          gain = ctx.createGain(); gain.gain.value = 0;
+          // (Stereo: the pan, and the panner's own fall-off with distance)
+          stereo = ctx.createStereoPanner(); near = ctx.createGain();
+          mode3d = ctx.createGain(); modeStereo = ctx.createGain();
+          mode3d.gain.value = mode === "3d" ? 1 : 0; modeStereo.gain.value = mode === "3d" ? 0 : 1;
+          mix.connect(lp); lp.connect(panner); panner.connect(mode3d); mode3d.connect(gain);
+          lp.connect(stereo); stereo.connect(near); near.connect(modeStereo); modeStereo.connect(gain);
+          gain.connect(ctx.destination);
+          loop.start();
+        }
+        if (ctx.state === "suspended") ctx.resume();
+        listen(btn.getAttribute("aria-pressed") !== "true");
+      } catch (err) { btn.textContent = "Sound not available here"; btn.disabled = true; }
+    });
+
+    const hud = {};
+    stage.querySelectorAll("[data-k]").forEach((el) => { hud[el.dataset.k] = el; });
+    const ray = new THREE.Raycaster(), origin = new THREE.Vector3(0, 0.1, 0);
+    let t = 2.4, last = 0, prev = 0;
+    function draw(now) {
+      const a = t * 1.15, r = 2.55, h = 0.25 + 0.55 * Math.sin(t * 0.7);
+      src.position.set(Math.sin(a) * r, h, Math.cos(a) * r);
+      halo.scale.setScalar(1 + 0.15 * Math.sin(t * 6));
+      // the wall: is it between the head and the source?
+      const dir = src.position.clone().sub(origin), dist = dir.length(); dir.normalize();
+      ray.set(origin, dir);
+      const hit = ray.intersectObject(wall, false), blocked = hit.length > 0 && hit[0].distance < dist;
+      src.material.color.setHex(blocked ? amber : green); halo.material.color.setHex(blocked ? amber : green);
+      for (const q of pulses) {
+        if (!still) q.t = (q.t + 0.006) % 1;
+        q.m.position.copy(src.position); q.m.lookAt(camera.position); q.m.scale.setScalar(0.15 + q.t * 0.9);
+        q.m.material.color.setHex(blocked ? amber : green); q.m.material.opacity = (1 - q.t) * (blocked ? 0.18 : 0.45);
+      }
+      // farther on a narrow stage (a phone's), to keep the source's circle in view
+      const d = 7.2 * Math.max(1, 1.5 / camera.aspect);
+      camera.position.set(Math.sin(yaw) * d * Math.cos(pitch), 0.4 + Math.sin(pitch) * d, Math.cos(yaw) * d * Math.cos(pitch));
+      camera.lookAt(0, -0.05, 0);
+      // the sound is heard from where you sit: the source's place in the
+      // view's frame (x to the right of the screen, y up, -z into it), so
+      // what is drawn on your left is heard on your left whatever the angle
+      camera.updateMatrixWorld();
+      const view = src.position.clone().sub(origin).applyQuaternion(camera.quaternion.clone().invert());
+      // the numbers: azimuth from straight into the screen, the ear delay of
+      // an 8.75 cm head (as the mixer's HRTF)
+      const az = Math.atan2(view.x, -view.z), elv = Math.atan2(view.y, Math.hypot(view.x, view.z));
+      const lat = Math.abs(Math.asin(Math.sin(az)));
+      const itd = 0.0875 / 343 * (Math.sin(lat) + lat) * 1000;
+      const right = 0.5 + 0.5 * Math.sin(az), occl = blocked ? 0.45 : 1;
+      if (!now || now - last > 80) {
+        last = now || 0;
+        hud.az.textContent = Math.round(az * 180 / Math.PI) + "°"; hud.el.textContent = Math.round(elv * 180 / Math.PI) + "°";
+        hud.itd.textContent = itd.toFixed(2) + " ms";
+        hud.ml.style.width = Math.round(100 * occl * (0.25 + 0.75 * (1 - right))) + "%";
+        hud.mr.style.width = Math.round(100 * occl * (0.25 + 0.75 * right)) + "%";
+        hud.oc.textContent = blocked ? "Behind the wall: muffled" : "Clear line of sight"; hud.oc.classList.toggle("muffled", blocked);
+      }
+      if (panner) {
+        const at = ctx.currentTime;
+        if (panner.positionX) {
+          panner.positionX.setTargetAtTime(view.x, at, 0.03); panner.positionY.setTargetAtTime(view.y, at, 0.03); panner.positionZ.setTargetAtTime(view.z, at, 0.03);
+        } else panner.setPosition(view.x, view.y, view.z);
+        stereo.pan.setTargetAtTime(Math.sin(az), at, 0.03);
+        const far = view.length();
+        near.gain.setTargetAtTime(1.5 / (1.5 + Math.max(0, far - 1.5)), at, 0.03);
+        lp.frequency.setTargetAtTime(blocked ? 700 : 6000, at, 0.06);
+      }
+      renderer.render(scene, camera);
+    }
+
+    // drawn only while on screen and the tab is shown; the tone stops with it
+    let visible = false, running = false;
+    const step = (now) => {
+      if (!running) return;
+      t += Math.min(0.1, prev ? (now - prev) / 1000 : 0); prev = now;
+      draw(now);
+      requestAnimationFrame(step);
+    };
+    const apply = () => {
+      const on = visible && !document.hidden;
+      if (!on && btn.getAttribute("aria-pressed") === "true") listen(false);
+      if (still || on === running) return;
+      running = on; prev = 0;
+      if (on) requestAnimationFrame(step);
+    };
+    canvas.addEventListener("webglcontextlost", () => { running = false; stage.classList.remove("live"); });
+    new ResizeObserver(() => { resize(); if (still || !running) draw(); }).observe(stage);
+    new IntersectionObserver(([e]) => { visible = e.isIntersecting; apply(); }).observe(stage);
+    document.addEventListener("visibilitychange", apply);
+    resize(); draw();
+    stage.classList.add("live");
+  }
+
 
   // the downloads: the visitor's machine first, and marked, once it has a
   // build (a Steam Deck's browser says Linux, an Android phone's Linux too,

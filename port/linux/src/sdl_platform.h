@@ -28,7 +28,21 @@ struct platform_input_state
 	/* a menu is up (platform_menus_set_active): the keys drive the first
 	controller, to move about it, instead of the player's actions */
 	BOOL menus;
+	/* the mouse's Back button (platform_mouse_button_backs) is held in the
+	menus, or was pressed there since the controller's last reading: their
+	B, as Escape is (xinput_sdl.c's keyboard_gamepad); a binding of it is
+	the game's alone, never the menus' */
+	BOOL menu_back;
 };
+
+/* whether a mouse button (SDL's numbering) is the one a web browser goes
+back with: SDL's X1 (Windows' XBUTTON1, macOS's fourth button, Linux's
+BTN_SIDE), or a Linux mouse's BTN_BACK, which SDL numbers 7 (Wayland's
+SDL_BUTTON_X1 + BTN_BACK - BTN_SIDE; X11's button 11, less 4). Forward (X2,
+BTN_EXTRA; BTN_FORWARD, 6) has no meaning in the menus. */
+#define PLATFORM_MOUSE_BUTTON_LINUX_BACK 7
+#define platform_mouse_button_backs(button) \
+	((button) == SDL_BUTTON_X1 || (button) == PLATFORM_MOUSE_BUTTON_LINUX_BACK)
 
 /* an input of the keyboard and mouse's controls (xinput_sdl.c): a scancode,
 a mouse button (INPUT_MOUSE + SDL_BUTTON_*), or the wheel */
@@ -43,12 +57,18 @@ void halo_input_name(int input, char *name, size_t size);
 for the menus */
 void halo_input_shown_name(const char *binding, char *shown, size_t size);
 
+/* whether a key, a mouse button or a finger went down since it was last
+asked: what skips a Bink movie besides a controller's buttons (also declared
+for the game in halo_linux_source_fixups.h) */
+int platform_movie_skip_pressed(void);
 /* whether a menu is up (halo_ui_pointer_update, every frame) */
 void platform_menus_set_active(BOOL active);
 /* rebinding a control (Settings > Controls Setup): from now the next key,
 mouse button or wheel turn is taken, and none reaches the game or the
 menus; nor does the keyboard after, until every key and button is up */
 void platform_binding_capture_begin(void);
+/* Stop a capture, retaining its release guard for already held keys. */
+void platform_binding_capture_cancel(void);
 /* 0 while waiting; else the capture ends: 1 with the input, 2 for none
 (Delete), 3 if cancelled (Escape) */
 int platform_binding_capture_poll(int *input);
@@ -69,6 +89,9 @@ void platform_loading_set(int phase);
 void platform_loading_art(const unsigned char *rgba);
 void platform_loading_scene(const void *data, unsigned long bytes);
 void platform_loading_progress(float progress);
+/* The loading screen's chant (dsound_sdl.c): playing (its four voices
+swelling with progress, 0 to 1), or fading out (playing 0). */
+void platform_loading_chant(int playing, float progress);
 int platform_loading_active(void);
 BOOL platform_screen_mode(long *width, long *height);
 /* Video Setup's resolutions (port/linux/game/menu_tags.c), in pixels: the
@@ -76,6 +99,14 @@ display's modes the game can draw at, largest first, each once, but the
 display's own (Native), and display.resolution's where it is none of them;
 how many. None on Android. */
 int platform_display_resolutions(long *widths, long *heights, int maximum);
+/* whether fullscreen can set the display's refresh rate (display.refresh_rate):
+Windows, and an X server's own display; not Wayland, XWayland, gamescope,
+macOS, iOS or Android */
+int platform_refresh_rates_settable(void);
+/* Video Setup's refresh rates: those of the display's modes, whole, highest
+first, each once, and display.refresh_rate's where it is none of them; how
+many. None where they cannot be set (platform_refresh_rates_settable). */
+int platform_display_refresh_rates(long *rates, int maximum);
 /* Video Setup's window sizes: those of each shape (4:3, 16:10, 16:9, 21:9)
 that fit the desktop, and display.window_size's; how many. None on
 Android. */
@@ -156,6 +187,12 @@ BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer);
 /* a scripted run's click on the menus, 0 to 1 of the window (debug.test_input
 "menu:... click:<x>:<y> ...", xinput_sdl.c) */
 int platform_test_menu_click(float *x, float *y);
+/* its typing and Enter ("type:<letters and digits>", "enter", xinput_sdl.c) */
+int platform_test_menu_keys(char *typed, int size, int *enter);
+/* its mouse's ("mouse:<button>", "wheel:<notches>[*<events>]", xinput_sdl.c):
+1 once in its second, with the button to click (SDL's numbering, 0 for
+none), or the wheel's turn and in how many events it comes */
+int platform_test_menu_mouse(int *button, float *wheel, int *wheel_events);
 
 /* returns the window's size in the units that pointer positions come in,
 which differ from the drawable's pixels on displays that scale */

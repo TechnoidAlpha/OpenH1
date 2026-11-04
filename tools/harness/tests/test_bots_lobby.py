@@ -1,6 +1,6 @@
-"""The real bots of a hosted game (network_server_manager.c's): as many as bots.count asks for join a Slayer game's
-lobby, local or network, as far as it has room, on the teams bots.teams asks for, follow the players' team changes and
-leave when fewer are asked for; none in another gametype, nor before a player is in. A network game's bots make room
+"""The real bots of a hosted game (network_server_manager.c's): as many as bots.count asks for join a game's lobby (any
+gametype but Race), local or network, as far as it has room, on the teams bots.teams asks for, follow the players' team
+changes and leave when fewer are asked for; none in Race, nor before a player is in. A network game's bots make room
 for its players (bots.make_room, bots.fill_to): a player who joins a full game takes a bot's place at once, in the lobby
 and in the game in progress (the bot of the team with more players, the lowest scoring), and a bot comes back a while
 after a player leaves; with make room off the game takes its most players of players besides its bots. The listing
@@ -15,7 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run, structure  # noqa: E402
 
-CASES = ["fills", "room", "fewer", "even", "against", "follows-players", "network-lobby", "slayer-only",
+CASES = ["fills", "room", "fewer", "even", "against", "follows-players", "network-lobby", "not-race",
          "not-once-started", "no-player-no-bots", "names-and-machines", "make-room-lobby", "fill-to", "fixed-bots",
          "listing-counts", "make-room-ingame", "leaver", "host-removes-a-bot", "party-held"]
 GAME_MANAGER_FUNCTIONS = ("network_game_invalidate_player", "network_player_is_valid", "network_game_player_is_valid",
@@ -33,8 +33,8 @@ SERVER_FUNCTIONS = ("network_game_server_port_bots_census", "network_game_server
 
 # a fault in a function, and the case that must catch it
 NEGATIVE_CONTROLS = {
-    "bots-in-any-gametype": ("bots_play_game_engine", ("return game_engine_index == game_engine_slayer;", "return 1;"),
-                             "slayer-only"),
+    "bots-in-any-gametype": ("bots_play_game_engine", ("return game_engine_index == game_engine_slayer ||",
+                                                       "return 1 ||"), "not-race"),
     "bots-local-only": ("network_game_server_port_bots_wanted", ("|| !census->humans)",
                         "|| !census->humans || !network_game_is_splitscreen_local())"), "network-lobby"),
     "bots-once-started": ("network_game_server_port_bots",
@@ -64,9 +64,9 @@ NEGATIVE_CONTROLS = {
     "bots-take-held-slots": ("network_game_server_port_bots_wanted",
                              ("fill - census->humans - network_party_held_slots()", "fill - census->humans"),
                              "party-held"),
-    "fill-in-local-games": ("network_game_server_port_bots_wanted",
-                            ("!network_game_is_splitscreen_local() && bots_make_room()", "bots_make_room()"),
-                            "fill-to"),
+    "no-fill-in-local-games": ("network_game_server_port_bots_wanted",
+                               ("if (bots_make_room())", "if (bots_make_room() && !network_game_is_splitscreen_local())"),
+                               "fill-to"),
     "fixed-bots-take-players-room": ("network_game_server_port_bots_room",
                                      ("bots_make_room() ? 0 : bots;", "bots_make_room() ? 0 : 0;"), "fixed-bots"),
     "listing-counts-bots": ("network_game_server_port_bots_humans", ("return census.humans;",

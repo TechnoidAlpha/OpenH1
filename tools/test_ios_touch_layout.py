@@ -26,6 +26,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "port/ios/touch_controls.m"
 
 GRID_WIDTH, GRID_HEIGHT = 960.0, 540.0
+# the lines a taller display adds its height between (touch_controls.m's TOP_ROW and LOWER_PART)
+TOP_ROW, LOWER_PART = (float(re.search(rf"#define {name} ([0-9.]+)f", SOURCE.read_text()).group(1))
+                       for name in ("TOP_ROW", "LOWER_PART"))
 MINIMUM_RADIUS_POINTS = 24.0
 MAX_MINIMUM_RADIUS = 34.0
 STICK = 16
@@ -47,7 +50,13 @@ SCREENS = [
     ("iPhone 15 (19.5:9)", 852, 393, 59, 59),
     ("iPhone SE (16:9)", 667, 375, 0, 0),
     ("iPad (4:3)", 1024, 768, 0, 0),
-    ("iPad Air (1.43)", 1180, 820, 0, 0),
+    ("iPad 10.2-inch (4:3)", 1080, 810, 0, 0),
+    ("iPad mini (1.52)", 1133, 744, 0, 0),
+    ("iPad and iPad Air 11-inch (1.43)", 1180, 820, 0, 0),
+    ("iPad Pro 11-inch (1.43)", 1194, 834, 0, 0),
+    ("iPad Pro 11-inch M4 (1.45)", 1210, 834, 0, 0),
+    ("iPad Air 13-inch, iPad Pro 12.9-inch (4:3)", 1366, 1024, 0, 0),
+    ("iPad Pro 13-inch M4 (4:3)", 1376, 1032, 0, 0),
 ]
 
 
@@ -59,6 +68,19 @@ def read_layout():
     sizes = [float(v) for v in re.findall(r"[\d.]+", radii)]
     toolbar = re.search(r"- \(float\)optionsX\s*\{\s*return (.*?);", text, re.S).group(1)
     return places, sizes, toolbar
+
+
+def display_y(line, height):
+    """a line of the grid on a display this high (touch_controls.m's display_y): the top row keeps its distance
+    from the top of a taller display, the rest its distance from the bottom"""
+    extra = height - GRID_HEIGHT
+    if extra <= 0:
+        return line * height / GRID_HEIGHT
+    if line <= TOP_ROW:
+        return line
+    if line >= LOWER_PART:
+        return line + extra
+    return TOP_ROW + (line - TOP_ROW) * (LOWER_PART - TOP_ROW + extra) / (LOWER_PART - TOP_ROW)
 
 
 def placed(screen, places, radii, toolbar):
@@ -74,7 +96,7 @@ def placed(screen, places, radii, toolbar):
             continue
         radius = max(radius, minimum)
         x = x * logical_width / GRID_WIDTH
-        y = y * logical_height / GRID_HEIGHT
+        y = display_y(y, logical_height)
         x = max(radius, min(logical_width - radius, x))
         y = max(radius, min(logical_height - radius, y))
         circles.append((f"control {index}", left + x * scale, y * scale, radius * scale))

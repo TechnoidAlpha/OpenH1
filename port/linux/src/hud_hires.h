@@ -110,6 +110,9 @@ unsigned int hud_hires_override_texture(long asset, unsigned long *levels);
 /* an image drawn from an 8-bit RGBA PNG (as the tools write them), with
 all its mip levels, and their number; 0 if it could not be */
 unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned long *levels);
+/* such a PNG's texels (RGBA, rows from the top; malloc's, the caller's to
+free) and size; NULL if it could not be */
+unsigned char *hud_hires_png_pixels(const void *png, unsigned long size, unsigned long *width, unsigned long *height);
 /* the HUD's textures for a map's bitmaps (port/linux/game/hud_hires_tags.c),
 decoded from their PNGs as it loads, on a thread of their own, so that they
 are only uploaded when first drawn; and, as it is unloaded, that stopped and

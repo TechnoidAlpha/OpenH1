@@ -129,7 +129,7 @@ be a child of many).
 | `bitmap` | Its background: a `<bitmap>` |
 | `string_list`, `string_index` | Its text: a `<strings>` and the number in it |
 | `text` | Its text, given here |
-| `font` | `large`, `small`, `terminal`, or a font tag of the map |
+| `font` | `large`, `small`, `terminal`, `heading` (the port's: `large`'s measures, drawn in OpenCE by the high-res text; `large` where the map has no `large_ui`), or a font tag of the map |
 | `color` | The text's colour, `#RRGGBB` or `#AARRGGBB`. Focused text is white. |
 | `align`, `text_x`, `text_y` | `left`, `right` or `center`, and where the text starts in it |
 | `text_flags` | `editable`, `password`, `flashing`, `no_focus_test` |
@@ -233,7 +233,13 @@ of levels and the difficulty menu (`difficulty item select`, and `set
 difficulty` on its OK button: the difficulty shown), and Load Game's list of
 the profiles' saved games (with `load game menu delete finish`). For our
 widgets, `initialize sp level list solo`, `solo level set map` and `set
-difficulty` are the port's, as the Xbox's take the Xbox's widgets. The
+difficulty` are the port's, as the Xbox's take the Xbox's widgets (the main
+menu's CAMPAIGN no longer opens these screens). The campaign's own screens
+(`tools/port_settings.py`'s `campaign_files`: the Campaign menu, Choose
+Mission's cards and Choose Difficulty) run `port campaign ...`
+(`port/linux/game/campaign_menu.inc`), and draw the player's ui.map's
+pictures (`sp_levels`, `difficulty_options`, `difficulty_options_small`)
+scaled, as `<frame map=...>`s. The
 settings screens': `port settings save` (OK) writes the settings changed
 (config.toml's, or `profile.<field>`: the profile being edited) and applies
 them, `port settings defaults` shows the defaults, `port settings help` the
@@ -249,7 +255,7 @@ do nothing yet.
 ### `<data>`, `<conditional>`, `<replace>`
 
 `<data input="..."/>`: a game data function, which fills in the widget every
-frame (`build number textbox only`). `<conditional widget="..."
+frame (`get edit plyr profile name`). `<conditional widget="..."
 if_failed="true"/>`: a widget for a `branch` handler. `<replace search="..."
 function="controller"/>`: text replaced in the widget's (the controller's
 number).

@@ -35,7 +35,8 @@ With debug.vr_test_hands, the log says, as the head moves and the fade
 changes, how far the head is from the game's eye, how far past the world it
 is, how near the world is ahead, and how dark the view is.
 debug.vr_test_head_wall puts the player's eye at a given place in the
-level, for the test to lean the head into a wall from there.
+level, for the test to lean the head into a wall from there (and, given a
+point to face, for views of the level from a known place).
 */
 
 #ifdef HALO_VR
@@ -121,11 +122,14 @@ static struct
 	real logged_behind;
 	real logged_ahead;
 	/* debug.vr_test_head_wall: read, whether it places the player, where
-	(the game's eye, world units), how long they have been on foot
-	(seconds) and whether they have been placed */
+	(the game's eye, world units), whether they are turned to face a point
+	(x and y), how long they have been on foot (seconds) and whether they
+	have been placed */
 	boolean test_checked;
 	boolean testing;
 	real_point3d test_eye;
+	boolean test_facing;
+	real test_face[2];
 	real test_seconds;
 	boolean test_placed;
 } vr_headwall = { 0.0f, 0.0f, 0, FALSE, FALSE, -1.0f };
@@ -271,9 +275,10 @@ static void headwall_log(long unit_index, real_point3d const *eye, real_point3d 
 	}
 }
 
-/* debug.vr_test_head_wall: "<x> <y> <z>", the first player's eye put
-there (world units), once they have been on foot TEST_PLACE_SECONDS, once a
-run, the unit as far below it as its eye is now */
+/* debug.vr_test_head_wall: "<x> <y> <z>[ <x> <y>]", the first player's eye
+put there (world units), once they have been on foot TEST_PLACE_SECONDS,
+once a run, the unit as far below it as its eye is now; turned to face the
+second point, where there is one */
 static void headwall_test_place(long unit_index, real_point3d const *eye, real seconds)
 {
 	struct object_datum *unit;
@@ -282,10 +287,12 @@ static void headwall_test_place(long unit_index, real_point3d const *eye, real s
 	if (!vr_headwall.test_checked)
 	{
 		char const *setting = config_string("debug.vr_test_head_wall");
+		int count = sscanf(setting, "%f %f %f %f %f", &vr_headwall.test_eye.x, &vr_headwall.test_eye.y,
+			&vr_headwall.test_eye.z, &vr_headwall.test_face[0], &vr_headwall.test_face[1]);
 
 		vr_headwall.test_checked = TRUE;
-		vr_headwall.testing = sscanf(setting, "%f %f %f", &vr_headwall.test_eye.x, &vr_headwall.test_eye.y,
-			&vr_headwall.test_eye.z) == 3;
+		vr_headwall.testing = count >= 3;
+		vr_headwall.test_facing = count == 5;
 	}
 	vr_headwall.test_seconds = unit_index != NONE ? vr_headwall.test_seconds + MAX(seconds, 0.0f) : 0.0f;
 	if (!vr_headwall.testing || vr_headwall.test_placed || vr_headwall.test_seconds < TEST_PLACE_SECONDS)
@@ -295,6 +302,9 @@ static void headwall_test_place(long unit_index, real_point3d const *eye, real s
 	position.y = unit->object.position.y + vr_headwall.test_eye.y - eye->y;
 	position.z = unit->object.position.z + vr_headwall.test_eye.z - eye->z;
 	object_set_position(unit_index, &position, NULL, NULL);
+	if (vr_headwall.test_facing)
+		halo_vr_test_face((float)atan2(vr_headwall.test_face[1] - vr_headwall.test_eye.y,
+			vr_headwall.test_face[0] - vr_headwall.test_eye.x));
 	vr_headwall.test_placed = TRUE;
 	platform_log("vr head wall test: frame %ld: the eye put at %.3f %.3f %.3f", vr_headwall.frame,
 		vr_headwall.test_eye.x, vr_headwall.test_eye.y, vr_headwall.test_eye.z);

@@ -193,8 +193,12 @@ symbols in this file:
 #include "sound/sound_definitions.h"
 #include "sound/sound_manager.h"
 #include "structures/structure_bsp_definitions.h"
+#include "structures/structures.h" /* port: (structure_port_clusters_forget) */
+#include "models/models.h" /* port: (model_port_markers_forget) */
 #include "units/units.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
+#include "structure_bsp_cache.h" /* port: port/linux/game/structure_bsp_cache.c */
+#include "load_zone.h" /* port: port/linux/game/load_zone.c */
 
 /* ---------- constants */
 
@@ -369,7 +373,12 @@ void scenario_unload(
 
 	/* port: release pointers into the bsp before its tags go away */
 	structure_culling_dispose();
+	/* port: and the copies of its bsps (port/linux/game/structure_bsp_cache.c) */
+	structure_bsp_cache_dispose();
 	scenario_tags_unload();
+	/* port: and what was kept of its tags (models.c, structures.c) */
+	model_port_markers_forget();
+	structure_port_clusters_forget();
 	global_scenario_index = NONE;
 	global_structure_bsp_index = NONE;
 	scenario_globals->structure_bsp_index = NONE;
@@ -1074,7 +1083,13 @@ boolean scenario_switch_structure_bsp(
 		structure_bsp_index < global_scenario->structure_bsp_references.count &&
 		structure_bsp_index < MAXIMUM_STRUCTURE_BSPS_PER_SCENARIO)
 	{
-		halo_loading_begin(); /* port: cover every validated BSP transition before disconnecting */
+		/* port: the frames drawn before have read what they borrowed of the
+		old bsp before it is disconnected from; the game's last picture stays
+		up meanwhile, with no loading screen (a load zone is seamless) */
+		halo_loading_retire();
+		halo_load_trace("bsp.switch.begin", NULL); /* port: loading measurement */
+		/* port: the old bsp's spheres forgotten (structures.c) */
+		structure_port_clusters_forget();
 		reference = TAG_BLOCK_GET_ELEMENT(
 			&global_scenario->structure_bsp_references,
 			structure_bsp_index,
@@ -1144,6 +1159,8 @@ boolean scenario_switch_structure_bsp(
 		if (loaded)
 		{
 			global_structure_bsp = structure_bsp_definition_get(reference->structure_bsp.index);
+			/* port: (and any found while it was read) */
+			structure_port_clusters_forget();
 			global_collision_bsp = TAG_BLOCK_GET_ELEMENT(
 				&global_structure_bsp->collision_bsp,
 				0,
@@ -1156,6 +1173,7 @@ boolean scenario_switch_structure_bsp(
 			global_structure_bsp_index = structure_bsp_index;
 			/* port: cache buckets while the newly current bsp's tags are loaded */
 			structure_culling_structure_bsp_loaded();
+			halo_load_trace("bsp.culling.end", NULL); /* port: loading measurement */
 
 			if (had_old_structure_bsp)
 			{
@@ -1167,6 +1185,11 @@ boolean scenario_switch_structure_bsp(
 
 		collision_log_enable(TRUE);
 		main_start_time();
+		halo_load_trace("bsp.switch.end", NULL); /* port: loading measurement */
+		/* port: the renderer's copies of the old bsp's pages made the new
+		one's before the frame draws (port/linux/game/load_zone.c) */
+		if (loaded)
+			load_zone_structure_bsp_switched();
 	}
 
 	return result;
@@ -1193,7 +1216,6 @@ void scenario_reload_structure_bsp_if_necessary(
 			global_structure_bsp_index,
 			struct scenario_structure_bsp_reference);
 
-		halo_loading_begin(); /* port: keep presentation independent before replacing the old BSP */
 		scenario_structure_bsp_unload(reference);
 		global_structure_bsp_index = NONE;
 		scenario_switch_structure_bsp(scenario_globals->structure_bsp_index);
@@ -1211,7 +1233,12 @@ boolean scenario_load(
 
 	halo_load_trace("scenario.begin", name); /* port: loading measurement */
 	check_memory_status(scenario_memory_status_attributed, "scenario_load");
+	/* port: what was kept of the last map's tags forgotten (models.c,
+	structures.c) */
+	model_port_markers_forget();
+	structure_port_clusters_forget();
 	global_scenario_index = scenario_tags_load(name);
+	model_port_markers_forget();
 	if (global_scenario_index != NONE)
 	{
 		global_scenario = scenario_definition_get(global_scenario_index);
@@ -1219,6 +1246,9 @@ boolean scenario_load(
 		{
 			global_game_globals = game_globals_definition_get(
 				tag_loaded(GAME_GLOBALS_TAG, "globals\\globals"));
+			/* port: its every bsp read and checked now, under the loading
+			screen, not at a load zone (port/linux/game/structure_bsp_cache.c) */
+			scenario_structure_bsps_read_ahead();
 			if (scenario_switch_structure_bsp(0))
 				result = TRUE;
 		}

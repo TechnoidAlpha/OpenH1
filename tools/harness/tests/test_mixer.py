@@ -2,7 +2,8 @@
 double precision, sines through it as the ear hears them, voices out of earshot, mono voices, the linear
 resampler, the Xbox ADPCM decoder against reference vectors, the Doppler shift, the limiter, audio.channels' choice
 and the 5.1 pan, and 3D audio: audio.spatial's choice, the HRTF's cues against the pan's, its distance,
-occlusion, reverb and Doppler, the crossfade when the choice changes, and 2D voices left as they are; and the
+occlusion, reverb and Doppler, the crossfade when the choice changes, and 2D voices left as they are; the master
+volume on every kind of voice; and the
 hand-off of the game's side of the voices to the mixer, which never waits for a game thread.
 
     python tools/harness/tests/test_mixer.py metrics   the figures
@@ -19,11 +20,12 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, build, mutated, read, run  # noqa: E402
+from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
 
 SOURCE = "port/linux/src/dsound_sdl.c"
-CASES = ["reference", "impulse", "sines", "aliases", "silent-voice", "mono", "linear", "adpcm", "doppler", "limiter",
-         "channels", "surround", "spatial-choice", "hrtf-cues", "hrtf-paths", "hrtf-switch", "dry-2d",
+CASES = ["reference", "impulse", "sines", "aliases", "silent-voice", "mono", "linear", "adpcm", "doppler", "doppler-steady",
+         "limiter", "channels", "surround", "spatial-choice", "hrtf-cues", "hrtf-paths", "hrtf-switch", "dry-2d",
+         "master-volume", "buffers", "sound-off",
          "hand-off-never-waits", "hand-off-settings"]
 
 # a fault in the mixer, and the case that must catch it
@@ -43,7 +45,10 @@ NEGATIVE_CONTROLS = {
     "adpcm-index-87": (("if (*index > 88) *index = 88;", "if (*index > 87) *index = 87;"), "adpcm"),
     "adpcm-not-interleaved": (("(group * channels + channel) * 4", "(channel * 8 + group) * 4"), "adpcm"),
     # the Doppler shift: left out, or the source's part with the wrong sign
-    "doppler-off": (("doppler_ratio(stream);\n\t/* (the step", "1.0;\n\t/* (the step"), "doppler"),
+    "doppler-off": (("doppler_smoothed(stream, frames);\n\t/* (the step", "1.0;\n\t/* (the step"), "doppler"),
+    # the Doppler shift a step at each mix, as the velocities give it
+    "doppler-unsmoothed": (("#define DOPPLER_SMOOTHING_SECONDS 0.08f", "#define DOPPLER_SMOOTHING_SECONDS 0.0001f"),
+                           "doppler-steady"),
     "doppler-source-sign": (("(DOPPLER_SPEED_OF_SOUND + listener_speed) / (DOPPLER_SPEED_OF_SOUND + source_speed)",
                              "(DOPPLER_SPEED_OF_SOUND + listener_speed) / (DOPPLER_SPEED_OF_SOUND - source_speed)"),
                             "doppler"),
@@ -86,6 +91,8 @@ NEGATIVE_CONTROLS = {
     "hrtf-2d": (("\t*hrtf_on = FALSE;\n\tif (stream->has_3d && stream->mode != DS3DMODE_DISABLE)",
                  "\t*hrtf_on = FALSE;\n\tif (stream->channels == 1 || (stream->has_3d && stream->mode != DS3DMODE_DISABLE))"),
                 "dry-2d"),
+    # the HRTF's gain without the master volume and the voice's own (every 3D sound at full volume on headphones)
+    "hrtf-no-volume": (("\tif (*hrtf_on)\n\t\thrtf_out->gain *= stream->volume * master_volume;\n", ""), "master-volume"),
     # the hand-off: the device's mix waiting for the game's thread to take its side over, or to say what it
     # finished; a setting left on the game's side
     "hand-off-waits": (("else if (pthread_mutex_trylock(&voices_lock))\n\t{\n\t\thand_offs_skipped++;",
@@ -93,6 +100,15 @@ NEGATIVE_CONTROLS = {
                        "hand-off-never-waits"),
     "publish-waits": (("else if (pthread_mutex_trylock(&voices_lock))\n\t\treturn;",
                        "else if (pthread_mutex_lock(&voices_lock))\n\t\treturn;"), "hand-off-never-waits"),
+    # Settings > Audio's SOUND: off cut at once (a click), off not held, on never back; a device opened again at
+    # every frame, or not for a game started with the sound off (#510)
+    "sound-cut": (("\tif (gain == target)\n\t{", "\tgain = target;\n\tif (gain == target)\n\t{"), "sound-off"),
+    "sound-off-not-held": (("\t\tif (!on)\n\t\t\tmemset(output, 0, frames * channels * sizeof(float));\n", ""),
+                           "sound-off"),
+    "sound-never-back": (("\t\tif (gain < target)", "\t\tif (FALSE)"), "sound-off"),
+    "device-every-frame": (("&& !open && read_at != changes;", "&& !open;"), "sound-off"),
+    "device-never": (("return started && !paced_mix && on && !open && read_at != changes;", "return FALSE;"),
+                     "sound-off"),
     "setting-not-taken": (("\tstream->room_hf = settings->room_hf;\n", ""), "hand-off-settings"),
 }
 
@@ -102,6 +118,7 @@ def generated(source=None, fault=None, scalar=False):
     tap by tap if scalar"""
     text = source if source is not None else read(SOURCE)
     code = text[text.index("#define OUTPUT_RATE"):text.index("/* ---------- output")]
+    code += "\n" + function(text, "sound_device_wanted") + "\n"
     if fault:
         code = mutated(code, *fault)
     return (("under_test.inc", ("#define RESAMPLER_SCALAR\n" if scalar else "") + code),)
@@ -148,3 +165,19 @@ if __name__ == "__main__":
     executable = build("mixer", generated(Path(other).read_text(encoding="latin-1") if other else None,
                                           scalar=bool(os.environ.get("MIXER_SCALAR"))))
     sys.exit(subprocess.run([str(executable), *(sys.argv[1:] or ["metrics"])]).returncode)
+
+
+def test_sound_setting_live():
+    """Settings > Audio's SOUND (audio.enabled) takes effect as it changes (#510): the mix's output goes through the
+    fade after the limiter (what is heard and recorded), the setting is read again with the other audio settings as
+    they change, and the device's check opens one for it; its help says so, not 'from the next time the game
+    starts'."""
+    text = read(SOURCE)
+    assert "\tlimit(output, frames);\n\tsound_gain = sound_fade(output, frames, output_channels, sound_gain, sound_on);" \
+        "\n\trecord(output, frames);" in function(text, "mix")
+    assert 'sound_on = config_boolean("audio.enabled");' in function(text, "DirectSoundDoWork")
+    assert "sound_device_wanted(audio_started, paced, sound_on, audio_stream != NULL" in \
+        function(text, "dsound_sdl_output_device_check")
+    settings = read("tools/port_settings.py")
+    row = settings[settings.index('("SOUND", "audio.enabled"'):][:300]
+    assert "next time" not in row and "restart" not in row.lower()

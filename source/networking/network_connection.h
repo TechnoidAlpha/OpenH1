@@ -53,6 +53,12 @@ struct network_connection *network_connection_new(
 	word well_known_port);
 boolean network_connection_last_read_was_unreliable(
 	void);
+/* port: (a dedicated server between its frames) the datagrams read, and
+their socket */
+boolean network_connection_read_datagrams(
+	struct network_connection *connection);
+long network_connection_datagram_socket(
+	struct network_connection *connection);
 boolean network_connection_read(
 	struct network_connection *connection,
 	void *buffer,

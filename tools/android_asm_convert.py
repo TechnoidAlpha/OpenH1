@@ -27,6 +27,12 @@ import sys
 
 # a quoted name (its escapes kept: \" does not end it) or a plain one
 IDENT = re.compile(r'"(?:[^"\\]|\\.)*"|[A-Za-z_.$][\w.$]*')
+# a symbol a relocation operator follows: a quoted name (which may hold
+# spaces: an instrumented build's counters are named after their source
+# files, "source/saved games/...") or a plain one
+SYMBOL = r'("(?:[^"\\]|\\.)*"|[\w.$]+)'
+# AArch64's register names, which a symbol stripped of Darwin's "_" may be
+REGISTER = re.compile(r"^(?:[xwvqdshbz](?:[0-9]|[12][0-9]|3[01])|p(?:[0-9]|1[0-5])|w?sp|[xw]zr|lr|fp)$")
 # a label, and what follows it on its line; a symbol's assignment
 LABEL = re.compile(r'^([A-Za-z_.$][\w.$]*|"[^"]*"):(.*)$')
 ASSIGNMENT = re.compile(r'^([A-Za-z_.$][\w.$]*)\s*=\s*(.+)$')
@@ -117,7 +123,11 @@ class Converter:
                 inner = inner[1:]
             return '"' + inner + '"'
         if name.startswith("_"):
-            return name[1:]
+            name = name[1:]
+            # (a C name that is a register's, which ELF's assembler would
+            # take for the register: monocypher's static x16, called once a
+            # profile keeps it from being inlined)
+            return f'"{name}"' if REGISTER.match(name) else name
         if name in self.local_labels:
             return ".L" + name
         return name
@@ -129,9 +139,9 @@ class Converter:
             return text
         # relocation operators first
         if "@" in text:
-            text = re.sub(r'([\w.$"]+)@GOTPAGE\b', r"\1", text)
-            text = re.sub(r'([\w.$"]+)@PAGE\b', r"\1", text)
-            text = re.sub(r'(\([^)]*\)|[\w.$"]+(?:[+-]\d+)?)@PAGEOFF\b', r":lo12:\1", text)
+            text = re.sub(SYMBOL + r'@GOTPAGE\b', r"\1", text)
+            text = re.sub(SYMBOL + r'@PAGE\b', r"\1", text)
+            text = re.sub(r'(\([^)]*\)|' + SYMBOL[1:-1] + r'(?:[+-]\d+)?)@PAGEOFF\b', r":lo12:\1", text)
             if "@" in text and not re.search(r'"[^"]*@[^"]*"', text):
                 raise ConvertError("unsupported relocation operator: " + text)
 
@@ -160,6 +170,13 @@ class Converter:
             self.emit('\t.section .guest_init,"aw",@progbits')
         elif name == "__mod_term_func":
             self.emit('\t.section .guest_fini,"aw",@progbits')
+        elif name.startswith("__llvm_prf_"):
+            # an instrumented build's profile (configure.py --pgo=generate):
+            # its counters, records and names each in a section of their own
+            # name, as an ELF compile puts them, whose bounds the link gives
+            # (__start_/__stop_) to the runtime that writes them out
+            # (port/android/guest/runtime/guest_profile.c)
+            self.emit(f'\t.section {name},"aw",@progbits')
         elif segment == "__TEXT" and name == "__text":
             self.emit("\t.text")
         elif segment == "__TEXT" and name in RODATA_SECTIONS:
@@ -268,7 +285,7 @@ class Converter:
             # ldr wN/xN, [xM, sym@GOTPAGEOFF] -> add xN, xM, :lo12:sym (the
             # image is linked statically below 4 GB, so every GOT load can be
             # relaxed to the address itself)
-            gm = re.match(r'^\s*([wx])(\d+|zr)\s*,\s*\[\s*(x\d+|sp)\s*,\s*([\w.$"]+)@GOTPAGEOFF\s*\]\s*$', args)
+            gm = re.match(r'^\s*([wx])(\d+|zr)\s*,\s*\[\s*(x\d+|sp)\s*,\s*' + SYMBOL + r'@GOTPAGEOFF\s*\]\s*$', args)
             if op != "ldr" or not gm:
                 raise ConvertError("unsupported GOT access: " + stripped)
             self.emit(f"\tadd x{gm.group(2)}, {gm.group(3)}, :lo12:{self.sym(gm.group(4))}")

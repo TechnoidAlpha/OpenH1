@@ -559,6 +559,29 @@ static void hdr_programs(void)
 		emit(name, "display.hdr's dynamic lights past white", xgpu_spirv_pixel_shader(&program, &options, &module),
 			&module);
 	}
+	/* (a self-illuminated surface's pass: its combiners twice, stage 0's
+	constants 0 the second time; a structure's lightmap pass with the
+	dynamic lights past white too) */
+	for (tag = 0; tag < 2; tag++)
+	{
+		synthetic_base(&program);
+		synthetic_stage(&program, 0, XGPU_TEXTURE_PROJECT2D, _xgpu_sampler_2d);
+		program.combiners[0].portions[0].inputs[2].reg = XGPU_REGISTER_C0;
+		program.combiners[0].portions[0].inputs[3].reg = XGPU_REGISTER_C1;
+		program.combiners[0].portions[0].sum = XGPU_REGISTER_V0;
+		program.final.inputs[1].reg = XGPU_REGISTER_V0;
+		program.hdr = XGPU_HDR_SELF_ILLUMINATION(1);
+		if (tag)
+		{
+			program.dynamic_lights = XGPU_DYNAMIC_LIGHTS_ENVIRONMENT;
+			program.hdr |= XGPU_HDR_LIGHTS;
+		}
+		memset(&options, 0, sizeof(options));
+		options.input_samples = 1;
+		snprintf(name, sizeof(name), "hdr-self-illumination%u", tag);
+		emit(name, "display.hdr's self-illumination past white", xgpu_spirv_pixel_shader(&program, &options, &module),
+			&module);
+	}
 }
 
 static void post_programs(void)

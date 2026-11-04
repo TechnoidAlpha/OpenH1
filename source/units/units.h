@@ -772,6 +772,10 @@ boolean unit_flying_through_air(
 /* port: a unit that feigned death gets back up (units.c) */
 void unit_port_resurrect(
 	long unit_index);
+/* port: a unit killed ahead of the host's word stands again where it fell
+(units.c, port/linux/game/network_damage.c) */
+void unit_port_revive(
+	long unit_index);
 /* port: whether the unit plays a flinch or death animation of the type,
 switched to the host's if it has only just begun
 (port/linux/game/network_objects.c) */

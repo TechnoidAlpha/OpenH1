@@ -78,6 +78,9 @@ def info_plist(bundle_id: str, build: int, minimum: str, simulator: bool = False
         "LSSupportsGameMode": True,
         "GCSupportsGameMode": True,
         "NSHumanReadableCopyright": COPYRIGHT,
+        # (a ProMotion iPhone's 120 Hz: without it iOS holds a phone's apps to
+        # 60 Hz, though the screen reports 120 as its most; an iPad needs none)
+        "CADisableMinimumFrameDurationOnPhone": True,
         # (the game fills the screen, sideways, without the status bar;
         # UIKit's scenes, which SDL's delegate takes)
         "UILaunchScreen": {"UIColorName": "LaunchBackground"},

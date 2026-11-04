@@ -34,6 +34,9 @@ over stdio and pthreads.
 /* (the real one: the system side's functions, posix_update.c's but the
 download, in under_test.inc) */
 #include "update.h"
+/* (the real one, and p2p_internal.h's SHA-256: faked below) */
+#include "release_signature.h"
+#include "p2p_internal.h"
 
 /* ---------- SDL, the parts the updater uses */
 
@@ -308,6 +311,13 @@ static double config_real(const char *name)
 	return 0.0;
 }
 
+/* (a dedicated server's: its network.port, which names its update folder) */
+static long config_integer(const char *name)
+{
+	(void)name;
+	return 0;
+}
+
 static int config_write_boolean(const char *name, int value)
 {
 	printf("test: config.toml: %s = %s\n", name, value ? "true" : "false");
@@ -380,6 +390,50 @@ static void platform_request_quit(void)
 {
 	quit_requested = 1;
 	printf("test: quit\n");
+}
+
+/* the release's SHA256SUMS and signature: none (GitHub's 404), and the check
+of the download (release_signature.c's, test_release_signature.py's) as
+FAKE_VERDICT says: "refused", else taken as an unsigned release */
+int update_https_request(const char *method, const char *url, const char *headers, const void *body,
+	unsigned long body_size, unsigned long maximum, struct update_response *response, char *error, int error_size)
+{
+	const char *name = strrchr(url, '/');
+
+	(void)method, (void)headers, (void)body, (void)body_size, (void)maximum, (void)error, (void)error_size;
+	printf("test: asked for %s\n", name ? name + 1 : url);
+	memset(response, 0, sizeof(*response));
+	response->status = 404;
+	return 1;
+}
+
+void p2p_sha256_begin(struct p2p_sha256 *context)
+{
+	memset(context, 0, sizeof(*context));
+}
+
+void p2p_sha256_add(struct p2p_sha256 *context, const void *data, int size)
+{
+	(void)data;
+	context->length += (unsigned long long)size;
+}
+
+void p2p_sha256_end(struct p2p_sha256 *context, unsigned char *digest)
+{
+	memset(digest, 0, 32);
+	memcpy(digest, &context->length, sizeof(context->length));
+}
+
+enum release_verdict release_check(const char *sums, int sums_size, const char *signature, int signature_size,
+	const char *asset, const unsigned char *digest, int required, const char *test_key, char *error, int error_size)
+{
+	int refused = !strcmp(environment("FAKE_VERDICT"), "refused");
+
+	(void)sums_size, (void)signature_size, (void)digest, (void)test_key;
+	printf("test: release check of %s: sums %d, signature %d, required %d: %s\n", asset, sums != NULL,
+		signature != NULL, required, refused ? "refused" : "unsigned");
+	snprintf(error, (size_t)error_size, "%s", refused ? "a test's refusal" : "a test's unsigned release");
+	return refused ? _release_refused : _release_unsigned;
 }
 
 #include "under_test.inc"

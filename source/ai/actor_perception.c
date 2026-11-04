@@ -1945,6 +1945,19 @@ short actor_perception_aiming_vector_test_blockage(
 	real horizontal_error_squared;
 	short blockage = 0;
 
+	/* port: the friend's direction to the aiming vector is zero where the
+	test ends before it finds one (an aiming vector with no horizontal part,
+	or a friend not ahead along it), not whatever the caller's variable held:
+	actor_emotion_update reads it whatever the blockage, and stack garbage
+	there (other datums' indices, NaNs) decided whether an actor was moving
+	into a player's line of fire, so the AI's choice moved with the code */
+	if (friend_direction_to_aiming_vector != NULL)
+	{
+		friend_direction_to_aiming_vector->i = 0.0f;
+		friend_direction_to_aiming_vector->j = 0.0f;
+		friend_direction_to_aiming_vector->k = 0.0f;
+	}
+
 	source_planar_direction.i = source_vector->i;
 	source_planar_direction.j = source_vector->j;
 	horizontal_aiming_magnitude = magnitude2d(&source_planar_direction);

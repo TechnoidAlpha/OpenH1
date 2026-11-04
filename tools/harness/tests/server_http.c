@@ -27,6 +27,7 @@ typedef struct SDL_Mutex SDL_Mutex;
 typedef struct SDL_Thread SDL_Thread;
 
 #define HALO_PORT_NETWORK_VERSION 1
+#define HALO_PORT_STANDARD_NETWORK_VERSION 1
 #define SDL_LockMutex(lock) ((void)0)
 #define SDL_UnlockMutex(lock) ((void)0)
 #define server_log(...) ((void)0)

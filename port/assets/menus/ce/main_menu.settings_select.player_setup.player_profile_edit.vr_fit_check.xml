@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/vr_fit_check_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/header_vr_controls"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/options_menu"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/header_vr_controls" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/player_setup/player_profile_edit/vr_controls/header_vr_controls">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/help" type="text" controller="1" left="68" top="366" width="482" height="60" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/help">
+		<data input="port settings help"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_turn" x="54" y="73"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_snap_turn_angle" x="54" y="101"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_smooth_turn_speed" x="54" y="129"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_comfort_vignette" x="54" y="157"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_height" x="54" y="185"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_player_height" x="54" y="213"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/button_bar" y="414"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/button_defaults" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/button_ok" x="380" y="1"/>
+		<child widget="common_button_cancel" x="510" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_turn" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/turn_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/turn_spinner" x="320" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/turn_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/turn_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SNAP|SMOOTH" setting="vr.turn" values="snap|smooth" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_snap_turn_angle" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/snap_turn_angle_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/snap_turn_angle_spinner" x="320" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/snap_turn_angle_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/snap_turn_angle_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="15 DEGREES|22.5 DEGREES|30 DEGREES|45 DEGREES|60 DEGREES|90 DEGREES" setting="vr.snap_turn_angle" values="15|22.5|30|45|60|90" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_smooth_turn_speed" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/smooth_turn_speed_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/smooth_turn_speed_spinner" x="320" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/smooth_turn_speed_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/smooth_turn_speed_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="60 DEG/S|90 DEG/S|120 DEG/S|150 DEG/S|180 DEG/S|240 DEG/S|300 DEG/S|360 DEG/S" setting="vr.smooth_turn_speed" values="60|90|120|150|180|240|300|360" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_comfort_vignette" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/comfort_vignette_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/comfort_vignette_spinner" x="320" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/comfort_vignette_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/comfort_vignette_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="vr.comfort_vignette" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_height" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/height_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/height_spinner" x="320" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/height_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/height_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SEATED|STANDING" setting="vr.height" values="seated|standing" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/op_player_height" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/player_height_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/player_height_spinner" x="320" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/player_height_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/player_height_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="1.40 M|1.45 M|1.50 M|1.55 M|1.60 M|1.65 M|1.70 M|1.75 M|1.80 M|1.85 M|1.90 M|1.95 M|2.00 M" setting="vr.player_height" values="1.4|1.45|1.5|1.55|1.6|1.65|1.7|1.75|1.8|1.85|1.9|1.95|2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port settings defaults"/>
+		<on event="start" run="port settings defaults"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port settings save" back="true"/>
+		<on event="start" run="port settings save" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<strings name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/labels">
+		<string text="TURNING:"/>
+		<string text="SNAP TURN ANGLE:"/>
+		<string text="SMOOTH TURN SPEED:"/>
+		<string text="COMFORT VIGNETTE:"/>
+		<string text="POSITION (RESTART):"/>
+		<string text="EYE HEIGHT:"/>
+	</strings>
+	<strings name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/help_strings">
+		<string text=""/>
+		<string text="How the right stick turns you: in steps, or\ncontinuously."/>
+		<string text="How far each snap turn turns you."/>
+		<string text="How fast smooth turning turns you, the stick\npushed all the way: degrees a second."/>
+		<string text="The edges of your view dim a little as a vehicle\nturns you fast, speeds up or slows hard."/>
+		<string text="Seated: your eyes where they are when you\nrecentre. From the next time the game starts."/>
+		<string text="Standing, the height of your eyes above the\nfloor."/>
+	</strings>
+</menus>

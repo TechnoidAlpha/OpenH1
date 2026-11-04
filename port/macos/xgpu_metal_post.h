@@ -26,6 +26,19 @@ caller sets its own again. */
 int xgpu_metal_post_anti_alias(int smaa, uint32_t target, uint8_t format, uint32_t width, uint32_t height,
 	const int32_t corners[4]);
 
+/* display.panini (port/linux/game/panini.c): its function and pipelines,
+made on the backend's queues (0, logged once, if the function cannot be);
+and the corners of a target's texture (BGRA8 or RGBA16F: format; one
+sample, its size) drawn again through the Panini projection
+(port/linux/include/panini_projection.h), projection its d, s,
+magnification at the middle, 0, and the rectilinear view's tangents at
+the corners' left, right, top and bottom, as the Vulkan backend draws it.
+Nonzero if it was drawn; the backend's state is the pass's afterwards, as
+anti-aliasing's is. */
+int xgpu_metal_post_panini_prepare(void);
+int xgpu_metal_post_panini(uint32_t target, uint8_t format, uint32_t width, uint32_t height, const int32_t corners[4],
+	const float projection[8]);
+
 /* display.hdr (port/linux/src/xgpu_hdr.h): the tone map's function and the
 pipeline for a pass with that depth attachment (its XGPU_METAL_FORMAT_*, or
 NONE) and samples, made (as anti-aliasing's are); and the tone map of the
@@ -35,6 +48,22 @@ where they are (programmable blending): hdr the mode and the peak
 (xgpu_hdr.h). Nonzero if it was drawn; the backend's state is the pass's
 afterwards, as anti-aliasing's is. */
 int xgpu_metal_post_prepare_hdr(uint8_t depth_format, uint32_t samples);
+/* display.ambient_occlusion (the Vulkan backend's passes, xgpu_vulkan_post.c):
+its functions and pipelines for a target of a format drawn with a depth
+target of a format, made on the backend's queues (0 if the functions cannot
+be: logged once, and it stays so); the occlusion over the corners of a
+target's 3D view (one sample, its first layer), found from the depth
+target's depth and stencil (xgpu_stream.h's XGPU_AMBIENT_OCCLUSION_*) and
+laid over its colour, quality XGPU_AMBIENT_OCCLUSION_SUBTLE or _STRONG,
+camera its near and far planes and the projection's x and y scales and
+offsets; and the occlusion last laid drawn in place of the view (white
+where it was not laid). The targets bound before are not bound after; 0 if
+nothing was drawn */
+int xgpu_metal_post_ambient_occlusion_prepare(uint8_t format, uint8_t depth_format);
+int xgpu_metal_post_ambient_occlusion(uint32_t target, uint8_t format, uint32_t width, uint32_t height, uint32_t depth,
+	uint8_t depth_format, const int32_t corners[4], int quality, const float camera[6]);
+int xgpu_metal_post_ambient_occlusion_show(uint32_t target, uint8_t format, uint32_t width, uint32_t height,
+	const int32_t corners[4]);
 int xgpu_metal_post_tone_map(uint32_t target, uint32_t width, uint32_t height, uint32_t depth, uint8_t depth_format,
 	uint32_t samples, const int32_t corners[4], const float hdr[4]);
 

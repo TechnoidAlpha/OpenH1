@@ -17,6 +17,7 @@ typedef unsigned short word;
 #define csmemset memset
 #define csmemcmp memcmp
 #define csstrcmp strcmp
+#define csstrncmp strncmp
 #define DATUM_INDEX_NEW(absolute_index, identifier) \
 	((long)(((unsigned long)(unsigned short)(identifier) << 16) | (unsigned long)(absolute_index)))
 
@@ -52,12 +53,19 @@ struct distributed_message_header
 };
 
 /* the record, as far as the host changes it: everything else is copied */
+/* the record's pickup bit (network_game_manager.h) */
+enum { _network_game_hold_to_pick_up_bit = 3 };
+#define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
+
 struct network_game
 {
 	wchar_t name[16];
 	short machine_count;
 	byte machines[64];
 	short standard_rate;
+	/* (the host's way of picking up a second weapon: network_standard.c's
+	_network_game_hold_to_pick_up_bit) */
+	byte cooperative_flags;
 	unsigned long random_seed;
 	byte rest[32];
 };
@@ -96,8 +104,20 @@ static struct
 } sent[SENT];
 static short sent_count;
 
+/* a dedicated server (halo --server), which reads server.game_mode in place
+of network.game_mode and network.sim_rate */
+static int server_mode;
+static char server_game_mode[16] = "legacy";
+
+static int halo_server_mode(void)
+{
+	return server_mode;
+}
+
 static char const *config_string(char const *name)
 {
+	if (!strcmp(name, "server.game_mode"))
+		return server_game_mode;
 	return !strcmp(name, "network.game_mode") ? game_mode : "";
 }
 
@@ -344,6 +364,10 @@ int main(int argc, char **argv)
 		record = network_standard_game_for_machine(&server.game, TRUE);
 		memcpy(&legacy, &server.game, sizeof(legacy));
 		legacy.standard_rate = 0;
+		/* (and no word of how the host's players pick up a second weapon) */
+		CHECK(TEST_FLAG(server.game.cooperative_flags, _network_game_hold_to_pick_up_bit),
+			"the record does not say hold to pick up");
+		SET_FLAG(legacy.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
 		CHECK(!memcmp(record, &legacy, sizeof(legacy)), "an OpenCE machine's record is not a Legacy host's");
 		CHECK(server.game.standard_rate == 60, "the game's own record changed");
 		return 0;
@@ -434,6 +458,57 @@ int main(int argc, char **argv)
 
 	/* a client that joined as OpenCE joins counts what of OpenH1's it hears
 	(the tests' check), one that joined as OpenH1 does not */
+	/* a dedicated server: server.game_mode, not network.game_mode and
+	network.sim_rate (a player's host's OpenH1 120 by default), says the kind
+	and the rate; "legacy" by default. A Legacy setting taken while an OpenH1
+	game is hosted (the director takes it only once the server is empty)
+	keeps its rate */
+	CASE("dedicated-server")
+	{
+		long rate;
+		boolean opence;
+
+		server_mode = TRUE;
+		sim_rate_setting = 120;
+		host("openh1", TRUE);
+		advertised(reserved);
+		CHECK(!network_standard_hosting(), "a server's default hosted an OpenH1 game");
+		CHECK(advertised_version(reserved) == HALO_PORT_NETWORK_VERSION && !reserved[HALO_PORT_ADVERTISED_RATE_OFFSET],
+			"a Legacy server's advertisement: version %x rate %u", advertised_version(reserved),
+			reserved[HALO_PORT_ADVERTISED_RATE_OFFSET]);
+		rate = network_standard_server_hosted(&opence);
+		CHECK(rate == 0 && opence, "hosted %ld, opence %d", rate, opence);
+		snprintf(server_game_mode, sizeof(server_game_mode), "openh1_60");
+		host("legacy", TRUE);
+		advertised(reserved);
+		CHECK(network_standard_hosting() && network_standard_hosting_mixed(), "server.game_mode openh1_60 not hosted");
+		CHECK(reserved[HALO_PORT_ADVERTISED_RATE_OFFSET] == 60, "rate %u", reserved[HALO_PORT_ADVERTISED_RATE_OFFSET]);
+		CHECK(network_standard_server_rate(TRUE) == 60, "rate %ld", network_standard_server_rate(TRUE));
+		snprintf(server_game_mode, sizeof(server_game_mode), "openh1_120");
+		CHECK(network_standard_server_rate(TRUE) == 120, "the lobby's rate %ld", network_standard_server_rate(TRUE));
+		snprintf(server_game_mode, sizeof(server_game_mode), "legacy");
+		CHECK(network_standard_server_rate(TRUE) == 120, "a Legacy setting changed the rate to %ld",
+			network_standard_server_rate(TRUE));
+		allow_opence = FALSE;
+		snprintf(server_game_mode, sizeof(server_game_mode), "openh1_120");
+		host("openh1", FALSE);
+		advertised(reserved);
+		CHECK(advertised_version(reserved) == HALO_PORT_STANDARD_ADVERTISED_VERSION, "version %x",
+			advertised_version(reserved));
+		rate = network_standard_server_hosted(&opence);
+		CHECK(rate == 120 && !opence, "hosted %ld, opence %d", rate, opence);
+		network_standard_stamp_game(&server.game, TRUE);
+		CHECK(server.game.standard_rate == 120, "stamped %d", server.game.standard_rate);
+		snprintf(server_game_mode, sizeof(server_game_mode), "openh1_90");
+		host("openh1", TRUE);
+		CHECK(!network_standard_hosting(), "an unknown rate hosted");
+		/* (the server's record lasts from its OpenH1 games to its Legacy
+		ones: their rate goes from it) */
+		network_standard_stamp_game(&server.game, TRUE);
+		CHECK(server.game.standard_rate == 0, "a Legacy game's record kept the rate %d", server.game.standard_rate);
+		return 0;
+	}
+
 	CASE("legacy-heard")
 	{
 		long messages, rate;

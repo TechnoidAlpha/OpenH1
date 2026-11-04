@@ -1,53 +1,44 @@
 #include "harness.h"
 
-/* Server Setup's bots rows (port/linux/game/menu_functions.c's
-server_settings_bots, tools/port_settings.py's BOTS_ROWS): in a game of this
-machine alone (PLAY WITH BOTS) they take the network's rows' places, each
-written to config.toml as it changes; a gametype the bots do not play locks
-them, dimmed and passed over, and the line below them says why; in a network
-game they are hidden, and its own BOTS row (server_settings_network_bots)
-shows what its bots are, locked as they are for a gametype the bots do not
-play */
+/* The bots in the menus and the game: Server Setup in a game of this machine
+alone (menu_functions.c's server_settings_local: the network's rows hidden,
+its line in their place; the bots are the lobby's), the lobby's BOTS
+(lobby_menu.inc's lobby_board_bots_choice and lobby_board_bots_load: the
+choice the settings make shown, one the host steps to written, a locked one
+put back), a spinner of the menus stopping at its ends (ui_widget.c's
+ui_widget_port_spinner_stops: never round from the most bots to none), and
+a game the bots left going on (game_engine.c's game_engine_should_end_game:
+one team left alone by the bots that left does not end it) */
 
 #include <wchar.h>
-#include <stdarg.h>
 
-#define MAXIMUM_STRINGS 32
 #define NUMBEROF(array) ((long)(sizeof(array) / sizeof((array)[0])))
+#define platform_log(...) ((void)0)
+
+enum { _ui_widget_type_container, _ui_widget_type_text_box, _ui_widget_type_spinner_list,
+	_ui_widget_type_column_list };
 
 struct widget_instance
 {
 	char const *name;
+	short type;
 	long definition_tag_index;
-	boolean disabled;
 	boolean visible;
-	real alpha_modifier;
-	struct widget_instance *parent, *child, *next, *focused_child;
+	struct widget_instance *parent, *child, *next;
 	union
 	{
 		struct
 		{
 			short selected_index;
-			struct widget_instance *extended_description;
+			short number_of_items;
 		} list;
-		struct
-		{
-			short string_list_index;
-		} text_box;
 	} parameters;
 };
 
-#include "config.inc"
+/* ---- the fake world */
 
-/* the fake world: the three settings, config.toml's values, the writes */
-static struct pc_menu_setting settings[3];
-static char config_values[3][16];
-static int writes;
-
-static struct pc_menu_setting *pc_menu_setting_get(long definition_index)
-{
-	return definition_index >= 1 && definition_index <= 3 ? &settings[definition_index - 1] : NULL;
-}
+/* the menus' tags (pc_menu_tag): 1 */
+static boolean pc_menu_tag(long tag_index) { return tag_index == 1; }
 
 static struct widget_instance *named(struct widget_instance *widget, char const *name, long nth)
 {
@@ -68,294 +59,207 @@ static struct widget_instance *named(struct widget_instance *widget, char const 
 	return NULL;
 }
 
+static struct widget_instance *screen_of(struct widget_instance *widget)
+{
+	while (widget && widget->parent)
+		widget = widget->parent;
+	return widget;
+}
+
 static void visible_set(struct widget_instance *widget, boolean visible)
 {
 	if (widget)
 		widget->visible = visible;
 }
 
-static boolean setting_write(char const *name, char const *value)
+/* the BOTS choices (network_host_controls.c's): 0 NONE, then 10 more; the
+settings' choice, and the last written */
+enum { _host_bots_none, _host_bots_add, _host_bots_fill };
+static short choice_settings;
+static short choice_written = NONE;
+static boolean choice_refused;
+static short network_host_controls_bot_choice_count(void) { return 11; }
+static short network_host_controls_bots_chosen(void) { return choice_settings; }
+static short network_host_controls_bot_choice(short choice, long *number)
+{
+	*number = choice;
+	return choice ? _host_bots_add : _host_bots_none;
+}
+static boolean network_host_controls_choose_bots(short kind, long number)
+{
+	(void)kind;
+	if (choice_refused)
+		return FALSE;
+	choice_written = (short)number;
+	choice_settings = (short)number;
+	return TRUE;
+}
+static struct
+{
+	short bots_shown;
+} lobby_board;
+
+/* the players (their datums: quit, a bot), the gametype's state */
+#define TICKS_PER_SECOND 30
+struct player_datum
+{
+	boolean quit_out_of_game;
+	boolean bot;
+};
+struct data_iterator
 {
 	long index;
-
-	for (index = 0; index < 3; index++)
-	{
-		if (!strcmp(name, settings[index].setting))
-		{
-			snprintf(config_values[index], sizeof(config_values[index]), "%s", value);
-			writes++;
-			return TRUE;
-		}
-	}
-	return FALSE;
-}
-
-#define platform_log(...) ((void)0)
-#define PIN(value, low, high) ((value) < (low) ? (low) : (value) > (high) ? (high) : (value))
-#define ROW_TEXT_LENGTH 64
-
-/* the bots' settings as the network row reads them, and the text it set */
-static long bots_count_setting;
-static short bots_skill_setting;
-static int bots_make_room_setting;
-static long bots_fill_to_setting;
-static long bots_wanted_count(void) { return bots_count_setting; }
-static short bots_skill(void) { return bots_skill_setting; }
-static int bots_make_room(void) { return bots_make_room_setting; }
-static long bots_fill_to(void) { return bots_fill_to_setting; }
-static wchar_t shown_text[ROW_TEXT_LENGTH];
-static struct widget_instance *shown_in;
-
-/* (the game's: %s of a wide string, as MSVC's) */
-static void usnprintf(wchar_t *text, long size, wchar_t const *format, ...)
+	long datum_index;
+};
+static struct player_datum players[4];
+static long player_count;
+static void *player_data;
+static void data_iterator_new(struct data_iterator *iterator, void *data)
 {
-	wchar_t wide_format[128];
-	long from, to = 0;
-	va_list arguments;
-
-	for (from = 0; format[from] && to < (long)NUMBEROF(wide_format) - 2; from++)
-	{
-		wide_format[to++] = format[from];
-		if (format[from] == L'%' && format[from + 1] == L's')
-			wide_format[to++] = L'l';
-	}
-	wide_format[to] = 0;
-	va_start(arguments, format);
-	vswprintf(text, (size_t)size, wide_format, arguments);
-	va_end(arguments);
+	(void)data;
+	iterator->index = 0;
 }
-
-static void text_set(struct widget_instance *text_box, wchar_t const *text)
+static void *data_iterator_next(struct data_iterator *iterator)
 {
-	shown_in = text_box;
-	wcsncpy(shown_text, text, ROW_TEXT_LENGTH - 1);
+	if (iterator->index >= player_count)
+		return NULL;
+	iterator->datum_index = iterator->index;
+	return &players[iterator->index++];
 }
+static int bots_player_is_bot(long player_index) { return players[player_index].bot; }
+static boolean teams_alive;
+static boolean multiple_teams_alive(void) { return teams_alive; }
+static boolean infection_enabled(void) { return FALSE; }
+static int game_engine_value = 1;
+static int *game_engine = &game_engine_value;
+struct game_variant_options
+{
+	long time_limit;
+};
+static struct game_variant_options variant_options;
+static struct game_variant_options *game_variant_options_get(void) { return &variant_options; }
+static long game_time_get(void) { return 100; }
 
 #include "under_test.inc"
 
-/* Server Setup: the screen (its list, the help, the bots' line); the list's
-rows: GAME NAME, GAME (the network's), the three bots rows (a label and a
-spinner each), MAP SHARING, the buttons */
-static struct widget_instance screen, list, help, hint, name_row, game_mode_row, invite_row, map_share_row, button_bar;
-static struct widget_instance rows[3], labels[3], spinners[3];
-/* a network game's BOTS row (its label and value), after the gametype's rows */
-static struct widget_instance bot_options_row, bot_options_label, bot_options_value;
-
-static void setup(char const *count, char const *skill, char const *teams)
+/* Server Setup: in a game of this machine alone the network's rows hidden,
+its line shown; in a network game the other way round */
+static void case_local(void)
 {
-	static char const *const names[3][3] =
-	{
-		{ "op_bots_count", "bots_count_label", "bots_count_spinner" },
-		{ "op_bots_skill", "bots_skill_label", "bots_skill_spinner" },
-		{ "op_bots_teams", "bots_teams_label", "bots_teams_spinner" },
-	};
-	static char const *const setting_names[3] = { "bots.count", "bots.skill", "bots.teams" };
-	static char const *const values[3][4] =
-	{
-		{ "0", "1", "2", "3" },
-		{ "easy", "normal", "heroic", "legendary" },
-		{ "even", "against" },
-	};
-	static long const value_counts[3] = { 4, 4, 2 };
-	char const *const loaded[3] = { count, skill, teams };
-	long index;
+	static struct widget_instance screen, list, game_mode, invite, map_share, note;
 
-	writes = 0;
-	screen = (struct widget_instance){ .name = "server_settings_screen", .visible = TRUE, .alpha_modifier = 1.0f,
-		.child = &list };
-	list = (struct widget_instance){ .name = "options_menu", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &screen, .child = &name_row, .next = &hint, .focused_child = &name_row };
-	list.parameters.list.extended_description = &help;
-	help = (struct widget_instance){ .name = "help", .visible = TRUE, .alpha_modifier = 1.0f };
-	hint = (struct widget_instance){ .name = "bots_hint", .visible = TRUE, .alpha_modifier = 1.0f, .parent = &screen };
-	name_row = (struct widget_instance){ .name = "op_server_name", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &list, .next = &game_mode_row };
-	game_mode_row = (struct widget_instance){ .name = "op_game_mode", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &list, .next = &invite_row };
-	invite_row = (struct widget_instance){ .name = "op_invite", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &list, .next = &rows[0] };
-	for (index = 0; index < 3; index++)
-	{
-		long value;
-
-		rows[index] = (struct widget_instance){ .name = names[index][0], .visible = TRUE, .alpha_modifier = 1.0f,
-			.parent = &list, .child = &labels[index], .next = index < 2 ? &rows[index + 1] : &map_share_row };
-		labels[index] = (struct widget_instance){ .name = names[index][1], .visible = TRUE, .alpha_modifier = 1.0f,
-			.parent = &rows[index], .next = &spinners[index] };
-		spinners[index] = (struct widget_instance){ .name = names[index][2], .definition_tag_index = index + 1,
-			.visible = TRUE, .alpha_modifier = 1.0f, .parent = &rows[index] };
-		memset(&settings[index], 0, sizeof(settings[index]));
-		settings[index].definition_index = index + 1;
-		settings[index].setting = setting_names[index];
-		settings[index].value_count = value_counts[index];
-		for (value = 0; value < value_counts[index]; value++)
-			settings[index].values[value] = values[index][value];
-		snprintf(config_values[index], sizeof(config_values[index]), "%s", loaded[index]);
-		/* ("port setting load", on the spinner's created event) */
-		settings[index].loaded_index = 0;
-		for (value = 0; value < value_counts[index]; value++)
-		{
-			if (!strcmp(values[index][value], loaded[index]))
-				settings[index].loaded_index = (short)value;
-		}
-		spinners[index].parameters.list.selected_index = settings[index].loaded_index;
-	}
-	map_share_row = (struct widget_instance){ .name = "op_map_share_options", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &list, .next = &bot_options_row };
-	bot_options_row = (struct widget_instance){ .name = "op_bot_options", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &list, .child = &bot_options_label, .next = &button_bar };
-	bot_options_label = (struct widget_instance){ .name = "bot_options_label", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &bot_options_row, .next = &bot_options_value };
-	bot_options_value = (struct widget_instance){ .name = "bot_options_value", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &bot_options_row };
-	bots_count_setting = 10;
-	bots_skill_setting = 1;
-	bots_make_room_setting = TRUE;
-	bots_fill_to_setting = 16;
-	shown_in = NULL;
-	shown_text[0] = 0;
-	button_bar = (struct widget_instance){ .name = "button_bar", .visible = TRUE, .alpha_modifier = 1.0f,
-		.parent = &list };
+	screen = (struct widget_instance){ "server_settings_screen" };
+	list = (struct widget_instance){ "options_menu" };
+	game_mode = (struct widget_instance){ "op_game_mode" };
+	invite = (struct widget_instance){ "op_invite" };
+	map_share = (struct widget_instance){ "op_map_share_options" };
+	note = (struct widget_instance){ "local_note" };
+	screen.child = &list;
+	list.parent = &screen;
+	list.next = &note;
+	note.parent = &screen;
+	list.child = &game_mode;
+	game_mode.next = &invite;
+	invite.next = &map_share;
+	game_mode.parent = invite.parent = map_share.parent = &list;
+	server_settings_local(&list, TRUE);
+	CHECK(!game_mode.visible && !invite.visible && !map_share.visible, "a local game's network rows shown");
+	CHECK(note.visible, "a local game's line hidden");
+	server_settings_local(&list, FALSE);
+	CHECK(game_mode.visible && invite.visible && map_share.visible && !note.visible, "a network game's rows");
 }
 
-static void frames(boolean local, boolean playable, int count)
+/* a spinner of the menus stops at its ends (more than two values); two
+toggle, and the Xbox's own spinners wrap as they did */
+static void case_spinner_ends(void)
 {
-	while (count--)
-	{
-		server_settings_bots(&list, local, playable);
-		server_settings_network_bots(&list, !local, playable);
-	}
+	struct widget_instance spinner = { "spinner", _ui_widget_type_spinner_list, 1 };
+
+	spinner.parameters.list.number_of_items = 5;
+	spinner.parameters.list.selected_index = 4;
+	CHECK(ui_widget_port_spinner_stops(&spinner, TRUE), "the last steps on round to the first");
+	CHECK(!ui_widget_port_spinner_stops(&spinner, FALSE), "the last does not step back");
+	spinner.parameters.list.selected_index = 0;
+	CHECK(ui_widget_port_spinner_stops(&spinner, FALSE), "the first steps back round to the last");
+	CHECK(!ui_widget_port_spinner_stops(&spinner, TRUE), "the first does not step on");
+	spinner.parameters.list.selected_index = 2;
+	CHECK(!ui_widget_port_spinner_stops(&spinner, TRUE) && !ui_widget_port_spinner_stops(&spinner, FALSE),
+		"a middle value stops");
+	spinner.parameters.list.number_of_items = 2;
+	spinner.parameters.list.selected_index = 1;
+	CHECK(!ui_widget_port_spinner_stops(&spinner, TRUE), "ON and OFF do not toggle");
+	spinner.parameters.list.number_of_items = 5;
+	spinner.parameters.list.selected_index = 4;
+	spinner.definition_tag_index = 2;
+	CHECK(!ui_widget_port_spinner_stops(&spinner, TRUE), "the Xbox's spinner stops");
+	spinner.definition_tag_index = 1;
+	spinner.type = _ui_widget_type_column_list;
+	CHECK(!ui_widget_port_spinner_stops(&spinner, TRUE), "a list stops");
+}
+
+/* the lobby's BOTS: made, it shows the settings' choice and writes nothing;
+stepped, it writes the choice; settings changed elsewhere (Host Controls)
+shown; locked, or refused, the settings' put back */
+static void case_lobby_bots(void)
+{
+	struct widget_instance spinner = { "board_bots_count_spinner", _ui_widget_type_spinner_list, 1 };
+
+	spinner.parameters.list.number_of_items = 11;
+	spinner.parameters.list.selected_index = 0;
+	choice_settings = 6;
+	lobby_board.bots_shown = 3;
+	lobby_board_bots_load(&spinner);
+	CHECK(spinner.parameters.list.selected_index == 6 && choice_written == NONE, "made: %d shown, %d written",
+		spinner.parameters.list.selected_index, choice_written);
+	spinner.parameters.list.selected_index = 7;
+	lobby_board_bots_choice(&spinner, FALSE);
+	CHECK(choice_written == 7 && spinner.parameters.list.selected_index == 7, "stepped to 7: %d written",
+		choice_written);
+	choice_written = NONE;
+	choice_settings = 2;
+	lobby_board_bots_choice(&spinner, FALSE);
+	CHECK(spinner.parameters.list.selected_index == 2 && choice_written == NONE, "Host Controls' 2 not shown: %d",
+		spinner.parameters.list.selected_index);
+	spinner.parameters.list.selected_index = 9;
+	lobby_board_bots_choice(&spinner, TRUE);
+	CHECK(spinner.parameters.list.selected_index == 2 && choice_written == NONE, "a locked BOTS written");
+	spinner.parameters.list.selected_index = 9;
+	choice_refused = TRUE;
+	lobby_board_bots_choice(&spinner, FALSE);
+	CHECK(spinner.parameters.list.selected_index == 2, "a choice refused kept");
+	choice_refused = FALSE;
+}
+
+/* one team left alone: the game ends when the others quit, not once bots
+have left it */
+static void case_bots_left(void)
+{
+	player_count = 3;
+	memset(players, 0, sizeof(players));
+	players[2].bot = TRUE;
+	teams_alive = TRUE;
+	CHECK(!game_engine_should_end_game(), "a game of two teams ended");
+	teams_alive = FALSE;
+	CHECK(game_engine_should_end_game(), "a game whose players left did not end");
+	players[2].quit_out_of_game = TRUE;
+	CHECK(!game_engine_should_end_game(), "a game the bots left ended");
+	variant_options.time_limit = 1;
+	CHECK(!game_engine_should_end_game(), "a game ended before its time");
+	variant_options.time_limit = 0;
 }
 
 int main(int argc, char **argv)
 {
 	char const *case_name = argc > 1 ? argv[1] : "";
-	long index;
 
-	/* a network game (system link, internet): no bots rows, the network's
-	rows, nothing written */
-	if (!strcmp(case_name, "network"))
+	CASE("local") case_local();
+	else CASE("spinner-ends") case_spinner_ends();
+	else CASE("lobby-bots") case_lobby_bots();
+	else CASE("bots-left") case_bots_left();
+	else
 	{
-		setup("2", "normal", "even");
-		frames(FALSE, TRUE, 3);
-		for (index = 0; index < 3; index++)
-			CHECK(!rows[index].visible, "bots row %ld shown in a network game", index);
-		CHECK(game_mode_row.visible && invite_row.visible && map_share_row.visible, "a network row hidden");
-		CHECK(!hint.visible, "the bots' line shown in a network game");
-		spinners[0].parameters.list.selected_index = 3;
-		frames(FALSE, TRUE, 1);
-		CHECK(writes == 0, "a network game wrote %d settings", writes);
-		return 0;
+		fprintf(stderr, "no case %s\n", case_name);
+		return 2;
 	}
-
-	/* PLAY WITH BOTS, a Slayer gametype: the rows in the network's rows'
-	place, each written once as it changes, each its help */
-	if (!strcmp(case_name, "local"))
-	{
-		setup("0", "normal", "even");
-		frames(TRUE, TRUE, 3);
-		for (index = 0; index < 3; index++)
-		{
-			CHECK(rows[index].visible && !rows[index].disabled && !spinners[index].disabled &&
-				rows[index].alpha_modifier == 1.0f, "bots row %ld hidden, locked or dimmed", index);
-		}
-		CHECK(!game_mode_row.visible && !invite_row.visible && !map_share_row.visible, "a network row shown");
-		CHECK(name_row.visible, "GAME NAME hidden");
-		CHECK(!hint.visible, "the bots' line shown for Slayer");
-		CHECK(writes == 0, "nothing changed, %d written", writes);
-		spinners[0].parameters.list.selected_index = 3;
-		spinners[1].parameters.list.selected_index = 3;
-		spinners[2].parameters.list.selected_index = 1;
-		frames(TRUE, TRUE, 3);
-		CHECK(writes == 3, "%d writes, not one a change", writes);
-		CHECK(!strcmp(config_values[0], "3") && !strcmp(config_values[1], "legendary") &&
-			!strcmp(config_values[2], "against"), "wrote %s %s %s", config_values[0], config_values[1],
-			config_values[2]);
-		for (index = 0; index < 3; index++)
-		{
-			list.focused_child = &rows[index];
-			frames(TRUE, TRUE, 1);
-			CHECK(help.parameters.text_box.string_list_index == BOTS_HELP + index, "row %ld's help is %d", index,
-				help.parameters.text_box.string_list_index);
-		}
-		return 0;
-	}
-
-	/* PLAY WITH BOTS, a gametype the bots do not play (CTF, Oddball, King,
-	Race): the rows dimmed, passed over, never written, the line shown; the
-	focus on one goes to the buttons */
-	if (!strcmp(case_name, "locked"))
-	{
-		setup("2", "heroic", "against");
-		list.focused_child = &rows[1];
-		frames(TRUE, FALSE, 3);
-		for (index = 0; index < 3; index++)
-		{
-			CHECK(rows[index].visible, "locked bots row %ld hidden", index);
-			CHECK(rows[index].disabled && spinners[index].disabled, "locked bots row %ld takes focus", index);
-			CHECK(rows[index].alpha_modifier > 0.0f && rows[index].alpha_modifier < 1.0f, "row %ld not dimmed", index);
-		}
-		CHECK(hint.visible, "no line saying why the bots are locked");
-		CHECK(!game_mode_row.visible && !invite_row.visible, "a network row shown");
-		CHECK(list.focused_child == &button_bar && list.parameters.list.selected_index == 8,
-			"focus left on a locked row");
-		spinners[0].parameters.list.selected_index = 0;
-		frames(TRUE, FALSE, 2);
-		CHECK(writes == 0 && !strcmp(config_values[0], "2"), "a locked row wrote %s", config_values[0]);
-		/* (back to Slayer: unlocked, the line gone) */
-		spinners[0].parameters.list.selected_index = settings[0].loaded_index;
-		frames(TRUE, TRUE, 1);
-		CHECK(!rows[0].disabled && rows[0].alpha_modifier == 1.0f && !hint.visible, "still locked");
-		return 0;
-	}
-
-	/* a network game's BOTS row: shown with what its bots are (FILL TO with
-	MAKE ROOM on alone), its help; hidden in a game of this machine alone */
-	if (!strcmp(case_name, "network-row"))
-	{
-		setup("2", "normal", "even");
-		frames(FALSE, TRUE, 2);
-		CHECK(bot_options_row.visible && !bot_options_row.disabled && bot_options_row.alpha_modifier == 1.0f,
-			"the network game's BOTS row hidden, locked or dimmed");
-		CHECK(shown_in == &bot_options_value && !wcscmp(shown_text, L"10, NORMAL, FILL TO 16"), "the row shows %ls",
-			shown_text);
-		bots_make_room_setting = FALSE;
-		bots_skill_setting = 3;
-		frames(FALSE, TRUE, 1);
-		CHECK(!wcscmp(shown_text, L"10, LEGENDARY"), "without make room the row shows %ls", shown_text);
-		bots_count_setting = 0;
-		frames(FALSE, TRUE, 1);
-		CHECK(!wcscmp(shown_text, L"NONE"), "with no bots the row shows %ls", shown_text);
-		list.focused_child = &bot_options_row;
-		frames(FALSE, TRUE, 1);
-		CHECK(help.parameters.text_box.string_list_index == BOT_OPTIONS_HELP, "the row's help is %d",
-			help.parameters.text_box.string_list_index);
-		frames(TRUE, TRUE, 1);
-		CHECK(!bot_options_row.visible, "the network game's BOTS row shown in a game of this machine alone");
-		return 0;
-	}
-
-	/* ... locked for a gametype the bots do not play: dimmed, passed over,
-	saying why */
-	if (!strcmp(case_name, "network-row-locked"))
-	{
-		setup("2", "normal", "even");
-		list.focused_child = &bot_options_row;
-		frames(FALSE, FALSE, 2);
-		CHECK(bot_options_row.visible && bot_options_row.disabled, "the locked BOTS row takes focus");
-		CHECK(bot_options_row.alpha_modifier > 0.0f && bot_options_row.alpha_modifier < 1.0f, "the row not dimmed");
-		CHECK(!wcscmp(shown_text, L"NOT IN THIS GAMETYPE"), "the locked row shows %ls", shown_text);
-		CHECK(list.focused_child == &button_bar, "focus left on the locked row");
-		list.focused_child = &bot_options_row;
-		bot_options_row.disabled = FALSE;
-		server_settings_network_bots(&list, TRUE, FALSE);
-		CHECK(help.parameters.text_box.string_list_index == BOT_OPTIONS_LOCKED_HELP || list.focused_child != &bot_options_row,
-			"the locked row's help is %d", help.parameters.text_box.string_list_index);
-		frames(FALSE, TRUE, 1);
-		CHECK(!bot_options_row.disabled && bot_options_row.alpha_modifier == 1.0f, "still locked in Slayer");
-		return 0;
-	}
-
-	fprintf(stderr, "unknown case: %s\n", case_name);
-	return 2;
+	return 0;
 }

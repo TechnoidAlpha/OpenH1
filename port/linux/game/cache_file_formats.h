@@ -324,8 +324,8 @@ struct custom_edition_conversion_report
 	name the Xbox button */
 	int32_t score_hint_converted;
 	/* widget event handlers that ran Halo PC's own functions, made to run
-	none, and 1 when the multiplayer pause menu was made the Xbox's resume
-	and quit */
+	none, and the pause menus made the Xbox's: 1, the multiplayer one's
+	resume and quit; 2, the campaign one's resume, revert, restart and quit */
 	int32_t widget_functions_cleared;
 	int32_t pause_menu_trimmed;
 	/* the Halo PC behaviours the map relies on (enum
@@ -512,5 +512,22 @@ void custom_edition_cache_combine_resource_offsets(
 	uint32_t loaded_bytes,
 	uint32_t bitmaps_offset,
 	uint32_t sounds_offset);
+
+/* A procedure the loader calls with each structure BSP of a Custom Edition
+map as it reads it (tag_validate_custom_edition_note_structure_bsp, set by
+cache_files.c: a protected map's BSP names the groups whose own tags are
+scrambled); NULL for none. Declared here so that its caller and its
+definition agree (the web build's linker refuses a mismatch). */
+typedef void (*custom_edition_structure_bsp_proc)(
+	void *tag_cache,
+	unsigned long tag_data_bytes,
+	long bsp_index,
+	void *bsp,
+	unsigned long bsp_bytes,
+	unsigned long bsp_address,
+	char const *map_name);
+
+void custom_edition_structure_bsp_proc_set(
+	custom_edition_structure_bsp_proc proc);
 
 #endif

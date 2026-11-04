@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 08 (Boarding Action)",
+ "scenario": "levels\\test\\boardingaction\\boardingaction",
+ "bsp": 0,
+ "aspect": 1.1973,
+ "pose": {
+  "x": -0.1935,
+  "y": 1.2266,
+  "z": 6.6599,
+  "yaw": 310.1959,
+  "pitch": -5.3217,
+  "roll": -0.0107,
+  "vfov": 51.6697
+ },
+ "prepare": [
+  "debug_camera_set \"0.08 21.18 3.42 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.7218
+}

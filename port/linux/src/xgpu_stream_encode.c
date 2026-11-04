@@ -20,6 +20,13 @@ synchronously.
 Records are written compactly: pipeline keys and vertex layouts are sent
 once and named by a number after, and the draw state, textures and the
 inputs no stream feeds only when they change.
+
+Every float the game hands the GPU passes here (its vertex shaders'
+constants, the combiners' and fog's, immediate mode's vertices, the
+enhanced dynamic lights and their glows): one that is not a number, or is
+infinite, goes as 0 (stream_finite), said once in a while with what it was
+and where. The Xbox's NV2A computed none, and a GPU draws one as anything:
+black, white or blocks.
 */
 
 #include "frame_pacing.h"
@@ -42,6 +49,8 @@ inputs no stream feeds only when they change.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
 /* port/android/guest/runtime/guest_host.h */
 int host_render_stream_open(unsigned int ring);
@@ -225,6 +234,10 @@ static uint32_t load_acquire(const uint32_t *value)
 
 /* ---------- the ring */
 
+/* what the next frame takes more than the frames do, and the frames it is
+told with yet (xgpu_backend_frame_extra) */
+static uint32_t frame_extra_microseconds, frame_extra_frames;
+
 static void commit(unsigned int flags)
 {
 	struct xgpu_stream_ring *ring = stream.ring;
@@ -238,6 +251,9 @@ static void commit(unsigned int flags)
 			ring->frame_bytes_most = bytes;
 		stream.frame_start = stream.position;
 		ring->frames_submitted++;
+		ring->frame_extra_microseconds = frame_extra_frames ? frame_extra_microseconds : 0;
+		if (frame_extra_frames)
+			frame_extra_frames--;
 	}
 	__atomic_store_n(&ring->committed, stream.position, __ATOMIC_RELEASE);
 	stream.batch++;
@@ -482,30 +498,47 @@ static BOOL numbering_initialize(struct numbering *numbering, uint32_t size, uin
 	return numbering->slots && numbering->definitions;
 }
 
-/* (of 4-byte words: the definitions are) */
+/* (of 4-byte words: the definitions are). Four chains of words, each its own
+multiplies, so that they run side by side: a pipeline key is some 400 bytes,
+hashed for each draw whose pipeline is not the last one's */
 static uint32_t hash_words(const void *data, uint32_t size)
 {
 	const unsigned char *bytes = data;
-	uint32_t hash = 2166136261u;
-	uint32_t index, word;
+	uint32_t a = 2166136261u, b = 2166136261u + 1u, c = 2166136261u + 2u, d = 2166136261u + 3u;
+	uint32_t index, word, hash;
 
-	for (index = 0; index + 4 <= size; index += 4)
+	for (index = 0; index + 16 <= size; index += 16)
+	{
+		memcpy(&word, bytes + index, 4);
+		a = (a ^ word) * 16777619u;
+		memcpy(&word, bytes + index + 4, 4);
+		b = (b ^ word) * 16777619u;
+		memcpy(&word, bytes + index + 8, 4);
+		c = (c ^ word) * 16777619u;
+		memcpy(&word, bytes + index + 12, 4);
+		d = (d ^ word) * 16777619u;
+	}
+	hash = a ^ ((b << 7) | (b >> 25)) ^ ((c << 13) | (c >> 19)) ^ ((d << 19) | (d >> 13));
+	for (; index + 4 <= size; index += 4)
 	{
 		memcpy(&word, bytes + index, 4);
 		hash = (hash ^ word) * 16777619u;
-		hash ^= hash >> 15;
 	}
+	hash ^= hash >> 15;
+	hash *= 0x85ebca6bu;
+	hash ^= hash >> 13;
 	return hash;
 }
 
-/* the definition's number; *made if it is new (then sent by the caller) */
-static uint32_t numbering_find(struct numbering *numbering, const void *definition, BOOL *made)
+/* the definition's number; *made if it is new (then sent by the caller).
+last_differs: the caller has found it is not the last one found */
+static uint32_t numbering_find(struct numbering *numbering, const void *definition, BOOL *made, BOOL last_differs)
 {
 	uint32_t slot;
 	uint32_t number;
 
 	*made = FALSE;
-	if (numbering->last &&
+	if (!last_differs && numbering->last &&
 		!memcmp(numbering->definitions + (size_t)numbering->last * numbering->size, definition, numbering->size))
 		return numbering->last;
 	for (slot = hash_words(definition, numbering->size) & numbering->slot_mask;
@@ -523,7 +556,7 @@ static uint32_t numbering_find(struct numbering *numbering, const void *definiti
 		numbering->last = 0;
 		numbering->rounds++;
 		forget_sent();
-		return numbering_find(numbering, definition, made);
+		return numbering_find(numbering, definition, made, FALSE);
 	}
 	number = numbering->next++;
 	numbering->slots[slot] = (uint16_t)number;
@@ -546,7 +579,8 @@ void xgpu_backend_initialize(void)
 		stream.frames_in_flight = FRAMES_IN_FLIGHT_DEFAULT;
 	ring = stream_allocate(64, sizeof(*ring));
 	stream.buffer = stream_allocate(XGPU_STREAM_RING_ALIGNMENT, stream.ring_size);
-	stream.visibility = stream_allocate(64, XGPU_STREAM_VISIBILITY_SLOTS * sizeof(uint32_t));
+	/* (the counts, then the numbers of the tests they are of) */
+	stream.visibility = stream_allocate(64, XGPU_STREAM_VISIBILITY_SLOTS * 2 * sizeof(uint32_t));
 	stream.pipelines = stream_allocate(64, XGPU_STREAM_PIPELINES);
 	stream.replies = stream_allocate(64, sizeof(*stream.replies));
 	if (!ring || !stream.buffer || !stream.visibility || !stream.pipelines || !stream.replies ||
@@ -557,7 +591,7 @@ void xgpu_backend_initialize(void)
 		return;
 	}
 	memset(ring, 0, sizeof(*ring));
-	memset((void *)stream.visibility, 0, XGPU_STREAM_VISIBILITY_SLOTS * sizeof(uint32_t));
+	memset((void *)stream.visibility, 0, XGPU_STREAM_VISIBILITY_SLOTS * 2 * sizeof(uint32_t));
 	memset((void *)stream.pipelines, 0, XGPU_STREAM_PIPELINES);
 	ring->magic = XGPU_STREAM_MAGIC;
 	ring->version = XGPU_STREAM_VERSION;
@@ -661,7 +695,22 @@ void xgpu_backend_anti_alias(xgpu_target target, BOOL smaa, const long corners[4
 		record_body->corners[index] = (int32_t)corners[index];
 }
 
-void xgpu_backend_hdr(BOOL active, int mode, int paper_white)
+void xgpu_backend_panini(xgpu_target target, const long corners[4], const float projection[8])
+{
+	struct xgpu_stream_panini *record_body;
+	int index;
+
+	if (!stream.open)
+		return;
+	record_body = record(XGPU_STREAM_PANINI, sizeof(*record_body));
+	record_body->target = target;
+	for (index = 0; index < 4; index++)
+		record_body->corners[index] = (int32_t)corners[index];
+	for (index = 0; index < 8; index++)
+		record_body->projection[index] = projection[index];
+}
+
+void xgpu_backend_hdr(BOOL active, int mode, int paper_white_nits, int paper_white, int ui_nits)
 {
 	struct xgpu_stream_hdr *record_body;
 
@@ -670,7 +719,18 @@ void xgpu_backend_hdr(BOOL active, int mode, int paper_white)
 	record_body = record(XGPU_STREAM_HDR, sizeof(*record_body));
 	record_body->active = active ? 1 : 0;
 	record_body->mode = (uint32_t)mode;
+	record_body->paper_white_nits = (uint32_t)paper_white_nits;
 	record_body->paper_white = (uint32_t)paper_white;
+	record_body->ui_nits = (uint32_t)ui_nits;
+}
+
+void xgpu_backend_gamma(float gamma)
+{
+	uint32_t bits;
+
+	memcpy(&bits, &gamma, sizeof(bits));
+	if (stream.open)
+		record_value(XGPU_STREAM_GAMMA, bits);
 }
 
 void xgpu_backend_picture_top(int top)
@@ -693,6 +753,22 @@ void xgpu_backend_tone_map(xgpu_target target, const long corners[4])
 		record_body->corners[index] = (int32_t)corners[index];
 }
 
+void xgpu_backend_ambient_occlusion(xgpu_target target, const long corners[4], int quality, const float camera[6])
+{
+	struct xgpu_stream_ambient_occlusion *record_body;
+	int index;
+
+	if (!stream.open)
+		return;
+	record_body = record(XGPU_STREAM_AMBIENT_OCCLUSION, sizeof(*record_body));
+	record_body->target = target;
+	record_body->quality = (uint32_t)quality;
+	for (index = 0; index < 4; index++)
+		record_body->corners[index] = (int32_t)corners[index];
+	for (index = 0; index < 6; index++)
+		record_body->camera[index] = camera ? camera[index] : 0.0f;
+}
+
 /* (the host writes the ring's display_hdr and display_headroom as it looks
 at its display) */
 BOOL xgpu_backend_display_hdr(float *headroom)
@@ -708,6 +784,22 @@ BOOL xgpu_backend_display_hdr(float *headroom)
 	if (value >= 1.0f && value < 1000.0f)
 		*headroom = value;
 	return __atomic_load_n(&stream.ring->display_hdr, __ATOMIC_ACQUIRE) != 0;
+}
+
+/* (and display_white, display_white_reported) */
+BOOL xgpu_backend_display_white(float *nits)
+{
+	uint32_t bits;
+	float value;
+
+	*nits = 0.0f;
+	if (!stream.open)
+		return FALSE;
+	bits = __atomic_load_n(&stream.ring->display_white, __ATOMIC_ACQUIRE);
+	memcpy(&value, &bits, sizeof(value));
+	if (value > 0.0f && value < 100000.0f)
+		*nits = value;
+	return __atomic_load_n(&stream.ring->display_white_reported, __ATOMIC_ACQUIRE) != 0;
 }
 
 /* ---------- render targets */
@@ -1016,6 +1108,29 @@ void xgpu_backend_set_textures(const struct xgpu_texture_source stages[4])
 
 /* ---------- pipelines */
 
+/* ---------- numbers (above) */
+
+/* the floats made finite: each not a number or infinite made 0, and said
+(what, and the first's register or place) once in a thousand */
+static void stream_finite(float *values, unsigned long count, const char *what, unsigned long first)
+{
+	static unsigned long made;
+	unsigned long index;
+
+	for (index = 0; index < count; index++)
+	{
+		uint32_t bits;
+
+		memcpy(&bits, &values[index], sizeof(bits));
+		if ((bits & 0x7f800000u) != 0x7f800000u)
+			continue;
+		if (made++ % 1000 == 0)
+			platform_log("GPU: %s %lu.%c's %s (%08x) drawn as 0 (%lu so far)", what, first + index / 4,
+				"xyzw"[index % 4], bits & 0x007fffffu ? "number not a number" : "infinity", (unsigned)bits, made);
+		values[index] = 0.0f;
+	}
+}
+
 void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], unsigned long count)
 {
 	struct xgpu_stream_constants *record_body;
@@ -1026,6 +1141,7 @@ void xgpu_backend_set_constants(unsigned long first, const float (*values)[4], u
 	record_body->first = (uint32_t)first;
 	record_body->count = (uint32_t)count;
 	memcpy(record_body->values, values, count * sizeof(record_body->values[0]));
+	stream_finite(&record_body->values[0][0], count * 4, "vertex constant", first);
 }
 
 void xgpu_backend_vertex_program(unsigned long id, const struct xgpu_vertex_program *program)
@@ -1076,7 +1192,9 @@ BOOL xgpu_backend_pipeline(const struct xgpu_pipeline_key *key)
 	made the stream's only when it is new) */
 	if (stream.pipeline && !memcmp(key, &stream.last_key, sizeof(*key)))
 		return __atomic_load_n(&stream.pipelines[stream.pipeline], __ATOMIC_RELAXED) != XGPU_STREAM_PIPELINE_FAILED;
-	id = numbering_find(&stream.pipeline_keys, key, &made);
+	/* (the last key found is last_key, unless the numbers began again) */
+	id = numbering_find(&stream.pipeline_keys, key, &made,
+		stream.pipeline && stream.pipeline_keys.last == stream.pipeline);
 	memcpy(&stream.last_key, key, sizeof(*key));
 	if (made)
 	{
@@ -1185,6 +1303,7 @@ void xgpu_backend_draw_state(const struct xgpu_dynamic_state *dynamic, const str
 			continue;
 		memcpy(place, now + offset, bytes);
 		memcpy(had + offset, now + offset, bytes);
+		stream_finite((float *)place, bytes / 4, "draw uniform", piece * 4);
 		place += 16;
 	}
 	if (parts & XGPU_STREAM_DRAW_UNIFORMS)
@@ -1278,7 +1397,7 @@ void xgpu_backend_set_vertices(const struct xgpu_vertex_input *input)
 	memcpy(layout->elements, input->elements, element_count * sizeof(layout->elements[0]));
 	for (index = 0; index < element_count; index++)
 		fed |= 1u << (input->elements[index].reg & 15);
-	id = numbering_find(&stream.layouts, stream.layout, &made);
+	id = numbering_find(&stream.layouts, stream.layout, &made, FALSE);
 	if (made)
 	{
 		struct xgpu_stream_layout_define *define = record(XGPU_STREAM_LAYOUT_DEFINE,
@@ -1541,6 +1660,8 @@ void xgpu_backend_draw_immediate(int primitive, const float *vertices, unsigned 
 				}
 			}
 		}
+		stream_finite(packed ? packed : (float *)place, (unsigned long)count * bits(registers) * 4, "immediate vertex value",
+			0);
 		if (packed)
 		{
 			record_body->vertices = aside(packed);
@@ -1562,7 +1683,7 @@ void xgpu_backend_visibility_begin(void)
 		record(XGPU_STREAM_VISIBILITY_BEGIN, sizeof(struct xgpu_stream_record));
 }
 
-void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples)
+void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int samples, unsigned long test)
 {
 	struct xgpu_stream_visibility_end *record_body;
 
@@ -1573,12 +1694,16 @@ void xgpu_backend_visibility_end(unsigned long slot, float area, int views, int 
 	record_body->area = area;
 	record_body->views = views;
 	record_body->samples = samples;
+	record_body->test = (uint32_t)test;
 }
 
-UINT xgpu_backend_visibility_result(unsigned long slot)
+UINT xgpu_backend_visibility_result(unsigned long slot, unsigned long *test)
 {
+	*test = 0;
 	if (!stream.open || slot >= XGPU_STREAM_VISIBILITY_SLOTS)
 		return 0;
+	/* (the test's number first: the count is of it or of a later test) */
+	*test = __atomic_load_n(&stream.visibility[XGPU_STREAM_VISIBILITY_SLOTS + slot], __ATOMIC_ACQUIRE);
 	return __atomic_load_n(&stream.visibility[slot], __ATOMIC_RELAXED);
 }
 
@@ -1661,6 +1786,10 @@ void xgpu_backend_dynamic_lights_upload(const struct xgpu_dynamic_lights_block *
 		memcpy(record_body->block.color[light], block->color[light], 16);
 		memcpy(record_body->block.cone[light], block->cone[light], 16);
 	}
+	stream_finite(&record_body->block.grid[0][0], sizeof(record_body->block.grid) / 4, "dynamic lights' grid", 0);
+	stream_finite(&record_body->block.position[0][0], count * 4, "dynamic light place", 0);
+	stream_finite(&record_body->block.color[0][0], count * 4, "dynamic light colour", 0);
+	stream_finite(&record_body->block.cone[0][0], count * 4, "dynamic light cone", 0);
 	record_body->cells = carry_one(&place, cells, DYNAMIC_LIGHTS_CELLS_SIZE);
 }
 
@@ -1690,6 +1819,7 @@ void xgpu_backend_dynamic_lights_halos(xgpu_target color, xgpu_target depth, int
 	record_body->softness = halos->softness;
 	record_body->screen_offset = halos->screen_offset;
 	memcpy(record_body->halos, halos->halos, count * 2 * sizeof(record_body->halos[0]));
+	stream_finite(&record_body->halos[0][0], (unsigned long)count * 2 * 4, "dynamic light glow value", 0);
 }
 
 /* ---------- the VR mode */
@@ -1713,6 +1843,12 @@ void xgpu_backend_prepare(void)
 		return;
 	record(XGPU_STREAM_PREPARE, sizeof(struct xgpu_stream_record));
 	stream.preparing = TRUE;
+}
+
+void xgpu_backend_frame_extra(unsigned long microseconds)
+{
+	frame_extra_microseconds = (uint32_t)microseconds;
+	frame_extra_frames = microseconds ? XGPU_FRAME_EXTRA_FRAMES : 0;
 }
 
 void xgpu_backend_loading_art(const unsigned char *rgba)
@@ -1749,6 +1885,36 @@ void xgpu_backend_loading_progress(float progress)
 		return;
 	memcpy(&bits, &progress, sizeof(bits));
 	record_value(XGPU_STREAM_LOADING_PROGRESS, bits);
+}
+
+void xgpu_backend_loading_mode(int follow_progress)
+{
+	if (!stream.open)
+		return;
+	record_value(XGPU_STREAM_LOADING_MODE, follow_progress ? 1u : 0u);
+}
+
+void xgpu_backend_loading_caption(const unsigned char *coverage, unsigned long width, unsigned long height)
+{
+	struct xgpu_stream_value *body;
+	uint32_t size[2], bytes;
+
+	if (!stream.open)
+		return;
+	if (!coverage || !width || !height || width > 8192 || height > 512)
+		width = height = 0;
+	bytes = width ? (uint32_t)(sizeof(size) + width * height) : 0;
+	if (bytes > XGPU_STREAM_RECORD_MAXIMUM - sizeof(*body) - 64)
+		return;
+	body = record(XGPU_STREAM_LOADING_CAPTION, sizeof(*body) + bytes);
+	body->value = bytes;
+	if (bytes)
+	{
+		size[0] = (uint32_t)width;
+		size[1] = (uint32_t)height;
+		memcpy(body + 1, size, sizeof(size));
+		memcpy((unsigned char *)(body + 1) + sizeof(size), coverage, width * height);
+	}
 }
 
 void xgpu_backend_loading(int active)

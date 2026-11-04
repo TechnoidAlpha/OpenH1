@@ -1,0 +1,13 @@
+# The relays this machine offers when another cannot be reached directly
+# (both networks' NATs too strict for hole punching): dedicated servers with
+# server.relay = "any", or relays run with halo --relay (docs/dedicated_server.md,
+# "Relays"). One on each line: a host name or IPv4 address, and its UDP port
+# after a colon (2302 if none); up to 8; "#" starts a comment. A relay is
+# tried only after a direct connection failed; it sees both machines'
+# addresses, never what they send each other.
+# (The game reads this file beside config.toml: network.relays_file, and a
+# dedicated server's server.relays_file. An update replaces it; keep a list
+# of your own under another name.)
+#
+# A file that names none, as this one, offers none: the game then uses only
+# the relays its game's dedicated server offers.

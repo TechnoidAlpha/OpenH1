@@ -232,9 +232,17 @@ static void maps_used_before(void)
 	setenv("HALO_MAPS_USED_BEFORE", [found componentsJoinedByString:@"\n"].fileSystemRepresentation, 1);
 }
 
-/* the open panel's choices: folders, and of the files only disc images
-(the panel is given no types: .xiso has none of its own, and would be
-greyed out) */
+/* whether url names a Windows program: Custom Edition's installer
+(halocesetup_en_1.00.exe), whose maps the first start adds to custom_maps
+(port/linux/src/map_import.c) */
+static BOOL is_program(NSURL *url)
+{
+	return [url.pathExtension.lowercaseString isEqualToString:@"exe"];
+}
+
+/* the open panel's choices: folders, and of the files only disc images and
+Custom Edition's installer (the panel is given no types: .xiso has none of
+its own, and would be greyed out) */
 @interface HaloMapsPanelDelegate : NSObject <NSOpenSavePanelDelegate>
 @end
 
@@ -243,7 +251,7 @@ greyed out) */
 - (BOOL)panel:(id)sender shouldEnableURL:(NSURL *)url
 {
 	(void)sender;
-	return is_folder(url.path) || is_disc_image(url);
+	return is_folder(url.path) || is_disc_image(url) || is_program(url);
 }
 
 @end
@@ -275,8 +283,9 @@ int host_app_choose_game_data(SDL_Window *window, char *path, uint32_t size)
 		panel.delegate = delegate;
 		panel.prompt = @"Use These Maps";
 		panel.message = @"Choose the disc image (.iso or .xiso) or the maps folder of Halo: Combat Evolved for the "
-			"Xbox, from your own copy of the game.\nIts maps are copied into the game’s folder; the image or the folder "
-			"stays as it is.";
+			"Xbox, from your own copy of the game, or Custom Edition’s installer (halocesetup_en_1.00.exe) for its "
+			"multiplayer maps.\nThe maps are copied into the game’s folder; the image, folder or installer stays as it "
+			"is.";
 		if (is_folder(downloads))
 			panel.directoryURL = [NSURL fileURLWithPath:downloads isDirectory:YES];
 		if (answer)

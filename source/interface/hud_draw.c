@@ -108,6 +108,8 @@ symbols in this file:
 #include "cache_file_formats.h" /* port: port/linux/game/cache_file_formats.c */
 #include "custom_edition_cache.h"
 #include "view_fov.h" /* port: port/linux/game/view_fov.c */
+#include "panini.h" /* port: port/linux/game/panini.c */
+#include "lowered_reticle.h" /* port: port/linux/game/lowered_reticle.c */
 
 #ifdef HALO_VR
 #include "../../port/linux/src/vr.h"
@@ -1674,6 +1676,9 @@ static void hud_draw_bitmap_with_meter(
 	real_vector2d xy_scale;
 	point2d point;
 	real_rectangle2d bounds;
+	/* port: a reticle at the centre keeps to its aim (view_fov.c), the view
+	drawn through display.panini's projection too (panini.c) */
+	real reticle_scale;
 
 	csmemset(stack_buffer, 0x62, sizeof(stack_buffer));
 
@@ -1719,9 +1724,13 @@ static void hud_draw_bitmap_with_meter(
 		point.y += vr_render_crosshair_offset[1];
 	}
 #endif
-	/* port: the crosshairs_draw scope moves only the weapon's reticle */
-	if (is_crosshair_bitmap)
-		passenger_camera_reticle_offset(&point);
+	reticle_scale = is_crosshair_bitmap && absolute_placement->corner == _hud_anchor_center ?
+		render_fov_reticle_scale(render.local_player_index) * panini_center_scale() : 1.0f;
+	/* port: the crosshairs_draw scope moves only the weapon's reticle: to
+	the passenger's shot, or to where the aim lands below the middle
+	(display.lowered_reticle) */
+	if (is_crosshair_bitmap && !passenger_camera_reticle_offset(&point))
+		lowered_reticle_offset_point(&point, reticle_scale);
 	hud_calculate_bitmap_bounds(
 		bitmap,
 		absolute_placement->corner,
@@ -1737,9 +1746,7 @@ static void hud_draw_bitmap_with_meter(
 		&xy_scale,
 		theta,
 		color,
-		/* port: a reticle at the centre keeps to its aim (view_fov.c) */
-		is_crosshair_bitmap && absolute_placement->corner == _hud_anchor_center ?
-			render_fov_reticle_scale(render.local_player_index) : 1.0f);
+		reticle_scale);
 
 	match_assert_stack_frame("c:\\halo\\SOURCE\\interface\\hud_draw.c", 814);
 

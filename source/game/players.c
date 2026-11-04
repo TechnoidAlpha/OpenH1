@@ -288,6 +288,8 @@ boolean network_game_distributed_client(void);
 void network_distributed_player_picked_up(long player_index, short kind, long definition_index, short count);
 /* port/linux/game/network_objects.c's */
 void network_objects_client_picked_up_weapon(short local_player_index, long unit_index, long definition_index);
+/* port/linux/game/network_standard.c's */
+boolean network_standard_walk_over_pickup(long player_index);
 /* game_sound.c's */
 long unspatialized_impulse_sound_new(long sound_definition_index, real scale);
 
@@ -2014,6 +2016,9 @@ static boolean player_teleport_internal(
 	long player_unit_index = player->unit_index;
 	struct biped_datum *biped = biped_get(player_unit_index);
 	boolean result = FALSE;
+	/* port: where the unit was, for a network co-op teleport that would leave
+	it on a loading zone (below) */
+	real_point3d original_position = biped->object.position;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\game\\players.c",
@@ -2158,6 +2163,12 @@ static boolean player_teleport_internal(
 					player->unit_index))
 			{
 				result = FALSE;
+				/* port: the Xbox game killed the player there; network co-op
+				leaves them where they were instead, not on the zone, where they
+				would switch the BSP straight back (a dedicated server's team
+				was pulled back and forth so) */
+				if (network_coop_active())
+					object_set_position(player_unit_index, &original_position, NULL, NULL);
 				break;
 			}
 		}
@@ -2888,8 +2899,18 @@ static struct player_starting_location const *players_coop_spawn_location(
 	csmemset(location, 0, sizeof(*location));
 	point_from_line3d(&beside->object.position, &beside->object.forward,
 		-(beside->object.bounding_sphere_radius + COOP_SPAWN_BEHIND_DISTANCE), &location->position);
-	if (scenario_leaf_index_from_point(&location->position) == NONE)
+	/* (in front of them where behind is on a loading zone, which would switch
+	the BSP back: player_position_switches_bsp) */
+	if (player_position_switches_bsp(&location->position))
+	{
+		point_from_line3d(&beside->object.position, &beside->object.forward,
+			beside->object.bounding_sphere_radius + COOP_SPAWN_BEHIND_DISTANCE, &location->position);
+	}
+	if (scenario_leaf_index_from_point(&location->position) == NONE ||
+		player_position_switches_bsp(&location->position))
+	{
 		location->position = beside->object.position;
+	}
 	location->facing = arctangent(beside->object.forward.j, beside->object.forward.i);
 
 	return location;
@@ -3086,8 +3107,9 @@ static void players_coop_rescue_stranded(
 
 			rescued = position && player_teleport(iterator.datum_index, NONE, position);
 		}
-		if (rescued)
-			*since = 0;
+		/* (port: and one that found no spot waits as long again before the
+		next try, rather than being moved about every tick) */
+		*since = rescued ? 0 : game_time_get() + 1;
 	}
 }
 
@@ -3395,6 +3417,57 @@ static short players_coop_bsp_switch_trigger(
 	return NONE;
 }
 
+/* port: a dedicated co-op server's loading zones (players_coop_bsp_switch_allowed):
+whether more than half of the living players who are not away, on machines
+that have the BSP, stand in zones from the loaded BSP to the one this zone
+leads to. Those waiting are told how many more it needs (or the cooldown's
+seconds), and once it switches everyone is told who crossed
+(network_coop_note_bsp_switch) */
+static boolean players_coop_bsp_switch_majority(
+	short bsp_switch_trigger_volume_index)
+{
+	struct scenario *scenario = global_scenario_get();
+	struct scenario_bsp_switch_trigger_volume *target = TAG_BLOCK_GET_ELEMENT(
+		&scenario->bsp_switch_trigger_volumes, bsp_switch_trigger_volume_index, struct scenario_bsp_switch_trigger_volume);
+	long crossing[NETWORK_GAME_MAXIMUM_PLAYER_COUNT];
+	struct data_iterator iterator;
+	struct player_datum *player;
+	long total = 0, in = 0;
+
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+	{
+		short trigger;
+
+		if (player->unit_index == NONE || !network_coop_player_has_structure_bsp(iterator.datum_index) ||
+			network_coop_player_away(iterator.datum_index))
+		{
+			continue;
+		}
+		total++;
+		trigger = players_coop_bsp_switch_trigger(player->unit_index);
+		if (trigger != NONE && TAG_BLOCK_GET_ELEMENT(&scenario->bsp_switch_trigger_volumes, trigger,
+			struct scenario_bsp_switch_trigger_volume)->destination_structure_bsp_index ==
+				target->destination_structure_bsp_index && in < NETWORK_GAME_MAXIMUM_PLAYER_COUNT)
+		{
+			crossing[in++] = iterator.datum_index;
+		}
+	}
+	if (in * 2 > total)
+	{
+		network_coop_note_bsp_switch(global_structure_bsp_index, target->destination_structure_bsp_index, crossing, in);
+		return TRUE;
+	}
+	{
+		long index, more = total / 2 + 1 - in;
+
+		for (index = 0; index < in; index++)
+			network_coop_tell_bsp_switch_waiting(crossing[index], more, in, total);
+	}
+
+	return FALSE;
+}
+
 /* port: whether a network co-op host lets any trigger switch the BSP yet.
 After a switch it waits COOP_BSP_SWITCH_SETTLE_TICKS while the players are
 brought in, then until every player's machine has loaded the new BSP, so no
@@ -3408,6 +3481,10 @@ static boolean players_coop_bsp_switch_ready(
 	struct player_datum *player;
 
 	if (since < COOP_BSP_SWITCH_SETTLE_TICKS)
+		return FALSE;
+	/* (and a dedicated server's cooldown between switches, so that no zone
+	pair ping-pongs the team: server.coop_bsp_switch_cooldown_seconds) */
+	if (since < network_coop_bsp_switch_cooldown_ticks())
 		return FALSE;
 	if (since >= COOP_BSP_SWITCH_WAIT_TICKS)
 		return TRUE;
@@ -3446,12 +3523,20 @@ back drags the others through the level. With none of the host's players
 alive anyone's does, so the team never waits on the host's respawn. Never
 while the unit's machine still loads the host's BSP. */
 static boolean players_coop_bsp_switch_allowed(
-	long unit_index)
+	long unit_index,
+	short bsp_switch_trigger_volume_index)
 {
 	long player_index = unit_get(unit_index)->unit.player_index;
 
-	return network_coop_player_has_structure_bsp(player_index) &&
-		(player_get(player_index)->local_player_index != NONE || !players_coop_host_alive());
+	if (!network_coop_player_has_structure_bsp(player_index))
+		return FALSE;
+	/* port: a dedicated server has no player of its own: its zones switch the
+	BSP only once most of the living players who are not away stand in zones
+	to the same BSP (server.coop_bsp_switch "majority"), so no one player
+	drags the team back through the level */
+	if (network_coop_bsp_switch_majority())
+		return players_coop_bsp_switch_majority(bsp_switch_trigger_volume_index);
+	return player_get(player_index)->local_player_index != NONE || !players_coop_host_alive();
 }
 
 /* port: tells a co-op client's players standing on a loading zone that the
@@ -3577,6 +3662,17 @@ void players_reconnect_to_structure_bsp(
 	short cutscene_flag_index;
 	long player_unit_index;
 	short pass;
+
+	/* port: each player's last cluster is the old BSP's: forgotten before the
+	teleports below, as it is after them. A teleport's coop respawn effect
+	works out the players' combined pvs (player_teleport_on_bsp_switch), and
+	a player not moved yet, or not moved at all (one network co-op leaves
+	where it was), is outside the new BSP, where its unit has no cluster: the
+	pvs took the old BSP's cluster index for it, one of another cluster or
+	past the new BSP's clusters (structure_bsp_get_cluster_pvs's assertion) */
+	data_iterator_new(&iterator, player_data);
+	while ((player = data_iterator_next(&iterator)) != NULL)
+		player->cluster_index = NONE;
 
 	/* port: also on a network co-op host, whose other players are remote */
 	if (players_globals->pending_teleport_starting_location_index != NONE &&
@@ -3737,9 +3833,12 @@ boolean unit_should_autopick_weapon(
 	if ((unit_approve_weapon_pickup(unit_index, weapon_index) &&
 		TEST_FLAG(weapon_definition->weapon.flags, _weapon_doesnt_count_toward_maximum_bit)) ||
 		weapon_count == 0 ||
-		/* port: and in multiplayer (campaign's only), a second weapon into
-		the empty slot, readied (unit_add_weapon_to_inventory) */
-		(unit_approve_weapon_pickup(unit_index, weapon_index) &&
+		/* port: and in multiplayer, where the Xbox game's player held the
+		action button for it, as Custom Edition's walks over it
+		(game.auto_pickup, a network game's host's: network_standard.c) */
+		((!game_engine_running() ||
+			network_standard_walk_over_pickup(unit_get(unit_index)->unit.player_index)) &&
+			unit_approve_weapon_pickup(unit_index, weapon_index) &&
 			weapon_count < 2) ||
 		game_engine_force_autopickup(unit_index, weapon_index))
 	{
@@ -4821,6 +4920,8 @@ void players_update_before_game(
 		/* port: the controls of a local game's bots this tick
 		(port/linux/game/bots.c), in place of what their queues held */
 		bots_update_actions(actions);
+		/* port: debug.play_log (port/linux/game/play_log.c) */
+		play_log_tick(actions);
 		data_iterator_new(&iterator, player_data);
 		while (player = data_iterator_next(&iterator))
 		{
@@ -5094,7 +5195,9 @@ void players_update_after_game(
 		players_coop_state.structure_bsp_index = global_structure_bsp_index;
 		players_coop_state.bsp_switch_time = game_time_get();
 	}
-	if (network_coop_active() && network_game_distributed_client())
+	/* (a dedicated server's clients are told how many more players a zone
+	needs by the server instead: players_coop_bsp_switch_majority) */
+	if (network_coop_active() && network_game_distributed_client() && !network_coop_host_dedicated())
 		players_coop_show_host_wait();
 
 	data_iterator_new(&iterator, player_data);
@@ -5142,6 +5245,18 @@ void players_update_after_game(
 		{
 			root_object_index = object_get_ultimate_parent(player->unit_index);
 			root_object = object_get(root_object_index);
+			/* port: a dedicated co-op server's player standing in a zone
+			while the cooldown runs is told when it opens */
+			if (network_coop_active() && network_coop_bsp_switch_majority() && !players_coop_bsp_switch_ready() &&
+				game_time_get() - players_coop_state.bsp_switch_time >= COOP_BSP_SWITCH_SETTLE_TICKS &&
+				players_coop_bsp_switch_trigger(player->unit_index) != NONE)
+			{
+				long left = network_coop_bsp_switch_cooldown_ticks() - (game_time_get() - players_coop_state.bsp_switch_time);
+
+				if (left > 0)
+					network_coop_tell_bsp_switch_waiting(iterator.datum_index, 0, 0,
+						(left + TICKS_PER_SECOND - 1) / TICKS_PER_SECOND);
+			}
 			/* port: a co-op client only switches BSP when the host does
 			(network_distributed.c), and the host not again until everyone
 			has the new one */
@@ -5163,7 +5278,7 @@ void players_update_after_game(
 							bsp_switch_trigger_volume->trigger_volume_index,
 							player->unit_index) &&
 						(!network_coop_active() ||
-							players_coop_bsp_switch_allowed(player->unit_index)))
+							players_coop_bsp_switch_allowed(player->unit_index, bsp_switch_trigger_volume_index)))
 					{
 						if (players_globals->local_player_triggered_switch !=
 							_local_player_triggered_switch_none &&

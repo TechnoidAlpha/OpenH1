@@ -215,8 +215,8 @@ struct sound_platform_definition
 		short channel_index,
 		boolean spatialized,
 		struct sound_location const *location,
-		real occlusion,
 		real obstruction,
+		real occlusion,
 		boolean attenuate_direct_path);
 	void (*set_channel_properties)(
 		short channel_index,
@@ -263,8 +263,8 @@ static void dsound_channel_set_location(
 	short channel_index,
 	boolean spatialized,
 	struct sound_location const *location,
-	real occlusion,
 	real obstruction,
+	real occlusion,
 	boolean attenuate_direct_path);
 static boolean dsound_initialize_channel(
 	short channel_index,
@@ -315,8 +315,8 @@ static void dsound_virtual_set_location(
 	short virtual_channel_index,
 	boolean spatialized,
 	struct sound_location const *location,
-	real occlusion,
 	real obstruction,
+	real occlusion,
 	boolean attenuate_direct_path);
 static void dsound_virtual_set_properties(
 	short virtual_channel_index,
@@ -1922,8 +1922,8 @@ static void dsound_virtual_set_location(
 	short virtual_channel_index,
 	boolean spatialized,
 	struct sound_location const *location,
-	real occlusion,
 	real obstruction,
+	real occlusion,
 	boolean attenuate_direct_path)
 {
 	short channel_index= dsound_virtual_touch(virtual_channel_index);
@@ -1934,8 +1934,8 @@ static void dsound_virtual_set_location(
 			channel_index,
 			spatialized,
 			location,
-			occlusion,
 			obstruction,
+			occlusion,
 			attenuate_direct_path);
 	}
 
@@ -1954,8 +1954,8 @@ void dsound_port_set_channel_stereo_position(
 	real distance,
 	real minimum_distance,
 	real distance_fade,
-	real occlusion,
 	real obstruction,
+	real occlusion,
 	boolean attenuate_direct_path)
 {
 	extern void dsound_sdl_stream_set_stereo_position(IDirectSoundStream *stream, BOOL positioned, float pan,
@@ -2324,12 +2324,21 @@ static void CALLBACK dsound_channel_callback(
 	return;
 }
 
+/* port: the obstruction and the occlusion in the order the sound manager
+passes them (sound_manager.h: the source's obstruction, then its
+occlusion), here and in dsound_virtual_set_location and
+dsound_port_set_channel_stereo_position; they were taken the other way round,
+so that a sound in sight but behind something (its obstruction, 0.45) was
+muffled as one in another room is, its room send too, and a sound in
+another room (its occlusion, from the clusters' distance) only lost its
+direct path's high frequencies, its low frequencies and its reverberation
+as loud as in the open */
 static void dsound_channel_set_location(
 	short channel_index,
 	boolean spatialized,
 	struct sound_location const *location,
-	real occlusion,
 	real obstruction,
+	real occlusion,
 	boolean attenuate_direct_path)
 {
 	struct sound_channel *channel= channel_get(channel_index);

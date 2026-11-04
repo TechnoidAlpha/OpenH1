@@ -45,6 +45,25 @@ def test_symbols_are_still_renamed():
         "\t.globl table", "table:", "\tadrp x8, table", "\tadd x8, x8, :lo12:table", '\t.long "odd name"']
 
 
+def test_profile_sections_and_quoted_counters():
+    """an instrumented guest's (configure.py --pgo=generate): its profile's
+    sections keep their names (guest_profile.c finds them by the link's
+    __start_ and __stop_ symbols), and a counter named after a source file
+    in a folder with a space is addressed as any other symbol"""
+    name = '"l___profc_source/saved games/game_state.c;game_state_set_revert_time"'
+    assert convert("\t.section\t__DATA,__llvm_prf_cnts", f"\tadrp\tx8, {name}@PAGE",
+                   f"\tldr\tx9, [x8, {name}@PAGEOFF+8]", "\t.section\t__DATA,__llvm_prf_data,regular,live_support",
+                   "\t.section\t__DATA,__llvm_prf_names") == [
+        '\t.section __llvm_prf_cnts,"aw",@progbits', f"\tadrp x8, {name}", f"\tldr x9, [x8, :lo12:{name}+8]",
+        '\t.section __llvm_prf_data,"aw",@progbits', '\t.section __llvm_prf_names,"aw",@progbits']
+
+
+def test_symbols_named_as_registers_are_quoted():
+    """a C function named as a register (monocypher's x16) is not taken for
+    the register once Darwin's "_" is gone"""
+    assert convert("_x16:", "\tbl\t_x16", "\tbl\t_x16b") == ['"x16":', '\tbl "x16"', "\tbl x16b"]
+
+
 def rodata(elf: bytes) -> bytes:
     """the .rodata section of a 64-bit little-endian ELF object"""
     shoff, = struct.unpack_from("<Q", elf, 0x28)

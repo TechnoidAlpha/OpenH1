@@ -51,6 +51,14 @@ enum
 	/* the players do their AI allies no harm (Server Setup's ALLY FRIENDLY
 	FIRE: OFF, co-op's): network_coop_ally_friendly_fire */
 	_network_game_cooperative_no_ally_friendly_fire_bit = 1,
+	/* the host is a dedicated server: its loading zones ask for most of the
+	players, not the host's (network_coop_host_dedicated) */
+	_network_game_cooperative_dedicated_bit = 2,
+	/* not co-op's: an OpenH1 game's players pick up a second weapon by
+	holding the action button, as on the Xbox, not by walking over it
+	(game.auto_pickup false: network_standard_walk_over_pickup). Only a
+	Standard host sets it, and its OpenH1 machines alone read it */
+	_network_game_hold_to_pick_up_bit = 3,
 };
 
 struct network_game

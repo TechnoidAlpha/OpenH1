@@ -1017,6 +1017,13 @@ void ai_index_actor_iterator_new(
 	match_assert("c:\\halo\\SOURCE\\ai\\ai_script.c", 384, iterator);
 
 	iterator->encounter_index = ai_reference & UNSIGNED_SHORT_MAX;
+	/* port: no actors until an encounter's are begun below. A reference
+	that names no encounter (none, an index the map doesn't have, or a
+	type that isn't one) left these as the stack had them, and
+	ai_index_actor_iterator_next went on from the garbage next index */
+	iterator->actor_encounter_index = NONE;
+	iterator->actor_index = NONE;
+	iterator->next_actor_index = NONE;
 
 	if (scenario &&
 		ai_globals->ai_initialized_for_map &&

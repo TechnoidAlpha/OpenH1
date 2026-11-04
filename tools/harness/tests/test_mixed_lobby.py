@@ -13,7 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run  # noqa: E402
 
 CASES = ["legacy-host", "openh1-host", "mixed-host", "record", "messages", "players", "players-unmixed",
-         "legacy-heard"]
+         "legacy-heard", "dedicated-server"]
 
 # a fault in network_standard.c, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -25,6 +25,8 @@ NEGATIVE_CONTROLS = {
                                   "if (!csmemcmp(request_token, game_token"), "openh1-host"),
     "mixed-refuses-opence": (("\t\treturn _network_standard_join_opence;", "\t\treturn NONE;"), "mixed-host"),
     "record-keeps-rate": (("legacy_game.standard_rate = 0;", ";"), "record"),
+    "record-keeps-pickup": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
+                             ""), "record"),
     "openh1-messages-to-opence": (("return type < FIRST_OPENH1_DISTRIBUTED_MESSAGE || "
                                    "!network_standard_machine_is_opence(machine_index);", "return TRUE;"), "messages"),
     "opence-players-unknown": (("network_standard_globals.opence_players[absolute_index] = TRUE;", ";"), "players"),
@@ -36,6 +38,13 @@ NEGATIVE_CONTROLS = {
                                     "network_standard_globals.opence_players[player_index] ="), "players"),
     "unmixed-players-at-30": (("\t\tif (!network_standard_hosting_mixed())\n\t\t\treturn FALSE;\n\t\tbreak;",
                                "\t\tbreak;"), "players-unmixed"),
+    "server-reads-network-game-mode": (("halo_server_mode() ? network_standard_server_setting() != 0 :", ""),
+                                       "dedicated-server"),
+    "server-legacy-setting-changes-rate": (("return rate ? rate : network_standard_globals.hosting_rate;",
+                                            "return rate ? rate : SIM_RATE_CLASSIC;"), "dedicated-server"),
+    "legacy-record-keeps-old-rate": (("network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : 0",
+                                      "network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : "
+                                      "game->standard_rate"), "dedicated-server"),
 }
 
 

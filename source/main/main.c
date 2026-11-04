@@ -379,7 +379,8 @@ symbols in this file:
 #include "networking/network_game_globals.h"
 #include "networking/network_game_manager.h"
 #include "networking/network_server_manager.h" /* port: a co-op game's level won */
-#include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "network_coop.h"
+#include "coop_scripts.h" /* port: port/linux/game/coop_scripts.c */
 #include "network_voice.h" /* port: port/linux/game/network_voice.c */
 #include "network_chat.h" /* port: port/linux/game/network_chat.c */
 #include "network_party.h" /* port: port/linux/game/network_party.c */
@@ -407,6 +408,8 @@ symbols in this file:
 #include "tag_files/files.h"
 #include "custom_edition_cache.h" /* port: custom_edition_level_name */
 #include "view_fov.h" /* port: display.fov, before the projection and culling */
+#include "far_clip.h" /* port: display.draw_distance, the far clip plane */
+#include "lowered_reticle.h" /* port: display.lowered_reticle, the view above the aim */
 
 #if defined(HALO_WINDOWS) || defined(HALO_ANDROID) || defined(__linux__)
 #define HALO_NATIVE_BUILD_INFO 1
@@ -695,8 +698,20 @@ typedef char screenshot_and_framerate_globals_size_assert[
 	sizeof(struct _screenshot_and_framerate_globals) == 0x38B ? 1 : -1];
 
 void network_test_update(boolean main_menu_loaded, real seconds);
+/* port: port/linux/game/basic_training.c */
+void basic_training_update(boolean main_menu_loaded, real seconds);
+/* port: the menus' pictures drawn again from the player's maps, rendered
+by the game itself as the main menu first shows, under the loading screen:
+which frames it draws (port/linux/game/menu_pictures_render.c) */
+void menu_pictures_frame(int main_menu_loaded);
+int menu_pictures_preparing(void);
+int menu_pictures_frame_drawn(void);
 /* port: port/linux/game/network_distributed.c */
 void network_distributed_frame_received(void);
+int network_distributed_server_receive(long milliseconds);
+/* port: port/linux/game/network_clock.c */
+boolean network_clock_server_pace_first(void);
+boolean network_clock_server_paced(void);
 /* port: port/linux/src/port_config.c */
 double config_real(const char *name);
 #ifdef HALO_VR
@@ -704,6 +719,7 @@ void vr_seat_test_update(void);
 void vr_death_test_update(void);
 #endif
 #include "server_director.h" /* port: port/linux/game/server_director.c */
+#include "load_zone.h" /* port: port/linux/game/load_zone.c */
 
 /* ---------- prototypes */
 
@@ -1102,6 +1118,7 @@ void main_switch_structure_bsp(
 	}
 	main_globals.switch_to_structure_bsp_index = structure_bsp_index;
 	hud_load(TRUE);
+	load_zone_switch_requested(); /* port: its frame started early enough (port/linux/game/load_zone.c) */
 	return;
 }
 
@@ -1195,6 +1212,12 @@ void set_window_camera_values(
 				0.75f * render_camera_get_adjusted_field_of_view_tangent(
 					observer->field_of_view),
 				1.0f));
+		/* port: the view looks above the aim when the reticle is lowered
+		(display.lowered_reticle, lowered_reticle.c): the camera's forward
+		and up turned up from the observer's, at the angle and bounds it is
+		drawn at; the observer, which aims, is left as it is */
+		lowered_reticle_view(window->local_player_index, observer->field_of_view,
+			&window->rasterizer_camera);
 
 		if (window->local_player_index != NONE &&
 			!console_is_active() &&
@@ -1221,8 +1244,9 @@ void set_window_camera_values(
 			matrix4x3_from_point_and_vectors(
 				&view_matrix,
 				&observer->position,
-				&observer->forward,
-				&observer->up);
+				/* port: (the view's, above the aim) */
+				&window->rasterizer_camera.forward,
+				&window->rasterizer_camera.up);
 			matrix4x3_multiply(&view_matrix, &effect_matrix, &view_matrix);
 			matrix4x3_to_point_and_vectors(
 				&view_matrix,
@@ -1245,7 +1269,8 @@ void set_window_camera_values(
 
 	window->rasterizer_camera.mirrored = FALSE;
 	window->rasterizer_camera.z_near = rasterizer_globals.near_clip_distance;
-	window->rasterizer_camera.z_far = rasterizer_globals.far_clip_distance;
+	/* port: display.draw_distance (far_clip.c) */
+	window->rasterizer_camera.z_far = render_far_clip_distance();
 	if (!debug_render_freeze)
 		window->render_camera = window->rasterizer_camera;
 
@@ -1552,7 +1577,8 @@ static void main_new_map(
 static void main_change_map_name(
 	void)
 {
-	if (main_globals.main_menu_scenario_loaded == TRUE)
+	/* port: (none for the menus' pictures: menu_pictures_render.c) */
+	if (main_globals.main_menu_scenario_loaded == TRUE && !menu_pictures_preparing())
 	{
 		if (!main_globals.map_change_load_timer)
 		{
@@ -1604,8 +1630,10 @@ static void main_change_map_name(
 			game_unload();
 			main_new_map(&options);
 
+			/* port: (not a map of the menus' pictures: the player's last level
+			is as it was) */
 			for (local_player_index = 0;
-				local_player_index < player_spawn_count;
+				local_player_index < player_spawn_count && !menu_pictures_preparing();
 				local_player_index++)
 			{
 				player_profile_save_last_level_played(local_player_index);
@@ -1892,7 +1920,8 @@ void main_save_current_solo_map(
 {
 	FILE *file;
 
-	if ((short)main_get_solo_level_from_name(map_name) != NONE)
+	/* port: (not a map of the menus' pictures: menu_pictures_render.c) */
+	if ((short)main_get_solo_level_from_name(map_name) != NONE && !menu_pictures_preparing())
 	{
 		file = fopen("z:\\last_solo.txt", "w");
 		if (file)
@@ -2030,10 +2059,23 @@ on the host alone. */
 static boolean main_coop_host_revert(
 	void)
 {
+	/* (the last reverts' times: a script whose failure holds again at once
+	after the revert would pull everyone back to the save over and over; a
+	third in a minute respawns the players at the checkpoint instead) */
+	static unsigned long revert_times[2];
+	unsigned long milliseconds = system_milliseconds();
 	long now = game_time_get();
 
 	if (!game_state_port_saved_game_valid())
 		return FALSE;
+	if (revert_times[0] && milliseconds - revert_times[0] < 60000)
+	{
+		error(_error_log, "co-op: a third revert in a minute: the players respawn at the checkpoint instead");
+		revert_times[0] = revert_times[1] = 0;
+		return FALSE;
+	}
+	revert_times[0] = revert_times[1];
+	revert_times[1] = milliseconds;
 	game_state_revert();
 	network_coop_reverted(now);
 	ui_widgets_disable_pause_game(30);
@@ -2159,7 +2201,13 @@ static void main_save_map_private(
 				}
 				else if (main_globals.ticks_until_next_save_check-- <= 0)
 				{
-					if (game_safe_to_save())
+					/* port: in network co-op one player safe is enough, as for
+					the scripts' own test (coop_scripts_safe_to_save): the game's
+					asks it of every player at once, whom one dead, one in the air
+					or one driving past held off, and a level's checkpoint (the
+					Maw's before its Warthog run) gave up; a team wipe went back
+					to the one before */
+					if (coop_scripts_safe_to_save())
 					{
 						if (main_globals.safe_intervals++ >= 3)
 							save_map = TRUE;
@@ -2195,10 +2243,11 @@ static void main_save_map_private(
 static void main_switch_to_structure_bsp_private(
 	void)
 {
-	halo_loading_begin(); /* port: keep presentation independent while BSP resources change */
+	load_zone_switch_begin(); /* port: (port/linux/game/load_zone.c) */
 	scenario_switch_structure_bsp(main_globals.switch_to_structure_bsp_index);
 	main_globals.switch_to_structure_bsp_index = NONE;
 	hud_load(0);
+	load_zone_switch_end(); /* port */
 	return;
 }
 
@@ -2458,6 +2507,52 @@ void main_set_map_name(
 	main_globals.allow_persistent_storage = TRUE;
 	if ((game_in_editor() || game_in_progress()) && main_globals.connection == _game_connection_local)
 		main_globals.defer_map_change = TRUE;
+	return;
+}
+
+/* port: a map loaded for the menus' pictures (port/linux/game/
+menu_pictures_render.c): as map_name loads one, at the next frame's start,
+but with no fade (main_change_map_name), at normal difficulty, and nothing
+of the player's read (their saved game) or written (their last level, last
+solo map: game.c, checkpoints: main_menu_pictures_hold) */
+static short main_menu_pictures_difficulty = NONE;
+
+void main_menu_pictures_map(
+	char const *map_name)
+{
+	main_set_map_name(map_name);
+	main_globals.allow_persistent_storage = FALSE;
+	if (main_menu_pictures_difficulty == NONE)
+		main_menu_pictures_difficulty = global_difficulty_level;
+	global_difficulty_level = _game_difficulty_level_normal;
+	return;
+}
+
+/* port: ...and then the main menu, at the player's difficulty */
+void main_menu_pictures_end(
+	void)
+{
+	if (main_menu_pictures_difficulty != NONE)
+		global_difficulty_level = main_menu_pictures_difficulty;
+	main_menu_pictures_difficulty = NONE;
+	main_goto_main_menu();
+	return;
+}
+
+/* port: while the menus' pictures are rendered, nothing a map's scripts
+ask of the game as a whole: no checkpoint saved or gone back to, no level
+won or lost, no core saved or loaded */
+static void main_menu_pictures_hold(
+	void)
+{
+	main_globals.saving_map = FALSE;
+	main_globals.save_map_completed = FALSE;
+	main_globals.won_map = FALSE;
+	main_globals.lost_map = FALSE;
+	main_globals.respawn = FALSE;
+	main_globals.revert_map = FALSE;
+	main_globals.save_core = FALSE;
+	main_globals.load_core = FALSE;
 	return;
 }
 
@@ -3079,10 +3174,31 @@ static void screenshot_render(
 	return;
 }
 
+/* port: Settings > Video's SHOW FRAME RATE (display.show_frame_rate, off by
+default), read again when it changes, which draws the frame rate as the
+console's display_framerate does */
+int config_boolean(const char *name);
+unsigned long config_changes(void);
+
+static boolean main_show_frame_rate_setting(
+	void)
+{
+	static boolean setting = FALSE;
+	static unsigned long read_at = (unsigned long)-1;
+
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		setting = config_boolean("display.show_frame_rate") != 0;
+	}
+
+	return setting;
+}
+
 void main_framerate_render(
 	void)
 {
-	if (display_framerate)
+	if (display_framerate || main_show_frame_rate_setting()) /* port: or the setting */
 	{
 		long font_tag_index;
 
@@ -3508,6 +3624,8 @@ void main_loop(
 	boolean render_frame;
 	long connection;
 	boolean loading_game_frame; /* port: only a completed game picture ends loading */
+	boolean frames_unseen; /* port: nobody sees the frames (port/linux/game/unseen_frames.c) */
+	boolean frames_undrawn; /* port: ... and they need not be drawn */
 
 	if (!game_in_editor())
 	{
@@ -3538,6 +3656,10 @@ void main_loop(
 		}
 		else if (!game_in_editor())
 		{
+			/* port: (port/linux/game/menu_pictures_render.c) */
+			if (menu_pictures_preparing())
+				main_menu_pictures_hold();
+
 			if (main_globals.switch_to_structure_bsp_index!=NONE)
 			{
 				main_switch_to_structure_bsp_private();
@@ -3638,9 +3760,24 @@ void main_loop(
 		if (!shell_application_is_paused())
 		{
 			render_frame = TRUE;
+			/* port: with no display (debug.null_renderer, a dedicated server)
+			no vertical blank is waited for, and a game's frames are not drawn
+			or presented; but the menus are, as their widgets' game data
+			inputs run as they are drawn (a lobby's player joins from one:
+			netgame_prejoin_players) */
+			frames_unseen = halo_frames_unseen() != 0;
+			frames_undrawn = frames_unseen && !main_globals.main_menu_scenario_loaded && !ui_widgets_active();
 
 			/* automated system link tests (port/linux/game/network_test.c) */
 			network_test_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
+			/* port: Basic Training's game started, its skip buttons
+			(port/linux/game/basic_training.c) */
+			basic_training_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
+			/* port: the menus' pictures (port/linux/game/menu_pictures_render.c) */
+			menu_pictures_frame(main_globals.main_menu_scenario_loaded);
+			/* (and what its ticks' scripts asked meanwhile) */
+			if (menu_pictures_preparing())
+				main_menu_pictures_hold();
 			/* port: a dedicated server's hosting, rotation and commands
 			(port/linux/game/server_director.c) */
 			server_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
@@ -3694,6 +3831,14 @@ void main_loop(
 				}
 				previous_network_frame_milliseconds = now;
 			}
+			/* port: a dedicated server of an OpenH1 game waits for its frame's
+			time before it reads its datagrams, not after: what came meanwhile
+			is read before the tick the frame runs, which its clients' clocks
+			time their input for (port/linux/game/network_clock.c); and while it
+			waits it reads them as they come, sending their input on at once
+			(port/linux/game/network_distributed.c) */
+			if (halo_server_mode() && network_clock_server_pace_first())
+				server_mode_pace_frame_receiving(network_distributed_server_receive);
 			profile_scope_enter(main_network_start_frame_section)
 			connection = main_globals.connection;
 			if (connection==_game_connection_network_client)
@@ -3736,13 +3881,31 @@ void main_loop(
 			display to wait for (port/linux/src/server_mode.c) */
 			if (halo_server_mode())
 			{
-				server_mode_pace_frame();
+				/* port: (unless it waited before its reads, above) */
+				if (!network_clock_server_paced())
+					server_mode_pace_frame();
+				profile_scope(main_update_time_section, main_update_time_unthrottled();)
+			}
+			/* port: nor, with no display, any frame that runs no step of the
+			clock: each waits for the next (port/linux/game/unseen_frames.c),
+			but those of fixed times (debug.frame_time, debug.fixed_step, a
+			movie), which run as fast as they can */
+			else if (frames_unseen)
+			{
+				if (main_frame_time_fixed() <= 0.0f && !main_globals.movie &&
+					!(halo_fixed_step() && main_globals.connection == _game_connection_local))
+				{
+					unseen_frame_wait();
+				}
 				profile_scope(main_update_time_section, main_update_time_unthrottled();)
 			}
 			else
 			{
 				profile_scope(main_update_time_section, main_update_time();)
 			}
+			/* port: with the frames' time fixed, the sound's clock and its mix
+			keep step with the frames (port/linux/game/frames_clock.c) */
+			frames_clock_frame(main_globals.seconds_elapsed);
 			profile_scope_enter(main_ui_update_section)
 			process_ui_widgets();
 			bink_playback_update();
@@ -3793,6 +3956,10 @@ void main_loop(
 					if (halo_interpolation_enabled())
 						render_frame = main_globals.main_menu_scenario_loaded || main_globals.halt_time_scale;
 					render_frame &= !game_engine_running() || game_time_get()>=3;
+					/* port: while the menus' pictures are rendered, only the frames
+					kept (menu_pictures_render.c) */
+					if (menu_pictures_preparing())
+						render_frame = menu_pictures_frame_drawn();
 
 					profile_scope_enter(main_non_deterministic_update_section)
 					collision_log_continue_period(1);
@@ -3808,7 +3975,7 @@ void main_loop(
 					main_save_map_private();
 				}
 
-				if (render_frame && !debug_no_drawing)
+				if (render_frame && !debug_no_drawing && !frames_undrawn)
 				{
 					profile_render_start();
 					render_interpolation_frame_begin();
@@ -3835,10 +4002,11 @@ void main_loop(
 				profile_render_end();
 			}
 
-			if (!halo_server_mode())
+			/* port: (none for a frame not drawn: menu_pictures_render.c) */
+			if (!halo_server_mode() && !frames_unseen && menu_pictures_frame_drawn())
 				profile_scope(main_throttle_section, main_rasterizer_throttle();)
 
-			if (render_frame && !debug_no_drawing)
+			if (render_frame && !debug_no_drawing && !frames_undrawn)
 			{
 				profile_scope(main_present_section, main_present_frame();)
 				LATENCY_LOG(latency_log_frame_presented()); /* port: debug.latency_log */

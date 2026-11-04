@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 8
+#define XGPU_STREAM_VERSION 15
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -71,7 +71,12 @@ struct xgpu_stream_ring
 	/* the host's answers, in guest memory the guest allocates:
 	visibility: XGPU_STREAM_VISIBILITY_SLOTS counts (uint32_t), the latest
 	known for each slot, each at most 0x7fffffff (the game reads them as
-	longs and halts on a negative one: XGPU_VISIBILITY_COUNT_MOST); pipelines: XGPU_STREAM_PIPELINES states (uint8_t,
+	longs and halts on a negative one: XGPU_VISIBILITY_COUNT_MOST), then
+	XGPU_STREAM_VISIBILITY_SLOTS test numbers (uint32_t), each the number
+	of the test whose count the slot's is (the visibility end record's
+	test; 0: none yet), written after its count with a release store, so
+	that a guest reading the number first (an acquire load) reads a count
+	of that test or a later one; pipelines: XGPU_STREAM_PIPELINES states (uint8_t,
 	XGPU_STREAM_PIPELINE_*) of the pipeline ids */
 	uint32_t visibility, pipelines;
 
@@ -100,10 +105,17 @@ struct xgpu_stream_ring
 	/* the host's display (display.hdr: written by the host whenever it
 	looks, read by the guest between frames): whether it shows HDR (its
 	potential headroom past XGPU_HDR_DISPLAY_HEADROOM, or an HDR swapchain),
-	and its headroom now (a float's bits, 1.0 for none) */
+	and its headroom now (a float's bits, 1.0 for none); its SDR white in
+	nits (a float's bits: the system's, or the one the encoding takes where
+	it gives none) and whether the system gave it */
 	uint32_t display_hdr;
 	uint32_t display_headroom;
-	uint32_t pad;
+	uint32_t display_white;
+	uint32_t display_white_reported;
+	/* the guest's, with each frame: microseconds more than its frames take
+	that the next frame will (a load zone's switch in it): the host starts
+	that frame so much earlier (display_wait) */
+	uint32_t frame_extra_microseconds;
 };
 
 enum
@@ -227,6 +239,9 @@ enum
 	XGPU_STREAM_LOADING_ART,            /* value: byte count, followed by owned 640x480 RGBA pixels */
 	XGPU_STREAM_LOADING_SCENE,          /* value: byte count, followed by the menu's scene (loading_scene.h) */
 	XGPU_STREAM_LOADING_PROGRESS,       /* value: the load's progress, a float's bits (0 to 1) */
+	XGPU_STREAM_LOADING_MODE,           /* value: 1 the sweep follows the progress (the Xbox's), 0 it loops */
+	XGPU_STREAM_LOADING_CAPTION,        /* value: byte count, followed by a width and a height (uint32_t)
+	                                       and that many bytes of a line's coverage; 0: none */
 	/* display.hdr (xgpu_hdr.h) */
 	XGPU_STREAM_HDR,
 	XGPU_STREAM_TONE_MAP,
@@ -236,6 +251,13 @@ enum
 	window sits in it (value: 0 centered, n + 1 n pixels from the top, no
 	lower than the bottom) */
 	XGPU_STREAM_PICTURE_POSITION,
+	/* display.ambient_occlusion (xgpu_backend_ambient_occlusion) */
+	XGPU_STREAM_AMBIENT_OCCLUSION,
+	/* display.gamma: an SDR frame's curve as it is presented (value: the
+	setting, a float's bits; 1 none) */
+	XGPU_STREAM_GAMMA,
+	/* display.panini (xgpu_backend_panini) */
+	XGPU_STREAM_PANINI,
 	XGPU_STREAM_RECORD_TYPES,
 };
 
@@ -257,7 +279,7 @@ struct xgpu_stream_frame_end
 };
 
 /* a record of one value: ANTI_ALIASING_PREPARE (smaa), TARGET_DELETE,
-TARGET_RESOLVE, PRESENT (the back buffer's target), PICTURE_POSITION, VR_PASS, VR_TIMING
+TARGET_RESOLVE, PRESENT (the back buffer's target), PICTURE_POSITION, GAMMA, VR_PASS, VR_TIMING
 (mark), PIPELINE (the id, XGPU_STREAM_PIPELINE_DEFINE's), VR_SKY (sky) */
 struct xgpu_stream_value
 {
@@ -293,12 +315,26 @@ struct xgpu_stream_anti_alias
 	int32_t corners[4];
 };
 
+/* PANINI: a window's 3D view drawn again through the Panini projection
+(xgpu_backend_panini): its target, corners, and the projection (d, s, the
+magnification at the middle, 0, and the rectilinear view's tangents at the
+corners' left, right, top and bottom) */
+struct xgpu_stream_panini
+{
+	uint32_t header;
+	uint32_t target;
+	int32_t corners[4];
+	float projection[8];
+};
+
 /* HDR: display.hdr's state (xgpu_backend_hdr): drawn in HDR, the mode
-(XGPU_HDR_MODE_*), paper white (percent of the system's SDR white) */
+(XGPU_HDR_MODE_*), paper white (in nits; 0: the system's SDR white, in
+percent of it: xgpu_hdr_paper_white_nits), the UI's white (in nits; 0:
+paper white's) */
 struct xgpu_stream_hdr
 {
 	uint32_t header;
-	uint32_t active, mode, paper_white;
+	uint32_t active, mode, paper_white_nits, paper_white, ui_nits;
 };
 
 /* TONE_MAP: a window's 3D view tone mapped (xgpu_backend_tone_map) */
@@ -307,6 +343,32 @@ struct xgpu_stream_tone_map
 	uint32_t header;
 	uint32_t target;
 	int32_t corners[4];
+};
+
+/* AMBIENT_OCCLUSION: display.ambient_occlusion over a window's 3D view
+(xgpu_backend_ambient_occlusion): its target (drawn with the stream's depth
+target), its corners, XGPU_AMBIENT_OCCLUSION_* and the camera: its near and
+far planes and its projection's x and y scales and offsets */
+struct xgpu_stream_ambient_occlusion
+{
+	uint32_t header;
+	uint32_t target;
+	uint32_t quality;
+	int32_t corners[4];
+	float camera[6];
+};
+
+/* its quality; the stencil's bits of the pixels the occlusion leaves (the
+first-person weapon's, the game's own, and a surface's lighting itself);
+and an object's pixels' bit (the front end's: d3d8_device.c) */
+enum
+{
+	XGPU_AMBIENT_OCCLUSION_SUBTLE = 1,
+	XGPU_AMBIENT_OCCLUSION_STRONG = 2,
+	XGPU_AMBIENT_OCCLUSION_SHOW = 3,
+	XGPU_AMBIENT_OCCLUSION_KEEP = 0x81,
+	XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED = 0x80,
+	XGPU_AMBIENT_OCCLUSION_OBJECT = 0x40
 };
 
 /* ---------- render targets */
@@ -742,6 +804,10 @@ struct xgpu_stream_visibility_end
 	float area;
 	int32_t views;
 	int32_t samples;
+	/* the guest's number for the test (never 0; one more each test, modulo
+	2^32): published with its count, so that the guest knows which test a
+	slot's count is of (a count reaches the guest frames after its test) */
+	uint32_t test;
 };
 
 /* ---------- the enhanced dynamic lights */
@@ -982,11 +1048,13 @@ struct xgpu_stream_vr_screen_corrections
 
 #define XGPU_STREAM_ASSERT_SIZE(type, size) _Static_assert(sizeof(type) == (size), #type "'s size")
 
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ring, 96);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ring, 104);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_frame_end, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_capabilities, 20);
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 16);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_tone_map, 24);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_panini, 56);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ambient_occlusion, 52);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_set_targets, 16);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_clear, 36);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_read_target, 28);

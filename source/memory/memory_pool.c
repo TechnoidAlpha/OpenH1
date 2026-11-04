@@ -357,6 +357,18 @@ static void memory_pool_verify(
 		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 358, (byte *)block>=(byte *)pool->base_address);
 		match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 359, (byte *)block+block->size<=(byte *)pool->base_address+pool->size);
 		previous_block = block;
+#ifdef HALO_RELEASE
+		/* port: a release build checks the list's first block and its last,
+		where allocations are made, not every block: the walk made each
+		object's allocations cost as much as the objects there are (a load
+		zone placing 674 objects into b30's pool of thousands took 4 ms of
+		the frame). The checked build walks them all. */
+		if (block->next_block && block->next_block!=pool->last_block)
+		{
+			previous_block = pool->last_block->previous_block;
+			block = previous_block;
+		}
+#endif
 	}
 	return;
 }
@@ -377,9 +389,19 @@ static struct memory_pool_block *memory_pool_block_get(
 		block->reference==reference,
 		csprintf(temporary, "expected reference %08x but got %08x", block->reference, reference));
 
+#ifdef HALO_RELEASE
+	/* port: the block is in the list, as its neighbours say, rather than
+	found by walking the list from its first (memory_pool_verify) */
+	other_block = block->previous_block ? block->previous_block->next_block : pool->first_block;
+	if (other_block == block)
+		other_block = block->next_block ? block->next_block->previous_block : pool->last_block;
+	else
+		other_block = NULL;
+#else
 	for (other_block = pool->first_block; other_block && block != other_block; other_block = other_block->next_block)
 	{
 	}
-	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 388, other_block);
+#endif
+	match_assert("c:\\halo\\SOURCE\\memory\\memory_pool.c", 388, other_block == block);
 	return block;
 }

@@ -29,6 +29,18 @@ layer of a BGRA8 or RGBA16F target, in the stream's order; the targets
 bound before are not bound after. 0 if its pipelines cannot be made */
 int xgpu_vulkan_post_anti_alias(int smaa, struct xgpu_vulkan_image *target, uint32_t layer, const int32_t corners[4]);
 
+/* display.panini (port/linux/game/panini.c): its pipeline for a target of
+a format (BGRA8, or display.hdr's RGBA16F), made now or queued where
+preparing, 0 if it cannot be (logged once); and the corners of a layer of
+such a target (not multisampled) drawn again through the Panini projection
+(port/linux/include/panini_projection.h): projection its d, s,
+magnification at the middle, 0, and the rectilinear view's tangents at the
+corners' left, right, top and bottom. In the stream's order; the targets
+bound before are not bound after. 0 if it was not drawn */
+int xgpu_vulkan_post_panini_prepare(uint8_t format, int preparing);
+int xgpu_vulkan_post_panini(struct xgpu_vulkan_image *target, uint32_t layer, const int32_t corners[4],
+	const float projection[8]);
+
 /* display.hdr (docs/hdr.md). The tone map's pipeline for an RGBA16F target
 of a number of samples drawn with a depth attachment (XGPU_VULKAN_FORMAT_
 D24S8) or none, made now or queued where preparing; 0 if it cannot be.
@@ -52,6 +64,32 @@ cannot. */
 int xgpu_vulkan_post_encode_prepare(void);
 struct xgpu_vulkan_image *xgpu_vulkan_post_encode(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 	uint8_t format);
+/* display.gamma's curve over an SDR frame (the core's options' gamma), its
+last pass before the swapchain: gamma_prepare makes its pipeline at the
+start (as the encoding's are), 0 if it cannot be (logged). gamma draws the
+frame with each channel raised to power (one over the setting) into a BGRA8
+image of its own of the frame's size, in the stream's order, and returns
+it; the targets bound before are not bound after. NULL if it cannot. */
+int xgpu_vulkan_post_gamma_prepare(void);
+struct xgpu_vulkan_image *xgpu_vulkan_post_gamma(struct xgpu_vulkan_image *image, float power);
+
+/* display.ambient_occlusion (xgpu_backend_ambient_occlusion). Its
+pipelines for a target of a format and number of samples drawn with a
+depth target (XGPU_VULKAN_FORMAT_D24S8), made now or queued where
+preparing; 0 if they cannot be (logged; once 0, it stays so). The occlusion
+over the corners of a target's 3D view (its first layer), found from a
+depth target of one sample (depth_texture: depth's, or its first sample's
+resolved) and the stencil of depth (its attachment, drawn with the target:
+XGPU_AMBIENT_OCCLUSION_OBJECT and _KEEP), laid over the target's colour:
+quality XGPU_AMBIENT_OCCLUSION_SUBTLE or _STRONG, camera its near and far
+planes and the projection's x and y scales and offsets. In the stream's
+order; the targets bound before are not bound after. show draws the
+occlusion last laid in place of the view (white where it was not laid),
+once. */
+int xgpu_vulkan_post_ambient_occlusion_prepare(uint8_t format, uint32_t samples, int preparing);
+void xgpu_vulkan_post_ambient_occlusion(struct xgpu_vulkan_image *target, struct xgpu_vulkan_image *depth,
+	struct xgpu_vulkan_image *depth_texture, const int32_t corners[4], int quality, const float camera[6]);
+void xgpu_vulkan_post_ambient_occlusion_show(struct xgpu_vulkan_image *target, const int32_t corners[4]);
 
 /* The present step's turn, for a swapchain made for the display's own
 orientation while the phone is held another way (Android's pre-rotation:

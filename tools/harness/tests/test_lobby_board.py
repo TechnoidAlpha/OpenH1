@@ -45,7 +45,8 @@ NEGATIVE_CONTROLS = {
     # (a player given the host's START GAME)
     "player-starts": ("controls->start = host;", "controls->start = TRUE;", "controls"),
     # (a network game's host given bots)
-    "network-bots": ("controls->bots = host && local;", "controls->bots = host;", "controls"),
+    "coop-bots": ("controls->bots = host && !cooperative;", "controls->bots = host;", "controls"),
+    "bots-for-players": ("controls->bots = host && !cooperative;", "controls->bots = !cooperative;", "controls"),
     # (Infection's teams chosen in the lobby)
     "infection-teams": ("return teams && mode != _game_mode_infection;", "return teams;", "controls"),
 }
@@ -140,17 +141,19 @@ def check_lobby_layout(width):
             dot, name, tag = (one(boxes, f"board_{part}_{column}_{row}") for part in ("dot", "name", "tag"))
             for part in (dot, name, tag):
                 assert part.inside(row_box), f"{part} is out of its row {row_box}"
-            assert dot.x1 <= name.x0 and name.x1 <= tag.x0, (dot, name, tag)
+            # (a bot's tag, with its skill, wider than a player's: its name fitted to what is left,
+            # lobby_board_bot_tag; a player's tag where the name ends)
+            assert dot.x1 <= name.x0 and name.x1 <= tag.x1 - port_settings.LOBBY_TAG_WIDTH, (dot, name, tag)
             assert tag.x1 + 8 <= row_box.x1, f"{tag} against its row's frame {row_box}"
     assert one(boxes, "board_title_all").inside(players)
     for box in boxes:
         if box.path and box.path[-1] == "board_panel":
             assert box.inside(panel), f"{box} is out of the panel {panel}"
     controls = [one(boxes, name) for name in ("board_bots_count", "board_bots_skill", "board_bots_teams",
-                                              "board_settings", "board_start")]
+                                              "board_host", "board_settings", "board_start")]
     for box in controls:
         assert box.inside(panel), f"{box} is out of the panel {panel}"
-    _apart(controls + [one(boxes, name) for name in ("board_status", "board_section_bots", "board_opence")],
+    _apart(controls + [one(boxes, name) for name in ("board_status", "board_after", "board_opence")],
            "the panel's controls")
     for key in ("bots_count", "bots_skill", "bots_teams"):
         row, label, spinner = (one(boxes, name) for name in (f"board_{key}", f"board_{key}_label",

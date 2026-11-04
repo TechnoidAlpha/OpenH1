@@ -248,6 +248,9 @@ static void model_geometry_part_build_tangent_matrices(
 static void model_data_error(
 	struct model const *model,
 	char const *problem);
+static short model_find_marker_search(
+	long model_index,
+	char const *name);
 
 #ifdef HALO_VR
 /* port/linux/game/vr_scope.c */
@@ -270,6 +273,40 @@ static struct render_model_effect default_render_model_effect = { 0 };
 static char default_render_model_region_permutation_indices[MAXIMUM_REGIONS_PER_MODEL] = { 0 };
 
 static struct profile_section render_model_section = { "render_model", NONE, TRUE };
+
+/* port: Each name looked up in a model's markers is kept with what the
+game's search found for it (model_find_marker_search), so that the next
+lookup of that name compares it once instead of searching again: the
+effects, lights and attachments of the objects look their markers up by
+name each tick. What is kept is the search's own answer, so a model whose
+markers are out of order or named twice answers as it did, and a name it
+doesn't find is kept as not found. A name is kept as it was asked (its
+case too), with the model and the markers block it was found in; a map's
+tags don't change while it plays, and a new map forgets them all
+(model_port_markers_forget). A name of 32 characters or more is searched
+for each time. Not in the game state. */
+enum
+{
+	MODEL_PORT_MARKER_CACHE_SIZE = 1024,
+	MODEL_PORT_MARKER_NAME_WORDS = 8,
+};
+
+struct model_port_marker_entry
+{
+	unsigned long generation;
+	long model_index;
+	void const *markers;
+	long marker_count;
+	unsigned long name[MODEL_PORT_MARKER_NAME_WORDS];
+	short marker_index;
+};
+
+static struct model_port_marker_entry model_port_marker_cache[MODEL_PORT_MARKER_CACHE_SIZE];
+static unsigned long model_port_marker_generation = 1;
+#ifdef HALO_PORT_CACHE_CHECK
+static unsigned long model_port_marker_checked;
+static unsigned long model_port_marker_asked;
+#endif
 
 /* ---------- private code */
 
@@ -776,7 +813,8 @@ void model_node_matrices_from_orientations(
 	return;
 }
 
-short model_find_marker(
+/* port: (the game's model_find_marker, whose answers it keeps) */
+static short model_find_marker_search(
 	long model_index,
 	char const *name)
 {
@@ -811,6 +849,87 @@ short model_find_marker(
 	}
 
 	return NONE;
+}
+
+/* port: (model_port_marker_cache) */
+void model_port_markers_forget(
+	void)
+{
+#ifdef HALO_PORT_CACHE_CHECK
+	error(_error_silent, "model_find_marker: %lu kept answers checked, of %lu asked", model_port_marker_checked, model_port_marker_asked);
+#endif
+	model_port_marker_generation++;
+	if (!model_port_marker_generation)
+		model_port_marker_generation = 1;
+}
+
+short model_find_marker(
+	long model_index,
+	char const *name)
+{
+	if (model_index != NONE && name && *name)
+	{
+		union
+		{
+			unsigned long words[MODEL_PORT_MARKER_NAME_WORDS];
+			char characters[MODEL_PORT_MARKER_NAME_WORDS * sizeof(unsigned long)];
+		} key;
+		unsigned long hash = 2166136261UL ^ (unsigned long)model_index;
+		short length;
+
+		csmemset(&key, 0, sizeof(key));
+		for (length = 0; length < (short)sizeof(key.characters) && name[length]; length++)
+		{
+			key.characters[length] = name[length];
+			hash = (hash ^ (unsigned char)name[length]) * 16777619UL;
+		}
+		if (length < (short)sizeof(key.characters))
+		{
+			struct model *model = model_definition_get(model_index);
+			struct model_port_marker_entry *entry =
+				&model_port_marker_cache[(hash ^ (hash >> 15)) & (MODEL_PORT_MARKER_CACHE_SIZE - 1)];
+			short word;
+
+#ifdef HALO_PORT_CACHE_CHECK
+			model_port_marker_asked++;
+#endif
+			if (entry->generation == model_port_marker_generation &&
+				entry->model_index == model_index &&
+				entry->markers == model->markers.address &&
+				entry->marker_count == model->markers.count)
+			{
+				for (word = 0; word < MODEL_PORT_MARKER_NAME_WORDS && entry->name[word] == key.words[word]; word++)
+				{
+				}
+				if (word == MODEL_PORT_MARKER_NAME_WORDS)
+				{
+#ifdef HALO_PORT_CACHE_CHECK
+					/* (-DHALO_PORT_CACHE_CHECK: each kept answer searched for again) */
+					if (!(++model_port_marker_checked % 1000000))
+						error(_error_silent, "model_find_marker: %lu kept answers checked, of %lu asked", model_port_marker_checked, model_port_marker_asked);
+					if (entry->marker_index != model_find_marker_search(model_index, name))
+					{
+						error(_error_silent, "model_find_marker: kept #%d for %s, search finds #%d",
+							entry->marker_index, name, model_find_marker_search(model_index, name));
+						__builtin_trap();
+					}
+#endif
+					return entry->marker_index;
+				}
+			}
+			entry->generation = model_port_marker_generation;
+			entry->model_index = model_index;
+			entry->markers = model->markers.address;
+			entry->marker_count = model->markers.count;
+			for (word = 0; word < MODEL_PORT_MARKER_NAME_WORDS; word++)
+				entry->name[word] = key.words[word];
+			entry->marker_index = model_find_marker_search(model_index, name);
+
+			return entry->marker_index;
+		}
+	}
+
+	return model_find_marker_search(model_index, name);
 }
 
 real_matrix4x3 *model_get_default_inverse_matrix(
@@ -1081,8 +1200,9 @@ void render_model(
 			"c:\\halo\\SOURCE\\models\\models.c",
 			169,
 			geometry_detail_level_index>=0 && geometry_detail_level_index<NUMBER_OF_DETAIL_LEVELS_PER_MODEL);
-		/* port: stock, unless display.model_detail chose the level */
-		detail_rules = model_detail_rules(model, centroid, radius);
+		/* port: stock, unless display.model_detail chose the level; a
+		close-up's level only at the size the Xbox chose it at */
+		detail_rules = model_detail_rules(model, level_of_detail_pixels);
 
 		if (!TEST_FLAG(flags, _render_model_shadow_bit))
 		{

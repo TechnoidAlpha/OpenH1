@@ -80,6 +80,7 @@ winding about (rasterizer_set_model_skinning).
 #include "tag_files/tag_files.h"
 
 #include "vr_hands.h"
+#include "basic_training.h"
 #include "../src/vr.h"
 
 #include <math.h>
@@ -1214,6 +1215,67 @@ static void side_hide(real_matrix4x3 *node_matrices, short side)
 	}
 }
 
+/* Basic Training's highlight (basic_training_highlight): a ball of light
+pulsing about the part of the controller in the hand that the step's button
+is, a little outside it (the controllers are not drawn: the hands are the
+game's), each part's place from the grip's pose (metres: forward, left, up).
+The A, B, X and Y buttons, the right trigger, bumper and stick and Menu are
+the right controller's, the rest the left's (the Steam Frame's halves of a
+controller); a left-hander's swapped, as their buttons are (vr.c) */
+static void highlight_draw(real_matrix4x3 const *seen, boolean const *visible, short button, real pulse, real units)
+{
+	/* (halo_vr_button_name's numbering; BASIC_TRAINING_LEFT_GRIP, the
+	left grip, after them) */
+	static real const parts[BASIC_TRAINING_LEFT_GRIP + 1][4] =
+	{
+		/* right?, forward, left, up */
+		{ 1.0f, 0.00f, -0.01f, 0.045f },
+		{ 1.0f, 0.01f, -0.02f, 0.045f },
+		{ 1.0f, -0.01f, 0.00f, 0.045f },
+		{ 1.0f, 0.00f, 0.01f, 0.050f },
+		{ 1.0f, 0.05f, 0.00f, 0.020f },
+		{ 0.0f, 0.05f, 0.00f, 0.020f },
+		{ 0.0f, 0.05f, 0.00f, -0.025f },
+		{ 1.0f, 0.05f, 0.00f, -0.025f },
+		{ 0.0f, 0.00f, 0.00f, 0.045f },
+		{ 0.0f, 0.00f, 0.00f, 0.045f },
+		{ 0.0f, 0.00f, 0.00f, 0.045f },
+		{ 0.0f, 0.00f, 0.00f, 0.045f },
+		{ 1.0f, -0.02f, 0.01f, 0.040f },
+		{ 0.0f, -0.02f, -0.01f, 0.040f },
+		{ 0.0f, 0.02f, 0.00f, 0.050f },
+		{ 1.0f, 0.02f, 0.00f, 0.050f },
+		{ 0.0f, -0.01f, -0.025f, -0.02f },
+	};
+	real_argb_color color;
+	real_matrix4x3 const *hand;
+	real_point3d point;
+	boolean right;
+	short side;
+
+	if (button < 0 || button > BASIC_TRAINING_LEFT_GRIP)
+		return;
+	right = parts[button][0] > 0.5f;
+	/* (a left-hander's right controller is the game's left) */
+	if (halo_vr_left_handed())
+		side = right ? _left : _right;
+	else
+		side = right ? _right : _left;
+	if (!visible[side])
+		return;
+	hand = &seen[side];
+	point = hand->position;
+	point_add(&point, &hand->forward, parts[button][1] * units, &point);
+	point_add(&point, &hand->left, parts[button][2] * units * (halo_vr_left_handed() ? -1.0f : 1.0f), &point);
+	point_add(&point, &hand->up, parts[button][3] * units, &point);
+	/* (the HUD's blue, brightening and swelling twice a second) */
+	color.alpha = 0.5f + 0.5f * pulse;
+	color.red = 0.35f + 0.5f * pulse;
+	color.green = 0.75f + 0.25f * pulse;
+	color.blue = 1.0f;
+	render_debug_sphere(FALSE, &point, (0.018f + 0.012f * pulse) * units, &color);
+}
+
 /* first_person_weapons.c, once the game has built the first-person nodes
 (node_matrices, in the world) of this animation graph: the weapon held in
 the right controller, still (whatever vr.hands is); the left hand to the
@@ -1319,6 +1381,17 @@ void vr_hands_pose(
 			render_debug_point(FALSE, &hand->position, 0.03f, color);
 			render_debug_line(FALSE, &hand->position, &ahead, color);
 		}
+	}
+
+	/* Basic Training's step: the part of the controller it names lit, and
+	the long gun's foregrip held (basic_training.c) */
+	basic_training_note_grip(frame.two_handed);
+	{
+		short button;
+		real pulse;
+
+		if (basic_training_highlight(&button, &pulse))
+			highlight_draw(seen, visible, button, pulse, frame.units);
 	}
 
 	/* the arms: to the hands from the shoulders, or into the wrists */

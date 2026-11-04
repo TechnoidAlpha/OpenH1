@@ -18,11 +18,15 @@ and the debug keyboard that the game's console reads.
 #include "load_trace.h"
 #include "loading_presentation.h"
 #include "loading_art.h"
+#include "loading_screen.h"
+#include "text_hires.h"
 #include "p2p.h"
 #include "port_mods.h"
 #include "server_mode.h"
 #include "server_master.h"
+#include "player_link.h"
 #include "xiso.h"
+#include "map_import.h"
 #ifdef HALO_VR
 #include "vr.h"
 #include "vr_host.h"
@@ -76,8 +80,19 @@ void halo_loading_art(void)
 void halo_loading_scene(void);
 void halo_loading_fade_begin(void);
 
+/* (port/linux/game/menu_pictures_render.c) */
+int menu_pictures_preparing(void);
+
 void halo_loading_begin(void)
 {
+	/* the menus' pictures' maps: the loading screen of their whole pass
+	stays (halo_loading_screen_begin), the old draws retired all the same */
+	if (menu_pictures_preparing())
+	{
+		if (platform_window)
+			xgpu_backend_consume();
+		return;
+	}
 	if (!loading_presentation_active && platform_window)
 	{
 		/* the main menu's scene, read before its map is disposed of, for
@@ -85,14 +100,93 @@ void halo_loading_begin(void)
 		halo_loading_scene();
 		loading_presentation_active = 1;
 		halo_load_trace("loading.request", "begin");
+		xgpu_backend_loading_mode(0);
 		xgpu_backend_loading(1);
+		/* (the monks' chant under it, swelling with the load's progress) */
+		platform_loading_chant(1, 0.0f);
 	}
 }
 
 void halo_loading_progress(float progress)
 {
-	if (loading_presentation_active)
+	if (loading_presentation_active == 1)
+	{
 		xgpu_backend_loading_progress(progress);
+		platform_loading_chant(1, progress);
+	}
+}
+
+/* ---------- the loading screen for the port's own waits (loading_screen.h):
+loading_presentation_active 3 while it is shown */
+
+static char loading_screen_caption[256];
+
+void halo_loading_screen_begin(int follow_progress)
+{
+	if (loading_presentation_active || !platform_window)
+		return;
+	halo_loading_scene();
+	loading_presentation_active = 3;
+	loading_screen_caption[0] = 0;
+	halo_load_trace("loading.request", follow_progress ? "screen follow=1" : "screen follow=0");
+	xgpu_backend_loading_mode(follow_progress ? 1 : 0);
+	xgpu_backend_loading_caption(NULL, 0, 0);
+	xgpu_backend_loading_progress(0.0f);
+	xgpu_backend_loading(1);
+	platform_loading_chant(1, 0.0f);
+}
+
+void halo_loading_screen_progress(float progress, char const *caption)
+{
+	int changed = 0;
+
+	if (loading_presentation_active != 3)
+		return;
+	if (!(progress == progress))
+		progress = 0.0f;
+	progress = progress < 0.0f ? 0.0f : progress > 1.0f ? 1.0f : progress;
+	xgpu_backend_loading_progress(progress);
+	platform_loading_chant(1, progress);
+	if (!caption)
+		caption = "";
+	if (strncmp(caption, loading_screen_caption, sizeof(loading_screen_caption) - 1))
+	{
+		int width = 0, height = 0;
+		/* (set at four times the 480 lines' size, in the menus' heading
+		font; its capitals ten of the lines tall) */
+		unsigned char *coverage = caption[0] ? text_hires_line("pc\\heading", caption, 40.0f, &width, &height) : NULL;
+
+		snprintf(loading_screen_caption, sizeof(loading_screen_caption), "%s", caption);
+		xgpu_backend_loading_caption(coverage, (unsigned long)width, (unsigned long)height);
+		free(coverage);
+		/* (a new caption goes out at once) */
+		changed = 1;
+	}
+	/* (sent now: the game may draw nothing meanwhile, whose frames would
+	carry them; at most 30 times a second) */
+	{
+		static unsigned long long sent;
+		unsigned long long now = SDL_GetTicksNS();
+
+		if (changed || now - sent >= 33000000ULL)
+		{
+			sent = now;
+			xgpu_backend_flush();
+		}
+	}
+}
+
+void halo_loading_screen_end(void)
+{
+	if (loading_presentation_active != 3)
+		return;
+	platform_loading_chant(0, 0.0f);
+	xgpu_backend_loading_caption(NULL, 0, 0);
+	xgpu_backend_loading(0);
+	xgpu_backend_loading_mode(0);
+	loading_presentation_active = 0;
+	loading_screen_caption[0] = 0;
+	halo_load_trace("loading.request", "screen end");
 }
 
 int halo_loading_owned(void)
@@ -108,8 +202,10 @@ void halo_loading_retire(void)
 
 void halo_loading_end(void)
 {
-	if (loading_presentation_active)
+	/* (a map load's: the port's own waits end themselves) */
+	if (loading_presentation_active && loading_presentation_active != 3)
 	{
+		platform_loading_chant(0, 0.0f);
 		xgpu_backend_loading(0);
 		loading_presentation_active = 0;
 	}
@@ -119,6 +215,8 @@ void halo_loading_ready(void)
 {
 	if (loading_presentation_active == 1)
 	{
+		/* (the chant fades as the level comes up) */
+		platform_loading_chant(0, 0.0f);
 		/* the level's first pictures come up out of the dark (VR's eyes) */
 		halo_loading_fade_begin();
 		xgpu_backend_loading(2);
@@ -139,25 +237,22 @@ static unsigned char mouse_buttons_pressed[PLATFORM_MOUSE_BUTTON_COUNT];
 /* the menus' pointer (platform_ui_pointer_set_active), under input_lock */
 static struct platform_ui_pointer ui_pointer;
 static float ui_pointer_wheel;
+/* the mouse's Back button pressed in the menus since the controller's last
+reading (input_state.menu_back), so that a click quicker than a frame still
+backs out */
+static BOOL menu_back_pressed;
 #endif
 static pthread_mutex_t input_lock = PTHREAD_MUTEX_INITIALIZER;
-/* the presses come (platform_pump_events), under input_lock: a key, a mouse
-or gamepad button down or up, a gamepad's trigger or stick past
-INPUT_AXIS_PRESSED (a trigger past INPUT_TRIGGER_PRESSED) or back, the
-mouse's motion after INPUT_MOUSE_STILL_NS still; the frame's wait for the
-clock ends at one (platform_video_swap). Each gamepad axis's last side of
-its threshold, any gamepad's */
-static unsigned long input_presses;
-static Uint64 input_mouse_moved_ns;
-static unsigned char input_axis_beyond[SDL_GAMEPAD_AXIS_COUNT];
+/* the presses that skip a Bink movie (platform_movie_skip_pressed), under
+input_lock: a key down (not F11's or F12's, which work the window), a mouse
+button or a finger down; and how many were seen */
+static unsigned long movie_skip_presses, movie_skip_presses_seen;
+/* a gamepad's stick or trigger past these is in use (the menus' cursor) */
 #define INPUT_AXIS_PRESSED 16000
 #define INPUT_TRIGGER_PRESSED 8000
-#define INPUT_MOUSE_STILL_NS 50000000ull
 /* port/linux/src/xinput_sdl.c: the scripted player's mouse, as its events
-would bring it (debug.test_input "latency:"), nonzero for a press come; and
-when it presses next, 0 for none */
-int halo_test_input_pump(struct platform_input_state *state, unsigned char *buttons_pressed);
-Uint64 halo_test_input_next_ns(void);
+would bring it (debug.test_input "latency:") */
+void halo_test_input_pump(struct platform_input_state *state, unsigned char *buttons_pressed);
 /* rebinding (platform_binding_capture_begin), under input_lock: waiting for
 an input, and the one taken; then the keyboard and mouse settle (their keys
 and buttons held then are let go) before they drive anything again */
@@ -215,6 +310,15 @@ static void screen_keyboard_update(void);
 /* the windows' icon, a PNG (tools/embed_assets.py, from port/assets/icon) */
 extern const unsigned int platform_window_icon[];
 extern const unsigned long platform_window_icon_size;
+/* the menus' pointer, a PNG (tools/embed_assets.py, from port/assets/cursor) */
+extern const unsigned int platform_menu_cursor[];
+extern const unsigned long platform_menu_cursor_size;
+#endif
+
+/* the menus' own cursor (below): the desktop's guests (not iOS's, which has
+no pointer to draw), whose host makes it */
+#if defined(HALO_GUEST) && !defined(HALO_ANDROID) && !defined(HALO_IOS)
+#define PLATFORM_MENU_CURSOR
 #endif
 
 #ifndef HALO_ANDROID
@@ -361,6 +465,10 @@ BOOL platform_sdl_initialize(void)
 		server_master_start_host();
 	}
 #endif
+	/* (a Discord account linked at a master server: its passes asked for
+	again before they run out, player_link.c) */
+	if (!halo_server_mode())
+		player_link_start();
 	/* (the mods, and whether to play those that say they cannot be played
 	together, before the window opens: port_mods.c) */
 	port_mods_startup();
@@ -371,11 +479,20 @@ BOOL platform_sdl_initialize(void)
 /* ---------- first start without game data (xbox_files.c), on Windows: the
 system's dialogs. (The Linux builds' and the macOS app's is first_start.c,
 in the game's own window; the iOS app asks before the game starts,
-port/ios/host_app.m) */
+port/ios/host_app.m)
+
+Besides the Xbox disc image the game needs, the player may add Custom
+Edition's maps from its installer (halocesetup_en_1.00.exe) into
+custom_maps (map_import.c), as ChupathingyCE's first start does (their
+pull request #313, whose choices this follows); a file picked is told apart
+by its contents. */
 
 struct data_extraction
 {
 	pthread_mutex_t lock;
+	/* Custom Edition's installer, into custom_maps (destination) */
+	BOOL installer;
+	unsigned long long written;
 	char image[1024];
 	char destination[1024];
 	char file[256];
@@ -401,18 +518,32 @@ static void data_extraction_progress(void *context, const char *file, unsigned l
 static void *data_extraction_thread(void *context)
 {
 	struct data_extraction *extraction = context;
-	BOOL succeeded = xiso_extract_maps(extraction->image, extraction->destination, data_extraction_progress,
-		extraction, extraction->error, sizeof(extraction->error)) != 0;
+	unsigned long long written = 0;
+	BOOL succeeded;
 
+	if (extraction->installer)
+	{
+		succeeded = map_import_custom_edition(extraction->image, extraction->destination, data_extraction_progress,
+			extraction, &written, extraction->error, sizeof(extraction->error)) != 0;
+	}
+	else
+	{
+		succeeded = xiso_extract_maps(extraction->image, extraction->destination, data_extraction_progress,
+			extraction, extraction->error, sizeof(extraction->error)) != 0;
+	}
 	pthread_mutex_lock(&extraction->lock);
+	extraction->written = written;
 	extraction->succeeded = succeeded;
 	extraction->finished = TRUE;
 	pthread_mutex_unlock(&extraction->lock);
 	return NULL;
 }
 
-/* copies the maps, showing how far it has got; closing the window quits */
-static BOOL data_extract(const char *image, const char *destination, char *error, int error_size)
+/* copies the maps (with installer, Custom Edition's installer's into the
+custom_maps folder destination, the bytes written in *written), showing how
+far it has got; closing the window quits */
+static BOOL data_extract(const char *image, const char *destination, BOOL installer, unsigned long long *written,
+	char *error, int error_size)
 {
 	static struct data_extraction extraction;
 	SDL_Window *window;
@@ -422,6 +553,7 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 
 	memset(&extraction, 0, sizeof(extraction));
 	pthread_mutex_init(&extraction.lock, NULL);
+	extraction.installer = installer;
 	snprintf(extraction.image, sizeof(extraction.image), "%s", image);
 	snprintf(extraction.destination, sizeof(extraction.destination), "%s", destination);
 	if (pthread_create(&thread, NULL, data_extraction_thread, &extraction) != 0)
@@ -469,7 +601,8 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 			SDL_RenderClear(renderer);
 			SDL_SetRenderDrawColor(renderer, 230, 230, 230, 255);
 			SDL_SetRenderScale(renderer, 2.0f, 2.0f);
-			SDL_RenderDebugText(renderer, 10.0f, 10.0f, "Extracting the maps folder...");
+			SDL_RenderDebugText(renderer, 10.0f, 10.0f,
+				installer ? "Adding Custom Edition's maps..." : "Extracting the maps folder...");
 			SDL_SetRenderScale(renderer, 1.0f, 1.0f);
 			snprintf(line, sizeof(line), "%s  (%llu of %llu MB)", file, done >> 20, total >> 20);
 			SDL_RenderDebugText(renderer, 20.0f, 70.0f, line);
@@ -486,6 +619,8 @@ static BOOL data_extract(const char *image, const char *destination, char *error
 		SDL_DestroyRenderer(renderer);
 	if (window)
 		SDL_DestroyWindow(window);
+	if (written)
+		*written = extraction.written;
 	if (!extraction.succeeded)
 		snprintf(error, (size_t)error_size, "%s", extraction.error);
 	return extraction.succeeded;
@@ -542,19 +677,26 @@ static BOOL data_find_image(const char *directory, char *path, int size)
 	return FALSE;
 }
 
-/* the disc image the player picks; FALSE if they pick none, with *failed
-set (and error written) when no dialog could be shown */
-static BOOL data_choose_image(char *path, int size, BOOL *failed, char *error, int error_size)
+/* the disc image (with installer, Custom Edition's installer) the player
+picks; FALSE if they pick none, with *failed set (and error written) when no
+dialog could be shown */
+static BOOL data_choose_image(char *path, int size, BOOL installer, BOOL *failed, char *error, int error_size)
 {
-	static const SDL_DialogFileFilter filters[] =
+	static const SDL_DialogFileFilter image_filters[] =
 	{
 		{ "Xbox disc images", "iso;xiso" },
+		{ "All files", "*" },
+	};
+	static const SDL_DialogFileFilter installer_filters[] =
+	{
+		{ "Custom Edition's installer", "exe" },
 		{ "All files", "*" },
 	};
 	static struct data_image_choice choice;
 
 	memset(&choice, 0, sizeof(choice));
-	SDL_ShowOpenFileDialog(data_image_chosen, &choice, NULL, filters, 2, NULL, false);
+	SDL_ShowOpenFileDialog(data_image_chosen, &choice, NULL, installer ? installer_filters : image_filters, 2, NULL,
+		false);
 	/* the dialog answers through events (and on some systems another
 	thread) */
 	while (!SDL_GetAtomicInt(&choice.done))
@@ -571,12 +713,61 @@ static BOOL data_choose_image(char *path, int size, BOOL *failed, char *error, i
 	return TRUE;
 }
 
+/* adds Custom Edition's maps from the installer the player picks, saying
+what became of it */
+static void data_import_custom_edition(const char *destination)
+{
+	char installer[1024];
+	char folder[1024];
+	char error[512];
+	char message[1600];
+	unsigned long long written = 0;
+	BOOL failed = FALSE;
+	int kind;
+
+	if (!data_choose_image(installer, sizeof(installer), TRUE, &failed, error, sizeof(error)))
+	{
+		if (failed)
+		{
+			platform_log("no file dialog: %s", error);
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", error, NULL);
+		}
+		return;
+	}
+	kind = map_import_kind(installer);
+	if (kind != _map_import_custom_edition_installer)
+	{
+		platform_log("%s is not Custom Edition's installer", installer);
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", kind == _map_import_cd_image ? map_import_cd_image_text :
+			kind == _map_import_xbox_disc ? "That is an Xbox disc image: choose Xbox disc image for it." :
+			"That file is not Custom Edition's installer (halocesetup_en_1.00.exe).", NULL);
+		return;
+	}
+	map_import_custom_maps_folder(destination, folder, sizeof(folder));
+	if (!data_extract(installer, folder, TRUE, &written, error, sizeof(error)))
+	{
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", error, NULL);
+		return;
+	}
+	snprintf(message, sizeof(message), "%s %s. They show in the map lists' CUSTOM MULTIPLAYER.\n\n"
+		"Halo still needs the maps of your Xbox disc to start: choose Xbox disc image next.",
+		written ? "Custom Edition's maps are in" : "Custom Edition's maps were already in", folder);
+	SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "Halo", message, NULL);
+}
+
 BOOL platform_offer_game_data(const char *destination, const char *missing)
 {
+	enum
+	{
+		_choice_quit,
+		_choice_xbox,
+		_choice_custom_edition,
+	};
 	static const SDL_MessageBoxButtonData buttons[] =
 	{
-		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Yes" },
-		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "No" },
+		{ SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, _choice_xbox, "Xbox disc image" },
+		{ 0, _choice_custom_edition, "Custom Edition maps" },
+		{ SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, _choice_quit, "Quit" },
 	};
 	char message[2600];
 	char found[1024];
@@ -595,8 +786,10 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 	{
 		snprintf(message, sizeof(message),
 			"Halo's game data (its maps folder) was not found.\n\n"
-			"Extract the maps folder from the Xbox disc image %s? "
+			"Xbox disc image: extract the maps folder from the Xbox disc image %s. "
 			"It is copied to %s/maps (about 2 GB).\n\n"
+			"Custom Edition maps (optional): add the multiplayer maps of Custom Edition's installer "
+			"(halocesetup_en_1.00.exe) to custom_maps.\n\n"
 			"(Or put the maps folder there yourself, or set paths.data in config.toml.)",
 			found, destination);
 	}
@@ -604,29 +797,36 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 	{
 		snprintf(message, sizeof(message),
 			"Halo's game data (its maps folder) was not found.\n\n"
-			"Extract the maps folder from an Xbox disc image (.iso) of Halo: Combat Evolved? "
+			"Xbox disc image: extract the maps folder from an Xbox disc image (.iso) of Halo: Combat Evolved. "
 			"It is copied to %s/maps (about 2 GB).\n\n"
+			"Custom Edition maps (optional): add the multiplayer maps of Custom Edition's installer "
+			"(halocesetup_en_1.00.exe) to custom_maps.\n\n"
 			"(Or put the maps folder there yourself, or set paths.data in config.toml.)",
 			destination);
 	}
 	for (;;)
 	{
-		SDL_MessageBoxData question = { SDL_MESSAGEBOX_INFORMATION, NULL, "Halo", message, 2, buttons, NULL };
+		SDL_MessageBoxData question = { SDL_MESSAGEBOX_INFORMATION, NULL, "Halo", message, 3, buttons, NULL };
 		char image[1024];
 		char error[512];
-		int answer = 0;
+		int answer = _choice_quit;
 		BOOL failed = FALSE;
 
-		if (!SDL_ShowMessageBox(&question, &answer) || answer != 1)
+		if (!SDL_ShowMessageBox(&question, &answer) || answer == _choice_quit)
 		{
 			platform_log("no game data: quitting");
 			exit(EXIT_SUCCESS);
+		}
+		if (answer == _choice_custom_edition)
+		{
+			data_import_custom_edition(destination);
+			continue;
 		}
 		if (image_found)
 		{
 			snprintf(image, sizeof(image), "%s", found);
 		}
-		else if (!data_choose_image(image, sizeof(image), &failed, error, sizeof(error)))
+		else if (!data_choose_image(image, sizeof(image), FALSE, &failed, error, sizeof(error)))
 		{
 			char explanation[1400];
 
@@ -643,8 +843,13 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", explanation, NULL);
 			exit(EXIT_SUCCESS);
 		}
+		if (map_import_kind(image) == _map_import_cd_image)
+		{
+			SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Halo", map_import_cd_image_text, NULL);
+			continue;
+		}
 		platform_log("extracting the maps folder from %s to %s", image, destination);
-		if (data_extract(image, destination, error, sizeof(error)))
+		if (data_extract(image, destination, FALSE, NULL, error, sizeof(error)))
 		{
 			platform_log("extracted the maps folder");
 			return TRUE;
@@ -743,36 +948,82 @@ static BOOL platform_display_size(SDL_DisplayID display, long *width, long *heig
 	return TRUE;
 }
 
+/* whether fullscreen can set the display's refresh rate: on Windows, and
+on an X server's display of its own; not on Wayland or XWayland (whose
+modes are pretended, the display's own kept), nor under gamescope, nor on
+macOS, iOS or Android, whose displays stay at their own rate */
+int platform_refresh_rates_settable(void)
+{
+#ifdef HALO_MACOS
+	return 0;
+#else
+	const char *driver;
+	const char *wayland = getenv("WAYLAND_DISPLAY");
+	const char *gamescope = getenv("GAMESCOPE_WAYLAND_DISPLAY");
+
+	if (!platform_sdl_initialize() || !(driver = SDL_GetCurrentVideoDriver()))
+		return 0;
+	if (!strcmp(driver, "windows"))
+		return 1;
+	return !strcmp(driver, "x11") && !(wayland && wayland[0]) && !(gamescope && gamescope[0]);
+#endif
+}
+
+/* display.refresh_rate where fullscreen can set it, else 0: the display's
+own */
+static float platform_refresh_rate_setting(void)
+{
+	double rate = config_real("display.refresh_rate");
+
+	return rate > 0.0 && rate < 1000.0 && platform_refresh_rates_settable() ? (float)rate : 0.0f;
+}
+
 /* the window's fullscreen kind (display.mode): borderless, a window over
 the whole desktop (SDL's fullscreen without a mode), or fullscreen, the
 display taken at display.resolution's mode (the one nearest it), else at its
-desktop one. F11 switches to the kind set. */
+desktop one, at display.refresh_rate's rate (the nearest the display has at
+that size), else at the desktop's. F11 switches to the kind set. */
 static void platform_fullscreen_kind_apply(void)
 {
 	static int applied = -1;
 	static long applied_width, applied_height;
+	static float applied_rate;
 	int exclusive = platform_display_mode() == _display_mode_fullscreen ? 1 : 0;
 	long width = 0, height = 0;
+	float rate = 0.0f;
 	SDL_DisplayID display;
 	SDL_DisplayMode closest;
-	const SDL_DisplayMode *mode = NULL;
+	const SDL_DisplayMode *mode = NULL, *desktop;
 
 	if (!platform_window)
 		return;
 	if (exclusive)
+	{
 		platform_resolution_setting(&width, &height);
-	if (exclusive == applied && width == applied_width && height == applied_height)
+		rate = platform_refresh_rate_setting();
+	}
+	if (exclusive == applied && width == applied_width && height == applied_height && rate == applied_rate)
 		return;
 	applied = exclusive;
 	applied_width = width;
 	applied_height = height;
+	applied_rate = rate;
 	display = SDL_GetDisplayForWindow(platform_window);
 	if (exclusive && display)
 	{
-		if (width && SDL_GetClosestFullscreenDisplayMode(display, (int)width, (int)height, 0.0f, false, &closest))
+		desktop = SDL_GetDesktopDisplayMode(display);
+		if (width && SDL_GetClosestFullscreenDisplayMode(display, (int)width, (int)height, rate, false, &closest))
 			mode = &closest;
+		else if (!width && rate > 0.0f && desktop &&
+			SDL_GetClosestFullscreenDisplayMode(display, desktop->w, desktop->h, rate, true, &closest))
+		{
+			mode = &closest;
+		}
 		else
-			mode = SDL_GetDesktopDisplayMode(display);
+			mode = desktop;
+		if (mode && rate > 0.0f)
+			platform_log("display: fullscreen at %dx%d, %.2f Hz (display.refresh_rate %.2f)", mode->w, mode->h,
+				mode->refresh_rate, rate);
 	}
 	SDL_SetWindowFullscreenMode(platform_window, mode);
 }
@@ -929,6 +1180,45 @@ int platform_display_resolutions(long *widths, long *heights, int maximum)
 	return count;
 }
 
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	SDL_DisplayID display;
+	SDL_DisplayMode **modes;
+	int mode_count = 0, count = 0, index, place;
+	long rate;
+
+	if (maximum < 1 || !platform_refresh_rates_settable())
+		return 0;
+	display = platform_window ? SDL_GetDisplayForWindow(platform_window) : 0;
+	if (!display)
+		display = SDL_GetPrimaryDisplay();
+	modes = display ? SDL_GetFullscreenDisplayModes(display, &mode_count) : NULL;
+	for (index = 0; modes && index <= mode_count; index++)
+	{
+		/* (then the one set, though this display has no such rate, so that
+		Video Setup shows it) */
+		rate = index < mode_count ? (long)(modes[index]->refresh_rate + 0.5f) :
+			(long)(config_real("display.refresh_rate") + 0.5);
+		if (rate < 24 || rate >= 1000)
+			continue;
+		for (place = 0; place < count && rates[place] != rate; place++)
+		{
+		}
+		if (place == count && count < maximum)
+			rates[count++] = rate;
+	}
+	SDL_free(modes);
+	/* highest first */
+	for (index = 1; index < count; index++)
+	{
+		rate = rates[index];
+		for (place = index; place > 0 && rates[place - 1] < rate; place--)
+			rates[place] = rates[place - 1];
+		rates[place] = rate;
+	}
+	return count;
+}
+
 /* Video Setup's window sizes, by shape (4:3, 16:10, 16:9, 21:9), each from
 the smallest */
 static const short platform_window_sizes_offered[][2] =
@@ -1017,6 +1307,19 @@ int platform_window_sizes(long *widths, long *heights, int maximum)
 {
 	(void)widths;
 	(void)heights;
+	(void)maximum;
+	return 0;
+}
+
+/* (Android's display keeps its own rate: no Refresh Rate row) */
+int platform_refresh_rates_settable(void)
+{
+	return 0;
+}
+
+int platform_display_refresh_rates(long *rates, int maximum)
+{
+	(void)rates;
 	(void)maximum;
 	return 0;
 }
@@ -1168,6 +1471,124 @@ static unsigned int platform_low_latency_flags(void)
 }
 #define PLATFORM_WINDOW_DRAWING SDL_WINDOW_VULKAN
 #endif
+/* (below) display.vsync's swap interval, with display.max_fps's in step;
+the one the window was given (-1: none yet), which the frames' limit goes
+by (frame_interval_ns) */
+static int platform_swap_interval(void);
+static int platform_interval_take(void);
+static int platform_interval = -1;
+
+#ifdef PLATFORM_MENU_CURSOR
+/* ---------- the menus' cursor
+
+The blue arrow the menus show for the mouse, in place of the system's. Halo
+PC drew its cursor in the menus' 640 x 480, so it took the same part of the
+screen at any resolution; this one is made again whenever the window's size
+in pixels or display.menu_cursor changes (menu_cursor_fit, from
+platform_pump_events). The guest reaches no SDL surfaces: the host makes the
+cursor from the embedded picture (host_sdl_menu_cursor). */
+
+/* the arrow's tip in the picture, past its soft edge: the click point */
+#define MENU_CURSOR_TIP 2
+
+/* port/linux/host/host_desktop.c: the window's cursor made from the PNG,
+height pixels tall (where the desktop counts in points, that size in points
+with the pixels' image as its alternate), its click point at (tip, tip) of
+the picture's pixels; the system's for a height of 0. Nonzero on success */
+int host_sdl_menu_cursor(unsigned int window, const void *png, unsigned int size, int height, int tip);
+
+/* the cursor's height made last, in pixels (0: the system's; -1: none made
+for this window yet) */
+static int menu_cursor_height = -1;
+
+/* display.menu_cursor: the arrow's height in the menus' 480 lines (medium:
+54 pixels at 1080p), or 0 for the system's pointer; read again when a
+setting changes */
+static int menu_cursor_size(void)
+{
+	static const struct { const char *name; int lines; } sizes[] =
+	{
+		{ "off", 0 }, { "small", 18 }, { "medium", 24 }, { "large", 32 }, { "extra_large", 40 }
+	};
+	static unsigned long read_at = (unsigned long)-1;
+	static int lines = 24;
+
+	if (read_at != config_changes())
+	{
+		const char *name = config_string("display.menu_cursor");
+		size_t index;
+
+		read_at = config_changes();
+		lines = 24;
+		for (index = 0; index < sizeof(sizes) / sizeof(sizes[0]); index++)
+			if (!strcmp(name, sizes[index].name))
+				lines = sizes[index].lines;
+	}
+	return lines;
+}
+
+/* the cursor made for the window's size and display.menu_cursor, when one
+has changed: its height the part of the window the menus' 480 lines take
+(their 4:3 fits a window of another shape), in pixels. Off, the system's
+pointer again */
+static void menu_cursor_fit(void)
+{
+	int width = 0, height = 0, lines, cursor_height = 0, size = menu_cursor_size();
+
+	if (!platform_menu_cursor_size || !SDL_GetWindowSizeInPixels(platform_window, &width, &height) ||
+		width <= 0 || height <= 0)
+		return;
+	if (size)
+	{
+		lines = height < width * 3 / 4 ? height : width * 3 / 4;
+		cursor_height = lines * size / 480;
+		if (cursor_height < 16)
+			cursor_height = 16;
+	}
+	if (cursor_height == menu_cursor_height)
+		return;
+	menu_cursor_height = cursor_height;
+	if (!host_sdl_menu_cursor((unsigned int)(uintptr_t)platform_window, platform_menu_cursor,
+		(unsigned int)platform_menu_cursor_size, cursor_height, MENU_CURSOR_TIP))
+		platform_log("cannot set the menus' cursor");
+}
+
+/* A controller's buttons or sticks, used while a menu is up, hide the
+cursor, and the mouse moved or clicked shows it again, so a player on a
+controller has no arrow left over the menus; a menu opened while the
+controller was used last opens without it, and play shows it again as it
+takes the mouse (platform_ui_pointer_set_active), where the relative mode
+hides it (or macOS parks it in fullscreen: port/macos/host_raw_mouse.m).
+Only these hide it, so its state is kept here, not asked of the host at
+each event. */
+static BOOL menu_cursor_controller;
+static BOOL menu_cursor_hidden;
+
+static void menu_cursor_show(BOOL show)
+{
+	if (show == !menu_cursor_hidden)
+		return;
+	menu_cursor_hidden = !show;
+	if (show)
+		SDL_ShowCursor();
+	else
+		SDL_HideCursor();
+}
+
+static void menu_cursor_controller_used(BOOL in_menus)
+{
+	menu_cursor_controller = TRUE;
+	if (in_menus)
+		menu_cursor_show(FALSE);
+}
+
+static void menu_cursor_mouse_used(BOOL in_menus)
+{
+	menu_cursor_controller = FALSE;
+	if (in_menus)
+		menu_cursor_show(TRUE);
+}
+#endif
 
 BOOL platform_video_initialize(unsigned long width, unsigned long height)
 {
@@ -1243,6 +1664,12 @@ BOOL platform_video_initialize(unsigned long width, unsigned long height)
 		SDL_DestroySurface(icon);
 	}
 #endif
+#ifdef PLATFORM_MENU_CURSOR
+	/* the pointer the menus show (platform_ui_pointer_set_active), in place
+	of the system's, at the window's size */
+	menu_cursor_height = -1;
+	menu_cursor_fit();
+#endif
 	platform_fullscreen_requested = platform_fullscreen_setting();
 	platform_window_mode = platform_display_mode();
 	platform_fullscreen_kind_apply();
@@ -1262,7 +1689,7 @@ BOOL platform_video_initialize(unsigned long width, unsigned long height)
 		(config_boolean("debug.gpu_validation") || config_boolean("debug.gl_debug") ? HOST_VULKAN_DEBUG_VALIDATION : 0) |
 		platform_low_latency_flags(), config_string("debug.gpu_dump_shaders"),
 		config_string("debug.texture_dump_directory"),
-		config_boolean("display.vsync") ? 1 : 0, battery_saver_active()))
+		platform_interval_take(), battery_saver_active()))
 	{
 		platform_log("cannot draw the window with Vulkan");
 		/* (said where it can be seen, not only in the log: else the game
@@ -1356,6 +1783,58 @@ static float platform_refresh_rate(void)
 #endif
 }
 
+/* the refreshes each frame is shown for, 0 for none (vsync off):
+display.vsync's 1; and on the Linux builds, with vsync off, a display.max_fps
+of the display's refresh rate or a whole fraction of it (60 at 60 Hz, 30 or
+45 at 90), within a frame a second, so many: frames spaced by the clock at
+the display's own rate drift against its refreshes, and now and then one is
+shown twice and the next not at all (judder, while the frame rate counter
+says 60). In step with the display, display.low_latency starts each in time
+for its refresh, for less input lag than the clock's. (Not Windows', whose
+display.low_latency is off until measured, nor the Mac's, whose frames
+with vsync off are taken at the display link's refreshes already.) */
+static int platform_swap_interval(void)
+{
+#if defined(HALO_VULKAN) && !defined(HALO_ANDROID) && !defined(HALO_WINDOWS)
+	long maximum;
+	float refresh;
+	int interval;
+#endif
+
+	if (config_boolean("display.vsync"))
+		return 1;
+#if defined(HALO_VULKAN) && !defined(HALO_ANDROID) && !defined(HALO_WINDOWS)
+	maximum = config_integer("display.max_fps");
+	refresh = platform_refresh_rate();
+	if (maximum > 0 && refresh > 0.0f)
+	{
+		for (interval = 1; interval <= 4; interval++)
+		{
+			float apart = refresh / (float)interval - (float)maximum;
+
+			if (apart >= -1.0f && apart <= 1.0f)
+				return interval;
+		}
+	}
+#endif
+	return 0;
+}
+
+/* platform_swap_interval's, which the window is given (platform_interval),
+noted in the log as display.max_fps comes in step with the display */
+static int platform_interval_take(void)
+{
+	int interval = platform_swap_interval();
+
+	if (interval != platform_interval && interval > 0 && !config_boolean("display.vsync"))
+	{
+		platform_log("frame rate: display.max_fps %ld shown in step with the display's %.2f Hz, each frame for %d "
+			"refresh%s", config_integer("display.max_fps"), platform_refresh_rate(), interval, interval == 1 ? "" : "es");
+	}
+	platform_interval = interval;
+	return interval;
+}
+
 /* whether the display paces the frames: display.vsync, and on the Mac
 battery saver too, whose display link then runs at a whole fraction of the
 display's rate (frame_pacing.h). Frames spaced by the clock alone come at
@@ -1367,7 +1846,7 @@ static BOOL platform_vsync(void)
 	if (battery_saver_active())
 		return TRUE;
 #endif
-	return config_boolean("display.vsync");
+	return (platform_interval >= 0 ? platform_interval : platform_swap_interval()) > 0;
 }
 
 /* display.vsync's swap interval, with battery saver's frames a second
@@ -1376,9 +1855,11 @@ refreshes, and the Metal host's display link runs at that rate */
 void platform_frame_rate_apply(void)
 {
 	int saving = battery_saver_active();
+	int interval;
 
 	if (!platform_window)
 		return;
+	interval = platform_interval_take();
 #if defined(HALO_METAL)
 	host_metal_vsync(platform_vsync());
 	host_metal_battery_saver(saving);
@@ -1386,7 +1867,7 @@ void platform_frame_rate_apply(void)
 	/* (the window open already: only its swap interval and
 	display.low_latency are taken) */
 	host_vulkan_window_open((unsigned int)(uintptr_t)platform_window, platform_low_latency_flags(), "", "",
-		config_boolean("display.vsync") ? 1 : 0, saving);
+		interval, saving);
 #endif
 }
 
@@ -1409,17 +1890,26 @@ static Uint64 frame_interval_ns(void)
 	static unsigned long read_at = (unsigned long)-1;
 	float rate = 0.0f;
 
-	/* (battery saver turning on or off moves config_changes) */
+	/* (battery saver turning on or off moves config_changes; the swap
+	interval the window has, platform_frame_rate_apply's) */
 	if (read_at != config_changes())
 	{
 		read_at = config_changes();
-		vsync = platform_vsync();
 #ifdef HALO_ANDROID
 		maximum = -1;
 #else
 		maximum = config_integer("display.max_fps");
 #endif
 	}
+	/* (a display.max_fps in step with the display's refresh rate, or no
+	longer: the rate known only once the window is shown (gamescope's), the
+	window on another display, the display's mode changed) */
+	if (maximum > 0 && platform_interval >= 0 && !config_boolean("display.vsync") &&
+		platform_swap_interval() != platform_interval)
+	{
+		platform_frame_rate_apply();
+	}
+	vsync = platform_vsync();
 	if (!vsync && maximum >= 0)
 		rate = maximum ? (float)maximum : 2.0f * (platform_refresh_rate() > 0.0f ? platform_refresh_rate() : 60.0f);
 	if (battery_saver_active() && !vsync)
@@ -1433,82 +1923,21 @@ static Uint64 frame_interval_ns(void)
 	return rate > 0.0f ? (Uint64)(1e9f / rate) : 0;
 }
 
-#ifndef HALO_ANDROID
-/* The frame's wait for the clock (platform_video_swap), until a time of
-SDL_GetTicksNS, ended by a press (input_presses): the window's events are
-taken as they come, as the next frame's reading would take them, so that a
-press is read at once, not up to an interval later. Motion is no press
-(but for the mouse's after it was still): the mouse and the sticks move
-continuously, and the frames stay at their rate. The scripted player's
-press (debug.test_input "latency:") ends it at its time, as a person's
-event does. The wait is the system's for the window's events (SDL's, which
-with a gamepad looks every millisecond), in whole milliseconds, and the
-last one's part a plain sleep: nothing runs meanwhile. TRUE for a press. */
-static BOOL platform_frame_wait(Uint64 until)
-{
-	unsigned long presses;
-
-	/* (the events are taken on the window's thread only) */
-	if (!platform_window || SDL_GetCurrentThreadID() != platform_event_thread)
-	{
-		Uint64 now = SDL_GetTicksNS();
-
-		if (until > now)
-			SDL_DelayPrecise(until - now);
-		return FALSE;
-	}
-	pthread_mutex_lock(&input_lock);
-	presses = input_presses;
-	pthread_mutex_unlock(&input_lock);
-	for (;;)
-	{
-		Uint64 now = SDL_GetTicksNS(), wake = until, scripted = halo_test_input_next_ns();
-		BOOL pressed;
-
-		if (now >= until)
-			return FALSE;
-		if (scripted && scripted < wake)
-			wake = scripted < now ? now : scripted;
-		if (wake - now >= 1000000u)
-			SDL_WaitEventTimeout(NULL, (Sint32)((wake - now) / 1000000u));
-		else if (wake > now)
-		{
-			SDL_DelayPrecise(wake - now);
-			if (wake == until)
-				return FALSE;
-		}
-		platform_pump_events();
-		pthread_mutex_lock(&input_lock);
-		pressed = input_presses != presses;
-		pthread_mutex_unlock(&input_lock);
-		if (pressed)
-			return TRUE;
-	}
-}
-#endif
-
 #ifdef HALO_METAL
-/* the last of a frame's wait for its start on the display's grid that is
-the host's precise sleep (host_metal_sleep_until) */
-#define PLATFORM_SLOT_PRECISE_NS 2000000u
-
 /* (vsync off on the Mac) the next frame's start, as SDL_GetTicksNS counts,
 on the display's grid (host_metal_frame_phase): as many times a refresh as
-the interval allows, the refresh's shown one (*shown) its budget before the
+the interval allows, the refresh's shown one its budget before the
 refresh's take, the others a whole step after it, but none before the take
 (a frame started there could be ready for the take and shown instead: it
 starts at the take). The first time half a step after the last frame's
 start (last); one already passed is skipped but for a shown one, which
 starts at once (else the refresh would show the frame before it, a step
 older), and after a frame over a refresh late the grid is joined again
-from now. *step: the times' spacing; *calm: the refresh's take, before
-which a press must not start a frame (it could be shown in place of the
-shown one; the next take shows the press anyway, the shown frame having
-read the input before it). 0 where the host gives no grid. */
-static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last, BOOL *shown, Uint64 *step, Uint64 *calm)
+from now. 0 where the host gives no grid. */
+static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last)
 {
 	unsigned long long phase = host_metal_frame_phase();
-	Uint64 period = host_metal_frame_period(), budget = host_metal_frame_budget(), count, index;
+	Uint64 period = host_metal_frame_period(), budget = host_metal_frame_budget(), count, index, step;
 	Sint64 anchor, earliest, refresh, slot;
 	struct timespec monotonic;
 
@@ -1518,12 +1947,12 @@ static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last, BOOL
 	count = (period + interval / 16u) / interval;
 	if (!count)
 		count = 1;
-	*step = period / count;
+	step = period / count;
 	clock_gettime(CLOCK_MONOTONIC, &monotonic);
 	anchor = (Sint64)phase - ((Sint64)monotonic.tv_sec * 1000000000 + monotonic.tv_nsec) + (Sint64)now;
-	earliest = last ? (Sint64)(last + *step / 2u) : (Sint64)now - (Sint64)(*step / 4u);
+	earliest = last ? (Sint64)(last + step / 2u) : (Sint64)now - (Sint64)(step / 4u);
 	if (earliest < (Sint64)now - (Sint64)period)
-		earliest = (Sint64)now - (Sint64)(*step / 4u);
+		earliest = (Sint64)now - (Sint64)(step / 4u);
 	/* (the refresh whose times may hold the first: one before earliest's) */
 	refresh = (earliest - anchor) / (Sint64)period - 1;
 	if (earliest < anchor)
@@ -1534,22 +1963,33 @@ static Uint64 platform_frame_slot(Uint64 interval, Uint64 now, Uint64 last, BOOL
 		{
 			/* (none but the shown one where the budget leaves no room after
 			the take) */
-			if (index && budget + *step / 2u > period)
+			if (index && budget + step / 2u > period)
 				break;
-			slot = anchor + refresh * (Sint64)period + (Sint64)(index * *step);
+			slot = anchor + refresh * (Sint64)period + (Sint64)(index * step);
 			if (index && slot < anchor + refresh * (Sint64)period + (Sint64)budget)
 				slot = anchor + refresh * (Sint64)period + (Sint64)budget;
-			*shown = index == 0;
-			*calm = (Uint64)(anchor + refresh * (Sint64)period + (Sint64)budget);
 			if (slot < earliest)
 				continue;
-			if (slot >= (Sint64)now || *shown)
+			if (slot >= (Sint64)now || index == 0)
 				return (Uint64)slot;
 		}
 	}
 }
 #endif
 
+/* The frames' limit (display.max_fps, battery saver's without vsync): no
+frame starts before its time, whatever comes meanwhile. The wait is a plain
+sleep, not one for the window's events: the keys, the mouse, the window's
+own events and the controllers' polling neither end it nor add a frame, so
+the frame rate holds at the limit while the player plays (a press that
+began the next frame at once had added a frame each interval, up to twice
+the limit while keys were pressed, #543). The input is read as late as the
+limit lets it be: the wait comes after a frame has gone to the renderer and
+before the next one reads anything (D3DDevice_Present pumps the window's
+events once it returns, and the main loop reads them at once:
+frame_pacing.h), so a press during the wait is in the very next frame, read
+at its start, and the view reads the mouse again after the simulation
+(xinput_sdl.c's mouse look). */
 void platform_video_swap(void)
 {
 	Uint64 swap_start = SDL_GetTicks(), swap_time;
@@ -1557,12 +1997,8 @@ void platform_video_swap(void)
 #ifdef HALO_METAL
 	/* the last frame's start on the display's grid (platform_frame_slot) */
 	static Uint64 slot_last;
-	Uint64 slot, step = 0, calm = 0;
-	BOOL shown = FALSE;
+	Uint64 slot;
 #endif
-	/* a press began a frame before next_frame (platform_frame_wait): the
-	frame after it waits for next_frame without a wake */
-	static BOOL woken;
 	Uint64 interval, now;
 	/* (the host shows the frame, on its render thread: here it is paced) */
 	/* (a frame the graphics driver held for seconds: the game froze, and
@@ -1575,48 +2011,19 @@ void platform_video_swap(void)
 		return;
 	now = SDL_GetTicksNS();
 #ifdef HALO_METAL
-	slot = platform_frame_slot(interval, now, slot_last, &shown, &step, &calm);
+	slot = platform_frame_slot(interval, now, slot_last);
 	if (slot)
 	{
-		/* (a press wakes the wait, but not in the half step before a
-		refresh's shown frame: a frame begun then would only start that
-		one late, and the refresh shows that one, which reads the press
-		too) */
+		/* (the host's sleep, on time: the guest's own timed waits ended up
+		to 8 ms late) */
 		if (slot > now)
 		{
-			Uint64 wake_until = shown ? slot - step / 2u : slot;
 			struct timespec monotonic;
 
-			/* (the window's events are waited for in whole milliseconds,
-			which can end late: the last of the wait is the host's, on
-			time) */
-			if (wake_until > slot - PLATFORM_SLOT_PRECISE_NS)
-				wake_until = slot - PLATFORM_SLOT_PRECISE_NS;
-			/* (no wake before the take: a frame begun there could be ready
-			for it, and shown in place of the shown one) */
-			if (!shown && calm > now && calm < wake_until)
-			{
-				clock_gettime(CLOCK_MONOTONIC, &monotonic);
-				host_metal_sleep_until((unsigned long long)monotonic.tv_sec * 1000000000ull +
-					(unsigned long long)monotonic.tv_nsec + (calm - now));
-				now = SDL_GetTicksNS();
-			}
-			else if (!shown && calm > now)
-				wake_until = now;
-			if (!woken && wake_until > now && platform_frame_wait(wake_until))
-			{
-				woken = TRUE;
-				return;
-			}
-			now = SDL_GetTicksNS();
-			if (slot > now)
-			{
-				clock_gettime(CLOCK_MONOTONIC, &monotonic);
-				host_metal_sleep_until((unsigned long long)monotonic.tv_sec * 1000000000ull +
-					(unsigned long long)monotonic.tv_nsec + (slot - now));
-			}
+			clock_gettime(CLOCK_MONOTONIC, &monotonic);
+			host_metal_sleep_until((unsigned long long)monotonic.tv_sec * 1000000000ull +
+				(unsigned long long)monotonic.tv_nsec + (slot - now));
 		}
-		woken = FALSE;
 		slot_last = slot;
 		return;
 	}
@@ -1627,24 +2034,10 @@ void platform_video_swap(void)
 		/* (the Android guest's SDL waits in milliseconds) */
 		SDL_Delay((Uint32)((next_frame - now) / 1000000u));
 #else
-		/* A press while the frame waits begins the next at once: it is read
-		now, and acted on now if a step is due, else at the step's frame as
-		before. That frame is one more: next_frame stays, and the frame
-		after it waits for it as before, without a wake, so a frame comes
-		before its time once in an interval at most (a frame a press, which
-		are few), and none comes later than it would have. */
-		if (!woken && platform_frame_wait(next_frame))
-		{
-			woken = TRUE;
-			return;
-		}
-		now = SDL_GetTicksNS();
-		if (next_frame > now)
-			SDL_DelayPrecise(next_frame - now);
+		SDL_DelayPrecise(next_frame - now);
 #endif
 		now = next_frame;
 	}
-	woken = FALSE;
 	/* (a frame more than an interval late starts the count again) */
 	next_frame = now - next_frame > interval ? now + interval : next_frame + interval;
 }
@@ -1837,6 +2230,104 @@ static void queue_keystroke(const SDL_KeyboardEvent *event)
 	keystroke_count++;
 }
 
+/* (input_lock) a key pressed and let go of, as its events queue it */
+static void queue_test_keystroke(BYTE virtual_key, CHAR ascii)
+{
+	int up;
+
+	for (up = 0; up < 2; up++)
+	{
+		struct platform_keystroke *keystroke;
+
+		if (keystroke_count == KEYSTROKE_QUEUE_SIZE)
+			return;
+		keystroke = &keystroke_queue[(keystroke_head + keystroke_count) % KEYSTROKE_QUEUE_SIZE];
+		keystroke->virtual_key = virtual_key;
+		keystroke->ascii = up ? 0 : ascii;
+		keystroke->flags = up ? 0x40 : 0;
+		keystroke_count++;
+	}
+}
+
+/* (input_lock) debug.test_input "menu:...": its "type:" and "enter"
+(platform_test_menu_keys), as the keyboard would type them: the letters'
+and digits' keystrokes, and Return held and its keystroke */
+static void test_menu_keys(void)
+{
+	static int enter_held;
+	char typed[64];
+	int enter, index;
+
+	if (platform_test_menu_keys(typed, (int)sizeof(typed), &enter))
+	{
+		for (index = 0; typed[index]; index++)
+		{
+			char character = typed[index];
+
+			if (character >= 'a' && character <= 'z')
+				queue_test_keystroke((BYTE)(character - 'a' + 'A'), character);
+			else if ((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9'))
+				queue_test_keystroke((BYTE)character, character);
+		}
+		if (enter)
+			queue_test_keystroke(0x0d, '\r');
+	}
+	if (enter != enter_held)
+	{
+		enter_held = enter;
+		input_state.keys[SDL_SCANCODE_RETURN] = (unsigned char)enter;
+	}
+}
+
+#ifndef HALO_ANDROID
+/* the scripted run's mouse (test_menu_mouse): its events' mouse */
+#define TEST_MENU_MOUSE_ID ((SDL_MouseID)0x7e57)
+
+/* (the event thread, before the window's events are read) debug.test_input
+"menu:...": its "mouse:<button>" and "wheel:<notches>[*<events>]"
+(platform_test_menu_mouse) come as a mouse's events, which take the mouse's
+own way to the menus (platform_pump_events) */
+static void test_menu_mouse(void)
+{
+	int button, events, index;
+	float wheel;
+	SDL_Event event;
+
+	if (!platform_test_menu_mouse(&button, &wheel, &events))
+		return;
+	memset(&event, 0, sizeof(event));
+	if (button)
+	{
+		event.button.which = TEST_MENU_MOUSE_ID;
+		event.button.button = (Uint8)button;
+		event.button.clicks = 1;
+		event.type = SDL_EVENT_MOUSE_BUTTON_DOWN;
+		event.button.down = true;
+		SDL_PushEvent(&event);
+		event.type = SDL_EVENT_MOUSE_BUTTON_UP;
+		event.button.down = false;
+		SDL_PushEvent(&event);
+		platform_log("test input: mouse button %d clicked", button);
+		return;
+	}
+	event.type = SDL_EVENT_MOUSE_WHEEL;
+	event.wheel.which = TEST_MENU_MOUSE_ID;
+	event.wheel.direction = SDL_MOUSEWHEEL_NORMAL;
+	event.wheel.y = wheel / (float)events;
+	for (index = 0; index < events; index++)
+		SDL_PushEvent(&event);
+	platform_log("test input: wheel turned %g in %d events", wheel, events);
+}
+
+/* whether a mouse's event is left out of a scripted run of the menus
+(debug.test_input "menu:..."), which takes its presses alone: any mouse's
+but its own (test_menu_mouse) */
+static BOOL test_menu_mouse_ignored(SDL_MouseID which)
+{
+	return which != TEST_MENU_MOUSE_ID && !strncmp(config_string("debug.test_input"), "menu:", 5);
+}
+#endif
+
 BOOL platform_next_keystroke(struct platform_keystroke *keystroke)
 {
 	BOOL result = FALSE;
@@ -1933,6 +2424,17 @@ void platform_clipboard_set(const char *text)
 {
 	if (!platform_clipboard_left_alone())
 		SDL_SetClipboardText(text);
+}
+
+void platform_open_url(const char *url)
+{
+#ifdef HALO_WEB
+	web_js_post(5, url);
+#else
+	/* (the address logged too, for a machine whose browser does not open) */
+	if (!SDL_OpenURL(url))
+		platform_log("could not open the browser (%s): open %s", SDL_GetError(), url);
+#endif
 }
 
 /* puts a new invite on the clipboard, and joins one found there when the
@@ -2287,6 +2789,9 @@ void platform_pump_events(void)
 		return;
 	exit_after_check();
 	platform_show_pending_message();
+#ifdef PLATFORM_MENU_CURSOR
+	menu_cursor_fit();
+#endif
 #ifndef HALO_ANDROID
 	updater_poll(platform_window);
 	/* (Settings > Audio's output device, as it changes: dsound_sdl.c) */
@@ -2295,6 +2800,9 @@ void platform_pump_events(void)
 #else
 	/* (display.orientation, as it changes) */
 	orientation_apply();
+#endif
+#ifndef HALO_ANDROID
+	test_menu_mouse();
 #endif
 	pthread_mutex_lock(&input_lock);
 #ifndef HALO_ANDROID
@@ -2315,8 +2823,9 @@ void platform_pump_events(void)
 			exit(EXIT_SUCCESS);
 		case SDL_EVENT_KEY_DOWN:
 		case SDL_EVENT_KEY_UP:
-			if (!event.key.repeat)
-				input_presses++;
+			if (event.key.down && !event.key.repeat && event.key.scancode != SDL_SCANCODE_F11 &&
+				event.key.scancode != SDL_SCANCODE_F12)
+				movie_skip_presses++;
 			if (event.key.scancode < SDL_SCANCODE_COUNT)
 			{
 				input_state.keys[event.key.scancode] = event.key.down;
@@ -2357,6 +2866,11 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_MOUSE_MOTION:
 #ifndef HALO_ANDROID
+#ifdef PLATFORM_MENU_CURSOR
+			/* (not the warp to the middle as a menu opens) */
+			if (!input_state.ui_pointer || event.motion.x != ui_pointer.x || event.motion.y != ui_pointer.y)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (scoreboard_pointer_active)
 			{
 				scoreboard_pointer.x = event.motion.x;
@@ -2387,17 +2901,19 @@ void platform_pump_events(void)
 #endif
 			input_state.mouse_dx += event.motion.xrel;
 			input_state.mouse_dy += event.motion.yrel;
-			{
-				Uint64 now = SDL_GetTicksNS();
-
-				if (now - input_mouse_moved_ns >= INPUT_MOUSE_STILL_NS)
-					input_presses++;
-				input_mouse_moved_ns = now;
-			}
 			break;
 		case SDL_EVENT_MOUSE_BUTTON_DOWN:
 		case SDL_EVENT_MOUSE_BUTTON_UP:
-			input_presses++;
+#ifndef HALO_ANDROID
+			if (test_menu_mouse_ignored(event.button.which))
+				break;
+#endif
+			if (event.button.down)
+				movie_skip_presses++;
+#ifdef PLATFORM_MENU_CURSOR
+			if (event.button.down)
+				menu_cursor_mouse_used(input_state.ui_pointer);
+#endif
 			if (event.button.button < 32)
 			{
 				if (event.button.down)
@@ -2452,6 +2968,14 @@ void platform_pump_events(void)
 				{
 					ui_pointer.right_clicks++;
 				}
+				/* (the Back button: the menus' B, held as long as it is, as
+				Escape's; let go of, or the menus closing, it lets B go) */
+				else if (platform_mouse_button_backs(event.button.button))
+				{
+					input_state.menu_back = event.button.down;
+					if (event.button.down)
+						menu_back_pressed = TRUE;
+				}
 				break;
 			}
 #endif
@@ -2463,6 +2987,10 @@ void platform_pump_events(void)
 			}
 			break;
 		case SDL_EVENT_MOUSE_WHEEL:
+#ifndef HALO_ANDROID
+			if (test_menu_mouse_ignored(event.wheel.which))
+				break;
+#endif
 			if (binding_capture == _binding_capture_waiting && event.wheel.y != 0.0f)
 			{
 				binding_capture = _binding_capture_taken;
@@ -2511,6 +3039,10 @@ void platform_pump_events(void)
 			memset(input_state.keys, 0, sizeof(input_state.keys));
 			memset(input_state.mouse_buttons, 0, sizeof(input_state.mouse_buttons));
 			memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
+			input_state.menu_back = FALSE;
+#ifndef HALO_ANDROID
+			menu_back_pressed = FALSE;
+#endif
 			input_state.focused = FALSE;
 			/* (the scoreboard's pointer goes; the mouse is taken back for
 			the aim as the window has the focus again) */
@@ -2543,6 +3075,8 @@ void platform_pump_events(void)
 		case SDL_EVENT_FINGER_MOTION:
 		case SDL_EVENT_FINGER_UP:
 		case SDL_EVENT_FINGER_CANCELED:
+			if (event.type == SDL_EVENT_FINGER_DOWN)
+				movie_skip_presses++;
 			touch_input_event(event.type, &event.tfinger);
 			break;
 #endif
@@ -2574,20 +3108,21 @@ void platform_pump_events(void)
 			break;
 		case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
 		case SDL_EVENT_GAMEPAD_BUTTON_UP:
-			input_presses++;
+#ifdef PLATFORM_MENU_CURSOR
+			if (event.gbutton.down)
+				menu_cursor_controller_used(input_state.ui_pointer);
+#endif
 			break;
+#ifdef PLATFORM_MENU_CURSOR
 		case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-			if (event.gaxis.axis < SDL_GAMEPAD_AXIS_COUNT)
+			/* (a stick or trigger past its rest) */
+			if (abs(event.gaxis.value) >= (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
+				event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER ? INPUT_TRIGGER_PRESSED : INPUT_AXIS_PRESSED))
 			{
-				int threshold = event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ||
-					event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER ? INPUT_TRIGGER_PRESSED : INPUT_AXIS_PRESSED;
-				unsigned char beyond = abs(event.gaxis.value) >= threshold;
-
-				if (beyond != input_axis_beyond[event.gaxis.axis])
-					input_presses++;
-				input_axis_beyond[event.gaxis.axis] = beyond;
+				menu_cursor_controller_used(input_state.ui_pointer);
 			}
 			break;
+#endif
 		case SDL_EVENT_GAMEPAD_REMOVED:
 			/* (SDL keeps a gamepad open until it is closed, even once the
 			controller has gone) */
@@ -2617,11 +3152,22 @@ void platform_pump_events(void)
 		}
 	}
 #endif
-	if (halo_test_input_pump(&input_state, mouse_buttons_pressed))
-		input_presses++;
+	test_menu_keys();
+	halo_test_input_pump(&input_state, mouse_buttons_pressed);
 	pthread_mutex_unlock(&input_lock);
 	looked_at_clipboard = TRUE;
 	platform_invite_clipboard(look_at_clipboard);
+}
+
+int platform_movie_skip_pressed(void)
+{
+	int pressed;
+
+	pthread_mutex_lock(&input_lock);
+	pressed = movie_skip_presses != movie_skip_presses_seen;
+	movie_skip_presses_seen = movie_skip_presses;
+	pthread_mutex_unlock(&input_lock);
+	return pressed;
 }
 
 void platform_menus_set_active(BOOL active)
@@ -2637,6 +3183,13 @@ void platform_binding_capture_begin(void)
 	binding_capture = _binding_capture_waiting;
 	binding_settling = TRUE;
 	binding_polled_ms = SDL_GetTicks();
+	pthread_mutex_unlock(&input_lock);
+}
+
+void platform_binding_capture_cancel(void)
+{
+	pthread_mutex_lock(&input_lock);
+	binding_capture = _binding_capture_idle;
 	pthread_mutex_unlock(&input_lock);
 }
 
@@ -2670,6 +3223,8 @@ void platform_ui_pointer_set_active(BOOL active)
 	input_state.ui_pointer = active;
 	memset(&ui_pointer, 0, sizeof(ui_pointer));
 	ui_pointer_wheel = 0.0f;
+	input_state.menu_back = FALSE;
+	menu_back_pressed = FALSE;
 	input_state.mouse_dx = 0.0f;
 	input_state.mouse_dy = 0.0f;
 	input_state.mouse_wheel = 0.0f;
@@ -2677,6 +3232,9 @@ void platform_ui_pointer_set_active(BOOL active)
 	memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
 	pthread_mutex_unlock(&input_lock);
 	platform_mouse_capture(!active && !input_state.mouse_released);
+#ifdef PLATFORM_MENU_CURSOR
+	menu_cursor_show(!active || !menu_cursor_controller);
+#endif
 	if (active)
 	{
 		int width, height;
@@ -2708,14 +3266,21 @@ BOOL platform_ui_pointer_read(struct platform_ui_pointer *pointer)
 	presses alone: the mouse of whoever is at the computer moves no focus) */
 	if (!strncmp(config_string("debug.test_input"), "menu:", 5))
 	{
-		/* (but its own clicks: "click:<x>:<y>", platform_test_menu_click) */
+		/* (but its own clicks: "click:<x>:<y>", platform_test_menu_click;
+		and its own mouse's wheel, the others' events left out:
+		test_menu_mouse_ignored) */
 		float x, y;
 		int width, height;
+		int wheel_steps = pointer->wheel_steps;
+		BOOL clicked = active && platform_test_menu_click(&x, &y);
 
-		if (!active || !platform_test_menu_click(&x, &y))
+		if (!active || (!clicked && !wheel_steps))
 			return FALSE;
-		SDL_GetWindowSize(platform_window, &width, &height);
 		memset(pointer, 0, sizeof(*pointer));
+		pointer->wheel_steps = wheel_steps;
+		if (!clicked)
+			return TRUE;
+		SDL_GetWindowSize(platform_window, &width, &height);
 		pointer->x = pointer->click_x = x * width;
 		pointer->y = pointer->click_y = y * height;
 		pointer->moved = TRUE;
@@ -2872,6 +3437,10 @@ void platform_input_read(struct platform_input_state *state, BOOL consume_motion
 		memset(state->mouse_buttons, 0, sizeof(state->mouse_buttons));
 		memset(keys_pressed, 0, sizeof(keys_pressed));
 		memset(mouse_buttons_pressed, 0, sizeof(mouse_buttons_pressed));
+		state->menu_back = FALSE;
+#ifndef HALO_ANDROID
+		menu_back_pressed = FALSE;
+#endif
 		state->mouse_wheel = 0.0f;
 		/* (and the motion of the while, which would otherwise pile up for
 		the aim) */
@@ -2898,6 +3467,10 @@ void platform_input_read(struct platform_input_state *state, BOOL consume_motion
 			state->mouse_buttons[scancode] |= mouse_buttons_pressed[scancode];
 			mouse_buttons_pressed[scancode] = 0;
 		}
+#ifndef HALO_ANDROID
+		state->menu_back |= menu_back_pressed;
+		menu_back_pressed = FALSE;
+#endif
 	}
 	if (consume_motion)
 	{

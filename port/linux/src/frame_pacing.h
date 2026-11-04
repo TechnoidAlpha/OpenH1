@@ -66,8 +66,9 @@ next (the one on screen not counted) */
 #define FRAME_PACING_QUEUED 1
 /* the longest the game waits for the display to take a frame: a display
 that takes none (a window covered, minimized, between the desktop and
-fullscreen) must not stop the game */
-#define FRAME_PACING_WAIT_MAXIMUM_NS 100000000ull
+fullscreen) must not stop the game, nor one that pauses for a few refreshes
+hold it longer than two at 60 Hz (100 ms froze an iPhone's game in play) */
+#define FRAME_PACING_WAIT_MAXIMUM_NS 34000000ull
 /* the frames whose start to ready times the budget is the most of, and the
 time added to it */
 #define FRAME_PACING_COSTS 128

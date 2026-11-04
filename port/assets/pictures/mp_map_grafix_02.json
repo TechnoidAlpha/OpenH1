@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 02 (Damnation)",
+ "scenario": "levels\\test\\damnation\\damnation",
+ "bsp": 0,
+ "aspect": 1.2002,
+ "pose": {
+  "x": -11.2118,
+  "y": 14.5169,
+  "z": 3.8443,
+  "yaw": 326.2087,
+  "pitch": 11.3191,
+  "roll": 0.4719,
+  "vfov": 57.9855
+ },
+ "prepare": [
+  "debug_camera_set \"10.87 -14.54 7.40 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.8167
+}

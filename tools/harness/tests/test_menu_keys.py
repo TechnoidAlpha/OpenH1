@@ -1,6 +1,7 @@
 """The menus' prompts for the keyboard (menu_keys.c): a controller button of the menus' text (the scores' A and B
 after a game, a screen's A) is drawn as a key that presses that button in the menus (xinput_sdl.c's keyboard_gamepad),
-with the game's own code for both."""
+with the game's own code for both. The mouse's Back button (sdl_platform.h's platform_mouse_button_backs) is B in the
+menus and while typing, held over a change of what the keys drive counting only once let go of, as Escape (#541)."""
 
 import re
 import sys
@@ -11,7 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run  # noqa: E402
 
-CASES = ["keys", "scores", "unnamed", "browser"]
+CASES = ["keys", "scores", "unnamed", "browser", "mouse-back", "back-buttons", "back-held-over-switch"]
 
 # a fault in the code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -23,8 +24,25 @@ NEGATIVE_CONTROLS = {
     # Tab as X (delete) in the Profiles screen, as the browsers'
     "tab-deletes": ("keyboard", ("(browser ? k[SDL_SCANCODE_TAB] : k[SDL_SCANCODE_E])", "k[SDL_SCANCODE_TAB]"),
                     "browser"),
+    # the browsers' Filters (the left trigger) drawn as L, which presses nothing
+    "l-not-left-trigger": ("keyboard", ("analog(k[SDL_SCANCODE_L])", "analog(0)"), "keys"),
     "escape-not-b": ("keyboard", ("k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE]", "k[SDL_SCANCODE_BACKSPACE]"),
                      "keys"),
+    # the code before #541: the Back button only as X1 held, which the menus' pointer never lets through
+    "back-not-b": ("keyboard", ("input->menu_back || (mouse && m[SDL_BUTTON_X1])", "(mouse && m[SDL_BUTTON_X1])"),
+                   "mouse-back"),
+    # while typing, the Back button cancels nothing
+    "back-not-typing-b": ("typing", ("k[SDL_SCANCODE_ESCAPE] || input->menu_back", "k[SDL_SCANCODE_ESCAPE]"),
+                          "mouse-back"),
+    # the Back button as forward too (X2)
+    "forward-backs": ("buttons", ("(button) == SDL_BUTTON_X1 ||",
+                                  "(button) == SDL_BUTTON_X1 || (button) == SDL_BUTTON_X2 ||"), "back-buttons"),
+    # a Linux mouse's BTN_BACK (7) not taken
+    "no-linux-back": ("buttons", ("#define PLATFORM_MOUSE_BUTTON_LINUX_BACK 7",
+                                  "#define PLATFORM_MOUSE_BUTTON_LINUX_BACK 4"), "back-buttons"),
+    # the Back button held over the switch kept: backs out of the menu too
+    "back-held-kept": ("switch", ("\telse if (back_held)\n\t\tinput->menu_back = FALSE;",
+                                  "\telse if (back_held)\n\t\t;"), "back-held-over-switch"),
 }
 
 
@@ -33,19 +51,32 @@ def generated(fault=None):
     widgets = read("source/interface/ui_widget.c")
     keyboard = function(inputs, "keyboard_gamepad")
     menu = function(widgets, "ui_widget_port_menu_key")
+    typing = function(inputs, "typing_gamepad")
+    switch = function(inputs, "keys_held_over_switch")
+    # (the Back button's numbering: sdl_platform.h's)
+    buttons = "\n".join(re.findall(r"^#define PLATFORM_MOUSE_BUTTON_LINUX_BACK [^\n]+|"
+                                   r"^#define platform_mouse_button_backs\(button\)[^\n]*\n[^\n]+",
+                                   read("port/linux/src/sdl_platform.h"), re.M))
     if fault:
         where, change, _ = NEGATIVE_CONTROLS[fault]
         if where == "menu":
             menu = mutated(menu, *change)
+        elif where == "typing":
+            typing = mutated(typing, *change)
+        elif where == "buttons":
+            buttons = mutated(buttons, *change)
+        elif where == "switch":
+            switch = mutated(switch, *change)
         else:
             keyboard = mutated(keyboard, *change)
     names = set(re.findall(r"SDL_SCANCODE_\w+", keyboard + function(inputs, "typing_gamepad")))
     names |= {"SDL_SCANCODE_RETURN", "SDL_SCANCODE_ESCAPE", "SDL_SCANCODE_E", "SDL_SCANCODE_F", "SDL_SCANCODE_Q",
-              "SDL_SCANCODE_F1"}
+              "SDL_SCANCODE_L", "SDL_SCANCODE_F1"}
     config = "\n".join(re.findall(r"^#define XINPUT_GAMEPAD_\w+ [^\n]+", read("port/include/xdk/xdk_xbox.h"), re.M))
     config += "\nenum {" + ", ".join(sorted(names)) + ", TEST_SCANCODE_COUNT};\n"
     config += enum_with(widgets, "_icon_a_button") + "\n"
-    code = "\n".join(function(inputs, name) for name in ("analog", "typing_gamepad")) + "\n" + keyboard + "\n" + menu
+    config += buttons + "\n"
+    code = function(inputs, "analog") + "\n" + typing + "\n" + keyboard + "\n" + switch + "\n" + menu
     return (("config.inc", config), ("under_test.inc", code))
 
 

@@ -19,18 +19,20 @@ enum
 	/* each the model's level, as the Xbox did ("stock", or rasterizer_debug_model_lod) */
 	_model_detail_rules_stock,
 	/* each its most detailed level at or below the model's that has geometry,
-	not one of the model's inside */
-	_model_detail_rules_outside,
-	/* the same, the camera being inside the model, whose inside it sees */
-	_model_detail_rules_inside,
+	not a close-up's */
+	_model_detail_rules_ordinary,
+	/* the same, a close-up's included: the model is as large in the Xbox's
+	480 lines as its first close-up level asks */
+	_model_detail_rules_close_up,
 };
 
-/* the rules for a model drawn this frame, its bounding sphere in the world */
-short model_detail_rules(struct model const *model, real_point3d const *centroid, real radius);
-/* whether the camera is inside a model that has levels of its inside only:
-FALSE for any other model, and for a sphere that is not one */
-boolean model_detail_camera_inside(struct model const *model, real_point3d const *camera,
-	real_point3d const *centroid, real radius);
+/* the rules for a model drawn this frame, its size in the Xbox's 480 lines
+(render_model's level_of_detail_pixels) */
+short model_detail_rules(struct model const *model, real stock_pixels);
+/* whether that size reaches the model's first close-up level (a cutoff over
+1000 pixels) as the Xbox chose levels: FALSE for a model without one, and
+for a size that is not a number */
+boolean model_detail_stock_close_up(struct model const *model, real stock_pixels);
 /* the geometry a permutation draws for the model's level, NONE for none */
 short model_detail_geometry_index(struct model const *model,
 	struct model_region_permutation const *permutation, short level, short rules);

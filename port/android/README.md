@@ -137,7 +137,10 @@ renderer's [README](../linux/vulkan/README.md).
 
 The game needs the `maps/` folder from an Xbox disc image (`.xiso` or
 `.iso`) of any version of the game. The app extracts `maps/` from the disc
-image. The app keeps the data in `/sdcard/Android/data/com.openh1.openh1/files`.
+image, and its movies (`bink/`, for `display.movies`) when it has them
+(`XisoExtractor.java`). The app keeps the data in
+`/sdcard/Android/data/com.openh1.openh1/files`; to add the movies to data
+installed before, copy the disc's `bink` folder there, beside `maps`.
 
 To install the data with the app:
 
@@ -157,7 +160,7 @@ To install the data from a computer:
 | Item | Location in `/sdcard/Android/data/com.openh1.openh1/files` |
 | --- | --- |
 | Saved games (`z:\` and `u:\`) | `save` |
-| Mods (`docs/mods.md`) | `mods`: `adb push <mod folder> /sdcard/Android/data/com.openh1.openh1/files/mods/`; the main menu's Mods orders them and turns them off |
+| Mods (`docs/mods.md`) | `mods`: `adb push <mod folder> /sdcard/Android/data/com.openh1.openh1/files/mods/`; Settings > Profiles > Mods orders them and turns them off |
 | Log | `debug.txt` |
 | Settings | `config.toml` |
 
@@ -410,6 +413,14 @@ number of the display's refreshes, 30 to 60 frames each second (60 at 60 or
 120 Hz, 45 at 90 Hz), and the Classic look is drawn where the graphics
 settings are not set (refer to "Battery saver" in
 [port/linux/README.md](../linux/README.md#battery-saver)).
+`display.low_latency` (`"auto"`: on) starts each frame just in time for the
+refresh it is shown at, with no frames queued ahead of the display, so that
+a touch is on screen a refresh or two sooner with vsync on (the phone's
+default). It reads when each frame reached the screen from
+`VK_GOOGLE_display_timing` (or `VK_KHR_present_wait`); on a device with
+neither it does nothing, and the frames queue as before (refer to "Low
+latency with vsync" in
+[port/linux/README.md](../linux/README.md#low-latency-with-vsync)).
 These settings are only for Android:
 
 | Setting | Function |
@@ -718,7 +729,9 @@ assembly of the port is necessary:
 
 ## Limits
 
-- Bink video is not available. The game skips the movies.
+- The Xbox's Bink movies play only with `display.movies` on and the files
+  in the data root's `bink` folder (`port/linux/README.md`); otherwise the
+  game skips them.
 - The device must let the app reserve the fixed guest addresses, from
   `0x80000000` to `0xa4000000`. If ART uses them, the app shows a message
   (refer to "The fixed addresses").

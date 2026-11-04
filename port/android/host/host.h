@@ -267,6 +267,8 @@ int host_arch_walk_frames(uint64_t fp, int (*read)(uintptr_t address, void *buff
 /* a write to a write-protected page of the Xbox window, at that host
 address: the tracking unprotects it; 1 if it was one */
 int host_memory_watch_fault(uintptr_t address);
+/* the write tracking's faults taken so far */
+uint64_t host_memory_watch_faults(void);
 /* memory_watch_protect, _generation and _serial, for the host's texture
 cache too (port/macos/xgpu_metal_textures.c: any thread) */
 void host_memory_watch_protect(uint32_t address, uint32_t size);

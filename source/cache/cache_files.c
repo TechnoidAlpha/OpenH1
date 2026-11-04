@@ -138,6 +138,9 @@ symbols in this file:
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
 #include "cache_file_formats.h" /* port: CUSTOM_EDITION_TAG_CACHE_BYTES */
 #include "map_share.h" /* port: port/linux/game/map_share.c */
+#include "structure_bsp_cache.h" /* port: port/linux/game/structure_bsp_cache.c */
+#include "scenario/scenario.h" /* port: global_scenario_get */
+#include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
 
 /* ---------- constants */
 
@@ -160,16 +163,6 @@ enum
 #define CACHE_FILE_FOOTER_SIGNATURE 'foot'
 
 /* ---------- structures */
-
-struct cache_file_tag_instance
-{
-	long group_tag;
-	long parent_group_tags[2];
-	long tag_index;
-	char *name;
-	void *base_address;
-	unsigned long unused[2];
-};
 
 struct cache_file_tag_header
 {
@@ -220,9 +213,6 @@ struct cache_file_globals
 	struct cache_file_structure_bsp_header *structure_bsp_header;
 };
 
-typedef char verify_cache_file_tag_instance_size[
-	sizeof(struct cache_file_tag_instance) == 0x20 ? 1 : -1];
-
 typedef char verify_cache_file_tag_header_count_offset[
 	offsetof(struct cache_file_tag_header, tag_count) == 0xC ? 1 : -1];
 
@@ -257,11 +247,10 @@ static boolean cache_file_structure_bsp_tag_valid(
 static struct cache_file_globals cache_file_globals = { 0 };
 /* port: the name the map loaded last was loaded by (scenario_tags_load) */
 static char cache_file_loaded_name[64];
-extern struct cache_file_tag_instance *global_tag_instances;
 /* port: global_tag_instances' count. The menus add their tags to a copy of
 the table (port/linux/game/menu_tags.c); the map's tag header keeps its own,
 which a Custom Edition map's loader goes on reading. */
-static long global_tag_count;
+long global_tag_count; /* port: not static, for tag_get's fast path (tag_groups.h) */
 /* port: one more each time a map's tags are loaded or unloaded
 (cache_files_tags_generation) */
 static unsigned long cache_file_tags_generation = 1;
@@ -686,6 +675,21 @@ unsigned long tag_groups_checksum(
 	return cache_file_globals.tag_header->checksum;
 }
 
+/* port: the tags found by name, by the name's address: the HUD looks up
+its bitmaps by name for every element it draws, each frame
+(verify_tag_reference), and each look-up walked every tag. An entry is
+taken only while its tag still has that group and name; a cache file names
+each tag of a group once, so that tag is the walk's too */
+#define TAG_LOADED_CACHE_SIZE 256
+
+static struct
+{
+	char const *name;
+	long group_tag;
+	struct cache_file_tag_instance *instances;
+	long absolute_index;
+} tag_loaded_cache[TAG_LOADED_CACHE_SIZE];
+
 long tag_loaded(
 	long group_tag,
 	char const *name)
@@ -697,10 +701,24 @@ long tag_loaded(
 
 	if (cache_file_globals.tags_loaded)
 	{
+		/* port: (tag_loaded_cache) */
+		unsigned long slot = (((unsigned long)name >> 2) ^ (unsigned long)group_tag) % TAG_LOADED_CACHE_SIZE;
+
 		match_assert(
 			"c:\\halo\\SOURCE\\cache\\cache_files.c",
 			346,
 			global_tag_instances);
+
+		absolute_index = tag_loaded_cache[slot].absolute_index;
+		if (tag_loaded_cache[slot].name == name &&
+			tag_loaded_cache[slot].group_tag == group_tag &&
+			tag_loaded_cache[slot].instances == global_tag_instances &&
+			absolute_index < global_tag_count &&
+			group_tag == global_tag_instances[absolute_index].group_tag &&
+			!_stricmp(name, global_tag_instances[absolute_index].name))
+		{
+			return global_tag_instances[absolute_index].tag_index;
+		}
 
 		for (absolute_index = 0;
 			absolute_index < global_tag_count;
@@ -710,6 +728,10 @@ long tag_loaded(
 				!_stricmp(name, global_tag_instances[absolute_index].name))
 			{
 				result = global_tag_instances[absolute_index].tag_index;
+				tag_loaded_cache[slot].name = name;
+				tag_loaded_cache[slot].group_tag = group_tag;
+				tag_loaded_cache[slot].instances = global_tag_instances;
+				tag_loaded_cache[slot].absolute_index = absolute_index;
 				break;
 			}
 		}
@@ -1247,6 +1269,9 @@ long scenario_tags_load(
 	name: a Custom Edition map that cannot load is not played at all. */
 	if (custom_edition_level_name(scenario_name))
 	{
+		/* port: a protected map's structure bsp names the groups of tags
+		whose own are scrambled (port/linux/game/tag_validate.c) */
+		custom_edition_structure_bsp_proc_set(tag_validate_custom_edition_note_structure_bsp);
 		cache_file_globals.tag_header = custom_edition_cache_tags_load(
 			stripped_scenario_name,
 			&cache_file_globals.header);
@@ -1260,6 +1285,12 @@ long scenario_tags_load(
 				extern void menu_tags_loaded(char const *map_name);
 
 				menu_tags_loaded(cache_file_globals.header.name);
+			}
+			/* (the saving screens, as below) */
+			{
+				extern void saving_screens_tags_loaded(void);
+
+				saving_screens_tags_loaded();
 			}
 			/* port: register CE HUD bitmaps before mods replace their tags
 			(port/linux/game/hud_hires_tags.c), as for Xbox maps below. */
@@ -1374,6 +1405,13 @@ long scenario_tags_load(
 
 				menu_tags_loaded(cache_file_globals.header.name);
 			}
+			/* port: the saving screens' waits skipped
+			(port/linux/game/saving_screens.c) */
+			{
+				extern void saving_screens_tags_loaded(void);
+
+				saving_screens_tags_loaded();
+			}
 			/* port: the bitmaps the high-res HUD stands for (port/linux/game/hud_hires_tags.c) */
 			{
 				extern void hud_hires_tags_loaded(long scenario_index);
@@ -1402,18 +1440,14 @@ long scenario_tags_load(
 	return result;
 }
 
-boolean scenario_structure_bsp_load(
+/* port: whether a bsp's reference may be read: the tag data's size was
+checked as the map loaded (cache_file_header_verify); the bsp's reference is
+the map's, and is checked before anything is read where it says (a Custom
+Edition map's by its own loader: its bsps load to the top of its own tag
+cache) */
+static boolean structure_bsp_reference_valid(
 	struct scenario_structure_bsp_reference *reference)
 {
-	struct cache_file_tag_instance *tag_instance;
-	byte *tag_cache_base_address;
-	/* port: the bsp's header, once read and checked */
-	struct cache_file_structure_bsp_header *structure_bsp_header;
-
-	/* port: the tag data's size was checked as the map loaded
-	(cache_file_header_verify); the bsp's reference is the map's, and is
-	checked before anything is read where it says (a Custom Edition map's
-	by its own loader: its bsps load to the top of its own tag cache) */
 	if (custom_edition_cache_tags_loaded())
 	{
 		if (!custom_edition_structure_bsp_reference_valid(reference))
@@ -1432,8 +1466,28 @@ boolean scenario_structure_bsp_load(
 		return FALSE;
 	}
 
+	return TRUE;
+}
+
+/* port: the bsp read to where it loads and checked, or put back from its
+copy (structure_bsp_cache.c), read and checked as the map loaded */
+static boolean structure_bsp_read(
+	struct scenario_structure_bsp_reference *reference)
+{
+	byte *tag_cache_base_address;
+	/* port: the bsp's header, once read and checked */
+	struct cache_file_structure_bsp_header *structure_bsp_header;
+
 	halo_load_trace("bsp.read.begin", NULL); /* port: loading measurement */
 	tag_cache_base_address = physical_memory_get_tag_cache_base_address();
+	if (structure_bsp_cache_restore(
+		reference,
+		custom_edition_cache_tags_loaded() ? NULL : tag_cache_base_address + cache_file_globals.header.tag_data_size,
+		custom_edition_cache_tags_loaded() ? 0 : 0x01600000 - cache_file_globals.header.tag_data_size))
+	{
+		halo_load_trace("bsp.restored", NULL); /* port: loading measurement */
+		return TRUE;
+	}
 	if (!custom_edition_cache_tags_loaded())
 	{
 		csmemset(
@@ -1506,6 +1560,56 @@ boolean scenario_structure_bsp_load(
 		return FALSE;
 	}
 	halo_load_trace("bsp.validate.end", NULL); /* port: loading measurement */
+	structure_bsp_cache_keep(reference);
+
+	return TRUE;
+}
+
+/* port: every bsp of the map read and checked as the map loads, before its
+first, and kept (structure_bsp_cache.c): a switch to one later (a load
+zone) reads and checks nothing */
+void scenario_structure_bsps_read_ahead(
+	void)
+{
+	struct scenario *scenario = global_scenario_get();
+	short index;
+
+	if (scenario->structure_bsp_references.count < 2)
+		return;
+	halo_load_trace("bsp.read_ahead.begin", NULL); /* port: loading measurement */
+	for (index = 0;
+		index < scenario->structure_bsp_references.count && structure_bsp_cache_room();
+		index++)
+	{
+		struct scenario_structure_bsp_reference *reference = TAG_BLOCK_GET_ELEMENT(
+			&scenario->structure_bsp_references,
+			index,
+			struct scenario_structure_bsp_reference);
+
+		/* (and its culling's buckets built: structure_culling.c; a Custom
+		Edition bsp's vertices are made as it loads) */
+		if (structure_bsp_reference_valid(reference) && structure_bsp_read(reference) &&
+			!custom_edition_cache_tags_loaded())
+		{
+			structure_culling_structure_bsp_read(
+				((struct cache_file_structure_bsp_header *)reference->base_address)->base_address,
+				index);
+		}
+	}
+	halo_load_trace("bsp.read_ahead.end", NULL); /* port: loading measurement */
+}
+
+boolean scenario_structure_bsp_load(
+	struct scenario_structure_bsp_reference *reference)
+{
+	struct cache_file_tag_instance *tag_instance;
+	/* port: the bsp's header, once read and checked */
+	struct cache_file_structure_bsp_header *structure_bsp_header;
+
+	/* port: (structure_bsp_reference_valid, structure_bsp_read) */
+	if (!structure_bsp_reference_valid(reference) || !structure_bsp_read(reference))
+		return FALSE;
+	structure_bsp_header = reference->base_address;
 	/* port: a Halo Custom Edition bsp has no Xbox vertex buffers: its
 	materials' vertices, as checked, are compressed and given buffers
 	(port/linux/game/custom_edition_geometry.c) */
@@ -1559,7 +1663,9 @@ void scenario_structure_bsp_unload(
 	return;
 }
 
-void *tag_get(
+/* port: tag_get (tag_groups.h) where its fast path finds nothing: the
+original, as the port has it */
+void *tag_get_slow(
 	long group_tag,
 	long tag_index)
 {

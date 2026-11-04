@@ -11,9 +11,11 @@ uniforms are a block at set 0, binding 1: struct xgpu_vulkan_post_uniforms.
 Their textures are set 1's bindings, the tool's texture units: FXAA and
 SMAA's edges read the target's copy (0); the blending weights the edges (0),
 the area texture (1) and the search texture (2); the blend the target's copy
-(0) and the weights (1); the turn and the encoding the frame (0). The tone
-map reads the pixel it draws over as input attachment 0 of set 2 (binding
-0), each sample's own in its multisampled variant.
+(0) and the weights (1); the turn, the encoding and display.gamma's curve
+the frame (0); the Panini projection the target's copy (0). The tone map reads the pixel it draws over as input
+attachment 0 of set 2 (binding 0), each sample's own in its multisampled
+variant. The ambient occlusion's
+passes read the depth target, the distances, or the occlusion (0).
 */
 
 #ifndef XGPU_VULKAN_POST_SHADERS_H
@@ -35,6 +37,17 @@ enum xgpu_vulkan_post_program_id
 	XGPU_VULKAN_POST_HDR_TONE_MAP,
 	XGPU_VULKAN_POST_HDR_TONE_MAP_MS,
 	XGPU_VULKAN_POST_HDR_ENCODE,
+	/* (Vulkan's own) display.ambient_occlusion's: the depth made distances,
+	the occlusion (GTAO), its blur along a direction, and its laying over
+	the target (or its drawing alone) */
+	XGPU_VULKAN_POST_OCCLUSION_DEPTH,
+	XGPU_VULKAN_POST_OCCLUSION,
+	XGPU_VULKAN_POST_OCCLUSION_BLUR,
+	XGPU_VULKAN_POST_OCCLUSION_APPLY,
+	/* display.gamma's curve over an SDR frame (xgpu_vulkan_post_gamma) */
+	XGPU_VULKAN_POST_GAMMA,
+	/* display.panini's projection (xgpu_vulkan_post_panini) */
+	XGPU_VULKAN_POST_PANINI,
 	XGPU_VULKAN_POST_PROGRAM_COUNT
 };
 
@@ -45,12 +58,29 @@ struct xgpu_vulkan_post_uniforms
 	float metrics[4];
 	/* FXAA's: the rectangle's outermost texel centres, as texture
 	coordinates (x0, y0, x1, y1); the turn's: its matrix's rows (the
-	turned image's coordinates about its centre to the frame's) */
+	turned image's coordinates about its centre to the frame's); display.
+	gamma's: the power (x), its metrics the viewport's x, y, 1 / width and
+	1 / height */
 	float bounds[4];
 	/* display.hdr's: the tone map's mode and peak; the encoding's paper
 	white, peak and output (xgpu_hdr.c), its metrics the viewport's x, y,
 	1 / width and 1 / height */
 	float hdr[4];
+	/* display.ambient_occlusion's (tools/vulkan_post_shaders.py): the
+	projection's x and y scales and offsets; the near and far planes, the
+	radius and the strength; the slices, the steps, the power and the
+	target's pixels to the occlusion's, or the blur's direction. Their
+	bounds the 3D view in the occlusion's pixels */
+	float camera[4];
+	float occlusion[4];
+	float sampling[4];
+	/* display.panini's: the 3D view's corners in the target's pixels (x0,
+	y0, width, height; its bounds the rectangle's outermost texel centres,
+	as FXAA's); the projection's d, s and magnification at the middle; the
+	rectilinear view's tangents at the view's left, right, top and bottom */
+	float window[4];
+	float panini[4];
+	float tangents[4];
 };
 
 struct xgpu_vulkan_post_module

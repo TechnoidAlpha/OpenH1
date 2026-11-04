@@ -44,7 +44,8 @@ NEGATIVE_CONTROLS = {
 
 # network_standard.c's, of the rate and the mixed games' machines and players
 STANDARD_FUNCTIONS = (
-    "network_standard_rate_setting", "network_standard_server_created", "network_standard_hosting_mixed",
+    "network_standard_server_setting", "network_standard_rate_setting", "network_standard_server_created",
+    "network_standard_hosting_mixed",
     "network_standard_join_kind", "network_standard_machine_joined", "network_standard_machine_kind",
     "network_standard_machine_is_opence", "network_standard_machine_is_openh1", "network_standard_game_for_machine",
     "network_standard_note_opence_players", "network_standard_player_is_opence", "network_standard_new_game",

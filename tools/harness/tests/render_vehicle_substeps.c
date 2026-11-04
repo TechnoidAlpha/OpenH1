@@ -135,7 +135,7 @@ static boolean cinematic_in_progress(void) { return FALSE; }
 static long fake_player_unit = RIDER;
 static long player_control_get_unit_index(short local_player_index) { return fake_player_unit; }
 static void unit_get_camera_position(long index, real_point3d *position);
-struct interpolation_ghost { boolean in_use; long tick; };
+struct interpolation_ghost { boolean in_use; long tick; long step; short substep_count; };
 static struct interpolation_ghost ghosts[64];
 static void render_interpolation_ghosts_tick(void) {}
 

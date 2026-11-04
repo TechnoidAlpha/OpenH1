@@ -54,6 +54,8 @@ host tells its OpenH1 clients which players are OpenCE's
 #include "network_distributed.h"
 #include "halo_port_limits.h"
 
+#include <stdlib.h>
+
 /* port/linux/src/port_config.c */
 char const *config_string(char const *name);
 long config_integer(char const *name);
@@ -90,6 +92,10 @@ static struct
 	the rate as last read in the lobby */
 	boolean hosting;
 	long hosting_rate;
+	/* ... and whether its players hold the action button to pick up a second
+	weapon (game.auto_pickup false), as last read in the lobby, as the rate
+	is */
+	boolean hosting_hold_to_pick_up;
 	/* ... OpenCE players may join it (network.allow_opence as the server
 	was made, or as Host Controls' Allow OpenCE players has it since); and
 	OpenCE players may be in it, having been let join since the server was
@@ -121,12 +127,36 @@ static struct
 
 /* ---------- private code */
 
-/* network.sim_rate, a rate sim_rate.c steps at, else 30 */
+/* a dedicated server's server.game_mode (docs/dedicated_server.md): the rate
+of the OpenH1 game it names ("openh1_<rate>"), 0 for a Legacy game ("legacy",
+its default, and anything else) */
+static long network_standard_server_setting(
+	void)
+{
+	char const *mode = config_string("server.game_mode");
+	long rate;
+
+	if (!mode || csstrncmp(mode, "openh1_", 7))
+		return 0;
+	rate = strtol(mode + 7, NULL, 10);
+	return sim_rate_supported(rate) ? rate : 0;
+}
+
+/* network.sim_rate (a dedicated server's server.game_mode), a rate
+sim_rate.c steps at, else 30 */
 static long network_standard_rate_setting(
 	void)
 {
-	long rate = config_integer("network.sim_rate");
+	long rate;
 
+	if (halo_server_mode())
+	{
+		/* (a Legacy setting while an OpenH1 game is hosted, which it is until
+		the server is empty: the rate it has) */
+		rate = network_standard_server_setting();
+		return rate ? rate : network_standard_globals.hosting_rate;
+	}
+	rate = config_integer("network.sim_rate");
 	return sim_rate_supported(rate) ? rate : SIM_RATE_CLASSIC;
 }
 
@@ -138,9 +168,12 @@ void network_standard_server_created(
 	char const *mode = config_string("network.game_mode");
 
 	/* (anything but "legacy" is the default, OpenH1's: "openh1", and
-	"standard", its first name) */
-	network_standard_globals.hosting = !(mode && !csstrcmp(mode, "legacy"));
+	"standard", its first name; a dedicated server's server.game_mode,
+	"legacy" by default) */
+	network_standard_globals.hosting = halo_server_mode() ? network_standard_server_setting() != 0 :
+		!(mode && !csstrcmp(mode, "legacy"));
 	network_standard_globals.hosting_rate = network_standard_rate_setting();
+	network_standard_globals.hosting_hold_to_pick_up = !config_boolean("game.auto_pickup");
 	network_standard_globals.mixed = network_standard_globals.hosting && config_boolean("network.allow_opence");
 	network_standard_globals.mixed_since = network_standard_globals.mixed;
 	csmemset(network_standard_globals.machine_kinds, 0, sizeof(network_standard_globals.machine_kinds));
@@ -159,6 +192,25 @@ boolean network_standard_hosting(
 	void)
 {
 	return network_standard_globals.hosting;
+}
+
+long network_standard_server_hosted(
+	boolean *opence)
+{
+	/* (a dedicated server not hosting yet: what it will host, as its
+	server.game_mode says) */
+	if (halo_server_mode() && !global_network_game_server_get())
+	{
+		long rate = network_standard_server_setting();
+
+		if (opence)
+			*opence = !rate || config_boolean("network.allow_opence");
+		return rate;
+	}
+	/* (OpenCE joins a Legacy game; a mixed game while it takes them) */
+	if (opence)
+		*opence = !network_standard_globals.hosting || network_standard_globals.mixed;
+	return network_standard_globals.hosting ? network_standard_globals.hosting_rate : 0;
 }
 
 boolean network_standard_hosting_mixed(
@@ -279,6 +331,7 @@ struct network_game const *network_standard_game_for_machine(
 		return game;
 	csmemcpy(&legacy_game, game, sizeof(legacy_game));
 	legacy_game.standard_rate = 0;
+	SET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
 	return &legacy_game;
 }
 
@@ -469,8 +522,44 @@ void network_standard_stamp_game(
 	struct network_game *game,
 	boolean in_lobby)
 {
-	if (game && network_standard_globals.hosting)
-		game->standard_rate = (short)network_standard_server_rate(in_lobby);
+	/* (a Legacy game's 0, as the server made it: written too, so that a
+	dedicated server's switch from an OpenH1 game to a Legacy one, whose
+	record lasts, leaves no rate in it) */
+	if (game)
+		game->standard_rate = network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : 0;
+	/* (and how its players pick up a second weapon, read as the rate is) */
+	if (in_lobby)
+		network_standard_globals.hosting_hold_to_pick_up = !config_boolean("game.auto_pickup");
+	if (game)
+	{
+		SET_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit,
+			network_standard_globals.hosting && network_standard_globals.hosting_hold_to_pick_up);
+	}
+}
+
+boolean network_standard_walk_over_pickup(
+	long player_index)
+{
+	struct network_game *game;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		/* (a Legacy game's, and an OpenCE machine's player's, OpenCE's way:
+		their machines walk over weapons, and hear nothing of the host's) */
+		if (!network_standard_globals.hosting || network_standard_player_is_opence(player_index))
+			return TRUE;
+		return !network_standard_globals.hosting_hold_to_pick_up;
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it; nothing from a Legacy
+		host, OpenCE's way) */
+		game = network_game_get_game();
+		if (!network_standard_globals.joined || !game || network_standard_player_is_opence(player_index))
+			return TRUE;
+		return !TEST_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit);
+	default:
+		return config_boolean("game.auto_pickup") != 0;
+	}
 }
 
 void network_standard_join_token(

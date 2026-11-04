@@ -11,7 +11,11 @@ made Metal's by SPIRV-Cross and run on its GPU (tools/hdr_backends/harness.m):
   each blend) as the Vulkan backend's SPIR-V emitter writes it (reading the
   pixel drawn over as an input attachment) and as the Metal backend's MSL
   emitter writes it (reading it as [[color(0)]]), drawn over the same pixels:
-  the two must leave the same values, and none past what its tag allows.
+  the two must leave the same values, and none past what its tag allows;
+  a screen effect's pass unclamped (XGPU_HDR_UNCLAMPED), its colour
+  past 1 in both; and a self-illuminated surface's pass
+  (XGPU_HDR_SELF_ILLUMINATION), the reference's values in both, past 1 only
+  by its self-illumination, and the same pass untagged the SDR frame's.
 
 Everywhere: the tone map and the encoding the two backends compile are one
 GLSL source, but for where the uniforms are bound.
@@ -118,7 +122,8 @@ def test_post_shaders_on_the_gpu(harness):
         spv.write_bytes(struct.pack(f"<{len(arrays[name])}I", *arrays[name]))
         _cross(spv, post / (name.replace("_frag", "") + ".metal"), stage, entry, fetch)
     output = _run(binary, "post", str(post))
-    assert "post: 480 values checked" in output, output
+    assert "post: 1152 values checked" in output, output
+    assert "post: 9 values not a number or infinite tone mapped finite" in output, output
 
 
 def test_draws_agree_on_the_gpu(harness):
@@ -138,10 +143,10 @@ def test_draws_agree_on_the_gpu(harness):
     out = folder / "draws"
     subprocess.run([str(tool), str(out)], check=True)
     names = [line.split()[0] for line in (out / "index.txt").read_text().splitlines()[1:]]
-    assert len(names) == 66
+    assert len(names) == 69
     for name in names:
         _cross(out / f"{name}.spv", out / f"{name}.vk.metal", "frag", "xgpu_vk_fragment", fetch=True)
         for stem in (f"{name}.vk", name):
             (out / f"{stem}.vertex.metal").write_text(_vertex((out / f"{stem}.metal").read_text()))
     output = _run(binary, "draws", str(out))
-    assert "draws: 66 draws, 135168 values compared" in output, output
+    assert "draws: 69 draws, 141312 values compared" in output, output

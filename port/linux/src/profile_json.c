@@ -128,8 +128,8 @@ static void profile_json_header(
 	profile_json_string(file, session->map_name);
 	fputs(", \"gametype\": ", file);
 	profile_json_string(file, session->gametype);
-	fprintf(file, ", \"players\": %ld, \"players_most\": %ld, \"start_utc\": ", session->players,
-		session->players_most);
+	fprintf(file, ", \"players\": %ld, \"players_most\": %ld, \"asserts_failed\": %lu, \"asserts_warned\": %lu"
+		", \"start_utc\": ", session->players, session->players_most, session->asserts_failed, session->asserts_warned);
 	profile_json_string(file, part->start_utc);
 	fputs(", \"recording\": ", file);
 	profile_json_string(file, part->name);

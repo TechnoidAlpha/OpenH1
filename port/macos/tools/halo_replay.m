@@ -168,6 +168,12 @@ uint32_t host_memory_watch_serial(void)
 	return atomic_load(&watch_serial);
 }
 
+/* (no write tracking here: no faults) */
+uint64_t host_memory_watch_faults(void)
+{
+	return 0;
+}
+
 static void pages_mark(uint32_t address, uint32_t size, int written)
 {
 	uint64_t page, last = ((uint64_t)address + size + page_size - 1) / page_size;
@@ -418,7 +424,7 @@ static int memory_make(void)
 		return 0;
 	/* the ring's header, its bytes and the host's answers, where they were */
 	pages_mark(ring->buffer, ring->size, 0);
-	pages_mark(ring->visibility, XGPU_STREAM_VISIBILITY_SLOTS * 4, 0);
+	pages_mark(ring->visibility, XGPU_STREAM_VISIBILITY_SLOTS * 2 * 4, 0);
 	pages_mark(ring->pipelines, XGPU_STREAM_PIPELINES, 0);
 	return 1;
 }
@@ -577,6 +583,8 @@ static void restore(uint32_t position, uint32_t type, const unsigned char *bytes
 /* ---------- playing: the guest's side */
 
 static struct xgpu_stream_ring *ring;
+/* the end of the records written so far (all of them may be played) */
+static uint32_t written;
 
 static void submit(uint32_t position, uint32_t flags)
 {
@@ -584,12 +592,14 @@ static void submit(uint32_t position, uint32_t flags)
 	host_render_stream_submit(flags);
 }
 
-/* waits until the ring's bytes [position, position + size) are free */
+/* waits until the ring's bytes [position, position + size) are free (what
+is written so far submitted: a wait for room that only records written and
+not yet submitted would free never ends) */
 static void room(uint32_t position, uint32_t size)
 {
 	while (position + size - __atomic_load_n(&ring->released, __ATOMIC_ACQUIRE) > ring->size)
 	{
-		submit(__atomic_load_n(&ring->committed, __ATOMIC_RELAXED), 0);
+		submit(written, 0);
 		host_render_stream_wait(position + size - ring->size);
 	}
 }
@@ -600,6 +610,7 @@ static void skip_write(uint32_t position, uint32_t size)
 
 	room(position, size ? size : ring->size - (position & (ring->size - 1)));
 	memcpy((unsigned char *)host_pointer(ring->buffer) + (position & (ring->size - 1)), &header, 4);
+	written = position + (size ? size : ring->size - (position & (ring->size - 1)));
 }
 
 static int synchronous(uint32_t type)
@@ -640,7 +651,7 @@ static void play_all(void)
 
 			room(at, record->size);
 			memcpy((unsigned char *)host_pointer(ring->buffer) + (at & mask), record->data, record->bytes);
-			position = at + record->size;
+			position = written = at + record->size;
 			if (record->type == XGPU_STREAM_FRAME_END)
 			{
 				ring->frames_submitted++;
@@ -1075,7 +1086,7 @@ int main(int argc, char *argv[])
 		ring = host_pointer(ring_address());
 		pages_mark(ring_address(), sizeof(*ring), 0);
 		*ring = recording.header.ring;
-		ring->committed = ring->released = recording.records[0].position;
+		ring->committed = ring->released = written = recording.records[0].position;
 		ring->error = 0;
 		if (host_render_stream_open(ring_address()))
 		{

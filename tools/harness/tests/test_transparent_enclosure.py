@@ -16,7 +16,7 @@ CASES = ["closed", "open", "outside", "reversed", "invalid", "strips", "uncompre
 CONTROLS = {
     "lost-lod-fallback": (("if (rules==_model_detail_rules_stock)", "if (TRUE)"), "lod-regions"),
     "stock-lod-fallback": (("if (rules==_model_detail_rules_stock)", "if (FALSE)"), "lod-off"),
-    "shown-interior": (("rules==_model_detail_rules_inside ||", "TRUE ||"), "lod-interior-outside-shadow"),
+    "shown-close-up": (("rules==_model_detail_rules_close_up ||", "TRUE ||"), "lod-interior-outside-shadow"),
     "revived-part-zero-gate": (("part->previous_part_index>=0", "part->previous_part_index>0"), "render-links"),
     "lost-enclosure-link": (("parts[energy].next_part_index = (char)glass;", "parts[energy].next_part_index = NONE;"), "part-zero"),
     "wrong-target-zero": (("if (glass == 0)", "if (FALSE)"), "glass-zero"),
@@ -41,7 +41,7 @@ def generated(control=None):
         types += "\n" + enum_with(models, member)
     types += "\n" + enum_with(read("source/models/model_definitions.h"), "MODELS_GROUP_TAG")
     types += "\n" + enum_with(read("port/linux/game/model_detail.h"), "_model_detail_rules_stock")
-    types += "\n" + enum_with(read("port/linux/game/model_detail.c"), "MODEL_DETAIL_INTERIOR_CUTOFF_PIXELS")
+    types += "\n" + enum_with(read("port/linux/game/model_detail.c"), "MODEL_DETAIL_CLOSE_UP_CUTOFF_PIXELS")
     code = read("source/rasterizer/rasterizer_transparent_enclosure.h")
     code += "\n" + function(raster, "rasterizer_transparent_geometry_is_enclosure")
     code += "\n" + function(read("port/linux/game/model_detail.c"), "model_detail_geometry_index")

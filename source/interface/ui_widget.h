@@ -98,6 +98,9 @@ boolean ui_widgets_active(
 	void);
 boolean ui_widgets_active_for_local_player(
 	short local_player_index);
+/* port: a screen of no one player's up, which any controller drives */
+boolean ui_widgets_port_active_for_everyone(
+	void);
 void ui_widgets_inhibit_processing(
 	boolean inhibit);
 void draw_bitmap_in_rect(

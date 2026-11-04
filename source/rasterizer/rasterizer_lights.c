@@ -359,6 +359,63 @@ static struct lens_flare_occlusion_test_results local_lens_flare_occlusion_test_
 static byte local_lens_flare_occlusion_test_results2[MAXIMUM_LENS_FLARE_MARKERS_PER_STRUCTURE+MAXIMUM_QUEUED_LENS_FLARES][MAXIMUM_WINDOWS];
 static struct rasterizer_lens_flare_submit_parameters local_lens_flare_parameters[MAXIMUM_LENS_FLARES_PER_FRAME] = {0};
 static long local_lens_flare_count = 0;
+
+/* port: each lens flare's visibility test in a slot of its own.
+
+The Xbox read a flare's test back at the start of the next frame, waiting
+for it, from the slot of the flare's index in the frame's list: the list
+read was the one tested, so the index named the same flare. Here a slot's
+count reaches the game frames after its test (the GPU's, xgpu_backend.h:
+three with Vulkan), and by then the list's index was often another flare's
+(a flare come into view or gone out of it, the clusters seen in another
+order, a light ranked elsewhere): a flare in the open read another's 0 and
+went out, one behind a wall read another's count and shone through it,
+for as many frames (issue 526: door lights, a vehicle's, a weapon's, every
+light's flare).
+
+So a flare (its storage, lens_flare_occlusion_test_results_get, its light's
+identifier, its window, and whether it is tested in the first-person
+weapon's view) is given a slot it keeps while it is tested, and its count
+is taken only once it is of a test of its own in the slot (the tests'
+numbers, d3d8_visibility_test_number): until then it is left as it was.
+The count is divided by the pixels of that test, not this frame's. */
+enum
+{
+	/* the slots: all but 0xfff, the transparent geometry's counter
+	(rasterizer_xbox_transparent_geometry.c) */
+	LENS_FLARE_TEST_SLOTS = 0xfff,
+	LENS_FLARE_TEST_BUCKETS = 4096,
+	/* the latest tests of a slot whose pixels are kept, for the test a
+	count is of (counts come back within a few frames) */
+	LENS_FLARE_TEST_HISTORY = 8,
+	/* the frames a slot not tested stays its flare's (one out of view a
+	moment comes back to its own) before another may be given it */
+	LENS_FLARE_TEST_IDLE_FRAMES = 30
+};
+
+struct lens_flare_test_slot
+{
+	boolean owned;
+	short identifier;
+	long key;
+	/* the next slot of its bucket, plus one (0: none) */
+	short next;
+	/* the frame it was last given out in */
+	unsigned long frame;
+	/* its flare's first test in it (0: none yet) */
+	unsigned long first_test;
+	unsigned long tests[LENS_FLARE_TEST_HISTORY];
+	long pixels[LENS_FLARE_TEST_HISTORY];
+};
+
+static struct lens_flare_test_slot lens_flare_test_slots[LENS_FLARE_TEST_SLOTS];
+/* each bucket's first slot, plus one (0: none) */
+static short lens_flare_test_buckets[LENS_FLARE_TEST_BUCKETS];
+static short lens_flare_test_cursor = 0;
+static unsigned long lens_flare_test_frame = 0;
+/* the frame's flares' slots (NONE: none) and tests' numbers (0: none) */
+static short local_lens_flare_test_slots[MAXIMUM_LENS_FLARES_PER_FRAME];
+static unsigned long local_lens_flare_tests[MAXIMUM_LENS_FLARES_PER_FRAME];
 extern short global_screenshot_count;
 #ifdef HALO_VR
 /* port: the flares of the frame not tested, drawn as wholly visible (the VR
@@ -389,6 +446,140 @@ static boolean screenshot_in_progress(
 	void)
 {
 	return global_screenshot_count>1 || (global_screenshot_count==1 && global_screenshot_size>1);
+}
+
+/* port: a flare's test, as the slots know it (above): where its occlusion
+result is kept, its window and whether it is tested in the first-person
+weapon's view (its light's identifier aside) */
+static long lens_flare_test_key(
+	struct rasterizer_lens_flare_submit_parameters const *parameters)
+{
+	long window = parameters->compressed_window_index & _lens_flare_window_index_mask;
+	long first_person = (parameters->compressed_window_index & _lens_flare_first_person_weapon_flag) != 0;
+	long location;
+
+	if (parameters->light_index & _lens_flare_dynamic_light_flag)
+	{
+		location = ((((long)parameters->light_index & _lens_flare_dynamic_light_index_mask) << 16) |
+			(unsigned short)parameters->lens_flare_index) * 2 + 1;
+	}
+	else
+	{
+		location = ((long)parameters->light_index * MAXIMUM_LENS_FLARES_PER_LIGHT + parameters->lens_flare_index) * 2;
+	}
+
+	return (location * MAXIMUM_WINDOWS + window) * 2 + first_person;
+}
+
+static long lens_flare_test_bucket(
+	long key)
+{
+	return (long)((((unsigned long)key * 2654435761UL) & 0xffffffffUL) >> 20) & (LENS_FLARE_TEST_BUCKETS - 1);
+}
+
+/* port: the flare's slot, given it if it has none: in turn, one not given
+out for LENS_FLARE_TEST_IDLE_FRAMES, or failing that any not given out
+this frame */
+static short lens_flare_test_slot_take(
+	long key,
+	short identifier,
+	unsigned long frame)
+{
+	long bucket = lens_flare_test_bucket(key);
+	short slot_index = NONE;
+	short index;
+	short pass;
+	struct lens_flare_test_slot *slot;
+
+	for (index = lens_flare_test_buckets[bucket]; index; index = lens_flare_test_slots[index - 1].next)
+	{
+		slot = &lens_flare_test_slots[index - 1];
+		if (slot->key == key && slot->identifier == identifier)
+		{
+			slot->frame = frame;
+			return (short)(index - 1);
+		}
+	}
+
+	for (pass = 0; pass < 2 && slot_index == NONE; pass++)
+	{
+		for (index = 0; index < LENS_FLARE_TEST_SLOTS; index++)
+		{
+			short candidate = lens_flare_test_cursor;
+
+			lens_flare_test_cursor = (short)((lens_flare_test_cursor + 1) % LENS_FLARE_TEST_SLOTS);
+			slot = &lens_flare_test_slots[candidate];
+			if (!slot->owned || (pass == 0 ? frame - slot->frame > LENS_FLARE_TEST_IDLE_FRAMES : slot->frame != frame))
+			{
+				slot_index = candidate;
+				break;
+			}
+		}
+	}
+	if (slot_index == NONE)
+		return NONE;
+
+	slot = &lens_flare_test_slots[slot_index];
+	if (slot->owned)
+	{
+		short *link = &lens_flare_test_buckets[lens_flare_test_bucket(slot->key)];
+
+		while (*link && *link != slot_index + 1)
+			link = &lens_flare_test_slots[*link - 1].next;
+		if (*link)
+			*link = slot->next;
+	}
+	memset(slot, 0, sizeof(*slot));
+	slot->owned = TRUE;
+	slot->key = key;
+	slot->identifier = identifier;
+	slot->frame = frame;
+	slot->next = lens_flare_test_buckets[bucket];
+	lens_flare_test_buckets[bucket] = (short)(slot_index + 1);
+
+	return slot_index;
+}
+
+/* port: a test of the slot's flare made (test: its number; 0, none: the
+device made none), of so many pixels */
+static void lens_flare_test_slot_tested(
+	short slot_index,
+	unsigned long test,
+	long pixels)
+{
+	struct lens_flare_test_slot *slot = &lens_flare_test_slots[slot_index];
+
+	if (test)
+	{
+		if (!slot->first_test)
+			slot->first_test = test;
+		slot->tests[test % LENS_FLARE_TEST_HISTORY] = test;
+		slot->pixels[test % LENS_FLARE_TEST_HISTORY] = pixels;
+	}
+
+	return;
+}
+
+/* port: the slot's count, if it is of a test of the slot's flare (FALSE:
+none of its own has come back), and the pixels of that test where they are
+kept (occlusion_pixels left as it is otherwise) */
+static boolean lens_flare_test_slot_count(
+	short slot_index,
+	long *visible_pixels,
+	long *occlusion_pixels)
+{
+	struct lens_flare_test_slot *slot = &lens_flare_test_slots[slot_index];
+	unsigned long test;
+	long count = rasterizer_widget_port_occlusion_test_count(slot_index, &test);
+
+	/* (the numbers wrap: a test at or after the flare's first) */
+	if (!slot->first_test || !test || (((test - slot->first_test) & 0xffffffffUL) & 0x80000000UL))
+		return FALSE;
+	*visible_pixels = count;
+	if (slot->tests[test % LENS_FLARE_TEST_HISTORY] == test && slot->pixels[test % LENS_FLARE_TEST_HISTORY] > 0)
+		*occlusion_pixels = slot->pixels[test % LENS_FLARE_TEST_HISTORY];
+
+	return TRUE;
 }
 
 static struct rasterizer_lens_flare_submit_parameters *lens_flare_parameters_get(
@@ -533,6 +724,10 @@ void rasterizer_lights_reset_for_new_map(
 		sizeof(local_lens_flare_occlusion_test_results));
 	memset(local_lens_flare_occlusion_test_results2, 0, sizeof(local_lens_flare_occlusion_test_results2));
 	local_lens_flare_count = 0;
+	/* port: (the slots: a new map's flares are other flares) */
+	memset(lens_flare_test_slots, 0, sizeof(lens_flare_test_slots));
+	memset(lens_flare_test_buckets, 0, sizeof(lens_flare_test_buckets));
+	lens_flare_test_cursor = 0;
 
 	return;
 }
@@ -590,6 +785,9 @@ void rasterizer_lens_flare_submit(
 					lens_flare_parameters_get((short)local_lens_flare_count++);
 
 				memcpy(lens_flare_parameters, parameters, sizeof(*lens_flare_parameters));
+				/* port: (no test yet: rasterizer_lens_flares_submit_occlusion_tests) */
+				local_lens_flare_test_slots[local_lens_flare_count-1]= NONE;
+				local_lens_flare_tests[local_lens_flare_count-1]= 0;
 #ifdef HALO_VR
 				local_lens_flare_untested[local_lens_flare_count-1]= FALSE;
 #endif
@@ -668,6 +866,7 @@ void rasterizer_lights_begin_for_new_frame(
 			struct rasterizer_lens_flare_submit_parameters *lens_flare_parameters= lens_flare_parameters_get(lens_flare_index);
 			byte *occlusion_test_result= lens_flare_occlusion_test_results_get(lens_flare_parameters);
 			byte latest_visibility;
+			boolean counted= TRUE;
 
 #ifdef HALO_VR
 			/* port: (not tested: rasterizer_lens_flares_submit_occlusion_tests) */
@@ -680,17 +879,41 @@ void rasterizer_lights_begin_for_new_frame(
 #endif
 			if (lens_flare_parameters->internal__occlusion_pixels>0)
 			{
-				long visible_pixels= rasterizer_widget_get_occlusion_test_result(lens_flare_index);
+				long visible_pixels= 0;
 				long occlusion_pixels= lens_flare_parameters->internal__occlusion_pixels;
+				short slot= local_lens_flare_test_slots[lens_flare_index];
 
-				latest_visibility= (byte)MIN(255, (255*visible_pixels + (occlusion_pixels>>1))/occlusion_pixels);
+				/* port: the count of the flare's own slot, once it is of the
+				flare's own test (frames late: until then its visibility is
+				left as it was); of a test the device did not number (no
+				renderer; the tests turned off, which count 1) the slot's
+				count as it is */
+				if (slot==NONE)
+				{
+					counted= FALSE;
+				}
+				else if (local_lens_flare_tests[lens_flare_index])
+				{
+					counted= lens_flare_test_slot_count(slot, &visible_pixels, &occlusion_pixels);
+				}
+				else
+				{
+					visible_pixels= rasterizer_widget_get_occlusion_test_result(slot);
+				}
+				latest_visibility= counted ?
+					(byte)MIN(255, (255*visible_pixels + (occlusion_pixels>>1))/occlusion_pixels) :
+					0;
 			}
 			else
 			{
 				latest_visibility= 0;
 			}
 
-			if (!latest_visibility)
+			if (!counted)
+			{
+				/* port: (left as it was) */
+			}
+			else if (!latest_visibility)
 			{
 				*occlusion_test_result= 0;
 			}
@@ -728,6 +951,8 @@ void rasterizer_lights_begin_for_new_frame(
 
 		local_lens_flare_count= 0;
 	}
+	/* port: (the slots' frames) */
+	lens_flare_test_frame++;
 
 	rasterizer_profile_end(_rasterizer_profile_lens_flare_occlusion_query);
 
@@ -763,6 +988,23 @@ long rasterizer_light_submit(
 		"c:\\halo\\SOURCE\\rasterizer\\rasterizer_lights.c",
 		243,
 		parameters->color.blue >=0.0f && parameters->color.blue <=1.0f);
+
+	/* port: no light whose place, direction, reach or colour is not a number (or
+	is infinite) is drawn: the passes over the level and the models would draw
+	what it reaches with that colour, and its reach and place size them
+	(lights_preprocess_scene's 0/0 of a light of no transition was one) */
+	if (!valid_real(parameters->radius) ||
+		!valid_real(parameters->position.x) || !valid_real(parameters->position.y) || !valid_real(parameters->position.z) ||
+		!valid_real(parameters->forward.i) || !valid_real(parameters->forward.j) || !valid_real(parameters->forward.k) ||
+		!valid_real(parameters->up.i) || !valid_real(parameters->up.j) || !valid_real(parameters->up.k) ||
+		!valid_real(parameters->color.red) || !valid_real(parameters->color.green) || !valid_real(parameters->color.blue))
+	{
+		static long refused_invalid;
+
+		if (refused_invalid++ % 1000 == 0)
+			error(2, "### ERROR a light not a number submitted to window (%ld refused so far)", refused_invalid);
+		return NONE;
+	}
 
 	if (rasterizer_lights.light_count<MAXIMUM_LIGHTS_PER_WINDOW)
 	{
@@ -911,6 +1153,8 @@ void rasterizer_lens_flares_submit_occlusion_tests(
 				if (first_person && vr_render_eye_pass())
 				{
 					local_lens_flare_untested[lens_flare_index] = TRUE;
+					local_lens_flare_test_slots[lens_flare_index] = NONE;
+					local_lens_flare_tests[lens_flare_index] = 0;
 					lens_flare_parameters->internal__occlusion_pixels = 1;
 					continue;
 				}
@@ -948,11 +1192,28 @@ void rasterizer_lens_flares_submit_occlusion_tests(
 					break;
 				}
 
-				lens_flare_parameters->internal__occlusion_pixels =
-					rasterizer_widget_submit_occlusion_test(
-						&occlusion_point,
-						occlusion_radius,
-						lens_flare_index);
+				/* port: in the flare's own slot, numbered (above) */
+				{
+					short slot = lens_flare_test_slot_take(lens_flare_test_key(lens_flare_parameters),
+						lens_flare_parameters->light_identifier, lens_flare_test_frame);
+					unsigned long test = d3d8_visibility_test_number();
+
+					local_lens_flare_test_slots[lens_flare_index] = slot;
+					local_lens_flare_tests[lens_flare_index] = 0;
+					lens_flare_parameters->internal__occlusion_pixels = 0;
+					if (slot != NONE)
+					{
+						lens_flare_parameters->internal__occlusion_pixels =
+							rasterizer_widget_submit_occlusion_test(
+								&occlusion_point,
+								occlusion_radius,
+								slot);
+						if (d3d8_visibility_test_number() != test)
+							local_lens_flare_tests[lens_flare_index] = d3d8_visibility_test_number();
+						lens_flare_test_slot_tested(slot, local_lens_flare_tests[lens_flare_index],
+							lens_flare_parameters->internal__occlusion_pixels);
+					}
+				}
 
 				if (first_person)
 					viewmodel_projection_end();

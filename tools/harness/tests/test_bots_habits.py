@@ -1,6 +1,7 @@
 """A fighting bot's habits (port/linux/game/bots.c's bots_aimed_at, bots_strafe and bots_strike_reach): it knows when its
 target's aim is on it; it strafes one way while no one aims at it and turns about once it reacts to an aim on it (its
-skill's dodge reaction and chance), again a moment later while the aim stays, never before its reaction; a blow is
+skill's dodge reaction and chance), again a moment later while the aim stays, never before its reaction; with no aim
+on it, the other way about every second (people's rhythm); a blow is
 struck at the engine's reach (unit_cause_player_melee_damage's rays) to the target's surface, further charging in."""
 
 import re
@@ -13,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run, structure  # noqa: E402
 
 CASES = ["aimed-at", "strafe", "strike-reach"]
-FUNCTIONS = ("bots_random", "bots_random_real", "bots_aimed_at", "bots_strafe", "bots_strike_reach")
+FUNCTIONS = ("bots_random", "bots_random_real", "bots_random_seconds", "bots_aimed_at", "bots_strafe", "bots_strike_reach")
 
 # a fault, the function it is in, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -24,8 +25,8 @@ NEGATIVE_CONTROLS = {
                         "bot->dodge_tick = now;"), "bots_strafe", "strafe"),
     "never-dodges": (("if (!bot->dodging || now < bot->dodge_tick)", "if (1)"), "bots_strafe", "strafe"),
     "dodge-chance-ignored": (("bots_random_real(bot) < skill->dodge_chance", "TRUE"), "bots_strafe", "strafe"),
-    "strafes-on-a-timer": (("now + TICKS_PER_SECOND * 2 + (long)(bots_random(bot) % (TICKS_PER_SECOND * 3 / 2))",
-                            "now + TICKS_PER_SECOND / 3"), "bots_strafe", "strafe"),
+    "strafes-on-a-timer": (("bots_random_seconds(bot, 0.95f, 0.5f, 0.35f, 2.5f)", "3.0f"), "bots_strafe", "strafe"),
+    "strafes-too-quickly": (("bots_random_seconds(bot, 0.95f, 0.5f, 0.35f, 2.5f)", "0.2f"), "bots_strafe", "strafe"),
     "reach-hard-coded": (("return BOTS_MELEE_REACH + MIN(target_radius, 0.4f) + (charging ? 0.3f : 0.0f);",
                           "return 1.1f;"), "bots_strike_reach", "strike-reach"),
 }

@@ -20,17 +20,20 @@ servers uses in every build) and `server_rotation.c` (the rotation's
 grammar and the gametype rules), which every build compiles.
 
 **In OpenH1.** The server is OpenCE's, brought in with its network side
-(OpenCE's own netcode: a dedicated server hosts Legacy games, at 30 ticks a
-second, which OpenCE's players and OpenH1's join alike). OpenH1's builds run
+(by default a dedicated server hosts OpenH1 120 Tick games, which OpenCE's
+players join too at 30; with `server.game_mode` it hosts OpenH1 60 Tick
+games, or Legacy games, OpenCE's own netcode at 30 ticks a second for
+everyone: "OpenH1 games" below). OpenH1's builds run
 the game as a guest of a 64-bit host (`port/linux/host`), so the server
 runs there too: `halo --server` on the Linux builds (and the macOS and
 Windows ones), its signals caught by the host for it
 (`port/linux/host/host_desktop.c`'s `host_server_*`), and its HTTPS to the
 master servers made in the host (`host_https_request`,
-`port/android/host/host_https.c`). Not in OpenH1: OpenCE's `deploy/`
-folder (Docker, Helm, systemd, the panels' eggs and their CI), and
-`server.auto_update`, which says this build does not update itself (what
-runs it updates it). The server hosts no OpenH1 60 or 120 Tick game yet.
+`port/android/host/host_https.c`). The server updates itself from
+OpenH1's releases (`server.auto_update`, "Updates" below) when it runs from
+the Linux release's tree or the Windows build's folder. Not in OpenH1:
+OpenCE's `deploy/` folder (Docker, Helm, systemd, the panels' eggs and
+their CI).
 
 ## Panels and fleets
 
@@ -57,9 +60,10 @@ status's `pid`, `instance`...).
 | `--keygen` | Writes a new publisher key (`server.publisher_key_file`) unless one exists, prints its public key and key id, exits 0; exits 3 when the key cannot be made, read or written |
 | `--sign <text>` | Prints the publisher key's Ed25519 signature of the text, in hex (an application's proof of key), exits 0; exits 3 without a text or a usable key |
 | `--probe [<invite>]` | A look at a server, for a list site that shows its state: joins nothing and never starts a server (whatever `--server`, `HALO_SERVER` or `server.enabled` say). It finds the invite's game over its tunnel (without an invite, the LAN's first) and prints it as one line of JSON, the game of the invite's host alone (never another game that answers), and exits 0; when nothing answers in 30 seconds it prints `{"ok":false,"error":"no game answered in 30 seconds"}` and exits 1. Internet play is as set (`network.online`, on by default), which an invite needs |
+| `--relay` | A relay alone ("Relays", below): no game, no game data, no window; it relays on `network.tunnel_port` (2302 if none) until SIGTERM or SIGINT, and exits 0 (4 when the port is taken) |
 | `--help` | Prints these, exits 0 |
 
-`--version`, `--help`, `--keygen`, `--sign` and `--probe` write no settings: the
+`--version`, `--help`, `--keygen`, `--sign`, `--probe` and `--relay` write no settings: the
 settings file is read, never completed or made. `--probe` wins over
 `--server`, `HALO_SERVER` and `server.enabled`: a probe never writes to
 `config.toml`.
@@ -68,12 +72,18 @@ A probe's line:
 
 ```json
 {"ok":true,"name":"OpenCE Server","map":"bloodgulch","gametype":"ctf","players":5,"max_players":16,
- "teams":true,"in_progress":true,"open":true,"dedicated":true,"network_version":38,"kind":0}
+ "teams":true,"in_progress":true,"open":true,"dedicated":true,"network_version":38,"kind":0,
+ "tick_rate":30,"openh1_version":0}
 ```
 
 `gametype` is the game engine's name (`ctf`, `slayer`, `oddball`, `king`,
 `race`, or `none`), `kind` the OpenCE gametype's kind the host sends (0 for
-none), `open` whether it takes players now.
+none), `open` whether it takes players now. `network_version` is the
+version the game advertises: OpenCE's network version for a Legacy game and
+an OpenH1 game that OpenCE players join too, and an OpenH1 game's protocol
+version with its top bit set (`0x8000`) for one that only OpenH1 players
+join. `tick_rate` is the game's (30 for a Legacy game) and `openh1_version`
+the OpenH1 protocol version of an OpenH1 game (0 for a Legacy game).
 
 The release has a `halo-server` script beside `halo`, which runs
 `halo --server` with its arguments.
@@ -87,7 +97,7 @@ The release has a `halo-server` script beside `halo`, which runs
 | 2 | No usable game data: `maps/ui.map`, or every rotation map, missing or not a cache file; nothing was bound |
 | 3 | Bad server configuration: no rotation entry that can be played (and `server.rotation_fallback` off), `server.web_port` past 65535, a web port the server may not bind (a port below 1024 without the right to it) or whose `server.web_bind` is an address the machine does not have, or a web password (admin, moderator or viewer) shorter than 8 characters with the web port bound beyond loopback (on loopback, a warning), or the owner's (`server.web_owner_password`) shorter than 8 wherever it is bound; `--keygen` or `--sign` failing. An entry that cannot be played (a bad gametype file among them) is left out with a warning: the server stops only when none is left |
 | 4 | A port in use: the tunnel's UDP port, or the web port (another program listens on it) |
-| 5 | Restart asked for (`sv_restart`, now or at the end of its drain, or an update installed: `server.auto_update = "install"` installs a new release once the server has been empty for 10 minutes, on a thread of its own: the server goes on meanwhile, and stops with 5 once it is empty again (a player who joined during the install plays on). An install that fails is tried again at the next check, 6 hours on) |
+| 5 | Restart asked for (`sv_restart`, now or at the end of its drain, or an update installed: `server.auto_update = "install"`, the default, installs a new release as soon as a check finds it, on a thread of its own, the server going on meanwhile. Then, of a release of the same network version, it stops with 5 once the server has been empty for 10 minutes; of a new network version (one its players' games no longer join), it says "This server updates after this game" and stops with 5 when the game ends (in the lobby, after 30 seconds' notice), a game going on past `server.update_game_minutes` (30) since the install being ended as `sv_end_game` ends it (`game_ended`'s reason `update`). An install that fails is tried again at the next check: "Updates", below) |
 | 128 + n | Stopped by signal n: a second SIGTERM or SIGINT, or the shutdown not done 5 seconds after the first |
 
 SIGTERM and SIGINT stop the server: a game in progress goes to its
@@ -170,7 +180,7 @@ the game's console commands of those names.
 | Command | Role | What it does |
 | --- | --- | --- |
 | `help [command]` | viewer | The commands, or one command's use |
-| `sv_status [--json]` | viewer | The server's state, map, gametype, players, uptime, games played, network version, listing and next game |
+| `sv_status [--json]` | viewer | The server's state, map, gametype, players, uptime, games played, network version, the kind of game hosted (`server.game_mode`, "OpenH1 games" below), listing and next game |
 | `sv_players [--json]` | viewer | Each player's slot, name, team, score, kills, deaths, assists, ping and machine; with the owner role or `server.log_addresses`, their address and hardware id |
 | `sv_rotation` (`sv_mapcycle`), `sv_maps`, `sv_gametypes`, `sv_version`, `sv_log [n]` | viewer | Lists: the rotation, the maps there are, the gametypes, the build, the log's last n lines |
 | `sv_bans` (`sv_banlist`), `sv_settings` | admin | Lists: the bans of `bans.txt`, the settings `sv_set` changes |
@@ -180,7 +190,10 @@ the game's console commands of those names.
 | `kick <player>` (`sv_kick`) | moderator | Drops the player's machine; it may join again |
 | `ban <player> [<duration>] [<reason>]` (`sv_ban`) | moderator (a day at most), admin | Drops the player's machine and bans its address and hardware id, for the duration (else for ever). A moderator must give a duration of a day or less: a ban for ever, or longer, is refused |
 | `unban <number\|address\|hardware id>` (`sv_unban`) | admin | Takes a ban out of `bans.txt`; the machine may join again at once, by the LAN or the internet |
-| `sv_ban_address <address\|hardware id> [<duration>] [<reason>]` | admin | Bans an IPv4 address (`a.b.c.d`) or a hardware id (up to 32 hex digits), its machine here or not: its line in `bans.txt` as `ban` writes it (the other part `none`), so that `sv_bans`, `unban` and `GET /api/bans` see it, and a machine present of that address or hardware id is dropped as `ban` drops it (`player_left`'s reason `banned`). Answers `ban <n> added` (`n`: its number in `sv_bans`) |
+| `sv_ban_address <address\|hardware id\|discord:<id>> [<duration>] [<reason>]` | admin | Bans an IPv4 address (`a.b.c.d`), a hardware id (up to 32 hex digits) or a verified Discord account (`discord:` and its id, below), its machine here or not: its line in `bans.txt` as `ban` writes it (the other part `none`), so that `sv_bans`, `unban` and `GET /api/bans` see it, and a machine present of that address or hardware id is dropped as `ban` drops it (`player_left`'s reason `banned`). Answers `ban <n> added` (`n`: its number in `sv_bans`) |
+| `sv_vpn` | viewer | The VPN policy, the netlist held (its masters, serial, ranges, age) and the joins refused for it ("VPNs and linked Discord accounts") |
+| `sv_vpn_check <address>` | moderator | Whether an IPv4 address is refused as a VPN's, and by what (`netlist`, `vpn_block.txt`, `vpn_allow.txt`) |
+| `sv_vpn_fetch` | admin | Fetches the masters' netlists now |
 | `mute <player> [<minutes>]`, `unmute <player>` | moderator | The host's mute of a player's chat and voice for everyone |
 | `sv_map <map> [<gametype>]`, `sv_map <entry>` | moderator | Plays that game (or a rotation entry, `map:gametype+rule=value`; a co-op one too), below |
 | `sv_map_next` (`sv_next`) | moderator | Ends the game without its scores and plays the rotation's next |
@@ -189,6 +202,11 @@ the game's console commands of those names.
 | `sv_set <setting> <value>` | admin | Changes one of the server's settings, now where it can be, and in `config.toml` (below); a setting its environment variable sets is refused. A value is 256 characters at most |
 | `sv_name <name>`, `sv_maxplayers <n>`, `sv_password [<password>]`, `sv_public <0\|1>`, `sv_motd <text>` | admin | `sv_set` of `server.name`, `server.max_players`, `server.password`, `server.public`, `server.motd` |
 | `sv_reload` | admin | Reads `config.toml`'s server settings, the rotation and the gametype files again (as SIGHUP) |
+| `sv_map_after <map> [<gametype>]`, `sv_map_after <entry>` | moderator | Plays that game once the game played (or the lobby's, about to be) is over; the rotation goes on after it |
+| `sv_team <player>` | moderator | Puts the player on the other team: in the lobby by its record (every machine sent it), in a game as Host Controls moves them (their unit killed first, without statistics; an OpenH1 game of OpenH1 machines alone) |
+| `sv_teams shuffle\|balance` | moderator | Shuffles or balances the teams of a team game being played, as Host Controls does (an OpenH1 game of OpenH1 machines alone) |
+| `sv_lock_teams [0\|1]` | moderator | Players keep the team they are on in the lobby (their changes refused); alone, says whether they do |
+| `sv_admin [list]`, `sv_admin add <player\|key> [<name>]`, `sv_admin remove <player\|key\|key id>` | owner | The admins in the game ("Admins in the game", below): `admins.txt`'s keys, `server.admins`, and each player's key id; a player here added by the key their game proved, or a key (64 hex digits) given |
 | `sv_stop [now\|game\|empty] [<notice>]`, `sv_stop cancel` | owner | Stops the server (exit code 0): `now` (the default) as `quit` does; `game` once the game being played is over, `empty` once nobody plays (a drain, below); `cancel` the drain waiting. The notice is said to every machine first |
 | `sv_restart [now\|game\|empty] [<notice>]`, `sv_restart cancel` | owner | As `sv_stop`, with exit code 5 (restart me) |
 | `quit` (`exit`) | owner | Stops the server (exit code 0) |
@@ -228,20 +246,29 @@ these settings, which `sv_settings` and `GET /api/settings` list:
 `server.password`, `server.public`, `server.rotation_fallback`,
 `server.lobby_seconds`, `server.postgame_seconds`, `server.empty_seconds`,
 `server.idle_minutes`, `server.team_start`, `server.motd`,
-`server.frame_rate`, `server.web_password`,
+`server.frame_rate`, `server.game_mode`, `server.web_password`,
 `server.web_moderator_password`, `server.log_format`,
 `server.log_addresses`, `server.status_file`, `server.auto_update`,
 `server.coop_difficulty`, `server.region`, `server.master_publish`,
 `server.chat_filter`, `server.chat_filter_slurs`, `server.chat_filter_swearing`,
 `server.chat_filter_insults`,
-`server.master_publish_address`, `server.metrics`, and `network.text_chat`,
+`server.master_publish_address`, `server.metrics`, `server.vpn_policy`,
+`server.vpn_fail`, `server.vpn_check_lan`, `server.link_min_age_days`,
+`server.link_one_seat`, `server.update_check_minutes`,
+`server.update_game_minutes`, `server.max_machines_per_address`,
+`server.afk_kick_minutes`, `server.afk_kick_when_full`,
+`server.afk_kick_full_minutes`, `server.coop_bsp_switch`,
+`server.coop_bsp_switch_cooldown_seconds`, `server.map_vote`,
+`server.map_vote_choices`, `server.map_vote_seconds`, and
+`network.text_chat`,
 `network.voice_lobby`, `network.voice_mode`, `network.voice_kbps`,
-`network.votekick`, `network.votekick_minutes`,
+`network.votekick`, `network.vote_end_game`, `network.votekick_threshold`,
+`network.votekick_percent`, `network.votekick_minutes`,
 `network.votekick_ban_minutes`, `network.map_share`,
 `network.map_share_upload`, `network.public_address`,
 `network.coop_friendly_fire`, `network.coop_player_collisions`,
-`network.coop_ally_friendly_fire`, `network.shield_effects` and
-`network.fire_origins`. Of them,
+`network.coop_ally_friendly_fire`, `network.shield_effects`,
+`network.fire_origins` and `network.allow_opence`. Of them,
 `server.status_file`, `server.auto_update` and `server.log_addresses` need
 the owner role: from the web's admin, `sv_set` of one of them (`POST
 /api/command`) answers `403 forbidden`, and `PUT /api/settings` leaves it
@@ -261,15 +288,30 @@ in either case, and is kept as the table spells it:
 | `server.lobby_seconds`, `server.postgame_seconds` | 0 to 300 |
 | `server.empty_seconds`, `server.idle_minutes` | 0 or more |
 | `server.frame_rate` | 30 to 120 |
+| `server.game_mode` | `openh1_120`, `openh1_60`, `openh1_30`, `legacy` |
 | `server.team_start` | `one`, `both`, `skip` |
 | `server.log_format` | `text`, `json` |
 | `server.auto_update` | `off`, `check`, `install` |
 | `server.coop_difficulty` | `easy`, `normal`, `hard`, `impossible` |
 | `network.text_chat` | `on`, `links`, `off` |
 | `server.chat_filter` | `off`, `censor`, `block` |
+| `server.vpn_policy` | `off`, `link`, `block` |
+| `server.vpn_fail` | `open`, `closed` |
+| `server.link_min_age_days` | 0 to 3650 |
+| `server.update_check_minutes` | 5 to 1440 |
+| `server.update_game_minutes` | 0 to 240 |
+| `server.max_machines_per_address` | 0 to 128 |
+| `server.afk_kick_minutes` | 0 to 60 |
+| `server.afk_kick_full_minutes` | 2 to 60 |
+| `server.coop_bsp_switch` | `majority`, `anyone` |
+| `server.coop_bsp_switch_cooldown_seconds` | 0 to 300 |
+| `server.map_vote_choices` | 2 to 8 |
+| `server.map_vote_seconds` | 5 to 120 |
 | `server.chat_filter_slurs`, `server.chat_filter_swearing`, `server.chat_filter_insults` | `off`, `severe`, `strong`, `mild` |
 | `network.voice_mode` | `off`, `team_proximity`, `team_enemy_proximity`, `team_global`, `team_global_enemy_proximity` |
 | `network.voice_kbps` | 8 to 64 |
+| `network.votekick_threshold` | `dynamic`, `static` |
+| `network.votekick_percent` | 1 to 100 |
 | `network.votekick_minutes` | 0 to 60 |
 | `network.votekick_ban_minutes` | 1 to 1440 |
 | `network.map_share_upload` | 16 to 20480 |
@@ -289,6 +331,274 @@ them, which an updated game shows as "The host refused: your player name"
 `refusing a machine … its name has words the server's filter keeps out`).
 Links are `network.text_chat`'s, refused by default. A list of words is
 not a moderator: spaced letters and look-alikes get past it.
+
+### Admins in the game
+
+The players the owner makes admins have the pause menu's and the
+scoreboard's HOST CONTROLS in the server's game, as a player who hosts has
+them, and the lobby's: the same screens, showing the server's game. What an
+admin does there is a request the server runs as its own command, at the
+admin role, as the web page's and the RCON's are; so it is logged and is an
+event as those are, and the players see what the command shows them (its
+notices, a kicked player's leaving). Several players may be admins.
+
+An admin is a key, not a password. Each OpenH1 game proves a key of its
+own for this server to the server as it joins (an OpenH1 game of this
+version, in an OpenH1 game: `server.game_mode` not `legacy`): the server
+sends it the server's id (`admin_id.txt`, beside `admins.txt`, made at
+random the first time: keep it, as the admins' keys come from it) and a
+nonce, and the game signs the nonce, bound to its connection, with a key
+it makes for that server id alone from a secret of its own (`admin.key`
+beside its `config.toml`, made the first time a server asks: not the
+player key a Discord link uses, which is never shown). A key is never taken
+on the game's word, and its proof is good for that connection alone.
+
+For the players' privacy, one player's key differs from server to server,
+and says nothing of their Discord account or player key: servers cannot
+tell, by it, that two of their players are one. A server that claimed
+another's id would learn the player's key there, not more; the key is no
+password, and a proof is bound to the nonce and the connection it was
+made for (an internet play tunnel's secret: on a LAN, where there is none,
+keep `server.admins` to the LAN's players). A player who moves to another
+computer, or loses `admin.key`, has a new key, which the owner makes an
+admin again.
+
+A game that proved a key listed in `admins.txt` (in
+`paths.logs`, else the data root, beside `bans.txt`: a key of 64 hex digits
+or a key id of 16 a line, anything after it on the line a name, `#`
+beginning a comment) or in `server.admins` (keys or key ids, separated by
+commas) is an admin's, from the next second; one taken out is no longer.
+
+The owner makes a player an admin:
+
+- on the web page (the owner's session): **Make admin** beside a player whose
+  game proved a key (the players' `key_id`, the owner's to see), and
+  **Remove admin**; the players list marks admins;
+- by `sv_admin add <player>` (standard input, the owner's RCON or `POST
+  /api/command`), which writes the key their game proved here to `admins.txt` with
+  their name; `sv_admin add <key>` adds a key given; `sv_admin remove
+  <player|key|key id>` takes it out; `sv_admin` lists `admins.txt`,
+  `server.admins` and each player's key id;
+- or in `server.admins`, or `admins.txt` by hand.
+
+A player finds their own key id for the server they play on with the
+console's `admin` (which says too whether that server has them an admin).
+
+What an admin's Host Controls do, and the command each runs:
+
+| Host Controls | Command |
+| --- | --- |
+| PLAYERS: KICK, BAN... (an hour, a day, for good; a reason), MUTE... (10 minutes, an hour, a day), UNMUTE, MOVE TO RED/BLUE | `kick`, `ban <slot> <duration> <reason>`, `mute`, `unmute`, `sv_team` |
+| GAME: END GAME NOW, RESTART ROUND (the game played again: its entry), SHUFFLE and BALANCE TEAMS, ANNOUNCE..., LOCK TEAMS | `sv_end_game`, `sv_map <the entry played>`, `sv_teams`, `say`, `sv_lock_teams` |
+| MAPS (the server's maps and gametypes): PLAY NOW, AFTER THIS GAME, ADD TO PLAYLIST | `sv_map`, `sv_map_after`, `sv_rotation_add` |
+| PLAYLIST (the server's rotation, its next marked): PLAY NOW, AFTER THIS GAME, REMOVE | `sv_map`, `sv_map_after`, `sv_rotation_del` |
+| BANS (`bans.txt`'s newest 128): UNBAN | `unban <number>` |
+| The scoreboard's Kick, Ban (for good), Move to the other team | `kick`, `ban`, `sv_team` |
+
+A player is named to the server by slot and by the name the admin's list had
+there: a request for a slot that holds another player now is refused, as the
+web's are. The owner's commands (the server's settings and passwords, the
+rotation replaced, stopping or updating the server, `sv_admin`) are never
+offered, nor are a player host's bots, rules, score and time limits,
+password, listing, maximum players and votekick, which on a dedicated server
+are its settings. An admin's game asks a few things a second at most (the
+server takes 4 a second, bursts of 8, and drops the rest).
+
+Each request run is logged (`admin <name> (key <id>) ran "<command>" from the
+game: done` or `refused`) and is an `admin_command` event; the command's own
+log line and event (`kick`, `ban`...) say `by` as `admin <name> (key <id>)`,
+and a ban's reason in `bans.txt` ends `(by admin <name> (key <id>))`.
+
+A Legacy game (`server.game_mode` `legacy`), whose machines play OpenCE's
+protocol, has no admins in the game: its OpenH1 machines are sent nothing
+new.
+
+### OpenH1 games
+
+`server.game_mode` picks the kind of game the server hosts
+(`port/linux/NETCODE.md`, "OpenH1 and Legacy games"):
+
+| Value | The games |
+| --- | --- |
+| `openh1_120` (the default), `openh1_60` | An OpenH1 game at 120 or 60 ticks a second: each OpenH1 player's sub-steps go between the machines, and OpenCE players join it too, at 30, while `network.allow_opence` is on (the default) |
+| `openh1_30` | An OpenH1 game at 30, as a player's Server Setup offers it |
+| `legacy` | OpenCE's netcode at 30 ticks a second, which OpenCE's players and OpenH1's join alike |
+
+The server hosts an OpenH1 game as a player's game hosts one, with the
+differences of any dedicated server (`port/linux/NETCODE.md`, "Dedicated
+servers"): it has no player of its own, so its ticks give its clients'
+players their sub-steps as they came and send them on to the other
+clients, and it sends no live controls of its own. Its LAN advertisement
+and listing are an OpenH1 game's (OpenCE's network version with the rate
+and the OpenH1 protocol version beside it, which the server browser's
+OpenH1 tab lists as "OpenH1 120 Tick, OpenCE can join"; with
+`network.allow_opence` off, the OpenH1 protocol version alone, which OpenCE
+does not list), with the dedicated flag as ever. Every rotation entry,
+gametype file, vote and the map vote play as in a Legacy game; a co-op
+entry is played at the game's rate too. The frames of an OpenH1 game come
+at least as often as its tick rate (`server.frame_rate` is raised to it),
+and between its frames the server waits on its socket and reads what comes
+as it comes, so that each sub-step of a client's is sent on to the others
+at once, not at the next frame.
+
+A change of `server.game_mode` (`sv_set`, `PUT /api/settings`,
+`sv_reload`) is taken in the lobby once nobody is on the server: the
+players there keep the kind of game they joined (`sv_status` says it
+waits), and an OpenH1 game's rate changes from the next game, as a player's
+host changes it. `network.allow_opence` is taken at once: an OpenH1 game
+closed to OpenCE players keeps those in it. The status's `game_mode`,
+`game_mode_name`, `tick_rate` and `opence`, the lobby's log line
+(`lobby: hosting: OpenH1 120 Tick, OpenCE can join (server.game_mode)`) and
+the `game_started` and `game_ended` events say what is hosted.
+
+A server takes nothing of a player's host's `network.game_mode` and
+`network.sim_rate`. Before `server.game_mode`, a server took its kind of
+game from them; such a server hosts OpenH1 120 Tick games now, unless
+`server.game_mode` says otherwise (`openh1_60` for a `network.sim_rate`
+of 60, `legacy` for a `network.game_mode` of `legacy`). A server that
+finds either of them set (to another value than its default in
+`config.toml`, or by its environment variable) says so as it starts: `WARN server: network.sim_rate = 60 is a
+player's host's setting, which a dedicated server leaves aside:
+server.game_mode (openh1_120) says what it hosts`.
+
+### Votes, the map vote and players away
+
+The players vote to kick a player (`network.votekick`: the scoreboard's
+right-click, or the console's `votekick <name>`) and to end the game
+(`network.vote_end_game`: `!endgame` in the chat). While a vote runs every
+player sees its box at the left of the screen, and F1 votes yes, F2 no
+(`controls.vote_yes`, `controls.vote_no`), or a controller's D-pad left and
+right, which then do nothing else (`!yes` and `!no` in the chat do too).
+The yes votes needed are `network.votekick_threshold`'s, of the players who
+may vote: `dynamic` (the default) scales them, more than half up to 8, then
+40% (at least 5) up to 32, then 30% (at least 13); `static` asks
+`network.votekick_percent` (50 by default) of them, rounded up, and for a
+kick never more than those who can vote yes. At least 2 either way, and
+more yes than no; a vote the no votes have made lost ends at once. A vote to end the game may start from 30 seconds played on the
+server, not in a game's first minute, and ends it as `sv_end_game` does,
+its scores and postgame shown (`game_ended`'s reason `vote`).
+
+`server.map_vote` (off by default) lets the players choose the next game:
+as the lobby opens after a game with players in it, the server offers
+`server.map_vote_choices` (4) entries of the rotation picked at random (not
+the one just played, nor one twice), every player's lobby opens its vote
+screen, and after `server.map_vote_seconds` (20), or once every machine has
+voted, the entry with the most votes is played next (a tie, or no vote, at
+random among them); the rotation goes on after it. `sv_map` (an entry
+interposed) and a changed rotation set the vote aside. `map_vote_started`
+and `map_vote_ended` events say each.
+
+A player away from the controls (no button pressed or let go, no stick or
+trigger held, the view not turned) for `server.afk_kick_minutes` (5; 0:
+never) is told a minute before and then kicked (`player_left`'s reason
+`afk`, an `afk_kick` event), free to join again at once. Only time in a
+game counts: not the lobby, the postgame, a cinematic, nor a player dead.
+With `server.afk_kick_when_full` a player is kicked only while the game is
+full, after `server.afk_kick_full_minutes` (3).
+
+`server.max_machines_per_address` (0: no limit) refuses a machine whose
+address (an internet play peer's real one) has that many in the game
+already (`join_refused`'s reason `address_full`); an updated game shows
+"The host refused: too many players from your address".
+
+In a co-op game a loading zone (a trigger that moves the team to another
+part of the level) switches only once more than half of the living players
+who are not away stand in zones to the same part (`server.coop_bsp_switch`
+`majority`, the default; `anyone`: the first player in one). The others see
+"Waiting for N more players to cross"; a mission script's switch is not
+held. After a switch the zones wait `server.coop_bsp_switch_cooldown_seconds`
+(15) before another, the players told when they open; each switch is told
+to everyone, logged and a `coop_bsp_switch` event names who crossed.
+
+### Updates
+
+`server.auto_update` is `install` by default (`check` only says when a
+release is out; `off` never looks). The server asks GitHub for OpenH1's
+latest release (`build-<n>`) `server.update_check_minutes` (30) after the
+last check (the first within two minutes of its start), and when there is
+a newer one says so (a `warning` event) and, with `install`, installs it
+on a thread of its own, the server playing on meanwhile: the release's zip
+for this build (`OpenH1-Linux.zip`, `OpenH1-Linux-ARM64.zip`,
+`OpenH1-Linux-VR.zip`, `OpenH1-Windows.zip`, or their `-debug` builds')
+downloaded into the game's folder (`update.partial-<network.port>`, so
+that servers that share a folder do not share it), checked against the
+release's `SHA256SUMS` and its signature by OpenH1's release key, as the
+game's own updates are (a download that does not match is deleted and
+refused), unpacked, and each of
+its files put in place of the running server's, which become `<name>.old`
+and are deleted when the new build starts. An install that fails (the
+download, its check, a file that cannot be replaced: the files replaced before it are
+put back) is logged and tried again at the next check.
+
+The release's notes give its network versions (`Network version: <n>` and
+`Standard network version: <n>`, written by the release job:
+`tools/ci_build.py notes`). One of the same versions restarts the server
+(exit code 5) once it has been empty for 10 minutes; one of a new version,
+which its players' games no longer join, tells the players "This server
+updates after this game" and restarts it once the game ends, in the lobby
+after 30 seconds' notice, and a game still going on
+`server.update_game_minutes` (30; 0: no limit) after the install is ended
+as `sv_end_game` ends it, its scores shown. What runs the server must start
+it again on exit code 5 (systemd's `Restart=on-failure`, Docker's
+`--restart`, a panel's restart), and it starts the new build.
+
+Only a server that runs from files it may replace updates itself: the
+Linux release's tree (`bin/openh1` beside `share/openh1`, as the release's
+zip unpacks it, or as `install.sh` puts it in `~/Applications/OpenH1`) and
+the Windows build's folder, of a build CI numbered. A build without a
+number (one built from the sources), a tree a package manager installed
+(`share/openh1/packaged`) or that the server may not write, the Steam
+Frame's package, and the macOS, iOS and Android apps log once that
+`server.auto_update` is set but the build does not update itself, and why;
+what runs them updates them.
+
+### VPNs and linked Discord accounts
+
+A dedicated server refuses by default machines that join from the address
+of a VPN, a Tor exit or a datacenter, as the master servers' netlist says
+(`docs/master_protocol.md`, "The netlist"), and lets one in that shows a
+pass of a Discord account linked at a master the server publishes to ("Player
+keys, links and passes" there): a player on a VPN links a Discord account
+once, and joins. `server.vpn_policy`, live:
+
+| Value | A machine from a listed address |
+| --- | --- |
+| `link` (the default) | is refused with "This server blocks VPNs: link Discord in Settings, Account to join, or turn your VPN off", unless it shows a pass (which an updated game does at once, by itself, when it holds one) |
+| `block` | is refused, pass or not ("This server does not allow VPNs") |
+| `off` | joins |
+
+The server fetches the netlist of each master it publishes to (the masters
+of `server.masters_file`) every hour, keeps the newest of each on disk
+(`netlist-<master key id>.bin` beside `bans.txt`) and checks the union of
+them. Until it holds one, `server.vpn_fail` decides: `open` (the default)
+lets every machine in, `closed` refuses those from the internet as
+`block` would. `server.vpn_list` names a netlist file checked besides
+the masters' (a full path, or beside `config.toml`; for a server that
+publishes nowhere, or a test), read at the start and by `sv_reload`. Beside
+`bans.txt`, `vpn_allow.txt` names ranges never refused and `vpn_block.txt`
+ranges refused besides, one a line (`203.0.113.0/24`, `198.51.100.7`, or
+`198.51.100.1-198.51.100.9`; `#` starts a comment), read at the start and by
+`sv_reload`. Only a machine's real internet address is checked (an
+internet play peer's endpoint, `distributed_real_address`): a LAN's
+machines are not, unless `server.vpn_check_lan` (for tests) says so.
+
+A pass is taken from the masters the server publishes to alone (with
+`server.master_publish` and a publisher key): a server that publishes
+nowhere takes none, and a player from a listed address joins it only with
+`server.vpn_policy` `off`. With a pass, the server also refuses an account
+younger than `server.link_min_age_days` (365 by default: a year, from the
+account's id; "This server needs a Discord account a year old to join over
+a VPN") and, with `server.link_one_seat` (on by default), a second machine
+of an account already in the game ("Your Discord account is already
+playing on this server"). A pass that does not check (another master's, out
+of date, not this connection's) is refused as "Your Discord link could not
+be checked". The machine of a pass is a verified Discord account: its id
+and username (`discord_id`, `discord_name`, `discord_verified` in
+`/api/players` and `player_joined`, with the addresses: for the owner, or
+every role with `server.log_addresses`) replace what
+the machine says of itself, and `ban` bans the account too. Each refusal
+is logged (`refusing a machine @<address>: vpn …`) and is a `join_refused`
+event. An older game is told the game is closed.
 
 A dedicated server's text chat is its `network.text_chat`'s, listed or
 not: `on` by default (lines with links refused), `links`, or `off`, live
@@ -423,7 +733,7 @@ are checked in all. `/api/login` takes `POST` alone (any other method:
 | `GET /healthz` | none | `200 {"state":"lobby"}` (or `loading`, `playing`, `postgame`) while the server hosts and its frames run; `503` with `{"state":"starting"}`, `{"state":"stalled"}` (no frame for a minute) or the other state otherwise |
 | `GET /metrics` | none (`server.metrics`) | Prometheus text |
 | `GET /api/status` | viewer | The status (below) |
-| `GET /api/players` | viewer | `{"ok":true,"players":[<player>…]}` (with `address` and `hwid` for the owner, or every role with `server.log_addresses`) |
+| `GET /api/players` | viewer | `{"ok":true,"players":[<player>…]}` (with `address` and `hwid` for the owner, or every role with `server.log_addresses`; and `discord_id`, `discord_name` and `discord_verified` with them: a verified account's, else what the machine says, `""` for none) |
 | `POST /api/players/{slot}/kick` | moderator | `{"name":"<the player's name, checked>"}` → `{"ok":true,"lines":[…]}`, or `409 changed` when the slot holds another player |
 | `POST /api/players/{slot}/ban` | moderator | `{"name":…,"duration":"1d","reason":"…"}` (no duration: for ever, which a moderator's ban cannot be: `400 failed`) |
 | `POST /api/players/{slot}/mute` | moderator | `{"name":…,"minutes":10}` |
@@ -439,8 +749,10 @@ are checked in all. `/api/login` takes `POST` alone (any other method:
 | `PUT /api/gametypes/{name}` | admin | `{"text":"<TOML>"}` → `{"ok":true}`, or `400 invalid` with `line` and `message` (a name is `a`–`z`, `0`–`9`, `_` and `-`, 32 at most) |
 | `DELETE /api/gametypes/{name}` | admin | `{"ok":true}` |
 | `GET /api/maps` | viewer | `{"ok":true,"maps":[{"name":"bloodgulch","level":"levels\\test\\bloodgulch\\bloodgulch","kind":"xbox","title":"Blood Gulch"}…]}` (`kind`: `xbox` or `custom`; `title` is the map's display name, else its `name`) |
-| `GET /api/bans` | admin | `{"ok":true,"bans":[{"n":0,"when":"2026-10-19 18:00:00","ip":"…","hwid":"…","players":"…","reason":"…","until":<unix>\|null}…]}` |
-| `POST /api/bans` | admin | `{"ip":"203.0.113.5","hwid":"…","names":"…","duration":"1d","reason":"…"}` (`ip` or `hwid`, or both; the rest may be left out: no duration is for ever) → `{"ok":true,"n":<the new ban's number in GET /api/bans>}`: `sv_ban_address`, a machine present of the address or the hardware id dropped; `400 schema` for an address that is not IPv4, a hardware id that is not hex, a duration that is not one |
+| `GET /api/bans` | admin | `{"ok":true,"bans":[{"n":0,"when":"2026-10-19 18:00:00","ip":"…","hwid":"…","discord_id":"…","discord_verified":true,"players":"…","reason":"…","until":<unix>\|null}…]}` |
+| `GET /api/vpn` | viewer | `{"ok":true,"policy":"link","fail":"open","lists":[{"master":"<url>","key_id":"…","serial":12,"generated":<unix>,"fetched":<unix>\|null,"ranges":30582,"error":""}…],"file":"<server.vpn_list>","allow_ranges":0,"block_ranges":0,"held":true,"refused":{"vpn_link_required":0,"vpn_blocked":0,"vpn_link_invalid":0,"vpn_link_too_new":0,"vpn_link_in_use":0}}` (`held`: a list is held, from a master or the file) |
+| `POST /api/vpn/check` | moderator | `{"ip":"203.0.113.5"}` → `{"ok":true,"listed":true,"by":"netlist"}` (`by`: `netlist`, `vpn_block.txt`, `vpn_allow.txt`, or `""`) |
+| `POST /api/bans` | admin | `{"ip":"203.0.113.5","hwid":"…","discord_id":"…","names":"…","duration":"1d","reason":"…"}` (`ip`, `hwid` or `discord_id` (a verified account's: up to 20 digits), or more than one; the rest may be left out: no duration is for ever) → `{"ok":true,"n":<the new ban's number in GET /api/bans>}`: `sv_ban_address`, a machine present of the address or the hardware id dropped; `400 schema` for an address that is not IPv4, a hardware id that is not hex, a duration that is not one |
 | `DELETE /api/bans/{n}` | admin | `{"ok":true}` |
 | `GET /api/settings` | admin | `{"ok":true,"settings":[<setting>…]}` |
 | `PUT /api/settings` | admin | `{"server.name":"…","server.max_players":16,"server.public":true,…}` (a value as JSON, a boolean, a number or a string, or its text: `"true"`, `"16"`; `null` empties it) → `{"ok":true,"applied":["server.name"],"errors":[{"name":…,"code":…,"message":…}]}`; each setting is changed or refused on its own |
@@ -460,7 +772,9 @@ events) before they were asked for.
 
 ```json
 {"ok":true,"time":1760900000123,"name":"OpenCE Server","state":"playing",
- "build":"build-206","network_version":38,"uptime":3600,"games_hosted":4,
+ "build":"build-206","network_version":38,"openh1_version":11,"game_mode":"openh1_120",
+ "game_mode_name":"OpenH1 120 Tick, OpenCE can join","tick_rate":120,"opence":true,
+ "uptime":3600,"games_hosted":4,
  "map":"bloodgulch","level":"levels\\test\\bloodgulch\\bloodgulch","gametype":"ctf","variant":"CTF","teams":true,
  "players":5,"max_players":16,"machines":5,"countdown":-1,"game_seconds":312,"team_scores":[2,1],
  "listing":{"online":true,"public":true,"password":false,"invite":"openh1://join/…"},
@@ -479,7 +793,14 @@ events) before they were asked for.
 lobby's seconds left, `-1` when it is not counting. `team_scores` is `null`
 in a game without teams. `frame_ms_max` and `frame_ms_avg` are the longest
 and the mean frame of the last minute (`tick_ms_avg` is the mean again, for
-older readers). `invite` is given to admins only (empty for others). An entry of the rotation is
+older readers). `game_mode` is the kind of game hosted, as `server.game_mode`
+spells it (a change of the setting waits for the server to be empty: "OpenH1
+games"; before the server hosts, what the setting says), `game_mode_name`
+its name as the server browser says it (`Legacy`, `OpenH1 120 Tick, OpenCE
+can join`), `tick_rate` its tick rate (30 for a Legacy game), `opence` whether
+OpenCE players join it now, and `openh1_version` the build's OpenH1 protocol
+version (`network_version` its network version). `invite` is given to
+admins only (empty for others). An entry of the rotation is
 `{"text":"sidewinder:team_slayer+score=50","map":"sidewinder","gametype":"team_slayer","rules":{"score":50},"rejected":null}`
 (`rejected` is why it cannot be played, else `null`). `drain` is the
 drain waiting (`sv_stop game`...), `{"after":"game","restart":false,"since":<unix
@@ -495,7 +816,9 @@ and `web_port` `server.web_port`. `capabilities` is the RCON's hello's. The rota
 the entry after the one played last (the first while none has been).
 
 A player is
-`{"slot":0,"name":"Milenko","team":0,"score":3,"kills":3,"deaths":1,"assists":0,"ping":42,"machine":1,"joined":1760899000,"muted":false}`;
+`{"slot":0,"name":"Milenko","team":0,"score":3,"kills":3,"deaths":1,"assists":0,"ping":42,"machine":1,"joined":1760899000,"muted":false,"admin":false}`
+(`admin`: an admin in the game, "Admins in the game"; with the owner role,
+also `key_id`, the key their game proved to this server, `""` for none);
 with the owner role, or `server.log_addresses`, also
 `"address":"203.0.113.5","hwid":"…"`. `team` is 0 (red), 1 (blue) or -1
 (no teams); `ping` is in milliseconds, `null` when it is not known yet.
@@ -532,7 +855,8 @@ Every frame is text holding one JSON object. The server speaks first:
 
 ```
 → {"type":"hello","protocol":1,"server":"OpenCE Server","build":"build-206","network_version":38,
-   "capabilities":["events","status","rotation","settings","bans","owner_web","ban_address","stop","event_addresses","identity"]}
+   "openh1_version":11,"game_mode":"openh1_120",
+   "capabilities":["events","status","rotation","settings","bans","owner_web","ban_address","stop","event_addresses","identity","vpn","link","game_mode"]}
 ← {"type":"auth","password":"…","by":"sam"}        or {"type":"auth","token":"<session token>"}
 → {"type":"auth","ok":true,"role":"admin"}
 → {"type":"auth","ok":false,"error":{"code":"denied"}}  and the connection closes (1008)
@@ -555,7 +879,11 @@ A connection signed in with the page's cookie (on the same origin) needs no
 The `capabilities` say what the server has beyond the first release's
 (`events`, `status`, `rotation`, `settings`, `bans`): `owner_web`,
 `ban_address`, `stop`, `event_addresses` and `identity` ("Panels and
-fleets"); a client checks for one before it uses it. The owner's password
+fleets"), `vpn` (the VPN policy, `/api/vpn`, `join_refused`), `link`
+(verified Discord accounts: `discord_*` in players, bans by `discord_id`)
+and `game_mode` (the kind of game hosted and its tick rate in the status,
+the hello and the game's events: "OpenH1 games");
+a client checks for one before it uses it. The owner's password
 signs in from the server's own machine alone ("Signing in").
 A command is a `line`, or a `command` and its `args`, which the server
 joins with spaces, quoting an argument that holds a space or is empty (511
@@ -575,8 +903,9 @@ upgrade answers `503 busy`), and each upgrade counts against its address's
 allowance (above). The
 event groups are `player` (`player_joined`, `player_left`, `map_share`), `chat`
 (`chat`), `game` (`lobby_opened`, `countdown`, `game_started`,
-`game_ended`, `postgame`, `score`, `kill`), `moderation` (`kick`, `ban`,
-`unban`, `mute`, `unmute`, `speed_hack`), `status` (`status`), `log`
+`game_ended`, `postgame`, `score`, `kill`, `afk_kick`, `coop_bsp_switch`,
+`map_vote_started`, `map_vote_ended`), `moderation` (`kick`, `ban`,
+`unban`, `mute`, `unmute`, `speed_hack`, `join_refused`, `admin_command`), `status` (`status`), `log`
 (`log`, each log line as `{"n","level","cat","text"}`), `master`
 (`master`), and `server` (`server_started`, `reloaded`, `warning`,
 `drain`, `shutdown`), which every subscriber gets.
@@ -600,18 +929,24 @@ Every event has `seq` (rising, never reused while the server runs; a
 
 | Event | Fields |
 | --- | --- |
-| `server_started` | `name, build, network_version, pid, started, instance, region, tunnel_port, publisher_key_id, web_port` (as the status's), `rotation[]` (the entries' texts) |
+| `server_started` | `name, build, network_version, openh1_version, game_mode` (`server.game_mode` as the server starts), `pid, started, instance, region, tunnel_port, publisher_key_id, web_port` (as the status's), `rotation[]` (the entries' texts) |
 | `lobby_opened` | `map, gametype, variant` (the gametype's name as the game shows it), `teams, index` (the rotation's entry) |
 | `countdown` | `seconds` (-1: paused) |
-| `game_started` | `map, gametype, variant, teams, team_scores[]` (team games), `players[]` |
-| `game_ended` | `map, gametype, variant, teams, reason` (`score`, `time`, `idle`, `empty`, `command`, `next`), `duration` (seconds), `team_scores[]` (team games), `players[]` |
+| `game_started` | `map, gametype, variant, teams, game_mode, tick_rate` (as the status's), `team_scores[]` (team games), `players[]` |
+| `game_ended` | `map, gametype, variant, teams, game_mode, tick_rate, reason` (`score`, `time`, `idle`, `empty`, `command`, `next`, `update`: a new network version's install, `vote`: the players' vote to end it), `duration` (seconds), `team_scores[]` (team games), `players[]` |
 | `postgame` | `seconds` |
-| `player_joined` | `slot, name, team, machine`; `address, hwid` for the owner, or every role with `server.log_addresses` |
-| `player_left` | `slot, name, reason` (`left`; `kicked` and `banned` when the server's `kick`, `ban` or `sv_ban_address` dropped the machine, `banned` for a speed hack's drop too); `address, hwid` (as it joined) as `player_joined`'s |
+| `player_joined` | `slot, name, team, machine`; `address, hwid, discord_id, discord_name, discord_verified` for the owner, or every role with `server.log_addresses` |
+| `join_refused` | `name` (the machine's), `reason` (`vpn_link_required`, `vpn_blocked`, `vpn_link_invalid`, `vpn_link_too_new`, `vpn_link_in_use`, `address_full`); `address, hwid` as `player_joined`'s |
+| `player_left` | `slot, name, reason` (`left`; `kicked` and `banned` when the server's `kick`, `ban` or `sv_ban_address` dropped the machine, `banned` for a speed hack's drop too, `afk` for a player away); `address, hwid` (as it joined) as `player_joined`'s |
+| `afk_kick` | `players` (the machine's players' names), `seconds` (away) |
+| `coop_bsp_switch` | `from, to` (the level's parts), `players[]` (the names of those who crossed) |
+| `map_vote_started` | `seconds`, `choices[]` (`{"map","gametype","index"}`: the rotation's entries) |
+| `map_vote_ended` | `map, gametype, index, votes` (the winner) |
 | `chat` | `channel` (`everyone`, `team`, `vehicle`), `slot, name, text` (admins only; the lines the host sends on) |
 | `kill` | `killer, victim` (slots; -1 for none), `weapon` (the killer's weapon's or the killing object's tag name, or null), `friendly_fire` |
 | `score` | `map, gametype, variant, teams, team_scores[]` (team games), `players[]` (once a second at most, on a change) |
-| `kick`, `ban`, `unban`, `mute`, `unmute` | `name, by, reason?, until?` |
+| `kick`, `ban`, `unban`, `mute`, `unmute` | `name, by, reason?, until?` (`by`: the role, or `admin <name> (key <id>)` for an admin in the game) |
+| `admin_command` | `name, key_id, line, ok`: an admin's request from the game, the command it ran and whether it did ("Admins in the game") |
 | `speed_hack` | `machine, names, rate, ahead_ticks, action` (`kicked`, or `unverified`: its datagrams alone said so, and it stays) |
 | `map_share` | `machine, map, state` (`asked`, `downloading` at each tenth, `downloaded` or `failed` once for each request), `progress` (0 to 100: a percentage already) |
 | `warning` | `text` (a newer release, with `server.auto_update`) |
@@ -633,11 +968,20 @@ A ban is a line of `bans.txt` (in `paths.logs`, else the data root). A
 timed ban is kept out by its line's `until=` alone, and ends then. A ban
 for ever, and a machine dropped for cheating, also keep the machine out
 for the rest of the run by its address, its real address or its hardware
-id. `sv_ban_address` and `POST /api/bans` write such a line for an address
+id. A player reached through a relay is known by the address the relay saw
+its packets come from ("Relays"), never one it gave of itself. `sv_ban_address` and `POST /api/bans` write such a line for an address
 or a hardware id with no player of it needed (the part not given is
 `none`). `unban` takes the line out and readmits the machine by
 the line's address or hardware id, whether it joins on the LAN or by
 internet play.
+
+A line's `discord_id` is a verified Discord account's when it has no
+`(self-reported)` after it: `ban` writes it so for a machine that showed a
+pass, and `sv_ban_address discord:<id>` and `POST /api/bans`' `discord_id`
+write it. Such a line keeps out every machine that shows a pass of that
+account, from any address. What a machine says of its Discord account
+itself is written with `(self-reported)` and never matched: anyone could
+say it.
 
 ## The rotation
 
@@ -745,6 +1089,135 @@ lists;
 `unknown_key`, `publisher_pending`, `application_denied` and
 `listing_taken` are logged once a minute while they last.
 
+## Relays
+
+Players whose networks keep them apart (both behind NATs that give each
+destination a port of their own, which hole punching cannot meet: many
+mobile carriers, carrier-grade NAT, offices) connect through a relay
+(`port/linux/src/p2p_relay.c`; `port/linux/README.md`, "Relays"). Only
+servers relay, never a player's machine, and a pair uses a relay only once
+a direct connection has failed.
+
+- **A dedicated server** relays as `server.relay` says. `"game"` (the
+  default): only pairs one side of which is a player of its own game (map
+  sharing between its players), whom it tells that it relays. `"any"`: any
+  two machines, for a server that players name in their `relays.txt`.
+  `"off"`: none.
+- **A relay alone** (`halo --relay`): any two machines, on
+  `network.tunnel_port` (2302 if none), with no game data. It logs its
+  counts each minute they change (pairs, formed, ended, refused, challenged,
+  packets and bytes forwarded, packets dropped by its limits). A small VPS
+  serves: a pair of players takes their game's traffic both ways, some tens
+  of kilobytes a second.
+- **Where players learn of relays**: `relays.txt` beside `masters.txt`
+  (`network.relays_file`; a dedicated server's own, `server.relays_file`,
+  which it offers its joiners and tells its players of), none by default;
+  and what the dedicated server of their game tells them.
+- **Limits** (both): `server.relay_pairs` (64) pairs at once, 8 for each
+  address; `server.relay_upload` (8192 KB/s) in all, 256 KB/s for each pair
+  and 1 MB/s for each address; binds answered 20 times a second for each
+  address and 2000 in all. A side not heard for 15 seconds is let go, a
+  pair idle for 30 seconds ends, and one unpaired for 25.
+- **What a relay is shown.** Each machine binds with a token made from its
+  session's secret and the relay's address (HMAC-SHA256), so each relay has
+  a token of its own, which says nothing of the secret or of the tunnel's
+  keys, and which no relay can use at another. A bind is taken only with a
+  cookie the relay gave its address (an HMAC of the address, the port, the
+  token and the time, by a secret of the relay's), so a bind with a forged
+  source binds nothing and reflects only a smaller challenge. The relay
+  forwards only tunnel packets (sealed end to end, which it cannot read or
+  change), only between the two addresses it checked. It learns both
+  machines' addresses; it tells the host's side where the player's packets
+  come from (the address the host bans and votes by, as on a direct
+  connection), and the player's side nothing about the host.
+
+The relay's packets (the tunnel's UDP socket; their first byte `0x6A`,
+version 2):
+
+| Packet | Bytes |
+| --- | --- |
+| BIND (machine to relay) | `0x6A`, `B`, 2, side (0 the host's, 1 the joiner's), token (32), nonce (8), cookie (16; zeros at first) |
+| CHALLENGE (relay to machine) | `0x6A`, `C`, 2, 0, the bind's nonce (8), cookie (16) |
+| BOUND (relay to machine) | `0x6A`, `K`, 2, state (0 waiting, 1 paired, 2 refused), the bind's nonce (8), the pair's channel (8), the other side's IPv4 address and port (to side 0 once paired; else zeros), 2 zeros |
+| DATA | `0x6A`, `D` (machine to relay) or `d` (relay to machine), the channel (8), one tunnel packet |
+| RELEASE (machine to relay) | `0x6A`, `X`, 2, side, token (32): from that side's address alone |
+
+A machine binds every half second until paired, then every 4 seconds. The
+machines offer each other relays through signalling (a sealed `R` message,
+version 2, on the session's topics, which OpenCE and older builds pass
+over): the offering machine's identifier and side, a count (3 at most),
+each relay's address and port, and a tag (HMAC-SHA256 by the session's
+secret), taken one a second and 8 in all for a session. A dedicated server
+tells each player of its game its relays in a tunnel packet of its own
+(`_packet_relays`). These are OpenH1 protocol version 16's.
+
+## Fronts
+
+A server (or a player's host) behind a NAT that nothing can punch through
+(carrier-grade NAT, a NAT that gives each destination a port of its own)
+can still be joined by every player, OpenCE's too, through a front: a
+public UDP port on a relay of `halo --relay`
+(`port/linux/src/p2p_front.c`; `port/linux/NETCODE.md`, "Fronts"). The
+server keeps one session with the front, which gives it a port of its
+own; the server lists that port as one more of its addresses (after
+`network.public_address`, before its own), joiners punch to it as to any,
+and the front passes each tunnel packet that reaches the port down the
+session, and the server's answers back out of the port. The tunnel stays
+sealed end to end: a front sees the addresses of the server and of the
+players who reach it, never what they send.
+
+Setting one up:
+
+1. On a machine with a public address (a small VPS), in `config.toml`
+   beside `halo --relay`: `server.front_ports = "2310-2325"` (a port for
+   each server it serves, 64 at most). Open UDP `network.tunnel_port` (2302)
+   and those ports in its firewall.
+2. On each server, `halo --keygen` writes its publisher key (the
+   one the master servers know it by, if it publishes) and prints its
+   public key, `ed25519:<hex>`.
+3. On the front, put each server's public key on a line of
+   `front_operators.txt` beside `config.toml`
+   (`server.front_operators_file`; read again each minute), and start
+   `halo --relay`. It logs the ports and the keys it allows.
+4. On the server, `network.front = "<the front's address>:2302"`. It logs
+   "front ... registered this machine: joiners are offered ..." once the
+   front gives it a port; the server needs no port forwarded of its own.
+
+A port stays with a server's key while it is registered, and is given back
+to the same key when it registers again after a lapse, so its address
+stays the same. A registration lapses after 15 seconds without a renewal
+(the server renews every 4); the server gives the front up after 12 seconds
+without an answer and asks again every second, its listed address withdrawn
+meanwhile.
+
+**Limits.** REGISTERs answered: 200 a second in all; signatures checked: 50
+a second. A registration's clients: 64, 8 from one address; a client the
+server never answered is forgotten after 5 seconds and gives way first when
+the table is full (so a flood from forged addresses cannot keep players
+out), one answered after 20 seconds of silence. Bytes: 256 KB/s for each
+client, 2 MB/s for each registration (both ways), and `server.relay_upload`
+for the front in all. The front passes only tunnel packets of a tunnel
+packet's sizes, to a registered server's port alone, and sends a player
+only what its server sent it: nothing a front sends to an address it has
+not checked is larger than what that address sent it.
+
+The front's packets (UDP; the front's on its `network.tunnel_port`, the
+server's on its tunnel's socket; their first byte `0x6B`, version 1):
+
+| Packet | Bytes |
+| --- | --- |
+| REGISTER (server to front) | `0x6B`, `R`, 1, 0, the publisher key (32), nonce (8), cookie (16; zeros at first), Ed25519 signature (64) of "openh1 front register 1", the key, the nonce and the cookie |
+| CHALLENGE (front to server) | `0x6B`, `C`, 1, 0, the REGISTER's nonce (8), cookie (16: an HMAC by a secret of the front's of the address and port the REGISTER came from, its key and the 30-second period) |
+| REGISTERED (front to server) | `0x6B`, `G`, 1, state (0 registered, 1 refused: the key is not allowed, 2 full: no port free), the REGISTER's nonce (8), the session (8), the public port (2, network order), 2 zeros |
+| FROM (front to server) | `0x6B`, `F`, the session (8), the client's number (4), the client's IPv4 address and port as the front saw them (6), one tunnel packet |
+| TO (server to front) | `0x6B`, `T`, the session (8), the client's number (4), one tunnel packet, which the front sends to that client from the public port |
+
+A REGISTER is taken only with a cookie the front gave its address in this
+period or the last, and a key in the operators' file, and a good signature
+(the same REGISTER again, the keep-alive, is not checked again). The front
+takes TO only from the registered server's address with its session, and
+the server takes FROM only from its front's address with its session.
+
 ## Files
 
 | File | What |
@@ -755,7 +1228,10 @@ lists;
 | `gametypes/<name>.gametype` | Gametypes saved by a player's game (`file=<name>` in the rotation): the same `gametypes` folder |
 | `publisher.key` | The publisher key for the master servers (beside `config.toml`). On Windows, a server's `config.toml` and `publisher.key` are given an access list of their owner alone (the entries inherited for Administrators and SYSTEM taken out) |
 | `masters.txt` | The master servers (`server.masters_file`: beside `config.toml`, else beside the executable); one that names none leaves the official master, built in |
+| `relays.txt` | The relays the server offers players who cannot reach it, and tells its players of (`server.relays_file`, found as `masters.txt` is): `host[:port]` on each line; none by default ("Relays") |
 | `bans.txt`, `cheaters.txt`, `debug.txt` | In `paths.logs`, else the data root |
+| `admins.txt`, `admin_id.txt` | Beside `bans.txt`: the players' keys (or key ids) who are admins in the game, and the server's id their keys for it are made from ("Admins in the game") |
+| `vpn_allow.txt`, `vpn_block.txt`, `netlist-<master key id>.bin` | Beside `bans.txt`: ranges never refused as a VPN's, ranges refused besides, and the masters' netlists held ("VPNs and linked Discord accounts") |
 | `status.json` (`server.status_file`) | The status, written every 2 seconds |
 | A password's file (`HALO_SERVER_WEB_PASSWORD_FILE`, `HALO_SERVER_WEB_OWNER_PASSWORD_FILE`, `HALO_SERVER_WEB_MODERATOR_PASSWORD_FILE`, `HALO_SERVER_WEB_VIEWER_PASSWORD_FILE`, `HALO_SERVER_PASSWORD_FILE`) | A container's secret: when the plain variable is not set, the file's first line (its CR and LF off) is the setting's value, which is then pinned as the plain variable's would be (`sv_set` and `PUT /api/settings` refuse it, `409 pinned`). Read once, at the start; a file that cannot be read is logged, and the setting is `config.toml`'s |
 

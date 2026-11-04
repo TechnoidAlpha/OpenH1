@@ -1087,6 +1087,75 @@ void game_sound_set_mouth_aperture(
 	return;
 }
 
+#ifdef HALO_VR
+/* port: the VR mode's ears (sound_manager.c; port/linux/game/vr_render.c) */
+boolean sound_vr_listener_head(short local_player_index, real_point3d *position);
+void vr_render_sound_obstruction(real_point3d const *position, boolean head, real obstruction, real occlusion);
+
+/* port: the first player hears from the head in the VR mode, and a sound
+is obstructed as it is from there, not from the game's camera, the
+character's eye: a voice round a corner the player leans past, or over cover
+they stand up behind, is heard plainly. Not where the line from the eye to
+the head is itself blocked (a head through a wall, a door or a crate), nor
+outside the level: from the eye, as on the flat screen. Judged again only
+when the head or the eye has moved */
+static struct
+{
+	boolean valid;
+	boolean clear;
+	real_point3d head;
+	real_point3d eye;
+	struct location location;
+} sound_vr_ears;
+
+static boolean sound_vr_ears_get(
+	short local_player_index,
+	struct observer_result const *camera,
+	real_point3d const **position,
+	short *cluster_index)
+{
+	real_point3d head;
+
+	if (!sound_vr_listener_head(local_player_index, &head))
+	{
+		return FALSE;
+	}
+	if (!sound_vr_ears.valid ||
+		distance_squared3d(&head, &sound_vr_ears.head) != 0.0f ||
+		distance_squared3d(&camera->position, &sound_vr_ears.eye) != 0.0f)
+	{
+		real_vector3d eye_to_head;
+		struct collision_result collision;
+
+		sound_vr_ears.valid = TRUE;
+		sound_vr_ears.head = head;
+		sound_vr_ears.eye = camera->position;
+		scenario_location_from_point(&sound_vr_ears.location, &head);
+		vector_from_points3d(&camera->position, &head, &eye_to_head);
+		sound_vr_ears.clear = camera->location.cluster_index != NONE &&
+			sound_vr_ears.location.cluster_index != NONE &&
+			!collision_test_vector(
+				FLAG(_collision_test_front_facing_surfaces_bit) |
+					FLAG(_collision_test_structure_bit) |
+					FLAG(_collision_test_objects_bit) |
+					FLAG(_collision_test_objects_scenery_bit) |
+					FLAG(_collision_test_objects_machines_bit),
+				&camera->position,
+				&eye_to_head,
+				NONE,
+				&collision);
+	}
+	if (!sound_vr_ears.clear)
+	{
+		return FALSE;
+	}
+	*position = &sound_vr_ears.head;
+	*cluster_index = sound_vr_ears.location.cluster_index;
+
+	return TRUE;
+}
+#endif
+
 /* The native ports draw several frames per game tick (port/linux/game/
 render_interpolation.c), and the sound manager refreshes every sound each
 frame; on the Xbox, frames and ticks were one. A sound's obstruction, a
@@ -1122,6 +1191,12 @@ void compute_sound_obstruction(
 	struct observer_result const *camera = observer_get_camera(local_player_index);
 	long slot = obstruction_cache_slot(local_player_index, &source->location.position);
 	long now = game_time_get();
+	/* port: where the sound is heard from (sound_vr_ears_get) */
+	real_point3d const *listener_position = &camera->position;
+	short listener_cluster_index = camera->location.cluster_index;
+#ifdef HALO_VR
+	boolean head;
+#endif
 
 	if (obstruction_cache[slot].valid &&
 		obstruction_cache[slot].game_time == now &&
@@ -1141,6 +1216,9 @@ void compute_sound_obstruction(
 		global_current_collision_user_depth < MAXIMUM_COLLISION_USER_STACK_DEPTH);
 	global_current_collision_users[global_current_collision_user_depth++] =
 		_collision_user_sounds;
+#ifdef HALO_VR
+	head = sound_vr_ears_get(local_player_index, camera, &listener_position, &listener_cluster_index);
+#endif
 
 	source->obstruction = 0.6f;
 	source->occlusion = 1.0f;
@@ -1150,12 +1228,12 @@ void compute_sound_obstruction(
 		source->spatialization_mode==_sound_spatialization_mode_absolute);
 
 	if (source->location.game_location.cluster_index != NONE &&
-		camera->location.cluster_index != NONE)
+		listener_cluster_index != NONE)
 	{
 		struct structure_bsp *structure_bsp = global_structure_bsp_get();
 		byte encoded_distance = structure_bsp_get_cluster_encoded_sound_distance(
 			structure_bsp,
-			camera->location.cluster_index,
+			listener_cluster_index,
 			source->location.game_location.cluster_index);
 		real cluster_distance = (encoded_distance & ~FLAG(_cluster_sound_distance_unreachable_bit))
 			* (MAXIMUM_CLUSTER_SOUND_DISTANCE / CLUSTER_SOUND_DISTANCE_VALUE_MASK);
@@ -1165,28 +1243,59 @@ void compute_sound_obstruction(
 			if (BIT_VECTOR_TEST_FLAG(
 				structure_bsp_get_cluster_pvs(
 					global_structure_bsp_get(),
-					camera->location.cluster_index),
+					listener_cluster_index),
 				source->location.game_location.cluster_index))
 			{
 				real_vector3d listener_to_source;
 				struct collision_result collision;
+				long ignore_object_index = NONE;
+				short attempt;
+				boolean blocked = TRUE;
 
 				source->obstruction = 0.45f;
 				vector_from_points3d(
-					&camera->position,
+					listener_position,
 					&source->location.position,
 					&listener_to_source);
-				if (!collision_test_vector(
-					FLAG(_collision_test_front_facing_surfaces_bit) |
-						FLAG(_collision_test_structure_bit) |
-						FLAG(_collision_test_media_bit) |
-						FLAG(_collision_test_objects_bit) |
-						FLAG(_collision_test_objects_scenery_bit) |
-						FLAG(_collision_test_objects_machines_bit),
-					&camera->position,
-					&listener_to_source,
-					NONE,
-					&collision))
+				/* port: the object that makes the sound does not stand in its way.
+				The test runs to the sound's own place, inside what makes it (a
+				marine's head, a Warthog's engine), and stopped at its surface: a
+				voice of someone in plain sight was obstructed, its high
+				frequencies down 5 dB, and as the speaker moved, the test hitting
+				and missing them muffled the voice on and off. An object hit with
+				the sound inside its bounding sphere is ignored and the test run
+				again, twice at most */
+				for (attempt = 0; attempt < 3 && blocked; attempt++)
+				{
+					real_point3d center;
+					real radius;
+
+					blocked = collision_test_vector(
+						FLAG(_collision_test_front_facing_surfaces_bit) |
+							FLAG(_collision_test_structure_bit) |
+							FLAG(_collision_test_media_bit) |
+							FLAG(_collision_test_objects_bit) |
+							FLAG(_collision_test_objects_scenery_bit) |
+							FLAG(_collision_test_objects_machines_bit),
+						listener_position,
+						&listener_to_source,
+						ignore_object_index,
+						&collision);
+					if (!blocked ||
+						collision.type != _collision_result_object ||
+						collision.object_index == NONE ||
+						collision.object_index == ignore_object_index)
+					{
+						break;
+					}
+					object_get_bounding_sphere(collision.object_index, &center, &radius);
+					if (distance_squared3d(&center, &source->location.position) > radius * radius)
+					{
+						break;
+					}
+					ignore_object_index = collision.object_index;
+				}
+				if (!blocked)
 				{
 					source->obstruction = 0.0f;
 					source->occlusion = 0.0f;
@@ -1206,6 +1315,9 @@ void compute_sound_obstruction(
 		926,
 		global_current_collision_user_depth > 1);
 	--global_current_collision_user_depth;
+#ifdef HALO_VR
+	vr_render_sound_obstruction(&source->location.position, head, source->obstruction, source->occlusion);
+#endif
 	obstruction_cache[slot].valid = TRUE;
 	obstruction_cache[slot].game_time = now;
 	obstruction_cache[slot].local_player_index = local_player_index;

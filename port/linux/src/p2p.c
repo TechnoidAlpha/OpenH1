@@ -21,9 +21,9 @@ link games as if they were on one LAN, without a server of this project's.
   each, and never travels.
 - The tunnel is one UDP socket. Each machine learns its public address from
   public STUN servers, and both then send to each other's addresses until
-  packets get through (hole punching). There is no relay: two machines whose
-  NATs both map every destination to a new port cannot connect, unless a
-  router forwards one of them a port. So a host asks its router to forward
+  packets get through (hole punching). Two machines whose NATs both map
+  every destination to a new port cannot meet so, unless a router forwards
+  one of them a port. So a host asks its router to forward
   the tunnel's port (UPnP, posix_upnp.c) as soon as a player reaches out
   with its invite, and a joiner asks its own when it has not reached the
   host in a few seconds (network.allow_upnp); the forwarded port is one more
@@ -33,6 +33,24 @@ link games as if they were on one LAN, without a server of this project's.
   its header (the sender and the packet's number, the nonce) authenticated
   too, and a packet already received, or from further back than the last
   64, is dropped.
+- Two machines that have not met after a few seconds (p2p_relay_due) try
+  relays (p2p_relay.c): a dedicated server or a relay of halo --relay that
+  both reach, which forwards their sealed packets and cannot read them.
+  Never a player's machine. Each offers the other, through signalling
+  (p2p_signal_relay_offer), the relays it knows: its relays.txt's
+  (network.relays_file; a dedicated server's server.relays_file), and those
+  the dedicated server of the game it plays in told it of (_packet_relays);
+  both bind to all of them, the first pair whose packets get through
+  carries the session, and the others stay paired, to fail over to. A
+  direct path heard later takes the session back once it has lasted a few
+  seconds (p2p_relay_path).
+- A server or host behind a NAT that no one can punch through may register
+  with a front (network.front; p2p_front.c): a public port on a relay of
+  halo --relay that passes packets from anyone to it and its answers back.
+  The front's address is one more of the addresses it offers joiners
+  (p2p_local_candidates), which they punch to as to any, OpenCE's too; a
+  joiner reached through it is a relay's path of the front's (its client
+  there), and its address as the front saw it is the one its bans take.
 - Each peer gets a virtual address in 100.64.0.0/10, which the game sees
   (XNetXnAddrToInAddr maps the peer's XNADDR to it). The game's datagrams
   to a peer go onto the tunnel from xnet.c at once (p2p_send_datagram);
@@ -69,8 +87,11 @@ only look up and create stand-ins.
 #include "platform.h"
 #include "posix.h"
 #include "server_master.h"
+#include "server_mode.h"
+#include "master_list.h"
 #include "port_config.h"
 #include "p2p_internal.h"
+#include "player_link.h"
 #include "log_address.h"
 #include "ikcp.h"
 #ifdef HALO_PROFILE
@@ -168,6 +189,38 @@ enum
 	HANDOFF_PORT = 47315,
 };
 
+typedef char tunnel_magic_assert[TUNNEL_MAGIC == P2P_TUNNEL_MAGIC &&
+	TUNNEL_HEADER_SIZE + P2P_TAG_SIZE + 1 == P2P_TUNNEL_MINIMUM_PACKET &&
+	MAXIMUM_PACKET_SIZE == P2P_TUNNEL_MAXIMUM_PACKET ? 1 : -1];
+
+/* relays (p2p_relay.c) */
+enum
+{
+	/* milliseconds: a peer not reached is offered relays again this often;
+	a peer that offers none (an OpenCE machine, or an older build) is sent
+	this many, and no more */
+	RELAY_OFFER_INTERVAL = 2000,
+	RELAY_OFFERS_UNANSWERED = 3,
+	/* a peer whose relay is lost, and none other paired, has its relays
+	bound again this often */
+	RELAY_REBIND_INTERVAL = 2000,
+	/* while relayed, the peer's own addresses are tried again this often
+	(a direct path may open: a router's port forwarded), for this long, then
+	this seldom */
+	DIRECT_RETRY_INTERVAL = 3000,
+	DIRECT_RETRY_TIME = 60000,
+	DIRECT_RETRY_SLOW_INTERVAL = 30000,
+	/* relays.txt read and looked up again this often */
+	RELAYS_LOOKUP_INTERVAL = 300000,
+	/* the relays this machine knows (relays.txt's), and its game's
+	dedicated server told it of */
+	MAXIMUM_OWN_RELAYS = 8,
+	MAXIMUM_GAME_RELAYS = P2P_RELAY_OFFERED,
+	/* a dedicated server tells each of its players its relays this many
+	times, a ping apart (_packet_relays) */
+	RELAYS_TOLD = 3,
+};
+
 enum
 {
 	_packet_ping = 1,
@@ -175,6 +228,15 @@ enum
 	_packet_datagram,
 	_packet_stream,
 	_packet_bye,
+	/* a dedicated server's relays, to a player of its game (_relays_*: it
+	relays for its game's players itself; then a count, and each relay's
+	address and port), which builds before relays pass over */
+	_packet_relays,
+};
+
+enum
+{
+	_relays_server_relays = 1,
 };
 
 /* the messages of a stream, inside KCP */
@@ -236,6 +298,25 @@ struct peer
 	/* a public game's host probed for its ping (p2p_probe_start): none of
 	its traffic is the game's */
 	int probe;
+	/* relays (p2p_relay.c): the path it is reached by (directly, or a
+	relay's attempt); the relays tried for it (both machines' offers);
+	whether it offered any, the offers it sent and was sent; when this
+	machine last offered, bound its relays again, and tried its own
+	addresses while relayed; the address a direct path was heard from while
+	relayed; the times a dedicated server told it of its relays */
+	struct p2p_relay_path path;
+	struct p2p_candidate relays[P2P_RELAY_PEER_RELAYS];
+	int relay_count;
+	int relay_offered;
+	int relay_offers_sent;
+	struct p2p_relay_offers_heard relay_offers_heard;
+	unsigned long relay_offer_time;
+	unsigned long relay_rebind_time;
+	unsigned long direct_retry_time;
+	struct p2p_candidate direct;
+	unsigned long relayed_time;
+	int relays_told;
+	unsigned long relays_told_time;
 };
 
 /* a UDP stand-in for one port of a peer */
@@ -305,6 +386,9 @@ struct stream
 	int remote_closed;
 	unsigned long created_time;
 	unsigned long closed_time;
+	/* something written to KCP or taken from it this pass (a message, a
+	peer's segments): flushed at the pass's end, not at KCP's next interval */
+	int flush;
 	unsigned char pending[STREAM_BUFFER_SIZE];
 	int pending_size;
 };
@@ -483,6 +567,30 @@ static struct
 	char public_text[256];
 	unsigned long public_time;
 	int public_logged;
+
+	/* relays (p2p_relay.c): relays.txt's, looked up (when, and from which
+	setting's file); those the game's dedicated server told of, and which
+	machine did; how this machine relays for others (a dedicated server
+	alone), as last configured */
+	struct p2p_candidate own_relays[MAXIMUM_OWN_RELAYS];
+	int own_relay_count;
+	unsigned long relays_time;
+	char relays_setting[256];
+	struct p2p_candidate game_relays[MAXIMUM_GAME_RELAYS];
+	int game_relay_count;
+	unsigned char game_relays_from[P2P_IDENTIFIER_SIZE];
+	int relay_mode;
+
+	/* network.front, looked up (the front this machine registers with,
+	p2p_front.c): the text it was looked up from, and when */
+	struct p2p_candidate front;
+	char front_text[256];
+	unsigned long front_time;
+	/* halo --relay's front ports (server.front_ports), and when its
+	operators' file was last read */
+	int front_sockets[P2P_FRONT_MAXIMUM_PORTS];
+	int front_socket_count;
+	unsigned long front_operators_time;
 } p2p = { 0, 0, -1, 0, -1, .hosting_socket = -1 };
 
 /* the proxy (its index + 1) with each local port (all of theirs are on
@@ -498,6 +606,20 @@ static unsigned char signing_key[P2P_KEY_SIZE];
 static unsigned char secret_key[P2P_KEY_SIZE];
 static unsigned char public_key[P2P_KEY_SIZE];
 static int has_identifier;
+
+/* (the relays' section, below) */
+static void relay_corrupt(unsigned char *packet, int *size);
+static void relay_peer_reached(struct peer *peer, int via);
+static void relay_path_changed(struct peer *peer, int via, unsigned long address, unsigned short port);
+static void update_relayed_peer(struct peer *peer);
+static void relays_told_received(struct peer *peer, const unsigned char *inner, int size);
+static int relayed_peer_address(const struct peer *peer, struct p2p_candidate *address);
+/* halo --relay's run (p2p_relay_run): its log is the terminal's alone */
+static int relay_standalone;
+/* (the fronts' section, below) */
+static void update_front(void);
+static void front_operators_read(void);
+static int front_ports_open(unsigned short *first_port);
 
 /* ---------- helpers */
 
@@ -542,6 +664,8 @@ void p2p_log(const char *format, ...)
 	vsnprintf(text, sizeof(text) - 2, format, arguments);
 	va_end(arguments);
 	platform_log("%s", text);
+	if (relay_standalone)
+		return;
 	length = strlen(text);
 	memcpy(text + length, "\r\n", 3);
 	write_to_error_file(text, 1);
@@ -893,7 +1017,17 @@ unsigned long p2p_peer_endpoint_address(unsigned long virtual_address)
 		return 0;
 	pthread_mutex_lock(&p2p_lock);
 	peer = find_peer_by_address(virtual_address);
-	if (peer)
+	/* (a peer reached through a relay: where the relay saw and checked its
+	packets come from, which the relay tells the host's side alone; never
+	an address the peer gave of itself, which anyone could give. Unknown
+	otherwise: its bans and votes go by its other marks) */
+	if (peer && peer->connected && peer->path.carrier)
+	{
+		struct p2p_candidate relayed;
+
+		address = relayed_peer_address(peer, &relayed) ? relayed.address : 0;
+	}
+	else if (peer)
 		address = peer->endpoint.address ? peer->endpoint.address :
 			(peer->candidate_count > 0 ? peer->candidates[0].address : 0);
 	pthread_mutex_unlock(&p2p_lock);
@@ -961,7 +1095,10 @@ static void packet_nonce(const unsigned char *packet, unsigned char *nonce)
 	memcpy(nonce + P2P_NONCE_SIZE - 8, packet + 1 + P2P_IDENTIFIER_SIZE, 8);
 }
 
-static void peer_send_to(struct peer *peer, const struct p2p_candidate *to, const unsigned char *inner, int size)
+/* a tunnel packet sealed for the peer, sent to an address (to), or through
+a relay's attempt (relay: its index + 1; to is not used) */
+static void peer_send_via(struct peer *peer, const struct p2p_candidate *to, int relay, const unsigned char *inner,
+	int size)
 {
 	unsigned char packet[MAXIMUM_PACKET_SIZE];
 	unsigned char nonce[P2P_NONCE_SIZE];
@@ -981,27 +1118,45 @@ static void peer_send_to(struct peer *peer, const struct p2p_candidate *to, cons
 	packet_nonce(packet, nonce);
 	sealed = p2p_aead_seal(peer->send_key, nonce, packet, TUNNEL_HEADER_SIZE, inner, size,
 		packet + TUNNEL_HEADER_SIZE);
+	if (relay)
+	{
+		p2p_relay_send(relay - 1, packet, TUNNEL_HEADER_SIZE + sealed);
+		return;
+	}
 	make_address(&address, to->address, to->port);
 	posix_socket_sendto(p2p.tunnel_socket, packet, TUNNEL_HEADER_SIZE + sealed, 0, &address, sizeof(address));
 }
 
-/* to a peer the tunnel has reached; dropped otherwise */
+static void peer_send_to(struct peer *peer, const struct p2p_candidate *to, const unsigned char *inner, int size)
+{
+	peer_send_via(peer, to, 0, inner, size);
+}
+
+/* to a peer the tunnel has reached, on its path (its address, or its
+relay); dropped otherwise, and while its relay is being replaced */
 static void peer_send(struct peer *peer, const unsigned char *inner, int size)
 {
-	if (!peer->connected)
+	if (!peer->connected || peer->path.carrier < 0)
 		return;
-	peer_send_to(peer, &peer->endpoint, inner, size);
+	peer_send_via(peer, &peer->endpoint, peer->path.carrier, inner, size);
 	peer->sent_time = p2p_now();
 }
 
-static void peer_ping(struct peer *peer, const struct p2p_candidate *to)
+/* a ping to an address (to), or through a relay's attempt (relay: its
+index + 1) */
+static void peer_ping_via(struct peer *peer, const struct p2p_candidate *to, int relay)
 {
 	unsigned char inner[5];
 	unsigned int now = (unsigned int)p2p_now();
 
 	inner[0] = _packet_ping;
 	memcpy(inner + 1, &now, 4);
-	peer_send_to(peer, to, inner, sizeof(inner));
+	peer_send_via(peer, to, relay, inner, sizeof(inner));
+}
+
+static void peer_ping(struct peer *peer, const struct p2p_candidate *to)
+{
+	peer_ping_via(peer, to, 0);
 }
 
 static void stream_free(struct stream *stream);
@@ -1071,6 +1226,10 @@ static void drop_peer(struct peer *peer, const char *reason)
 		peer_send(peer, &bye, 1);
 	}
 	release_peer_links((int)(peer - p2p.peers), 0);
+	/* (its relays released; its path unmarked first, as each attempt
+	ending would otherwise look for another) */
+	peer->path.carrier = 0;
+	p2p_relay_forget_peer(peer->identifier, 0);
 	/* a session that ended does not come back: its packets would pass
 	again. (Not a probe's, which pushes no other's out: its request ended
 	with it, and the game never had its address) */
@@ -1287,34 +1446,37 @@ static void packet_received(struct peer *peer, unsigned long long counter)
 }
 
 /* newest: the packet is the highest numbered yet (a replayed or delayed one
-does not move the peer's endpoint) */
-static void peer_heard(struct peer *peer, unsigned long address, unsigned short port, int newest)
+does not move the peer's endpoint); relay: it came through a relay's
+attempt (its index + 1, and address is the relay's), 0 directly */
+static void peer_heard(struct peer *peer, unsigned long address, unsigned short port, int newest, int relay)
 {
 	unsigned long now = p2p_now();
-	int same = peer->endpoint.address == address && peer->endpoint.port == port;
+	int same = !peer->path.carrier && peer->endpoint.address == address && peer->endpoint.port == port;
 
 	peer->heard_time = now;
 	if (!peer->connected)
 	{
 		char text[LOG_ADDRESS_SIZE];
+		const char *through = relay ? " through a relay" : "";
 
 		peer->connected = 1;
 		peer->endpoint.address = address;
 		peer->endpoint.port = port;
 		peer->endpoint_heard_time = now;
+		relay_peer_reached(peer, relay);
 		if (peer->probe)
 			return;
 		if (p2p.joining && peer->is_host && !peer->is_player &&
 			!memcmp(p2p.join_host, peer->identifier, P2P_IDENTIFIER_SIZE))
 		{
-			p2p_log("Internet play: connected to host %s at %s (%lu ms after the join was asked for, %lu after "
-				"the host answered)", peer->name, log_address_ipv4(address, port, text, sizeof(text)), join_elapsed(),
-				now - peer->offered_time);
+			p2p_log("Internet play: connected to host %s at %s%s (%lu ms after the join was asked for, %lu after "
+				"the host answered)", peer->name, log_address_ipv4(address, port, text, sizeof(text)), through,
+				join_elapsed(), now - peer->offered_time);
 		}
 		else
 		{
-			p2p_log("Internet play: connected to %s %s at %s", peer->is_host && !peer->is_player ? "host" : "player",
-				peer->name, log_address_ipv4(address, port, text, sizeof(text)));
+			p2p_log("Internet play: connected to %s %s at %s%s", peer->is_host && !peer->is_player ? "host" :
+				"player", peer->name, log_address_ipv4(address, port, text, sizeof(text)), through);
 		}
 		if (peer->is_host && !peer->is_player)
 		{
@@ -1327,9 +1489,22 @@ static void peer_heard(struct peer *peer, unsigned long address, unsigned short 
 			p2p_log("Internet play: the host's game is listed under Multiplayer, System Link");
 		}
 	}
+	else if (relay || peer->path.carrier)
+	{
+		/* (a relayed peer's, or a relay's packet: which path carries it is
+		p2p_relay_path's, a direct one taking over only once it lasted) */
+		if (!relay)
+		{
+			peer->direct.address = address;
+			peer->direct.port = port;
+		}
+		if (newest && p2p_relay_path_heard(&peer->path, relay, now))
+			relay_path_changed(peer, relay, address, port);
+	}
 	else if (same)
 	{
 		peer->endpoint_heard_time = now;
+		peer->path.carrier_heard = now;
 	}
 	else if (newest && elapsed(peer->endpoint_heard_time, ENDPOINT_SWITCH_TIME))
 	{
@@ -1337,6 +1512,7 @@ static void peer_heard(struct peer *peer, unsigned long address, unsigned short 
 		peer->endpoint.address = address;
 		peer->endpoint.port = port;
 		peer->endpoint_heard_time = now;
+		peer->path.carrier_heard = now;
 	}
 }
 
@@ -1354,6 +1530,8 @@ static void update_peers(void)
 		{
 			if (elapsed(peer->heard_time, PEER_TIMEOUT))
 				drop_peer(peer, "lost the connection");
+			else if (peer->path.carrier || peer->relay_count)
+				update_relayed_peer(peer);
 			else if (elapsed(peer->sent_time, PING_INTERVAL))
 			{
 				peer_ping(peer, &peer->endpoint);
@@ -1362,9 +1540,12 @@ static void update_peers(void)
 		}
 		else if (elapsed(peer->offered_time, PUNCH_TIMEOUT))
 		{
-			drop_peer(peer, "could not connect (both networks' NATs may be too strict for a direct "
-				"connection; forwarding network.tunnel_port on one router helps, as UPnP does where the "
-				"router allows it: network.allow_upnp)");
+			drop_peer(peer, peer->relay_count ? "could not connect (both networks' NATs may be too strict for a "
+				"direct connection, and no relay reached both; forwarding network.tunnel_port on one router "
+				"helps, as UPnP does where the router allows it: network.allow_upnp)" :
+				"could not connect (both networks' NATs may be too strict for a direct connection, and no "
+				"relay was known to both: relays.txt, network.relays_file; forwarding network.tunnel_port on "
+				"one router helps, as UPnP does where the router allows it: network.allow_upnp)");
 		}
 		else if (elapsed(peer->sent_time, PUNCH_INTERVAL))
 		{
@@ -1376,6 +1557,18 @@ static void update_peers(void)
 			this) */
 			for (candidate = 0; candidate < peer->candidate_count; candidate++)
 				peer_ping(peer, &peer->candidates[candidate]);
+			/* (and through each relay paired for it) */
+			{
+				int attempts[P2P_RELAY_PEER_RELAYS];
+				int count = p2p_relay_peer_attempts(peer->identifier, attempts, P2P_RELAY_PEER_RELAYS);
+				struct p2p_relay_attempt_state attempt;
+
+				for (candidate = 0; candidate < count; candidate++)
+				{
+					if (p2p_relay_attempt(attempts[candidate], &attempt) && attempt.paired)
+						peer_ping_via(peer, NULL, attempts[candidate] + 1);
+				}
+			}
 			peer->sent_time = p2p_now();
 			peer->punch_rounds++;
 		}
@@ -1664,6 +1857,10 @@ int p2p_local_candidates(struct p2p_candidate *candidates, int maximum_count)
 	/* (network.public_address first: the operator's word for it) */
 	if (p2p.has_public && count < maximum_count)
 		candidates[count++] = p2p.public_candidate;
+	/* (then the front's port, where this machine registered with one: a
+	joiner whose NAT keeps it from this machine's own reaches it there) */
+	if (count < maximum_count && p2p_front_public(&candidates[count]))
+		count++;
 	if (lan && count < maximum_count)
 	{
 		candidates[count].address = lan;
@@ -2355,6 +2552,7 @@ static void stream_message(struct stream *stream, unsigned char type, const void
 	message[0] = type;
 	memcpy(message + 1, data, (size_t)size);
 	ikcp_send(stream->kcp, (const char *)message, size + 1);
+	stream->flush = 1;
 }
 
 static void stream_local_closed(struct stream *stream)
@@ -2479,6 +2677,7 @@ static void stream_received(struct peer *peer, const unsigned char *data, int si
 		stream->state = _stream_awaiting_open;
 	}
 	ikcp_input(stream->kcp, (const char *)data, size);
+	stream->flush = 1;
 }
 
 static void stream_flush_pending(struct stream *stream)
@@ -2545,6 +2744,16 @@ static void stream_update(struct stream *stream)
 	stream_flush_pending(stream);
 	if (stream->remote_closed && !stream->pending_size && stream->socket >= 0)
 		stream_local_closed(stream);
+	/* (what the game wrote and the acknowledgements of what came, sent now:
+	KCP sends only as its interval passes, which held each reliable message
+	up to LOOP_INTERVAL on each machine it crossed, and the peer's resending
+	timed from its later acknowledgement. Once a pass, after every read, so
+	that a burst goes as few datagrams as it fills) */
+	if (stream->flush)
+	{
+		stream->flush = 0;
+		ikcp_flush(stream->kcp);
+	}
 	/* finished: both ends closed and everything delivered, or the tunnel
 	gave up on it */
 	if ((stream->local_closed && stream->remote_closed && !ikcp_waitsnd(stream->kcp)) ||
@@ -2585,7 +2794,10 @@ static void stream_writeable(struct stream *stream)
 
 /* ---------- the tunnel */
 
-static void tunnel_received(const unsigned char *packet, int size, const struct sockaddr_in *from)
+/* relay: it came through a relay's attempt (its index + 1; from is the
+relay's address), else 0. Returns 1 if it was a peer's tunnel packet, its
+seal good */
+static int tunnel_received(unsigned char *packet, int size, const struct sockaddr_in *from, int relay)
 {
 	unsigned char inner[MAXIMUM_INNER_SIZE];
 	unsigned char nonce[P2P_NONCE_SIZE];
@@ -2605,28 +2817,41 @@ static void tunnel_received(const unsigned char *packet, int size, const struct 
 		to where it came from: server_master.c) */
 		if (server_master_probe(packet, size, from->sin_addr.s_addr, answer, &answer_size))
 			posix_socket_sendto(p2p.tunnel_socket, answer, answer_size, 0, from, sizeof(*from));
+		/* (a relay's: never one a relay brought) */
+		else if (!relay && size >= 1 && packet[0] == P2P_RELAY_MAGIC)
+		{
+			relay_corrupt(packet, &size);
+			p2p_relay_received(packet, size, from->sin_addr.s_addr, from->sin_port, p2p_now());
+		}
+		/* (a front's: this machine's registration, and its clients'
+		packets) */
+		else if (!relay && size >= 1 && packet[0] == P2P_FRONT_MAGIC)
+		{
+			relay_corrupt(packet, &size);
+			p2p_front_received(packet, size, from->sin_addr.s_addr, from->sin_port, p2p_now());
+		}
 		else if (size >= 20 && packet[4] == 0x21 && packet[5] == 0x12 && packet[6] == 0xA4 && packet[7] == 0x42)
 			stun_received(packet, size, from);
-		return;
+		return 0;
 	}
 	if (size < TUNNEL_HEADER_SIZE + P2P_TAG_SIZE + 1 || size - TUNNEL_HEADER_SIZE - P2P_TAG_SIZE > (int)sizeof(inner))
-		return;
+		return 0;
 	peer = find_peer(packet + 1);
 	if (!peer)
-		return;
+		return 0;
 	/* each packet once, sealed by the peer for this direction, its header
 	and all */
 	counter = packet_counter(packet);
 	if (!packet_fresh(peer, counter))
-		return;
+		return 0;
 	packet_nonce(packet, nonce);
 	inner_size = p2p_aead_open(peer->receive_key, nonce, packet, TUNNEL_HEADER_SIZE, packet + TUNNEL_HEADER_SIZE,
 		size - TUNNEL_HEADER_SIZE, inner);
 	if (inner_size < 1)
-		return;
+		return 0;
 	newest = counter > peer->receive_highest;
 	packet_received(peer, counter);
-	peer_heard(peer, from->sin_addr.s_addr, from->sin_port, newest);
+	peer_heard(peer, from->sin_addr.s_addr, from->sin_port, newest, relay);
 	switch (inner[0])
 	{
 	case _packet_ping:
@@ -2634,10 +2859,11 @@ static void tunnel_received(const unsigned char *packet, int size, const struct 
 		{
 			struct p2p_candidate to;
 
+			/* (answered the way it came) */
 			inner[0] = _packet_pong;
 			to.address = from->sin_addr.s_addr;
 			to.port = from->sin_port;
-			peer_send_to(peer, &to, inner, 5);
+			peer_send_via(peer, &to, relay, inner, 5);
 		}
 		break;
 	case _packet_pong:
@@ -2661,7 +2887,11 @@ static void tunnel_received(const unsigned char *packet, int size, const struct 
 	case _packet_bye:
 		drop_peer(peer, "left");
 		break;
+	case _packet_relays:
+		relays_told_received(peer, inner, inner_size);
+		break;
 	}
+	return 1;
 }
 
 static void tunnel_readable(void)
@@ -2677,7 +2907,7 @@ static void tunnel_readable(void)
 
 		if (size < 0)
 			break;
-		tunnel_received(packet, size, &from);
+		tunnel_received(packet, size, &from, 0);
 	}
 }
 
@@ -2916,6 +3146,9 @@ static int listed_host_known;
 /* the listing joined is a dedicated server's that a master server lists (an
 approved operator's, by its key: a player's host cannot say it is one) */
 static int listed_host_dedicated;
+/* ... and the masters that listed it, by their key ids */
+static unsigned char listed_host_masters[P2P_LISTING_MAXIMUM_MASTERS][P2P_LISTING_MASTER_KEY_ID_SIZE];
+static int listed_host_master_count;
 
 /* a new join's progress (p2p_join_progress): answered, its host reached
 already (a probe's tunnel) */
@@ -2942,6 +3175,7 @@ static int join_invite(const char *text)
 	/* (any invite's game is no listed one, unless p2p_join_listing says) */
 	listed_host_known = 0;
 	listed_host_dedicated = 0;
+	listed_host_master_count = 0;
 	p2p_identifier_from_hash(hash, host);
 	if (!memcmp(host, identifier, P2P_IDENTIFIER_SIZE))
 		return 1;
@@ -3049,6 +3283,10 @@ int p2p_join_listing(const struct p2p_listing *listing)
 		p2p_identifier_from_hash(hash, listed_host);
 		listed_host_known = 1;
 		listed_host_dedicated = listing->dedicated && listing->master;
+		listed_host_master_count = listing->master ? listing->master_key_id_count : 0;
+		if (listed_host_master_count > P2P_LISTING_MAXIMUM_MASTERS)
+			listed_host_master_count = P2P_LISTING_MAXIMUM_MASTERS;
+		memcpy(listed_host_masters, listing->master_key_ids, sizeof(listed_host_masters));
 	}
 	pthread_mutex_unlock(&p2p_lock);
 	return 1;
@@ -3080,13 +3318,27 @@ int p2p_joined_listed_dedicated(void)
 	return dedicated;
 }
 
+int p2p_joined_listing_masters(unsigned char (*key_ids)[P2P_LISTING_MASTER_KEY_ID_SIZE], int maximum)
+{
+	int count;
+
+	pthread_mutex_lock(&p2p_lock);
+	count = listed_host_known ? listed_host_master_count : 0;
+	if (count > maximum)
+		count = maximum;
+	memcpy(key_ids, listed_host_masters, (size_t)count * P2P_LISTING_MASTER_KEY_ID_SIZE);
+	pthread_mutex_unlock(&p2p_lock);
+	return count;
+}
+
 int p2p_join_progress(int *stage, char *reason, int size)
 {
 	/* (the game's rejection codes in their order: network_game_protocol.h's
 	version too old, too new, bad join token, bad password, full, closed,
-	blacklisted machine) */
+	blacklisted machine, then the port's: a name refused, and a dedicated
+	server's VPN policy's) */
 	static const char *const refusals[] = { "version", "version", "token", "password", "full", "closed", "banned",
-		"name" };
+		"name", "vpn", "vpn_blocked", "link", "link_age", "link_in_use", "address_full" };
 	struct peer *peer;
 	const char *why = "";
 
@@ -3097,6 +3349,10 @@ int p2p_join_progress(int *stage, char *reason, int size)
 	{
 		*stage = P2P_JOIN_FAILED;
 		why = p2p.join_refused < (int)(sizeof(refusals) / sizeof(*refusals)) ? refusals[p2p.join_refused] : "closed";
+		/* (a server that blocks VPNs, on a master this machine knows but holds
+		no pass of: link Discord with that one, player_link.c) */
+		if (!strcmp(why, "vpn") && player_link_needed_master() >= 0)
+			why = "vpn_master";
 	}
 	else if (peer && peer->connected && peer->is_host && !peer->is_player)
 		*stage = P2P_JOIN_CONNECTED;
@@ -3359,6 +3615,24 @@ int p2p_peer_key_hash(unsigned long virtual_address, unsigned char *peer_identif
 	return result;
 }
 
+int p2p_peer_binding(unsigned long virtual_address, unsigned char *binding)
+{
+	struct peer *peer;
+	int result = 0;
+
+	if (!p2p.running)
+		return 0;
+	pthread_mutex_lock(&p2p_lock);
+	peer = find_peer_by_address(virtual_address);
+	if (peer)
+	{
+		player_link_binding(peer->secret, binding);
+		result = 1;
+	}
+	pthread_mutex_unlock(&p2p_lock);
+	return result;
+}
+
 void p2p_set_answering_players(int on)
 {
 	/* (only the game's thread writes it: unchanged, it need not wait for the
@@ -3450,12 +3724,18 @@ void p2p_join_status(struct p2p_join_status *status)
 	if (peer || p2p.join_requested || p2p.joining)
 		status->elapsed = p2p_now() - p2p.join_asked_time;
 	if (peer && peer->connected)
+	{
 		status->stage = _p2p_join_reached;
+		status->relayed = peer->path.carrier != 0;
+	}
 	else if (peer)
 	{
 		status->stage = _p2p_join_opening;
 		status->tries = peer->punch_rounds;
 		status->host_strict = candidates_strict(peer->candidates, peer->candidate_count);
+		/* (an OpenCE host, or an older build's, offers none: it is not
+		waited for longer) */
+		status->relaying = peer->relay_offered && peer->relay_count > 0;
 	}
 	else if (p2p.join_requested || p2p.joining)
 		status->stage = _p2p_join_finding;
@@ -3601,6 +3881,886 @@ void p2p_set_game_player_counts(int count, int maximum)
 	p2p.game_player_count = count;
 	p2p.game_player_maximum = maximum;
 	pthread_mutex_unlock(&p2p_lock);
+}
+
+/* ---------- relays (p2p_relay.c): two machines that do not meet directly
+reach each other through a third, a dedicated server or a relay of
+halo --relay */
+
+/* debug.network_corrupt: that share of the relay's packets this machine
+receives damaged, as xnet.c damages the game's datagrams, to test that
+nothing sent to a relay can crash it (the tunnel's own packets need no
+test of this: their seal fails) */
+static void relay_corrupt(unsigned char *packet, int *size)
+{
+	static unsigned int seed;
+	static int percent = -1;
+	int index;
+
+	if (percent < 0)
+	{
+		double corrupt = config_real("debug.network_corrupt");
+
+		percent = !(corrupt > 0.0) ? 0 : corrupt > 100.0 ? 100 : (int)corrupt;
+		seed = (unsigned int)p2p_now() | 1;
+	}
+	if (!percent)
+		return;
+	seed = seed * 1103515245u + 12345u;
+	if ((int)((seed >> 8) % 100u) >= percent)
+		return;
+	seed = seed * 1103515245u + 12345u;
+	switch ((seed >> 8) % 4u)
+	{
+	case 0:
+		/* (cut short) */
+		*size = (int)((seed >> 12) % (unsigned int)(*size + 1));
+		break;
+	case 1:
+		/* (stretched, with what came before in the buffer: its 2048 bytes
+		are tunnel_readable's and p2p_relay_run's) */
+		*size += (int)((seed >> 12) % 64u);
+		if (*size > 2048)
+			*size = 2048;
+		break;
+	default:
+		for (index = 0; index < 1 + (int)((seed >> 12) % 8u) && *size > 0; index++)
+		{
+			seed = seed * 1103515245u + 12345u;
+			packet[(seed >> 8) % (unsigned int)*size] ^= (unsigned char)(seed >> 20);
+		}
+		break;
+	}
+}
+
+/* this machine's side of a peer's session (p2p_relay_attempt_start): the
+host's 0 (or a player answering as one), the joiner's 1 */
+static int relay_side(const struct peer *peer)
+{
+	return peer->is_host ? 1 : 0;
+}
+
+static const char *peer_kind_text(const struct peer *peer)
+{
+	return peer->is_host && !peer->is_player ? "host" : "player";
+}
+
+/* where the relay carrying a peer saw its packets come from (the host's
+side's alone): 0 if not known */
+static int relayed_peer_address(const struct peer *peer, struct p2p_candidate *address)
+{
+	struct p2p_relay_attempt_state attempt;
+
+	if (peer->path.carrier <= 0 || !p2p_relay_attempt(peer->path.carrier - 1, &attempt) ||
+		!attempt.peer_address.address)
+	{
+		return 0;
+	}
+	*address = attempt.peer_address;
+	return 1;
+}
+
+static struct peer *relay_attempt_peer(int index, struct p2p_relay_attempt_state *attempt)
+{
+	struct peer *peer;
+
+	if (!p2p_relay_attempt(index, attempt))
+		return NULL;
+	peer = find_peer(attempt->peer);
+	return peer && !peer->probe ? peer : NULL;
+}
+
+void p2p_relay_sendto(unsigned long address, unsigned short port, const unsigned char *data, int size)
+{
+	struct sockaddr_in to;
+
+	if (p2p.tunnel_socket < 0)
+		return;
+	make_address(&to, address, port);
+	posix_socket_sendto(p2p.tunnel_socket, data, size, 0, &to, sizeof(to));
+}
+
+void p2p_relay_paired(int index)
+{
+	struct p2p_relay_attempt_state attempt;
+	struct peer *peer = relay_attempt_peer(index, &attempt);
+	char text[LOG_ADDRESS_SIZE];
+
+	if (!peer)
+		return;
+	p2p_log("Internet play: relay %s paired this machine with %s %s (%ld ms to the relay)",
+		log_address_ipv4(attempt.relay.address, attempt.relay.port, text, sizeof(text)), peer_kind_text(peer),
+		peer->name, attempt.bind_round_trip);
+	/* (the peer pinged through it at once: the first packet through makes
+	the session's path, or takes over from a silent one) */
+	if (!peer->connected || p2p_relay_path_silent(&peer->path, p2p_now()))
+		peer_ping_via(peer, NULL, index + 1);
+}
+
+void p2p_relay_delivered(int index, const unsigned char *packet, int size)
+{
+	unsigned char copy[MAXIMUM_PACKET_SIZE];
+	struct p2p_relay_attempt_state attempt;
+	struct sockaddr_in from;
+
+	/* (a tunnel packet of the peer the attempt is for: the relay passes on
+	only what the other side of its pair sent, but that side is anyone who
+	had the token, so the packet's own seal is what proves it) */
+	if (size < P2P_TUNNEL_MINIMUM_PACKET || size > (int)sizeof(copy) || !p2p_relay_attempt(index, &attempt) ||
+		memcmp(packet + 1, attempt.peer, P2P_IDENTIFIER_SIZE))
+	{
+		return;
+	}
+	memcpy(copy, packet, (size_t)size);
+	make_address(&from, attempt.relay.address, attempt.relay.port);
+	tunnel_received(copy, size, &from, index + 1);
+}
+
+void p2p_relay_lost(int index)
+{
+	int peer_index;
+
+	for (peer_index = 0; peer_index < P2P_MAXIMUM_PEERS; peer_index++)
+	{
+		struct peer *peer = &p2p.peers[peer_index];
+
+		if (peer->used && peer->path.carrier == index + 1)
+		{
+			/* (not dropped: another of its relays, paired or bound again,
+			takes over, or the peer's own silence ends it) */
+			peer->path.carrier = -1;
+			if (peer->connected && !peer->probe)
+			{
+				p2p_log("Internet play: the relay carrying %s %s lost it; trying its other relays",
+					peer_kind_text(peer), peer->name);
+			}
+		}
+	}
+}
+
+int p2p_relay_peer_address(unsigned long address, unsigned short port)
+{
+	int index;
+
+	for (index = 0; index < P2P_MAXIMUM_PEERS; index++)
+	{
+		struct peer const *peer = &p2p.peers[index];
+
+		if (peer->used && peer->connected && !peer->probe && !peer->path.carrier &&
+			peer->endpoint.address == address && peer->endpoint.port == port)
+		{
+			return 1;
+		}
+	}
+	return 0;
+}
+
+/* the relays of a peer's session bound (each one both machines offered,
+once the peer is known to bind: an OpenCE machine, or an older build,
+never offers, and its pair would hold a relay's room for nothing) */
+static void relay_bind_all(struct peer *peer)
+{
+	int index;
+
+	if (!peer->relay_offered || peer->probe)
+		return;
+	for (index = 0; index < peer->relay_count; index++)
+		p2p_relay_attempt_start(peer->identifier, peer->secret, relay_side(peer), &peer->relays[index], p2p_now());
+}
+
+/* a peer reached at last (via: 0 directly, else a relay's attempt + 1) */
+static void relay_peer_reached(struct peer *peer, int via)
+{
+	memset(&peer->path, 0, sizeof(peer->path));
+	peer->path.carrier = via;
+	peer->path.carrier_heard = p2p_now();
+	if (!via)
+	{
+		/* (met directly: no relay is needed) */
+		p2p_relay_forget_peer(peer->identifier, 0);
+		peer->relay_count = 0;
+		return;
+	}
+	/* (the relays paired too stay, to fail over to; the rest go) */
+	peer->relayed_time = p2p_now();
+	peer->direct_retry_time = p2p_now();
+	p2p_relay_forget_peer(peer->identifier, 1);
+}
+
+static void relay_path_changed(struct peer *peer, int via, unsigned long address, unsigned short port)
+{
+	char text[LOG_ADDRESS_SIZE];
+
+	peer->endpoint.address = address;
+	peer->endpoint.port = port;
+	peer->endpoint_heard_time = p2p_now();
+	if (via && !peer->relayed_time)
+		peer->relayed_time = p2p_now();
+	if (peer->probe)
+		return;
+	if (!via)
+	{
+		p2p_log("Internet play: %s %s reached directly at %s, no longer through a relay (kept a while)",
+			peer_kind_text(peer), peer->name, log_address_ipv4(address, port, text, sizeof(text)));
+	}
+	else
+	{
+		p2p_log("Internet play: %s %s now reached through relay %s", peer_kind_text(peer), peer->name,
+			log_address_ipv4(address, port, text, sizeof(text)));
+	}
+}
+
+/* a peer that is, or was lately, reached through a relay: pinged on its
+path; its other relays tried while that one is silent, and bound again if
+none is paired; its own addresses tried now and then (a direct path may
+open); its relays released once a direct path has lasted */
+static void update_relayed_peer(struct peer *peer)
+{
+	unsigned long now = p2p_now();
+	int attempts[P2P_RELAY_PEER_RELAYS];
+	struct p2p_relay_attempt_state attempt;
+	int count, index, paired = 0;
+
+	if (p2p_relay_path_relays_done(&peer->path, now) || (!peer->path.carrier && !peer->path.direct_time))
+	{
+		p2p_relay_forget_peer(peer->identifier, 0);
+		peer->relay_count = 0;
+		memset(&peer->path, 0, sizeof(peer->path));
+		peer->path.carrier_heard = now;
+		return;
+	}
+	count = p2p_relay_peer_attempts(peer->identifier, attempts, P2P_RELAY_PEER_RELAYS);
+	if (elapsed(peer->sent_time, PING_INTERVAL))
+	{
+		int silent = p2p_relay_path_silent(&peer->path, now);
+
+		if (peer->path.carrier >= 0)
+			peer_ping_via(peer, &peer->endpoint, peer->path.carrier);
+		for (index = 0; index < count; index++)
+		{
+			if (!p2p_relay_attempt(attempts[index], &attempt) || !attempt.paired)
+				continue;
+			paired++;
+			if (silent && attempts[index] + 1 != peer->path.carrier)
+				peer_ping_via(peer, NULL, attempts[index] + 1);
+		}
+		/* (a direct path heard lately, while relayed: kept up, to see that
+		it lasts) */
+		if (peer->path.carrier > 0 && peer->path.direct_last && !elapsed(peer->path.direct_last, 2 * PING_INTERVAL) &&
+			peer->direct.address)
+		{
+			peer_ping(peer, &peer->direct);
+		}
+		peer->sent_time = now;
+		/* (none paired, the path lost: its relays bound again) */
+		if (peer->path.carrier < 0 && !paired && elapsed(peer->relay_rebind_time, RELAY_REBIND_INTERVAL))
+		{
+			peer->relay_rebind_time = now;
+			relay_bind_all(peer);
+		}
+	}
+	/* (its own addresses, while relayed: often at first, seldom later; the
+	addresses are its own word, so not for ever often) */
+	if (peer->path.carrier > 0 && elapsed(peer->direct_retry_time,
+		elapsed(peer->relayed_time, DIRECT_RETRY_TIME) ? DIRECT_RETRY_SLOW_INTERVAL : DIRECT_RETRY_INTERVAL))
+	{
+		int candidate;
+
+		for (candidate = 0; candidate < peer->candidate_count; candidate++)
+			peer_ping(peer, &peer->candidates[candidate]);
+		peer->direct_retry_time = now;
+	}
+}
+
+/* how much this machine relays for others, in a mode: within
+server.relay_pairs and server.relay_upload, and limits of its own for
+each pair and each address */
+static void relay_limits(int mode, struct p2p_relay_limits *limits)
+{
+	long pairs = config_integer("server.relay_pairs");
+	long upload = config_integer("server.relay_upload");
+
+	memset(limits, 0, sizeof(*limits));
+	limits->mode = mode;
+	limits->maximum_pairs = (int)(pairs < 1 ? 1 : pairs > P2P_RELAY_MAXIMUM_PAIRS ? P2P_RELAY_MAXIMUM_PAIRS : pairs);
+	/* (a CGNAT's address is many players') */
+	limits->pairs_per_address = 8;
+	limits->binds_per_second = 20;
+	limits->binds_in_all = 2000;
+	limits->upload = (upload < 16 ? 16 : upload > 1000000 ? 1000000 : upload) * 1024;
+	limits->pair_upload = 256 * 1024;
+	limits->address_upload = 1024 * 1024;
+}
+
+/* for whom this machine relays: a dedicated server as server.relay says
+("game": its game's players alone; "any"; "off"), never a player's
+machine */
+static int relay_mode_setting(void)
+{
+	const char *setting;
+
+	if (!halo_server_mode())
+		return _p2p_relay_off;
+	setting = config_string("server.relay");
+	if (!strcmp(setting, "any"))
+		return _p2p_relay_any;
+	if (!strcmp(setting, "off"))
+		return _p2p_relay_off;
+	return _p2p_relay_game;
+}
+
+static void relay_configure(void)
+{
+	struct p2p_relay_limits limits;
+	int mode = relay_mode_setting();
+
+	relay_limits(mode, &limits);
+	if (mode != p2p.relay_mode)
+	{
+		p2p.relay_mode = mode;
+		if (mode != _p2p_relay_off)
+		{
+			p2p_log("Internet play: this server relays for %s (%d pairs at most, %ld KB/s)", mode == _p2p_relay_any ?
+				"any two machines that cannot meet" : "its game's players that cannot meet each other",
+				limits.maximum_pairs, limits.upload / 1024);
+		}
+	}
+	p2p_relay_configure(&limits);
+}
+
+/* relays.txt (network.relays_file; a dedicated server's server.relays_file)
+read and looked up, every RELAYS_LOOKUP_INTERVAL and as the setting
+changes: a step of its own in the p2p thread's pass, as DNS lets go of the
+lock (no offer is being made meanwhile: offers take the relays looked up
+last, and the list changes at once, after every lookup) */
+static void relays_lookup(void)
+{
+	const char *setting = config_string(halo_server_mode() ? "server.relays_file" : "network.relays_file");
+	char hosts[MAXIMUM_OWN_RELAYS][MASTER_LIST_RELAY_HOST_SIZE];
+	unsigned short ports[MAXIMUM_OWN_RELAYS];
+	struct p2p_candidate found[MAXIMUM_OWN_RELAYS];
+	int count, index, found_count = 0;
+
+	if (!strcmp(setting, p2p.relays_setting) && p2p.relays_time && !elapsed(p2p.relays_time, RELAYS_LOOKUP_INTERVAL))
+		return;
+	snprintf(p2p.relays_setting, sizeof(p2p.relays_setting), "%s", setting);
+	p2p.relays_time = p2p_now() | 1;
+	count = master_list_read_relays(p2p.relays_setting, hosts, ports, MAXIMUM_OWN_RELAYS);
+	for (index = 0; index < count; index++)
+	{
+		unsigned long address = p2p_resolve(hosts[index]);
+
+		if (!address)
+		{
+			p2p_log("Internet play: relay %s of %s not found", hosts[index], p2p.relays_setting);
+			continue;
+		}
+		found[found_count].address = address;
+		found[found_count].port = network_short(ports[index]);
+		found_count++;
+	}
+	if (found_count && (found_count != p2p.own_relay_count ||
+		memcmp(found, p2p.own_relays, sizeof(found[0]) * (size_t)found_count)))
+	{
+		p2p_log("Internet play: %d relay%s known (%s)", found_count, found_count == 1 ? "" : "s", p2p.relays_setting);
+	}
+	memcpy(p2p.own_relays, found, sizeof(found[0]) * (size_t)found_count);
+	p2p.own_relay_count = found_count;
+}
+
+/* the relays this machine offers a peer: those its game's dedicated server
+told it of, then relays.txt's; never the peer itself, and only relays:
+never another player's machine. Returns their count */
+static int relay_own_offer(const struct peer *peer, struct p2p_candidate *relays)
+{
+	struct p2p_candidate all[MAXIMUM_GAME_RELAYS + MAXIMUM_OWN_RELAYS];
+	int all_count = 0, count = 0;
+	int index, known;
+
+	for (index = 0; index < p2p.game_relay_count; index++)
+		all[all_count++] = p2p.game_relays[index];
+	for (index = 0; index < p2p.own_relay_count; index++)
+		all[all_count++] = p2p.own_relays[index];
+	for (index = 0; index < all_count && count < P2P_RELAY_OFFERED; index++)
+	{
+		int skip = !candidate_usable(&all[index]);
+
+		for (known = 0; known < peer->candidate_count && !skip; known++)
+		{
+			skip = peer->candidates[known].address == all[index].address &&
+				peer->candidates[known].port == all[index].port;
+		}
+		for (known = 0; known < count && !skip; known++)
+			skip = relays[known].address == all[index].address && relays[known].port == all[index].port;
+		if (!skip)
+			relays[count++] = all[index];
+	}
+	return count;
+}
+
+/* the relays this machine knows for a peer not reached, offered to it
+through signalling (an empty offer too: the peer learns that this machine
+binds, and binds its own), and bound once the peer offered too */
+static void relay_offer(struct peer *peer)
+{
+	struct p2p_candidate relays[P2P_RELAY_OFFERED];
+	unsigned char body[P2P_RELAY_OFFER_MAXIMUM_SIZE];
+	int count = relay_own_offer(peer, relays);
+	int size = p2p_relay_offer_write(identifier, relay_side(peer), relays, count, peer->secret, body);
+
+	p2p_relay_merge(peer->relays, &peer->relay_count, relays, count);
+	p2p_signal_relay_offer(peer->identifier, peer->is_host, body, size);
+	if (!peer->relay_offer_time)
+	{
+		p2p_log("Internet play: %s %s not reached in %lu ms: offering it %d relay%s", peer_kind_text(peer),
+			peer->name, p2p_now() - peer->offered_time, count, count == 1 ? "" : "s");
+	}
+	peer->relay_offer_time = p2p_now() | 1;
+	peer->relay_offers_sent++;
+	relay_bind_all(peer);
+}
+
+void p2p_relay_offer_heard(const unsigned char *body, int size)
+{
+	struct p2p_candidate relays[P2P_RELAY_OFFERED];
+	struct p2p_candidate usable[P2P_RELAY_OFFERED];
+	struct peer *peer;
+	int count, index, usable_count = 0;
+
+	if (size < P2P_IDENTIFIER_SIZE || !config_boolean("network.use_relays"))
+		return;
+	peer = find_peer(body);
+	/* (the peer's own offer, of its side of the session: tagged with the
+	session's secret, which no one else has; a few, a second apart) */
+	if (!peer || peer->probe || peer->connected)
+		return;
+	count = p2p_relay_offer_read(body, size, !relay_side(peer), peer->secret, relays);
+	if (count < 0 || !p2p_relay_offer_take(&peer->relay_offers_heard, p2p_now()))
+		return;
+	for (index = 0; index < count; index++)
+	{
+		if (candidate_usable(&relays[index]))
+			usable[usable_count++] = relays[index];
+	}
+	if (!peer->relay_offered)
+	{
+		p2p_log("Internet play: %s %s offers %d relay%s", peer_kind_text(peer), peer->name, usable_count,
+			usable_count == 1 ? "" : "s");
+	}
+	peer->relay_offered = 1;
+	p2p_relay_merge(peer->relays, &peer->relay_count, usable, usable_count);
+	/* (this machine's own offer, if it made none yet: the peer binds its
+	relays only once it heard this machine would) */
+	if (!peer->relay_offer_time)
+		relay_offer(peer);
+	else
+		relay_bind_all(peer);
+}
+
+/* a dedicated server's relays, told a player of its game (the player
+offers them to the game's other players it cannot reach: map sharing) */
+static void relays_tell(struct peer *peer)
+{
+	unsigned char inner[3 + MAXIMUM_GAME_RELAYS * 6];
+	int relaying = p2p.relay_mode != _p2p_relay_off;
+	int count = 0, index;
+
+	inner[0] = _packet_relays;
+	inner[1] = (unsigned char)(relaying ? _relays_server_relays : 0);
+	for (index = 0; index < p2p.own_relay_count && count < MAXIMUM_GAME_RELAYS - relaying; index++)
+	{
+		memcpy(inner + 3 + count * 6, &p2p.own_relays[index].address, 4);
+		memcpy(inner + 3 + count * 6 + 4, &p2p.own_relays[index].port, 2);
+		count++;
+	}
+	inner[2] = (unsigned char)count;
+	peer_send(peer, inner, 3 + count * 6);
+}
+
+static void relays_told_received(struct peer *peer, const unsigned char *inner, int size)
+{
+	struct p2p_candidate relays[MAXIMUM_GAME_RELAYS];
+	int count, index, relay_count = 0;
+
+	/* (the host of the game joined, reached directly) */
+	if (size < 3 || peer->probe || peer != joined_host() || p2p.hosting || peer->path.carrier)
+		return;
+	count = inner[2];
+	if (count > MAXIMUM_GAME_RELAYS || size != 3 + count * 6)
+		return;
+	if (inner[1] & _relays_server_relays)
+		relays[relay_count++] = peer->endpoint;
+	for (index = 0; index < count && relay_count < MAXIMUM_GAME_RELAYS; index++)
+	{
+		memcpy(&relays[relay_count].address, inner + 3 + index * 6, 4);
+		memcpy(&relays[relay_count].port, inner + 3 + index * 6 + 4, 2);
+		if (candidate_usable(&relays[relay_count]))
+			relay_count++;
+	}
+	if (relay_count != p2p.game_relay_count || memcmp(p2p.game_relays_from, peer->identifier, P2P_IDENTIFIER_SIZE))
+		p2p_log("Internet play: the game's server offers %d relay%s", relay_count, relay_count == 1 ? "" : "s");
+	memcpy(p2p.game_relays, relays, sizeof(relays[0]) * (size_t)relay_count);
+	p2p.game_relay_count = relay_count;
+	memcpy(p2p.game_relays_from, peer->identifier, P2P_IDENTIFIER_SIZE);
+}
+
+/* the relays' pass: this machine's relaying configured and run; relays.txt
+looked up; the game's server's relays forgotten once its game is left; a
+dedicated server's told its players; and the peers not reached offered
+relays once hole punching had its time (again every RELAY_OFFER_INTERVAL
+while not reached) */
+static void update_relays(void)
+{
+	int strict = p2p.reported_symmetric && !p2p.upnp_forwarded;
+	int index;
+
+	relay_configure();
+	p2p_relay_update(p2p_now());
+	relays_lookup();
+	if (p2p.game_relay_count)
+	{
+		struct peer const *host = joined_host();
+
+		if (!host || memcmp(host->identifier, p2p.game_relays_from, P2P_IDENTIFIER_SIZE))
+			p2p.game_relay_count = 0;
+	}
+	for (index = 0; index < P2P_MAXIMUM_PEERS; index++)
+	{
+		struct peer *peer = &p2p.peers[index];
+
+		if (!peer->used || peer->probe)
+			continue;
+		/* (a dedicated server's players told its relays, a few times) */
+		if (peer->connected && halo_server_mode() && !peer->is_host && peer->relays_told < RELAYS_TOLD &&
+			(p2p.relay_mode != _p2p_relay_off || p2p.own_relay_count) &&
+			(!peer->relays_told || elapsed(peer->relays_told_time, PING_INTERVAL)))
+		{
+			relays_tell(peer);
+			peer->relays_told++;
+			peer->relays_told_time = p2p_now();
+		}
+		if (peer->connected || !config_boolean("network.use_relays") ||
+			!p2p_relay_due(p2p_now() - peer->offered_time, strict && candidates_strict(peer->candidates,
+				peer->candidate_count)))
+		{
+			continue;
+		}
+		/* (again while the peer offers too, a few in all; an OpenCE machine,
+		or an older build, is sent RELAY_OFFERS_UNANSWERED, which it passes
+		over, and no more) */
+		if (!peer->relay_offer_time || (peer->relay_offers_sent < (peer->relay_offered ? 8 : RELAY_OFFERS_UNANSWERED) &&
+			elapsed(peer->relay_offer_time, RELAY_OFFER_INTERVAL)))
+		{
+			relay_offer(peer);
+		}
+	}
+}
+
+/* halo --relay (server_mode.c): a relay alone, on network.tunnel_port (2302
+if none), for any two machines, within server.relay_pairs and
+server.relay_upload, until stop says so; 0, or -1 if its port could not be
+opened */
+int p2p_relay_run(int (*stop)(void))
+{
+	struct p2p_relay_limits limits;
+	struct p2p_relay_counts counts, logged;
+	struct p2p_front_limits front_limits;
+	struct p2p_front_counts front_counts, front_logged;
+	long port = config_integer("network.tunnel_port");
+	unsigned long logged_time;
+
+	relay_standalone = 1;
+	if (port <= 0 || port > 65535)
+		port = 2302;
+	p2p.tunnel_socket = open_socket(SOCK_DGRAM, 0, network_short((unsigned short)port), &p2p.tunnel_port);
+	if (p2p.tunnel_socket < 0)
+	{
+		p2p_log("Relay: cannot open UDP port %ld (network.tunnel_port): taken by another program?", port);
+		return -1;
+	}
+	{
+		int size = 1 << 20;
+
+		posix_socket_setsockopt(p2p.tunnel_socket, SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
+		posix_socket_setsockopt(p2p.tunnel_socket, SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+	}
+	relay_limits(_p2p_relay_any, &limits);
+	p2p_relay_configure(&limits);
+	p2p_log("Relay: relaying on UDP port %ld for any two machines that cannot meet (%d pairs at most, %ld KB/s); "
+		"players name it in relays.txt as <this server's address>:%ld", port, limits.maximum_pairs,
+		limits.upload / 1024, port);
+	/* (its front: public ports for the servers its operators' keys allow) */
+	front_limits.port_count = front_ports_open(&front_limits.first_port);
+	front_limits.upload = limits.upload;
+	p2p.front_socket_count = front_limits.port_count;
+	p2p_front_configure(&front_limits);
+	if (front_limits.port_count)
+	{
+		front_operators_read();
+		p2p_log("Relay: front on UDP ports %u to %u, one for each server registered (network.front = <this "
+			"server's address>:%ld)", (unsigned)front_limits.first_port,
+			(unsigned)(front_limits.first_port + front_limits.port_count - 1), port);
+	}
+	memset(&logged, 0, sizeof(logged));
+	memset(&front_logged, 0, sizeof(front_logged));
+	logged_time = p2p_now();
+	while (!stop())
+	{
+		unsigned char packet[2048];
+		int read[1 + P2P_FRONT_MAXIMUM_PORTS], read_count = 1, write_count = 0, error_count = 0;
+		int count, index;
+
+		read[0] = p2p.tunnel_socket;
+		for (index = 0; index < p2p.front_socket_count; index++)
+			read[read_count++] = p2p.front_sockets[index];
+		posix_socket_select(read, &read_count, NULL, &write_count, NULL, &error_count, 0, 100000, 0);
+		for (count = 0; count < 256; count++)
+		{
+			struct sockaddr_in from;
+			int from_length = sizeof(from);
+			int size = posix_socket_recvfrom(p2p.tunnel_socket, packet, sizeof(packet), 0, &from, &from_length);
+
+			if (size < 0)
+				break;
+			if (size >= 1 && packet[0] == P2P_RELAY_MAGIC)
+			{
+				relay_corrupt(packet, &size);
+				p2p_relay_received(packet, size, from.sin_addr.s_addr, from.sin_port, p2p_now());
+			}
+			else if (size >= 1 && packet[0] == P2P_FRONT_MAGIC && p2p.front_socket_count)
+			{
+				relay_corrupt(packet, &size);
+				p2p_front_received(packet, size, from.sin_addr.s_addr, from.sin_port, p2p_now());
+			}
+		}
+		for (index = 0; index < p2p.front_socket_count; index++)
+		{
+			for (count = 0; count < 64; count++)
+			{
+				struct sockaddr_in from;
+				int from_length = sizeof(from);
+				int size = posix_socket_recvfrom(p2p.front_sockets[index], packet, sizeof(packet), 0, &from,
+					&from_length);
+
+				if (size < 0)
+					break;
+				p2p_front_public_received(index, packet, size, from.sin_addr.s_addr, from.sin_port, p2p_now());
+			}
+		}
+		p2p_relay_update(p2p_now());
+		if (p2p.front_socket_count)
+		{
+			front_operators_read();
+			p2p_front_update(p2p_now());
+		}
+		/* (its counts each minute they changed) */
+		if (elapsed(logged_time, 60000))
+		{
+			p2p_relay_counts(&counts);
+			if (memcmp(&counts, &logged, sizeof(counts)))
+			{
+				p2p_log("Relay: %d pairs (%d paired); %lu formed, %lu ended, %lu refused, %lu challenged; %lu packets "
+					"(%lu bytes) forwarded, %lu dropped by its limits", counts.pairs, counts.paired, counts.formed,
+					counts.ended, counts.refused, counts.challenged, counts.forwarded_packets,
+					counts.forwarded_bytes, counts.dropped);
+				logged = counts;
+			}
+			p2p_front_counts(&front_counts);
+			if (p2p.front_socket_count && memcmp(&front_counts, &front_logged, sizeof(front_counts)))
+			{
+				p2p_log("Relay: front: %d servers registered (%d clients); %lu registered, %lu ended, %lu refused, "
+					"%lu challenged; %lu packets (%lu bytes) forwarded, %lu dropped by its limits",
+					front_counts.registered, front_counts.clients, front_counts.registrations, front_counts.ended,
+					front_counts.refused, front_counts.challenged, front_counts.forwarded_packets,
+					front_counts.forwarded_bytes, front_counts.dropped);
+				front_logged = front_counts;
+			}
+			logged_time = p2p_now();
+		}
+	}
+	{
+		int index;
+
+		for (index = 0; index < p2p.front_socket_count; index++)
+			close_socket(&p2p.front_sockets[index]);
+		p2p.front_socket_count = 0;
+	}
+	close_socket(&p2p.tunnel_socket);
+	return 0;
+}
+
+/* ---------- fronts (p2p_front.c): a public port on a relay of
+halo --relay that this machine registers with (network.front), and
+halo --relay's own ports for servers (server.front_ports) */
+
+void p2p_front_sendto(int port_index, unsigned long address, unsigned short port, const unsigned char *data,
+	int size)
+{
+	struct sockaddr_in to;
+	int socket = port_index < 0 ? p2p.tunnel_socket :
+		port_index < p2p.front_socket_count ? p2p.front_sockets[port_index] : -1;
+
+	if (socket < 0)
+		return;
+	make_address(&to, address, port);
+	posix_socket_sendto(socket, data, size, 0, &to, sizeof(to));
+}
+
+int p2p_front_sign(const unsigned char *message, int size, unsigned char *public_key, unsigned char *signature)
+{
+	return server_master_sign(message, size, public_key, signature);
+}
+
+void p2p_front_delivered(unsigned long client, const struct p2p_candidate *client_address,
+	const unsigned char *packet, int size)
+{
+	unsigned char copy[MAXIMUM_PACKET_SIZE];
+	struct p2p_candidate public_address;
+	struct sockaddr_in from;
+	struct peer *peer;
+	int index, created;
+
+	/* (a peer's packet: its sender's identifier names it, and its seal
+	proves it, below. A path is made for the client only once one did) */
+	if (size < P2P_TUNNEL_MINIMUM_PACKET || size > (int)sizeof(copy) || !p2p_front_public(&public_address))
+		return;
+	peer = find_peer(packet + 1);
+	if (!peer || peer->probe)
+		return;
+	index = p2p_relay_front_attempt(peer->identifier, &public_address, client, client_address, p2p_now(), &created);
+	if (index < 0)
+		return;
+	memcpy(copy, packet, (size_t)size);
+	make_address(&from, public_address.address, public_address.port);
+	if (!tunnel_received(copy, size, &from, index + 1))
+	{
+		if (created)
+			p2p_relay_front_drop(index);
+		return;
+	}
+	p2p_relay_front_heard(index, p2p_now());
+}
+
+void p2p_front_lost(void)
+{
+	p2p_relay_front_forget();
+}
+
+/* network.front ("host[:port]", 2302 if none), looked up as it changes and
+every few minutes (a host name's address may change), and the registration
+kept (p2p_front_update) */
+static void update_front(void)
+{
+	enum { FRONT_LOOKUP_SECONDS = 300 };
+	const char *setting = config_string("network.front");
+	char host[256];
+	char *colon;
+	long port = 2302;
+
+	if (strcmp(setting, p2p.front_text) || !p2p.front_time || elapsed(p2p.front_time, FRONT_LOOKUP_SECONDS * 1000UL))
+	{
+		snprintf(p2p.front_text, sizeof(p2p.front_text), "%s", setting);
+		p2p.front_time = p2p_now() | 1;
+		memset(&p2p.front, 0, sizeof(p2p.front));
+		snprintf(host, sizeof(host), "%s", setting);
+		colon = strchr(host, ':');
+		if (colon && !strchr(colon + 1, ':'))
+		{
+			char *end;
+
+			port = strtol(colon + 1, &end, 10);
+			*colon = 0;
+			if (*end || port < 1 || port > 65535)
+				port = 0;
+		}
+		if (host[0] && (!colon || !strchr(colon + 1, ':')) && port)
+		{
+			p2p.front.address = p2p_resolve(host);
+			p2p.front.port = network_short((unsigned short)port);
+			if (!p2p.front.address)
+				p2p_log("Internet play: cannot look up network.front %s", host);
+		}
+		else if (host[0])
+			p2p_log("Internet play: network.front %s is not host[:port] (IPv4): no front used", setting);
+		if (!p2p.front.address)
+			memset(&p2p.front, 0, sizeof(p2p.front));
+	}
+	p2p_front_use(&p2p.front);
+	p2p_front_update(p2p_now());
+}
+
+/* server.front_operators_file's keys given to the front (halo --relay),
+read again every minute */
+static void front_operators_read(void)
+{
+	const char *setting = config_string("server.front_operators_file");
+	unsigned char keys[P2P_FRONT_MAXIMUM_OPERATORS][P2P_FRONT_KEY_SIZE];
+	char folder[1024], path[1300];
+	size_t length;
+	char *text;
+	int count = 0;
+
+	if (p2p.front_operators_time && !elapsed(p2p.front_operators_time, 60000))
+		return;
+	if (setting[0] == '/' || (setting[0] && setting[1] == ':'))
+		snprintf(path, sizeof(path), "%s", setting);
+	else
+	{
+		config_folder(folder, sizeof(folder));
+		snprintf(path, sizeof(path), "%s%s", folder, setting);
+	}
+	text = setting[0] ? config_file_read(path, &length) : NULL;
+	if (text)
+	{
+		count = p2p_front_operators_parse(text, keys, P2P_FRONT_MAXIMUM_OPERATORS);
+		free(text);
+	}
+	if (!p2p.front_operators_time)
+	{
+		p2p_log("Relay: front: %d operator key%s allowed (%s)", count, count == 1 ? "" : "s", setting[0] ? path :
+			"server.front_operators_file is empty");
+	}
+	p2p.front_operators_time = p2p_now() | 1;
+	p2p_front_operators((const unsigned char (*)[P2P_FRONT_KEY_SIZE])keys, count);
+}
+
+/* server.front_ports ("first-last", or one port; empty: none) opened for
+halo --relay's front: how many (0: none, or a port was taken) */
+static int front_ports_open(unsigned short *first_port)
+{
+	const char *setting = config_string("server.front_ports");
+	long first, last;
+	char *end;
+	int index;
+
+	if (!setting[0])
+		return 0;
+	first = strtol(setting, &end, 10);
+	last = *end == '-' ? strtol(end + 1, &end, 10) : first;
+	if (*end || first < 1 || last > 65535 || last < first || last - first + 1 > P2P_FRONT_MAXIMUM_PORTS)
+	{
+		p2p_log("Relay: server.front_ports %s is not first-last (1 to 65535, %d ports at most): no front", setting,
+			P2P_FRONT_MAXIMUM_PORTS);
+		return 0;
+	}
+	for (index = 0; index <= last - first; index++)
+	{
+		int size = 1 << 20;
+
+		p2p.front_sockets[index] = open_socket(SOCK_DGRAM, 0, network_short((unsigned short)(first + index)), NULL);
+		if (p2p.front_sockets[index] < 0)
+		{
+			p2p_log("Relay: cannot open UDP port %ld (server.front_ports): taken by another program? No front",
+				first + index);
+			while (index-- > 0)
+				close_socket(&p2p.front_sockets[index]);
+			return 0;
+		}
+		posix_socket_setsockopt(p2p.front_sockets[index], SOL_SOCKET, SO_SNDBUF, &size, sizeof(size));
+		posix_socket_setsockopt(p2p.front_sockets[index], SOL_SOCKET, SO_RCVBUF, &size, sizeof(size));
+	}
+	*first_port = (unsigned short)first;
+	return (int)(last - first + 1);
 }
 
 /* ---------- UPnP (posix_upnp.c): the router forwards a port here */
@@ -4178,6 +5338,8 @@ static void *p2p_thread(void *unused)
 		update_answering();
 		update_reaching();
 		update_upnp();
+		update_relays();
+		update_front();
 		p2p_discord_update();
 #ifdef HALO_ANDROID
 		poll_invite_file();

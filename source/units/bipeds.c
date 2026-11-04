@@ -537,8 +537,10 @@ static void biped_update_physics(
 	real gravity,
 	real_vector3d const *tick_velocity,
 	real_plane3d const *tick_ground);
-/* units.c's: whether the unit gets the animation enhancements */
+/* units.c's: whether the unit gets the animation enhancements, and whether
+a player biped turns with the aim where the original did not (port) */
 boolean unit_animation_enhanced(long unit_index);
+boolean unit_turns_with_aim(long unit_index);
 /* player_control.c's: the controls of a player's unit that went down in the
 running sub-step past a tick's first */
 unsigned long player_control_substep_pressed_flags(long unit_index);
@@ -1397,9 +1399,15 @@ boolean biped_fix_position(
 			(fix_below_new_position ? 0 : 9);
 		if (line_of_sight_object_index != NONE)
 		{
-			collision_model_instance_new(
+			/* port: an object with no collision model has no nodes to test
+			(collision_model_test_pill went through the node count the stack
+			left, and the matrices and model it pointed at) */
+			if (!collision_model_instance_new(
 				&line_of_sight_instance,
-				line_of_sight_object_index);
+				line_of_sight_object_index))
+			{
+				line_of_sight_instance.node_count = 0;
+			}
 		}
 
 		{
@@ -3703,11 +3711,22 @@ static void biped_update_turning(
 		/* port: a player throwing a grenade turns with the aim, as one
 		meleeing does: the melee plays over the moving or idle state, the
 		throw is a state of its own, which the original never turned in
-		(game.enhanced_animations: unit_animation_enhanced) */
+		(unit_turns_with_aim: game.enhanced_animations, but always in a
+		network game) */
 		boolean throwing_turn =
 			biped->unit.player_index!=NONE &&
 			biped->unit.animation.state==_unit_state_throw_grenade &&
-			unit_animation_enhanced(biped_index);
+			unit_turns_with_aim(biped_index);
+		/* port: and a player in the air turns with the aim, as one running
+		does: the original never turned the airborne state, and clipped the
+		aim to its aiming screen about the body left facing where the jump
+		began, so a shot after a turn in the air missed the crosshair
+		(unit_turns_with_aim: game.enhanced_animations, but always in a
+		network game) */
+		boolean airborne_turn =
+			biped->unit.player_index!=NONE &&
+			biped->unit.animation.state==_unit_state_airborne &&
+			unit_turns_with_aim(biped_index);
 		real_vector3d turn_axis;
 		real turn_error;
 		real facing_alignment;
@@ -3772,7 +3791,8 @@ static void biped_update_turning(
 
 		if (biped->biped.state==biped_state_moving ||
 			TEST_FLAG(flags, _biped_turns_without_animating_bit) ||
-			throwing_turn)
+			throwing_turn ||
+			airborne_turn)
 		{
 			if (!TEST_FLAG(biped->unit.control_flags, _unit_control_look_dont_turn_bit))
 			{
@@ -5420,9 +5440,13 @@ static void biped_update_on_foot(
 				unit_get(biped_index)->unit.current_weapon_index);
 
 			/* (port: and with no weapon, which prevents it in the
-			Xbox game: a gametype's loadout of none; not from a
+			Xbox game: a gametype's loadout of none, whose blow is
+			unit_unarmed_melee_damage's; not where there is no blow
+			to give, a campaign's unarmed start (a10's), which stays
+			the Xbox's, no melee and no sound of one; not from a
 			vehicle's seat, which holds no weapon either) */
-			if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE) ||
+			if (((weapon_index == NONE && biped->unit.parent_seat_index == NONE &&
+					unit_unarmed_melee_damage(biped_index) != NONE) ||
 				(weapon_index != NONE && !weapon_prevents_melee_attack(weapon_index))) &&
 				biped->unit.current_zoom_level==NONE)
 			{

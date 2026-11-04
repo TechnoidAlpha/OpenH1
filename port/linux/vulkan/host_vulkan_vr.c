@@ -604,6 +604,9 @@ static void rim(void)
 		draw.pipeline.color_mask = 0;
 		draw.pipeline.depth_test = draw.pipeline.depth_write = 1;
 		draw.pipeline.depth_function = XGPU_COMPARE_ALWAYS;
+		/* (the nearest depth, the game's 0: the range its alone, which the
+		core turns with the depth it keeps reversed, xgpu_vulkan.h) */
+		draw.state.depth_range[1] = 0.0f;
 		fixed_end(&draw);
 	}
 }

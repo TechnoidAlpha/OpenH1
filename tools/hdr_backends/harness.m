@@ -20,7 +20,10 @@ Metal backend's own and the reference (port/linux/src/xgpu_hdr.h).
     MSL emitter's), each with the vertex function the test wrote for its
     inputs (<name>.vk.vertex.metal, <name>.vertex.metal), over the same
     pixels drawn over and the same colours drawn: the two must agree, and
-    no channel may pass what the tag allows (its ceiling, alpha's 1).
+    no channel may pass what the tag allows (its ceiling, alpha's 1); a
+    self-illuminated surface's pass leaves the reference's values
+    (xgpu_hdr_self_illuminate), past 1 only by its self-illumination, and
+    the same pass untagged the SDR frame's.
 
 Prints a line for each failure and exits nonzero if any.
 */
@@ -174,19 +177,25 @@ static id<MTLRenderPipelineState> post_pipeline(id<MTLFunction> vertex, id<MTLFu
 static void post_test(NSString *dir)
 {
 	static const float peaks[3] = { 1.0f, 4.0f, 16.0f };
-	static const struct xgpu_hdr_frame encodings[4] =
+	/* (the last two with the UI's white past and under paper white's) */
+	static const struct xgpu_hdr_frame encodings[6] =
 	{
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_SCRGB, 2.5f, 4.0f },
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_PQ, 0.02f, 4.0f },
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_PQ, 0.0203f, 10.0f },
 		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_SDR, 1.0f, 1.0f },
+		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_SCRGB, 2.5f, 4.0f, 1.8f },
+		{ XGPU_HDR_MODE_FAITHFUL, XGPU_HDR_OUTPUT_PQ, 0.0203f, 10.0f, 0.6f },
 	};
+	/* the tone map's UI white: none given (paper white's), and the UI's
+	white under and past paper white's */
+	static const float ui_whites[3] = { 0.0f, 0.6f, 2.0f };
 	id<MTLFunction> vertex = function_load([dir stringByAppendingPathComponent:@"post_vert.metal"], @"xgpu_vk_post_vertex");
 	id<MTLFunction> tone_map = function_load([dir stringByAppendingPathComponent:@"hdr_tone_map.metal"], @"xgpu_vk_tone_map");
 	id<MTLFunction> encode = function_load([dir stringByAppendingPathComponent:@"hdr_encode.metal"], @"xgpu_vk_encode");
 	id<MTLRenderPipelineState> tone_pipeline, encode_pipeline;
 	float rgba[VECTORS * 4], got[VECTORS * 4];
-	int mode, peak, vector, channel, which, checked = 0;
+	int mode, peak, ui, vector, channel, which, checked = 0;
 
 	if (!vertex || !tone_map || !encode)
 		return;
@@ -203,52 +212,98 @@ static void post_test(NSString *dir)
 	}
 	for (mode = XGPU_HDR_MODE_FAITHFUL; mode <= XGPU_HDR_MODE_PUNCHY; mode++)
 	{
-		for (peak = 0; peak < 3; peak++)
+		for (ui = 0; ui < 3; ui++)
 		{
-			id<MTLTexture> target = texture_make(MTLPixelFormatRGBA16Float, VECTORS,
-				MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
-			struct post_uniforms uniforms;
-
-			halves_write(target, rgba, VECTORS);
-			memset(&uniforms, 0, sizeof(uniforms));
-			uniforms.metrics[0] = 1.0f / VECTORS;
-			uniforms.metrics[1] = 1.0f;
-			uniforms.metrics[2] = VECTORS;
-			uniforms.metrics[3] = 1.0f;
-			uniforms.hdr[0] = (float)mode;
-			uniforms.hdr[1] = peaks[peak];
-			post_draw(tone_pipeline, target, nil, &uniforms);
-			halves_read(target, got, VECTORS);
-			for (vector = 0; vector < VECTORS; vector++)
+			for (peak = 0; peak < 3; peak++)
 			{
-				float expected[3];
+				id<MTLTexture> target = texture_make(MTLPixelFormatRGBA16Float, VECTORS,
+					MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
+				struct post_uniforms uniforms;
 
-				for (channel = 0; channel < 3; channel++)
-					expected[channel] = half_of(vectors[vector][channel]);
-				xgpu_hdr_tone_map(expected, mode, peaks[peak]);
-				for (channel = 0; channel < 3; channel++)
+				halves_write(target, rgba, VECTORS);
+				memset(&uniforms, 0, sizeof(uniforms));
+				uniforms.metrics[0] = 1.0f / VECTORS;
+				uniforms.metrics[1] = 1.0f;
+				uniforms.metrics[2] = VECTORS;
+				uniforms.metrics[3] = 1.0f;
+				uniforms.hdr[0] = (float)mode;
+				uniforms.hdr[1] = peaks[peak];
+				uniforms.hdr[2] = ui_whites[ui];
+				post_draw(tone_pipeline, target, nil, &uniforms);
+				halves_read(target, got, VECTORS);
+				for (vector = 0; vector < VECTORS; vector++)
 				{
-					if (!close_to(got[vector * 4 + channel], expected[channel]))
-						FAIL("tone map, %s at peak %.0f: vector %d channel %d: %.5f, the reference %.5f",
-							mode ? "punchy" : "faithful", (double)peaks[peak], vector, channel,
-							(double)got[vector * 4 + channel], (double)expected[channel]);
-					checked++;
-				}
-				if (got[vector * 4 + 3] != 0.25f)
-					FAIL("tone map: vector %d's alpha %.5f, not the game's", vector, (double)got[vector * 4 + 3]);
-				/* (faithful: a colour under white exactly as it was) */
-				if (mode == XGPU_HDR_MODE_FAITHFUL && vector == 2)
-				{
+					float expected[3];
+
+					for (channel = 0; channel < 3; channel++)
+						expected[channel] = half_of(vectors[vector][channel]);
+					xgpu_hdr_tone_map(expected, mode, peaks[peak]);
+					xgpu_hdr_to_ui(expected, ui_whites[ui]);
 					for (channel = 0; channel < 3; channel++)
 					{
-						if (got[vector * 4 + channel] != half_of(vectors[vector][channel]))
-							FAIL("tone map: faithful changed a colour under white: %.6f", (double)got[vector * 4 + channel]);
+						if (!close_to(got[vector * 4 + channel], expected[channel]))
+							FAIL("tone map, %s at peak %.0f: vector %d channel %d: %.5f, the reference %.5f",
+								mode ? "punchy" : "faithful", (double)peaks[peak], vector, channel,
+								(double)got[vector * 4 + channel], (double)expected[channel]);
+						checked++;
+					}
+					if (got[vector * 4 + 3] != 0.25f)
+						FAIL("tone map: vector %d's alpha %.5f, not the game's", vector, (double)got[vector * 4 + 3]);
+					/* (faithful: a colour under white exactly as it was) */
+					if (mode == XGPU_HDR_MODE_FAITHFUL && vector == 2 && !ui)
+					{
+						for (channel = 0; channel < 3; channel++)
+						{
+							if (got[vector * 4 + channel] != half_of(vectors[vector][channel]))
+								FAIL("tone map: faithful changed a colour under white: %.6f", (double)got[vector * 4 + channel]);
+						}
 					}
 				}
 			}
 		}
 	}
-	for (which = 0; which < 4; which++)
+	/* (a pixel not a number, or infinite, either way: tone mapped as 0, and
+	as the half floats' most and least, finite) */
+	{
+		id<MTLTexture> target = texture_make(MTLPixelFormatRGBA16Float, VECTORS,
+			MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
+		float special[VECTORS * 4], expected[3][3] = { { 0.0f, 0.0f, 0.0f }, { 65504.0f, 65504.0f, 65504.0f },
+			{ -65504.0f, -65504.0f, -65504.0f } };
+		struct post_uniforms uniforms;
+		int finite = 0;
+
+		memset(special, 0, sizeof(special));
+		for (channel = 0; channel < 3; channel++)
+		{
+			special[channel] = NAN;
+			special[4 + channel] = INFINITY;
+			special[8 + channel] = -INFINITY;
+		}
+		halves_write(target, special, VECTORS);
+		memset(&uniforms, 0, sizeof(uniforms));
+		uniforms.metrics[0] = 1.0f / VECTORS;
+		uniforms.metrics[1] = 1.0f;
+		uniforms.metrics[2] = VECTORS;
+		uniforms.metrics[3] = 1.0f;
+		uniforms.hdr[0] = (float)XGPU_HDR_MODE_FAITHFUL;
+		uniforms.hdr[1] = 4.0f;
+		post_draw(tone_pipeline, target, nil, &uniforms);
+		halves_read(target, got, VECTORS);
+		for (vector = 0; vector < 3; vector++)
+		{
+			xgpu_hdr_tone_map(expected[vector], XGPU_HDR_MODE_FAITHFUL, 4.0f);
+			for (channel = 0; channel < 3; channel++)
+			{
+				if (!isfinite(got[vector * 4 + channel]) || !close_to(got[vector * 4 + channel], expected[vector][channel]))
+					FAIL("tone map: special value %d channel %d: %.5f, the reference %.5f", vector, channel,
+						(double)got[vector * 4 + channel], (double)expected[vector][channel]);
+				else
+					finite++;
+			}
+		}
+		printf("post: %d values not a number or infinite tone mapped finite\n", finite);
+	}
+	for (which = 0; which < 6; which++)
 	{
 		id<MTLTexture> source = texture_make(MTLPixelFormatRGBA16Float, VECTORS, MTLTextureUsageShaderRead);
 		id<MTLTexture> target = texture_make(MTLPixelFormatRGBA32Float, VECTORS, MTLTextureUsageRenderTarget);
@@ -261,6 +316,7 @@ static void post_test(NSString *dir)
 		uniforms.hdr[0] = encodings[which].paper_white;
 		uniforms.hdr[1] = encodings[which].peak;
 		uniforms.hdr[2] = (float)encodings[which].output;
+		uniforms.hdr[3] = encodings[which].ui;
 		post_draw(encode_pipeline, target, source, &uniforms);
 		[target getBytes:got bytesPerRow:VECTORS * 16 fromRegion:MTLRegionMake2D(0, 0, VECTORS, 1) mipmapLevel:0];
 		for (vector = 0; vector < VECTORS; vector++)
@@ -294,8 +350,11 @@ static void post_test(NSString *dir)
 /* a draw's fragment function, with its vertex function, drawn as a point
 over each pixel (its colour) over the pixels drawn over (had): what it
 leaves */
+/* (the self-illuminated pass's colour: stage 0's constant) */
+static const float self_illumination_color[4] = { 0.9f, 0.7f, 0.4f, 0.0f };
+
 static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger uniforms_index, unsigned offset,
-	const float *colors, const float *had, float *left)
+	unsigned constants_offset, const float *colors, const float *had, float *left)
 {
 	id<MTLFunction> vertex = function_load([dir stringByAppendingPathComponent:[stem stringByAppendingString:@".vertex.metal"]],
 		@"hdr_test_vertex");
@@ -330,6 +389,7 @@ static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger un
 	uniforms[offset / 4 + 1] = 0.6f;
 	uniforms[offset / 4 + 2] = 0.3f;
 	uniforms[offset / 4 + 3] = 0.7f;
+	memcpy(&uniforms[constants_offset / 4], self_illumination_color, sizeof(self_illumination_color));
 	pass.colorAttachments[0].texture = target;
 	pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
 	pass.colorAttachments[0].storeAction = MTLStoreActionStore;
@@ -353,11 +413,12 @@ static void draws_test(NSString *dir)
 		encoding:NSUTF8StringEncoding error:nil];
 	NSArray<NSString *> *lines = [index componentsSeparatedByString:@"\n"];
 	static float colors[PIXELS * 4], had[PIXELS * 4], vulkan[PIXELS * 4], metal[PIXELS * 4];
-	unsigned spirv_offset = 0, msl_offset = 0, seed = 12345;
-	int pixel, channel, draws = 0, compared = 0;
+	unsigned spirv_offset = 0, msl_offset = 0, spirv_constants = 0, msl_constants = 0, seed = 12345;
+	int pixel, channel, draws = 0, compared = 0, unclamped = 0, self_illuminated = 0;
 	NSUInteger line;
 
-	if (!index || lines.count < 2 || sscanf(lines[0].UTF8String, "blend_constant %u %u", &spirv_offset, &msl_offset) != 2)
+	if (!index || lines.count < 2 || sscanf(lines[0].UTF8String, "blend_constant %u %u ps_c0 %u %u", &spirv_offset,
+		&msl_offset, &spirv_constants, &msl_constants) != 4)
 	{
 		FAIL("draws: no index");
 		return;
@@ -386,9 +447,9 @@ static void draws_test(NSString *dir)
 			continue;
 		ceiling = XGPU_HDR_CEILING_OF(tag);
 		ceiling_value = xgpu_hdr_ceiling_value(ceiling);
-		if (!draw_run(dir, [NSString stringWithFormat:@"%s.vk", name], @"xgpu_vk_fragment", 1, spirv_offset, colors, had,
-			vulkan) || !draw_run(dir, [NSString stringWithUTF8String:name], @"xgpu_fragment", 17, msl_offset, colors, had,
-			metal))
+		if (!draw_run(dir, [NSString stringWithFormat:@"%s.vk", name], @"xgpu_vk_fragment", 1, spirv_offset, spirv_constants,
+			colors, had, vulkan) || !draw_run(dir, [NSString stringWithUTF8String:name], @"xgpu_fragment", 17, msl_offset,
+			msl_constants, colors, had, metal))
 			continue;
 		draws++;
 		for (pixel = 0; pixel < PIXELS; pixel++)
@@ -411,6 +472,44 @@ static void draws_test(NSString *dir)
 					FAIL("%s: pixel %d channel %d past its ceiling: %.5f", name, pixel, channel, (double)v);
 				if (channel == 3 && (tag & XGPU_HDR_ALPHA_LIMIT) && v > 1.0f)
 					FAIL("%s: pixel %d's alpha past 1: %.5f", name, pixel, (double)v);
+				/* (unclamped: the colour doubled, past 1 too, as drawn: no
+				blend) */
+				if (XGPU_HDR_IS_UNCLAMPED(tag))
+				{
+					float expected = channel < 3 ? 2.0f * colors[pixel * 4 + channel] : colors[pixel * 4 + 3];
+
+					if (fabsf(v - expected) > 0.002f + 0.002f * expected)
+						FAIL("%s: pixel %d channel %d clamped: %.5f, not %.5f", name, pixel, channel, (double)v,
+							(double)expected);
+					unclamped += channel < 3 && v > 1.0f;
+				}
+			}
+			if (strncmp(name, "draw-self-illumination", 22) == 0)
+			{
+				/* (a self-illuminated pass: the diffuse colour, its light, and
+				the constant times its alpha, its self-illumination; tagged,
+				the reference's glow, past 1 by its self-illumination alone;
+				untagged, the SDR frame's) */
+				float base[3], lit[3];
+
+				for (channel = 0; channel < 3; channel++)
+				{
+					base[channel] = colors[pixel * 4 + channel];
+					lit[channel] = fminf(base[channel] + self_illumination_color[channel] * colors[pixel * 4 + 3], 1.0f);
+				}
+				if (tag)
+					xgpu_hdr_self_illuminate(lit, base);
+				for (channel = 0; channel < 3; channel++)
+				{
+					float v = vulkan[pixel * 4 + channel];
+
+					if (fabsf(v - lit[channel]) > 0.003f + 0.002f * lit[channel])
+						FAIL("%s: pixel %d channel %d: %.5f, the reference's %.5f", name, pixel, channel, (double)v,
+							(double)lit[channel]);
+					if (v > (tag ? XGPU_HDR_SELF_ILLUMINATION_VALUE * 1.002f : 1.0f))
+						FAIL("%s: pixel %d channel %d past its ceiling: %.5f", name, pixel, channel, (double)v);
+					self_illuminated += tag && v > 1.0f;
+				}
 			}
 			if (XGPU_HDR_GLOW(tag))
 			{
@@ -423,9 +522,14 @@ static void draws_test(NSString *dir)
 			}
 		}
 	}
-	printf("draws: %d draws, %d values compared between the backends\n", draws, compared);
-	if (draws != 66)
-		FAIL("draws: %d drawn, not 66", draws);
+	printf("draws: %d draws, %d values compared between the backends, %d past 1 unclamped, %d past 1 self-illuminated\n",
+		draws, compared, unclamped, self_illuminated);
+	if (draws != 69)
+		FAIL("draws: %d drawn, not 69", draws);
+	if (unclamped < PIXELS)
+		FAIL("draws: %d values past 1 unclamped", unclamped);
+	if (self_illuminated < PIXELS / 4)
+		FAIL("draws: %d values past 1 self-illuminated", self_illuminated);
 }
 
 int main(int argc, char **argv)

@@ -321,7 +321,11 @@ struct point_light_definition
 	unsigned long color_interpolation_flags;
 	real_argb_color color_lower_bound;
 	real_argb_color color_upper_bound;
-	byte reserved58[0x54];
+	byte reserved58[0xC];
+	struct tag_reference gel_map; /* port: (named: light_port_lights_structure) */
+	byte reserved74[0x8];
+	struct tag_reference gel_secondary_map; /* port: (named) */
+	byte reserved8C[0x20];
 	struct tag_reference lens_flare;
 	byte reservedBC[0x38];
 	real transition_duration;
@@ -989,6 +993,16 @@ static void light_port_rank_describe(
 	*intensity = MAX(light->color.red, MAX(light->color.green, light->color.blue));
 }
 
+/* port: how far a light let go of is through its transition, so many ticks
+after it was let go: a light of no transition (the Scorpion's cannon's) is
+at its end as it is made, not 0/0 (a colour not a number) */
+static real light_port_transition_fraction(
+	real elapsed,
+	real duration)
+{
+	return duration > 0.0f ? MAX(elapsed, 0.0f) / duration : 1.0f;
+}
+
 void lights_preprocess_scene(
 	void)
 {
@@ -1137,10 +1151,12 @@ void lights_preprocess_scene(
 			a tick) */
 			real drawn_elapsed = (real)(current_time - light->parent_light_index) - render_interpolation_ticks_behind();
 
+			/* port: (light_port_transition_fraction) */
 			intensity = (1.0f - transition_function_evaluate(
 				definition->falloff_function,
-				(real)(current_time - light->parent_light_index)
-					/ definition->transition_duration))
+				light_port_transition_fraction(
+					(real)(current_time - light->parent_light_index),
+					definition->transition_duration)))
 				* light->intensity_scale;
 			rgb_colors_interpolate(
 				&light->color,
@@ -1150,7 +1166,7 @@ void lights_preprocess_scene(
 				intensity);
 			drawn_intensity = (1.0f - transition_function_evaluate(
 				definition->falloff_function,
-				MAX(drawn_elapsed, 0.0f) / definition->transition_duration))
+				light_port_transition_fraction(drawn_elapsed, definition->transition_duration)))
 				* light->intensity_scale;
 			rgb_colors_interpolate(
 				&drawn_color,
@@ -1857,6 +1873,15 @@ static void brighten_real_rgb_color(
 	real scale = fraction + 1.0f;
 	real scaled_maximum = scale * maximum;
 
+	/* port: a black colour (an artificially bright object, a weapon, on a
+	lightmap's black) brightened to the least it is brightened to, grey, not
+	scaled by fraction / 0 (0 times infinity: not a number, which the
+	object's lighting kept for as long as it lay there) */
+	if (!(maximum > 0.0f))
+	{
+		color->red = color->green = color->blue = fraction;
+		return;
+	}
 	if (scaled_maximum > 1.0f)
 	{
 		scale = 1.0f / maximum;
@@ -2011,11 +2036,15 @@ static void light_port_drawn_center(
 
 /* port: whether the enhanced dynamic lights light the structure with this
 light (display.dynamic_lights, port/linux/game/dynamic_lights.c): all but a
-spotlight's (a flashlight's, a lamp's), whose gel the game's own pass draws */
+spotlight's (a flashlight's, a lamp's) and one with a gel (a headlight's, the
+Pillar of Autumn's turning alarm lights', whose cube map lights the room only
+where it points as their marker turns), whose shape the game's own pass draws */
 static boolean light_port_lights_structure(
 	struct point_light_definition const *definition)
 {
-	return definition->cutoff_angle >= _pi / 2;
+	return definition->cutoff_angle >= _pi / 2
+		&& definition->gel_map.index == NONE
+		&& definition->gel_secondary_map.index == NONE;
 }
 
 void lights_render_diffuse(
@@ -2201,6 +2230,31 @@ void light_reconnect_to_map(
 	return;
 }
 
+/* port: the lighting lights_prepare_for_object_dynamic is finding, whose
+object's own lights that do not light it are noted (render.h,
+RENDER_LIGHTING_OWN_LIGHT); NULL when none is */
+static struct render_lighting *lights_port_own_lighting;
+
+static void lights_port_own_light(
+	long rasterizer_light_index)
+{
+	struct render_lighting *lighting = lights_port_own_lighting;
+	short slot;
+
+	if (!lighting || rasterizer_light_index < 0 || rasterizer_light_index >= 0xFF)
+		return;
+	for (slot = 0; slot < RENDER_LIGHTING_OWN_LIGHTS; slot++)
+	{
+		if (RENDER_LIGHTING_OWN_LIGHT(lighting, slot) == NONE)
+		{
+			word *pair = slot < 2 ? &lighting->own_lights_low : &lighting->own_lights_high;
+
+			*pair |= (word)((rasterizer_light_index + 1) << ((slot & 1) * 8));
+			return;
+		}
+	}
+}
+
 /* a light of a cluster, for find_point_lights_for_object_in_cluster: as
 the Xbox's loop does each, marking it (so its other clusters pass it over) */
 static void find_point_light_for_object(
@@ -2218,6 +2272,15 @@ static void find_point_light_for_object(
 	{
 		struct light_datum *light = light_get(light_index);
 
+		/* port: (its own light it is not lit by, for the enhanced dynamic
+		lights: lights_port_own_light) */
+		if (light->rasterizer_light_index != NONE
+			&& light->object_index == object_index
+			&& TEST_FLAG(light_definition_get(light->definition_index)->flags,
+				_light_definition_dont_light_own_object_bit))
+		{
+			lights_port_own_light(light->rasterizer_light_index);
+		}
 		if (light->rasterizer_light_index != NONE
 			&& (light->object_index != object_index
 				|| !TEST_FLAG(light_definition_get(light->definition_index)->flags,
@@ -2510,6 +2573,10 @@ void lights_prepare_for_object_dynamic(
 
 	object_get_bounding_sphere(object_index, &center, &radius);
 	lighting->point_light_count = 0;
+	/* port: (and the object's own lights it is not lit by: render.h) */
+	lighting->own_lights_low = 0;
+	lighting->own_lights_high = 0;
+	lights_port_own_lighting = lighting;
 	light_marker_begin();
 	for (cluster_index = object_get_first_cluster(&iterator, object_index);
 		cluster_index != NONE;
@@ -2527,6 +2594,7 @@ void lights_prepare_for_object_dynamic(
 			MAXIMUM_RENDERED_POINT_LIGHTS);
 	}
 	light_marker_end();
+	lights_port_own_lighting = NULL;
 	/* (port: and a light the window had no room for, with no rasterizer
 	index, lights nothing: left out) */
 	{

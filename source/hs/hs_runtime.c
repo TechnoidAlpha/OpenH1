@@ -1192,6 +1192,28 @@ void hs_runtime_port_shift_sleep_times(
 	}
 }
 
+/* port: the console's finished commands' syntax nodes freed now, as the
+update frees them every 16 ticks, when no console command runs, in a world
+stopped (game_speed 0): its time does not pass, so the update never frees
+them, and many commands (debug_camera_set, port/linux/game/camera_pose.c)
+used up the nodes */
+void hs_runtime_node_gc_idle(
+	void)
+{
+	long thread_index;
+
+	if (!hs_runtime_globals.initialized || game_time_get_speed() != 0.0f)
+		return;
+	for (thread_index = data_next_index(hs_thread_data, NONE);
+		thread_index != NONE;
+		thread_index = data_next_index(hs_thread_data, thread_index))
+	{
+		if (hs_thread_get(thread_index)->type == _hs_thread_type_console_command)
+			return;
+	}
+	hs_node_gc();
+}
+
 void hs_runtime_update(
 	void)
 {

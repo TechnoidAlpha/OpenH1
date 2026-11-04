@@ -130,7 +130,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_players" type="text" width="80" height="20" font="ui\large_ui" color="#FFC9DCF7" align="right" wide="144 0">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_tick" type="text" width="30" height="16" bitmap="main_menu/parts/pill_30" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_tick" type="text" width="30" height="16" bitmap="main_menu/parts/pill_30" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/locked_icon">
 	</widget>

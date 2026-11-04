@@ -15,6 +15,10 @@ Lines:
     rate <rate>                             the simulation's rate (game.sim_rate,
                                             sim_rate.c), before the first tick
                                             and when it changes
+    asserts <failed> <warnings>             the run's failed assertions and
+                                            warnings so far (assert_report.c),
+                                            before the first tick and when
+                                            they change
     t <tick> g <seed> l <seed> h <hash>     after each tick
     a <hash> <hash> ...                     the allocations' hashes, in order
     G <count>: <site>...                    the global seed's takers in the tick
@@ -23,7 +27,8 @@ Lines:
                                             seed's there are the frames' seed's,
                                             random_math.c)
     o <count>: <g|l><site>...               ... the other threads' (either seed)
-    C <count>: <site>...                    the clock's readers in the tick
+    C <count>: <site>...                    the clock's readers in the tick, each
+                                            site once
     f <tick> <frame> <hash>                 each frame drawn: its pixels' hash,
                                             the frame-th since the tick
 
@@ -33,6 +38,7 @@ executable's symbols, name it); a run of one site is <site>*<count>.
 
 #include "cseries.h"
 #include "math/real_math.h"
+#include "memory/data.h"
 #include "memory/memory_pool.h"
 #include "objects/objects.h"
 
@@ -89,6 +95,8 @@ static struct
 	long tick;
 	long rate;
 	long ticks_logged;
+	unsigned long asserts_failed;
+	unsigned long asserts_warned;
 	long frames_since_tick;
 	long allocation_count;
 	long allocations_written;
@@ -187,11 +195,23 @@ void determinism_log_clock_read(
 	void const *site)
 {
 	struct determinism_takers *takers = &determinism_log.takers[_determinism_takers_clock_tick];
+	unsigned long known;
+	unsigned long index;
 
 	if (!determinism_log.enabled || !determinism_log.in_tick ||
 		(determinism_main_thread_known && !determinism_main_thread))
 	{
 		return;
+	}
+	/* (each site once: the readers are compared by their sites, not how
+	often they read, and a load that waits for the disk reads in a loop, as
+	often as the disk takes, which filled the list and left the sites after
+	it out) */
+	known = takers->count < MAXIMUM_DETERMINISM_SITES ? takers->count : MAXIMUM_DETERMINISM_SITES;
+	for (index = 0; index < known; index++)
+	{
+		if (takers->sites[index] == (unsigned long)site)
+			return;
 	}
 	if (takers->count < MAXIMUM_DETERMINISM_SITES)
 		takers->sites[takers->count] = (unsigned long)site;
@@ -284,6 +304,30 @@ static unsigned long determinism_hash_objects(
 	return determinism_hash(start, (long)(last_end > start ? last_end - start : 0), hash);
 }
 
+/* with debug.fresh_memory_fill, a data array: its header and its datums in
+use, not its free slots, which hold the fill (or what a deleted datum
+left), so that a zero and a pattern run differ only where something read
+the fill */
+static unsigned long determinism_hash_data_array(
+	struct data_array const *data,
+	long size,
+	unsigned long hash)
+{
+	long index;
+
+	hash = determinism_hash(data, sizeof(*data), hash);
+	for (index = 0; index < data->maximum_count; index++)
+	{
+		byte const *datum = (byte const *)data->data + (long)data->size * index;
+
+		if (datum + data->size > (byte const *)data + size)
+			break;
+		if (((struct datum_header const *)datum)->identifier)
+			hash = determinism_hash(datum, data->size, hash);
+	}
+	return hash;
+}
+
 static void determinism_write_takers(
 	char const *label,
 	unsigned long count,
@@ -316,6 +360,7 @@ void determinism_log_tick_end(
 	FILE *file = determinism_log.file;
 	unsigned long hash = 2166136261UL;
 	unsigned long global_seed, local_seed;
+	unsigned long asserts_failed, asserts_warned;
 	unsigned long other_count;
 	long index;
 
@@ -342,6 +387,12 @@ void determinism_log_tick_end(
 		{
 			allocation_hash = determinism_hash_objects(allocation->address, allocation->size, 2166136261UL);
 		}
+		else if (halo_fresh_memory_fill() >= 0 && allocation->size >= (long)sizeof(struct data_array) &&
+			((struct data_array const *)allocation->address)->signature == 'd@t@' &&
+			((struct data_array const *)allocation->address)->data == (struct data_array const *)allocation->address + 1)
+		{
+			allocation_hash = determinism_hash_data_array(allocation->address, allocation->size, 2166136261UL);
+		}
 		else
 			allocation_hash = determinism_hash(allocation->address, allocation->size, 2166136261UL);
 
@@ -353,6 +404,14 @@ void determinism_log_tick_end(
 	{
 		determinism_log.rate = sim_rate_get();
 		fprintf(file, "rate %ld\n", determinism_log.rate);
+	}
+	assert_report_counts(&asserts_failed, &asserts_warned);
+	if (!determinism_log.ticks_logged || asserts_failed != determinism_log.asserts_failed ||
+		asserts_warned != determinism_log.asserts_warned)
+	{
+		determinism_log.asserts_failed = asserts_failed;
+		determinism_log.asserts_warned = asserts_warned;
+		fprintf(file, "asserts %lu %lu\n", asserts_failed, asserts_warned);
 	}
 	random_math_port_seeds(&global_seed, &local_seed);
 	fprintf(file, "t %ld g %08lx l %08lx h %08lx\n", tick, global_seed, local_seed, hash);

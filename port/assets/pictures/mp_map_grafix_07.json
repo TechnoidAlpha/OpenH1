@@ -1,0 +1,21 @@
+{
+ "picture": "ui.map mp_map_grafix 07 (Derelict)",
+ "scenario": "levels\\test\\carousel\\carousel",
+ "bsp": 0,
+ "aspect": 1.2517,
+ "pose": {
+  "x": 8.6199,
+  "y": -5.5721,
+  "z": -2.411,
+  "yaw": 147.3491,
+  "pitch": 15.9201,
+  "roll": 4.7344,
+  "vfov": 51.0
+ },
+ "prepare": [
+  "debug_camera_set \"13.81 -0.17 -0.16 0 0 0 60\"",
+  "cheat_teleport_to_camera"
+ ],
+ "colour": "curve",
+ "score": 0.6351
+}

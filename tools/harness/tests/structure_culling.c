@@ -57,6 +57,8 @@ static struct {
     long frame_index;
 } render;
 static struct { real far_clip_distance; } rasterizer_globals;
+/* (port/linux/game/far_clip.c: the game's own far clip, display.draw_distance at its default) */
+static real render_far_clip_distance(void) { return rasterizer_globals.far_clip_distance; }
 static boolean structures_use_pvs_for_vs;
 #define rendered_cluster_get(index) (&render.rendered_clusters[index])
 static struct structure_bsp fixture_bsp;
@@ -99,6 +101,8 @@ struct fixture_vertex { real_point3d point; real_vector3d normal; byte pad[8]; }
 static short global_structure_bsp_index;
 static struct structure_bsp *fixture_bsp_get(void) { CHECK(global_structure_bsp_index!=NONE,"bsp read while none is loaded"); return &fixture_bsp; }
 #define global_structure_bsp_get() fixture_bsp_get()
+#define global_structure_bsp_index_get() (global_structure_bsp_index)
+#define custom_edition_cache_tags_loaded() (FALSE)
 #define structure_bsp_port_verify(bsp) (verify_ok)
 #define tag_index_is_group(index, group) ((index)==0)
 #define shader_definition_get(index) (&fixture_shader)
@@ -394,6 +398,29 @@ int main(int argc, char **argv)
             memset(render.environment_surface_flags,0,sizeof(render.environment_surface_flags)); render.environment_surface_count=0;
             CHECK(structure_culling_traverse(&fixture_bsp) && render.environment_surface_flags[0]==15,"mirror ignores synthesized far in %s test",pass ? "triangle" : "box");
         }
+        return 0;
+    }
+    CASE("switch-kept")
+    {
+        void *first, *second;
+        long calls;
+        fixture_load(TRUE); global_structure_bsp_index=0;
+        structure_culling_structure_bsp_loaded(); first=structure_culling.allocation;
+        CHECK(first && structure_culling.structure_bsp_index==0,"the first bsp's buckets built");
+        global_structure_bsp_index=1; structure_culling_structure_bsp_loaded(); second=structure_culling.allocation;
+        CHECK(second && second!=first && structure_culling_kept[0].allocation==first,"the bsp let go of keeps its buckets");
+        global_structure_bsp_index=0; calls=fixture_malloc_calls; structure_culling_structure_bsp_loaded();
+        CHECK(structure_culling.allocation==first && fixture_malloc_calls==calls && !structure_culling_kept[0].allocation &&
+            structure_culling_kept[1].allocation==second,"a switch back takes its buckets back, built nothing");
+        calls=fixture_malloc_calls; structure_culling_structure_bsp_loaded();
+        CHECK(structure_culling.allocation && fixture_malloc_calls>calls && !structure_culling_kept[0].allocation,"the same bsp loaded again is built again");
+        ++fixture_bsp.surfaces.count; global_structure_bsp_index=1; calls=fixture_malloc_calls; structure_culling_structure_bsp_loaded();
+        CHECK(fixture_malloc_calls>calls && !structure_culling_kept[1].allocation,"kept buckets of a bsp that changed are let go of");
+        global_structure_bsp_index=2; structure_culling_structure_bsp_read(&fixture_bsp,2);
+        CHECK(structure_culling_kept[2].allocation && structure_culling.structure_bsp_index==1,"a bsp read ahead is kept, the loaded one's left");
+        structure_culling_dispose();
+        for(i=0;i<STRUCTURE_CULLING_KEPT_BSPS;++i) CHECK(!structure_culling_kept[i].allocation,"disposal lets every kept bsp go");
+        global_structure_bsp_index=0;
         return 0;
     }
     CASE("dispose-empty")

@@ -38,6 +38,10 @@ enum
 	_server_end_empty,
 	_server_end_command,
 	_server_end_next,
+	/* a new network version's update that would wait no longer
+	(server.update_game_minutes), and the players' vote (!endgame) */
+	_server_end_update,
+	_server_end_vote,
 	NUMBER_OF_SERVER_ENDS
 };
 
@@ -75,14 +79,25 @@ struct server_entry const *server_director_next(void);
 /* games hosted since the start, and this game's seconds */
 long server_director_games_hosted(void);
 real server_director_game_seconds(void);
+/* the kind of game hosted (server.game_mode as it was taken: a change waits
+for the server to be empty in its lobby): its word ("legacy",
+"openh1_120"), its name as the server browser says it ("Legacy", "OpenH1
+120 Tick, OpenCE can join"), whether OpenCE players join it, and its tick
+rate, returned (30 a Legacy game's). Either text may be NULL */
+long server_director_game_mode(char *word, long word_size, char *title, long title_size, boolean *opence);
 
 /* the commands' (server_commands.c) */
 /* the game ended now: with its scores (end_game), or without (skip) */
 boolean server_director_end_game(short reason, boolean skip_postgame);
+/* whether a game is being played that server_director_end_game would end */
+boolean server_director_playing(void);
 /* the entry played next (sv_map; now: the lobby's set again, or the game
 ended at once if one runs; once the lobby's start was sent, after the game
 it starts): TRUE and when in reason, else FALSE and why */
 boolean server_director_interpose(char const *text, char *reason, long reason_size);
+/* ... once the game played (or the lobby's) is over, whenever it ends
+(sv_map_after) */
+boolean server_director_interpose_after(char const *text, char *reason, long reason_size);
 /* the rotation replaced (sv_rotation_set, PUT /api/rotation): FALSE with
 the rejected entries said, and nothing changed */
 boolean server_director_set_rotation(char const *text, boolean write, struct server_json *rejected);

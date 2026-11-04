@@ -35,6 +35,14 @@ Presents that never come (the window covered, the swapchain made again, a
 present that failed) are taken as shown at once (FRAME_WAIT_MOST_NS at
 most), so the game never stops for them.
 
+The game is paced only once the display has said when it took a present:
+the first frames are presented as they come, so that a display that says
+nothing until it has shown one is still shown them. A display that says
+nothing of SILENT_PRESENTS presents in a row, or a swapchain that gives no
+image for seconds (xgpu_vulkan.c's acquire), is no longer waited for, and
+the game no longer paced (on a Steam Deck in Game Mode, build 940 showed no
+frame at all with vsync on and pacing).
+
 The environment's HALO_VULKAN_FRAME_LOG names a file to write a line to for
 each frame, paced or not (CLOCK_MONOTONIC nanoseconds):
 
@@ -76,6 +84,10 @@ its own, which this file would then count again */
 #define POLL_NS 1000000ull
 /* display timing's times kept by present number */
 #define TIMINGS 64
+/* presents in a row the display said nothing of (FRAME_WAIT_MOST_NS each)
+before it is taken to say nothing at all: no longer waited for, and the
+game no longer paced */
+#define SILENT_PRESENTS 8
 #define STATISTICS_FRAMES 600
 
 struct entry
@@ -111,9 +123,13 @@ static struct
 	struct entry queue[QUEUE];
 	uint32_t first, count;
 	uint64_t next_id;
-	/* paced now (the stream told); the swap interval; the refresh period
-	by the window's mode and by display timing (0: none) */
-	int paced, interval;
+	/* paced now (the stream told); pacing asked for (display.low_latency
+	with FIFO), which begins only once the display has said when it took a
+	present (proven); the display has said nothing of SILENT_PRESENTS in a
+	row (silent_run): its presents are no longer waited for; the swap
+	interval; the refresh period by the window's mode and by display timing
+	(0: none) */
+	int paced, wanted, proven, silent, silent_run, interval;
 	uint64_t mode_period, refresh;
 	/* display timing's times, by present number */
 	struct
@@ -167,11 +183,15 @@ static void timings_take(void)
 {
 	VkPastPresentationTimingGOOGLE timings[16];
 	VkRefreshCycleDurationGOOGLE cycle;
-	uint32_t count, index;
+	uint32_t count, index, rounds = 0;
 	VkResult result;
 
 	if (!pacing.past_timing || !pacing.swapchain)
 		return;
+	/* (TIMINGS at most a call: gamescope's layer on the Steam Deck answers
+	VK_INCOMPLETE with 16 times at every call, without end. Asked again until
+	it said VK_SUCCESS, this thread never let go of the lock, and the next
+	present, which takes it, never came: the Deck showed no frame at all) */
 	do
 	{
 		count = 16;
@@ -188,7 +208,7 @@ static void timings_take(void)
 			pacing.timings[id % TIMINGS].margin = timings[index].presentMargin;
 		}
 	}
-	while (result == VK_INCOMPLETE);
+	while (result == VK_INCOMPLETE && ++rounds < TIMINGS / 16);
 	if (pacing.refresh_cycle && pacing.refresh_cycle(pacing.device.device, pacing.swapchain, &cycle) >= 0 &&
 		cycle.refreshDuration > 1000000ull && cycle.refreshDuration < 100000000ull)
 		pacing.refresh = cycle.refreshDuration;
@@ -286,7 +306,7 @@ static void *pacing_thread(void *unused)
 	{
 		struct entry *entry, done;
 		uint64_t shown = 0, period, now;
-		int paced, finish;
+		int paced, finish, unpace;
 
 		if (!pacing.count)
 		{
@@ -295,9 +315,19 @@ static void *pacing_thread(void *unused)
 		}
 		entry = &pacing.queue[pacing.first];
 		now = now_ns();
+		/* (a present waited for too long: the display said nothing of it) */
+		if (entry->id && !pacing.silent && entry->swapchain == pacing.swapchain && now - entry->queued >= FRAME_WAIT_MOST_NS &&
+			++pacing.silent_run >= SILENT_PRESENTS)
+		{
+			pacing.silent = 1;
+			host_logf(HOST_LOG_WARN, "vulkan: the display said nothing of %d presents in a row: they are no longer "
+				"waited for, and the game's frames not paced by it", SILENT_PRESENTS);
+		}
 		/* (nothing presented, or to a swapchain let go of, or waited for
-		too long: taken as shown, its time not known) */
-		if (entry->id && entry->swapchain == pacing.swapchain && now - entry->queued < FRAME_WAIT_MOST_NS)
+		too long, or a display that says nothing: taken as shown, its time
+		not known) */
+		if (entry->id && !pacing.silent && entry->swapchain == pacing.swapchain &&
+			now - entry->queued < FRAME_WAIT_MOST_NS)
 		{
 			VkSwapchainKHR swapchain = entry->swapchain;
 			uint64_t id = entry->id;
@@ -390,13 +420,26 @@ static void *pacing_thread(void *unused)
 			known: an error) */
 			if (!shown && result == VK_SUCCESS)
 				shown = entry->returned;
+			/* (the display says when it takes the presents: the game may be
+			paced by it, from the next present, xgpu_vulkan_pacing_present) */
+			if (shown)
+			{
+				pacing.silent_run = 0;
+				pacing.proven = 1;
+			}
 		}
 		done = *entry;
 		pacing.first = (pacing.first + 1) % QUEUE;
 		pacing.count--;
 		period = period_now();
 		paced = pacing.paced;
+		/* (a display gone silent: the game no longer waits for it) */
+		unpace = pacing.silent && pacing.paced;
+		if (unpace)
+			pacing.paced = paced = 0;
 		pthread_mutex_unlock(&pacing.lock);
+		if (unpace)
+			host_render_stream_display_paced(0);
 		present_done(&done, shown, period, paced);
 		pthread_mutex_lock(&pacing.lock);
 	}
@@ -422,6 +465,7 @@ static int thread_start(void)
 			host_logf(HOST_LOG_WARN, "vulkan: HALO_VULKAN_FRAME_LOG: cannot write %s", log);
 	}
 	pacing.stopping = 0;
+	pacing.proven = pacing.silent = pacing.silent_run = 0;
 	pacing.first = pacing.count = 0;
 	pacing.last_shown = 0;
 	memset(pacing.timings, 0, sizeof(pacing.timings));
@@ -476,23 +520,9 @@ void xgpu_vulkan_pacing_stop(void)
 	}
 }
 
-int xgpu_vulkan_pacing_mode(int mode, int interval, int fifo, uint64_t period)
+/* (render thread) the game paced by the display, or not: the stream told */
+static int pacing_set(int paced)
 {
-	/* (auto: on where it was measured: the Linux desktop's and the Steam
-	Deck's drivers; Android's and Windows' turn it on themselves until
-	theirs are) */
-#if defined(__ANDROID__) || defined(_WIN32)
-	int automatic = 0;
-#else
-	int automatic = 1;
-#endif
-	int paced = pacing.available && fifo && (mode == 1 || (mode == 0 && automatic)) && thread_start();
-
-	pthread_mutex_lock(&pacing.lock);
-	pacing.interval = interval;
-	if (period)
-		pacing.mode_period = period;
-	pthread_mutex_unlock(&pacing.lock);
 	if (paced == pacing.paced)
 		return paced;
 	/* (the frames played so far taken, the next one this file's to say:
@@ -506,6 +536,32 @@ int xgpu_vulkan_pacing_mode(int mode, int interval, int fifo, uint64_t period)
 	host_logf(HOST_LOG_INFO, "vulkan: low latency %s: the game's frames %s", paced ? "on" : "off",
 		paced ? "start in time for the refresh they are shown at" : "are not paced by the display");
 	return paced;
+}
+
+int xgpu_vulkan_pacing_mode(int mode, int interval, int fifo, uint64_t period)
+{
+	/* (auto: on for the Linux desktop's, the Steam Deck's and Android's
+	drivers; Windows' turns it on itself until its are measured) */
+#if defined(_WIN32)
+	int automatic = 0;
+#else
+	int automatic = 1;
+#endif
+	int wanted = pacing.available && fifo && (mode == 1 || (mode == 0 && automatic)) && thread_start();
+	int ready;
+
+	pthread_mutex_lock(&pacing.lock);
+	pacing.interval = interval;
+	if (period)
+		pacing.mode_period = period;
+	pacing.wanted = wanted;
+	/* (not before the display has said when it took a present: until then
+	the frames are presented as they come, so that a display that says
+	nothing until it has shown one, or nothing at all, is still shown
+	them) */
+	ready = wanted && pacing.proven && !pacing.silent;
+	pthread_mutex_unlock(&pacing.lock);
+	return pacing_set(ready);
 }
 
 void xgpu_vulkan_pacing_swapchain(VkSwapchainKHR swapchain)
@@ -535,6 +591,7 @@ VkResult xgpu_vulkan_pacing_present(PFN_vkQueuePresentKHR queue_present, VkQueue
 	const void *next = info->pNext;
 	uint64_t id;
 	VkResult result;
+	int begin;
 
 	if (!pacing.started)
 		return queue_present(queue, info);
@@ -564,6 +621,9 @@ VkResult xgpu_vulkan_pacing_present(PFN_vkQueuePresentKHR queue_present, VkQueue
 	the swapchain) */
 	result = queue_present(queue, info);
 	info->pNext = next;
+	/* (pacing asked for, and the display has now said when it took a
+	present: from the next frame, xgpu_vulkan_pacing_mode) */
+	begin = pacing.wanted && pacing.proven && !pacing.silent && !pacing.paced;
 	if (pacing.count < QUEUE && (id || frame))
 	{
 		struct entry *entry = &pacing.queue[(pacing.first + pacing.count++) % QUEUE];
@@ -579,6 +639,21 @@ VkResult xgpu_vulkan_pacing_present(PFN_vkQueuePresentKHR queue_present, VkQueue
 		entry->input = frame ? host_render_stream_frame_input() : 0;
 		pthread_cond_broadcast(&pacing.work);
 	}
+	pthread_mutex_unlock(&pacing.lock);
+	if (begin)
+		pacing_set(1);
+	return result;
+}
+
+VkResult xgpu_vulkan_pacing_acquire(PFN_vkAcquireNextImageKHR acquire, VkDevice device, VkSwapchainKHR swapchain,
+	uint64_t timeout, VkSemaphore semaphore, uint32_t *index)
+{
+	VkResult result;
+
+	if (!pacing.started)
+		return acquire(device, swapchain, timeout, semaphore, VK_NULL_HANDLE, index);
+	pthread_mutex_lock(&pacing.lock);
+	result = acquire(device, swapchain, timeout, semaphore, VK_NULL_HANDLE, index);
 	pthread_mutex_unlock(&pacing.lock);
 	return result;
 }
@@ -601,4 +676,20 @@ void xgpu_vulkan_pacing_unshown(void)
 		pthread_cond_broadcast(&pacing.work);
 	}
 	pthread_mutex_unlock(&pacing.lock);
+}
+
+void xgpu_vulkan_pacing_silence(void)
+{
+	int paced;
+
+	if (!pacing.started)
+		return;
+	pthread_mutex_lock(&pacing.lock);
+	if (!pacing.silent)
+		host_logf(HOST_LOG_WARN, "vulkan: presents no longer waited for, and the game's frames not paced by the display");
+	pacing.silent = 1;
+	paced = pacing.paced;
+	pthread_mutex_unlock(&pacing.lock);
+	if (paced)
+		pacing_set(0);
 }

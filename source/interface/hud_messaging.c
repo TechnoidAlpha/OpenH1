@@ -146,6 +146,7 @@ symbols in this file:
 #include "text/text_group.h"
 #include "text/unicode.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
 
 #include <stddef.h>
 
@@ -472,6 +473,8 @@ struct bitmap_data const *hud_hires_sprite_bitmap(struct bitmap_data const *bitm
 /* port: the keyboard and mouse's keys in the prompts, port/linux/game/hud_key_prompts.c */
 boolean hud_key_prompt_draw(short local_player_index, short game_control, short gamepad_button,
 	rectangle2d *bounds, rectangle2d *cursor, pixel32 color);
+/* port: whose buttons draw_string_and_hack_in_icons draws (ui_widget.c) */
+extern short local_player_index_for_draw_string_and_hack_in_icons;
 
 static void render_state_bitmap(
 	rectangle2d *bounds,
@@ -1441,6 +1444,9 @@ void hud_messaging_update(
 			input_abstraction_get_local_player_preferences(
 				local_player_index,
 				&preferences);
+			/* port: physical prompt buttons for optional controller layouts
+			(port/linux/game/controller_remap_game.c); profile data stays stock. */
+			controller_remap_prompt(local_player_index, &preferences);
 			if (objective_active)
 			{
 				struct hud_color_definition *objective_color =
@@ -1503,6 +1509,10 @@ void hud_messaging_update(
 			{
 				if (datum->state_message.message_buffer[0])
 				{
+					/* port: the buttons in it are this player's
+					(draw_string_and_hack_in_icons: the multiplayer start's
+					score prompt, game_engine_get_state_message) */
+					local_player_index_for_draw_string_and_hack_in_icons = local_player_index;
 					render_state_text(
 						&line_bounds,
 						&line_cursor,
@@ -1599,12 +1609,15 @@ void hud_messaging_update(
 							short icon_index = NONE;
 
 							/* port: the key bound to it for the keyboard and
-							mouse (input.button_prompts) */
+							mouse (input.button_prompts); accept and back are
+							the A and Back buttons, as drawn below */
 							if (element->data <= _icon_look && hud_key_prompt_draw(
 								local_player_index,
 								element->data >= _icon_action && element->data <= _icon_zoom ?
 									button_mappings[element->data - _icon_action] : NONE,
-								element->data == _icon_move ? _icon_left_stick :
+								element->data == _icon_accept ? _icon_a_button :
+									element->data == _icon_back ? _icon_back_button :
+									element->data == _icon_move ? _icon_left_stick :
 									element->data == _icon_look ? _icon_right_stick :
 									element->data <= _icon_right_stick ? element->data : NONE,
 								&line_bounds,
@@ -1805,7 +1818,7 @@ void hud_messaging_update(
 								draw_string_set_indents(line_cursor.x0 - line_bounds.x0, 0);
 								draw_unicode_string_compute_bounds(
 									&line_bounds,
-									L"<no button icon>",
+									(icon_index == CONTROLLER_REMAP_UNBOUND ? L"UNBOUND" : L"<no button icon>") /* port: explicit cleared controller action */,
 									&text_bounds,
 									&line_cursor);
 								line_cursor.x0 -= 3;
@@ -1815,7 +1828,7 @@ void hud_messaging_update(
 									NULL,
 									NULL,
 									0,
-									L"<no button icon>");
+									(icon_index == CONTROLLER_REMAP_UNBOUND ? L"UNBOUND" : L"<no button icon>") /* port: explicit cleared controller action */);
 								line_bounds.y0 = line_cursor.y0;
 							}
 						}

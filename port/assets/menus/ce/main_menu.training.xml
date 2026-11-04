@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The VR build's VR Tutorial, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/main_menu_item_training" type="text" width="256" height="33" bitmap="main_menu/menu_training">
+		<on event="a" open="main_menu/training/training_screen"/>
+		<on event="start" open="main_menu/training/training_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/training/training_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<child widget="main_menu/new_select/sel_list_desc_bkd"/>
+		<child widget="main_menu/training/chapters_list"/>
+		<child widget="main_menu/training/header_training"/>
+	</widget>
+	<widget name="main_menu/training/header_training" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/training/header_training">
+	</widget>
+	<widget name="main_menu/training/chapters_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/training/chapter_details">
+		<data input="port training update"/>
+		<child widget="main_menu/training/op_chapter_1" x="20" y="73"/>
+		<child widget="main_menu/training/op_chapter_2" x="20" y="103"/>
+		<child widget="main_menu/training/op_chapter_3" x="20" y="133"/>
+		<child widget="main_menu/training/op_chapter_4" x="20" y="163"/>
+		<child widget="main_menu/training/op_chapter_5" x="20" y="193"/>
+		<child widget="main_menu/training/op_chapter_6" x="20" y="223"/>
+		<child widget="main_menu/training/op_chapter_7" x="20" y="253"/>
+		<child widget="main_menu/training/op_chapter_8" x="20" y="283"/>
+		<child widget="main_menu/training/button_bar" y="414"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_1" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd_top" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_2" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_3" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_4" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_5" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_6" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_7" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/op_chapter_8" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/training/chapter_name" x="12"/>
+		<child widget="main_menu/training/chapter_state" x="318"/>
+	</widget>
+	<widget name="main_menu/training/chapter_name" type="text" controller="1" width="300" height="22" font="ui\large_ui" color="#FF2896FF" text_y="4">
+	</widget>
+	<widget name="main_menu/training/chapter_state" type="text" controller="1" width="66" height="22" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" text_flags="no_focus_test">
+	</widget>
+	<widget name="main_menu/training/chapter_details" width="640" height="480">
+		<child widget="main_menu/training/chapter_details_name"/>
+		<child widget="main_menu/training/chapter_details_text"/>
+	</widget>
+	<widget name="main_menu/training/chapter_details_name" type="text" controller="1" left="412" top="84" width="200" height="44" font="ui\large_ui" color="#FFFFFFFF">
+	</widget>
+	<widget name="main_menu/training/chapter_details_text" type="text" controller="1" left="412" top="130" width="200" height="272" font="ui\small_ui" color="#FF2896FF">
+	</widget>
+	<widget name="main_menu/training/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<child widget="common_button_cancel" x="510" y="1"/>
+	</widget>
+</menus>

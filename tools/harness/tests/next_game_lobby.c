@@ -33,6 +33,9 @@ typedef word message_header;
 #define csmemcpy memcpy
 #define csmemcmp memcmp
 #define csstrcmp strcmp
+#define csstrncmp strncmp
+/* (a player's host: a dedicated server reads server.game_mode, network_standard.c) */
+#define halo_server_mode() 0
 #define csstrncpy strncpy
 #define match_vassert(file, line, condition, ...) ((void)0)
 #define MAXIMUM_LOCAL_PLAYERS 4
@@ -41,10 +44,17 @@ typedef word message_header;
 
 /* ---------- the fake world */
 
+/* the record's pickup bit (network_game_manager.h) */
+enum { _network_game_hold_to_pick_up_bit = 3 };
+#define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
+
 struct network_game
 {
 	short machine_count;
 	short standard_rate;
+	/* (the host's way of picking up a second weapon: network_standard.c's
+	_network_game_hold_to_pick_up_bit) */
+	byte cooperative_flags;
 	struct
 	{
 		boolean game_objects_loaded;

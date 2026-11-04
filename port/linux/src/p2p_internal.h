@@ -288,6 +288,14 @@ friend's inbox, the own presence) on every broker, at most once: within
 each broker's bucket, or (urgent) at once */
 void p2p_signal_friends(const char (*topics)[P2P_TOPIC_SIZE], int count);
 void p2p_signal_friends_publish(const char *topic, const unsigned char *payload, int size, int urgent);
+/* the relays this machine offers a peer whose session has not met (p2p.c:
+body, size bytes, p2p_relay_offer_write's), sealed as its session's
+requests are: to the machine it asked (to_host: a join's host, or a player
+answering as one), or to its joiner; a message of its own ('R'), which
+OpenCE and older builds pass over. p2p_relay_offer_heard (p2p.c) is given
+the other's */
+void p2p_signal_relay_offer(const unsigned char *peer_identifier, int to_host, const unsigned char *body, int size);
+void p2p_relay_offer_heard(const unsigned char *body, int size);
 
 /* ---------- p2p_crypto.c */
 
@@ -304,6 +312,18 @@ enum
 };
 
 void p2p_sha256(const void *data, int size, unsigned char *digest);
+/* the same of data given a piece at a time (a release's download,
+updater.c) */
+struct p2p_sha256
+{
+	unsigned int state[8];
+	unsigned char block[64];
+	unsigned long long length;
+	int used;
+};
+void p2p_sha256_begin(struct p2p_sha256 *context);
+void p2p_sha256_add(struct p2p_sha256 *context, const void *data, int size);
+void p2p_sha256_end(struct p2p_sha256 *context, unsigned char *digest);
 void p2p_hmac_sha256(const unsigned char *key, int key_size, const void *data, int size, unsigned char *digest);
 /* ChaCha20-Poly1305: encrypts plaintext with a 32-byte key and a nonce used
 with that key once, and authenticates it and the additional data, into
@@ -403,5 +423,262 @@ words (UTF-8, empty: none), whether it hosts it and it is under way, its
 players; under p2p_lock */
 void p2p_discord_game(int *hosting, int *playing, char *description, int size, int *player_count,
 	int *maximum_player_count);
+
+/* ---------- p2p_relay.c: relays, for two machines whose NATs keep them
+apart, on machines this project's players chose to trust with their
+addresses (a dedicated server, or a relay of halo --relay) */
+
+enum
+{
+	/* the first byte of a relay's packets on the tunnel's socket, and of
+	the tunnel's own (p2p.c's TUNNEL_MAGIC), whose packets alone a relay
+	carries, of these sizes (its header, a tag and a byte at least; the
+	largest inner packet at most) */
+	P2P_RELAY_MAGIC = 0x6A,
+	P2P_TUNNEL_MAGIC = 0x69,
+	P2P_TUNNEL_MINIMUM_PACKET = 1 + P2P_IDENTIFIER_SIZE + 8 + 16 + 1,
+	P2P_TUNNEL_MAXIMUM_PACKET = 1 + P2P_IDENTIFIER_SIZE + 8 + 1400 + 16,
+	/* what both machines of a session show one relay (p2p_relay_token) */
+	P2P_RELAY_TOKEN_SIZE = 32,
+	/* the pairs a relay keeps at most, and the attempts a machine makes */
+	P2P_RELAY_MAXIMUM_PAIRS = 256,
+	P2P_RELAY_MAXIMUM_ATTEMPTS = 64,
+	/* the relays one machine offers a peer at once, and those tried for a
+	peer at most (both machines' offers) */
+	P2P_RELAY_OFFERED = 3,
+	P2P_RELAY_PEER_RELAYS = 2 * P2P_RELAY_OFFERED,
+	/* an offer (p2p_relay_offer_write): the offering machine's identifier,
+	its side, the count, each relay's address and port, and a tag */
+	P2P_RELAY_OFFER_ENTRY_SIZE = 6,
+	P2P_RELAY_OFFER_TAG_SIZE = 16,
+	P2P_RELAY_OFFER_HEADER_SIZE = P2P_IDENTIFIER_SIZE + 2,
+	P2P_RELAY_OFFER_MAXIMUM_SIZE = P2P_RELAY_OFFER_HEADER_SIZE + P2P_RELAY_OFFERED * P2P_RELAY_OFFER_ENTRY_SIZE +
+		P2P_RELAY_OFFER_TAG_SIZE,
+};
+
+/* for whom this machine relays (p2p_relay_limits): no one (a player's
+machine, always); only pairs one side of which its tunnel reaches directly
+(a dedicated server's own game's players: server.relay "game"); any two
+machines (a relay of its region, named in players' relays.txt: "any", and
+halo --relay) */
+enum
+{
+	_p2p_relay_off,
+	_p2p_relay_game,
+	_p2p_relay_any,
+};
+
+/* how much this machine relays for others (p2p_relay_configure): for whom;
+pairs in all and per address; binds a second per address and in all;
+bytes a second in all, per pair, per address */
+struct p2p_relay_limits
+{
+	int mode;
+	int maximum_pairs;
+	int pairs_per_address;
+	int binds_per_second;
+	int binds_in_all;
+	long upload;
+	long pair_upload;
+	long address_upload;
+};
+
+/* the relay's counts (logged, and halo --relay's status) */
+struct p2p_relay_counts
+{
+	int pairs, paired;
+	unsigned long formed, ended, refused, challenged, dropped;
+	unsigned long forwarded_packets, forwarded_bytes;
+};
+
+/* an attempt's state (p2p_relay_attempt) */
+struct p2p_relay_attempt_state
+{
+	unsigned char peer[P2P_IDENTIFIER_SIZE];
+	struct p2p_candidate relay;
+	int side, paired;
+	/* milliseconds, -1 until the relay answered */
+	long bind_round_trip;
+	/* (the host's side, 0) where the relay saw the other side's packets
+	come from, which it checked the other side receives at (its
+	return-routability check): zero until paired, and always on the
+	joiner's side (the relay tells a joiner nothing of its host) */
+	struct p2p_candidate peer_address;
+};
+
+/* whether relays are tried for a peer not reached directly, by how long
+since its session was made (milliseconds) and whether both NATs are known
+to be strict: after hole punching had its time (at once where it cannot
+work) */
+int p2p_relay_due(unsigned long age, int both_strict);
+/* the token both machines of a session (its secret, P2P_SHA256_SIZE
+bytes) show one relay (its address and port as offered): an HMAC of the
+secret with a label and the relay's address, which gives away neither the
+secret, nor the tunnel's keys, nor the token the same machines show any
+other relay */
+void p2p_relay_token(const unsigned char *secret, const struct p2p_candidate *relay, unsigned char *token);
+/* the relay's limits (mode _p2p_relay_off: it relays nothing, its pairs
+ended) */
+void p2p_relay_configure(const struct p2p_relay_limits *limits);
+void p2p_relay_counts(struct p2p_relay_counts *counts);
+/* a packet of the tunnel's socket that starts with P2P_RELAY_MAGIC, from
+address and port (network byte order): 1 (it was a relay's, done with),
+else 0. The packet may be changed */
+int p2p_relay_received(unsigned char *packet, int size, unsigned long address, unsigned short port,
+	unsigned long now);
+/* the pass of the p2p thread: binds sent, pairs and attempts expired */
+void p2p_relay_update(unsigned long now);
+/* a relay tried for a peer's session (side: 0 the host's, 1 the
+joiner's): the attempt's index, -1 if there is no room (P2P_RELAY_PEER_RELAYS
+for one peer at most; the same relay again: the same attempt) */
+int p2p_relay_attempt_start(const unsigned char *peer, const unsigned char *secret, int side,
+	const struct p2p_candidate *relay, unsigned long now);
+/* a peer's attempts given up (unpaired_only: those not paired alone),
+each pair released */
+void p2p_relay_forget_peer(const unsigned char *peer, int unpaired_only);
+/* a tunnel packet sent through a paired attempt: 0 if it is not one */
+int p2p_relay_send(int index, const unsigned char *packet, int size);
+/* a front's path to a client of this machine (p2p_front.c): its attempt,
+always paired (front: the front's public address; client: its number
+there; client_address: where the front saw it, its peer_address). Found by
+the client's number (-1 if that one is another peer's), else made (created
+set; -1 if there is no room). Heard: a packet of the peer's came through
+it. Dropped: freed, unheard of. Forget: the front's paths all freed */
+int p2p_relay_front_attempt(const unsigned char *peer, const struct p2p_candidate *front, unsigned long client,
+	const struct p2p_candidate *client_address, unsigned long now, int *created);
+void p2p_relay_front_heard(int index, unsigned long now);
+void p2p_relay_front_drop(int index);
+void p2p_relay_front_forget(void);
+/* an attempt's state: 0 if there is none of that index */
+int p2p_relay_attempt(int index, struct p2p_relay_attempt_state *state);
+/* a peer's attempts' indices; returns their count */
+int p2p_relay_peer_attempts(const unsigned char *peer, int *indices, int maximum);
+
+/* an offer of relays (sent through signalling: p2p_signal_relay_offer),
+written for a peer (the offering machine's identifier and side, the
+relays, count at most P2P_RELAY_OFFERED, and a tag with the session's
+secret): its size. Read: the count of relays (-1 if it is not a whole,
+well-tagged offer of that side's), into relays */
+int p2p_relay_offer_write(const unsigned char *identifier, int side, const struct p2p_candidate *relays, int count,
+	const unsigned char *secret, unsigned char *body);
+int p2p_relay_offer_read(const unsigned char *body, int size, int side, const unsigned char *secret,
+	struct p2p_candidate *relays);
+/* the offers a peer sent, and when it was last heard: whether one more is
+taken now (one a second, a few in all for a session) */
+struct p2p_relay_offers_heard
+{
+	unsigned long time;
+	int count;
+};
+int p2p_relay_offer_take(struct p2p_relay_offers_heard *heard, unsigned long now);
+/* relays added to a peer's (count of them, P2P_RELAY_PEER_RELAYS at most;
+none twice): returns how many were new */
+int p2p_relay_merge(struct p2p_candidate *relays, int *count, const struct p2p_candidate *added, int added_count);
+
+/* the path a peer is reached by: directly (carrier 0), through a relay's
+attempt (its index + 1), or none while its relay is replaced (-1); when it
+was last heard through it; a direct path heard while relayed (since when,
+without a gap, and lately), which takes over only once it has lasted; when
+it went direct from a relay (its relays kept a while, to go back to) */
+struct p2p_relay_path
+{
+	int carrier;
+	unsigned long carrier_heard;
+	unsigned long direct_first, direct_last;
+	unsigned long direct_time;
+};
+/* a packet of the peer's newest heard by a path (via: 0 directly, else an
+attempt's index + 1): whether the peer's path is now that one. A direct
+path takes over from a relay once heard for a few seconds without a gap; a
+relay from another, or from a direct path, only once that one is silent */
+int p2p_relay_path_heard(struct p2p_relay_path *path, int via, unsigned long now);
+/* the carrier's silence (the peer's other paths are tried meanwhile), and
+whether a direct path has lasted long enough for the relays to go */
+int p2p_relay_path_silent(const struct p2p_relay_path *path, unsigned long now);
+int p2p_relay_path_relays_done(const struct p2p_relay_path *path, unsigned long now);
+
+/* p2p.c's, which p2p_relay.c calls: a packet sent from the tunnel's
+socket; an attempt paired (the peer pinged through it at once); a tunnel
+packet a relay brought through an attempt; an attempt no longer paired
+(ended, or its relay lost the other side: a peer reached through it is
+reached otherwise); whether a machine the tunnel reaches directly is at
+this address and port */
+void p2p_relay_sendto(unsigned long address, unsigned short port, const unsigned char *data, int size);
+void p2p_relay_paired(int index);
+void p2p_relay_delivered(int index, const unsigned char *packet, int size);
+void p2p_relay_lost(int index);
+int p2p_relay_peer_address(unsigned long address, unsigned short port);
+
+/* ---------- p2p_front.c: fronts, public ports on a relay of halo --relay
+that a server or host behind a NAT no one can punch through registers with
+(network.front), listed as one more of its addresses: a client, OpenCE's
+too, reaches it there as at any of its addresses */
+
+enum
+{
+	/* the first byte of a front's packets on the tunnel's socket */
+	P2P_FRONT_MAGIC = 0x6B,
+	/* public ports a front gives out at most (server.front_ports) */
+	P2P_FRONT_MAXIMUM_PORTS = 64,
+	/* operators' keys a front allows at most */
+	P2P_FRONT_MAXIMUM_OPERATORS = 64,
+	/* an operator's (publisher) key, Ed25519, and a signature */
+	P2P_FRONT_KEY_SIZE = 32,
+	P2P_FRONT_SIGNATURE_SIZE = 64,
+};
+
+/* the front's ports (port_count of them from first_port, host byte order;
+none: it is no front) and its bytes a second in all */
+struct p2p_front_limits
+{
+	int port_count;
+	unsigned short first_port;
+	long upload;
+};
+
+/* the front's counts (halo --relay logs them) */
+struct p2p_front_counts
+{
+	int registered, clients;
+	unsigned long registrations, ended, refused, challenged, dropped;
+	unsigned long forwarded_packets, forwarded_bytes;
+};
+
+/* the front's: its ports and rate; the operators' keys it allows (the
+registrations of any other end at once), from a file's text (one
+"ed25519:<64 hex>" or 64 hex digits a line: their count, maximum at most);
+its counts; a packet that arrived at its public port of that index */
+void p2p_front_configure(const struct p2p_front_limits *limits);
+void p2p_front_operators(const unsigned char (*keys)[P2P_FRONT_KEY_SIZE], int count);
+int p2p_front_operators_parse(const char *text, unsigned char (*keys)[P2P_FRONT_KEY_SIZE], int maximum);
+void p2p_front_counts(struct p2p_front_counts *counts);
+void p2p_front_public_received(int port_index, const unsigned char *packet, int size, unsigned long address,
+	unsigned short port, unsigned long now);
+/* both sides': a packet that starts with P2P_FRONT_MAGIC (the tunnel's
+socket, or the relay's), from address and port (network byte order): 1 if
+it was a front's, done with; the pass (registrations kept and expired) */
+int p2p_front_received(unsigned char *packet, int size, unsigned long address, unsigned short port,
+	unsigned long now);
+void p2p_front_update(unsigned long now);
+/* the server's: the front to register with (NULL or zeros: none); its
+public address once registered (1); a tunnel packet to one of its clients
+(0 if not registered) */
+void p2p_front_use(const struct p2p_candidate *front);
+int p2p_front_public(struct p2p_candidate *candidate);
+int p2p_front_send(unsigned long client, const unsigned char *packet, int size);
+
+/* p2p.c's, which p2p_front.c calls: a packet sent (port_index -1: from the
+tunnel's socket, or the relay's; else from the front's public port of that
+index); the operator's public key (P2P_FRONT_KEY_SIZE bytes) and, given a
+message, its signature: 0 if there is no key (server_master.c's publisher
+key); a tunnel packet a client sent to this machine's front (its number
+there, its address as the front saw it); this machine's registration
+ended (the paths through it gone) */
+void p2p_front_sendto(int port_index, unsigned long address, unsigned short port, const unsigned char *data,
+	int size);
+int p2p_front_sign(const unsigned char *message, int size, unsigned char *public_key, unsigned char *signature);
+void p2p_front_delivered(unsigned long client, const struct p2p_candidate *client_address,
+	const unsigned char *packet, int size);
+void p2p_front_lost(void);
 
 #endif

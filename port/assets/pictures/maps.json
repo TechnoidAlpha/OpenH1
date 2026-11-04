@@ -1,0 +1,28 @@
+{
+ "comment": "The Xbox maps the pictures' poses are made for: each map's cache file header checksum (the one saved games check). A picture is drawn again only from a map with one of these; any other (modded) keeps the original picture.",
+ "maps": {
+  "a10": ["0xe6ac8e18"],
+  "a30": ["0x5b4c2953"],
+  "a50": ["0x2ae9c2ed"],
+  "b30": ["0xcb35bb26"],
+  "b40": ["0x580cd8d3"],
+  "c10": ["0x4a170f76"],
+  "c20": ["0xd22193c1"],
+  "c40": ["0x61a4799d"],
+  "d20": ["0x3c590eec"],
+  "d40": ["0xeb84833e"],
+  "beavercreek": ["0xa831a7bf"],
+  "bloodgulch": ["0x035e2da3"],
+  "boardingaction": ["0xa0d614f5"],
+  "carousel": ["0xb38b62c7"],
+  "chillout": ["0x086c74ad"],
+  "damnation": ["0x911cd6ee"],
+  "hangemhigh": ["0x8313bd85"],
+  "longest": ["0xdf1deaa6"],
+  "prisoner": ["0xb68da242"],
+  "putput": ["0xb3f87f50"],
+  "ratrace": ["0xaf5f3831"],
+  "sidewinder": ["0x4f8e749d"],
+  "wizard": ["0x2d5a08fc"]
+ }
+}

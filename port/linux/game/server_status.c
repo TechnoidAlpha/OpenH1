@@ -30,6 +30,7 @@ owner, or with server.log_addresses; the invite only for admins.
 #include "../src/server_http.h" /* port: port/linux/src/server_http.c */
 #include "../src/server_json.h" /* port: port/linux/src/server_json.c */
 #include "../src/server_master.h" /* port: port/linux/src/server_master.c */
+#include "network_admin.h"
 #include "../src/posix_server.h" /* port: port/linux/src/posix_server.c */
 #include "../src/port_config.h" /* port: port/linux/src/port_config.c */
 
@@ -245,6 +246,28 @@ void server_status_player(
 			(address >> 8) & 255, address & 255);
 		server_json_string(json, "address", address ? text : "");
 		server_json_string(json, "hwid", hardware_id ? hardware_id : "");
+		/* (and its Discord account: a verified one's, a pass that checked,
+		else what the machine says of itself) */
+		{
+			char discord_id[32], discord_name[48];
+			boolean verified = network_distributed_machine_discord(player->machine_index, discord_id,
+				sizeof(discord_id), discord_name, sizeof(discord_name));
+
+			server_json_string(json, "discord_id", discord_id);
+			server_json_string(json, "discord_name", discord_name);
+			server_json_boolean(json, "discord_verified", verified);
+		}
+	}
+	/* (an admin in the game: its admin key for this server proven, and listed; the key's id
+	the owner's to see, who makes admins: network_admin.c) */
+	{
+		char key_id[NETWORK_ADMIN_KEY_ID_TEXT_SIZE];
+		boolean admin = FALSE;
+		boolean proven = network_admin_machine_key(player->machine_index, NULL, key_id, &admin);
+
+		server_json_boolean(json, "admin", proven && admin);
+		if (role >= _server_role_owner)
+			server_json_string(json, "key_id", proven ? key_id : "");
 	}
 	server_json_object_end(json);
 }
@@ -354,6 +377,19 @@ void server_status_write(
 	server_json_string(json, "state", server_status_state_name(server_director_state()));
 	server_json_string(json, "build", server_mode_build());
 	server_json_integer(json, "network_version", HALO_PORT_NETWORK_VERSION);
+	server_json_integer(json, "openh1_version", HALO_PORT_STANDARD_NETWORK_VERSION);
+	/* (the kind of game hosted: server.game_mode as taken, its tick rate,
+	and whether OpenCE players join it) */
+	{
+		char mode[16], title[64];
+		boolean opence;
+		long rate = server_director_game_mode(mode, sizeof(mode), title, sizeof(title), &opence);
+
+		server_json_string(json, "game_mode", mode);
+		server_json_string(json, "game_mode_name", title);
+		server_json_integer(json, "tick_rate", rate);
+		server_json_boolean(json, "opence", opence);
+	}
 	server_json_integer(json, "uptime", (long long)server_mode_uptime());
 	server_json_integer(json, "games_hosted", server_director_games_hosted());
 	server_json_string(json, "map", current ? current->map_name : "");

@@ -76,37 +76,37 @@
 		<child widget="main_menu/host_controls/tab_bans" x="408"/>
 		<child widget="main_menu/host_controls/tab_bots" x="496"/>
 	</widget>
-	<widget name="main_menu/host_controls/tab_players" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-106 0" bitmap="main_menu/parts/tab" text="PLAYERS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/host_controls/tab_players" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-106 0" bitmap="main_menu/parts/tab" text="PLAYERS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/tab_game" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-64 0" bitmap="main_menu/parts/tab" text="GAME" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/host_controls/tab_game" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-64 0" bitmap="main_menu/parts/tab" text="GAME" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/tab_maps" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-21 0" bitmap="main_menu/parts/tab" text="MAPS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/host_controls/tab_maps" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-21 0" bitmap="main_menu/parts/tab" text="MAPS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/tab_playlist" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="21 0" bitmap="main_menu/parts/tab" text="PLAYLIST" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/host_controls/tab_playlist" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="21 0" bitmap="main_menu/parts/tab" text="PLAYLIST" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/tab_bans" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="64 0" bitmap="main_menu/parts/tab" text="BANS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/host_controls/tab_bans" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="64 0" bitmap="main_menu/parts/tab" text="BANS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/tab_bots" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/parts/tab" text="BOTS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/host_controls/tab_bots" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/parts/tab" text="BOTS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_1" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_1" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -119,7 +119,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_2" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_2" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -132,7 +132,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_3" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_3" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -145,7 +145,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_4" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_4" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -158,7 +158,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_5" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_5" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -171,7 +171,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_6" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_6" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -184,7 +184,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_7" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_7" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -197,7 +197,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_8" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_8" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -210,7 +210,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_9" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_9" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -223,7 +223,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_10" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_10" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -236,7 +236,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_11" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_11" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -249,7 +249,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_12" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_12" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -262,7 +262,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_13" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_13" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -275,7 +275,7 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_14" width="404" height="18" bitmap="main_menu/parts/row_404x18" wide="-106 144">
+	<widget name="main_menu/host_controls/host_item_14" width="404" height="19" bitmap="main_menu/parts/row_404x19" wide="-106 144">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -288,17 +288,17 @@
 		<child widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
 		<child widget="main_menu/host_controls/host_item_value" x="190"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_item_label" type="text" width="150" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 84">
+	<widget name="main_menu/host_controls/host_item_label" type="text" width="150" height="19" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 84">
 	</widget>
-	<widget name="main_menu/host_controls/host_item_team" type="text" width="66" height="18" font="ui\small_ui" color="#FFC9DCF7" text_y="2" text_flags="no_focus_test" wide="84 20">
+	<widget name="main_menu/host_controls/host_item_team" type="text" width="66" height="19" font="ui\small_ui" color="#FFC9DCF7" text_y="0" text_flags="no_focus_test" wide="84 20">
 	</widget>
-	<widget name="main_menu/host_controls/host_item_score" type="text" width="50" height="18" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="2" text_flags="no_focus_test" wide="104 20">
+	<widget name="main_menu/host_controls/host_item_score" type="text" width="50" height="19" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="0" text_flags="no_focus_test" wide="104 20">
 	</widget>
-	<widget name="main_menu/host_controls/host_item_ping" type="text" width="44" height="18" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="2" text_flags="no_focus_test" wide="124 20">
+	<widget name="main_menu/host_controls/host_item_ping" type="text" width="44" height="19" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="0" text_flags="no_focus_test" wide="124 20">
 	</widget>
-	<widget name="main_menu/host_controls/host_item_tag" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" wide="144 0">
+	<widget name="main_menu/host_controls/host_item_tag" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" wide="144 0">
 	</widget>
-	<widget name="main_menu/host_controls/host_item_value" type="text" width="208" height="18" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="2" text_flags="no_focus_test" wide="0 144">
+	<widget name="main_menu/host_controls/host_item_value" type="text" width="208" height="19" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="0" text_flags="no_focus_test" wide="0 144">
 	</widget>
 	<widget name="main_menu/host_controls/panel_title" type="text" controller="1" width="148" height="48" font="ui\large_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test">
 	</widget>
@@ -311,30 +311,30 @@
 		<child widget="main_menu/host_controls/panel_where" x="452" y="164"/>
 		<child widget="main_menu/host_controls/panel_status" x="452" y="210"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_action_0" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="5">
+	<widget name="main_menu/host_controls/host_action_0" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="3">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_action_1" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="5">
+	<widget name="main_menu/host_controls/host_action_1" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="3">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_action_2" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="5">
+	<widget name="main_menu/host_controls/host_action_2" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="3">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_action_3" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="5">
+	<widget name="main_menu/host_controls/host_action_3" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="3">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/host_prompts" type="column_list" width="640" height="26" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/host_controls/host_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="main_menu/host_controls/prompt_back" x="516" y="1"/>
 	</widget>
-	<widget name="main_menu/host_controls/prompt_back" type="text" width="96" height="22" wide="106 0" bitmap="main_menu/parts/item_96x22" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/host_controls/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

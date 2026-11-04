@@ -16,7 +16,8 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   client no longer runs only the ticks the host has sent. A client's clock
   starts with the host's first game update and takes the host's time from
   it (at a game's start as at a late join), so every machine reads the
-  game's timers alike.
+  game's timers alike. In an OpenH1 game it then leads the host's by its
+  trip to the host (below, "The client's clock").
 - **Own player predicted.** A client drives its own player (and the
   vehicle it drives) from its local input at once. Remote players are
   driven by the inputs the host relays every tick, the latest one held
@@ -25,9 +26,11 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   clients the control its actors gave their units (how they move, where
   they face, aim and look, their trigger and buttons, their animation
   impulses) with the units' state, those near a client's players every
-  tick and others less often; a client drives each unit with the latest
-  it has, as it drives a remote player's, until it hears nothing of it for
-  two seconds (`port/linux/game/network_actors.c`).
+  tick and others less often (in an OpenH1 game, a press of their control
+  and an aim at a client's player at once: "Actors to far clients"); a
+  client drives each unit with the latest it has, as it drives a remote
+  player's, until it hears nothing of it for two seconds
+  (`port/linux/game/network_actors.c`).
 - **Co-op.** A network game on a campaign level with no game engine
   (Create Game's Map screen, its SINGLEPLAYER maps, over LAN and the
   internet) is co-op. Only the host runs the
@@ -162,7 +165,11 @@ with ideas from VALORANT's netcode articles, keeping the 30 Hz tick:
   checks the report (the player's, a weapon they carry, fired from within
   its reach, the target where the host had it when the shooter saw it, no
   faster than weapons fire) and deals the damage. What the shooter saw
-  hit, hits.
+  hit, hits. In an OpenH1 game the shooter's machine shows the hit on
+  another player at once, as the host will deal it (the shield's flare and
+  break, the flinch, the death and the fall), and the host's word confirms
+  it a round trip later, announcing the kill, or undoes it (below, "Hits
+  shown at once").
 
 A host's game advertisement says that it plays this netcode. A client does
 not join a host that does not (one of network version 4 built before the
@@ -336,7 +343,37 @@ history"); version 10 sends the variant's flags of a game under way that the
 host changed in Host Controls' RULES (distributed message 134,
 `_distributed_message_host_rules`, `network_host_rules.c`: shields, the motion
 sensor, infinite grenades, invisible players), reliably, to its OpenH1 clients
-in a game of no OpenCE machine (below, "The host's controls"). With no new version, each client then tells the
+in a game of no OpenCE machine (below, "The host's controls"); version 11
+is the first on network version 41 (below: the join request's Discord pass,
+the votes' kinds and no votes, the dedicated server's map vote), and changes
+nothing else of its own: an OpenH1 game carries the votes, the map vote and
+the AFK kicks as a Legacy game does, its OpenCE machines' too; version 12
+has the host tell each OpenH1 client, once a second, how long before its
+tick its inputs came (distributed message 135,
+`_distributed_message_clock_phase`, `network_clock.c`, reliably), by which
+the client leads its clock (below, "The client's clock"); version 13
+sends every player's presses as the host's sub-steps run them to the clients
+it does not send their every control to (below, "Presses to far clients");
+version 14 sends each OpenH1 client the states of the players near its own,
+or aimed at, as each of the host's sub-steps but a tick's last ends
+(distributed message 136, `_distributed_message_substep_states`,
+unreliable; below, "States at the sub-steps"); version 15 gives a dedicated
+server's admins Host Controls in the game (distributed messages 137 and 138,
+`_distributed_message_admin_down` and `_up`, reliably: below, "Dedicated
+servers"); version 16 brings relays for machines whose NATs keep them
+apart (the relays' packets on the tunnel's socket, the signalling's relay
+offers, a dedicated server's relays told its players: below, "Relays");
+version 17 moves the bots' machines to the session's last 64 (113 to 127
+before), by which every OpenH1 machine tells a bot's player (below, "Bots
+in network games"); version 18 carries the host's way of picking up a
+second weapon (`game.auto_pickup`: holding the action button, the Xbox's,
+or walking over it, Custom Edition's) in the game record, in bit 3 of
+`cooperative_flags` (`_network_game_hold_to_pick_up_bit`), as read in the
+lobby with the rate, so that an OpenH1 client's prompts and pickups are the
+host's (`network_standard_walk_over_pickup`); an OpenCE machine's copy of
+the record leaves it clear, and its players, and a Legacy game's, walk over
+weapons as OpenCE's do.
+With no new version, each client then tells the
 host its build (distributed message 92, `_distributed_message_client_build`,
 reliably once a game after its ready, over its connection alone): its
 number, configuration, the label it shows ("OpenH1 Linux | build 120
@@ -362,6 +399,30 @@ the target can be: no more than 0.05 world units behind the eye along the
 line to the target, 0.2 to its side and 0.1 above it (a client cannot claim
 a hand far past a corner). Such hits are counted in the host's log, and the
 host's `network.fire_origins` (true by default) turns the hand off.
+Then version 40 adds to the join request (`message_client_join_game_request`,
+0x70 bytes before) a Discord account's pass, 170 bytes, and its proof, 64
+(`port/linux/src/player_link.c`; `docs/master_protocol.md`, "Player keys,
+links and passes"), all zero for none: a dedicated server refuses a machine
+from a VPN's, Tor exit's or datacenter's address with one of five new
+rejection codes (`_rejection_code_vpn_link_required` and the four after it,
+`port/linux/game/network_link.c`), and a client refused with the first joins
+again at once with its pass, bound to the tunnel's session. A build before
+them shows the codes as the game being closed.
+
+Then version 41 changes both vote messages' entries (`network_votekick.c`:
+the request's first byte, once the player's index, is the vote's kind; the
+status's first byte, once the player's index, is the kind, and it carries
+the no votes), adds `_rejection_code_address_full` (a host's
+`server.max_machines_per_address`), and a dedicated server's map vote
+(`network_map_vote.c`), in the lobby too, over the machines' streams as map
+sharing's: the host's choices (map and gametype, 8 at most), their votes,
+the time left and the winner (`_distributed_message_map_vote`, 94, to each
+client reliably every second and as it changes), and a client's choice
+(`_distributed_message_map_vote_choice`, 95), taken only from the machine's
+own stream, at most four a second, one counted per machine. A co-op
+game's flags also tell its clients whether the host is a dedicated server
+(`_network_game_cooperative_dedicated_bit`: its loading zones then ask for
+most of the living players).
 
 `port/linux/network_format.txt` records the wire format of the current
 version (`tools/network_format.py`): `test_linux_port.py` fails when the
@@ -428,23 +489,32 @@ server's ban for a while (`ban <player> 30m`) is left to its `bans.txt`
 line, whose `until=` ends it, and its `unban` lets the machine in again by
 the line's address or hardware id (`network_game_server_port_forget_kicked_address`).
 
-The players' votes to kick a player (`network_votekick.c`): a client sends
-`_distributed_message_votekick` (the player's absolute index) reliably, and
-the host takes it only from the client's stream. The host alone counts:
+The players' votes to kick a player and to end the game
+(`network_votekick.c`): a client sends `_distributed_message_votekick` (the
+vote's kind, the player's absolute index for a kick, and yes or no)
+reliably, and the host takes it only from the client's stream. The host
+alone counts:
 one vote per real address (an internet play peer's endpoint, not its
 stand-in), and votes again deduplicated by hardware id, which only ever
 removes votes (the players who may vote are counted by address alone, so a
-copied hardware id cannot lower the votes needed). A vote needs more than
-half of the players who may vote, the target counted, and at least two;
+copied hardware id cannot lower the votes needed). A vote needs yes votes
+scaled with the players who may vote, the target counted (more than half
+up to 8, then 40% and at least 5 up to 32, then 30% and at least 13), or a
+fixed percentage of them (`network.votekick_threshold` `static`,
+`network.votekick_percent`), at least two, and more yes than no; one the no votes have made lost ends at
+once;
 starting one needs `network.votekick_minutes` played on this host in its
 own ticks, voting two minutes; one vote runs at a time, and a failed vote
 cools its starter down and protects its target. A vote that passes kicks as
 the `kick` command does, and the host refuses the address and hardware id
 for `network.votekick_ban_minutes`. The host sends each client
 `_distributed_message_votekick_status` every second while a vote runs (and
-as it changes), for the scoreboard, whose right click frees the mouse to
-pick a player; the host's own scoreboard adds Kick and Ban. Builds without
-votes drop both kinds as unknown, so the network version is unchanged.
+as it changes: its kind, yes, no and needed), for the vote's box at the
+left of the HUD (F1 votes yes, F2 no) and the scoreboard, whose right click
+frees the mouse to pick a player; the host's own scoreboard adds Kick and
+Ban. A vote to end the game ("!endgame" in the chat, `network.vote_end_game`)
+counts as a kick's with no target, from 30 seconds played and not in a
+game's first minute, and ends the game as `sv_end_game` does.
 
 The text chat (`network_chat.c`): a client sends its player's line to the
 host (`_distributed_message_chat_up`, reliably), which takes it only from
@@ -539,7 +609,7 @@ matching builds so an older client cannot silently ignore the rule.
 A host plays one of two kinds of game (`network.game_mode`, read when it
 starts hosting; `port/linux/game/network_standard.c`):
 
-- **Legacy**: OpenCE's netcode at network version 39 and 30 ticks a second,
+- **Legacy**: OpenCE's netcode at network version 41 and 30 ticks a second,
   which OpenCE builds join. A Legacy game is unchanged in every byte: its
   advertisement, listing, join token and game record are as before.
 - **OpenH1** (`"openh1"`, the default when hosting; `"standard"`, its first
@@ -700,7 +770,9 @@ simulation still takes the input at its tick, as before.
   relayed input's encoding with the client's tick it is of; no sooner than
   8 ms after it last did (`FORWARDED_INPUT_INTERVAL_MILLISECONDS`: a host
   drawing hundreds of frames a second would send each client a datagram
-  nearly every frame). A player sent
+  nearly every frame); a dedicated server reads its datagrams as they come,
+  between its frames, and sends them on no sooner than 2 ms after
+  ("Dedicated servers"). A player sent
   every second tick is forwarded every second of their client's ticks, and
   at once when their buttons or choices changed in the ticks the input
   carries.
@@ -718,6 +790,18 @@ simulation still takes the input at its tick, as before.
 - Nothing changes for an OpenCE machine (it is sent no message of 120 and
   after) or in a Legacy game. An OpenCE player's input is forwarded to the
   OpenH1 clients like any other.
+- A player aimed at is in the set every tick of the aim. Until the change
+  that made protocol version 14 (a change of the host's alone), the plan
+  looked at the aim only on the ticks the player's distance did not send
+  them, so a player aimed at from further than 60 world units (sent every
+  third or fourth tick by distance) left the set on every third or fourth
+  tick of the host's, and was driven by the relayed input on those. The
+  plan now takes the aim on every tick for the set; the ticks a player's
+  state and relayed input go on are as before (those of the distance and
+  those of the aim), so a Legacy game's bytes are unchanged
+  (`distributed_aimed_period`; `tools/harness/tests/test_plan_aim.py`).
+  There is no hysteresis: a player stays in the set while the aim holds,
+  as one near stays while within 60 world units.
 
 Where its unit is is still the host's word, at its ticks: a client's copy of
 a player it drives by forwarded input reacts to a change of input sooner,
@@ -747,8 +831,9 @@ controls as each sub-step runs (`network_substeps.c`'s live controls):
   players' (`_distributed_message_forwarded_live_controls`, 133,
   unreliable, 19 bytes a player: the sticks of 127, the trigger of 255, the
   aim in 16 bits a part), to those its last tick's plan sends the player
-  every tick or every second tick, as the forwarded input (above). Its own
-  simulation takes a client's input at its tick, as before.
+  every tick or every second tick, as the forwarded input (above); every
+  player's presses go to the others too (below, "Presses to far clients").
+  Its own simulation takes a client's input at its tick, as before.
 - A client gives another player's unit the latest it has of them, where it
   is later than the sub-step of the input its tick took (of the same kind
   of key: a client's player's while the forwarded input drives them, the
@@ -869,6 +954,270 @@ own), and the ticks noted since with it. A player the relayed input drives,
 the host's own players and bots, and a state without the tick are put where
 the host has them, as before.
 
+### The client's clock
+
+A client's clock takes the host's time from the host's first game update,
+so its ticks begin a trip from the host (and a sub-step) after the host's of
+the same number, at a phase against the host's ticks that the network's
+delay set for the whole game. The host takes a client's input at its own
+tick (as the tick begins: "Input at its tick"), so an input waited on the
+host from nothing to a whole tick, by the game: the spread of the 20 ms and
+50 ms figures in "Measuring latency". From protocol version 12, in an OpenH1
+game at any rate (`port/linux/game/network_clock.c`):
+
+- The host notes when each of its ticks begins, and when each OpenH1
+  client's input of each tick comes (its first; a client sends its input of
+  a tick as the tick's first sub-step ends, or at 30 as the tick ends: about
+  when the tick begins). For each input it times how long before the
+  host's tick of the same number began it came (negative: after), and once
+  a second (`CLOCK_REPORT_TICKS`) sends the client the second's figure:
+  the second earliest of its 30 or so (`CLOCK_REPORT_PERCENTILE`, so that one
+  datagram held up does not move the clock), with how many it had
+  (`_distributed_message_clock_phase`, 135, 8 bytes, reliably over the
+  client's connection, which no one else can send as the host).
+- The client moves its clock until the figure is 2 ms
+  (`CLOCK_EARLY_TARGET_MICROSECONDS`): its ticks then lead the host's of
+  the same number by the trip to the host and that margin, as other
+  engines' clients do, and the host's tick of each number takes the input
+  of the client's tick of that number, each sub-step's controls coming just
+  before the host's sub-step runs. Within 50 ms (`CLOCK_JUMP_MICROSECONDS`)
+  it moves by running its ticks up to 5% faster or slower (`CLOCK_SLEW`,
+  `game_time.c`'s `game_time_update`), no tick skipped or run twice: under
+  1 ms (`CLOCK_EARLY_LOW_MICROSECONDS`: late, or nearly) ahead to the
+  target at once, over 5 ms (`CLOCK_EARLY_HIGH_MICROSECONDS`) back by half
+  the difference a report (`CLOCK_GAIN`: the next report's second began
+  before the move), and between the two not at all. A host reads its
+  datagrams once a frame, and cannot tell when in the frame before its read
+  an input came: an input read in the frame its tick begins in, just
+  before the tick, is timed as the target, however long before the read it
+  came; one read in a frame before, from that read. (A dedicated server
+  reads them as they come while it waits for its frame, each read counted
+  as a frame's: one read so is timed from when it came, and only those
+  that came in the last millisecond of the wait are taken for the target.) (Timed from the read
+  alone, the clock was pushed a frame early and swung back; on a dedicated
+  server of 60 frames a second, so early that the prediction of the
+  client's next tick came before the host's tick too, and the host took the
+  one before it in about a third of the ticks.) Further behind (a game's start, a join, the round trip grown),
+  it skips the nearest whole ticks of the difference at a tick's end
+  (`game_time_port_advance`: renumbered, none run, as its clock already
+  jumps to the host's when it is a second behind) and runs the rest, under
+  half a tick, at once if it is behind, or slowly if ahead. Further ahead
+  (the round trip shortened) it slows down; it never goes back, which the
+  host would take for old messages (`distributed_add_new_ticks`).
+- A dedicated server of an OpenH1 game waits for its frame's time
+  (`server_mode_pace_frame`) before it reads its datagrams, not after
+  (`main.c`, `network_clock_server_pace_first`): what came while it waited is
+  read before the tick its frame runs. Read after, a client's input that
+  came in the wait missed the tick, and the clock above, seeing it read
+  just after the tick began, held it a frame early or swung across the
+  frame (in a server's game on the loopback, the host took the prediction
+  before the latest in 1,737 of 2,479 ticks: "Input at its tick"). A Legacy
+  game's server keeps its order.
+- Its ticks lead the host's latest it has heard by no more than 12
+  (`CLOCK_LEAD_LIMIT_TICKS`): the host's clock check drops a client whose
+  ticks run fast and more than 15 ahead (`CLIENT_CLOCK_AHEAD_TICKS`). Past
+  that (a round trip of about 400 ms) the clock keeps its phase but not its
+  numbers: the host takes the latest input heard whatever its number.
+
+A client's game at a given moment is where it was before: the remote
+players, the host's units and objects are driven and corrected as they
+come, so only the numbers of its ticks move, and its ticks' phase against
+the host's. What counts ticks across the machines counts from and to the
+same point on each, as before: the host's echo of a client's prediction
+names the client's tick, and the client compares it with where it had its
+player then; the round trips (the seats' disagreement, the ceiling's lead,
+the hit check's) are timed by the host's own ticks or by when messages
+went, and are a trip and the margin, not a trip and a phase's wait; the
+on-foot bounds' ticks since the anchor take the client's ticks no further
+than the host's since and the jitter, so a skip of the client's numbers
+gains it nothing; the host's clock check sees a client a tick or so ahead,
+not behind; the elevator's phase between the two machines is the trip
+there and back and the margin, under the 4 world units' tolerance as
+before. With the input there before the host's tick, the phase in which
+the host's tick began before a client's input came ("Input at its tick",
+`distributed_predictions_earlier`) is rare once the clock has settled (an
+input held up past the tick: below, "Measuring latency").
+
+The host reports only to OpenH1 clients of an OpenH1 game, and a client
+moves its clock only on the report: a Legacy game, an OpenH1 machine in a
+Legacy game and an OpenCE machine in a mixed game keep the clock they had.
+`debug.network_test`'s clients log the latest report, the reports, the ticks
+skipped and the time moved by (`network test: clock early <us> reports <n>
+skipped <n> moved <us> us`). Measured below ("Measuring latency").
+
+### Presses to far clients
+
+Forwarded input and live controls go only to the clients whose players are
+near the player, or aim at them ("Forwarded input", above). A client further
+off drives the player by the host's relayed input, which goes with the
+host's update as its tick ends (at once where the buttons changed, else
+every 3, 4 or 6 ticks) and which the client's tick takes as it begins: a
+press waited for the rest of the host's tick, the network and the client's
+next tick, and a push of the stick (not a button) for the player's period
+too. In the latency games (three copies on bloodgulch, the scripted players
+standing where they spawned, 20 to 31 ms ±3 each way) the host's player's
+press reached a near client a network trip and a sub-step or two after it,
+33 to 36 ms at 60, and one more than 60 world units off 2 to 3 ticks later
+(48 to 72 ms for the trigger, 53 to 124 for the stick); a client's press
+reached another client near it in 63 to 71 ms, and one far off in 104 to
+131 ms.
+
+From protocol version 13 the host also sends each player's controls as its
+own sub-steps ran them (`ran_live` in `network_substeps.c`, keyed by its
+update, the relayed input's own key) to its OpenH1 clients its plan sends
+the player less often (or not at all, out of sight), when they make a press
+against what it last sent that client (`network_substeps_live_far_due`,
+`distributed_far_live`): the held controls changed, a stick moved by a
+quarter of its reach, or the trigger by a quarter. A start, a stop, a pull
+and a release go as they run; a turn of the aim or a stick's drift does not,
+and the relayed input brings it at its period as before. A client gives it
+the unit as it gives a near player's live control, until its tick takes a
+relayed input as late. A client's player's press goes so as the host's tick
+ran it (from their live controls as they came, "Input at its tick"), the
+host's own players' and the bots' as they ran; a bot, which has no live
+controls of its own, goes so to the near clients too. Each press costs a
+client 19 bytes, in the forwarded datagram of that frame or one of its own.
+The interval between forwarded datagrams
+(`FORWARDED_INPUT_INTERVAL_MILLISECONDS`) counts from the last one sent, not
+from a frame that had nothing to send.
+
+The same latency games, three delays at each rate (pooled means in ms, the
+worst 95th percentile in brackets), before and after, both before the
+client's clock (protocol version 12, which moves the client-to-host path
+and so the client-to-client one, not the presses' sends); far is a player the
+plan sent the client less often than every second tick:
+
+| Path | 60 | 120 |
+| --- | --- | --- |
+| Host's press to a client | 56 (166) → 35 (53) | 52 (127) → 32 (46) |
+| ... to a far client | 90 (166) → 35 (36) | 81 (127) → 31 (41) |
+| Client's press to another client | 83 (164) → 69 (117) | 90 (173) → 73 (104) |
+| ... to a far client | 117 (164) → 78 (116) | 107 (161) → 73 (104) |
+| Client's press to the host | 36 (51) → 39 (65) | 42 (62) → 41 (63) |
+
+A far client now sees the host's player's press as soon as a near one does.
+A client's press reaches a far client a sub-step or so after the host runs
+it, where the near ones have it as it comes (two network trips and a frame);
+the host's bytes a second to each client were unchanged within the spread
+the players' places give (9.8 to 12.1 KB/s in either build).
+
+### States at the sub-steps
+
+A client drives the players near its own by their forwarded input and live
+controls, and corrects its copy of each against where it had it at the
+tick the host's state names ("Remote players against their history").
+Since version 8 the host's copy of a client's player runs that client's
+sub-steps as they come ("Input at its tick"), so its state changes at each
+sub-step, but went once a tick, as the tick ended. From protocol version 14,
+in an OpenH1 game of several sub-steps a tick (`network_distributed.c`,
+`network_distributed_host_substep_ended`):
+
+- As each of its sub-steps but a tick's last ends (the last's is the tick's
+  own state), the host sends each OpenH1 client the state of each player
+  its last tick's plan sends that client every tick or every second tick
+  (near it, or aimed at: the players whose forwarded input and live
+  controls it is sent), alive and on foot, of an OpenH1 client (whose
+  sub-steps the host runs as they come) or the host's own players and bots
+  (`distributed_substep_state_due`): `_distributed_message_substep_states`
+  (136, unreliable), the sub-step and the count, then each state as the
+  tick's are written (35 bytes on foot, 37 with the client's tick), in the
+  datagram of the sub-step's live controls where one goes then, else in
+  one of its own. A client player's names the client's tick the host's tick
+  is running, as the tick's own state will.
+- A client notes where its copy of each other client's player was as each
+  sub-step of its ticks but the last ended, by the same key as the tick's
+  (`distributed_note_remote_positions`), and compares a sub-step's state
+  with where it had the copy as the same sub-step of that tick of theirs
+  ended (`distributed_correct_remote_unit`): a disagreement is corrected up
+  to most of a tick sooner, and the ticks and sub-steps noted since move
+  with it. The host's own players and bots, and a player its notes do not
+  name, are moved toward the state as a tick's are.
+- A client takes only a player on foot, of the unit it has, and not its own;
+  a death, a spawn, a seat or the shields wait for the tick's state. It
+  takes no sub-step's state older than one it took of the player, or than
+  the host's latest tick's states, and a tick's state older than a
+  sub-step's state it took does not move the player back (the datagrams
+  came out of order).
+
+Each costs a client, at 120, 90 states a second for each player near it (30
+at 60), about 3.3 KB/s a player at 120 (1.1 at 60) and 10 bytes a message.
+Nothing changes in a Legacy game, at 30, or for an OpenCE machine (sent no
+message of 120 and after) or an OpenCE player's state.
+
+### Actors to far clients
+
+Only the host runs the AI. It sends each client its actors' units as it
+sends moving objects, by the distance from the client's nearest player
+(`network_objects_send_period`): within 25 world units every tick, then
+every second, third and fourth tick past 60 and 120, but a unit starting a
+one-tick action (a jump, a grenade, a melee, an impulse) to every client at
+once. A far enemy's start, stop, burst or turn reached the client up to
+three ticks late (100 ms, 50 on average past 120), the distance problem
+"Presses to far clients" solved for the players: a sniper's or a Banshee's
+shot left from where the client had it aimed some ticks before.
+
+In an OpenH1 game the host also sends an actor's unit, whatever its period,
+to:
+
+- every OpenH1 client, the tick its control makes a press against what it
+  last sent every client (`actor_state_pressed`): the control flags (the
+  trigger's, crouch, ...) or the animation state changed, the trigger or a
+  stick moved by a quarter of its reach (the trigger from none, by any),
+  or the aim turned by 1/32 of a turn (11 degrees). A steady turn or drift
+  adds up to a press and goes then;
+- an OpenH1 client every tick while the unit aims at one of its players
+  (the line of its aim within 2 world units of them, or 5 degrees), or one
+  of them at it (`network_objects_aims_with_machine`): a duel at range is
+  seen as the host has it, its aim and its shots.
+
+Nothing changes on the wire: the entries are the ones the host sent, only
+sooner, so no protocol version was needed; a client takes them as before.
+Nothing changes in a Legacy game or for an OpenCE machine. In a co-op game
+on b30 at 120 (the host and one client, 25 ms each way, the scripted player
+wandering the beach's fight, 51 seconds), the host sent the client 100.0 KB/s
+on average (`network test: bandwidth`), 63.3 KB/s of it actors' states
+(`network test: actors to clients`): the presses 1.0 KB/s of those, the aims
+1.8 KB/s, so 97.2 KB/s before (2.9% more).
+
+### Remote players drawn from the newest sub-steps
+
+The frames are drawn between the ticks (`render_interpolation.c`): a frame
+is the tick's fraction of the way from the end of the tick before the latest
+to the end of the latest, a tick (33 ms) behind the clock. At 60 and 120 the
+clock runs a tick's sub-steps as their time comes, so the newest simulated
+sub-step is at most one sub-step behind the clock, and an object drawn a
+tick behind it was 25 to 33 ms behind what the machine's own simulation had
+(29 on average) at 120, and 17 to 33 (25) at 60. On a client that is where
+its shots meet the other players (its own simulation, against which it
+reports its hits: "Shooter's hits"), so a player aimed at what was drawn,
+not at where the shot was tested. The player's own view was already drawn
+from the newest step (`display.direct_camera`), as is the vehicle they ride.
+
+In a network game (`sim_rate_locked`: not split screen, not a film) at 60
+and 120, the objects of the micro lane that are other players' (another
+machine's player or a bot, the vehicle a player drives, and the host's
+actors) are drawn between their two newest sub-steps instead
+(`render_interpolation_lead_wanted`, `render_interpolation_lead_step`): a
+sub-step's interpolation, never past a step the simulation ran, 0 to 8 ms
+behind it at 120 (4 on average) and 0 to 17 at 60 (8). Only where each is
+moves so, and a vehicle's frame (its place and rotation); its pose (its
+animation, the aim of its head and its gun) is still blended between the
+ticks, as before. Not drawn so: what a local player is or rides (their view
+hangs on it), items, anything in a cinematic, and a player standing on a
+lift that moves (of the macro lane, drawn a tick behind). Projectiles are
+drawn so in every game at 60 and 120 (`render_interpolation_projectile_lead`),
+the players' own too, so that another's shot leaves from where that player
+is drawn, and meets what it hits as its impact appears: from the frame
+after the sub-step that made it, from half a tick of its motion back to
+where its head start put it over the tick it holds, then between its two
+newest sub-steps; one that strikes in a sub-step is drawn through that
+sub-step's frames on to where it struck (`render_interpolation_object_deleted`),
+never past it. As an object comes to be drawn so, or no longer (a
+lift starts under a player, a local player gets into another's vehicle), it
+glides from one to the other over four ticks (`LEAD_GLIDE_TICKS`). Drawing
+only: nothing sent or simulated changes, and a Legacy game, an OpenH1 game
+at 30, single player and split screen are drawn as before.
+
 ### OpenCE players in an OpenH1 game
 
 An OpenH1 game's host takes OpenCE players too (`network.allow_opence`,
@@ -899,7 +1248,7 @@ change:
   gets none of OpenH1's own messages (120 and above:
   `network_standard_message_goes_to`, checked where the distributed netcode
   queues a datagram's messages and a reliable one). Everything else in an
-  OpenH1 game is network version 39's already.
+  OpenH1 game is network version 41's already.
 - Each player is stepped at their own rate on every OpenH1 machine. An
   OpenCE player's biped, and the vehicle they drive, are of the macro lane
   (`objects.h`): they move once a tick, exactly as on the player's own
@@ -1064,8 +1413,12 @@ A host plays the bots of its system link and internet games
 new goes between the machines:
 
 - Each bot is the one player of a machine of its own, a machine index from
-  `BOTS_FIRST_MACHINE` (113) up that no real machine takes: the host numbers
-  the machines that join below it. The machine has no connection: the host
+  `BOTS_FIRST_MACHINE` (64) up that no real machine takes: the host numbers
+  the machines that join below it (64 machines, each with up to four
+  players: more than the session's 128 players). A game takes up to 64 bots,
+  as far as its most players leave room. Every OpenH1 machine tags a bot's
+  player by its machine (the lobby's and the scores' BOT), so the range is
+  part of the Standard version (17; 113 to 127 before, with 15 bots at most). The machine has no connection: the host
   plays its player, as it plays a remote player whose input comes at once.
 - The bots join the lobby as players do, in the game's settings record, and
   a game in progress as a late joiner's players do
@@ -1091,7 +1444,7 @@ new goes between the machines:
 Checked on one Mac (an internet game through a local broker, the host and
 a client each a hidden copy, 4 bots, 60 seconds): `net_compare --compare`
 passes at 120 and in a Legacy game, the client logging the bots as the
-host's players (machines 113 to 116), their positions 0.03 world units
+host's players (machines 113 to 116, the bots' range then), their positions 0.03 world units
 apart on average.
 
 ### Parties in public games
@@ -1191,6 +1544,44 @@ as any other, with these differences, all on the host's side:
   leaves).
 - **No ticks of its own player.** The host's own action queue may hold no
   action (`player_queues_new.c`), as a game with no local player has none.
+- **The kind of game.** A dedicated server hosts Legacy games unless its
+  `server.game_mode` says `openh1_60` or `openh1_120` (`openh1_30` too),
+  in place of a player host's `network.game_mode` and `network.sim_rate`
+  (`network_standard.c`); `network.allow_opence` is read as a player
+  host's. Its OpenH1 game is any host's: the advertisement, the listing,
+  the join tokens, the game record's rate, the sub-steps, forwarded input
+  and live controls, the predictions taken as its ticks begin, mixed
+  games. With no player of its own it sends no sub-steps or live controls
+  of its own; everything its ticks run of its clients' players is theirs.
+  The director takes the setting again in the lobby while no other
+  machine is in it (`network_standard_server_mode_read`), and frames an
+  OpenH1 game at least as often as its tick rate. While it waits for its
+  frame's time it waits on its game's socket, and reads the datagrams that
+  come as they come (as its frame's read does, and nothing else of the
+  frame: `network_distributed_server_receive`, from
+  `server_mode_pace_frame_receiving`), sending their input on to the other
+  clients at once, no sooner than 2 ms after the last
+  (`FORWARDED_INPUT_SERVER_INTERVAL_MILLISECONDS`), not at its next frame;
+  the last millisecond before the frame's time is a precise sleep, and the
+  frame's read takes what came in it. Nothing on the wire is
+  new: a dedicated server's OpenH1 game is a player host's, but for the
+  dedicated flag every dedicated server sends.
+
+  Checked by `tools/test_dedicated_server.py` (bloodgulch, two headless
+  clients with the scripted bot, a minute; the server logs each second with
+  `debug.network_test` `log`, which a server keeps, and is judged with
+  `net_compare.py`'s checks): at 60 and 120 both OpenH1 clients in step, the
+  server's drift of each one's player 0 of 1800 ticks, its takes 2 apart of
+  3880 at 60 and of 3893 at 120. In a mixed game at 120 with an OpenCE-mode
+  client (`debug.join_legacy`), the OpenCE client at 30 hearing none of
+  OpenH1's messages: without scripted hits, each player's drift 0 of 1800
+  ticks; with a hit every 8 seconds, every hit both ways taken, and drift of
+  9% to 10% and 2% to 3% in two runs (the players brought together to
+  shoot, and touching: a player host's game with a hit every 4 seconds had
+  4% and 10%). OpenCE's
+  own release (build 335) as one client and OpenH1 as the other, without
+  scripted hits: both in step with a Legacy server and with an OpenH1 120
+  Tick one, 0 of 4800 ticks apart.
 - **The director.** `port/linux/game/server_director.c` drives the lobby as
   a player at the pregame screen would: it sets the map and gametype of the
   rotation's entry, starts the countdown once the server's own rule allows
@@ -1207,6 +1598,39 @@ as any other, with these differences, all on the host's side:
   dedicated flag (32); a listing published to the master servers is the
   same signed listing (`docs/master_protocol.md`), and the master's probe
   is answered on the tunnel's socket (`p2p.c`, `server_master_probe`).
+- **Admins in the game.** From OpenH1 protocol version 15 a dedicated
+  server's admins (`port/linux/game/network_admin.c`;
+  `docs/dedicated_server.md`, "Admins in the game") have Host Controls. The
+  server sends each OpenH1 machine of its game, as it joins, its id (32
+  bytes, `admin_id.txt`) and a nonce of 32 random bytes
+  (`_distributed_message_admin_down`, 137, its challenge); the machine
+  signs `openh1-admin-proof-1`, the nonce and its connection's binding (the
+  internet play tunnel's session secret as a Discord pass's proof is bound,
+  32 zero bytes on a LAN: `player_link.c`) with a key for that server id
+  alone (its Ed25519 seed HMAC-SHA-256 of `openh1-admin-key-1` and the id,
+  keyed with the machine's own `admin.key`, not the player key), and
+  answers with the key and the signature (`_distributed_message_admin_up`,
+  138): two servers see two unrelated keys of one player. One answer is taken a
+  nonce; a key is never taken on the machine's word. A machine that proved
+  a key listed in `admins.txt` or `server.admins` is an admin: the server
+  tells it the game once a second (its flags, the entry played and the
+  next, then its players by slot, 32 a message) and the lists it asks for
+  (the maps, gametypes, rotation and bans, in pages of 3000 bytes). An
+  admin's request is a verb, a slot with the name its list had there, a
+  number and a text (156 bytes), taken only from the machine's own stream,
+  from a machine that proved an admin's key, 4 a second at most (bursts of
+  8); each field is checked (`network_admin_request_line`: the slot must
+  hold that name now, numbers in range, an entry one word of printable
+  ASCII) and the request is run as the server's own command at the admin
+  role (`kick`, `ban`, `mute`, `sv_team`, `sv_map`, `sv_map_after`,
+  `sv_rotation_add`...), its answer sent back. Each message carries a
+  format byte (1) and a kind; a size that is not its kind's is dropped. A
+  player host sends neither message, and an OpenCE machine is sent none.
+  Checked by `tools/harness/tests/test_network_admin.py` (the keys listed,
+  each request's command, those refused, the rate),
+  `test_player_link.py`'s `admin-proof` (the signature taken for its key,
+  nonce and binding alone; two servers' ids, two keys), and `tools/test_dedicated_server.py`'s
+  `test_an_admin_changes_the_map_from_the_game`.
 - **The timeout.** `network.client_timeout_seconds` (15 seconds by
   default) sets how long a host waits for a silent machine, and two more
   waits with it: how long a stream's writes may stall before its connection
@@ -1535,6 +1959,65 @@ its name alone beside it, has its name given back as the map lists find it.
      them: the host's shields and health, which the client has, say
      whether the shield or the body took the hit, and how much is left of
      it (the host's own copies of a client's projectiles likewise).
+   - Hits shown at once (OpenH1 games but co-op's, `network.predict_hits`;
+     below).
+
+### Hits shown at once
+
+Without it, a client's own projectiles show their impact at once (the
+spark on a shield, the blood on a body: the material's response, which the
+host's shields and health choose), and its own weapon's shake; everything
+else a hit does comes with the host's word on it, a round trip after the
+shot (50 to 100 ms on most connections, more over a lossy one): the
+target's shield flare and its breaking (the units' states bring the damage
+they show), its flinch, pain sound and knockback (the replayed damage), its
+death, the body's fall and the dropped weapons (the replayed killing blow),
+the kill's message, and the score (the game type's state).
+
+In an OpenH1 game (not co-op's) a client shows its own players' hits on
+another player's living unit on foot at once (`network_damage.c`,
+`distributed_predict_hit`): it deals the damage to its copy of the unit as
+the host will, with the least damage the hit's roll can give (so that a
+kill it shows is one the host's roll gives too), and counts nothing of it
+(`damage.c`): the flare, the shield's breaking, blood, the flinch, pain
+sound and knockback, and, where it kills, the death and the body's fall at
+once. It reports the hit as before, and keeps what the hit took of the unit
+until the host's word on it comes:
+
+- The host's states of the unit, which do not have the hit yet, are taken
+  less what the hits not yet answered took (and their flare and shown
+  damage as this machine's hits left them), so a shot's effect is not put
+  back and the next shot's is judged against what is left.
+- The host's damage of the hit (its replayed damage, which goes to the
+  shooter's machine) answers it, and is not replayed again; the unit's next
+  state has it.
+- A kill shown is confirmed by the host's killing blow (or, its blow lost,
+  by the units' states saying the player is dead): the kill is announced
+  then, with the host's killer and their score after it, as before. The
+  body has been lying there a round trip already.
+- A hit whose word has not come a round trip and half a second on
+  (`PREDICTED_HIT_SLACK_TICKS`) is refused: its effect is the host's states'
+  again, and a unit it killed stands again where it fell (`unit_port_revive`:
+  alive, its player's, the shields, health, grenades and weapons it had),
+  so a refused kill shows as a fall and getting up, never as a kill.
+
+Not shown at once, as the game has no way back from them or the host
+decides them by what the client cannot know: hits on vehicles and their
+riders, on actors (co-op), fire (a burning death runs about), a body
+destroyed, the host's instant kills, telefrags, and pickups. A pickup is
+the host's: the item is the host's object, which only its word deletes or
+moves, and two players reaching for the same weapon (the case where a
+pickup is felt) is what a client cannot predict, so a weapon shown in hand
+at once would often vanish again; the HUD's message and the sound come
+with the host's word, a round trip after the walk over.
+
+With `debug.network_test`, each client logs how its shown hits went once a
+second (`network test: predicted hits <shown> answered <n> unanswered <n> |
+kills <shown> confirmed <n> refused <n>`). In a pair of 30-second bot games
+on bloodgulch at 120 Hz over 25 ms ±3 each way (`net_compare.py --events`,
+with `HALO_NETWORK_TEST_SHOOT=0.5`), the clients showed 55 hits: 52 answered
+by the host's damage, 3 by its killing blows, none unanswered, and one kill
+shown, confirmed (none refused).
 
 ## Transport
 
@@ -1560,6 +2043,12 @@ Unity's Netcode for Entities, lightyear, netfox and the Ares source):
   write at once (`TCP_NODELAY`, in `xnet.c` for the game's sockets and in
   `p2p.c` for internet play's): with Nagle's algorithm a small write waited
   for the other end's delayed acknowledgement, up to 200 ms on Windows.
+  Internet play's tunnel carries them with KCP, which sends only as its
+  interval passes (10 ms, the least it takes): the tunnel's thread flushes
+  each connection's KCP once a pass that something was written to it or
+  came for it, so a write and the acknowledgements of what came go at once,
+  a burst in as few datagrams as it fills, and the interval only times the
+  resending.
 - **Input every tick, unreliably, each tick's buttons several times.** A
   client sends the host its players' input after each tick, with the
   buttons of the three ticks before it, and the host sends every client
@@ -1646,6 +2135,59 @@ Unity's Netcode for Entities, lightyear, netfox and the Ares source):
   meter on, the scoreboard shows these where the machine has them (the
   host every client's, a client its own players'), and the host's measure
   in ticks, which every machine is sent, for the others.
+
+### Relays
+
+Two machines whose NATs keep them apart (hole punching cannot meet them)
+connect through a relay: a dedicated server or a relay of `halo --relay`,
+never a player's machine (`port/linux/src/p2p_relay.c`; the packets and the
+limits are in `docs/dedicated_server.md`, "Relays"). This is OpenH1
+protocol version 16. Legacy games are unchanged; the relays are below
+the game, in the tunnel, and two OpenH1 machines in a Legacy game use them
+alike. OpenCE machines never offer relays, so they connect as before.
+
+- **Fallback only.** A pair tries relays only once hole punching has had 4
+  seconds (1.5 when both machines' addresses show strict NATs). Each offers
+  the other its relays through signalling (`relays.txt`, and the relays its
+  game's dedicated server told it of); both bind to all of them, and only
+  once the other has offered (so a machine that never offers holds no
+  relay's room). The first relay that carries a ping through makes the
+  session's path.
+- **Failover.** The other relays that paired stay paired (a keep-alive each
+  4 seconds). A path silent for 2.5 seconds is replaced by the first other
+  relay a packet comes through (both machines ping through every paired
+  relay meanwhile); with none paired, the relays are bound again. The
+  session ends only at its own 20 seconds of silence.
+- **Direct again, with hysteresis.** While relayed, both machines ping each
+  other's addresses every 3 seconds for a minute, then every 30. A direct
+  path takes over only once its packets have come for 5 seconds without a
+  gap of 2.5 (or at once if the relay is silent); the relays are kept 30
+  seconds more, to go back to.
+- **What a relay sees.** Both machines' addresses; never the game's
+  traffic, which the tunnel seals with keys only the two have, as on a
+  direct path. Nothing is less private than a direct connection but that.
+- **Bans.** A relayed player's address, for the host's bans and votes, is
+  the one the relay saw its binds come from and checked by its cookie: never
+  one the player gave of itself. The relay tells only the host's side.
+
+### Fronts
+
+A relay needs both machines to take part, so it cannot help a player whose
+build never offers relays (OpenCE, an older OpenH1) reach a host behind a
+NAT that cannot be punched. A front can: a public UDP port on a relay of
+`halo --relay` (`server.front_ports`) that the host registers with
+(`network.front`; `port/linux/src/p2p_front.c`; the packets are in
+`docs/dedicated_server.md`, "Fronts"). The host lists the front's port as
+one more of its addresses in its signalling answer, and a joiner punches to
+it as to any other. Nothing a joiner sends or receives changes: the front
+passes its tunnel packets, still sealed end to end, to the host, and the
+host's answers back from the same port, so the joiner cannot tell it from
+the host. On the host, a joiner reached so is relayed through the front (a
+relay attempt of the front's, "front and client number"), with the address
+the front saw it at for its bans and votes; a direct path found later takes
+over as from a relay. The protocol between host and front is versioned on
+its own (version 1); the OpenH1 and Legacy protocols, and
+`HALO_PORT_NETWORK_VERSION`, are unchanged.
 
 ## Testing
 
@@ -1853,8 +2395,9 @@ to another; `--events` adds the hits. The latency player stands still but
 for its pushes, so the drift figures are not judged.
 
 A network's delay sets each machine's phase against the others' ticks (a
-client's clock is the host's, from the first update it heard), so each
-delay gives waits of its own: the figures below pool three delays a third of
+client's clock was the host's, from the first update it heard, until
+protocol version 12: "The client's clock"), so each delay gives waits of
+its own: the figures below pool three delays a third of
 a tick apart for each network (20, 25.5 and 31 ms each way for 20 ms; 50,
 55.5 and 61 for 50), with `tc netem` on the loopback of a network namespace
 of its own (`unshare -rn`, then `tc qdisc add dev lo root netem delay 20ms
@@ -1923,5 +2466,36 @@ game passes; the host's moves of a client's player come apart from the
 client's in 0.4% to 0.8% of the ticks before and 8% to 12% with version 8
 at 60 and 120 (a sub-step's controls that come after the host's sub-step
 ran without them), and the clients' corrections and the positions apart
-are as before. The remaining stages of OpenH1 issue #287, the host's
-states at the sub-step rate and the clock's phase, are not done.
+are as before.
+
+With the client's clock led ahead of the host's (version 12, "The client's
+clock"), over 20, 25.5 and 31 ms ±3 each way (three copies, one game a
+delay; the means in ms of a client's press to the host's simulation, and in
+brackets what it takes past the one-way delay):
+
+| Rate | Before | With the clock led |
+| --- | --- | --- |
+| 30 | 36.3 (16.3), 31.8 (6.3), 36.3 (5.3) | 27.5 (7.5), 32.7 (7.2), 37.7 (6.7) |
+| 60 | 38.7 (18.7), 33.4 (7.9), 38.4 (7.4) | 27.5 (7.5), 32.3 (6.8), 37.9 (6.9) |
+| 120 | 38.9 (18.9), 37.6 (12.1), 38.4 (7.4) | 26.5 (6.5), 32.1 (6.6), 38.0 (7.0) |
+
+What a press takes past the network's delay was 5 to 19 ms, by the phase
+each delay set; it is 6.5 to 7.5 ms at every delay and rate (the input's
+datagram, the host's frame, the 2 ms margin and the sub-step it lands in).
+Pooled, 38.3, 36.8 and 34.8 ms become 32.2, 32.6 and 32.6 at 120, 60 and 30.
+The meter's round trip drops with it (83 to 72 ms pooled). The press from
+one client to another and from the host to a client are as before: their
+spread is the players' places (near or aimed at, forwarded; else relayed),
+which differ from game to game; in games where they were placed alike the
+two builds measured alike (56.6 and 56.9 ms, 62.7 and 62.7).
+
+In bot games (three copies, bloodgulch and beavercreek, on the loopback and
+over 20 ms ±3, at 30, 60 and 120) every game passes. The host's moves of a
+client's player come apart from the client's in 0.0% to 1.2% of the ticks
+at every rate (8% to 12% at 60 and 120 before: the sub-steps' controls now
+come before the host's sub-steps run), the clients' corrections are 4 to 31
+a game, and the positions apart are 0.017 to 0.057 world units on average,
+0.24 at most. The host took the prediction before the latest
+(`distributed_predictions_earlier`) or held in 0% to 4% of the ticks of the
+latency games, against up to 83% before. The host's states at the sub-step rate (version 14) are measured in "States
+at the sub-steps".

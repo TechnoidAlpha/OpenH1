@@ -15,6 +15,31 @@ other's), the teams' colours kept for the most players */
 #include <wchar.h>
 
 #include "config.inc"
+
+/* the variant's parts a change keeps (game_engine.h's, network_game's) */
+struct universal_variant
+{
+	long score_to_win;
+	unsigned long flags;
+};
+
+struct game_variant
+{
+	wchar_t human_readable_game_description[12];
+	struct universal_variant universal_variant;
+};
+
+struct game_variant_options
+{
+	short time_limit;
+};
+
+struct network_game
+{
+	struct game_variant variant;
+	struct game_variant_options variant_options;
+};
+
 #include "under_test.inc"
 
 /* a playlist of so many entries, those marked rejected */
@@ -257,6 +282,60 @@ static void case_saved(void)
 	CHECK(server_gametype_saved_key(L"abcdefghij", key, 6) && !strcmp(key, "abcde"), "kept to its size");
 }
 
+/* a change of map alone (MAPS' CURRENT, host_map without a gametype)
+keeps the lobby's gametype, score to win, time limit and rules; a gametype
+named is built (its own defaults) */
+static void case_kept(void)
+{
+	struct server_entry entry;
+	struct network_game game;
+	struct game_variant variant;
+	struct game_variant_options options;
+
+	CHECK(network_host_game_entry_keeps("bloodgulch"), "a map alone keeps the game's gametype");
+	CHECK(network_host_game_entry_keeps("custom_maps\\hugeass"), "a Custom Edition map alone too");
+	CHECK(!network_host_game_entry_keeps("bloodgulch:ctf"), "a gametype named is played");
+	CHECK(!network_host_game_entry_keeps("bloodgulch:slayer+score=5"), "with its rules");
+	memset(&game, 0, sizeof(game));
+	wcscpy(game.variant.human_readable_game_description, L"CTF");
+	game.variant.universal_variant.score_to_win = 7;
+	game.variant.universal_variant.flags = 0x15;
+	game.variant_options.time_limit = 12;
+	memset(&entry, 0, sizeof(entry));
+	memset(&variant, 0, sizeof(variant));
+	memset(&options, 0, sizeof(options));
+	/* (network_host_game_change empties a map alone's gametype) */
+	CHECK(network_host_game_variant_kept(&entry, &game, &variant, &options), "a map alone keeps the lobby's");
+	CHECK(variant.universal_variant.score_to_win == 7 && options.time_limit == 12, "score %ld, time %d kept",
+		variant.universal_variant.score_to_win, (int)options.time_limit);
+	CHECK(variant.universal_variant.flags == 0x15, "the rules' flags kept: %lx", variant.universal_variant.flags);
+	CHECK(!wcscmp(variant.human_readable_game_description, L"CTF"), "the gametype kept");
+	memset(&variant, 0, sizeof(variant));
+	memset(&options, 0, sizeof(options));
+	strcpy(entry.gametype, "slayer");
+	CHECK(!network_host_game_variant_kept(&entry, &game, &variant, &options), "a gametype named is built");
+	CHECK(variant.universal_variant.score_to_win == 0 && options.time_limit == 0, "nothing of the lobby's taken");
+	entry.gametype[0] = 0;
+	CHECK(!network_host_game_variant_kept(&entry, NULL, &variant, &options), "no lobby's game: none kept");
+}
+
+/* MAPS' gametype of the list the game's is, by its name */
+static void case_find(void)
+{
+	static struct host_game_gametype gametypes[3];
+
+	memset(gametypes, 0, sizeof(gametypes));
+	wcscpy(gametypes[0].shown, L"Slayer");
+	wcscpy(gametypes[1].shown, L"CTF");
+	wcscpy(gametypes[2].shown, L"Oddball");
+	CHECK(network_host_game_gametype_find(gametypes, 3, L"CTF") == 1, "the game's CTF");
+	CHECK(network_host_game_gametype_find(gametypes, 3, L"Oddball") == 2, "the game's Oddball");
+	CHECK(network_host_game_gametype_find(gametypes, 3, L"Slayer Pro") == NONE, "a longer name is none of them");
+	CHECK(network_host_game_gametype_find(gametypes, 3, L"Team Slayer") == NONE, "not in the list: none");
+	CHECK(network_host_game_gametype_find(gametypes, 3, L"") == NONE, "no name: none");
+	CHECK(network_host_game_gametype_find(gametypes, 0, L"CTF") == NONE, "an empty list: none");
+}
+
 int main(int argc, char **argv)
 {
 	char const *case_name = argc > 1 ? argv[1] : "";
@@ -271,6 +350,10 @@ int main(int argc, char **argv)
 		case_ban();
 	else if (!strcmp(case_name, "saved"))
 		case_saved();
+	else if (!strcmp(case_name, "kept"))
+		case_kept();
+	else if (!strcmp(case_name, "find"))
+		case_find();
 	else
 
 	if (!strcmp(case_name, "playlist"))

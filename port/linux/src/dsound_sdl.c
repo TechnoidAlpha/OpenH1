@@ -100,6 +100,10 @@ voice is shifted either way (an octave) */
 #define DOPPLER_SPEED_OF_SOUND 343.0f
 #define DOPPLER_FACTOR 1.0f
 #define DOPPLER_MAXIMUM_RATIO 2.0f
+/* the time (seconds) a voice's shift takes to move most of the way (1 -
+1/e) to a new one: a velocity's change at a tick, a projectile's bounce,
+is a glide, not a step of pitch */
+#define DOPPLER_SMOOTHING_SECONDS 0.08f
 
 /* the HRTF (hrtf): the frames a voice keeps for its ears' delays, the head's
 radius (metres) and the speed of sound (metres a second), the head shadow's
@@ -272,6 +276,8 @@ struct sdl_stream
 	over the output rate) */
 	float current_left, current_right, current_room;
 	double current_step;
+	/* the Doppler shift heard, moving towards doppler_ratio's (doppler) */
+	float current_doppler;
 	float current_direct_lowpass, current_room_lowpass;
 	float current_surround[2][MAXIMUM_OUTPUT_CHANNELS];
 	BOOL gains_valid;
@@ -319,6 +325,12 @@ static struct listener_state
 static BOOL listener_changed;
 
 static float master_volume = 1.0f;
+/* audio.enabled, read again as the settings change (DirectSoundDoWork):
+false silences what is played, the mix going on as before so that the
+voices play out in time, as the game expects; the mixer's gain fades to it
+(sound_fade) */
+static volatile BOOL sound_on = TRUE;
+static float sound_gain = 1.0f;
 /* audio.doppler */
 static BOOL doppler_enabled = TRUE;
 /* whether mono 3D voices go through the HRTF: on headphones, audio.spatial;
@@ -522,7 +534,11 @@ listener to the source in metres a second (the distance factor's metres a
 unit), the source's away from the listener, the listener's towards the
 source. Each part is held within half the speed of sound, and the shift to
 an octave either way, so that a projectile passing close by, or a velocity
-that jumps (a teleport), takes no voice up out of hearing. */
+that jumps (a teleport), takes no voice up out of hearing. The mixer moves
+each voice's shift towards the one its velocities give over
+DOPPLER_SMOOTHING_SECONDS, so that a velocity that changes in steps (once a
+tick, or the frames' share of a tick's movement) glides the pitch rather than
+warbling it (doppler_smoothed). */
 
 static float doppler_ratio(const struct sdl_stream *stream)
 {
@@ -551,6 +567,21 @@ static float doppler_ratio(const struct sdl_stream *stream)
 	if (ratio < 1.0f / DOPPLER_MAXIMUM_RATIO)
 		ratio = 1.0f / DOPPLER_MAXIMUM_RATIO;
 	return ratio;
+}
+
+/* the shift a voice plays in a mix of frames: its doppler_ratio approached
+as a one-pole low pass, from where it was at the voice's last mix, or at
+once for a voice starting (its gains not valid) */
+static float doppler_smoothed(struct sdl_stream *stream, unsigned long frames)
+{
+	float target = doppler_ratio(stream);
+
+	if (!stream->gains_valid)
+		stream->current_doppler = target;
+	else
+		stream->current_doppler += (target - stream->current_doppler) *
+			(1.0f - expf(-(float)frames / (DOPPLER_SMOOTHING_SECONDS * OUTPUT_RATE)));
+	return stream->current_doppler;
 }
 
 /* ---------- the HRTF
@@ -906,6 +937,11 @@ static void voice_gains(const struct sdl_stream *stream, float *left, float *rig
 	*left *= stream->volume * master_volume;
 	*right *= stream->volume * master_volume;
 	*room *= stream->volume * master_volume;
+	/* (the HRTF's gain too: without it every mono 3D voice on headphones
+	played at full volume, whatever audio.volume, audio.effects_volume and
+	the game's own gain said, and only the 2D voices followed them) */
+	if (*hrtf_on)
+		hrtf_out->gain *= stream->volume * master_volume;
 }
 
 /* the 5.1 speakers around the listener, clockwise from the center, and
@@ -1351,7 +1387,7 @@ static void mix_voice(struct sdl_stream *stream, float *output, float *send, uns
 		return;
 	}
 	target_step = (double)(stream->frequency ? stream->frequency : stream->sample_rate) / OUTPUT_RATE *
-		doppler_ratio(stream);
+		doppler_smoothed(stream, frames);
 	/* (the step ramps from the last mix's to it, as the gains do) */
 	step = stream->gains_valid ? stream->current_step : target_step;
 	scale = resampler_scale(step > target_step ? step : target_step);
@@ -1631,26 +1667,39 @@ downloads), fed by every 3D voice's I3DL2 mix bin. The game sets the listener
 properties from the sound environment the camera is in (sound_dsound_xbox.c
 dsound_set_listener_properties), and each 3D voice's room send from its
 reverb attenuation and occlusion (dsound_channel_set_I3DL2_properties). This
-is a reverb of the I3DL2 model on those properties, not the DSP's program:
+is a reverb of the I3DL2 model on those properties, not the DSP's program
+(whose own conversion of the properties is the XDK's, which the game does not
+hold), as the model's authors define it (Dahl and Jot, "A Reverberator Based
+on Absorbent All-Pass Filters", DAFx 2000):
 	- each 3D voice sends to a mono bus at the listener's and its own room
 	  levels, occlusion included, their high frequency levels a low pass at the
 	  HF reference, attenuated with distance by the room rolloff factors
 	  (voice_gains);
-	- the early reflections are REVERB_TAPS taps of the bus, starting the
-	  reflections delay later, at the reflections level;
-	- the late reverberation starts the reverb delay after the reflections:
-	  all-pass diffusers as strong as the diffusion, then a feedback delay
-	  network of REVERB_LINES lines, as long as the density makes them, each
-	  losing what decays it by 60 dB in the decay time, and its high
-	  frequencies in the decay time times the HF ratio, at the reverb level.
-Both are normalized to the energy sent, so their levels are relative to the
-room level, as I3DL2 gives them. A change of environment crossfades each
+	- the early reflections are REVERB_TAPS taps of the bus, the first the
+	  reflections delay after the sound, the others spread over the reverb
+	  delay after it, the last where the late reverberation starts, at the
+	  reflections level;
+	- the late reverberation starts the reverb delay after the first
+	  reflection: all-pass diffusers as strong as the diffusion, then a
+	  feedback delay network of REVERB_LINES lines, as long as the density
+	  makes them, each losing what decays it by 60 dB in the decay time, and
+	  its high frequencies in the decay time times the HF ratio at the HF
+	  reference (a low pass; for a ratio over 1, the cave's, a high shelf),
+	  at the reverb level. Each line is heard a few milliseconds after what
+	  goes into it, so that it starts where it should, not a line's length
+	  later, and its read is moved earlier by as much of the diffusers'
+	  delay as their diffusion leaves a delay.
+Both levels are energies, relative to the room level, over the output
+channels together, as a 3D voice's direct path is 1 over them (the pan's
+power): each channel has half. A change of environment crossfades each
 delay's read from its old length to its new one, and each gain, over
 REVERB_FADE_FRAMES: what is reverberating carries on, without the click of a
-jump or the pitch shift of a sliding delay. audio.reverb = false fades the
-reverb out over as long and stops it. Once nothing has been sent for
-REVERB_QUIET_FRAMES and the reverberation is 120 dB down, the reverb stops
-until something is sent again (outdoors, in the menus). */
+jump or the pitch shift of a sliding delay; the game moves the environment a
+step each tick on the way to another (scenario.c), and each step waits for
+the fade to the last to end (mix). audio.reverb = false fades the reverb out
+over as long and stops it. Once nothing has been sent for REVERB_QUIET_FRAMES
+and the reverberation is 120 dB down, the reverb stops until something is
+sent again (outdoors, in the menus). */
 
 #define REVERB_DELAY_SIZE 32768 /* the reflections and reverb delays, 0.3 + 0.1 s at most, and the taps */
 #define REVERB_TAPS 6
@@ -1663,12 +1712,14 @@ until something is sent again (outdoors, in the menus). */
 #define REVERB_QUIET_FRAMES (REVERB_DELAY_SIZE + REVERB_DIFFUSERS * REVERB_DIFFUSER_SIZE)
 #define REVERB_QUIET_PEAK 1.0e-6f
 
-/* in milliseconds: the taps after the reflections delay, the diffusers, and
-the lines at full density */
-static const float reverb_tap_times[REVERB_TAPS] = { 0.0f, 3.1f, 5.3f, 7.9f, 11.2f, 14.9f };
+/* the taps after the reflections delay, as parts of the reverb delay; in
+milliseconds, the diffusers, the lines at full density, and where each line is
+heard, after what goes into it */
+static const float reverb_tap_times[REVERB_TAPS] = { 0.0f, 0.208f, 0.356f, 0.530f, 0.752f, 1.0f };
 static const float reverb_tap_signs[REVERB_TAPS] = { 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, -1.0f };
 static const float reverb_diffuser_times[REVERB_DIFFUSERS] = { 4.7f, 3.6f, 12.7f, 9.3f };
 static const float reverb_line_times[REVERB_LINES] = { 29.7f, 37.1f, 41.1f, 43.7f, 53.3f, 59.9f, 67.1f, 73.1f };
+static const float reverb_line_output_times[REVERB_LINES] = { 0.0f, 3.1f, 7.3f, 11.9f, 15.7f, 20.3f, 24.1f, 29.3f };
 /* which lines go in negated, and the two outputs' signs of the lines */
 static const float reverb_input_signs[REVERB_LINES] = { 1, -1, -1, 1, 1, -1, -1, 1 };
 static const float reverb_left_signs[REVERB_LINES] = { 1, -1, 1, -1, 1, -1, 1, -1 };
@@ -1680,9 +1731,10 @@ struct reverb_parameters
 	unsigned long taps[REVERB_TAPS];
 	unsigned long late_delay;
 	unsigned long lengths[REVERB_LINES];
-	/* each line's gain a pass, and its low pass's coefficient */
+	/* each line's gain a pass, and its filter's coefficients (y = b0 x + b1
+	x' - a1 y') */
 	float feedback[REVERB_LINES];
-	float damping[REVERB_LINES];
+	float damping_b0[REVERB_LINES], damping_b1[REVERB_LINES], damping_a1[REVERB_LINES];
 	float reflections_gain, late_gain;
 	float diffusion;
 };
@@ -1715,8 +1767,10 @@ static struct
 
 	float lines[REVERB_LINES][REVERB_LINE_SIZE];
 	unsigned long line_position;
-	/* each line's low pass */
+	unsigned long line_output_delays[REVERB_LINES];
+	/* each line's filter's last output and input */
 	float lowpass[REVERB_LINES];
+	float lowpass_input[REVERB_LINES];
 } reverb;
 
 static float clamp_real(float value, float minimum, float maximum)
@@ -1747,15 +1801,42 @@ static float reverb_blend(float from, float to, float fade)
 	return from + (to - from) * fade;
 }
 
+/* a line's filter, whose gain is 1 at low frequencies and gain at the
+frequency of hertz: for a gain under 1 a low pass (lowpass_coefficient), as
+the model's lines have; for one over 1 (a decay HF ratio over 1), which no low
+pass gives, a high shelf of gain^2, its middle (gain) at hertz, held so that
+with the line's feedback no frequency comes back louder than it went in */
+static void reverb_damping_set(struct reverb_parameters *parameters, int line, float gain, float hertz)
+{
+	float shelf, u;
+
+	if (gain <= 1.0f)
+	{
+		float a = lowpass_coefficient(gain, frequency_cosine(hertz));
+
+		parameters->damping_b0[line] = 1.0f - a;
+		parameters->damping_b1[line] = 0.0f;
+		parameters->damping_a1[line] = -a;
+		return;
+	}
+	shelf = gain * gain;
+	if (shelf * parameters->feedback[line] > 0.999f)
+		shelf = 0.999f / parameters->feedback[line];
+	/* H(s) = (shelf s / w + 1) / (s / w + 1), by the bilinear transform:
+	its gain is sqrt(shelf) at w / sqrt(shelf), put at hertz */
+	u = 1.0f / (tanf(3.14159265f * clamp_real(hertz, 20.0f, 0.45f * OUTPUT_RATE) / OUTPUT_RATE) * sqrtf(shelf));
+	parameters->damping_b0[line] = (shelf * u + 1.0f) / (u + 1.0f);
+	parameters->damping_b1[line] = (1.0f - shelf * u) / (u + 1.0f);
+	parameters->damping_a1[line] = (1.0f - u) / (u + 1.0f);
+}
+
 static void reverb_parameters_set(struct reverb_parameters *parameters, const DSI3DL2LISTENER *properties)
 {
 	float decay = clamp_real(properties->flDecayTime, 0.1f, 20.0f);
-	/* a low pass loses high frequencies; a ratio over 1 would need them to
-	last longer */
-	float high_decay = decay * clamp_real(properties->flDecayHFRatio, 0.1f, 1.0f);
+	float high_decay = decay * clamp_real(properties->flDecayHFRatio, 0.1f, 2.0f);
 	float scale = 0.25f + 0.75f * clamp_real(properties->flDensity / 100.0f, 0.0f, 1.0f);
-	float cosine = frequency_cosine(properties->flHFReference);
-	float mean_length = 0.0f, mean_feedback;
+	float reflections_span = clamp_real(properties->flReverbDelay, 0.001f, 0.1f);
+	float mean_length = 0.0f, mean_feedback, diffuser_delay = 0.0f, late_delay;
 	unsigned long reflections_delay;
 	int index;
 
@@ -1767,20 +1848,30 @@ static void reverb_parameters_set(struct reverb_parameters *parameters, const DS
 		parameters->lengths[index] = (unsigned long)length;
 		parameters->feedback[index] = powf(10.0f, -3.0f * length / (decay * OUTPUT_RATE));
 		high_feedback = powf(10.0f, -3.0f * length / (high_decay * OUTPUT_RATE));
-		parameters->damping[index] = lowpass_coefficient(high_feedback / parameters->feedback[index], cosine);
+		reverb_damping_set(parameters, index, high_feedback / parameters->feedback[index], properties->flHFReference);
 		mean_length += length / REVERB_LINES;
 	}
 	mean_feedback = powf(10.0f, -3.0f * mean_length / (decay * OUTPUT_RATE));
-	reflections_delay = reverb_samples(clamp_real(properties->flReflectionsDelay, 0.0f, 0.3f));
-	for (index = 0; index < REVERB_TAPS; index++)
-		parameters->taps[index] = reflections_delay + reverb_samples(reverb_tap_times[index] * 0.001f);
-	parameters->late_delay = reflections_delay + reverb_samples(clamp_real(properties->flReverbDelay, 0.0f, 0.1f));
-	/* the taps' energy, half of them to each side; the network's, whose
-	sound circulates until it decays */
-	parameters->reflections_gain = gain_from_millibels(properties->lReflections) /
-		sqrtf((float)REVERB_TAPS / OUTPUT_CHANNELS);
-	parameters->late_gain = gain_from_millibels(properties->lReverb) * sqrtf(1.0f - mean_feedback * mean_feedback);
 	parameters->diffusion = 0.7f * clamp_real(properties->flDiffusion / 100.0f, 0.0f, 1.0f);
+	reflections_delay = reverb_samples(clamp_real(properties->flReflectionsDelay, 0.0f, 0.3f));
+	/* the reflections span the reverb delay, the last where the late
+	reverberation starts */
+	for (index = 0; index < REVERB_TAPS; index++)
+		parameters->taps[index] = reflections_delay + reverb_samples(reverb_tap_times[index] * reflections_span);
+	/* the diffusers delay what they do not diffuse: all of it at no
+	diffusion (a diffuser of no gain is a delay), little at full; so much is
+	taken from the late reverberation's read, as far as it goes */
+	for (index = 0; index < REVERB_DIFFUSERS; index++)
+		diffuser_delay += reverb_diffuser_times[index] * 0.001f;
+	late_delay = clamp_real(properties->flReflectionsDelay, 0.0f, 0.3f) +
+		clamp_real(properties->flReverbDelay, 0.0f, 0.1f) - diffuser_delay * (1.0f - parameters->diffusion / 0.7f);
+	parameters->late_delay = reverb_samples(late_delay > 0.0f ? late_delay : 0.0f);
+	/* the energies over the output channels together, half to each: the
+	taps', half of them to each side; the network's, whose sound circulates
+	until it decays */
+	parameters->reflections_gain = gain_from_millibels(properties->lReflections) / sqrtf((float)REVERB_TAPS);
+	parameters->late_gain = gain_from_millibels(properties->lReverb) *
+		sqrtf((1.0f - mean_feedback * mean_feedback) / OUTPUT_CHANNELS);
 }
 
 /* a new environment, faded to unless the reverb is silent. The game sets the
@@ -1804,6 +1895,7 @@ static void reverb_clear(void)
 	memset(reverb.diffusers, 0, sizeof(reverb.diffusers));
 	memset(reverb.lines, 0, sizeof(reverb.lines));
 	memset(reverb.lowpass, 0, sizeof(reverb.lowpass));
+	memset(reverb.lowpass_input, 0, sizeof(reverb.lowpass_input));
 	reverb.from = reverb.to;
 	reverb.fade = 0;
 	reverb.silent = TRUE;
@@ -1816,6 +1908,8 @@ static void reverb_initialize(void)
 
 	for (index = 0; index < REVERB_DIFFUSERS; index++)
 		reverb.diffuser_lengths[index] = reverb_samples(reverb_diffuser_times[index] * 0.001f);
+	for (index = 0; index < REVERB_LINES; index++)
+		reverb.line_output_delays[index] = reverb_samples(reverb_line_output_times[index] * 0.001f);
 	reverb.silent = TRUE;
 	reverb.level = reverb_enabled ? 1.0f : 0.0f;
 	reverb_update(&environment, environment_serial);
@@ -1861,25 +1955,36 @@ static void reverb_process(const float *send, float *output, unsigned long frame
 		}
 		reverb.diffuser_position++;
 
-		/* the network: each line's output is damped and heard, then decayed
-		and mixed back into every line by a Householder reflection */
+		/* the network: each line's output is damped and decayed, and mixed
+		back into every line by a Householder reflection, with the diffused
+		bus. Each line is heard a little after what goes into it, each a
+		different time (reverb_line_output_times): heard at its end, the late
+		reverberation came a line's length (30 ms or more) after the reverb
+		delay, and heard as it goes in, the input's signs and the outputs' (a
+		Hadamard matrix's rows) cancel it */
 		for (index = 0; index < REVERB_LINES; index++)
 		{
 			float line_output = reverb_read(reverb.lines[index], REVERB_LINE_SIZE - 1, reverb.line_position,
 				from->lengths[index], to->lengths[index], fade);
-			float damping = reverb_blend(from->damping[index], to->damping[index], fade);
+			float filtered = reverb_blend(from->damping_b0[index], to->damping_b0[index], fade) * line_output +
+				reverb_blend(from->damping_b1[index], to->damping_b1[index], fade) * reverb.lowpass_input[index] -
+				reverb_blend(from->damping_a1[index], to->damping_a1[index], fade) * reverb.lowpass[index];
 
-			reverb.lowpass[index] = flush_denormal(line_output + damping * (reverb.lowpass[index] - line_output));
-			late_left += reverb_left_signs[index] * reverb.lowpass[index];
-			late_right += reverb_right_signs[index] * reverb.lowpass[index];
+			reverb.lowpass_input[index] = line_output;
+			reverb.lowpass[index] = flush_denormal(filtered);
 			outputs[index] = reverb.lowpass[index] * reverb_blend(from->feedback[index], to->feedback[index], fade);
 			feedback_sum += outputs[index];
 		}
 		feedback_sum *= 2.0f / REVERB_LINES;
 		for (index = 0; index < REVERB_LINES; index++)
 		{
-			reverb.lines[index][reverb.line_position & (REVERB_LINE_SIZE - 1)] =
-				flush_denormal(outputs[index] - feedback_sum + value * reverb_input_signs[index] * input_scale);
+			float heard;
+
+			reverb.lines[index][reverb.line_position & (REVERB_LINE_SIZE - 1)] = flush_denormal(outputs[index] -
+				feedback_sum + value * reverb_input_signs[index] * input_scale);
+			heard = reverb.lines[index][(reverb.line_position - reverb.line_output_delays[index]) & (REVERB_LINE_SIZE - 1)];
+			late_left += reverb_left_signs[index] * heard;
+			late_right += reverb_right_signs[index] * heard;
 		}
 		reverb.line_position++;
 
@@ -1964,6 +2069,33 @@ static struct
 	unsigned long position;
 	BOOL initialized;
 } limiter;
+
+/* the sound turned off or on (audio.enabled, Settings > Audio's SOUND) as
+it plays: the output's gain faded to 0 or 1 over SOUND_FADE_FRAMES, with
+no click, and held there; the gain it reached */
+#define SOUND_FADE_FRAMES 480
+static float sound_fade(float *output, unsigned long frames, unsigned long channels, float gain, BOOL on)
+{
+	float target = on ? 1.0f : 0.0f;
+	unsigned long frame, channel;
+
+	if (gain == target)
+	{
+		if (!on)
+			memset(output, 0, frames * channels * sizeof(float));
+		return gain;
+	}
+	for (frame = 0; frame < frames; frame++)
+	{
+		if (gain < target)
+			gain = gain + 1.0f / SOUND_FADE_FRAMES < target ? gain + 1.0f / SOUND_FADE_FRAMES : target;
+		else if (gain > target)
+			gain = gain - 1.0f / SOUND_FADE_FRAMES > target ? gain - 1.0f / SOUND_FADE_FRAMES : target;
+		for (channel = 0; channel < channels; channel++)
+			output[frame * channels + channel] *= gain;
+	}
+	return gain;
+}
 
 static void limit(float *output, unsigned long frames)
 {
@@ -2318,7 +2450,7 @@ static void voices_report_make(void)
 		heard) */
 		if (report->hrtf_on && hrtf_enabled && output_channels == 2)
 			report->left_gain = report->right_gain = report->parameters.gain;
-		report->doppler = doppler_ratio(stream);
+		report->doppler = stream->current_doppler;
 		voices_report.count++;
 	}
 	voices_report.ready = TRUE;
@@ -2435,6 +2567,95 @@ they mixed, since the log last said */
 static Uint64 mix_nanoseconds;
 static unsigned long mix_frames;
 
+/* ---------- buffers (the mixer's side)
+
+The game's buffers: the loading screen's chant (progress_bar.c: one sound,
+looped, as four voices at their pitches, each swelling with the load's
+progress), and a silent looping one that keeps the voice processor busy.
+A buffer's sound is decoded once as its data is set (Xbox ADPCM or 16-bit
+PCM, mono or stereo), and played from the start, looped or once, at its
+pitch (the playback rate: 48 kHz times two to the pitch over 4096) and
+volume (millibels, under audio.effects_volume and audio.volume), mixed in
+the front pair, dry. The game's side and the mixer's share buffers_lock. */
+
+struct sdl_buffer
+{
+	ULONG reference_count;
+	/* its format, and its sound decoded (frames of channels) */
+	DWORD format, channels;
+	short *samples;
+	unsigned long frames;
+	/* the game's: playing, looped, its rate (frames a second) and gain */
+	BOOL playing, looping;
+	double rate;
+	float gain;
+	/* the mixer's: where it plays, in frames, and its gain as it goes to
+	the game's (no click as a voice comes in, changes or stops: Stop lets
+	it fade out first) */
+	double position;
+	float current;
+	BOOL stopping;
+	struct sdl_buffer *link;
+};
+
+static pthread_mutex_t buffers_lock = PTHREAD_MUTEX_INITIALIZER;
+static struct sdl_buffer *buffers;
+
+/* (the mixer's thread) the buffers that play, added to output */
+static void mix_buffers(float *output, unsigned long frames)
+{
+	struct sdl_buffer *buffer;
+
+	pthread_mutex_lock(&buffers_lock);
+	for (buffer = buffers; buffer; buffer = buffer->link)
+	{
+		double step = buffer->rate / OUTPUT_RATE;
+		float gain = buffer->stopping ? 0.0f : buffer->gain * master_volume;
+		unsigned long frame;
+
+		if (!buffer->playing || !buffer->samples || !buffer->frames || step <= 0.0)
+			continue;
+		if (buffer->stopping && buffer->current < 1e-4f)
+		{
+			buffer->playing = buffer->stopping = FALSE;
+			buffer->current = 0.0f;
+			continue;
+		}
+		for (frame = 0; frame < frames; frame++)
+		{
+			/* (a twentieth of a second to a new gain) */
+			buffer->current += (gain - buffer->current) * (1.0f / (0.05f * OUTPUT_RATE / 4.0f));
+			unsigned long index = (unsigned long)buffer->position, next = index + 1;
+			float fraction = (float)(buffer->position - (double)index), left, right;
+
+			if (next >= buffer->frames)
+				next = buffer->looping ? 0 : index;
+			if (buffer->channels == 2)
+			{
+				left = buffer->samples[index * 2] + (buffer->samples[next * 2] - buffer->samples[index * 2]) * fraction;
+				right = buffer->samples[index * 2 + 1] +
+					(buffer->samples[next * 2 + 1] - buffer->samples[index * 2 + 1]) * fraction;
+			}
+			else
+				left = right = buffer->samples[index] + (buffer->samples[next] - buffer->samples[index]) * fraction;
+			output[frame * output_channels] += left * buffer->current * (1.0f / 32768.0f);
+			output[frame * output_channels + 1] += right * buffer->current * (1.0f / 32768.0f);
+			buffer->position += step;
+			if (buffer->position >= (double)buffer->frames)
+			{
+				if (!buffer->looping)
+				{
+					buffer->playing = FALSE;
+					buffer->position = 0.0;
+					break;
+				}
+				buffer->position -= (double)buffer->frames * (unsigned long)(buffer->position / (double)buffer->frames);
+			}
+		}
+	}
+	pthread_mutex_unlock(&buffers_lock);
+}
+
 /* a mix of frames into output: the game's side taken over first, waiting
 for it only without a device (wait) */
 static void mix(float *output, unsigned long frames, BOOL wait)
@@ -2449,6 +2670,8 @@ static void mix(float *output, unsigned long frames, BOOL wait)
 	for (stream = mixing_streams; stream; stream = stream->mixing_link)
 		mix_voice(stream, output, reverb.send, frames);
 	voices_publish(wait);
+	/* (the game's buffers: the loading screen's chant) */
+	mix_buffers(output, frames);
 	/* a new environment, once the fade to the last is over */
 	if (reverb.serial != environment_serial && !reverb.fade)
 		reverb_update(&environment, environment_serial);
@@ -2480,6 +2703,7 @@ static void mix(float *output, unsigned long frames, BOOL wait)
 		voice_audio_mix(output, frames);
 	}
 	limit(output, frames);
+	sound_gain = sound_fade(output, frames, output_channels, sound_gain, sound_on);
 	record(output, frames);
 	mix_nanoseconds += SDL_GetTicksNS() - started;
 	mix_frames += frames;
@@ -2796,15 +3020,24 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
 }
 
 /* without a device, drain voices in real time */
-/* debug.audio_record with debug.frame_time (footage: the frames drawn at
-a fixed time each, slower or faster than the clock): the mix paced by the
-frames instead, each drawn frame owing its time's sound, which the frame
-waits to be mixed (dsound_sdl_frame), so that the recording keeps step with
-the pictures */
+/* the frames' time fixed (debug.frame_time, debug.fixed_step: footage, the
+frames drawn at a fixed time each, slower or faster than the clock, and the
+tests): the mix paced by the frames instead, with no device, each frame
+owing its time's sound, which the frame waits to be mixed (dsound_sdl_frame),
+so that a recording keeps step with the pictures and two runs of the same
+input hear the same (port/linux/game/frames_clock.c) */
+int frames_clock(unsigned long *milliseconds);
 static BOOL paced;
 static pthread_mutex_t paced_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t paced_condition = PTHREAD_COND_INITIALIZER;
 static double paced_owed;
+
+/* the silent clocks running, and whether they are asked to stop (a device
+opened in their place: silent_clock_stop) */
+static pthread_mutex_t silent_clock_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t silent_clock_condition = PTHREAD_COND_INITIALIZER;
+static int silent_clocks;
+static BOOL silent_clock_stopping;
 
 static void *silent_clock_thread(void *parameter)
 {
@@ -2827,6 +3060,15 @@ static void *silent_clock_thread(void *parameter)
 	clock_gettime(CLOCK_MONOTONIC, &next);
 	for (;;)
 	{
+		pthread_mutex_lock(&silent_clock_lock);
+		if (silent_clock_stopping)
+		{
+			silent_clocks--;
+			pthread_cond_broadcast(&silent_clock_condition);
+			pthread_mutex_unlock(&silent_clock_lock);
+			return NULL;
+		}
+		pthread_mutex_unlock(&silent_clock_lock);
 		mix(buffer, 480, TRUE);
 		next.tv_nsec += 10000000L;
 		if (next.tv_nsec >= 1000000000L)
@@ -2839,7 +3081,37 @@ static void *silent_clock_thread(void *parameter)
 	return NULL;
 }
 
-/* (the presenting thread, each frame drawn) its time's sound owed to a
+/* a silent clock started: the voices drained in real time, without a device */
+static void silent_clock_start(void)
+{
+	pthread_t thread;
+
+	pthread_mutex_lock(&silent_clock_lock);
+	silent_clocks++;
+	pthread_mutex_unlock(&silent_clock_lock);
+	if (pthread_create(&thread, NULL, silent_clock_thread, NULL))
+	{
+		pthread_mutex_lock(&silent_clock_lock);
+		silent_clocks--;
+		pthread_mutex_unlock(&silent_clock_lock);
+		return;
+	}
+	pthread_detach(thread);
+}
+
+/* the silent clocks stopped, waited for, so that a device's mix is the only
+one (a paced mix's never stops: it has no device to open) */
+static void silent_clock_stop(void)
+{
+	pthread_mutex_lock(&silent_clock_lock);
+	silent_clock_stopping = TRUE;
+	while (silent_clocks > 0)
+		pthread_cond_wait(&silent_clock_condition, &silent_clock_lock);
+	silent_clock_stopping = FALSE;
+	pthread_mutex_unlock(&silent_clock_lock);
+}
+
+/* (the main thread, each frame: frames_clock.c) its time's sound owed to a
 paced mix, waited for */
 void dsound_sdl_frame(double seconds)
 {
@@ -3053,11 +3325,8 @@ static void timing_check(void)
 		logged_at = now;
 		if (!audio_stream)
 		{
-			pthread_t thread;
-
 			platform_log("audio: cannot open an audio device (%s); sound is silent", SDL_GetError());
-			pthread_create(&thread, NULL, silent_clock_thread, NULL);
-			pthread_detach(thread);
+			silent_clock_start();
 		}
 		return;
 	}
@@ -3077,17 +3346,19 @@ static void audio_start(void)
 	master_volume = (float)config_real("audio.volume");
 	reverb_enabled = config_boolean("audio.reverb");
 	doppler_enabled = config_boolean("audio.doppler");
+	sound_on = config_boolean("audio.enabled");
+	sound_gain = sound_on ? 1.0f : 0.0f;
 	resampler_mode = resampler_mode_read();
 	resampler_initialize();
 	resampler_phases_initialize();
 	reverb_initialize();
 	hrtf_initialize();
 	record_open();
-	paced = record_file && config_real("debug.frame_time") > 0.0;
+	paced = frames_clock(NULL);
 	if (paced)
-		platform_log("sound: recorded in step with the frames (debug.frame_time), no device");
+		platform_log("sound: mixed in step with the frames (debug.frame_time, debug.fixed_step), no device");
 
-	if (!paced && config_boolean("audio.enabled") && platform_sdl_initialize())
+	if (!paced && sound_on && platform_sdl_initialize())
 	{
 		snprintf(audio_device_name, sizeof(audio_device_name), "%s", audio_device_setting());
 		output_channels = choose_output_channels(platform_audio_device(FALSE, audio_device_name));
@@ -3100,19 +3371,50 @@ static void audio_start(void)
 		platform_log("cannot open an audio device (%s); sound is silent", SDL_GetError());
 		output_channels = 2;
 	}
-	{
-		pthread_t thread;
+	silent_clock_start();
+}
 
-		pthread_create(&thread, NULL, silent_clock_thread, NULL);
-		pthread_detach(thread);
+/* whether to open a device now: the sound turned on (audio.enabled) with
+none open (the game started with it off, or none could open), once for each
+change of the settings, never for a mix paced by the frames */
+static BOOL sound_device_wanted(BOOL started, BOOL paced_mix, BOOL on, BOOL open, unsigned long read_at,
+	unsigned long changes)
+{
+	return started && !paced_mix && on && !open && read_at != changes;
+}
+
+/* the sound turned on with no device: one opened, its mix in the silent
+clock's place (which stops first, so that only one mixes) */
+static void sound_device_open(void)
+{
+	audio_device_read_at = config_changes();
+	if (!platform_sdl_initialize())
+		return;
+	silent_clock_stop();
+	snprintf(audio_device_name, sizeof(audio_device_name), "%s", audio_device_setting());
+	buffer_frames_choose();
+	audio_stream = audio_open();
+	if (audio_stream)
+	{
+		platform_log("audio: the sound is on: playing on %s (%s)", audio_device_name,
+			output_channels == 6 ? "5.1 surround" : "stereo");
+		return;
 	}
+	platform_log("audio: cannot open an audio device (%s); sound is silent", SDL_GetError());
+	silent_clock_start();
 }
 
 /* (the event thread, each frame: sdl_platform.c) audio.output_device
 changed (Settings > Audio): the sound goes on on the new device, else the
-system's default */
+system's default; audio.enabled turned on with no device open: one opened
+(sound_device_open) */
 void dsound_sdl_output_device_check(void)
 {
+	if (sound_device_wanted(audio_started, paced, sound_on, audio_stream != NULL, audio_device_read_at,
+		config_changes()))
+	{
+		sound_device_open();
+	}
 	if (!audio_stream)
 		return;
 	device_timing_changed();
@@ -3131,12 +3433,9 @@ void dsound_sdl_output_device_check(void)
 	}
 	else
 	{
-		pthread_t thread;
-
 		/* (none at all: the voices drained in real time, as at the start) */
 		platform_log("audio: cannot open an audio device (%s); sound is silent", SDL_GetError());
-		pthread_create(&thread, NULL, silent_clock_thread, NULL);
-		pthread_detach(thread);
+		silent_clock_start();
 	}
 }
 
@@ -3502,8 +3801,8 @@ VOID WINAPI DirectSoundDoWork(void)
 	static BOOL hrtf_setting;
 #endif
 
-	/* (audio.volume, audio.reverb, audio.doppler and audio.resampler read
-	again when the settings change: on the game's thread, not the mixer's,
+	/* (audio.volume, audio.reverb, audio.doppler, audio.enabled and
+	audio.resampler read again when the settings change: on the game's thread, not the mixer's,
 	whose lock the config's file I/O would hold) */
 	if (volume_read_at != config_changes())
 	{
@@ -3511,6 +3810,7 @@ VOID WINAPI DirectSoundDoWork(void)
 		master_volume = (float)config_real("audio.volume");
 		reverb_enabled = config_boolean("audio.reverb");
 		doppler_enabled = config_boolean("audio.doppler");
+		sound_on = config_boolean("audio.enabled");
 		log_voices = config_boolean("debug.audio_log");
 		snprintf(spatial_setting, sizeof(spatial_setting), "%s", config_string("audio.spatial"));
 #ifdef HALO_VR
@@ -3872,27 +4172,28 @@ HRESULT WINAPI IDirectSoundStream_SetConeAngles(LPDIRECTSOUNDSTREAM stream, DWOR
 HRESULT WINAPI IDirectSoundStream_SetConeOrientation(LPDIRECTSOUNDSTREAM stream, FLOAT x, FLOAT y, FLOAT z, DWORD apply) { (void)stream; (void)x; (void)y; (void)z; (void)apply; return DS_OK; }
 HRESULT WINAPI IDirectSoundStream_SetConeOutsideVolume(LPDIRECTSOUNDSTREAM stream, LONG volume, DWORD apply) { (void)stream; (void)volume; (void)apply; return DS_OK; }
 
-/* ---------- buffers
-
-The game's only buffer is a silent looping one that keeps the voice
-processor busy; it needs no mixing. */
-
-struct null_buffer
-{
-	ULONG reference_count;
-	LPVOID data;
-	DWORD size;
-	BOOL playing;
-};
+/* ---------- buffers (the game's side; the mixer's is mix_buffers) */
 
 HRESULT WINAPI DirectSoundCreateBuffer(LPCDSBUFFERDESC description, LPDIRECTSOUNDBUFFER *result)
 {
-	struct null_buffer *buffer = calloc(1, sizeof(*buffer));
+	struct sdl_buffer *buffer = calloc(1, sizeof(*buffer));
 
-	(void)description;
 	if (!buffer)
 		return E_OUTOFMEMORY;
 	buffer->reference_count = 1;
+	buffer->rate = 48000.0;
+	buffer->gain = (float)config_real("audio.effects_volume");
+	if (description && description->lpwfxFormat)
+	{
+		buffer->format = description->lpwfxFormat->wFormatTag;
+		buffer->channels = description->lpwfxFormat->nChannels;
+		if (description->lpwfxFormat->nSamplesPerSec)
+			buffer->rate = (double)description->lpwfxFormat->nSamplesPerSec;
+	}
+	pthread_mutex_lock(&buffers_lock);
+	buffer->link = buffers;
+	buffers = buffer;
+	pthread_mutex_unlock(&buffers_lock);
 	*result = (LPDIRECTSOUNDBUFFER)buffer;
 	return DS_OK;
 }
@@ -3907,39 +4208,200 @@ HRESULT WINAPI IDirectSound_CreateSoundBuffer(LPDIRECTSOUND sound, LPCDSBUFFERDE
 
 ULONG WINAPI IDirectSoundBuffer_Release(LPDIRECTSOUNDBUFFER buffer)
 {
-	struct null_buffer *record = (struct null_buffer *)buffer;
+	struct sdl_buffer *record = (struct sdl_buffer *)buffer, **link;
 	ULONG count = --record->reference_count;
 
 	if (!count)
+	{
+		/* (out of the mixer's list before it is freed) */
+		pthread_mutex_lock(&buffers_lock);
+		for (link = &buffers; *link; link = &(*link)->link)
+		{
+			if (*link == record)
+			{
+				*link = record->link;
+				break;
+			}
+		}
+		pthread_mutex_unlock(&buffers_lock);
+		free(record->samples);
 		free(record);
+	}
 	return count;
 }
 
 HRESULT WINAPI IDirectSoundBuffer_SetBufferData(LPDIRECTSOUNDBUFFER buffer, LPVOID data, DWORD size)
 {
-	struct null_buffer *record = (struct null_buffer *)buffer;
+	struct sdl_buffer *record = (struct sdl_buffer *)buffer;
+	unsigned long channels = record->channels == 2 ? 2 : 1, frames = 0;
+	short *samples = NULL, *old;
 
-	record->data = data;
-	record->size = size;
+	if (data && size && record->format == WAVE_FORMAT_XBOX_ADPCM)
+		samples = decode_adpcm(data, size, channels, &frames);
+	else if (data && size && record->format == WAVE_FORMAT_PCM)
+		samples = decode_pcm(data, size, channels, &frames);
+	/* (a silent sound, the voice processor's keep-alive, is not mixed) */
+	if (samples)
+	{
+		unsigned long index;
+
+		for (index = 0; index < frames * channels && !samples[index]; index++)
+			;
+		if (index == frames * channels)
+		{
+			free(samples);
+			samples = NULL;
+		}
+	}
+	pthread_mutex_lock(&buffers_lock);
+	old = record->samples;
+	record->samples = samples;
+	record->frames = samples ? frames : 0;
+	record->channels = channels;
+	record->position = 0.0;
+	pthread_mutex_unlock(&buffers_lock);
+	free(old);
 	return DS_OK;
 }
 
 HRESULT WINAPI IDirectSoundBuffer_Play(LPDIRECTSOUNDBUFFER buffer, DWORD reserved1, DWORD reserved2, DWORD flags)
 {
+	struct sdl_buffer *record = (struct sdl_buffer *)buffer;
+
 	(void)reserved1;
 	(void)reserved2;
-	(void)flags;
-	((struct null_buffer *)buffer)->playing = TRUE;
+	pthread_mutex_lock(&buffers_lock);
+	record->looping = (flags & DSBPLAY_LOOPING) != 0;
+	if (!record->playing)
+		record->current = 0.0f;
+	record->playing = TRUE;
+	record->stopping = FALSE;
+	pthread_mutex_unlock(&buffers_lock);
 	return DS_OK;
 }
 
+/* (it fades out over a twentieth of a second, then stops) */
 HRESULT WINAPI IDirectSoundBuffer_Stop(LPDIRECTSOUNDBUFFER buffer)
 {
-	((struct null_buffer *)buffer)->playing = FALSE;
+	pthread_mutex_lock(&buffers_lock);
+	((struct sdl_buffer *)buffer)->stopping = ((struct sdl_buffer *)buffer)->playing;
+	pthread_mutex_unlock(&buffers_lock);
 	return DS_OK;
 }
 
-HRESULT WINAPI IDirectSoundBuffer_SetCurrentPosition(LPDIRECTSOUNDBUFFER buffer, DWORD play_cursor) { (void)buffer; (void)play_cursor; return DS_OK; }
+/* ---------- the loading screen's chant
+
+The Xbox's loading screen played a monk's chant under it
+(progress_bar.c's compressed_monk_tone, a second and a half of Xbox ADPCM
+at 22 kHz, looped): four voices of it at four pitches, each coming in as
+the load reaches its share of it (from the start, 40, 50 and 55 per cent)
+and swelling and fading over the rest, as the sine of how far through it
+is, to the 0.3. progress_bar.c's own voices are not made in the port
+(its draws are the presenter's, its frames do not keep time with them):
+the loading screen's begin, progress and end play these. */
+
+#define LOADING_CHANT_VOICES 4
+
+/* (progress_bar.c) */
+extern unsigned char compressed_monk_tone[18396];
+
+static LPDIRECTSOUNDBUFFER loading_chant_voices[LOADING_CHANT_VOICES];
+
+void platform_loading_chant(int playing, float progress)
+{
+	static const float ranges[LOADING_CHANT_VOICES][2] = { { 0.0f, 1.0f }, { 0.4f, 1.0f }, { 0.5f, 1.0f }, { 0.55f, 1.0f } };
+	static const float volumes[LOADING_CHANT_VOICES] = { 3500.0f, 4500.0f, 3500.0f, 4500.0f };
+	static const LONG pitches[LOADING_CHANT_VOICES] = { -4681, -6386, -3999, -8773 };
+	static BOOL started;
+	long voice;
+
+	if (!playing)
+	{
+		if (started)
+			for (voice = 0; voice < LOADING_CHANT_VOICES; voice++)
+				if (loading_chant_voices[voice])
+					IDirectSoundBuffer_Stop(loading_chant_voices[voice]);
+		started = FALSE;
+		return;
+	}
+	if (!started)
+	{
+		WAVEFORMATEX format;
+		DSBUFFERDESC description;
+
+		memset(&format, 0, sizeof(format));
+		format.wFormatTag = WAVE_FORMAT_XBOX_ADPCM;
+		format.nChannels = 1;
+		format.nSamplesPerSec = 22050;
+		format.wBitsPerSample = 4;
+		format.nBlockAlign = 36;
+		memset(&description, 0, sizeof(description));
+		description.dwSize = sizeof(description);
+		description.lpwfxFormat = &format;
+		for (voice = 0; voice < LOADING_CHANT_VOICES; voice++)
+		{
+			if (!loading_chant_voices[voice])
+			{
+				if (DirectSoundCreateBuffer(&description, &loading_chant_voices[voice]) != DS_OK)
+					return;
+				IDirectSoundBuffer_SetBufferData(loading_chant_voices[voice], compressed_monk_tone,
+					sizeof(compressed_monk_tone));
+				IDirectSoundBuffer_SetPitch(loading_chant_voices[voice], pitches[voice]);
+			}
+			IDirectSoundBuffer_SetCurrentPosition(loading_chant_voices[voice], 0);
+			IDirectSoundBuffer_SetVolume(loading_chant_voices[voice], -5000);
+			IDirectSoundBuffer_Play(loading_chant_voices[voice], 0, 0, DSBPLAY_LOOPING);
+		}
+		started = TRUE;
+	}
+	if (!(progress == progress))
+		progress = 0.0f;
+	progress = progress < 0.0f ? 0.0f : progress > 1.0f ? 1.0f : progress;
+	for (voice = 0; voice < LOADING_CHANT_VOICES; voice++)
+	{
+		float t = progress < ranges[voice][0] || progress > ranges[voice][1] ? 0.0f :
+			(progress - ranges[voice][0]) / (ranges[voice][1] - ranges[voice][0]);
+		float swell = sinf(t * 3.1415f);
+
+		IDirectSoundBuffer_SetVolume(loading_chant_voices[voice],
+			(LONG)((swell > 0.0f ? powf(swell, 0.3f) : 0.0f) * volumes[voice] - 5000.0f));
+	}
+}
+
+HRESULT WINAPI IDirectSoundBuffer_SetCurrentPosition(LPDIRECTSOUNDBUFFER buffer, DWORD play_cursor)
+{
+	struct sdl_buffer *record = (struct sdl_buffer *)buffer;
+
+	/* (bytes, of 16-bit PCM; an ADPCM buffer's only from its start) */
+	pthread_mutex_lock(&buffers_lock);
+	record->position = record->format == WAVE_FORMAT_PCM && record->frames ?
+		(double)((play_cursor / (2u * record->channels)) % record->frames) : 0.0;
+	pthread_mutex_unlock(&buffers_lock);
+	return DS_OK;
+}
+
+/* (the whole buffer loops: the game's loops are its whole sound) */
 HRESULT WINAPI IDirectSoundBuffer_SetLoopRegion(LPDIRECTSOUNDBUFFER buffer, DWORD loop_start, DWORD loop_length) { (void)buffer; (void)loop_start; (void)loop_length; return DS_OK; }
-HRESULT WINAPI IDirectSoundBuffer_SetPitch(LPDIRECTSOUNDBUFFER buffer, LONG pitch) { (void)buffer; (void)pitch; return DS_OK; }
-HRESULT WINAPI IDirectSoundBuffer_SetVolume(LPDIRECTSOUNDBUFFER buffer, LONG volume) { (void)buffer; (void)volume; return DS_OK; }
+
+HRESULT WINAPI IDirectSoundBuffer_SetPitch(LPDIRECTSOUNDBUFFER buffer, LONG pitch)
+{
+	struct sdl_buffer *record = (struct sdl_buffer *)buffer;
+	double rate = 48000.0 * pow(2.0, (double)pitch / 4096.0);
+
+	pthread_mutex_lock(&buffers_lock);
+	record->rate = rate;
+	pthread_mutex_unlock(&buffers_lock);
+	return DS_OK;
+}
+
+HRESULT WINAPI IDirectSoundBuffer_SetVolume(LPDIRECTSOUNDBUFFER buffer, LONG volume)
+{
+	struct sdl_buffer *record = (struct sdl_buffer *)buffer;
+	/* (audio.effects_volume read here, on the game's thread) */
+	float gain = gain_from_millibels(volume) * (float)config_real("audio.effects_volume");
+
+	pthread_mutex_lock(&buffers_lock);
+	record->gain = gain;
+	pthread_mutex_unlock(&buffers_lock);
+	return DS_OK;
+}

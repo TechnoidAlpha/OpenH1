@@ -29,10 +29,29 @@ highlights it cannot show.
   can only draw up to white, glow past it up to 3 times paper white:
   the teleporters' fields, the levels' light fixtures and Covenant lights,
   energy shields, and the plasma bolts' and needles' glowing volumes.
+- **Self-illumination**: the surfaces that light themselves glow past paper
+  white up to 2 times it, short of the lights: door control panels,
+  computer screens and displays (the Pillar of Autumn's bridge and
+  corridors), Forerunner glyphs and panel lights, Covenant panels. Only
+  their self-illumination does: the lit surface around it stays where the
+  SDR picture has it.
 - **Settings**: `display.hdr` (`auto`, `on`, `off`), `display.hdr_mode`
-  (`faithful`, `punchy`), `display.hdr_paper_white` (50 to 250 percent of
-  the system's SDR white). Video Setup's Extra Effects screen has a row for
-  each on a renderer that draws HDR (the menus' `platform="hdr"`).
+  (`faithful`, `punchy`), `display.hdr_paper_white_nits` (80 to 500 nits,
+  or 0, the default: the system's SDR white; the older
+  `display.hdr_paper_white`, in percent of the system's SDR white, is still
+  read while it is 0), `display.hdr_ui_nits` (the UI's brightness, below).
+  On a renderer that draws HDR (the menus' `platform="hdr"`), Video
+  Setup's Brightness page has a row for each under its HDR section, and a
+  DISPLAY PEAK row that shows the display's peak and SDR white as the
+  system reports them. Its Gamma row (`display.gamma`) is SDR's brightness:
+  an HDR swapchain's frame is never curved by it.
+- **UI brightness** (`display.hdr_ui_nits`): what is drawn over the tone
+  mapped view (the HUD's bitmaps and meters, the menus, the scope's reticle
+  and frame, the screen flashes) at its own white, 80 to 500 nits, or 0, the
+  default: paper white's, the picture as before. The HUD's glows keep their
+  ratio above it; the first-person weapon's displays and the
+  self-illumination are the 3D view's and stay with paper white. It is
+  never brighter than the display's peak.
 - **Fallback**: `auto` turns HDR on only on an HDR display; off, and on an
   SDR display, the frame is the 8-bit one, byte for byte. Highlights roll
   off under a soft shoulder to the display's peak (its EDR headroom, which
@@ -70,7 +89,10 @@ The front end tags each draw into the HDR back buffer
   light), a HUD meter while it flashes, the motion tracker; in the world
   (not the sky), a surface that is light: a generic or chicago shader
   the map gives radiosity power (the power it lights the level's
-  lightmaps with), a plasma shader, a light's volume;
+  lightmaps with), a plasma shader, a light's volume; a surface's pass that
+  adds its self-illumination to its light (a model's, a structure's
+  lightmap pass), and which of its combiner stages' constants are the
+  self-illumination's colours;
 - whether the 3D view is being drawn or the HUD over it (after the tone
   map).
 
@@ -79,10 +101,12 @@ The front end tags each draw into the HDR back buffer
 | Opaque, alpha blends, multiplies, min, max | the structure, models, fog, smoke, text | none: they cannot leave [0, 1] |
 | Additive light in the 3D view | effects, particles, contrails, plasma shaders, light volumes, lens flares, the sun, the game's dynamic lights (diffuse and specular passes), the port's glows, a sky's additive layers | none: their light keeps going past white |
 | A surface's look | double multiply decals and transparents; in Faithful the structure's specular lightmaps, reflections and mirrors, water's and glass's reflections; the fog screens | ceiling at paper white |
-| Over the tone mapped view | the HUD's bitmaps and meters, screen flashes, screen effects, menus | ceiling at paper white |
+| Over the tone mapped view | the HUD's bitmaps and meters, screen flashes, screen effects that add light, menus | ceiling at paper white |
+| The screen effects' passes | a scope's warp and mask, night vision: the view copied through the effect's target and back | unclamped: the view's light past white kept |
 | The first-person weapon's glows | the ammunition counter (whatever its blend), meters, additive display parts | expanded, ceiling 1.75 times paper white |
 | The HUD's glows | a meter flashing, the motion tracker | expanded, ceiling 1.5 times paper white |
 | The light of the world (additive) | teleporters' fields, light fixtures, Covenant lights, energy shields, plasma bolts' and needles' volumes | expanded from lower, ceiling 3 times paper white |
+| Self-illumination (a model's pass, a structure's lightmap pass) | door control panels, computer screens and displays, the Pillar of Autumn's bridge screens, Forerunner glyphs and panel lights | its self-illumination expanded from lower, ceiling 2 times paper white; the rest of the pass as the SDR frame has it |
 | Destination alpha | any draw writing alpha whose blend could take it past 1 (a double multiply's) | alpha limited to 1 (the game reads it as a blend factor) |
 | The enhanced dynamic lights | a structure's lightmap pass | their shoulder goes on past white (below white, unchanged) |
 
@@ -108,6 +132,38 @@ the SDR picture has it and its bright swirls pass white; a light fixture's
 panel, near white in SDR, reaches the ceiling. The ceilings are one field
 of the tag (`XGPU_HDR_CEILING_OF`); a glow is a ceiling past paper white's
 (`XGPU_HDR_GLOW`).
+
+**Self-illumination** is not a pass of its own. A model's shader adds it to
+the light in its one pass, before the textures multiply that light
+(`rasterizer_xbox_models.c`: combiner stage 1 adds the multipurpose map's
+self-illumination mask times its colour, stage 1's constant, to the
+vertices' diffuse light; the base map, the change colour, the reflection
+and the fog follow); a structure's lightmap pass adds it to the lightmap's
+light (`rasterizer_xbox_environment.c`: stages 0 to 5 make it from the
+self-illumination map's primary, secondary and plasma masks, their
+animated colours stages 3's and 4's constants, and the final combiner adds
+it), and the textures' pass after multiplies the target by the diffuse
+texture, which a float target lets past white. The pass is tagged
+`XGPU_HDR_SELF_ILLUMINATION` with those stages (`HALO_HDR_KIND_SELF_ILLUMINATION`),
+and the backend's shader runs its combiners twice: as the game has them,
+and with those stages' constants 0, the pixel without its
+self-illumination. What the first has past the second is the
+self-illumination, brightened as a glow is, from the light of the world's
+knee, toward 2 times paper white (`xgpu_hdr_self_illuminate`); in a
+structure it is then multiplied by the surface's texture, as the game's
+light is. The rest of the pass, the lit surface, stays as the SDR frame has
+it, and a pixel without self-illumination is the SDR frame's. The
+animation (a panel's flicker, a screen's plasma) is the game's: its
+colours are the constants.
+
+**The screen effects** (a weapon's zoom: the sniper rifle's warp and mask;
+night vision; a script's) copy the tone mapped view into their own target
+and draw it back through the NV2A's pixel stage, whose every result is
+clamped to 1. Their target is RGBA16F with the back buffer, and their
+passes are tagged `XGPU_HDR_UNCLAMPED`: the combiners' results, the final
+combiner's inputs and the pixel's colour are not clamped above, so that the
+view through a scope keeps its light past white; under white they are what
+they were. The scope's reticle and frame are the HUD's, at paper white.
 
 ## The tone map and the encoding
 
@@ -137,9 +193,56 @@ at most *P*, times paper white, in the display's encoding:
 | Output | Values | Paper white |
 | --- | --- | --- |
 | SDR | the frame clamped to [0, 1] (the window's 8 bits) | the window's white |
-| EDR (macOS) | extended linear sRGB, 1.0 the system's SDR white | `display.hdr_paper_white` percent of 1.0, at most the headroom |
-| scRGB (Vulkan) | extended linear sRGB, 1.0 80 nits | the system's SDR white (SDL's), or 203 nits, times the setting |
-| HDR10 (Vulkan) | BT.2020 primaries (the same colours: no saturation added), PQ | the system's SDR white (SDL's), or 203 nits (BT.2408), times the setting |
+| EDR (macOS) | extended linear sRGB, 1.0 the system's SDR white | the setting's nits over 100 (macOS gives no nits: 1.0 taken as its reference modes' 100), at most the headroom |
+| scRGB (Vulkan) | extended linear sRGB, 1.0 80 nits | Windows: the setting's nits, at most the peak. Linux (Wayland): 1.0 times the setting over the system's SDR white, at most the headroom |
+| HDR10 (Vulkan) | BT.2020 primaries (the same colours: no saturation added), PQ | Windows: the setting's nits, at most the peak. Linux (Wayland): 203 nits times the setting over the system's SDR white, at most the headroom |
+
+Windows' compositor shows both encodings in absolute nits. A Wayland
+compositor (`wp_color_manager_v1`) maps the surface's reference white onto
+its own, its SDR brightness, and the Linux drivers give the surface no
+reference of their own, so the protocol's is the encoding's: 203 nits for
+PQ, 80 (scRGB's 1.0) for linear sRGB (KWin: `ColorDescription::toOther`).
+With KDE's SDR brightness at 500 nits and a 800-nit peak, paper white at
+the system's white is PQ's 203 nits, shown at 500, and the peak PQ's 325,
+shown at 800. The system's SDR white in nits is the compositor's reference
+luminance, which SDL 3.4 does not keep: the SDL the Linux builds bring is
+patched to give it as the window's property
+`openh1.wayland.reference_luminance`
+(`port/android/patches/sdl-wayland-reference-luminance.patch`), so that a
+paper white set in nits is those nits on the panel.
+
+**The UI's white.** The frame's 1.0 is the UI's white
+(`xgpu_hdr_frame.ui`: the UI's nits over paper white's, 1 by default and
+for SDR): the tone map leaves the 3D view's light divided by it
+(`xgpu_hdr_to_ui`), and the encoding takes the frame's light times it
+before its peak and paper white. The view is shown as it was, at paper
+white, and every draw after the tone map, which the frame's values put
+under 1 (or a glow's ceiling), at the UI's nits, with nothing in the draws'
+tags or their shaders changed. Both are the encoding's units, so the UI
+follows paper white's encoding: on Linux its nits over the system's SDR
+white, relative to the compositor's reference. The draws over a frame with
+no 3D view (the menus, the loading screen) are the UI's. A screenshot's
+picture (`xgpu_hdr_sdr_pixel`) is of the frame's values: with a UI white
+past paper white's, its view a little darker than the screen's.
+
+**The display, shown.** The backend writes the display's SDR white in
+nits beside its headroom (the ring's `display_white` and
+`display_white_reported`: Vulkan's from SDL, BT.2408's 203 where it gives
+none; Metal's EDR 1.0, taken as 100 nits, never reported; Metal's headroom
+there its potential one, the display's peak, which the headroom now, the
+tone map's, rises toward as EDR content is shown), and the front end shows
+its peak (the headroom times that white) on Video Setup's
+DISPLAY PEAK row (`halo_hdr_display_text`, `xgpu_hdr_display_text`) and
+logs it at the start and as it changes ("hdr: display peak 800 nits, SDR
+white 203 nits, from the system").
+
+The setting's nits (`xgpu_hdr_paper_white_nits`) are
+`display.hdr_paper_white_nits`, or, while it is 0, the system's SDR white
+(SDL's on Vulkan, or BT.2408's 203 nits where it gives none; EDR's 1.0 on
+macOS) times `display.hdr_paper_white`'s percent (100 by default): the
+picture of a config written before the nits, whatever its percent, is as
+it was. The peak, *P*, is the display's headroom over the system's SDR
+white divided by paper white over it.
 
 The curves are one GLSL source (`xgpu_hdr_functions_source`, the tone map's
 and the encoding's main functions in `xgpu_hdr.c`), compiled to SPIR-V by
@@ -180,7 +283,10 @@ the stream's ring carries it, written by the host). A backend declares
 
 ## Tests
 
-- `tools/test_hdr.py`: the classification, table by table; the reference
+- `tools/test_hdr.py`: the UI's white (its default paper white's, exactly;
+  its ceiling the display's peak; the view shown as it was under it; the
+  HUD's glows its ratio above it); the display's readout and log line;
+  the classification, table by table; the reference
   (Faithful leaves under white exactly as it is, never passes the peak,
   brightens with the light; Punchy lifts and keeps hues; a core is white-hot;
   the encodings' paper white and peak; PQ's 203 nits); the GLSL's constants
@@ -195,10 +301,13 @@ the stream's ring carries it, written by the host). A backend declares
   Vulkan device, made Metal's by SPIRV-Cross and run on a Mac's GPU: its
   tone map and encoding as shipped (`xgpu_vulkan_post_shaders.c`) over the
   same golden colours against the reference (scRGB's and HDR10's encodings
-  too); and each tagged draw (every ceiling, the three glows' expansion,
+  too, and both with the UI's white past and under paper white's); and each tagged draw (every ceiling, the three glows' expansion,
   the alpha limit, over each of eleven blends) as the SPIR-V emitter writes it and as
   the MSL emitter writes it, over the same 512 pixels: the two backends
-  leave the same values, none past its tag's limit. Everywhere: the two
+  leave the same values, none past its tag's limit; a screen effect's
+  pass, unclamped, its colour past 1 in both; and a self-illuminated
+  pass, the reference's values in both, past 1 only by its
+  self-illumination, and the same pass untagged the SDR frame's. Everywhere: the two
   backends' tone map and encoding are one GLSL source but for the
   uniforms' binding.
 - `port/linux/vulkan/tests/passes_test.c` (over a fake Vulkan): the local
@@ -227,6 +336,17 @@ the stream's ring carries it, written by the host). A backend declares
   layers already pile up past white (explosions, muzzle flashes): a
   ceiling would stop that. The first-person weapon's own glows keep their
   ceiling.
+- **Self-illumination is found by drawing the pass twice in its shader.**
+  A door's panel is one pass of an opaque model or structure, its
+  self-illumination one term of its combiners; the game draws no separate
+  pass of it to tag. Its combiners run again with the self-illumination's
+  colours 0 (only the stages after them are worked twice), so that the
+  difference is that term, whatever the combiners do after it (a model's
+  textures, reflection and fog); no combiner program is read for its
+  meaning. Its ceiling, 2 times paper white, is under the lights' 3: a
+  screen lights no room, and glows short of the fixture above it. It is
+  the game's own self-illumination, in Faithful and Punchy alike, as the
+  light of the world is; the sky's models are left as they are.
 - **Ceilings blend in the shader, not by clamping after.** A clamp after a
   draw (a second draw taking the minimum) would dim light that was already
   past white under it: a specular pass over a wall a plasma bolt lights

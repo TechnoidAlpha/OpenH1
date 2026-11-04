@@ -3,7 +3,8 @@ BOTS_HABITS.C (test)
 
 A fighting bot's habits (bots.c's bots_aimed_at, bots_strafe and
 bots_strike_reach): it knows when its target's aim is on it; it strafes one
-way while no one aims at it, and the other way once it reacts to an aim on
+way and the other about every second while no one aims at it (people's
+rhythm), and the other way once it reacts to an aim on
 it (its skill's dodge reaction and chance), again a moment later while the
 aim stays; a blow is struck at the engine's reach to the target's surface,
 further charging in. test_bots_habits.py takes the constants, structures
@@ -53,9 +54,10 @@ static void case_aimed_at(void)
 	CHECK(!bots_aimed_at(&eye, &away, &bot_middle, 0.8f), "an aim away from the bot taken for one on it");
 }
 
-/* not aimed at: the same way for two seconds at least, then another now
-and then; aimed at: the other way once it reacts, not before, and again a
-moment later while the aim stays on it */
+/* not aimed at: the other way about every second (the median of the
+stretches 0.7 to 1.3 seconds), never within a third of a second nor after
+more than two and a half; aimed at: the other way once it reacts, not
+before, and again a moment later while the aim stays on it */
 static void case_strafe(void)
 {
 	short skill;
@@ -64,18 +66,41 @@ static void case_strafe(void)
 	{
 		struct bots_skill_definition const *skill_definition = &bots_skills[skill];
 		long reaction = (long)(skill_definition->dodge_reaction_seconds * TICKS_PER_SECOND);
-		long tick, flips = 0, dodges = 0, aims = 0, dodged_aims = 0;
-		real sign;
+		long tick, flips = 0, dodges = 0, aims = 0, dodged_aims = 0, last_change = 0, stretches = 0;
+		long counts[TICKS_PER_SECOND * 3] = { 0 };
+		long least = TICKS_PER_SECOND * 3, most = 0, below = 0, median = 0;
 
 		reset(11 + skill);
 		bots_strafe(&bot, skill_definition, FALSE, 0);
-		sign = bot.strafe_sign;
-		for (tick = 1; tick < TICKS_PER_SECOND * 2; tick++)
+		for (tick = 1; tick < TICKS_PER_SECOND * 1000; tick++)
 		{
+			real before = bot.strafe_sign;
+
 			CHECK(!bots_strafe(&bot, skill_definition, FALSE, tick), "%s dodged no aim", skill_definition->name);
-			CHECK(bot.strafe_sign == sign, "%s changed its way within two seconds, no one aiming at it",
-				skill_definition->name);
+			if (bot.strafe_sign != before)
+			{
+				long stretch = tick - last_change;
+
+				CHECK(bot.strafe_sign == -before, "%s changed its way but not about", skill_definition->name);
+				if (stretch < (long)NUMBEROF(counts))
+					counts[stretch]++;
+				least = MIN(least, stretch);
+				most = MAX(most, stretch);
+				stretches++;
+				last_change = tick;
+			}
 		}
+		for (median = 0; median < (long)NUMBEROF(counts) && below * 2 < stretches; median++)
+			below += counts[median];
+		printf("%s: %ld stretches with no aim, %ld to %ld ticks, the median about %ld\n", skill_definition->name,
+			stretches, least, most, median);
+		CHECK(least >= TICKS_PER_SECOND / 3, "%s changed its way after %ld ticks, no one aiming at it",
+			skill_definition->name, least);
+		CHECK(most <= TICKS_PER_SECOND * 5 / 2 + 1, "%s kept its way %ld ticks, no one aiming at it",
+			skill_definition->name, most);
+		CHECK(median >= TICKS_PER_SECOND * 7 / 10 && median <= TICKS_PER_SECOND * 13 / 10,
+			"%s changed its way every %ld ticks (the median), not about every second", skill_definition->name, median);
+		reset(11 + skill);
 		/* (aims on the bot of two seconds, each after two seconds of none) */
 		for (tick = TICKS_PER_SECOND * 2; tick < TICKS_PER_SECOND * 2000; tick++)
 		{
@@ -107,9 +132,6 @@ static void case_strafe(void)
 			"%s dodged %ld of %ld aims at its reaction (chance %.2f)", skill_definition->name, dodged_aims, aims,
 			skill_definition->dodge_chance);
 		CHECK(dodges > dodged_aims, "%s dodged once an aim at most", skill_definition->name);
-		/* (with no aim: a change of way every two seconds at most, so at
-		most every other aimless stretch of two) */
-		CHECK(flips <= aims, "%s changed its way %ld times in %ld aimless stretches", skill_definition->name, flips, aims);
 	}
 	CHECK(bots_skills[NUMBER_OF_BOTS_SKILLS - 1].dodge_chance > bots_skills[0].dodge_chance,
 		"the legendary bot dodges no more often than the easy one");

@@ -607,6 +607,20 @@ static unsigned int fclamp(struct module *m, int count, unsigned int x, float lo
 	return ext3(m, GLSL_F_CLAMP, vector_type(m, count), x, constant_splat(m, count, low), constant_splat(m, count, high));
 }
 
+/* a vec4 with each channel that is not a number, or is infinite, made 0:
+the NV2A computed none, and a GPU draws one as anything (black, white,
+blocks). By its bits, which no driver's fast arithmetic takes to be
+finite. */
+static unsigned int finite4(struct module *m, unsigned int v)
+{
+	unsigned int exponent = constant_uint(m, 0x7f800000u);
+	unsigned int mask = intern(m, OP_CONSTANT_COMPOSITE, TRUE, 5,
+		(const unsigned int[]){ m->t_uv4, exponent, exponent, exponent, exponent });
+	unsigned int bits = op2(m, OP_BITWISE_AND, m->t_uv4, op1(m, OP_BITCAST, m->t_uv4, v), mask);
+
+	return op3(m, OP_SELECT, m->t_v4, op2(m, OP_I_EQUAL, m->t_bv4, bits, mask), constant_splat(m, 4, 0.0f), v);
+}
+
 static unsigned int saturate(struct module *m, int count, unsigned int x)
 {
 	return fclamp(m, count, x, 0.0f, 1.0f);
@@ -1466,16 +1480,15 @@ BOOL xgpu_spirv_vertex_shader(const struct xgpu_vertex_program *program, unsigne
 	unsigned int position_out, point_size_out, color_outs[6], fog_out;
 	unsigned int world_normal_out = 0, world_position_out = 0, world_binormal_out = 0, world_tangent_out = 0;
 	unsigned int world_normal = 0, world_position = 0;
-	unsigned int clip_position = 0, view = 0, screen_points = 0;
+	unsigned int clip_position = 0, view = 0, screen_points = 0, centre_clip = 0, eye = 0;
 	BOOL environment = lighting && lighting->lights == XGPU_ENVIRONMENT_LIGHTING;
 	BOOL clip_captured = FALSE;
 	unsigned int one = 0;
 	int slot;
 	/* reversed depth: the point and the projection's rows its depth is the
-	dot products of (xgpu_vertex_program_depth_rows), in a draw of one view */
+	dot products of (xgpu_vertex_program_depth_rows) */
 	unsigned long depth_z = 0, depth_w = 0;
-	BOOL depth_rows = options->reversed_depth && !options->multiview &&
-		xgpu_vertex_program_depth_rows(program, &depth_z, &depth_w);
+	BOOL depth_rows = options->reversed_depth && xgpu_vertex_program_depth_rows(program, &depth_z, &depth_w);
 	unsigned int depth_point = 0, depth_z_row = 0, depth_w_row = 0;
 
 	module_begin(&m, EXECUTION_MODEL_VERTEX);
@@ -1638,14 +1651,17 @@ BOOL xgpu_spirv_vertex_shader(const struct xgpu_vertex_program *program, unsigne
 
 	if (options->multiview)
 	{
-		unsigned int eye, correction, corrected;
+		unsigned int correction, corrected;
 		static const unsigned int xy_zw[4] = { 4, 5, 2, 3 };
 		static const unsigned int zw[2] = { 2, 3 };
 
 		view = view_number(&m, options->multiview, options->foveated);
 		eye = options->foveated ? op2(&m, OP_SHIFT_RIGHT_ARITHMETIC, m.t_int, view, constant_int(&m, 1)) : view;
 		if (clip_captured)
+		{
+			centre_clip = clip_position;
 			clip_position = eye_position(&m, eye, clip_position);
+		}
 		/* A point projected by the game follows its screen correction even
 		when the vertex program captured a clip position. */
 		screen_points = compare(&m, OP_F_UNORD_NOT_EQUAL, uniform(&m, U_SCREEN_POINTS, -1), constant_float(&m, 0.0f));
@@ -1725,6 +1741,30 @@ BOOL xgpu_spirv_vertex_shader(const struct xgpu_vertex_program *program, unsigne
 					scale_parts[2]),
 					compare(&m, OP_F_ORD_EQUAL, extract(&m, vertex_constant(&m, constant_int(&m, XGPU_VERTEX_CONSTANT_BIAS - 37)), 2),
 					extract(&m, viewport_offset, 2)));
+				/* (an eye's: its correction's w row less its z row, e, times the
+				centre's clip position, with the centre's w - z for its z and w
+				parts, e.w (w - z) + (e.z + e.w) z + e.x x + e.y y: e is (0, 0,
+				-1, 1) but for the late latch's moves, whose terms are small; a
+				point the game projected to the screen itself keeps the
+				centre's depth) */
+				if (options->multiview && centre_clip)
+				{
+					unsigned int column = op2(&m, OP_I_MUL, m.t_int, eye, constant_int(&m, 4)), e[4], eye_z;
+					int part;
+
+					for (part = 0; part < 4; part++)
+					{
+						unsigned int correction = uniform_index(&m, U_EYE_CORRECTION, part ?
+							op2(&m, OP_I_ADD, m.t_int, column, constant_int(&m, part)) : column);
+
+						e[part] = fsub(&m, 1, extract(&m, correction, 3), extract(&m, correction, 2));
+					}
+					eye_z = fadd(&m, 1, fmul(&m, 1, e[3], rows_z), fmul(&m, 1, fadd(&m, 1, e[2], e[3]),
+						extract(&m, centre_clip, 2)));
+					eye_z = fadd(&m, 1, eye_z, fadd(&m, 1, fmul(&m, 1, e[0], extract(&m, centre_clip, 0)),
+						fmul(&m, 1, e[1], extract(&m, centre_clip, 1))));
+					rows_z = op3(&m, OP_SELECT, m.t_float, screen_points, rows_z, eye_z);
+				}
 				z = op3(&m, OP_SELECT, m.t_float, identity, rows_z, z);
 			}
 			z = fadd(&m, 1, z, fmul(&m, 1, uniform(&m, U_DEPTH_BIAS, -1), w));
@@ -1750,11 +1790,12 @@ BOOL xgpu_spirv_vertex_shader(const struct xgpu_vertex_program *program, unsigne
 		store(&m, position_out, position);
 	}
 	store(&m, point_size_out, extract(&m, state.outputs[OUT_PTS], 0));
-	store(&m, color_outs[0], saturate(&m, 4, state.outputs[OUT_D0]));
-	store(&m, color_outs[1], saturate(&m, 4, state.outputs[OUT_D1]));
+	/* (the colours, coordinates and fog finite: finite4) */
+	store(&m, color_outs[0], saturate(&m, 4, finite4(&m, state.outputs[OUT_D0])));
+	store(&m, color_outs[1], saturate(&m, 4, finite4(&m, state.outputs[OUT_D1])));
 	for (slot = 0; slot < 4; slot++)
-		store(&m, color_outs[2 + slot], state.outputs[OUT_T0 + slot]);
-	store(&m, fog_out, extract(&m, state.outputs[OUT_FOG], 0));
+		store(&m, color_outs[2 + slot], finite4(&m, state.outputs[OUT_T0 + slot]));
+	store(&m, fog_out, extract(&m, finite4(&m, state.outputs[OUT_FOG]), 0));
 	if (world_normal_out)
 		store(&m, world_normal_out, world_normal);
 	if (world_position_out)
@@ -1787,6 +1828,10 @@ struct pixel_state
 	unsigned int textures[4];
 	unsigned int v0, v1, t[4], dots[4], r0, r1, fog;
 	unsigned int zero4;
+	/* the combiner stages whose constants read as 0 (display.hdr's
+	self-illuminated surface without its self-illumination:
+	XGPU_HDR_SELF_ILLUMINATION), a bit each */
+	unsigned int zeroed_stages;
 	/* the VR mode's effects (xgpu_spirv.h): gl_FragCoord, the scene's depth
 	and the sprite's thickness, and texture 0's parallax (a vec2 added to its
 	coordinates; 0 none) */
@@ -2225,6 +2270,8 @@ combiner's */
 static unsigned int register_value(struct module *m, struct pixel_state *state, unsigned long reg, int stage,
 	const struct xgpu_combiner_stage *combiner, unsigned int v1r0_sum, unsigned int ef_product)
 {
+	if (stage >= 0 && ((state->zeroed_stages >> stage) & 1) && (reg == XGPU_REGISTER_C0 || reg == XGPU_REGISTER_C1))
+		return state->zero4;
 	switch (reg)
 	{
 	case XGPU_REGISTER_C0: return stage < 0 ? uniform(m, U_PS_FINAL_C0, -1) : uniform(m, U_PS_C0, combiner->c0 & 7);
@@ -2283,7 +2330,8 @@ static unsigned int combiner_input(struct module *m, struct pixel_state *state, 
 	}
 }
 
-/* final combiner inputs only have the unsigned identity and invert mappings */
+/* final combiner inputs only have the unsigned identity and invert mappings
+(the identity's colour not clamped above: display.hdr's XGPU_HDR_UNCLAMPED) */
 static unsigned int final_input(struct module *m, struct pixel_state *state, const struct xgpu_combiner_input *input,
 	BOOL alpha_portion, unsigned int v1r0_sum, unsigned int ef_product)
 {
@@ -2293,6 +2341,8 @@ static unsigned int final_input(struct module *m, struct pixel_state *state, con
 
 	if (input->mapping == XGPU_MAP_UNSIGNED_INVERT)
 		return fsub(m, count, constant_splat(m, count, 1.0f), saturate(m, count, value));
+	if (XGPU_HDR_IS_UNCLAMPED(state->program->hdr) && !alpha_portion)
+		return fmax_scalar(m, count, value, 0.0f);
 	return saturate(m, count, value);
 }
 
@@ -2351,6 +2401,9 @@ static void combiner_stage(struct module *m, struct pixel_state *state, int stag
 		const struct xgpu_combiner_portion *part = &combiner->portions[portion];
 		BOOL alpha = portion == 1;
 		int count = alpha ? 1 : 3;
+		/* (display.hdr's XGPU_HDR_UNCLAMPED: the colour not above, a half
+		float's largest) */
+		float most = !alpha && XGPU_HDR_IS_UNCLAMPED(program->hdr) ? 65504.0f : 1.0f;
 		unsigned int a, b, c, d;
 
 		a = combiner_input(m, state, &part->inputs[0], alpha, stage, combiner);
@@ -2381,9 +2434,9 @@ static void combiner_stage(struct module *m, struct pixel_state *state, int stag
 		{
 			sum[portion] = fadd(m, count, ab[portion], cd[portion]);
 		}
-		ab[portion] = fclamp(m, count, output_mapping(m, count, part->output_mapping, ab[portion]), -1.0f, 1.0f);
-		cd[portion] = fclamp(m, count, output_mapping(m, count, part->output_mapping, cd[portion]), -1.0f, 1.0f);
-		sum[portion] = fclamp(m, count, output_mapping(m, count, part->output_mapping, sum[portion]), -1.0f, 1.0f);
+		ab[portion] = fclamp(m, count, output_mapping(m, count, part->output_mapping, ab[portion]), -1.0f, most);
+		cd[portion] = fclamp(m, count, output_mapping(m, count, part->output_mapping, cd[portion]), -1.0f, most);
+		sum[portion] = fclamp(m, count, output_mapping(m, count, part->output_mapping, sum[portion]), -1.0f, most);
 	}
 
 	/* write back only after both portions have read their inputs */
@@ -2488,7 +2541,8 @@ static unsigned int dynamic_light(struct module *m, int member, unsigned int ind
 }
 
 /* dynamic_light_sum(p, n, surface_normal, environment): the lights of the
-pixel's cell, summed; its loops are SPIR-V's structured loops, its values
+pixel's cell, summed (a model's but those its object's own that do not light
+it, its model_lights[XGPU_MODEL_LIGHT_OWN_LIGHTS]); its loops are SPIR-V's structured loops, its values
 kept in the function's variables */
 static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *state, unsigned int p, unsigned int n,
 	unsigned int surface_normal, BOOL environment)
@@ -2499,7 +2553,7 @@ static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *stat
 	unsigned int outer_header, outer_condition, outer_body, outer_continue, outer_merge;
 	unsigned int inner_header, inner_condition, inner_body, inner_continue, inner_merge;
 	unsigned int word, bits, light, position, to_light, distance_squared, x2, l, window, core, falloff, facing;
-	unsigned int cone, color, spot, grid2, w;
+	unsigned int cone, color, spot, grid2, w, own = 0;
 
 	/* cell = sign(offset) * log2(1.0 + abs(offset) * grid[1].w) * grid[1].xyz + vec3(16.0, 16.0, 8.0) */
 	offset = fsub(m, 3, p, xyz(m, grid0));
@@ -2523,6 +2577,9 @@ static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *stat
 		mask = op(m, OP_IMAGE_FETCH, m->t_uv4, 4, operands);
 	}
 	grid2 = dynamic_light(m, 0, constant_int(m, 2));
+	/* (a model's: the lights it is not lit by, xgpu.h) */
+	if (!environment)
+		own = uniform(m, U_MODEL_LIGHTS, XGPU_MODEL_LIGHT_OWN_LIGHTS);
 
 	sum_variable = local(m, &state->locals, m->t_v3);
 	word_variable = local(m, &state->locals, m->t_int);
@@ -2575,6 +2632,19 @@ static unsigned int dynamic_light_sum(struct module *m, struct pixel_state *stat
 		unsigned int skip = id_new(m), condition = compare(m, OP_F_ORD_LESS_THAN, w, constant_float(m, 0.0f));
 
 		/* if (environment && position.w < 0.0) continue; */
+		selection_merge(m, skip);
+		branch_conditional(m, condition, inner_continue, skip);
+		label_at(m, skip);
+	}
+	else
+	{
+		unsigned int skip = id_new(m), index = op1(m, OP_CONVERT_S_TO_F, m->t_float, light), condition;
+		int slot;
+
+		/* if (any(own == vec4(float(light)))) continue; */
+		condition = compare(m, OP_F_ORD_EQUAL, extract(m, own, 0), index);
+		for (slot = 1; slot < 4; slot++)
+			condition = op2(m, OP_LOGICAL_OR, m->t_bool, condition, compare(m, OP_F_ORD_EQUAL, extract(m, own, slot), index));
 		selection_merge(m, skip);
 		branch_conditional(m, condition, inner_continue, skip);
 		label_at(m, skip);
@@ -2799,6 +2869,36 @@ static unsigned int hdr_output(struct module *m, unsigned short hdr, unsigned in
 
 /* ---------- the whole pixel shader */
 
+/* the combiners and the final combiner: the pixel's colour (state->
+zeroed_stages: the stages' constants that read as 0) */
+static unsigned int combiners(struct module *m, struct pixel_state *state)
+{
+	const struct xgpu_final_combiner *final = &state->program->final;
+	unsigned int ef_product, v1r0_sum, fa, fb, fc, fd, fg;
+	int stage;
+
+	for (stage = 0; stage < (int)state->program->combiner_count && stage < 8; stage++)
+		combiner_stage(m, state, stage);
+	if (!final->present)
+		return state->r0;
+	ef_product = vec4_of(m, fmul(m, 3, final_input(m, state, &final->inputs[4], FALSE, 0, 0),
+		final_input(m, state, &final->inputs[5], FALSE, 0, 0)), constant_float(m, 0.0f));
+	v1r0_sum = fadd(m, 3, final->invert_v1 ? fsub(m, 3, constant_splat(m, 3, 1.0f), saturate(m, 3, xyz(m, state->v1))) :
+		saturate(m, 3, xyz(m, state->v1)), final->invert_r0 ? fsub(m, 3, constant_splat(m, 3, 1.0f),
+		saturate(m, 3, xyz(m, state->r0))) : saturate(m, 3, xyz(m, state->r0)));
+	v1r0_sum = vec4_of(m, v1r0_sum, constant_float(m, 0.0f));
+	if (final->clamp_sum)
+		v1r0_sum = saturate(m, 4, v1r0_sum);
+	fa = final_input(m, state, &final->inputs[0], FALSE, v1r0_sum, ef_product);
+	fb = final_input(m, state, &final->inputs[1], FALSE, v1r0_sum, ef_product);
+	fc = final_input(m, state, &final->inputs[2], FALSE, v1r0_sum, ef_product);
+	fd = final_input(m, state, &final->inputs[3], FALSE, v1r0_sum, ef_product);
+	fg = final_input(m, state, &final->inputs[6], TRUE, v1r0_sum, ef_product);
+	/* vec4(fA * fB + (1.0 - fA) * fC + fD, fG) */
+	return vec4_of(m, fadd(m, 3, fadd(m, 3, fmul(m, 3, fa, fb),
+		fmul(m, 3, fsub(m, 3, constant_splat(m, 3, 1.0f), fa), fc)), fd), fg);
+}
+
 static unsigned int comparison_opcode(unsigned long function)
 {
 	switch (function)
@@ -2866,6 +2966,14 @@ static void effect_declare(struct module *m, struct pixel_state *state)
 	decorate1(m, state->effect_thickness, DECORATION_BINDING, XGPU_SPIRV_EFFECT_THICKNESS_BINDING);
 }
 
+/* a depth the target holds (gl_FragCoord's z, or the depth buffer's) as
+the game has it: the effects' unprojections are the game's (on reversed
+depth, 1 - it) */
+static unsigned int effect_game_depth(struct module *m, const struct xgpu_spirv_options *options, unsigned int depth)
+{
+	return options->reversed_depth ? fsub(m, 1, constant_float(m, 1.0f), depth) : depth;
+}
+
 /* the world point (a vec3) of a pixel's homogeneous unprojection */
 static unsigned int effect_point(struct module *m, unsigned int homogeneous)
 {
@@ -2919,7 +3027,7 @@ static unsigned int effect_prelude(struct module *m, struct pixel_state *state)
 			constant_int(m, column)) : first_column);
 	base = fadd(m, 4, fadd(m, 4, fscale(m, 4, columns[0], extract(m, frag, 0)), fscale(m, 4, columns[1],
 		extract(m, frag, 1))), columns[3]);
-	p = effect_point(m, fadd(m, 4, base, fscale(m, 4, columns[2], extract(m, frag, 2))));
+	p = effect_point(m, fadd(m, 4, base, fscale(m, 4, columns[2], effect_game_depth(m, options, extract(m, frag, 2)))));
 	/* the scene's depth behind the pixel, in the view's layer */
 	{
 		unsigned int sampled = load(m, type_sampled_image(m, DIM_2D, TRUE, FALSE, TRUE), state->effect_depth);
@@ -2931,7 +3039,7 @@ static unsigned int effect_prelude(struct module *m, struct pixel_state *state)
 		operands[1] = op(m, OP_COMPOSITE_CONSTRUCT, m->t_iv3, 2, parts);
 		operands[2] = IMAGE_OPERANDS_LOD;
 		operands[3] = constant_int(m, 0);
-		depth = extract(m, op(m, OP_IMAGE_FETCH, m->t_v4, 4, operands), 0);
+		depth = effect_game_depth(m, options, extract(m, op(m, OP_IMAGE_FETCH, m->t_v4, 4, operands), 0));
 	}
 	behind = fadd(m, 4, base, fscale(m, 4, columns[2], depth));
 	eye = xyz(m, uniform_index(m, U_EFFECT_EYE, view));
@@ -3027,7 +3135,8 @@ fade = clamp((to_scene - front) / span, 0.0, 1.0);    hidden = front >= to_scene
 static unsigned int effect_zsprite_fade(struct module *m, struct pixel_state *state, unsigned int *hidden)
 {
 	unsigned int frag = load(m, m->t_v4, state->frag_coord);
-	unsigned int front_depth = ext2(m, GLSL_F_MIN, m->t_float, state->replaced_depth, extract(m, frag, 2));
+	unsigned int front_depth = ext2(m, GLSL_F_MIN, m->t_float, state->replaced_depth,
+		effect_game_depth(m, state->options, extract(m, frag, 2)));
 	unsigned int front = ext1(m, GLSL_LENGTH, m->t_float, fsub(m, 3, effect_point(m, fadd(m, 4, state->effect_base,
 		fscale(m, 4, state->effect_column2, front_depth))), state->effect_eye));
 
@@ -3066,7 +3175,6 @@ BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const str
 {
 	static const char *const coordinate_names[] = { "xT0", "xT1", "xT2", "xT3" };
 	static const char *const texture_names[] = { "tex0", "tex1", "tex2", "tex3" };
-	const struct xgpu_final_combiner *final = &program->final;
 	struct module m;
 	struct pixel_state state;
 	BOOL environment = program->dynamic_lights == XGPU_DYNAMIC_LIGHTS_ENVIRONMENT;
@@ -3082,6 +3190,10 @@ BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const str
 	ever nearer than the card), or as a VR effect its fade measured from it */
 	BOOL replaces_depth = xgpu_pixel_program_depth_stage(program) != 0;
 	unsigned int frag_depth_out = 0, zsprite_hidden = 0;
+	/* (display.hdr: a self-illuminated surface's pass; its pixel without its
+	self-illumination, and the light that adds past white) */
+	BOOL self_illuminated = XGPU_HDR_IS_SELF_ILLUMINATED(program->hdr) && !program->source_blend;
+	unsigned int self_illumination_base = 0, self_illumination = 0;
 	int stage;
 
 	memset(&state, 0, sizeof(state));
@@ -3196,33 +3308,38 @@ BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const str
 
 	state.r0 = vec4_of(&m, constant_splat(&m, 3, 0.0f), extract(&m, state.t[0], 3));
 	state.r1 = state.zero4;
-	for (stage = 0; stage < (int)program->combiner_count && stage < 8; stage++)
-		combiner_stage(&m, &state, stage);
-
-	if (!final->present)
+	/* (display.hdr: a self-illuminated surface's pixel without its
+	self-illumination, the registers as they were after) */
+	if (self_illuminated)
 	{
-		result = state.r0;
+		unsigned int v0 = state.v0, v1 = state.v1, t[4], r0 = state.r0, r1 = state.r1;
+
+		memcpy(t, state.t, sizeof(t));
+		state.zeroed_stages = XGPU_HDR_SELF_ILLUMINATION_STAGES(program->hdr);
+		self_illumination_base = saturate(&m, 3, xyz(&m, combiners(&m, &state)));
+		state.zeroed_stages = 0;
+		state.v0 = v0;
+		state.v1 = v1;
+		memcpy(state.t, t, sizeof(t));
+		state.r0 = r0;
+		state.r1 = r1;
 	}
-	else
+	result = combiners(&m, &state);
+	/* (... and the light its self-illumination adds past white, toward its
+	ceiling where it is bright, as a glow's: xgpu_hdr_self_illuminate) */
+	if (self_illuminated)
 	{
-		unsigned int ef_product, v1r0_sum, fa, fb, fc, fd, fg;
+		unsigned int lit = saturate(&m, 3, xyz(&m, result));
+		unsigned int added = fmax_scalar(&m, 3, fsub(&m, 3, lit, self_illumination_base), 0.0f);
+		unsigned int added_most = brightest_of(&m, added), most = brightest_of(&m, lit), more;
 
-		ef_product = vec4_of(&m, fmul(&m, 3, final_input(&m, &state, &final->inputs[4], FALSE, 0, 0),
-			final_input(&m, &state, &final->inputs[5], FALSE, 0, 0)), constant_float(&m, 0.0f));
-		v1r0_sum = fadd(&m, 3, final->invert_v1 ? fsub(&m, 3, constant_splat(&m, 3, 1.0f), saturate(&m, 3, xyz(&m, state.v1))) :
-			saturate(&m, 3, xyz(&m, state.v1)), final->invert_r0 ? fsub(&m, 3, constant_splat(&m, 3, 1.0f),
-			saturate(&m, 3, xyz(&m, state.r0))) : saturate(&m, 3, xyz(&m, state.r0)));
-		v1r0_sum = vec4_of(&m, v1r0_sum, constant_float(&m, 0.0f));
-		if (final->clamp_sum)
-			v1r0_sum = saturate(&m, 4, v1r0_sum);
-		fa = final_input(&m, &state, &final->inputs[0], FALSE, v1r0_sum, ef_product);
-		fb = final_input(&m, &state, &final->inputs[1], FALSE, v1r0_sum, ef_product);
-		fc = final_input(&m, &state, &final->inputs[2], FALSE, v1r0_sum, ef_product);
-		fd = final_input(&m, &state, &final->inputs[3], FALSE, v1r0_sum, ef_product);
-		fg = final_input(&m, &state, &final->inputs[6], TRUE, v1r0_sum, ef_product);
-		/* vec4(fA * fB + (1.0 - fA) * fC + fD, fG) */
-		result = vec4_of(&m, fadd(&m, 3, fadd(&m, 3, fmul(&m, 3, fa, fb),
-			fmul(&m, 3, fsub(&m, 3, constant_splat(&m, 3, 1.0f), fa), fc)), fd), fg);
+		more = ext2(&m, GLSL_F_MIN, m.t_float, fdiv(&m, 1, fmul(&m, 1, fmul(&m, 1,
+			constant_float(&m, XGPU_HDR_SELF_ILLUMINATION_VALUE - 1.0f), ext3(&m, GLSL_SMOOTH_STEP, m.t_float,
+			constant_float(&m, XGPU_HDR_SELF_ILLUMINATION_KNEE), constant_float(&m, 1.0f), most)), most),
+			fmax_scalar(&m, 1, added_most, 1.0e-6f)), constant_float(&m, XGPU_HDR_EXPAND_MOST));
+		more = op3(&m, OP_SELECT, m.t_float, compare(&m, OP_F_ORD_GREATER_THAN, added_most, constant_float(&m, 0.0f)),
+			more, constant_float(&m, 0.0f));
+		self_illumination = fscale(&m, 3, added, more);
 	}
 
 	if (environment)
@@ -3328,8 +3445,14 @@ BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const str
 	if (!program->source_blend && (program->hdr & XGPU_HDR_LIGHTS))
 		result = vec4_of(&m, fclamp(&m, 3, xyz(&m, result), 0.0f, XGPU_HDR_LIGHTS_WHITE_VALUE),
 			saturate(&m, 1, extract(&m, result, 3)));
+	/* (a screen effect's pass, the view's light past white kept) */
+	else if (!program->source_blend && XGPU_HDR_IS_UNCLAMPED(program->hdr))
+		result = vec4_of(&m, fmax_scalar(&m, 3, xyz(&m, result), 0.0f), saturate(&m, 1, extract(&m, result, 3)));
 	else
 		result = saturate(&m, 4, result);
+	/* (a self-illuminated surface's light past white) */
+	if (self_illuminated)
+		result = vec4_of(&m, fadd(&m, 3, xyz(&m, result), self_illumination), extract(&m, result, 3));
 	if (effect)
 		result = effect_fade(&m, options->effect_fade, result, effect_fade_value);
 	if (program->source_blend)
@@ -3351,7 +3474,8 @@ BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const str
 	effect_zsprite_fade) */
 	if (zsprite_hidden)
 		discard_if(&m, zsprite_hidden);
-	store(&m, color_out, result);
+	/* (finite: finite4) */
+	store(&m, color_out, finite4(&m, result));
 	/* else its depth, no farther than the card: the conservative depth's
 	promise, so that the depth test before the shader keeps what it can (on
 	reversed depth, 1 - it and no nearer than the card's reversed) */
@@ -3566,7 +3690,7 @@ static BOOL glow_pixel_shader(const struct xgpu_spirv_options *options, struct x
 		operands[1] = op(&m, OP_COMPOSITE_CONSTRUCT, m.t_iv3, 2, parts);
 		operands[2] = IMAGE_OPERANDS_LOD;
 		operands[3] = constant_int(&m, 0);
-		depth = extract(&m, op(&m, OP_IMAGE_FETCH, m.t_v4, 4, operands), 0);
+		depth = effect_game_depth(&m, options, extract(&m, op(&m, OP_IMAGE_FETCH, m.t_v4, 4, operands), 0));
 	}
 	behind = fadd(&m, 4, base, fscale(&m, 4, columns[2], depth));
 	far = op2(&m, OP_LOGICAL_OR, m.t_bool, compare(&m, OP_F_ORD_GREATER_THAN_EQUAL, depth, constant_float(&m, 1.0f)),

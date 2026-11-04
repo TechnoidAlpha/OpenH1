@@ -117,6 +117,10 @@ static void suspend_call(void *argument)
 	xgpu_vulkan_window_suspend(argument != NULL);
 }
 
+/* the Wayland compositor's reference white in nits, a window property of
+the SDL the Linux builds bring */
+#define WAYLAND_REFERENCE_LUMINANCE "openh1.wayland.reference_luminance"
+
 /* display.hdr: what the window's display says (SDL's), told the backend
 (any thread) */
 static void window_hdr_read(void)
@@ -133,6 +137,11 @@ static void window_hdr_read(void)
 	}
 	enabled = properties && SDL_GetBooleanProperty(properties, SDL_PROP_WINDOW_HDR_ENABLED_BOOLEAN, false);
 	sdr_white = properties ? SDL_GetFloatProperty(properties, SDL_PROP_WINDOW_SDR_WHITE_LEVEL_FLOAT, 1.0f) : 1.0f;
+	/* (on Wayland SDL's SDR white is 1.0, the compositor's reference white,
+	in no nits: its nits are the patched SDL's property,
+	port/android/patches/sdl-wayland-reference-luminance.patch) */
+	if (properties && SDL_GetFloatProperty(properties, WAYLAND_REFERENCE_LUMINANCE, 0.0f) > 0.0f)
+		sdr_white = SDL_GetFloatProperty(properties, WAYLAND_REFERENCE_LUMINANCE, 0.0f) / 80.0f;
 	headroom = properties ? SDL_GetFloatProperty(properties, SDL_PROP_WINDOW_HDR_HEADROOM_FLOAT, 1.0f) : 1.0f;
 	xgpu_vulkan_window_hdr(enabled, sdr_white, headroom);
 }
@@ -331,6 +340,11 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 		xgpu_vulkan_textures_astc_folder(chosen);
 	}
 	vulkan_window = object;
+	/* (which of SDL's window systems the window is in: on a Linux desktop
+	Wayland's where the session is Wayland's, which alone gives HDR, X11's
+	under XWayland and gamescope) */
+	host_logf(HOST_LOG_INFO, "vulkan: the window is SDL's %s", SDL_GetCurrentVideoDriver() ?
+		SDL_GetCurrentVideoDriver() : "(no video driver)");
 	memset(&options, 0, sizeof(options));
 	if (SDL_GetWindowFlags(object) & SDL_WINDOW_VULKAN)
 	{
@@ -350,6 +364,11 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 			options.display_hdr = host_render_stream_display_hdr;
 			options.encode_prepare = xgpu_vulkan_post_encode_prepare;
 			options.encode = xgpu_vulkan_post_encode;
+#endif
+#ifndef HALO_VR
+			/* (display.gamma's curve over an SDR frame: not the VR build's) */
+			options.gamma_prepare = xgpu_vulkan_post_gamma_prepare;
+			options.gamma = xgpu_vulkan_post_gamma;
 #endif
 		}
 	}

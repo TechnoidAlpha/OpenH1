@@ -151,6 +151,9 @@ void network_damage_aftermath(long object_index, struct damage_data const *damag
 	real shield_damage, real body_damage, real body_damage_multiplier, short body_part, short node_index,
 	short region_index, short material_index, long victim_player_index);
 boolean network_damage_static_target(long object_index);
+boolean network_damage_predicting(void);
+boolean network_damage_predicted_state(long object_index, struct damage_network_state const *state,
+	struct damage_network_state *result);
 
 /* set while a distributed client carries out a kill it does not decide (an
 act of god: the host's word, network_distributed.c, or the world's) */
@@ -1110,7 +1113,13 @@ static void object_damage_aftermath(
 		}
 	}
 
-	if (game_engine_can_score() &&
+	/* port: a hit a distributed client shows ahead of the host's word counts
+	nothing: the kill is announced once the host's word on it comes
+	(network_damage.c) */
+	if (network_damage_predicting())
+	{
+	}
+	else if (game_engine_can_score() &&
 		!TEST_FLAG(damage->flags, _damage_no_statistics_bit))
 	{
 		game_statistics_record_damage(
@@ -1484,7 +1493,12 @@ void object_cause_damage(
 		global_debug_damage_object_index = object_index;
 
 	{
-		real random_damage = real_random_range(
+		/* port: the least it can be where a distributed client shows its own
+		player's hit ahead of the host's word (network_damage.c), so that a
+		kill it shows is one the host's roll gives too */
+		real random_damage = network_damage_predicting() ?
+			damage_definition->damage_lower_bound :
+			real_random_range(
 			damage_definition->damage_lower_bound,
 			damage_definition->damage_upper_bound);
 
@@ -2701,7 +2715,12 @@ void damage_set_network_state(
 	struct object_definition *object_definition =
 		object_definition_get(object->definition_index);
 	long collision_model_index = object_definition->object.collision_model.index;
+	struct damage_network_state predicted;
 
+	/* port: less what this machine's own players' hits took that the host's
+	word does not have yet (network_damage.c) */
+	if (network_damage_predicted_state(object_index, state, &predicted))
+		state = &predicted;
 	if (state->shield_depleted && !TEST_FLAG(object->object.damage_flags, _object_shield_depleted_bit))
 	{
 		object_deplete_shield(object_index);

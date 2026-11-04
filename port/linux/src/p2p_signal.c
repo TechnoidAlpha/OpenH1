@@ -205,6 +205,11 @@ enum
 {
 	_message_join = 'J',
 	_message_accept = 'A',
+	/* the relays a machine offers a peer whose session has not met
+	(p2p_signal_relay_offer), whose own version follows: OpenCE and older
+	builds pass a message of another type over */
+	_message_relay = 'R',
+	RELAY_MESSAGE_VERSION = 2,
 	/* 3: a JOIN proves its key before the host makes a session; 4: both
 	messages say the machine's WebRTC (for the web port's browsers, which
 	OpenCE and builds before this one have: get_addresses) */
@@ -1484,12 +1489,16 @@ static void publish_received(struct broker *broker, const char *topic, const uns
 		message_size = p2p_open(signalling.host_key, payload, size, message);
 		if (message_size >= 2 && message[0] == _message_join && message[1] == MESSAGE_VERSION)
 			join_received(broker, message, message_size);
+		else if (message_size >= 2 && message[0] == _message_relay && message[1] == RELAY_MESSAGE_VERSION)
+			p2p_relay_offer_heard(message + 2, message_size - 2);
 	}
 	else if (joins_active() && !strcmp(topic, signalling.join_topic))
 	{
 		message_size = p2p_open(signalling.join_key, payload, size, message);
 		if (message_size >= 2 && message[0] == _message_accept && message[1] == MESSAGE_VERSION)
 			accept_received(message, message_size);
+		else if (message_size >= 2 && message[0] == _message_relay && message[1] == RELAY_MESSAGE_VERSION)
+			p2p_relay_offer_heard(message + 2, message_size - 2);
 	}
 	else
 	{
@@ -2116,6 +2125,42 @@ int p2p_signal_probe(const unsigned char *host_hash, const unsigned char *token)
 		return 1;
 	}
 	return 0;
+}
+
+void p2p_signal_relay_offer(const unsigned char *peer_identifier, int to_host, const unsigned char *body, int size)
+{
+	unsigned char message[MAXIMUM_MESSAGE_SIZE];
+	unsigned char sealed[MAXIMUM_MESSAGE_SIZE + P2P_SEAL_OVERHEAD];
+	char topic[TOPIC_SIZE];
+	int index;
+
+	if (size < 0 || size > MAXIMUM_MESSAGE_SIZE - 2)
+		return;
+	message[0] = _message_relay;
+	message[1] = RELAY_MESSAGE_VERSION;
+	memcpy(message + 2, body, (size_t)size);
+	if (to_host)
+	{
+		/* (on the topic the request to it goes to) */
+		for (index = 0; index < MAXIMUM_JOINS; index++)
+		{
+			struct join const *join = &signalling.joins[index];
+
+			if (join->active && !memcmp(join->host, peer_identifier, P2P_IDENTIFIER_SIZE))
+			{
+				size = p2p_seal(signalling.join_key, message, 2 + size, sealed);
+				publish_everywhere(join->host_topic, sealed, size);
+				return;
+			}
+		}
+		return;
+	}
+	/* (to a joiner: on the topic its answers come to) */
+	if (!signalling.hosting)
+		return;
+	make_topic(signalling.host_token, "joiner", peer_identifier, topic);
+	size = p2p_seal(signalling.host_key, message, 2 + size, sealed);
+	publish_everywhere(topic, sealed, size);
 }
 
 void p2p_signal_stop_probe(const unsigned char *identifier)

@@ -484,7 +484,8 @@ void *debug_malloc(
 		}
 		else
 		{
-			csmemset(pointer, 0xCA, size);
+			/* port: debug.fresh_memory_fill's byte in place of 0xCA, when set */
+			csmemset(pointer, halo_fresh_memory_fill() >= 0 ? halo_fresh_memory_fill() : 0xCA, size);
 		}
 	}
 
@@ -572,7 +573,13 @@ void *debug_realloc(
 		debug_memory_add_pointer(header);
 
 		result = header + 1;
-		if (size > old_size)
+		/* port: debug.fresh_memory_fill's byte in place of the random
+		fill, when set */
+		if (size > old_size && halo_fresh_memory_fill() >= 0)
+		{
+			csmemset((byte *)result + old_size, halo_fresh_memory_fill(), size - old_size);
+		}
+		else if (size > old_size)
 		{
 			debug_memory_fill_with_random(
 				(byte *)result + old_size,

@@ -168,7 +168,8 @@ struct vr_host_layers
 	int projection;
 	struct vr_host_pose eye[2];
 	float fov[2][4];
-	/* with the eyes' depth (0 to 1 from near_z to far_z, metres) */
+	/* with the eyes' depth (the game's 0 to 1 from near_z to far_z,
+	metres; kept reversed, 1 to 0, in the host's image: host_vr.c) */
 	int depth;
 	float near_z, far_z;
 	/* the HUD image on a quad: in front of the head (head_locked), or at

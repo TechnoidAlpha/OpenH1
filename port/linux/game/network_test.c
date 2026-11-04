@@ -14,7 +14,9 @@ Automated system link sessions for testing the netcode without the menus
   which sets it up in the lobby and starts it). A map
   with a path is that level (custom_maps\a30, a Custom Edition map's), and
   the variant "coop" makes the game network co-op on it, at normal
-  difficulty, as the Map screen does for a campaign level;
+  difficulty, as the Map screen does for a campaign level; a variant with
+  a rotation entry's rules (team_slayer+ghosts=2+banshees=1) is built as a
+  dedicated server builds that entry's;
 - "local:<map>[:<variant>...]" the same with a local (split screen) game of
   one player, as Multiplayer > Split Screen of the Xbox's menus sets one up
   (no other machine joins it; the bots of bots.count join it, as they join
@@ -100,10 +102,12 @@ Called from the main loop every frame (main.c).
 #include "tag_files/tag_files.h"
 #include "camera/observer.h"
 #include "hs/hs.h"
+#include "network_clock.h"
 #include "network_distributed.h"
 
 #include "../src/p2p.h" /* port: port/linux/src/p2p.c, p2p_lobby.c */
 #include "network_chat.h"
+#include "server_gametypes.h"
 #include "network_party.h"
 #include "network_voice.h"
 #include "sim_rate.h"
@@ -127,6 +131,8 @@ void platform_log(char const *format, ...);
 unsigned long system_milliseconds(void);
 /* xbox_kernel.c's: the computer's monotonic clock, shared by its processes */
 unsigned long long platform_shared_clock_microseconds(void);
+/* bsp_switch_test.c's */
+void bsp_switch_test_update(boolean main_menu_loaded);
 /* damage.c's */
 void damage_kill_object_for_player(long object_index, long player_index);
 /* network_distributed.c's */
@@ -138,6 +144,8 @@ void network_distributed_divergence(long *samples, long *apart, real *mean, real
 void network_distributed_player_divergence(short player_index, long *samples, long *apart);
 void network_distributed_item_statistics(long *creates, long *deletes, long *failures, long *removed);
 void network_damage_statistics(long *sent_reports, long *dealt_reports, long *rejected_reports, long *replayed_events);
+void network_damage_prediction_statistics(long *shown, long *answered, long *unanswered, long *kills,
+	long *kills_confirmed, long *kills_refused);
 long distributed_own_ping(void);
 long distributed_player_measured_ping(short player_index);
 /* xinput_sdl.c's */
@@ -170,8 +178,8 @@ static struct
 {
 	boolean checked;
 	short mode;
-	char map_name[64];
-	char variant_name[64];
+	char map_name[128];
+	char variant_name[128];
 	/* "local:": a local (split screen) game, not a system link one; its
 	players (debug.network_test_players: split screen's views, the first
 	controller's the first) */
@@ -608,6 +616,17 @@ static void network_test_log_players(
 			camera ? camera->position.x : 0.0f, camera ? camera->position.y : 0.0f, camera ? camera->position.z : 0.0f,
 			local_player_index == NONE ? 0L : (long)player_get(local_player_index)->respawn_timer,
 			divergence_samples, divergence_apart, divergence_mean, divergence_largest);
+		/* (a client: its own players' hits it showed at once, and how the
+		host's word on them went: network_damage.c) */
+		if (game_connection() == _game_connection_network_client)
+		{
+			long shown, answered, unanswered, kills, kills_confirmed, kills_refused;
+
+			network_damage_prediction_statistics(&shown, &answered, &unanswered, &kills, &kills_confirmed,
+				&kills_refused);
+			platform_log("network test: predicted hits %ld answered %ld unanswered %ld | kills %ld confirmed %ld"
+				" refused %ld", shown, answered, unanswered, kills, kills_confirmed, kills_refused);
+		}
 		/* (the bytes of the second's datagrams, the per-tick stream: to the
 		host, and to the clients, each) */
 		{
@@ -619,6 +638,16 @@ static void network_test_log_players(
 				to_host, to_clients, (int)clients, clients ? to_clients / clients : 0L);
 			network_distributed_batch_datagrams(&to_host, &to_clients);
 			platform_log("network test: datagrams to host %ld to clients %ld a second", to_host, to_clients);
+			/* (the host's actors' states of those, and the entries a press or
+			an aim alone sent) */
+			if (game_connection() == _game_connection_network_server)
+			{
+				long all, pressed, aimed;
+
+				network_actors_bytes_sent(&all, &pressed, &aimed);
+				platform_log("network test: actors to clients %ld (pressed %ld aimed %ld) bytes a second", all,
+					pressed, aimed);
+			}
 		}
 		/* (a client: its corrections of the other players' units, all and
 		against its history of them, and the host's states within that
@@ -650,6 +679,19 @@ static void network_test_log_players(
 				apart[_distributed_take_earlier], samples[_distributed_take_earlier],
 				apart[_distributed_take_lost], samples[_distributed_take_lost],
 				apart[_distributed_take_hold], samples[_distributed_take_hold]);
+		}
+		/* (a client of an OpenH1 game: the host's latest word on how long
+		before its tick of their number this machine's inputs came, the
+		words taken, and the ticks its clock skipped and the time it moved
+		by to lead the host's, since the game began: network_clock.c) */
+		if (game_connection() == _game_connection_network_client)
+		{
+			long early, reports, skipped;
+			real moved;
+
+			network_clock_statistics(&early, &reports, &skipped, &moved);
+			platform_log("network test: clock early %ld reports %ld skipped %ld moved %ld us", early, reports,
+				skipped, (long)(moved * 1000000.0f));
 		}
 		/* (the latency meter's round trips, with display.latency_meter on:
 		a client's own, and each player's as this machine times it) */
@@ -1488,11 +1530,11 @@ static void network_test_probe_answer(
 		map[length] = 0;
 		printf("{\"ok\":true,\"name\":\"%s\",\"map\":\"%s\",\"gametype\":\"%s\",\"players\":%d,"
 			"\"max_players\":%d,\"teams\":%s,\"in_progress\":%s,\"open\":%s,\"dedicated\":%s,"
-			"\"network_version\":%u,\"kind\":%u}\n", name, map,
+			"\"network_version\":%u,\"kind\":%u,\"tick_rate\":%d,\"openh1_version\":%u}\n", name, map,
 			game.engine_type >= 0 && game.engine_type < (short)NUMBEROF(engines) ? engines[game.engine_type] : "none",
 			game.player_count, game.maximum_player_count, game.has_teams ? "true" : "false",
 			game.in_progress ? "true" : "false", game.open ? "true" : "false", game.dedicated ? "true" : "false",
-			(unsigned)game.version, (unsigned)game.kind);
+			(unsigned)game.version, (unsigned)game.kind, (int)game.rate, (unsigned)game.openh1_version);
 		fflush(stdout);
 		exit(0);
 	}
@@ -1509,6 +1551,8 @@ void network_test_update(
 	boolean main_menu_loaded,
 	real seconds)
 {
+	/* debug.bsp_switch_test (bsp_switch_test.c) */
+	bsp_switch_test_update(main_menu_loaded);
 	if (!network_test.checked)
 		network_test_read_settings();
 	if (network_test.mode == _network_test_off)
@@ -1536,7 +1580,10 @@ void network_test_update(
 		network_test_run_cues();
 	if (game_in_progress() && !main_menu_loaded && game_time_get() - network_test.logged_time >= TICKS_PER_SECOND)
 	{
-		network_test.logged_time = game_time_get();
+		/* (each second's at the first frame on its first tick, so that every
+		machine logs the same ticks: an OpenH1 game's client skips ticks to
+		lead the host's, network_clock.c) */
+		network_test.logged_time = game_time_get() - game_time_get() % TICKS_PER_SECOND;
 		network_test_log_players();
 		if (network_test.shoot_interval > 0.0f &&
 			game_time_get() % MAX(1, (long)(network_test.shoot_interval * TICKS_PER_SECOND)) < TICKS_PER_SECOND)
@@ -1544,8 +1591,11 @@ void network_test_update(
 			network_test_shoot();
 		}
 		/* (the host brings the players near a second before they shoot;
-		not the last while the vehicle test has it) */
-		if (network_test.mode == _network_test_host && network_test.shoot_interval > 0.0f &&
+		not the last while the vehicle test has it. A dedicated server's
+		"log" too, which hosts with no player of its own) */
+		if ((network_test.mode == _network_test_host ||
+			(network_test.mode == _network_test_log && game_connection() == _game_connection_network_server)) &&
+			network_test.shoot_interval > 0.0f &&
 			(game_time_get() + TICKS_PER_SECOND) % MAX(1, (long)(network_test.shoot_interval * TICKS_PER_SECOND)) <
 				TICKS_PER_SECOND)
 		{
@@ -2000,7 +2050,7 @@ void network_test_update(
 			if (!network_test.map_set && network_test.setup_seconds >= 1.0f && global_network_game_server_get())
 			{
 				char path[128];
-				char variant_name[64];
+				char variant_name[128];
 				struct game_variant variant;
 
 				/* (a level of its own path, else a multiplayer map's name) */
@@ -2021,8 +2071,26 @@ void network_test_update(
 				else
 				{
 					struct game_variant_options options;
-					/* (one of OpenCE's gametypes by its name: game_modes.c) */
+					/* (one of OpenCE's gametypes by its name: game_modes.c; a
+					gametype with a rotation entry's rules, "team_slayer+ghosts=2":
+					server_gametypes.c) */
 					boolean opence = game_modes_gametype_by_name(variant_name, &variant, &options);
+
+					if (!opence && strchr(variant_name, '+'))
+					{
+						static struct server_entry entry;
+						char text[288], reason[128];
+
+						snprintf(text, sizeof(text), "%s:%s", network_test.map_name, variant_name);
+						if (server_rotation_parse_entry(text, (int)strlen(text), &entry) && !entry.rejected[0] &&
+							server_gametype_build(entry.gametype, entry.rules, entry.rule_count, &variant, &options,
+								reason, (long)sizeof(reason)))
+						{
+							opence = TRUE;
+						}
+						else
+							platform_log("network test: the gametype %s cannot be built: %s", variant_name, entry.rejected);
+					}
 
 					network_game_server_change_map_name(global_network_game_server_get(), path);
 					/* the variant, as picking the game settings does */

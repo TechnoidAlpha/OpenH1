@@ -39,11 +39,14 @@ menu gets FRIENDLY FIRE too.
 #include "cache/cache_files.h"
 #include "game/game.h"
 #include "tag_files/tag_groups.h"
+#include "text/font_group.h"
 #include "text/text_group.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
 
 #include "halo_menus.h"
 #include "custom_edition_cache.h"
+#include "network_admin.h"
+#include "basic_training.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -53,6 +56,7 @@ void platform_log(char const *format, ...);
 char const *config_string(char const *name);
 int config_boolean(char const *name);
 int platform_display_resolutions(long *widths, long *heights, int maximum);
+int platform_display_refresh_rates(long *rates, int maximum);
 int platform_window_sizes(long *widths, long *heights, int maximum);
 /* (sdl_platform.c's PLATFORM_AUDIO_DEVICE_NAME_SIZE) */
 int platform_audio_devices(int recording, char (*names)[128], int maximum);
@@ -77,6 +81,8 @@ char const *pc_menu_function_name(long function_index);
 char const *pc_menu_game_data_input_name(long function_index);
 boolean pc_menu_tag(long tag_index);
 boolean pc_menu_frame_placement(struct bitmap_data const *bitmap, short *x, short *y, short *width, short *height);
+boolean pc_menu_scaled_frame_at(unsigned long address, long width, long height);
+boolean pc_menu_map_frame_at(unsigned long address, long width, long height, long *tag_index, long *frame);
 
 /* ---------- constants */
 
@@ -142,19 +148,6 @@ enum
 };
 
 /* ---------- structures */
-
-struct cache_file_tag_instance
-{
-	long group_tag;
-	long parent_group_tags[2];
-	long tag_index;
-	char *name;
-	void *base_address;
-	unsigned long unused[2];
-};
-
-typedef char verify_cache_file_tag_instance_size[
-	sizeof(struct cache_file_tag_instance) == 0x20 ? 1 : -1];
 
 /* the widget definition, as ui_widget.c has it */
 struct ui_widget_event_handler_reference
@@ -262,6 +255,9 @@ struct menu_frame_placement
 	struct bitmap_data const *bitmap;
 	short x, y;
 	short width, height;
+	/* the map's bitmap and frame it is a copy of (menu_pictures_render.c) */
+	long source_tag_index;
+	long source_frame;
 };
 
 /* a widget's wide layout (its wide attribute): how far it moves (and what
@@ -308,8 +304,8 @@ static char const *const widget_flag_names[] =
 	/* (the PC version's, which this engine has no use for) */
 	"force_handle_mouse", "no_widescreen_fill",
 	/* (the port's: ui_widget_port_anchor_offset, ui_widget_port_stretch,
-	ui_widget_port_keep_ends) */
-	"anchor_left", "anchor_right", "stretch", "keep_ends",
+	ui_widget_port_keep_ends, ui_widget_port_wheel_sideways) */
+	"anchor_left", "anchor_right", "stretch", "keep_ends", "wheel_sideways",
 };
 
 /* the port's widget flags' bits (widget_flag_names) */
@@ -317,6 +313,7 @@ static char const *const widget_flag_names[] =
 #define WIDGET_FLAG_ANCHOR_RIGHT 18
 #define WIDGET_FLAG_STRETCH 19
 #define WIDGET_FLAG_KEEP_ENDS 20
+#define WIDGET_FLAG_WHEEL_SIDEWAYS 21
 
 /* whether the menus are laid out for a touchscreen: the touchscreens'
 builds, or debug.touch_menus (read once, as the menus load: menu_files.c's
@@ -373,6 +370,14 @@ picture: ui_widget.c's draw_bitmap_widened_in_rect) */
 boolean ui_widget_port_keep_ends(long flags)
 {
 	return (flags & FLAG(WIDGET_FLAG_KEEP_ENDS)) != 0;
+}
+
+/* wheel_sideways: a row its own left and right step through (Choose
+Mission's cards), which the desktop's wheel steps as the d-pad's left and
+right (ui_widget.c's ui_mouse_wheel_widget) */
+boolean ui_widget_port_wheel_sideways(long flags)
+{
+	return (flags & FLAG(WIDGET_FLAG_WHEEL_SIDEWAYS)) != 0;
 }
 
 static char const *const widget_type_names[] = { "container", "text", "spinner", "column_list" };
@@ -469,7 +474,7 @@ static char const *const port_function_names[] =
 	/* (a new profile's screens: Settings' is then being edited, which the
 	Xbox's leaves to its own screens) */
 	"new campaign decision",
-	/* (the main menu's Mods: menu_functions.c) */
+	/* (the Mods screen, Settings' PROFILES tab's MODS: menu_functions.c) */
 	"port mods init", "port mods close", "port mods toggle", "port mods move up", "port mods move down",
 	"port mods save",
 	/* (the update question, the Steam Frame's and gamescope's: menu_functions.c) */
@@ -479,7 +484,10 @@ static char const *const port_function_names[] =
 	/* (Settings' tabs and pages: menu_functions.c's settings_*) */
 	"port settings begin", "port settings tab", "port settings tab next", "port settings tab previous",
 	"port settings ok", "port settings cancel", "port settings keep", "port settings page cancel",
-	"port settings new profile",
+	"port settings new profile", "port settings profiles",
+	/* (Online's Discord account: menu_functions.c's discord_link and
+	discord_unlink) */
+	"port discord link", "port discord unlink",
 	/* (Settings' sliders: menu_functions.c's settings_slider_*) */
 	"port slider left", "port slider right", "port slider edit",
 	/* (the server browsers' favorites: menu_functions.c's browser_favorite_toggle) */
@@ -491,6 +499,9 @@ static char const *const port_function_names[] =
 	/* (the browsers' tabs and refresh: menu_functions.c's browser_tab_choose,
 	browser_refresh) */
 	"port browser tab", "port browser tab next", "port browser tab previous", "port browser refresh",
+	/* (the browsers' Filters page and its SEARCH: menu_functions.c's
+	browser_filters_open, browser_search_edit) */
+	"port browser filters", "port browser search",
 	/* (Multiplayer's PARTY and its screen: party_menu.inc) */
 	"port party open", "port party button", "port party x", "port party y",
 	/* (Multiplayer's MATCHMAKING and its screen: matchmaking_menu.inc) */
@@ -503,7 +514,17 @@ static char const *const port_function_names[] =
 	"port host row", "port host left", "port host right", "port host action", "port host back",
 	/* (the computer's lobby: lobby_menu.inc) */
 	"port lobby team red", "port lobby team blue", "port lobby team toggle", "port lobby team click",
-	"port lobby start", "port lobby invite", "port lobby settings",
+	"port lobby start", "port lobby invite", "port lobby settings", "port lobby bots load",
+	/* (a dedicated server's map vote: menu_functions.c) */
+	"port map vote open", "port map vote choose",
+	/* (Basic Training's chapters: menu_functions.c's training_*) */
+	"port training chapter", "port training open",
+	/* (Controller's Button Remapping: controller_remap_menu.inl) */
+	"port controller bind", "port controller left", "port controller right", "port controller clear",
+	/* (the campaign's screens: campaign_menu.inc) */
+	"port campaign init", "port campaign continue", "port campaign missions", "port campaign missions init",
+	"port campaign previous", "port campaign next", "port campaign tab", "port campaign tab previous",
+	"port campaign tab next", "port campaign choose", "port campaign difficulty init", "port campaign play",
 };
 
 /* the PC version's game data functions that the Xbox's have not, from
@@ -525,8 +546,8 @@ static char const *const port_game_data_input_names[] =
 	/* (the profile settings' picture: the Xbox's of the button settings,
 	on Gamepad Setup's row) */
 	"port gamepad layout preview",
-	/* (the main menu's Mods; its item notes the main menu shown, for the
-	update question) */
+	/* (the Mods screen's list; the main menu's Quit notes the main menu
+	shown, for the update question) */
 	"port mods update", "port update question",
 	/* (network co-op's pause menu's FRIENDLY FIRE: its text, ON or OFF) */
 	"port coop friendly fire text",
@@ -546,6 +567,12 @@ static char const *const port_game_data_input_names[] =
 	"port host update",
 	/* (the computer's lobby: lobby_menu.inc) */
 	"port lobby board update",
+	/* (a dedicated server's map vote's screen) */
+	"port map vote update",
+	/* (Basic Training's chapters) */
+	"port training update",
+	/* (the campaign's screens: campaign_menu.inc) */
+	"port campaign update", "port campaign missions update", "port campaign difficulty update",
 };
 
 static struct
@@ -584,6 +611,9 @@ static struct
 	widget's own text's and strings' (NONE: none) */
 	long *widget_tags;
 	long *bitmap_tags;
+	/* the menus' heading font (pc\heading: large_ui's measures, drawn in
+	OpenCE by the high-res text, port/assets/fonts/fonts.json), else NONE */
+	long heading_tag;
 	long *strings_tags;
 	long *text_tags;
 	long *spinner_tags;
@@ -597,6 +627,9 @@ static struct
 	long map_strings;
 	/* a network co-op game's map's: its pause menu gets FRIENDLY FIRE too */
 	boolean coop;
+	/* a game map's font for the menus' fonts it has not by name (a Custom
+	Edition map's protected names): its pause menu's, else NONE */
+	long map_font;
 } build;
 
 /* ---------- the wide layout of the port's own screens
@@ -1113,7 +1146,8 @@ static long split(char const *text, char const **pieces)
 /* a spinner's strings, or its values, split: its own, but Video Setup's
 sizes are the display's (sdl_platform.c), shown "1920 x 1080" and set
 "1920x1080": its resolutions after Resolution's own (NATIVE), and the
-window sizes that fit it in place of Window Size's own; and Audio Setup's
+window sizes that fit it in place of Window Size's own; its refresh rates
+after Refresh Rate's own (AUTO); and Audio Setup's
 devices SDL finds, after their SYSTEM DEFAULT, each set by its name and
 shown by it (in capitals, as the menus' words are, and cut short) */
 static long spinner_split(struct halo_menu_widget const *widget, boolean values, char const **pieces)
@@ -1153,6 +1187,25 @@ static long spinner_split(struct halo_menu_widget const *widget, boolean values,
 			if (!piece)
 				break;
 			strcpy(piece, name);
+			pieces[count++] = piece;
+		}
+		return count;
+	}
+	if (widget->setting && !strcmp(widget->setting, "display.refresh_rate"))
+	{
+		/* (the display's rates after Refresh Rate's own, AUTO: shown "144 HZ",
+		set "144") */
+		added = platform_display_refresh_rates(widths, (int)(MAXIMUM_STRINGS - count));
+		for (index = 0; index < added; index++)
+		{
+			char text[32];
+			char *piece;
+
+			snprintf(text, sizeof(text), values ? "%ld" : "%ld HZ", widths[index]);
+			piece = allocate((long)strlen(text) + 1);
+			if (!piece)
+				break;
+			strcpy(piece, text);
 			pieces[count++] = piece;
 		}
 		return count;
@@ -1248,6 +1301,8 @@ static void *bitmap_build(struct halo_menu_bitmap const *source, long tag_index)
 					placements[menu_tags.placement_count].y = (short)PIN(data->y, -2048, 2048);
 					placements[menu_tags.placement_count].width = (short)data->width;
 					placements[menu_tags.placement_count].height = (short)data->height;
+					placements[menu_tags.placement_count].source_tag_index = group_index;
+					placements[menu_tags.placement_count].source_frame = data->index;
 					menu_tags.placement_count++;
 				}
 			}
@@ -1435,14 +1490,46 @@ static void setting_add(struct halo_menu_widget const *source, long definition_i
 	setting->value_count = spinner_split(source, TRUE, setting->values);
 }
 
-/* a font: large, small, terminal, or the map's by its path */
+/* a font: large, small, terminal, heading (the port's: large where it has
+none), or the map's by its path */
 static long font_tag(char const *font, char const *file, long line)
 {
-	char const *path = !strcmp(font, "large") ? "ui\\large_ui" :
+	char const *path;
+	long index;
+
+	if (!strcmp(font, "heading") && build.heading_tag != NONE)
+		return build.heading_tag;
+	path = !strcmp(font, "large") || !strcmp(font, "heading") ? "ui\\large_ui" :
 		!strcmp(font, "small") ? "ui\\small_ui" :
 		!strcmp(font, "terminal") ? "ui\\interstate" : font;
+	index = map_tag(FONT_TAG, path, file, line);
 
-	return map_tag(FONT_TAG, path, file, line);
+	return index == NONE && build.game_map ? build.map_font : index;
+}
+
+/* the font of the game map's pause menu's RESUME GAME, else NONE */
+static long pause_menu_font(void)
+{
+	static char const *const buttons[] =
+	{
+		"ui\\shell\\solo_game\\pause_game\\resume_game_button",
+		"ui\\shell\\multiplayer_game\\pause_game\\resume_game_button",
+	};
+	long button;
+
+	for (button = 0; button < NUMBEROF(buttons); button++)
+	{
+		long index = tag_loaded(UI_WIDGET_DEFINITION_TAG, buttons[button]);
+
+		if (index != NONE)
+		{
+			struct ui_widget_definition const *definition = tag_get(UI_WIDGET_DEFINITION_TAG, index);
+
+			if (definition->text_font.index != NONE)
+				return definition->text_font.index;
+		}
+	}
+	return NONE;
 }
 
 static void *widget_build(long widget_index)
@@ -1845,7 +1932,8 @@ for the host of a network game HOST CONTROLS (menu_functions.c's
 host_controls_menu.inc: its players, the game, the bans; END GAME is its
 Game's), or for the host of a game of this machine alone END GAME, which
 ends the game as its time limit would: its players stay, and the host picks
-the next map after the carnage report.
+the next map after the carnage report; in Basic Training's game, CHAPTERS
+in its place, which opens its chapters (basic_training.c).
 They are copies of the map's LEAVE GAME button (its look), put before it.
 The map's pause screens move to fit them: on the Xbox's own (its box of
 pausebox2 pieces), the box is the port's taller one (pause/pausebox_*:
@@ -1856,6 +1944,8 @@ what is below the list moves down. */
 #define PAUSE_SETTINGS_SCREEN "main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen"
 /* (Host Controls: tools/port_settings.py's _host_controls) */
 #define PAUSE_HOST_CONTROLS_SCREEN "main_menu/host_controls/host_controls_screen"
+/* (Basic Training's chapters: tools/port_settings.py's _training) */
+#define PAUSE_TRAINING_SCREEN "main_menu/training/training_screen"
 #define PAUSE_BUTTON_SPACING 35
 #define PAUSE_BOX_FIRST_BUTTONS 3
 
@@ -1975,6 +2065,8 @@ static long pause_list_patch(struct cache_file_tag_instance *instances, struct u
 {
 	long host_controls_widget = widget_named(PAUSE_HOST_CONTROLS_SCREEN);
 	boolean host_controls = host && !network_game_is_splitscreen_local() && host_controls_widget != NONE;
+	long training_widget = widget_named(PAUSE_TRAINING_SCREEN);
+	boolean training = host && !build.coop && basic_training_active() && training_widget != NONE;
 	struct ui_widget_child_reference *children = list->child_widgets.address;
 	long count = list->child_widgets.count, added = host || build.coop ? 2 : 1, child;
 	struct ui_widget_child_reference *grown = allocate((count + added) * sizeof(struct ui_widget_child_reference));
@@ -1992,13 +2084,15 @@ static long pause_list_patch(struct cache_file_tag_instance *instances, struct u
 	tags[0] = next_tag();
 	buttons[0] = pause_button(instances, model, names[0], "SETTINGS",
 		function_index("port settings begin", "pause", 0), build.widget_tags[settings_widget], NULL, NONE);
-	names[1] = build.coop ? "pause/friendly_fire_button" : host_controls ? "pause/host_controls_button" :
-		"pause/end_game_button";
+	names[1] = build.coop ? "pause/friendly_fire_button" : training ? "pause/training_button" :
+		host_controls ? "pause/host_controls_button" : "pause/end_game_button";
 	tags[1] = added > 1 ? next_tag() : NONE;
 	buttons[1] = build.coop ?
 		pause_button(instances, model, names[1], "FRIENDLY FIRE ON",
 			function_index("port coop friendly fire", "pause", 0), NONE, "FRIENDLY FIRE OFF",
 			game_data_input_index("port coop friendly fire text", "pause", 0)) :
+		training ? pause_button(instances, model, names[1], "CHAPTERS",
+			function_index("port training open", "pause", 0), build.widget_tags[training_widget], NULL, NONE) :
 		host_controls ? pause_button(instances, model, names[1], "HOST CONTROLS",
 			function_index("port host open", "pause", 0), build.widget_tags[host_controls_widget], NULL, NONE) :
 		host ? pause_button(instances, model, names[1], "END GAME",
@@ -2085,7 +2179,10 @@ static void pause_patch(struct cache_file_tag_instance *instances)
 {
 	long collection = tag_loaded('Soul', MULTIPLAYER_COLLECTION);
 	long quit_function = ui_function_named("mp game player quit");
-	boolean host = global_network_game_server_get() != NULL;
+	/* (a network game's host, or a dedicated server's admin, whose Host
+	Controls are the server's: network_admin.c) */
+	boolean host = global_network_game_server_get() != NULL ||
+		(network_admin_was_remote() && widget_named(PAUSE_HOST_CONTROLS_SCREEN) != NONE);
 	struct tag_block const *screens;
 	long patched_list = NONE, added = 0, buttons = 0, screen;
 	short grow = 0;
@@ -2160,8 +2257,8 @@ static void pause_patch(struct cache_file_tag_instance *instances)
 		}
 	}
 	if (patched_list != NONE)
-		platform_log("menus: the pause menu has SETTINGS%s", !host ? "" : network_game_is_splitscreen_local() ?
-			" and END GAME" : " and HOST CONTROLS");
+		platform_log("menus: the pause menu has SETTINGS%s", !host ? "" : basic_training_active() ? " and CHAPTERS" :
+			network_game_is_splitscreen_local() ? " and END GAME" : " and HOST CONTROLS");
 }
 
 /* ---------- the campaign's pause menu
@@ -2429,7 +2526,7 @@ void menu_tags_loaded(
 {
 	struct halo_menus const *menus;
 	struct cache_file_tag_instance *instances;
-	long widget_count, own_lists = 0, total, index;
+	long widget_count, own_lists = 0, total, index, large_font;
 	boolean locale;
 
 	boolean game_map = strcmp(map_name, "ui") != 0;
@@ -2455,6 +2552,7 @@ void menu_tags_loaded(
 	build.campaign = campaign && game_connection() == _game_connection_local &&
 		!network_game_is_active() && !game_is_cooperative();
 	build.coop = coop;
+	build.map_font = game_map ? pause_menu_font() : NONE;
 	widget_count = menus->widget_count;
 	build.widget_tags = malloc((widget_count + 1) * sizeof(long));
 	build.text_tags = malloc((widget_count + 1) * sizeof(long));
@@ -2471,7 +2569,11 @@ void menu_tags_loaded(
 			problem(menus->widgets[index].file, menus->widgets[index].line, "two widgets are named",
 				menus->widgets[index].name);
 	}
-	total = widget_count + own_lists + menus->string_list_count + menus->bitmap_count +
+	/* (the heading font: a copy of large_ui's tag, which the high-res text
+	knows by its own name, and draws in OpenCE where it is on; the bitmap
+	font's letters, as large_ui's, where it is off) */
+	large_font = tag_loaded(FONT_TAG, "ui\\large_ui");
+	total = (large_font != NONE) + widget_count + own_lists + menus->string_list_count + menus->bitmap_count +
 		(game_map ? PAUSE_PATCH_TAGS : 0);
 	instances = build.failed ? NULL : instances_grow(total, &build.first_index, &build.first_salt);
 	if (!instances)
@@ -2490,6 +2592,18 @@ void menu_tags_loaded(
 		build.strings_tags[index] = next_tag();
 	for (index = 0; index < menus->bitmap_count; index++)
 		build.bitmap_tags[index] = next_tag();
+	build.heading_tag = NONE;
+	if (large_font != NONE)
+	{
+		struct font_header *heading = allocate(sizeof(*heading));
+
+		if (heading)
+		{
+			memcpy(heading, font_definition_get(large_font), sizeof(*heading));
+			build.heading_tag = next_tag();
+			instance_set(instances, FONT_TAG, build.heading_tag, "heading", "", heading);
+		}
+	}
 	/* the tags: the bitmaps and strings first, which the widgets name; the
 	widgets' names in the table before any is built, which they find there */
 	for (index = 0; index < menus->bitmap_count && !build.failed; index++)
@@ -2655,6 +2769,56 @@ boolean pc_menu_frame_placement(
 			*y = menu_tags.placements[index].y;
 			*width = menu_tags.placements[index].width;
 			*height = menu_tags.placements[index].height;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* whether the texture at this address, this size, is a frame of ui.map's
+the menus draw scaled (the campaign's levels' pictures and badges), loaded:
+hud_hires_upscale_at upscales it, as the HUD's sheets without redraws are */
+boolean pc_menu_scaled_frame_at(
+	unsigned long address,
+	long width,
+	long height)
+{
+	long index;
+
+	for (index = 0; index < menu_tags.placement_count; index++)
+	{
+		struct bitmap_data const *bitmap = menu_tags.placements[index].bitmap;
+
+		if (bitmap->base_address && (unsigned long)bitmap->base_address == address && bitmap->width == width &&
+			bitmap->height == height)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* the frame of a map's bitmap that a menu file scales whose texture is at
+this address, this size, loaded: its bitmap's tag and its index there
+(menu_pictures_render.c: the menus' pictures drawn again) */
+boolean pc_menu_map_frame_at(
+	unsigned long address,
+	long width,
+	long height,
+	long *tag_index,
+	long *frame)
+{
+	long index;
+
+	for (index = 0; index < menu_tags.placement_count; index++)
+	{
+		struct bitmap_data const *bitmap = menu_tags.placements[index].bitmap;
+
+		if (bitmap->base_address && (unsigned long)bitmap->base_address == address && bitmap->width == width &&
+			bitmap->height == height)
+		{
+			*tag_index = menu_tags.placements[index].source_tag_index;
+			*frame = menu_tags.placements[index].source_frame;
 			return TRUE;
 		}
 	}

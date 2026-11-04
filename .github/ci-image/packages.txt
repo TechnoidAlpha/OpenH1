@@ -19,6 +19,7 @@ libxfixes-dev
 libxtst-dev
 libxkbcommon-dev
 libwayland-dev
+libegl-dev
 wayland-protocols
 libdrm-dev
 libgbm-dev

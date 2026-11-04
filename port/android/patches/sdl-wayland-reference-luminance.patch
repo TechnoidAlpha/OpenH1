@@ -1,0 +1,32 @@
+diff --git a/src/video/wayland/SDL_waylandcolor.c b/src/video/wayland/SDL_waylandcolor.c
+index bf0d84b..1551b6f 100644
+--- a/src/video/wayland/SDL_waylandcolor.c
++++ b/src/video/wayland/SDL_waylandcolor.c
+@@ -48,6 +48,7 @@ typedef struct Wayland_ColorInfoState
+     } object_type;
+ 
+     SDL_HDROutputProperties HDR;
++    float reference_luminance;
+ 
+     // The ICC fd is only valid if the size is non-zero.
+     int icc_fd;
+@@ -100,6 +101,11 @@ static void image_description_info_handle_done(void *data,
+     switch (state->object_type) {
+         case WAYLAND_COLOR_OBJECT_TYPE_WINDOW:
+         {
++            // OpenH1: the reference white in cd/m², before the HDR event that reads it
++            if (state->reference_luminance > 0.0f) {
++                SDL_SetFloatProperty(SDL_GetWindowProperties(state->window_data->sdlwindow),
++                                     "openh1.wayland.reference_luminance", state->reference_luminance);
++            }
+             SDL_SetWindowHDRProperties(state->window_data->sdlwindow, &state->HDR, true);
+             if (state->icc_size) {
+                 state->window_data->icc_fd = state->icc_fd;
+@@ -172,6 +178,7 @@ static void image_description_info_handle_luminances(void *data,
+ {
+     Wayland_ColorInfoState *state = (Wayland_ColorInfoState *)data;
+     state->HDR.HDR_headroom = (float)max_lum / (float)reference_lum;
++    state->reference_luminance = (float)reference_lum;
+ }
+ 
+ static void image_description_info_handle_target_primaries(void *data,

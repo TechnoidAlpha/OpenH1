@@ -44,6 +44,8 @@ def generated(fault=None):
     config += enum_with(host, "_host_game_listing,") + "\n"
     config += enum_with(host, "_host_tab_maps,") + "\n"
     config += enum_with(read("port/linux/game/network_host_game.h"), "_host_game_shuffle,") + ";\n"
+    admin = read("port/linux/game/network_admin.h")
+    config += enum_with(admin, "_network_admin_lists,") + "\n" + enum_with(admin, "_network_admin_flag_admin,") + "\n"
     config += re.search(r"static long const host_score_steps\[\] = \{[^}]*\};", host).group(0) + "\n"
     config += re.search(r"static short const host_time_steps\[\] = \{[^}]*\};", host).group(0) + "\n"
     config += re.search(r"static short const maximum_players\[\] = \{[^}]*\};", menus).group(0) + "\n"
@@ -51,7 +53,8 @@ def generated(fault=None):
     config += "\n"
     code = "\n\n".join([function(menus, name) for name in (
         "multiplayer_mode_set", "multiplayer_host", "server_settings_private", "server_settings_private_set",
-        "server_settings_initialize", "server_start")] + [function(host, name) for name in (
+        "server_settings_initialize", "ui_widget_port_cooperative_settings_apply",
+        "server_start")] + [function(host, name) for name in (
         "host_notice", "host_confirming", "host_confirmed", "host_game", "host_game_teams", "host_game_rows_read",
         "host_game_limits", "host_game_row_text", "host_step_value", "host_password_done", "host_announce_done",
         "host_teams_arrange", "host_game_row_change")])

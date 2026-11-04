@@ -26,7 +26,14 @@ unit changes (a respawn, however near the dead camera was), and a game state
 loaded (a checkpoint's revert) leaves no snapshots behind.
 
 Particles, contrails and other effects move every frame (game_frame), and
-read the drawn pose of what they hang off. A stream of particles from an
+read the drawn pose of what they hang off. A widget simulated at the
+Xbox's own step (an antenna's chain, a cloth flag) is stepped in the tick
+instead, and drawn between the shapes the last two ticks left, hung from
+its marker as drawn (render_interpolation_shape). A point the HUD works out
+from an object's state (a unit's camera, for a waypoint's distance and the
+motion tracker's centre) is taken whole as the game has it and moved with
+the object as drawn (render_interpolation_unit_camera_position), not mixed
+of the tick's position and the frame's markers. A stream of particles from an
 object, made in the tick, is held back to be made through the frames between
 the ticks (render_interpolation_particle_later).
 
@@ -36,7 +43,10 @@ An object made in a tick has no snapshot from the tick before: one moving
 a tick where the tick left it. A projectile deleted in a tick (at
 what it hit) is drawn a tick longer, from its last snapshot to where it was
 deleted, as the effects it made there are drawn from the start of the tick:
-a ghost, drawn only here, which nothing of the game sees.
+a ghost, drawn only here, which nothing of the game sees. At 60 and 120 a
+projectile is drawn from its newest sub-steps instead (below), its head
+start and hold from half a tick back, and its ghost through the sub-step it
+was deleted in.
 
 An object the distributed netcode moves to where the host has it
 (port/linux/game/network_objects.c) is drawn gliding there over a few ticks
@@ -70,7 +80,10 @@ put somewhere in a tick still open (render_interpolation_object_from: the
 VR mode's grenade let go of in a sub-step) is drawn there until the frames
 reach that tick. Kept here only, for the frames: the simulation never reads
 it. At 30 a tick is one sub-step, nothing is kept, and the frames are as
-they were.
+they were. In a network game, other players and the vehicles they drive are
+drawn between their newest two sub-steps instead, the open tick's, not a
+tick behind (render_interpolation_lead_wanted, below), and so is every
+projectile in any game (render_interpolation_projectile_lead).
 
 A vehicle a player drives (of the micro lane too: vehicles.c) also turns in
 the sub-steps, and what it carries (its riders, its gunner, its turret, the
@@ -184,10 +197,19 @@ vehicle is corrected by (3 and 4 world units), short of a snap */
 and the nodes each may have */
 #define MAXIMUM_GHOSTS 64
 #define MAXIMUM_GHOST_NODES 8
+/* projectiles drawn from their newest sub-steps in a frame
+(render_interpolation_projectile_nodes), by their index's slot, and the
+nodes each may have */
+#define MAXIMUM_LEAD_PROJECTILES 512
+#define MAXIMUM_LEAD_PROJECTILE_NODES 8
 /* how far the sub-steps' path through a tick may stray from the line
 between the tick's snapshots before it is taken for a jump, not a path:
 past a fast projectile's bounce, short of a teleport */
 #define SUBSTEP_OFFSET_MAXIMUM 2.0f
+/* how long (ticks) an object drawn from its newest sub-steps takes to glide
+to the tick drawn, or back (render_interpolation_lead_weight): a lift
+starting under a player, a local player getting into another's vehicle */
+#define LEAD_GLIDE_TICKS 4.0f
 /* the most a local player's vehicle drawn from its newest step turns on in
 the time since that step (radians): past a tumble's, short of a spin not a
 number */
@@ -210,8 +232,26 @@ vehicle's steps), and the most blended at once */
 /* the frames' pitches kept for the view's pitch held at the seat's limit:
 more than a step's at any rate's (a tick's at 30, at 240 Hz) */
 #define NEWEST_PITCH_FRAMES 16
+/* widgets' shapes kept (render_interpolation_shape_tick: 12 antennas and 2
+cloth flags a map at most), the points each may have (a flag's 225), and
+the ticks' shapes each keeps: the two drawn and the open tick's */
+#define MAXIMUM_INTERPOLATED_SHAPES 32
+#define MAXIMUM_SHAPE_POINTS 256
+#define SHAPE_SNAPSHOTS 3
 
 /* ---------- structures */
+
+/* a widget's shape after each of its last ticks, seen from the frame of the
+marker it hangs from (render_interpolation_shape_tick) */
+struct interpolated_shape
+{
+	unsigned long owner; /* its kind (a tag group: 'ant!', 'flag'); 0: none */
+	long index; /* its datum's */
+	long newest_tick;
+	long ticks[SHAPE_SNAPSHOTS]; /* (as interpolation_tick counts them) NONE: none */
+	short counts[SHAPE_SNAPSHOTS];
+	real_point3d points[SHAPE_SNAPSHOTS][MAXIMUM_SHAPE_POINTS];
+};
 
 struct interpolation_quaternion
 {
@@ -282,6 +322,26 @@ struct interpolated_substeps
 	long frame_drawn_frame;
 	boolean frame_drawn_valid;
 	real_matrix4x3 frame_drawn;
+	/* how far (0 to 1) it is drawn from its newest sub-steps rather than
+	the tick drawn's (render_interpolation_lead_weight), as of the frame
+	lead_frame drew at lead_time (ticks) */
+	long lead_frame;
+	real lead_weight;
+	double lead_time;
+	/* the sub-step it was first kept after (made, or let go of), counted
+	as render_interpolation_kept_position counts them, and where a
+	projectile's frames start from (render_interpolation_projectile_lead) */
+	long made_step;
+	real_point3d made_from;
+};
+
+/* a projectile drawn from its newest sub-steps, its nodes as drawn in
+frame (render_interpolation_projectile_nodes) */
+struct lead_projectile
+{
+	long object_index;
+	long frame;
+	real_matrix4x3 nodes[MAXIMUM_LEAD_PROJECTILE_NODES];
 };
 
 struct interpolated_camera
@@ -419,6 +479,11 @@ struct interpolation_ghost
 	boolean in_use;
 	long object_index;
 	long tick; /* drawn in the frames after this tick; NONE until it ends */
+	/* drawn from its newest sub-steps: the sub-step it was deleted in
+	(render_interpolation_kept_position's count), and of how many a tick;
+	NONE when drawn a tick behind, by tick */
+	long step;
+	short substep_count;
 	long model_index;
 	short node_count;
 	short forced_shader_permutation_index;
@@ -467,6 +532,13 @@ drawn in and how far (sim_substep_blend) */
 static short interpolation_substep_count = 1;
 static short interpolation_substep_index;
 static real interpolation_substep_fraction;
+/* the last sub-step the slot kept the poses after
+(render_interpolation_kept_position's count) */
+static long interpolation_substep_kept = NONE;
+static struct lead_projectile lead_projectiles[MAXIMUM_LEAD_PROJECTILES];
+static struct interpolated_shape interpolated_shapes[MAXIMUM_INTERPOLATED_SHAPES];
+
+void render_interpolation_shape_forget(unsigned long owner, long index);
 
 /* ---------- blending */
 
@@ -1065,6 +1137,9 @@ void render_interpolation_reset(void)
 	later_particle_count = 0;
 	for (index = 0; index < MAXIMUM_GHOSTS; index++)
 		ghosts[index].in_use = FALSE;
+	/* (and the widgets' shapes) */
+	for (index = 0; index < MAXIMUM_INTERPOLATED_SHAPES; index++)
+		interpolated_shapes[index].owner = 0;
 	for (index = 0; index < MAXIMUM_LOCAL_PLAYERS; index++)
 	{
 		interpolated_first_person[index].node_count = 0;
@@ -1099,6 +1174,7 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 		for (index = 0; index < MAXIMUM_INTERPOLATED_OBJECTS; index++)
 			interpolated_substeps[index].object_index = NONE;
 	}
+	interpolation_substep_kept = tick * substep_count + substep_index;
 	/* (the micro lane's types: objects.c's object_lane_micro_candidate) */
 	object_iterator_new(&iterator,
 		_object_mask_biped | _object_mask_vehicle | _object_mask_projectile | _object_mask_item, 0);
@@ -1121,6 +1197,34 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 			substeps->tick[1] = NONE;
 			substeps->drawn_frame = NONE;
 			substeps->frame_drawn_frame = NONE;
+			substeps->lead_frame = NONE;
+			/* (where a projectile's frames start: half a tick's motion back
+			from where its head start put it; for one let go of (a grenade
+			thrown, which was drawn in the hand), the whole tick back, where
+			the hand let it go, or where it was put) */
+			substeps->made_step = interpolation_substep_kept;
+			if (iterator.index == interpolation_from.object_index)
+			{
+				substeps->made_from = interpolation_from.position;
+			}
+			else
+			{
+				real back = interpolated_objects && interpolated_objects[absolute_index].object_index == iterator.index ?
+					1.0f : 0.5f;
+
+				substeps->made_from.x = object->object.position.x - back * object->object.translational_velocity.i;
+				substeps->made_from.y = object->object.position.y - back * object->object.translational_velocity.j;
+				substeps->made_from.z = object->object.position.z - back * object->object.translational_velocity.k;
+			}
+			/* (made in a sub-step after the tick's first: kept from it) */
+			if (substep_index > 0)
+			{
+				substeps->tick[buffer] = tick;
+				substeps->count[buffer] = substep_count;
+				substeps->recorded[buffer] = 0;
+				substeps->continuing[buffer] = FALSE;
+				substeps->framed[buffer] = FALSE;
+			}
 		}
 		/* (a tick given up and begun again begins again here) */
 		if (substep_index == 0)
@@ -1160,6 +1264,302 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 	}
 }
 
+/* An object of the micro lane in a network game at 60 or 120 is drawn from
+its newest sub-steps, not a tick behind. A frame of the tick drawn is the
+tick's own fraction of the way from the tick before's end: a tick behind the
+clock, where the newest sub-steps the clock has run (the open tick's, which
+the frames would draw next) are a sub-step behind it at most. Another
+machine's player, the vehicle they drive and an actor were drawn 25 to 33
+ms (17 to 33 at 60) behind where this machine's simulation had them (where
+its shots hit them), and are drawn between its two newest sub-steps instead:
+0 to 8 ms behind (0 to 17 at 60), a sub-step's interpolation still, never
+past a step the simulation has run. Only where it is moves so (and a
+vehicle's frame): its pose, the aim of its head and gun, is still blended
+between the ticks, moved there as the sub-steps' path moves it. Not what a
+local player is or rides, whose view hangs on the tick drawn
+(render_interpolation_blended_camera, or the newest step's own:
+render_interpolation_newest_vehicles); not an item; a projectile
+otherwise (render_interpolation_projectile_lead); not in a cinematic; and not a biped riding a lift that moves, which is of the macro
+lane and drawn a tick behind. Single player, and at 30 (one sub-step a
+tick: the newest is the tick drawn's end), are as they were */
+
+/* whether the object's nodes moved between the ticks drawn, or since: a lift
+moving (or not known) */
+static boolean render_interpolation_nodes_moved(long object_index)
+{
+	struct object_datum *object = object_get(object_index);
+	struct interpolated_object const *record;
+	real_matrix4x3 const *previous, *latest, *now;
+	long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index);
+	short node_count = (short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3));
+	short node_index;
+
+	if (!interpolated_objects || absolute_index >= MAXIMUM_INTERPOLATED_OBJECTS)
+		return TRUE;
+	record = &interpolated_objects[absolute_index];
+	if (record->object_index != object_index || record->tick != interpolation_tick || !record->has_previous ||
+		record->node_count != node_count)
+	{
+		return TRUE;
+	}
+	previous = record->nodes + (record->latest ^ 1) * record->node_capacity;
+	latest = record->nodes + record->latest * record->node_capacity;
+	/* (as it is now: object_get_node_matrices gives the drawn pose while a
+	frame is drawn) */
+	now = (real_matrix4x3 const *)object_header_block_get(object_index, &object->object.node_matrices);
+	for (node_index = 0; node_index < node_count; node_index++)
+	{
+		if (distance_squared(&previous[node_index].position, &latest[node_index].position) != 0.0f ||
+			distance_squared(&latest[node_index].position, &now[node_index].position) != 0.0f)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* whether the object of the micro lane (by itself) is to be drawn from its
+newest sub-steps (above) */
+static boolean render_interpolation_lead_wanted(long root_index)
+{
+	struct object_datum *root = object_get(root_index);
+	short local_player_index;
+
+	if (!sim_rate_locked() || cinematic_in_progress() ||
+		!TEST_FLAG(_object_mask_biped | _object_mask_vehicle, root->object.type))
+	{
+		return FALSE;
+	}
+	for (local_player_index = 0; local_player_index < MAXIMUM_LOCAL_PLAYERS; local_player_index++)
+	{
+		long unit_index = player_control_get_unit_index(local_player_index);
+
+		if (unit_index != NONE && object_try_and_get(unit_index) && object_get_ultimate_parent(unit_index) == root_index)
+			return FALSE;
+	}
+	if (root->object.type == _object_type_biped)
+	{
+		long elevator_index = ((struct biped_datum *)root)->biped.elevator_object_index;
+
+		if (elevator_index != NONE && object_try_and_get(elevator_index) &&
+			render_interpolation_nodes_moved(elevator_index))
+		{
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+/* (the frames) how far (0 to 1) the object is drawn from its newest
+sub-steps this frame: wanted or not, gliding there or back over
+LEAD_GLIDE_TICKS of the frames' time, rather than a jump of a sub-step's
+part of a tick's motion; at once when first drawn. Once a frame */
+static real render_interpolation_lead_weight(long root_index, struct interpolated_substeps *substeps)
+{
+	double now = (double)interpolation_tick + (double)interpolation_fraction;
+	real target;
+
+	if (substeps->lead_frame == interpolation_frame)
+		return substeps->lead_weight;
+	target = render_interpolation_lead_wanted(root_index) ? 1.0f : 0.0f;
+	/* (so written that a weight not a number is the target) */
+	if (substeps->lead_frame == NONE || !(now >= substeps->lead_time) ||
+		!(substeps->lead_weight >= 0.0f && substeps->lead_weight <= 1.0f))
+	{
+		substeps->lead_weight = target;
+	}
+	else
+	{
+		real step = (real)(now - substeps->lead_time) / LEAD_GLIDE_TICKS;
+
+		if (substeps->lead_weight < target)
+			substeps->lead_weight = substeps->lead_weight + step < target ? substeps->lead_weight + step : target;
+		else
+			substeps->lead_weight = substeps->lead_weight - step > target ? substeps->lead_weight - step : target;
+	}
+	substeps->lead_frame = interpolation_frame;
+	substeps->lead_time = now;
+	return substeps->lead_weight;
+}
+
+/* where the object's sub-steps left it (and, framed, its frame), counted
+from the tick drawn's first: up to count - 1 the tick drawn's, from count
+the open tick's (sim_substep_next), those it has run. FALSE for one not
+kept */
+static boolean render_interpolation_lead_step(
+	struct interpolated_substeps const *substeps,
+	short index,
+	boolean framed,
+	real_point3d *position,
+	struct interpolation_quaternion *rotation)
+{
+	short count = interpolation_substep_count;
+	short buffer = (short)(interpolation_tick & 1);
+
+	if (index < 0 || index >= 2 * count)
+		return FALSE;
+	if (index >= count)
+	{
+		buffer ^= 1;
+		index -= count;
+		if (substeps->tick[buffer] != interpolation_tick + 1 || substeps->count[buffer] != count ||
+			!TEST_FLAG(substeps->recorded[buffer], index) || (framed && !substeps->framed[buffer]))
+		{
+			return FALSE;
+		}
+	}
+	if (framed)
+	{
+		*position = substeps->frame_positions[buffer][index];
+		*rotation = substeps->frame_rotations[buffer][index];
+	}
+	else
+	{
+		*position = substeps->positions[buffer][index];
+	}
+	return TRUE;
+}
+
+/* the newer of the two sub-steps a frame is drawn between from the newest
+(the frame's sub-step of the tick drawn, count - 1 on: in the open tick from
+its second frame's), as render_interpolation_lead_step counts them */
+static short render_interpolation_lead_newest(void)
+{
+	return (short)(interpolation_substep_index + interpolation_substep_count - 1);
+}
+
+/* where the object's sub-steps left it after a sub-step counted from the
+clock's first (the ticks as interpolation_tick counts them, times count,
+and the sub-steps since: the open tick's are interpolation_tick + 1's).
+FALSE for one not kept */
+static boolean render_interpolation_kept_position(
+	struct interpolated_substeps const *substeps,
+	long step,
+	short count,
+	real_point3d *position)
+{
+	long tick;
+	short buffer, index;
+
+	if (step < 0 || count <= 1)
+		return FALSE;
+	tick = step / count;
+	buffer = (short)(tick & 1);
+	index = (short)(step % count);
+	if (substeps->tick[buffer] != tick || substeps->count[buffer] != count ||
+		!TEST_FLAG(substeps->recorded[buffer], index))
+	{
+		return FALSE;
+	}
+	*position = substeps->positions[buffer][index];
+	return TRUE;
+}
+
+/* the newer of the two sub-steps a frame is drawn between from the newest
+(render_interpolation_lead_newest), as render_interpolation_kept_position
+counts them */
+static long render_interpolation_lead_to_step(void)
+{
+	return interpolation_tick * interpolation_substep_count + render_interpolation_lead_newest();
+}
+
+/* A projectile (a bolt, a bullet, a needle, a rocket, a grenade thrown) at
+60 and 120 is drawn from its newest sub-steps, as another's player is in a
+network game, in any game but a cinematic: a tick behind, a shot was drawn
+25 to 33 ms (17 to 33 at 60) after the simulation fired it, short of what
+its impact showed, and another's left from a tick behind where the player
+was drawn. Its first update is its head start, a whole tick's travel at
+once, then it holds for a tick (projectiles.c): from the frame after the
+sub-step it was made in, it is drawn from half a tick's motion back from
+where the head start put it (a whole tick back is where it was made, for a
+bolt the eye, where its sprite would fill the view) or from where it was
+let go of (render_interpolation_object_from), to there over the tick it
+holds, and on its sub-steps from then: never past a sub-step the
+simulation ran, and never further than where it was deleted
+(render_interpolation_object_deleted). Its pose is its newest, moved
+there. FALSE when it is drawn otherwise (one sub-step a tick, carried, in a
+cinematic, none kept) */
+static boolean render_interpolation_projectile_lead(long object_index, real_point3d *drawn)
+{
+	struct object_datum *object = object_get(object_index);
+	struct interpolated_substeps const *substeps;
+	long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index);
+	short count = interpolation_substep_count;
+	long to_step;
+	real_point3d from, to;
+	boolean has_from, has_to;
+
+	if (count <= 1 || !interpolated_substeps || object->object.type != _object_type_projectile ||
+		object->object.parent_object_index != NONE || absolute_index >= MAXIMUM_INTERPOLATED_OBJECTS ||
+		cinematic_in_progress())
+	{
+		return FALSE;
+	}
+	substeps = &interpolated_substeps[absolute_index];
+	if (substeps->object_index != object_index)
+		return FALSE;
+	to_step = render_interpolation_lead_to_step();
+	/* (its head start and hold: from where its frames start, reaching where
+	they put it as the hold ends) */
+	if (to_step - substeps->made_step < count &&
+		render_interpolation_kept_position(substeps, substeps->made_step, count, &to))
+	{
+		real part = ((real)(to_step - substeps->made_step) + interpolation_substep_fraction) / (real)count;
+
+		point_lerp(&substeps->made_from, &to, part > 0.0f ? part : 0.0f, drawn);
+		return TRUE;
+	}
+	has_from = render_interpolation_kept_position(substeps, to_step - 1, count, &from);
+	has_to = render_interpolation_kept_position(substeps, to_step, count, &to);
+	/* (so written that a position not a number is a jump) */
+	if (has_from && has_to && distance_squared(&from, &to) <= OBJECT_SNAP_DISTANCE * OBJECT_SNAP_DISTANCE)
+		point_lerp(&from, &to, interpolation_substep_fraction, drawn);
+	else if (has_to)
+		*drawn = to;
+	/* (the newer not run yet: where the last left it) */
+	else if (has_from)
+		*drawn = from;
+	else
+		return FALSE;
+	return TRUE;
+}
+
+/* (the frames) the projectile's nodes drawn from its newest sub-steps
+(above), NULL when it is drawn otherwise (or another's took its slot this
+frame) */
+static real_matrix4x3 *render_interpolation_projectile_nodes(long object_index)
+{
+	struct object_datum *object;
+	struct lead_projectile *lead;
+	real_matrix4x3 const *current;
+	real_point3d drawn;
+	short node_count;
+	short node_index;
+
+	if (!render_interpolation_projectile_lead(object_index, &drawn))
+		return NULL;
+	lead = &lead_projectiles[DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index) % MAXIMUM_LEAD_PROJECTILES];
+	if (lead->frame == interpolation_frame)
+		return lead->object_index == object_index ? lead->nodes : NULL;
+	object = object_get(object_index);
+	node_count = (short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3));
+	if (node_count <= 0 || node_count > MAXIMUM_LEAD_PROJECTILE_NODES)
+		return NULL;
+	/* (as it is now: object_get_node_matrices gives the drawn pose while a
+	frame is drawn) */
+	current = (real_matrix4x3 const *)object_header_block_get(object_index, &object->object.node_matrices);
+	for (node_index = 0; node_index < node_count; node_index++)
+	{
+		lead->nodes[node_index] = current[node_index];
+		lead->nodes[node_index].position.x += drawn.x - object->object.position.x;
+		lead->nodes[node_index].position.y += drawn.y - object->object.position.y;
+		lead->nodes[node_index].position.z += drawn.z - object->object.position.z;
+	}
+	lead->object_index = object_index;
+	lead->frame = interpolation_frame;
+	return lead->nodes;
+}
+
 /* (the frames) how far from where the line between the drawn tick's
 snapshots has it (from where the tick left it, when its pose is drawn as
 that: snapped) the object is drawn this frame, by itself or with what
@@ -1174,6 +1574,8 @@ static boolean render_interpolation_substep_offset(long object_index, boolean sn
 	short buffer = (short)(interpolation_tick & 1);
 	short count = interpolation_substep_count;
 	real_point3d from;
+	real_point3d lead_from, lead_to;
+	real weight;
 	long root_index;
 	long absolute_index;
 
@@ -1210,6 +1612,18 @@ static boolean render_interpolation_substep_offset(long object_index, boolean sn
 			OBJECT_SNAP_DISTANCE * OBJECT_SNAP_DISTANCE;
 		point_lerp(before, &substeps->positions[buffer][interpolation_substep_index], interpolation_substep_fraction,
 			&substeps->drawn);
+		/* (from its newest sub-steps, as far as it is drawn from them) */
+		weight = render_interpolation_lead_weight(root_index, substeps);
+		if (weight > 0.0f &&
+			render_interpolation_lead_step(substeps, (short)(render_interpolation_lead_newest() - 1), FALSE, &lead_from,
+				NULL) &&
+			render_interpolation_lead_step(substeps, render_interpolation_lead_newest(), FALSE, &lead_to, NULL))
+		{
+			real_point3d lead;
+
+			point_lerp(&lead_from, &lead_to, interpolation_substep_fraction, &lead);
+			point_lerp(&substeps->drawn, &lead, weight, &substeps->drawn);
+		}
 		substeps->drawn_frame = interpolation_frame;
 	}
 	if (!substeps->drawn_valid)
@@ -1224,6 +1638,38 @@ static boolean render_interpolation_substep_offset(long object_index, boolean sn
 	/* (so written that an offset not a number is none) */
 	return offset->i * offset->i + offset->j * offset->j + offset->k * offset->k <=
 		SUBSTEP_OFFSET_MAXIMUM * SUBSTEP_OFFSET_MAXIMUM;
+}
+
+/* (render_interpolation_substep_frame) the vehicle's frame drawn moved from
+the tick drawn's sub-steps toward its newest, as far as it is drawn from
+them */
+static void render_interpolation_lead_frame(long vehicle_index, struct interpolated_substeps *substeps)
+{
+	real weight = render_interpolation_lead_weight(vehicle_index, substeps);
+	struct interpolation_quaternion from_rotation, to_rotation;
+	real_point3d from_position, to_position;
+	real_matrix4x3 lead;
+
+	if (!(weight > 0.0f) ||
+		!render_interpolation_lead_step(substeps, (short)(render_interpolation_lead_newest() - 1), TRUE, &from_position,
+			&from_rotation) ||
+		!render_interpolation_lead_step(substeps, render_interpolation_lead_newest(), TRUE, &to_position, &to_rotation))
+	{
+		return;
+	}
+	frame_blend(&from_position, &from_rotation, &to_position, &to_rotation, interpolation_substep_fraction, &lead);
+	if (weight < 1.0f)
+	{
+		struct interpolation_rotation drawn_rotation, lead_rotation;
+
+		rotation_from_matrix(&substeps->frame_drawn, &drawn_rotation);
+		rotation_from_matrix(&lead, &lead_rotation);
+		if (!drawn_rotation.is_rotation || !lead_rotation.is_rotation)
+			return;
+		frame_blend(&substeps->frame_drawn.position, &drawn_rotation.quaternion, &lead.position,
+			&lead_rotation.quaternion, weight, &lead);
+	}
+	substeps->frame_drawn = lead;
 }
 
 /* (the frames) the frame of a vehicle of the micro lane (its root node:
@@ -1286,6 +1732,7 @@ static boolean render_interpolation_substep_frame(
 				&substeps->frame_rotations[buffer][substep_index],
 				interpolation_substep_fraction,
 				&substeps->frame_drawn);
+			render_interpolation_lead_frame(vehicle_index, substeps);
 			point_lerp(&frames[0]->position, &frames[1]->position, interpolation_fraction, &line);
 			/* (so written that a position not a number is none) */
 			substeps->frame_drawn_valid = distance_squared(&substeps->frame_drawn.position, &line) <=
@@ -1306,6 +1753,11 @@ from the start of the frames after the tick, but the projectile was drawn
 only as far as the tick before had it: it went a tick early, short of what
 it hit, as what it made there appeared. It is drawn through the frames
 after this tick as it was, from its last snapshot to where it was deleted.
+One drawn from its newest sub-steps (render_interpolation_projectile_lead)
+was drawn as far as the sub-step before: it is drawn through the frames of
+the sub-step it was deleted in, from where that sub-step began to where it
+was deleted, as the newest two sub-steps would have drawn it, and is gone
+as the next sub-step's frames begin: never further than where it struck.
 Only a projectile drawn with a model, with nothing on it (its lights and
 its contrail go with it), and drawn before. */
 void render_interpolation_object_deleted(long object_index)
@@ -1315,7 +1767,11 @@ void render_interpolation_object_deleted(long object_index)
 	struct interpolated_object *record;
 	struct interpolation_ghost *ghost = NULL;
 	real_matrix4x3 const *latest;
+	real_point3d from;
 	long absolute_index;
+	long step = NONE;
+	short count = sim_substep_count();
+	short node_count;
 	short index;
 
 	if (!halo_interpolation_enabled() || !interpolated_objects || object_index == NONE)
@@ -1331,12 +1787,34 @@ void render_interpolation_object_deleted(long object_index)
 	absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index);
 	if (definition->object.model.index == NONE || absolute_index >= MAXIMUM_INTERPOLATED_OBJECTS)
 		return;
-	/* (its snapshot at the end of the tick before) */
 	record = &interpolated_objects[absolute_index];
-	if (record->object_index != object_index || record->tick != interpolation_tick ||
+	node_count = (short)(object->object.node_matrices.size / (short)sizeof(real_matrix4x3));
+	/* (drawn from its newest sub-steps: where the sub-step before the one
+	running, or the tick's work, left it; its pose as it is) */
+	if (count > 1 && interpolated_substeps && !cinematic_in_progress())
+	{
+		if (interpolated_substeps[absolute_index].object_index != object_index ||
+			interpolation_substep_kept == NONE ||
+			!render_interpolation_kept_position(&interpolated_substeps[absolute_index], interpolation_substep_kept,
+				count, &from) ||
+			node_count <= 0 || node_count > MAXIMUM_GHOST_NODES)
+		{
+			return;
+		}
+		step = interpolation_substep_kept + 1;
+		latest = (real_matrix4x3 const *)object_header_block_get(object_index, &object->object.node_matrices);
+	}
+	/* (its snapshot at the end of the tick before) */
+	else if (record->object_index != object_index || record->tick != interpolation_tick ||
 		record->node_count > MAXIMUM_GHOST_NODES)
 	{
 		return;
+	}
+	else
+	{
+		from = record->position;
+		node_count = record->node_count;
+		latest = record->nodes + record->latest * record->node_capacity;
 	}
 	for (index = 0; index < MAXIMUM_GHOSTS && !ghost; index++)
 	{
@@ -1345,9 +1823,9 @@ void render_interpolation_object_deleted(long object_index)
 	}
 	if (!ghost)
 		return;
-	ghost->offset.i = object->object.position.x - record->position.x;
-	ghost->offset.j = object->object.position.y - record->position.y;
-	ghost->offset.k = object->object.position.z - record->position.z;
+	ghost->offset.i = object->object.position.x - from.x;
+	ghost->offset.j = object->object.position.y - from.y;
+	ghost->offset.k = object->object.position.z - from.z;
 	/* (so written that an offset not a number is none) */
 	if (!(ghost->offset.i * ghost->offset.i + ghost->offset.j * ghost->offset.j + ghost->offset.k * ghost->offset.k <=
 		OBJECT_SNAP_DISTANCE * OBJECT_SNAP_DISTANCE))
@@ -1358,18 +1836,37 @@ void render_interpolation_object_deleted(long object_index)
 	if (!render_objects_port_last_lighting(object_index, &ghost->lighting))
 		return;
 	ghost->lighting.point_light_count = 0;
-	latest = record->nodes + record->latest * record->node_capacity;
-	memcpy(ghost->nodes, latest, record->node_count * sizeof(real_matrix4x3));
-	memcpy(ghost->function_values, record->function_values[record->latest], sizeof(ghost->function_values));
-	memcpy(ghost->change_colors, record->change_colors[record->latest], sizeof(ghost->change_colors));
+	memcpy(ghost->nodes, latest, node_count * sizeof(real_matrix4x3));
+	if (step != NONE)
+	{
+		short node_index;
+
+		/* (its pose moved to where the sub-step began: never on past where it
+		was deleted, wherever the pose was last made) */
+		for (node_index = 0; node_index < node_count; node_index++)
+		{
+			ghost->nodes[node_index].position.x += from.x - latest[0].position.x;
+			ghost->nodes[node_index].position.y += from.y - latest[0].position.y;
+			ghost->nodes[node_index].position.z += from.z - latest[0].position.z;
+		}
+		memcpy(ghost->function_values, object->object.outgoing_function_values, sizeof(ghost->function_values));
+		memcpy(ghost->change_colors, object->object.outgoing_change_colors, sizeof(ghost->change_colors));
+	}
+	else
+	{
+		memcpy(ghost->function_values, record->function_values[record->latest], sizeof(ghost->function_values));
+		memcpy(ghost->change_colors, record->change_colors[record->latest], sizeof(ghost->change_colors));
+	}
 	memcpy(ghost->region_permutations, object->object.region_permutations, sizeof(ghost->region_permutations));
 	ghost->in_use = TRUE;
 	ghost->object_index = object_index;
 	ghost->tick = NONE;
+	ghost->step = step;
+	ghost->substep_count = count;
 	ghost->model_index = definition->object.model.index;
-	ghost->node_count = record->node_count;
+	ghost->node_count = node_count;
 	ghost->forced_shader_permutation_index = object->object.forced_shader_permutation_index;
-	ghost->position = record->position;
+	ghost->position = from;
 	ghost->center_offset.i = object->object.bounding_sphere_center.x - object->object.position.x;
 	ghost->center_offset.j = object->object.bounding_sphere_center.y - object->object.position.y;
 	ghost->center_offset.k = object->object.bounding_sphere_center.z - object->object.position.z;
@@ -1386,16 +1883,38 @@ static void render_interpolation_ghosts_tick(void)
 	{
 		struct interpolation_ghost *ghost = &ghosts[index];
 
-		if (ghost->in_use && ghost->tick == NONE && halo_interpolation_enabled())
+		/* (one of a sub-step's, done with by the frames after it: those of a
+		tick before the tick drawn's, if no frame was) */
+		if (ghost->in_use && ghost->step != NONE)
+			ghost->in_use = ghost->step / ghost->substep_count >= interpolation_tick;
+		else if (ghost->in_use && ghost->tick == NONE && halo_interpolation_enabled())
 			ghost->tick = interpolation_tick;
 		else
 			ghost->in_use = FALSE;
 	}
 }
 
+/* whether the ghost is drawn in this frame, and how far (0 to 1) from where
+it is drawn from to where it was deleted: the frame's part of the tick
+after the one it was deleted in, or of the sub-step it was deleted in (at
+its start while the frames have not reached it) */
+static boolean render_interpolation_ghost_part(struct interpolation_ghost const *ghost, real *part)
+{
+	long to_step;
+
+	if (ghost->step == NONE)
+	{
+		*part = interpolation_fraction;
+		return ghost->tick == interpolation_tick;
+	}
+	to_step = render_interpolation_lead_to_step();
+	*part = to_step == ghost->step ? interpolation_substep_fraction : 0.0f;
+	return ghost->substep_count == interpolation_substep_count && to_step <= ghost->step;
+}
+
 /* (render_objects.c, as the objects are drawn) this tick's ghosts, as far
 from their last snapshot to where they were deleted as the frame is into
-the tick */
+the tick (or the sub-step's) */
 void render_interpolation_ghosts_draw(void)
 {
 	short index;
@@ -1407,20 +1926,21 @@ void render_interpolation_ghosts_draw(void)
 		struct interpolation_ghost *ghost = &ghosts[index];
 		struct render_model_effect model_effect;
 		real_point3d center;
+		real part;
 		short node_index;
 
-		if (!ghost->in_use || ghost->tick != interpolation_tick)
+		if (!ghost->in_use || !render_interpolation_ghost_part(ghost, &part))
 			continue;
 		for (node_index = 0; node_index < ghost->node_count; node_index++)
 		{
 			ghost->drawn[node_index] = ghost->nodes[node_index];
-			ghost->drawn[node_index].position.x += ghost->offset.i * interpolation_fraction;
-			ghost->drawn[node_index].position.y += ghost->offset.j * interpolation_fraction;
-			ghost->drawn[node_index].position.z += ghost->offset.k * interpolation_fraction;
+			ghost->drawn[node_index].position.x += ghost->offset.i * part;
+			ghost->drawn[node_index].position.y += ghost->offset.j * part;
+			ghost->drawn[node_index].position.z += ghost->offset.k * part;
 		}
-		center.x = ghost->position.x + ghost->offset.i * interpolation_fraction + ghost->center_offset.i;
-		center.y = ghost->position.y + ghost->offset.j * interpolation_fraction + ghost->center_offset.j;
-		center.z = ghost->position.z + ghost->offset.k * interpolation_fraction + ghost->center_offset.k;
+		center.x = ghost->position.x + ghost->offset.i * part + ghost->center_offset.i;
+		center.y = ghost->position.y + ghost->offset.j * part + ghost->center_offset.j;
+		center.z = ghost->position.z + ghost->offset.k * part + ghost->center_offset.k;
 		/* (no effect: as render_object's) */
 		memset(&model_effect, 0, sizeof(model_effect));
 		render_model(
@@ -1463,11 +1983,18 @@ void render_interpolation_frame_begin(void)
 	interpolation_substep_count = sim_substep_count();
 	sim_substep_blend(interpolation_fraction, &interpolation_substep_index, &interpolation_substep_fraction);
 	/* the ghost of one deleted since the last tick (between the ticks: by
-	the netcode, a script) is none: it was drawn as far as that tick */
+	the netcode, a script) is none: it was drawn as far as that tick; one of
+	a sub-step's is done once the frames are past its sub-step */
 	for (index = 0; index < MAXIMUM_GHOSTS; index++)
 	{
-		if (ghosts[index].in_use && ghosts[index].tick == NONE)
-			ghosts[index].in_use = FALSE;
+		struct interpolation_ghost *ghost = &ghosts[index];
+		real part;
+
+		if (ghost->in_use && (ghost->step != NONE ? !render_interpolation_ghost_part(ghost, &part) :
+			ghost->tick == NONE))
+		{
+			ghost->in_use = FALSE;
+		}
 	}
 	render_interpolation_newest_vehicles(rendering);
 	interpolation_rendering = rendering;
@@ -1572,6 +2099,8 @@ real_matrix4x3 *render_interpolation_object_node_matrices(long object_index)
 
 	if (!interpolation_rendering || !interpolated_objects || object_index == NONE)
 		return NULL;
+	if ((pending = render_interpolation_projectile_nodes(object_index)) != NULL)
+		return pending;
 	if ((pending = render_interpolation_pending_from(object_index)) != NULL)
 		return pending;
 	absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index);
@@ -1767,9 +2296,11 @@ real render_interpolation_unit_camouflage(long unit_index, real *super_amount)
 }
 
 /* a point that moves with the object's root node (its bounding sphere's
-centre: a nav point over it), from where the last tick left it to where the
-object is drawn this frame; left as it is when the object is drawn as the
-tick left it */
+centre: a nav point over it), from where the object's state has it now (the
+last tick, and at 60 and 120 the open tick's sub-steps run since: a point
+taken earlier is held to the object as it was then, game_engine.c's goals)
+to where the object is drawn this frame; left as it is when the object is
+drawn as the tick left it */
 void render_interpolation_object_point(long object_index, real_point3d *point)
 {
 	real_matrix4x3 const *drawn = render_interpolation_object_node_matrices(object_index);
@@ -1783,6 +2314,231 @@ void render_interpolation_object_point(long object_index, real_point3d *point)
 	nodes = (real_matrix4x3 const *)object_header_block_get(object_index, &object_get(object_index)->object.node_matrices);
 	matrix4x3_inverse_transform_point(&nodes[0], point, &local);
 	matrix4x3_transform_point(&drawn[0], &local, point);
+}
+
+/* A point the game works out from an object's state reads some of it as the
+tick left it (its position, its bounding sphere) and some as a frame draws
+it (its nodes and markers, object_get_node_matrices): a unit's camera on foot
+is its origin, the tick's, and in a seat its seat's marker, drawn. Mixed, it
+moves a tick's step at a time, or is drawn a tick's motion off the object.
+These take the whole of it as the tick left it and move that with the object
+as drawn (render_interpolation_object_point), the same in every case. */
+
+/* the object's origin (object_get_origin) where it is drawn */
+void render_interpolation_object_origin(long object_index, real_point3d *origin)
+{
+	boolean rendering = interpolation_rendering;
+
+	interpolation_rendering = FALSE;
+	object_get_origin(object_index, origin);
+	interpolation_rendering = rendering;
+	render_interpolation_object_point(object_index, origin);
+}
+
+/* the unit's camera (unit_get_camera_position) where it is drawn: what a
+waypoint's distance, and the motion tracker's centre, are measured from */
+void render_interpolation_unit_camera_position(long unit_index, real_point3d *position)
+{
+	boolean rendering = interpolation_rendering;
+
+	interpolation_rendering = FALSE;
+	unit_get_camera_position(unit_index, position);
+	interpolation_rendering = rendering;
+	render_interpolation_object_point(unit_index, position);
+}
+
+/* ---------- shapes */
+
+/* A widget's points (an antenna's chain, a cloth flag's grid) are a
+simulation of the Xbox's own step, an update a tick: their springs and
+cloth are per-update quantities, and stepped a frame at a time they act
+against the frames' own movement of them (an antenna swung wide, a flag's
+cloth thrashing). The tick steps them (game.c), and leaves their shape here,
+seen from the frame of the marker they hang from as the tick had it; a frame
+draws them the part of the way between the last two ticks' shapes that it
+is, hung from that marker as the frame draws it, as an object's nodes are
+drawn between their snapshots. A tick's work runs before its sub-steps
+(at game.sim_rate 60 and 120), so the shape it leaves is the tick's that
+ends after them: three are kept, the two drawn and the open tick's. */
+static struct interpolated_shape *render_interpolation_shape_find(unsigned long owner, long index, boolean make)
+{
+	struct interpolated_shape *oldest = NULL;
+	short slot;
+
+	for (slot = 0; slot < MAXIMUM_INTERPOLATED_SHAPES; slot++)
+	{
+		struct interpolated_shape *shape = &interpolated_shapes[slot];
+
+		if (shape->owner == owner && shape->index == index)
+			return shape;
+		/* (a slot of none, or the one left longest) */
+		if (!oldest || shape->owner == 0 ||
+			(oldest->owner != 0 && shape->newest_tick < oldest->newest_tick))
+		{
+			oldest = shape;
+		}
+	}
+	if (!make)
+		return NULL;
+	memset(oldest, 0, sizeof(*oldest));
+	oldest->owner = owner;
+	oldest->index = index;
+	for (slot = 0; slot < SHAPE_SNAPSHOTS; slot++)
+		oldest->ticks[slot] = NONE;
+	oldest->newest_tick = NONE;
+	return oldest;
+}
+
+/* the frame the shape is seen from: the marker's place and its axes made a
+rotation (forward kept, up square to it; a mirrored marker's left aside),
+the same at the tick and in the frame, so that what is seen from one is
+placed by the other */
+static void shape_frame(real_matrix4x3 const *anchor, real_matrix4x3 *frame)
+{
+	real length;
+	real dot;
+
+	frame->position = anchor->position;
+	frame->scale = 1.0f;
+	frame->forward = anchor->forward;
+	length = vector_length(&frame->forward);
+	if (!(length > 1e-6f))
+	{
+		/* (no rotation to speak of: the world's axes, moved) */
+		frame->forward = *global_forward3d;
+		frame->left = *global_left3d;
+		frame->up = *global_up3d;
+		return;
+	}
+	frame->forward.i /= length;
+	frame->forward.j /= length;
+	frame->forward.k /= length;
+	dot = anchor->up.i * frame->forward.i + anchor->up.j * frame->forward.j + anchor->up.k * frame->forward.k;
+	frame->up.i = anchor->up.i - frame->forward.i * dot;
+	frame->up.j = anchor->up.j - frame->forward.j * dot;
+	frame->up.k = anchor->up.k - frame->forward.k * dot;
+	length = vector_length(&frame->up);
+	if (!(length > 1e-6f))
+	{
+		frame->forward = *global_forward3d;
+		frame->left = *global_left3d;
+		frame->up = *global_up3d;
+		return;
+	}
+	frame->up.i /= length;
+	frame->up.j /= length;
+	frame->up.k /= length;
+	/* left = up x forward */
+	frame->left.i = frame->up.j * frame->forward.k - frame->up.k * frame->forward.j;
+	frame->left.j = frame->up.k * frame->forward.i - frame->up.i * frame->forward.k;
+	frame->left.k = frame->up.i * frame->forward.j - frame->up.j * frame->forward.i;
+}
+
+/* the shape this tick leaves a widget in (owner: its kind, index: its
+datum's), its points in the world and the marker they hang from as the tick
+has them */
+void render_interpolation_shape_tick(
+	unsigned long owner,
+	long index,
+	real_matrix4x3 const *anchor,
+	short count,
+	real_point3d const *points)
+{
+	struct interpolated_shape *shape;
+	/* (the tick this one ends with, as interpolation_tick counts them once
+	it has) */
+	long tick = interpolation_tick + 1;
+	real_matrix4x3 frame;
+	short slot;
+	short point_index;
+
+	if (count <= 0 || count > MAXIMUM_SHAPE_POINTS)
+	{
+		render_interpolation_shape_forget(owner, index);
+		return;
+	}
+	shape = render_interpolation_shape_find(owner, index, TRUE);
+	/* (the slot of the oldest, or of this tick again) */
+	slot = 0;
+	for (point_index = 0; point_index < SHAPE_SNAPSHOTS; point_index++)
+	{
+		if (shape->ticks[point_index] == tick)
+		{
+			slot = point_index;
+			break;
+		}
+		if (shape->ticks[point_index] == NONE ||
+			(shape->ticks[slot] != NONE && shape->ticks[point_index] < shape->ticks[slot]))
+		{
+			slot = point_index;
+		}
+	}
+	shape_frame(anchor, &frame);
+	for (point_index = 0; point_index < count; point_index++)
+		point_in_frame(&frame, &points[point_index], &shape->points[slot][point_index]);
+	shape->counts[slot] = count;
+	shape->ticks[slot] = tick;
+	shape->newest_tick = tick;
+}
+
+/* the widget's shape is none to blend from (made again, or put somewhere
+other than its last tick left it): its points are drawn as they are until
+the ticks leave two more */
+void render_interpolation_shape_forget(unsigned long owner, long index)
+{
+	struct interpolated_shape *shape = render_interpolation_shape_find(owner, index, FALSE);
+
+	if (shape)
+		shape->owner = 0;
+}
+
+static short shape_snapshot(struct interpolated_shape const *shape, long tick, short count)
+{
+	short slot;
+
+	for (slot = 0; slot < SHAPE_SNAPSHOTS; slot++)
+	{
+		if (shape->ticks[slot] == tick && shape->counts[slot] == count)
+			return slot;
+	}
+	return NONE;
+}
+
+/* where the widget's count points are drawn this frame, hung from the
+marker they hang from as the frame draws it (anchor): between the shapes
+of the last two ticks, or the last's alone after a gap. FALSE when the
+frame draws none (not between the ticks), or the ticks left none: its
+points are drawn as they are */
+boolean render_interpolation_shape(
+	unsigned long owner,
+	long index,
+	real_matrix4x3 const *anchor,
+	short count,
+	real_point3d *drawn)
+{
+	struct interpolated_shape const *shape;
+	short latest;
+	short previous;
+	real_matrix4x3 frame;
+	short point_index;
+
+	if (!interpolation_rendering || count <= 0 || count > MAXIMUM_SHAPE_POINTS ||
+		(shape = render_interpolation_shape_find(owner, index, FALSE)) == NULL ||
+		(latest = shape_snapshot(shape, interpolation_tick, count)) == NONE)
+	{
+		return FALSE;
+	}
+	previous = shape_snapshot(shape, interpolation_tick - 1, count);
+	shape_frame(anchor, &frame);
+	for (point_index = 0; point_index < count; point_index++)
+	{
+		real_point3d local = shape->points[latest][point_index];
+
+		if (previous != NONE)
+			point_lerp(&shape->points[previous][point_index], &local, interpolation_fraction, &local);
+		point_from_frame(&frame, &local, &drawn[point_index]);
+	}
+	return TRUE;
 }
 
 /* ---------- corrections */

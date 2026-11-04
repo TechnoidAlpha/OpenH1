@@ -32,6 +32,12 @@ void network_standard_server_created(void);
 while no other machine has joined: a game's kind holds once one has */
 void network_standard_server_mode_read(void);
 boolean network_standard_hosting(void);
+/* the game this machine hosts, as a dedicated server's status tells it: its
+OpenH1 game's rate (as last read in the lobby, then the game's), 0 for a
+Legacy game; and whether OpenCE players join it now (a Legacy game, or a
+mixed one). A dedicated server that hosts nothing yet: what its
+server.game_mode says it will host */
+long network_standard_server_hosted(boolean *opence);
 /* the rate of the Standard game hosted: network.sim_rate as read in the
 lobby (in_lobby, before the game's start), the same from the start to the
 game's end. 0 hosting a Legacy game */
@@ -39,6 +45,14 @@ long network_standard_server_rate(boolean in_lobby);
 /* the host's game record, as it goes out: a Standard game's rate in it
 (nothing of a Legacy game's changes) */
 void network_standard_stamp_game(struct network_game *game, boolean in_lobby);
+/* whether a multiplayer player (a datum index) picks up a second weapon by
+walking over it, as Custom Edition does (game.auto_pickup), or holds the
+action button, as on the Xbox (players.c's unit_should_autopick_weapon): a
+game of this machine's own, its setting; an OpenH1 game, its host's as read
+in the lobby, which the record carries to its OpenH1 clients
+(_network_game_hold_to_pick_up_bit); a Legacy game, and an OpenCE machine's
+player, OpenCE's way, walking over */
+boolean network_standard_walk_over_pickup(long player_index);
 
 /* joining: whether the game joined is Standard (its advertisement's), set
 as the join begins, and its join token made a Standard game's */

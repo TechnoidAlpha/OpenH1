@@ -1,12 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's Mods screen, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/main_menu_item_mods" type="text" width="256" height="33" bitmap="main_menu/menu_mods">
-		<data input="port update question"/>
-		<on event="a" open="main_menu/mods/mods_screen"/>
-		<on event="start" open="main_menu/mods/mods_screen"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-	</widget>
 	<widget name="main_menu/mods/mods_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
 		<on event="b" back="true"/>
 		<on event="back" back="true"/>

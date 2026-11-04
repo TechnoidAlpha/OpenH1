@@ -106,6 +106,9 @@ long scenario_tags_load(
 	char const *scenario_name);
 boolean scenario_structure_bsp_load(
 	struct scenario_structure_bsp_reference *reference);
+/* port: every bsp of the map read and checked ahead, as the map loads */
+void scenario_structure_bsps_read_ahead(
+	void);
 void tag_files_close(
 	void);
 void tag_files_open(
@@ -177,6 +180,9 @@ void cache_files_precache_map_queue_end(
 boolean cache_files_precache_map_begin(
 	char const *map_name,
 	boolean copy_map);
+/* port: a map's checksum as the precache would copy it; 0 if it would not */
+unsigned long cache_files_map_copyable_checksum(
+	char const *map_name);
 
 void cache_file_promote_read(
 	short request_index);

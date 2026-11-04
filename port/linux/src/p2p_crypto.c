@@ -24,14 +24,6 @@ tunnel's packets are sealed with keys only its two machines have.
 
 /* ---------- SHA-256 */
 
-struct sha256
-{
-	unsigned int state[8];
-	unsigned char block[64];
-	unsigned long long length;
-	int used;
-};
-
 static const unsigned int sha256_constants[64] =
 {
 	0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
@@ -46,7 +38,7 @@ static const unsigned int sha256_constants[64] =
 
 #define ROTATE_RIGHT(value, count) (((value) >> (count)) | ((value) << (32 - (count))))
 
-static void sha256_block(struct sha256 *context, const unsigned char *block)
+static void sha256_block(struct p2p_sha256 *context, const unsigned char *block)
 {
 	unsigned int words[64];
 	unsigned int a, b, c, d, e, f, g, h;
@@ -84,7 +76,7 @@ static void sha256_block(struct sha256 *context, const unsigned char *block)
 	context->state[4] += e; context->state[5] += f; context->state[6] += g; context->state[7] += h;
 }
 
-static void sha256_begin(struct sha256 *context)
+void p2p_sha256_begin(struct p2p_sha256 *context)
 {
 	static const unsigned int initial[8] =
 	{
@@ -96,7 +88,7 @@ static void sha256_begin(struct sha256 *context)
 	context->used = 0;
 }
 
-static void sha256_add(struct sha256 *context, const void *data, int size)
+void p2p_sha256_add(struct p2p_sha256 *context, const void *data, int size)
 {
 	const unsigned char *bytes = data;
 
@@ -117,7 +109,7 @@ static void sha256_add(struct sha256 *context, const void *data, int size)
 	}
 }
 
-static void sha256_end(struct sha256 *context, unsigned char *digest)
+void p2p_sha256_end(struct p2p_sha256 *context, unsigned char *digest)
 {
 	unsigned long long bits = context->length * 8;
 	unsigned char length[8];
@@ -125,10 +117,10 @@ static void sha256_end(struct sha256 *context, unsigned char *digest)
 
 	for (index = 0; index < 8; index++)
 		length[index] = (unsigned char)(bits >> (56 - index * 8));
-	sha256_add(context, "\x80", 1);
+	p2p_sha256_add(context, "\x80", 1);
 	while (context->used != 56)
-		sha256_add(context, "", 1);
-	sha256_add(context, length, 8);
+		p2p_sha256_add(context, "", 1);
+	p2p_sha256_add(context, length, 8);
 	for (index = 0; index < 8; index++)
 	{
 		digest[index * 4] = (unsigned char)(context->state[index] >> 24);
@@ -140,17 +132,17 @@ static void sha256_end(struct sha256 *context, unsigned char *digest)
 
 void p2p_sha256(const void *data, int size, unsigned char *digest)
 {
-	struct sha256 context;
+	struct p2p_sha256 context;
 
-	sha256_begin(&context);
-	sha256_add(&context, data, size);
-	sha256_end(&context, digest);
+	p2p_sha256_begin(&context);
+	p2p_sha256_add(&context, data, size);
+	p2p_sha256_end(&context, digest);
 }
 
 void p2p_hmac_sha256(const unsigned char *key, int key_size, const void *data, int size, unsigned char *digest)
 {
 	unsigned char block[64], inner[P2P_SHA256_SIZE];
-	struct sha256 context;
+	struct p2p_sha256 context;
 	int index;
 
 	memset(block, 0, sizeof(block));
@@ -160,16 +152,16 @@ void p2p_hmac_sha256(const unsigned char *key, int key_size, const void *data, i
 		memcpy(block, key, (size_t)key_size);
 	for (index = 0; index < 64; index++)
 		block[index] ^= 0x36;
-	sha256_begin(&context);
-	sha256_add(&context, block, 64);
-	sha256_add(&context, data, size);
-	sha256_end(&context, inner);
+	p2p_sha256_begin(&context);
+	p2p_sha256_add(&context, block, 64);
+	p2p_sha256_add(&context, data, size);
+	p2p_sha256_end(&context, inner);
 	for (index = 0; index < 64; index++)
 		block[index] ^= 0x36 ^ 0x5c;
-	sha256_begin(&context);
-	sha256_add(&context, block, 64);
-	sha256_add(&context, inner, sizeof(inner));
-	sha256_end(&context, digest);
+	p2p_sha256_begin(&context);
+	p2p_sha256_add(&context, block, 64);
+	p2p_sha256_add(&context, inner, sizeof(inner));
+	p2p_sha256_end(&context, digest);
 }
 
 /* ---------- ChaCha20 and Poly1305 (RFC 8439) */

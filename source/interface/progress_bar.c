@@ -2291,7 +2291,11 @@ static void progress_bar_make_stuff_ready(
 	buffer_description.dwBufferBytes= 0;
 	buffer_description.lpwfxFormat= &wave_format.wfx;
 
-	for (sound_index= 0; sound_index<NUMBER_OF_PROGRESS_BAR_SOUNDS; sound_index++)
+	/* port: the chant is the loading screen's (dsound_sdl.c's
+	platform_loading_chant, begun, swelled and ended with the presenter's
+	loading screen); its voices are not made here, and the volumes below
+	find none */
+	for (sound_index= 0; sound_index<NUMBER_OF_PROGRESS_BAR_SOUNDS && FALSE; sound_index++)
 	{
 		if (DirectSoundCreateBuffer(&buffer_description, &progress_bar_globals.sounds[sound_index])<0)
 			return;
@@ -2304,10 +2308,14 @@ static void progress_bar_make_stuff_ready(
 		IDirectSoundBuffer_Play(progress_bar_globals.sounds[sound_index], 0, 0, DSBPLAY_LOOPING);
 	}
 
-	IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[0], -4681);
-	IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[1], -6386);
-	IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[2], -3999);
-	IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[3], -8773);
+	/* port: (none made: above) */
+	if (progress_bar_globals.sounds[0])
+	{
+		IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[0], -4681);
+		IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[1], -6386);
+		IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[2], -3999);
+		IDirectSoundBuffer_SetPitch(progress_bar_globals.sounds[3], -8773);
+	}
 
 	if (progress_bar_mode.capture_frame)
 	{

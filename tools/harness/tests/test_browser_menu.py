@@ -15,7 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, ROOT, build, enum_with, function, mutated, read, run, structure  # noqa: E402
 
-CASES = ["tabs", "empty", "ellipsis", "ping"]
+CASES = ["tabs", "empty", "ellipsis", "ping", "filters"]
 
 NEGATIVE_CONTROLS = {
     "favorites-on-every-tab": (("\tcase _browser_tab_favorites:\n\t\treturn favorite;\n", ""), "tabs"),
@@ -30,6 +30,23 @@ NEGATIVE_CONTROLS = {
                                 "L\"No games.\""), "empty"),
     "never-cut": (("if (font == NONE || width <= 0 || settings_text_width(font, fitted) <= width)",
                    "if (TRUE)"), "ellipsis"),
+    "full-never-hidden": (("entry->maximum_players > 0 && entry->players >= entry->maximum_players)",
+                           "entry->maximum_players > 0 && entry->players > entry->maximum_players)"), "filters"),
+    "empty-never-hidden": (("if (!filters->show_empty && entry->players <= 0)", "if (FALSE)"), "filters"),
+    "password-never-hidden": (("if (!filters->show_password && entry->locked)", "if (FALSE)"), "filters"),
+    "ping-at-limit-listed": (("entry->ping >= filters->maximum_ping)", "entry->ping > filters->maximum_ping)"),
+                             "filters"),
+    "ping-unknown-hidden": (("entry->ping >= filters->maximum_ping)",
+                             "(entry->ping < 0 || entry->ping >= filters->maximum_ping))"), "filters"),
+    "coop-hidden-by-types": (("entry->engine_type >= 1 && entry->engine_type <= 5 &&", ""), "filters"),
+    "search-name-only": (("browser_text_has(text, filters->search) || browser_text_has(entry->map_shown, "
+                          "filters->search)", "browser_text_has(text, filters->search)"), "filters"),
+    "search-case-kept": (("int y = words[index] >= 'a' && words[index] <= 'z' ? words[index] - 32 : words[index];",
+                          "int y = words[index];"), "filters"),
+    "search-spaces-kept": (("; *search == ' '; search++)", "; 0; search++)"), "filters"),
+    "types-read-shifted": (("(short)(1 << index);", "(short)(1 << (index - 1));"), "filters"),
+    "hidden-not-counted": (("\t\t\t\tbrowser_filtered_count++;", "\t\t\t\t;"), "filters"),
+    "filtered-says-nothing": (("\telse if (filtered > 0)", "\telse if (FALSE)"), "empty"),
     "ping-unknown-as-measuring": (("\telse if (ping_state == _browser_ping_measuring)",
                                    "\telse if (ping_state != _browser_ping_measured)"), "ping"),
     "ping-bars-one-off": (("ping < PING_GOOD ? 3", "ping <= PING_GOOD ? 3"), "ping"),
@@ -47,14 +64,17 @@ def generated(fault=None):
         enum_with(menus, "_multiplayer_mode_server_browser"), enum_with(menus, "_browser_sort_players"),
         enum_with(menus, "_browser_tab_all"), enum_with(menus, "_browser_ping_measured"),
         enum_with(menus, "PING_GOOD = 80"),
+        "#define BROWSER_SEARCH_LENGTH %s" % re.search(r"#define BROWSER_SEARCH_LENGTH (\d+)", menus).group(1),
+        "#define BROWSER_ALL_ENGINES %s" % re.search(r"#define BROWSER_ALL_ENGINES (\w+)", menus).group(1),
         "\n".join(re.findall(r"^#define BROWSER_PING_\w+ L[^\n]+", menus, re.M)),
         "#define BROWSER_MODE_LENGTH %s" % re.search(r"#define BROWSER_MODE_LENGTH (\d+)", menus).group(1),
         "#define MENU_TEXT_ELLIPSIS_LENGTH %s" % re.search(r"#define MENU_TEXT_ELLIPSIS_LENGTH (\d+)",
                                                            menus).group(1),
-        structure(menus, "browser_sort_entry")]) + "\n"
+        structure(menus, "browser_sort_entry"), structure(menus, "browser_filters")]) + "\n"
     code = "\n\n".join(function(menus, name) for name in (
         "settings_wide_copy", "browser_text_compare", "browser_wide_compare", "browser_sort_before",
-        "browser_tab_shows", "browser_tab_lists_offline", "browser_favorites_order", "browser_empty_text",
+        "browser_tab_shows", "browser_tab_lists_offline", "browser_text_has", "browser_filters_show",
+        "browser_filters_read", "browser_favorites_order", "browser_empty_text",
         "menu_text_cut", "menu_text_fit", "browser_ping_cell", "browser_ping_bars"))
     if fault:
         code = mutated(code, *fault)
@@ -169,7 +189,13 @@ def test_browser_layout():
         icon = re.match(r"%([a-z-]+) ", words).group(1).replace("-", "_")
         assert f"case _icon_{icon}:" in keys, f"{name}'s {icon} has no key"
     assert [words.split(" ", 1)[1] for _, words, *_ in port_settings.BROWSER_PROMPTS] == \
-        ["FAVORITE", "REFRESH", "PASTE LINK", "SORT", "BACK"]
+        ["FAVORITE", "REFRESH", "PASTE LINK", "SORT", "FILTERS", "BACK"]
+    # (FILTERS, and the left trigger, open the Filters page, Settings' Online's too)
+    filters = f"{port_settings.PE}/network_setup/browser_filters/browser_filters_screen"
+    assert f'<on event="left_trigger" run="port browser filters" open="{filters}"/>' in screen
+    assert f'<on event="a" run="port browser filters" open="{filters}"/>' in text
+    assert f'open="{filters}"' in (CE / "main_menu.settings_select.player_setup.player_profile_edit."
+                                         "network_setup.xml").read_text()
     # (the sort is the column titles': each sorts by its column, X the next of them; the title sorted by
     # brighter, its arrow its way; no sort of its own by the tabs)
     sorts = re.findall(r'\{ "(op_sort_header_\w+)", L"(\w+)", (?:TRUE|FALSE) \}', menus)
@@ -180,7 +206,7 @@ def test_browser_layout():
 
 def test_hub_keeps_every_place():
     """Multiplayer's list, on the computer: PLAY ONLINE's items, HOST's (CREATE GAME's and CO-OP CAMPAIGN's pages
-    and PLAY WITH BOTS) and EDIT GAMETYPES, each opening what the PC version's list did (the same functions and
+    and Create Game's OFFLINE) and EDIT GAMETYPES, each opening what the PC version's list did (the same functions and
     screens; the touchscreen's tiles too: _touch_hub), its panel with ONLINE NOW and BEST FOR YOU, the panel's
     descriptions one for each of menu_functions.c's items, and REFRESH and BACK in its footer."""
     port_settings = _port_settings()
@@ -199,7 +225,8 @@ def test_hub_keeps_every_place():
         "hub_join_direct": "multiplayer_type_join_direct_item",
         "hub_create_inter": "multiplayer_type_create_internet_item",
         "hub_create_lan_item": "multiplayer_type_create_lan_item",
-        "hub_create_bots": "multiplayer_type_create_bots_item",
+        # (OFFLINE hosts a game of this machine alone, as the PC list's PLAY WITH BOTS did)
+        "hub_create_offline": "multiplayer_type_create_bots_item",
         "hub_online_coop": "multiplayer_type_online_coop_item",
         "hub_split_coop": "multiplayer_type_coop_item",
         "hub_gametypes": "multiplayer_type_gametypes_item",

@@ -1144,6 +1144,44 @@ int main(int argc, char **argv)
 		doppler_enabled = TRUE;
 		return 0;
 	}
+	/* the Doppler shift glides: a voice whose velocity jumps from mix to mix
+	between 5 and 15 units a second towards the listener (as the camera's
+	velocity did between the frames, sound_manager.c refresh_listener: its
+	shift from mix to mix 1.046 or 1.153, 170 cents apart) is heard steady,
+	at the shift in between, its pitch moving under 25 cents */
+	CASE("doppler-steady")
+	{
+		static short samples[22050];
+		static float output[CHUNK * 2], send[CHUNK];
+		struct sdl_stream *stream;
+		float lowest = 10.0f, highest = 0.0f, middle = 343.0f / (343.0f - 10.0f * 3.048f);
+		unsigned long mix;
+
+		resampler_mode = RESAMPLER_SINC;
+		listener.distance_factor = 3.048f;
+		stream = voice_new(samples, 22050, 1, 22050, 0);
+		stream->has_3d = TRUE;
+		stream->mode = DS3DMODE_NORMAL;
+		stream->position[2] = 10.0f;
+		stream->minimum_distance = 1.0f;
+		stream->maximum_distance = 1000.0f;
+		for (mix = 0; mix < 40; mix++)
+		{
+			stream->velocity[2] = mix & 1 ? -15.0f : -5.0f;
+			mix_voice(stream, output, send, CHUNK);
+			/* (after a quarter of a second) */
+			if (mix * CHUNK >= OUTPUT_RATE / 4)
+			{
+				lowest = stream->current_doppler < lowest ? stream->current_doppler : lowest;
+				highest = stream->current_doppler > highest ? stream->current_doppler : highest;
+			}
+		}
+		CHECK(1200.0 * log2((double)highest / lowest) < 25.0 && lowest < middle && highest > middle,
+			"heard from x%.4f to x%.4f (%.1f cents), around x%.4f", lowest, highest,
+			1200.0 * log2((double)highest / lowest), middle);
+		voice_delete(stream);
+		return 0;
+	}
 	/* the limiter leaves a mix up to full scale as it is (the menus' music
 	reaches it), and holds two such voices' sum to it */
 	CASE("limiter")
@@ -1641,6 +1679,149 @@ int main(int argc, char **argv)
 		free(samples);
 		free(panned);
 		free(through);
+		return 0;
+	}
+	/* audio.volume and a voice's own volume (SetVolume) scale every voice
+	alike, the 3D voices through the HRTF as well as the 2D ones: each
+	voice at a fifth of both is 2 x 13.98 dB down */
+	/* Settings > Audio's SOUND (audio.enabled) as the game plays: off fades
+	the output to silence over SOUND_FADE_FRAMES and keeps it silent, on
+	fades it back and then leaves it as mixed; a device is opened for it
+	once a change of the settings turns it on with none open */
+	CASE("sound-off")
+	{
+		static float output[CHUNK * 2];
+		unsigned long frame;
+		float gain = 1.0f;
+
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, FALSE);
+		CHECK(output[0] < 0.5f && output[0] > 0.49f, "the fade's first frame: %f", output[0]);
+		CHECK(output[2 * (SOUND_FADE_FRAMES / 2)] > 0.2f && output[2 * (SOUND_FADE_FRAMES / 2)] < 0.3f,
+			"half way: %f", output[2 * (SOUND_FADE_FRAMES / 2)]);
+		for (frame = SOUND_FADE_FRAMES; frame < CHUNK; frame++)
+			CHECK(output[frame * 2] == 0.0f && output[frame * 2 + 1] == 0.0f, "frame %lu after the fade", frame);
+		CHECK(gain == 0.0f, "the gain off: %f", gain);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, FALSE);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			CHECK(output[frame] == 0.0f, "off, sample %lu: %f", frame, output[frame]);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, TRUE);
+		CHECK(output[0] > 0.0f && output[0] < 0.01f, "fading in: %f", output[0]);
+		CHECK(output[2 * (CHUNK - 1)] == 0.5f && gain == 1.0f, "faded in: %f, gain %f", output[2 * (CHUNK - 1)], gain);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			output[frame] = 0.5f;
+		gain = sound_fade(output, CHUNK, 2, gain, TRUE);
+		for (frame = 0; frame < CHUNK * 2; frame++)
+			CHECK(output[frame] == 0.5f, "on, sample %lu: %f", frame, output[frame]);
+		/* (the device: turned on with none open, once a change; not when
+		paced by the frames, before the start, already open, off) */
+		CHECK(sound_device_wanted(TRUE, FALSE, TRUE, FALSE, 4, 5), "turned on: no device opened");
+		CHECK(!sound_device_wanted(TRUE, FALSE, TRUE, FALSE, 5, 5), "opened again with no change");
+		CHECK(!sound_device_wanted(TRUE, TRUE, TRUE, FALSE, 4, 5), "a paced mix's device");
+		CHECK(!sound_device_wanted(FALSE, FALSE, TRUE, FALSE, 4, 5), "before the start");
+		CHECK(!sound_device_wanted(TRUE, FALSE, TRUE, TRUE, 4, 5), "one open already");
+		CHECK(!sound_device_wanted(TRUE, FALSE, FALSE, FALSE, 4, 5), "a device for no sound");
+		return 0;
+	}
+	CASE("master-volume")
+	{
+		unsigned long frames = 24000, kind;
+		short *samples = noise_samples(frames * 2 + 4096);
+		float *output = malloc(frames * 2 * sizeof(float));
+
+		hrtf_initialize();
+		listener_reset();
+		for (kind = 0; kind < 5; kind++)
+		{
+			double power_db[2];
+			int pass;
+
+			for (pass = 0; pass < 2; pass++)
+			{
+				struct sdl_stream *stream;
+
+				if (kind == 0)
+					stream = voice_new(samples, frames + 2048, 2, 44100, 0);
+				else if (kind == 1)
+					stream = voice_new(samples, frames + 2048, 1, 22050, 0);
+				else if (kind == 2)
+				{
+					stream = voice_new(samples, frames + 2048, 2, 22050, 0);
+					stream->stereo_positioned = TRUE;
+					stream->stereo_pan = -0.6f;
+				}
+				else
+					stream = voice_placed(samples, frames + 2048, 22050, -3.0f, 1.0f, 0.0f);
+				hrtf_enabled = kind == 4;
+				master_volume = pass ? 0.2f : 1.0f;
+				stream->volume = pass ? 0.2f : 1.0f;
+				render(stream, output, frames, TRUE);
+				power_db[pass] = ears_power(output + CHUNK * 2, frames - CHUNK);
+				voice_delete(stream);
+			}
+			hrtf_enabled = FALSE;
+			master_volume = 1.0f;
+			CHECK(fabs(power_db[1] - power_db[0] + 27.96) < 0.05, "voice %lu (0 2D stereo, 1 2D mono, 2 stereo placed, "
+				"3 3D panned, 4 3D through the HRTF) at a fifth of the master volume and its own: %+.2f dB", kind,
+				power_db[1] - power_db[0]);
+		}
+		free(samples);
+		free(output);
+		return 0;
+	}
+	/* the game's buffers (the loading screen's chant): a looped buffer plays
+	at its rate and gain, under the master volume, coming in without a
+	click; stopped, it fades out and stops; one played once stops at its
+	end */
+	CASE("buffers")
+	{
+		unsigned long frames = 4800, frame;
+		struct sdl_buffer buffer;
+		float *output = calloc(frames * 2, sizeof(float));
+		short *samples = malloc(1000 * sizeof(short));
+		double first_step;
+
+		for (frame = 0; frame < 1000; frame++)
+			samples[frame] = 16384;
+		memset(&buffer, 0, sizeof(buffer));
+		buffer.channels = 1;
+		buffer.samples = samples;
+		buffer.frames = 1000;
+		buffer.rate = OUTPUT_RATE / 2.0;
+		buffer.gain = 0.5f;
+		buffer.playing = buffer.looping = TRUE;
+		buffers = &buffer;
+		master_volume = 0.5f;
+		mix_buffers(output, frames);
+		/* (no click: its gain rises from nothing) */
+		first_step = output[0];
+		CHECK(fabs(first_step) < 0.01, "a buffer comes in at %.4f", first_step);
+		/* (a half, at half its own gain under half the master volume) */
+		CHECK(fabs(output[(frames - 2) * 2] - 0.125f) < 0.001 &&
+			fabs(output[(frames - 2) * 2] - output[(frames - 2) * 2 + 1]) < 1e-6,
+			"a looped buffer at a quarter's gain plays %.4f", output[(frames - 2) * 2]);
+		CHECK(buffer.playing && buffer.position < 1000.0, "a looped buffer loops (at %.1f)", buffer.position);
+		buffer.stopping = TRUE;
+		mix_buffers(output, frames);
+		memset(output, 0, frames * 2 * sizeof(float));
+		mix_buffers(output, frames);
+		CHECK(!buffer.playing && fabs(output[0]) < 1e-6, "a stopped buffer fades out and stops (%d, %.5f)",
+			buffer.playing, output[0]);
+		buffer.playing = TRUE;
+		buffer.looping = FALSE;
+		buffer.stopping = FALSE;
+		buffer.position = 0.0;
+		mix_buffers(output, frames);
+		CHECK(!buffer.playing, "a buffer played once stops at its end");
+		buffers = NULL;
+		master_volume = 1.0f;
+		free(samples);
+		free(output);
 		return 0;
 	}
 	/* "circle <file.wav> hrtf|pan": a sound going round the listener, to

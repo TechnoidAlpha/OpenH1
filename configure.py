@@ -46,9 +46,10 @@ parser.add_argument(
 parser.add_argument(
     "--pgo",
     default="use",
-    choices=["use", "off"],
+    choices=["use", "off", "generate"],
     help="profile-guided optimisation: use (the default) optimises every build (they are all guest builds) with "
-    "the committed profile, pgo/halo_linux.profdata; off does without",
+    "the committed profile, pgo/halo_linux.profdata; off does without; generate instruments the guests to record "
+    "a profile (README, \"Optimization profiles\")",
 )
 parser.add_argument(
     "--pgo-profile",

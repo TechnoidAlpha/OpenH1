@@ -99,6 +99,12 @@ long _rasterizer_widget_submit_occlusion_test(
 	long index);
 long _rasterizer_widget_get_occlusion_test_result(
 	long index);
+/* port: a slot's latest count, and in test the number of the test it is of
+(d3d8_visibility_test_number's; 0: none yet): the count is of that test or
+a later one of the slot (rasterizer_xbox_widgets.c) */
+long rasterizer_widget_port_occlusion_test_count(
+	long index,
+	unsigned long *test);
 /* port: the 3D sprites drawn until it is turned off, or a widget's state
 changes, are one draw (rasterizer_xbox_widgets.c) */
 void rasterizer_widget_batch_sprites(

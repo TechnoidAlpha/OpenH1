@@ -61,6 +61,9 @@ enum
 /* ---------- structures */
 
 struct host_controls_player;
+struct network_game;
+struct game_variant;
+struct game_variant_options;
 
 /* a multiplayer map there is (the maps folder's, custom_maps') */
 struct host_game_map
@@ -101,6 +104,16 @@ its unit), the length in seconds (0 for ever, none given) and the reason
 (its quotes off); FALSE without a name */
 boolean network_host_game_ban_parse(char const *text, char *name, long name_size, long *seconds, char *reason,
 	long reason_size);
+/* whether a change's entry text gives a map alone (no gametype: the game's
+own is kept, its score to win, time limit and rules too); the lobby's
+variant and options a change keeps (its gametype emptied by
+network_host_game_change: TRUE), else FALSE (its gametype's are built); the
+gametype of the list shown as the game's is (its variant's name), NONE if
+none is */
+boolean network_host_game_entry_keeps(char const *text);
+boolean network_host_game_variant_kept(struct server_entry const *entry, struct network_game const *game,
+	struct game_variant *variant, struct game_variant_options *options);
+short network_host_game_gametype_find(struct host_game_gametype const *gametypes, short count, wchar_t const *shown);
 /* a duration's text ("30m", "2h", "7d", "1w", "forever"; a number alone:
 minutes) in seconds: 0 for ever, NONE if it is none */
 long network_host_game_duration_parse(char const *text);
@@ -119,8 +132,9 @@ boolean network_host_game_cooperative(void);
 /* ... and in the lobby, the game's start not yet sent (co-op's too) */
 boolean network_host_game_in_lobby(void);
 /* (the host) the game of the entry text (the rotation's: map[:gametype
-[+rule=value...]]) played now or after this game (_host_game_*), from the
-playlist's entry at playlist_index (NONE: none); FALSE and why */
+[+rule=value...]]; a map alone, not a playlist's, keeps the game's
+gametype, score to win, time limit and rules) played now or after this game (_host_game_*), from
+the playlist's entry at playlist_index (NONE: none); FALSE and why */
 boolean network_host_game_change(char const *text, short when, long playlist_index, char *reason, long reason_size);
 /* (the host) the game that plays next: one asked for (now: being started),
 else the playlist's; FALSE: none (the host picks it) */
@@ -147,6 +161,9 @@ set in it (a change asked for; else, not restarting, the playlist's); TRUE
 if one was */
 boolean network_host_game_lobby_take(boolean restarting);
 /* an entry's map and gametype as shown ("Blood Gulch \x00B7 CTF") */
+/* a gametype's name (the rotation's) as shown: its variant's, else the name
+(an admin's Host Controls, of the server's gametypes: network_admin.c) */
+void network_host_game_gametype_text(char const *name, wchar_t *text, short size);
 void network_host_game_entry_shown(struct server_entry const *entry, wchar_t *text, short size);
 /* the multiplayer maps there are, and the gametypes the rotation names
 (the built-in ones, OpenCE's), read once a while; their counts */

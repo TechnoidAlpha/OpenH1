@@ -36,16 +36,35 @@ From the top:
   pauses off screen, has a Pause button, and a visitor whose system asks
   for less motion sees the poster only.
 - **The headline features**: 128 players, online co-op, the Steam Frame
-  build, 64-bit, Vulkan and Metal, for any player.
+  build, 64-bit, Vulkan and Metal, and 3D audio, for any player.
 - **The picture sections**, each a comparison of the same moment captured
   twice, the Original (as the game drew it) and OpenH1:
   - 01, dynamic lights: a wipe, with callouts on the OpenH1 side;
   - 02, anti-aliasing: a lens, OpenH1 inside it;
   - 03, the plasma glow: two clips side by side, with a numbered legend;
-  - 04, frames between ticks: two clips side by side.
-  The wipe and the lens play one short demo the first time it scrolls into view
-  (none for less motion), and stops as soon as the visitor touches it.
-- **05, Responsive**: a headline and a line in plain words, always shown,
+  - 04, frames between ticks: two clips side by side;
+  and two of OpenH1's options, each the same frame with it off and on:
+  - 05, ambient occlusion: a wipe of two stills, Off and On, with a
+    numbered legend and where the setting is;
+  - 06, a wide field of view: two stills side by side, Normal and Panini,
+    with a numbered legend and where the setting is.
+  The wipes and the lens play one short demo the first time they scroll into
+  view (none for less motion), and stop as soon as the visitor touches them.
+- **08, 3D audio**: a wireframe head drawn with three.js (r128, MIT,
+  `public/vendor/three-r128.min.js`, as cdnjs and npm's `three@0.128.0`
+  publish `three.min.js`, SHA-256
+  `9274bbcec8d96168626c732b5d31c775aa8cfb7eaa0599bec0c175908a2c1ce2`), served from the site
+  as the fonts are, and loaded only as the section nears the screen. A sound
+  source circles the head, turns amber and muffled behind a wall, and the
+  readout shows its direction, the ear delay and each ear's level. Callouts
+  name what the game's mixer does; "Listen (headphones)" plays a tone placed
+  by the browser's own HRTF panner (3D) or by an equal-power pan of the
+  source's left and right in the view (Stereo), a switch beside it
+  crossfading the two, and the caption says it is only a hint.
+  It draws only on screen with the tab shown; for less motion, one still
+  frame (it turns by dragging); without WebGL, the poster
+  (`media/audio-head-poster.webp`, a frame of the scene) and the callouts.
+- **07, Responsive** (before the 3D audio on the page): a headline and a line in plain words, always shown,
   then the race: one click slowed 25 times on one time axis (0 to 60 ms).
   "You click" at the left; in each lane, the Original's (grey) and OpenH1
   120 Tick's (green, "Faster"), a dot travels from the click to a screen,
@@ -76,7 +95,9 @@ Rules for the content:
   Windows, the Mac, the Steam Deck and Android for now.
 - Every claim is in this repository's READMEs. Check a new one there first.
 - Every picture or clip is a real capture of the game in OpenH1, captioned
-  with what it compares. No Microsoft or Halo branding, logos or art.
+  with what it compares. The one drawing is the 3D audio's head, whose
+  caption says its sound is the browser's, not the game's. No Microsoft or
+  Halo branding, logos or art.
 - The footer keeps the credit to OpenCE and the disclaimer: an unofficial
   fan project, not endorsed by or affiliated with Microsoft; Halo is
   Microsoft's trademark; no game data included.
@@ -128,10 +149,14 @@ Preview it at `http://localhost:8000/join/#party=00112233445566778899aabbccddeef
 | `edges-original.*`, `edges-openh1.*` | 02 | Blood Gulch's cliffs against the sky, a slow strafe out and back (`capture/`): the Classic preset at 640 × 480 and Enhanced (SMAA). A quarter of the frame (320 × 180 of the Original's pixels) at 1280 × 720, 4× by nearest neighbour, shown with `image-rendering: pixelated`; 5.3 s, a loop without a fade |
 | `glow-original.*`, `glow-openh1.*` | 03 | Rat Race, the plasma rifle fired down a dark corridor, a burst before the clip leaving the scorch marks (`capture/`): the Classic preset a frame a tick, and Enhanced at 60 fps between ticks. 4 s, 1280 × 960, a loop without a fade |
 | `strafe-original.*`, `strafe-openh1.*` | 04 | Rat Race, a strafe past pillars and back to where it began (`capture/`): the Classic preset at one frame a tick, and Enhanced at 60 fps between ticks. 3.9 s, 1280 × 720 (a 16:9 crop of 4:3 masters), a loop without a fade |
-| `latency-pistol-idle.webp`, `latency-pistol-fire.webp` | 05 | Blood Gulch, a local SWAT game, the pistol fired once (`capture/`, "latency, 2026-10-24"): the frame before the shot and the one with the muzzle flash at its brightest, Enhanced. A 16:9 crop of the lower middle of a 1280 × 720 window (drawn at 2560 × 1440), 640 × 360, about 30 KB each |
+| `ao-off.webp`, `ao-on.webp` | 05 | Blood Gulch, a Warthog, two players and a Ghost placed by a base, the world stopped, one camera (`capture/`, "ambient occlusion and Panini, 2026-11-03"): Enhanced with `display.ambient_occlusion` off, then `"strong"`, the same frame. Drawn at 2560 × 1440, 1920 × 1080, about 240 KB each |
+| `panini-off.webp`, `panini-on.webp` | 06 | Blood Gulch from a player's start, the player's own view at a field of view of 150 (the same section): `display.panini` 0, then 1 (vertical 0), the same frame. Drawn at 2560 × 1440, 1920 × 1080, under 90 KB each |
+| `latency-pistol-idle.webp`, `latency-pistol-fire.webp` | 07 | Blood Gulch, a local SWAT game, the pistol fired once (`capture/`, "latency, 2026-10-24"): the frame before the shot and the one with the muzzle flash at its brightest, Enhanced. A 16:9 crop of the lower middle of a 1280 × 720 window (drawn at 2560 × 1440), 640 × 360, about 30 KB each |
 
 Each comparison is a pair of layers, `.layer.before` (the Original) under
-`.layer.after` (OpenH1), each holding an `<img>` or a `<video>`. A video
+`.layer.after` (OpenH1), each holding an `<img>` or a `<video>`. A wipe of
+an option off and on names its sides in `data-before` and `data-after`,
+which the slider's spoken value reads. A video
 needs `muted loop playsinline preload="none"`, a `poster`, and
 `data-webm` / `data-mp4`: the script adds the sources when the pair comes
 into view, plays the pair together and keeps the second in step with the
@@ -144,7 +169,7 @@ below it. On a phone the pins become numbers, and the `<ol class="legend">`
 under the picture says what each one is: keep the two in the same order.
 
 Budgets: a still at most 300 KB, a comparison clip at most 1 MB a file,
-the hero at most 4 MB. Everything below the hero loads lazily.
+the hero at most 4 MB, a clip fetched only on a press at most 2.5 MB a file. Everything below the hero loads lazily.
 
 ## Fonts
 

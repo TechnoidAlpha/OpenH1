@@ -4888,6 +4888,10 @@ void ai_communication_finished(
 									{
 										struct unit_speech_item speech;
 
+										/* port: zeroed, padding and look data too: it is copied
+										whole into the replying unit (its speech.queued), in the
+										game state, from whatever the stack held */
+										csmemset(&speech, 0, sizeof(speech));
 										speech.priority = speech_priority;
 										speech.vocalization_type = reply_vocalization_type;
 										speech.sound_definition_index = sound_definition_index;
@@ -7009,6 +7013,11 @@ void ai_communication_event(
 	{
 		struct ai_information_packet ai_packet;
 
+		/* port: zeroed, padding too: it is copied whole into the speaker's
+		unit (speech.ai, below), whose padding was whatever the stack held,
+		in the game state that the determinism check hashes, and that any
+		change to the code moved */
+		csmemset(&ai_packet, 0, sizeof(ai_packet));
 		selected_possibility = possibilities;
 		if (any_forced_possibility)
 		{
@@ -7131,6 +7140,7 @@ void ai_communication_event(
 		{
 			struct unit_speech_item speech;
 
+			csmemset(&speech, 0, sizeof(speech)); /* port: its padding too (ai_packet's, above) */
 			speech.priority = selected_possibility->priority;
 			speech.vocalization_type = selected_possibility->vocalization_type;
 			speech.sound_definition_index = selected_possibility->sound_definition_index;

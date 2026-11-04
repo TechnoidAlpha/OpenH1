@@ -35,115 +35,115 @@
 		<child widget="main_menu/multiplayer_type_select/friends/fr_row_9" x="28" y="354"/>
 		<child widget="main_menu/multiplayer_type_select/friends/friends_prompts" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_0" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_0" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_0"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_0"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_1" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_1" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_2" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_2" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_2"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_2"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_3" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_3" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_3"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_3"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_4" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_4" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_4"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_4"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_5" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_5" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_5"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_5"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_6" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_6" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_6"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_6"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_7" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_7" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_7"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_8" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_8" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_8"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_8"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_9" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_9" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_9"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_9"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="8" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/friends/panel_kind" type="text" controller="1" left="330" top="92" width="268" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 132" text_flags="no_focus_test">
 	</widget>
@@ -168,7 +168,7 @@
 		<child widget="main_menu/multiplayer_type_select/friends/panel_code"/>
 		<child widget="main_menu/multiplayer_type_select/friends/panel_help"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/friends_prompts" type="column_list" width="640" height="26" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/friends/friends_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_copy" x="28" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_join" x="28" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_accept" x="28" y="1"/>
@@ -184,72 +184,72 @@
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_show" x="324" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_back" x="516" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_copy" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%a-button COPY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_copy" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button COPY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_join" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%a-button JOIN" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_join" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button JOIN" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_accept" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%a-button ACCEPT" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_accept" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button ACCEPT" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_add" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%a-button ADD FRIEND" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_add" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button ADD FRIEND" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_unblock" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%a-button UNBLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_unblock" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button UNBLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_code" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%x-button ADD BY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_code" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button ADD BY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_invite" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%x-button INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_invite" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_ignore" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%x-button IGNORE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_ignore" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button IGNORE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_cancel" type="text" width="144" height="22" wide="-106 0" bitmap="main_menu/parts/item_144x22" text="%x-button CANCEL" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_cancel" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button CANCEL" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_remove" type="text" width="164" height="22" wide="106 0" bitmap="main_menu/parts/item_164x22" text="%y-button REMOVE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_remove" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button REMOVE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_block" type="text" width="164" height="22" wide="106 0" bitmap="main_menu/parts/item_164x22" text="%y-button BLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_block" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button BLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_hide" type="text" width="164" height="22" wide="106 0" bitmap="main_menu/parts/item_164x22" text="%y-button APPEAR OFFLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_hide" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button APPEAR OFFLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_show" type="text" width="164" height="22" wide="106 0" bitmap="main_menu/parts/item_164x22" text="%y-button APPEAR ONLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_show" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button APPEAR ONLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_back" type="text" width="96" height="22" wide="106 0" bitmap="main_menu/parts/item_96x22" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

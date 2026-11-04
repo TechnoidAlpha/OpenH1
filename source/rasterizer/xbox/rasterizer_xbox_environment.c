@@ -1010,6 +1010,14 @@ void _rasterizer_environment_lightmap_draw(
 				break;
 		}
 		rasterizer_set_pixel_shader(&pixel_shader);
+		/* port: display.hdr: the self-illumination, which combiner stages 3
+		and 4 (their constants) make and the final combiner adds to the
+		light, glows past paper white (port/linux/src/xgpu_hdr.h) */
+		halo_hdr_draw_kind(
+			illumination->map.index != NONE &&
+			rasterizer_debug_options.drawing_mode == _rasterizer_drawing_mode_normal ?
+				HALO_HDR_KIND_SELF_ILLUMINATION | HALO_HDR_KIND_SELF_ILLUMINATION_STAGES((1<<3) | (1<<4)) :
+				HALO_HDR_KIND_NONE);
 
 		rasterizer_draw_dynamic_triangles_static_vertices2(
 			dynamic_triangle_buffer_index,
@@ -1017,6 +1025,7 @@ void _rasterizer_environment_lightmap_draw(
 			triangle_count,
 			vertex_buffer,
 			vertex_buffer + !rasterizer_environment_globals.lightmap_missing);
+		halo_hdr_draw_kind(HALO_HDR_KIND_NONE); /* port: (drawn) */
 		if (rasterizer_debug_options.statistics_mode == _rasterizer_statistics_mode_enabled)
 		{
 			rasterizer_frame_statistics.lightmap_dynamic_draw_count++;

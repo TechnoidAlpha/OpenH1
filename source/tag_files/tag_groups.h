@@ -149,7 +149,56 @@ static __inline__ void *tag_block_get_element_fast(
 
 long tag_loaded(long group_tag, const char *name);
 
-void *tag_get(long group_tag, long tag_index);
+/* port: tag_get where its fast path (below) finds nothing */
+void *tag_get_slow(long group_tag, long tag_index);
+
+/* port: the loaded map's tags (cache_files.c's table, which the menus'
+copy with their tags replaces: port/linux/game/menu_tags.c), for tag_get's
+fast path. The count is 0 whenever the tags are not loaded: it is set as
+they load, just before cache_files.c's tags_loaded, and cleared with it */
+struct cache_file_tag_instance
+{
+	long group_tag;
+	long parent_group_tags[2];
+	long tag_index;
+	char *name;
+	void *base_address;
+	unsigned long unused[2];
+};
+
+typedef char verify_cache_file_tag_instance_size[
+	sizeof(struct cache_file_tag_instance) == 0x20 ? 1 : -1];
+
+extern struct cache_file_tag_instance *global_tag_instances;
+extern long global_tag_count;
+
+/* port: tag_get without a call where all it checks holds (a loaded tag of
+the group, or of a group it inherits from, with its data), and the
+function where something does not, which asserts and gives the empty tag
+as tag_get always has (__inline__: msvc_comdat.c makes __inline weak,
+which a static function cannot be) */
+static __inline__ void *tag_get(
+	long group_tag,
+	long tag_index)
+{
+	short absolute_index = (short)tag_index;
+
+	if (global_tag_instances && absolute_index >= 0 && absolute_index < global_tag_count)
+	{
+		struct cache_file_tag_instance *tag_instance = &global_tag_instances[absolute_index];
+
+		if ((!(tag_index & 0xFFFF0000) || tag_instance->tag_index == tag_index) &&
+			(tag_instance->group_tag == group_tag ||
+				tag_instance->parent_group_tags[0] == group_tag ||
+				tag_instance->parent_group_tags[1] == group_tag) &&
+			tag_instance->base_address)
+		{
+			return tag_instance->base_address;
+		}
+	}
+
+	return tag_get_slow(group_tag, tag_index);
+}
 
 /* ---------- globals */
 

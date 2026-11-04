@@ -736,6 +736,7 @@ function startPage(root) {
       fact('Map', mapTitle(s.map)),
       fact('Gametype', `${s.variant || s.gametype} (${s.gametype})${s.teams ? ', teams' : ''}`),
       fact('State', stateLabel(s.state) + (s.countdown >= 0 ? `: starts in ${s.countdown} s` : '')),
+      s.game_mode && fact('Games', s.game_mode_name || s.game_mode),
       /^(playing|postgame)$/.test(s.state) && fact('Game time', formatClock(s.game_seconds)),
       s.teams && (s.team_scores || []).length === 2 && fact('Score', `Red ${s.team_scores[0]}, Blue ${s.team_scores[1]}`),
       fact('Next', next ? next.text : 'None'),
@@ -805,6 +806,13 @@ function startPage(root) {
         () => send(Number(minutes.value) ? { minutes: Number(minutes.value) } : {}));
     } else if (action === 'unmute') {
       ask(`Unmute ${who}?`, para('Their chat and voice reach everyone again.'), 'Unmute', () => send());
+    } else if (action === 'admin') {
+      ask(`Make ${who} an admin?`, para(`Their admin key for this server (${player.key_id}) is added to admins.txt: they get Host Controls ` +
+        "in the game, which do what the admin role's commands do."), 'Make admin',
+      () => call('POST', '/api/command', { line: `sv_admin add ${player.slot}` }));
+    } else if (action === 'unadmin') {
+      ask(`Remove ${who} as an admin?`, para(`Their admin key for this server (${player.key_id}) is taken out of admins.txt.`), 'Remove admin',
+        () => call('POST', '/api/command', { line: `sv_admin remove ${player.key_id}` }), true);
     } else {
       const text = h('input', { maxLength: 127, required: true, placeholder: 'A notice on their screen' });
       ask(`Tell ${who}`, h('label', {}, ['Notice', text]), 'Send', () => send({ text: text.value }));
@@ -822,7 +830,8 @@ function startPage(root) {
       rows.push(h('tr', { class: player.muted ? 'muted' : null }, [
         cell('Slot', String(player.slot)),
         cell('Name', h('span', {}, [h('span', { class: 'team team-' + player.team }), player.name,
-          player.muted && h('span', { class: 'badge', text: 'muted' })])),
+          player.muted && h('span', { class: 'badge', text: 'muted' }),
+          player.admin && h('span', { class: 'badge', text: 'admin' })])),
         cell('Team', teamName(player.team)), cell('Score', String(player.score)),
         cell('K/D/A', `${player.kills}/${player.deaths}/${player.assists}`), cell('Ping', Number.isFinite(player.ping) ? `${player.ping} ms` : '–'),
         cell('Played', formatDuration(Date.now() / 1000 - player.joined)),
@@ -833,6 +842,9 @@ function startPage(root) {
           }),
           act('kick', 'Kick', 'danger'), act('ban', 'Ban', 'danger'),
           player.muted ? act('unmute', 'Unmute') : act('mute', 'Mute'), act('tell', 'Tell'),
+          // (the owner's: an admin in the game, by the admin key their game proved here)
+          page.role === 'owner' && player.key_id &&
+            small(player.admin ? 'Remove admin' : 'Make admin', true, () => playerAction(player, player.admin ? 'unadmin' : 'admin')),
         ]), 'row-actions'),
       ]));
       if (page.dossiers.has(key)) {

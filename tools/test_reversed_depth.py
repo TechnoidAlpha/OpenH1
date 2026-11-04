@@ -74,10 +74,30 @@ def test_programs(check, tmp_path):
     assert "projects 0" in result.stdout or "projects 1" in result.stdout
 
 
-def test_precision(check):
-    result = subprocess.run([str(check), "precision"], capture_output=True, text=True, check=True)
+def precision(check, *arguments):
+    """the light's points that pass the depth test, the game's depth's and reversed, and how many there are"""
+    result = subprocess.run([str(check), "precision", *map(str, arguments)], capture_output=True, text=True,
+                            check=True)
     counts = dict(re.findall(r"^(\w+) (\d+) of \d+$", result.stdout, re.MULTILINE))
     total = int(re.search(r"of (\d+)", result.stdout).group(1))
-    assert int(counts["reversed"]) == total, result.stdout
+    return int(counts["game"]), int(counts["reversed"]), total
+
+
+def test_precision(check):
+    game, reversed_, total = precision(check)
+    assert reversed_ == total
     # (the game's own depth: the light striped)
-    assert int(counts["game"]) < total * 0.9, result.stdout
+    assert game < total * 0.9
+
+
+@pytest.mark.parametrize("distance, gap", [(100.0, 0.0015), (3000.0, 0.02), (9000.0, 0.1)])
+def test_precision_far_draw_distance(check, distance, gap):
+    """display.draw_distance's farthest far plane, 10000 (port/linux/game/far_clip.c): the light 0.0015 units
+    in front of its wall 100 units away is whole, as at the game's 1024 (the near world loses nothing), and far
+    surfaces stay apart: 0.02 units (6 cm) at 3000 units, 0.1 (30 cm) at 9000, where a 24-bit depth's step is
+    about 9 and 77 units"""
+    game, reversed_, total = precision(check, 10000.0, distance, gap)
+    assert reversed_ == total
+    # (negative control: the game's own depth, z / w, fights the wall there)
+    assert game < total * 0.9
+

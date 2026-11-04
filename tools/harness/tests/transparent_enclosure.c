@@ -152,7 +152,7 @@ int main(int argc, char **argv)
         boolean interior = !strncmp(case_name, "lod-interior-", 13);
         boolean inside = strstr(case_name, "inside") != NULL;
         boolean shadow = strstr(case_name, "shadow") != NULL;
-        short rules = stock ? _model_detail_rules_stock : inside ? _model_detail_rules_inside : _model_detail_rules_outside;
+        short rules = stock ? _model_detail_rules_stock : inside ? _model_detail_rules_close_up : _model_detail_rules_ordinary;
         memset(regions, 0, sizeof(regions));
         memset(solid_parts, 0, sizeof(solid_parts));
         for (i = 0; i < 4; i++) {
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
         else if (interior) {
             CHECK((shadow ? shadow_draws : solid_draws) == 2, "both regions remain visible");
             CHECK(selected_geometry[0] == (inside ? 2 : 1) && selected_geometry[1] == (inside ? 2 : 1),
-                "interior geometry requires an inside camera, including shadows");
+                "a close-up's geometry only at the size the Xbox drew it at, including shadows");
         }
         else {
             CHECK((shadow ? shadow_draws : solid_draws) == 2, "both regions draw with different highest available levels");

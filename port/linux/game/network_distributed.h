@@ -149,6 +149,13 @@ enum
 	units' cameras (a VR build's hand), to the host, unreliably, every tick
 	while they do (network_damage.c): its line of sight check's */
 	_distributed_message_fire_origins = 93,
+	/* a dedicated server's vote for the next game (network_map_vote.c), in
+	the lobby too, reliably: the host's choices and their votes, to every
+	client, once a second and as they change, and the one that won; a
+	client's choice, to the host, which takes it only from the machine's own
+	stream */
+	_distributed_message_map_vote = 94,
+	_distributed_message_map_vote_choice = 95,
 
 	/* an OpenH1 game's sub-step inputs (network_substeps.c), at 60 and 120
 	only, numbered clear of the kinds upstream adds: a client's own players'
@@ -197,6 +204,22 @@ enum
 	invisible players), reliably, to the host's OpenH1 clients in a game of
 	no OpenCE machine */
 	_distributed_message_host_rules = 134,
+	/* how long before the host's tick of their number a client's inputs
+	came (network_clock.c), reliably, once a second, to each OpenH1 client:
+	the client leads its clock by its trip to the host */
+	_distributed_message_clock_phase = 135,
+	/* an OpenH1 game's states of the players near a client, or aimed at, as
+	each of the host's sub-steps but a tick's last ends (network_distributed.c,
+	unreliable, to each OpenH1 client): the sub-step and the count, then
+	the states as the tick's */
+	_distributed_message_substep_states = 136,
+	/* a dedicated server's admins in the game (network_admin.c), reliably,
+	over the host's connection alone: the host's to each OpenH1 client (its
+	nonce to sign; to an admin's, the game, its players, the lists, a
+	request's answer), and a client's to the host (its key's proof, an
+	admin's request) */
+	_distributed_message_admin_down = 137,
+	_distributed_message_admin_up = 138,
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };
@@ -373,10 +396,18 @@ void network_distributed_client_substep_inputs(void);
 clients sent this frame sent on to its other OpenH1 clients at once (an
 OpenH1 game's forwarded input) */
 void network_distributed_frame_received(void);
-/* (the host) the same now, in a sub-step (network_substeps.c's own players'
-controls); (a client) its messages to the host so far sent now, not with
-the tick's */
-void network_distributed_forward_now(void);
+/* (a dedicated server, waiting for its frame's time: main.c) its datagrams
+read as they come for up to milliseconds, and their input sent on; FALSE
+when it cannot wait for them */
+int network_distributed_server_receive(long milliseconds);
+/* (as each sub-step ends: network_substeps.c) the host: the states of the
+players near each OpenH1 client, or aimed at, of each sub-step but the
+tick's last, then the same (with the controls the sub-step ran) as
+network_distributed_frame_received; a client: where its copies of the other
+clients' players are, noted */
+void network_distributed_host_substep_ended(short substep_index, short substep_count);
+void network_distributed_client_substep_ended(short substep_index, short substep_count);
+/* (a client) its messages to the host so far sent now, not with the tick's */
 void distributed_flush_to_host(void);
 /* (the host) the client machines in the game, but for its own; their count */
 short distributed_client_machines(long *machine_indices, short maximum);
@@ -451,10 +482,16 @@ void distributed_send_notice_to_machine(long machine_index, char const *text);
 (seconds since 1970; 0: for ever), written in its bans.txt line */
 void network_distributed_ban_details(char const *reason, unsigned long until);
 /* (the host: a dedicated server's sv_ban_address) a ban's line in bans.txt
-for an address (its text; "none" for none) and a hardware id (empty for
-none), as the ban command writes one: TRUE if it was written */
-boolean network_distributed_ban_record(char const *address, char const *hardware_id, char const *names,
-	char const *reason, unsigned long until);
+for an address (its text; "none" for none), a hardware id and a verified
+Discord account's id (each empty for none), as the ban command writes one:
+TRUE if it was written */
+boolean network_distributed_ban_record(char const *address, char const *hardware_id, char const *discord_id,
+	char const *names, char const *reason, unsigned long until);
+/* (the host) a client machine's Discord account, its id and username: a
+verified one's (a pass that checked, network_link.c), else the one it told
+(empty for none); TRUE if it is verified */
+boolean network_distributed_machine_discord(long machine_index, char *discord_id, long discord_id_size,
+	char *discord_name, long discord_name_size);
 /* whether the next ban drops its machine and keeps it out without its line
 in bans.txt (network_distributed_ban_record wrote it) */
 void network_distributed_ban_unrecorded(boolean unrecorded);
@@ -522,6 +559,10 @@ word network_actors_entry_size(void);
 /* (a client, in its tick where the host runs its actors) each actor's unit
 given the control the host last sent for it */
 void network_actors_drive(void);
+/* (the host) the bytes of actors' states it sent its clients since it was
+last asked, and of those the entries that went only because their actor made
+a press or aimed at a client's player (the tests' bandwidth figures) */
+void network_actors_bytes_sent(long *all, long *pressed, long *aimed);
 
 /* ---------- prototypes/NETWORK_COOP.C */
 
@@ -597,6 +638,9 @@ void network_objects_set_seat(long unit_index, long vehicle_index, short seat_in
 /* (the host) the ticks between sends to a machine of a unit at position, by
 how near that machine's players are (network_actors.c) */
 short network_objects_send_period(long machine_index, real_point3d const *position);
+/* ... whether a unit at position aims (a unit vector) at one of that
+machine's players, or one of them at it (network_actors.c) */
+boolean network_objects_aims_with_machine(long machine_index, real_point3d const *position, real_vector3d const *aim);
 
 /* ---------- prototypes/NETWORK_DAMAGE.C */
 

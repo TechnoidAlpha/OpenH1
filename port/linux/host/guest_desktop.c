@@ -42,8 +42,12 @@ int host_sdl_show_window(unsigned int window);
 int host_sdl_set_window_resizable(unsigned int window, int resizable);
 void host_sdl_destroy_window(unsigned int window);
 int host_sdl_warp_mouse_in_window(unsigned int window, float x, float y);
+/* (the menus' cursor: sdl_platform.c's menu_cursor_fit, which declares it too) */
+int host_sdl_menu_cursor(unsigned int window, const void *png, unsigned int size, int height, int tip);
+int host_sdl_show_cursor(int show);
 int host_sdl_has_screen_keyboard_support(void);
 int host_sdl_get_hint_boolean(const char *name, int default_value);
+int host_sdl_get_current_video_driver(char *name, int size);
 int host_sdl_text_input_active(unsigned int window);
 int host_sdl_start_text_input(unsigned int window, int multiline, int type);
 int host_sdl_stop_text_input(unsigned int window);
@@ -540,6 +544,17 @@ void SDL_WarpMouseInWindow(SDL_Window *window, float x, float y)
 	host_sdl_warp_mouse_in_window(WINDOW(window), x, y);
 }
 
+/* (the menus' cursor, hidden while a controller is used: sdl_platform.c) */
+bool SDL_ShowCursor(void)
+{
+	return host_sdl_show_cursor(1) != 0;
+}
+
+bool SDL_HideCursor(void)
+{
+	return host_sdl_show_cursor(0) != 0;
+}
+
 /* ---------- text input (Steam's on-screen keyboard, sdl_platform.c) */
 
 bool SDL_HasScreenKeyboardSupport(void)
@@ -550,6 +565,16 @@ bool SDL_HasScreenKeyboardSupport(void)
 bool SDL_GetHintBoolean(const char *name, bool default_value)
 {
 	return host_sdl_get_hint_boolean(name, default_value) != 0;
+}
+
+const char *SDL_GetCurrentVideoDriver(void)
+{
+	/* (the driver is chosen once, as SDL starts) */
+	static char driver[32];
+
+	if (!driver[0] && !host_sdl_get_current_video_driver(driver, (int)sizeof(driver)))
+		return NULL;
+	return driver;
 }
 
 bool SDL_TextInputActive(SDL_Window *window)

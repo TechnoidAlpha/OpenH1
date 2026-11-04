@@ -142,7 +142,9 @@ void *datum_try_and_get(
 	return header;
 }
 
-void *datum_get(
+/* port: datum_get (data.h) where its fast path finds nothing: the
+original, unchanged */
+void *datum_get_slow(
 	struct data_array *data,
 	long index)
 {

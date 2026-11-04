@@ -15,12 +15,17 @@ a BMP a frame.
 | `encode.sh` | A pair's MP4, WebM and poster, frame for frame, the Original scaled by nearest neighbour |
 | `final.py` | A final pair: both sides captured, the loop's end found (the Original's frame most like the first), the masters encoded (`encode.sh`, CRF 16) into `final/out` |
 | `encode-web.sh` | The page's clips from a pair's masters: cropped, scaled (the Original by nearest neighbour), MP4, WebM and poster |
+| `audio_scout.py` | Windows of local games with bots where the most is heard around the player, from the sim trace: driven vehicles passing close, one in the air above, one behind, enemy rounds passing the eye |
+| `audio_clip.py` | The 3D audio clip: a window played twice side by side, `audio.spatial` "headphones" and "speakers", each mix recorded in step with its frames, the first's frames the master; the two sim traces compared |
+| `encode-audio-web.sh` | Its web files: the two mixes lined up to the sample (cross-correlated), the video without sound (MP4, WebM, poster), each mix as Opus and AAC |
 
 Settings are environment variables: `TREE` (the built tree), `MAPS`, `RUNS`
 (where runs go), `SIZE` (OpenH1's window), `PORT` (the console's; distinct
 for runs side by side), `FT` (OpenH1's frame time: 1/60 for the clips, 1/30
 in a survey), `SEED`, `TRACE_SECONDS`; for `encode.sh`, `WIDTH`, `HEIGHT`,
-`MP4_CRF`, `WEBM_CRF`, `FADE`.
+`MP4_CRF`, `WEBM_CRF`, `FADE`; `CUSTOM_MAPS` (a `custom_maps` folder linked into
+the run's data), `AUDIO` (the sound recorded, no device) and `SPATIAL`
+(its `audio.spatial`). No run opens a sound device (`SDL_AUDIO_DRIVER=dummy`).
 
 ## How a pair lines up
 
@@ -183,7 +188,7 @@ tools/encode-web.sh strafe strafe 3840:2160:0:360 1280x720
 
 ### latency, 2026-10-24
 
-The race's two screens (05): one pistol shot on macOS, hidden and silent,
+The race's two screens (07): one pistol shot on macOS, hidden and silent,
 in a local SWAT game on Blood Gulch with no bots (SWAT starts with the
 pistol), seed 7, Enhanced, a 1280 × 720 window, frames of a fixed 1/60 s,
 the shot scripted and the frames saved only around it:
@@ -200,6 +205,68 @@ magick frame01593.bmp -crop 1408x792+704+648 +repage -resize 640x360 -quality 74
 The flash is two frames (the 13th and 14th saved); the second is the
 brighter. The frames are 2560 × 1440 (the Retina window), so the crop is in
 those pixels.
+
+### 3D audio, 2026-11-01
+
+The clip under the head (08): Blood Gulch with every vehicle (a Custom
+Edition map, `bloodgulch_all_vehicles`, with Custom Edition's shared maps
+in `CUSTOM_MAPS`), Team Slayer, 15 legendary bots, the player not a bot but
+standing still where it spawned, made deathless, and every vehicle dropped
+around it at 15 s, all through the console, timed on the game's clock so
+that both runs play the same:
+
+```sh
+C='(set cheat_deathless_player true)(sleep_until (>= (game_time) 450) 1)(cheat_all_vehicles)'
+M='custom_maps\bloodgulch_all_vehicles:team_slayer'
+python tools/audio_scout.py "$M" --seeds 7,8,9,10,11,12 --seconds 120 --out scout6 --parallel 3 \
+  --console "$C" --env HALO_BOT_PLAYER= --deathless
+python tools/audio_clip.py "$M" 10 57.5 --size 1920x1080 --out final --console "$C" \
+  --env HALO_BOT_PLAYER= --env HIDE_HUD=0
+MP4_CRF=34 WEBM_CRF=50 tools/encode-audio-web.sh final
+```
+
+Seed 10 at 57.5 s: a Banshee flies a full circle round the player from
+61.8 s (right, behind, left, overhead, landing beside it, round again),
+rounds and fuel rod bolts cross the view, the base's fight in front. The
+two runs' sim traces were the same, and their mixes lined up within 2
+samples.
+
+- The console's line is cut at about 150 characters (the end is read as
+  another command): keep `CONSOLE` short.
+- A console command sent before the map has loaded is lost; `HUD_AFTER`
+  waits for the bots' line, and the wait is five minutes, for runs side by
+  side. One that arrives after its `sleep_until`'s time runs at once, and
+  the two runs part (two of four candidates did, with eight games
+  running at once): film two at a time, the drop at 15 s.
+- With the HUD hidden (`show_hud 0`), "Hold BACK for score" stays on the
+  screen all game; with the HUD kept it was not shown in the windows
+  filmed. The clip keeps the HUD (it has no logos).
+- A bot playing the player (the hero's way) fires its own gun throughout,
+  and the player's own sounds are not placed: the clip's player holds
+  still. Bots all against the player (`bots.teams = "against"`) pin it
+  down, the view shaking and darkened; even teams leave it in the fight's
+  edge.
+
+### ambient occlusion and Panini, 2026-11-03
+
+Stills, each the same frame twice, from the RTX 4090, Enhanced, offscreen
+Vulkan, `HALO_FIXED_STEP=1` and a fixed seed, AI erased, the HUD hidden.
+Neither option changes the game, so one still each side shows it.
+
+- Ambient occlusion (05): `tools/preview_rerender`'s `Game`, objects placed
+  with `debug_object_place`, the world stopped (`game_speed 0`), the camera
+  set with `debug_camera_set`, a frame with `display.ambient_occlusion` off
+  and one with `"strong"`; 2560 × 1440, scaled to 1920 × 1080, WebP at
+  quality 78.
+- Panini (06): the script camera stops the game past 90 degrees
+  (`camera_pose.c`), so this is the player's own view from where it starts,
+  `HALO_FOV=150`, `HALO_VIEWMODEL_VISIBLE=false`, two runs (`HALO_PANINI` 0
+  and 1, `HALO_PANINI_VERTICAL` 0), the 300th frame streamed of each. With
+  Panini on, the screen is supersampled (2× at 150), and the screenshot
+  stream sends the supersampled frames: a 1280 × 720 window streams
+  2560 × 1440, read at that size (its frames began half a frame along, so
+  the two halves were swapped back; the scene is still). Scaled to
+  1920 × 1080, WebP at quality 78.
 
 ### Capturing on macOS: two problems, and the local workarounds used
 

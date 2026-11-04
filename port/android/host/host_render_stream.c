@@ -39,6 +39,7 @@ frame on screen.
 #include <mach/mach_time.h>
 #include <mach/thread_policy.h>
 #undef host_page_size
+#include <dlfcn.h>
 #endif
 
 #include <errno.h>
@@ -209,6 +210,8 @@ static const uint32_t record_minimum[XGPU_STREAM_RECORD_TYPES] =
 	[XGPU_STREAM_LOADING_ART] = sizeof(struct xgpu_stream_value),
 	[XGPU_STREAM_LOADING_SCENE] = sizeof(struct xgpu_stream_value),
 	[XGPU_STREAM_LOADING_PROGRESS] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_LOADING_MODE] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_LOADING_CAPTION] = sizeof(struct xgpu_stream_value),
 	[XGPU_STREAM_SKIP] = sizeof(struct xgpu_stream_record),
 	[XGPU_STREAM_INITIALIZE] = sizeof(struct xgpu_stream_reply_record),
 	[XGPU_STREAM_INVALIDATE] = sizeof(struct xgpu_stream_record),
@@ -217,7 +220,10 @@ static const uint32_t record_minimum[XGPU_STREAM_RECORD_TYPES] =
 	[XGPU_STREAM_ANTI_ALIAS] = sizeof(struct xgpu_stream_anti_alias),
 	[XGPU_STREAM_HDR] = sizeof(struct xgpu_stream_hdr),
 	[XGPU_STREAM_TONE_MAP] = sizeof(struct xgpu_stream_tone_map),
+	[XGPU_STREAM_AMBIENT_OCCLUSION] = sizeof(struct xgpu_stream_ambient_occlusion),
 	[XGPU_STREAM_PICTURE_POSITION] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_GAMMA] = sizeof(struct xgpu_stream_value),
+	[XGPU_STREAM_PANINI] = sizeof(struct xgpu_stream_panini),
 	/* (and its folder's path, at least its NUL) */
 	[XGPU_STREAM_SCREENSHOT] = sizeof(struct xgpu_stream_screenshot) + XGPU_STREAM_RECORD_ALIGNMENT,
 	[XGPU_STREAM_TARGET_CREATE] = sizeof(struct xgpu_stream_target_create),
@@ -418,6 +424,29 @@ static int decode_record(struct host_render_decoder *decoder, const unsigned cha
 		CALL(loading_progress, progress);
 		break;
 	}
+	case XGPU_STREAM_LOADING_MODE:
+		if (value->value > 1)
+			return XGPU_STREAM_ERROR_RECORD;
+		CALL(loading_mode, (int)value->value);
+		break;
+	case XGPU_STREAM_LOADING_CAPTION:
+	{
+		uint32_t extent[2] = { 0, 0 };
+
+		/* (the record padded to its alignment: a line of any width) */
+		if (value->value > size - sizeof(*value) || size - sizeof(*value) - value->value >= XGPU_STREAM_RECORD_ALIGNMENT ||
+			(value->value && value->value < sizeof(extent)))
+			return XGPU_STREAM_ERROR_RECORD;
+		if (value->value)
+		{
+			memcpy(extent, start + sizeof(*value), sizeof(extent));
+			if (!extent[0] || !extent[1] || extent[0] > 8192 || extent[1] > 512 ||
+				(uint64_t)extent[0] * extent[1] != value->value - sizeof(extent))
+				return XGPU_STREAM_ERROR_RECORD;
+		}
+		CALL(loading_caption, value->value ? start + sizeof(*value) + sizeof(extent) : NULL, extent[0], extent[1]);
+		break;
+	}
 	case XGPU_STREAM_LOADING_OWNED:
 	{
 		uint32_t owned = host_render_stream_loading_holds() && backend->loading_owned &&
@@ -460,8 +489,17 @@ static int decode_record(struct host_render_decoder *decoder, const unsigned cha
 	case XGPU_STREAM_TONE_MAP:
 		CALL(tone_map, (const void *)start);
 		break;
+	case XGPU_STREAM_AMBIENT_OCCLUSION:
+		CALL(ambient_occlusion, (const void *)start);
+		break;
 	case XGPU_STREAM_PICTURE_POSITION:
 		CALL(picture_top, value->value);
+		break;
+	case XGPU_STREAM_GAMMA:
+		CALL(gamma, value->value);
+		break;
+	case XGPU_STREAM_PANINI:
+		CALL(panini, (const void *)start);
 		break;
 	case XGPU_STREAM_TARGET_CREATE:
 		CALL(target_create, (const void *)start);
@@ -1086,6 +1124,31 @@ static void stream_failed(void)
 
 static _Atomic int render_playing;
 
+#ifdef __APPLE__
+/* The render thread's autorelease pool (Apple's), drained after each run of
+records played. A thread of its own has none: what Metal's backend
+autoreleases (its encoders, buffers, the descriptors and keys it makes) was
+kept until the thread ended, some 9,000 objects a second on an M1 Max in
+a busy game. The runtime's functions are found as the thread starts (none
+where the Objective-C runtime is not loaded: the stream's tests). */
+static struct
+{
+	void *(*push)(void);
+	void (*pop)(void *pool);
+} autorelease;
+
+static void *autorelease_push(void)
+{
+	return autorelease.push ? autorelease.push() : NULL;
+}
+
+static void autorelease_pop(void *pool)
+{
+	if (pool)
+		autorelease.pop(pool);
+}
+#endif
+
 int host_render_stream_playing(void)
 {
 	return atomic_load(&render_playing);
@@ -1094,6 +1157,15 @@ int host_render_stream_playing(void)
 static void *render_thread(void *argument)
 {
 	const struct host_render_backend *backend = render_backend;
+#ifdef __APPLE__
+	void *pool;
+
+	autorelease.push = (void *(*)(void))dlsym(RTLD_DEFAULT, "objc_autoreleasePoolPush");
+	autorelease.pop = (void (*)(void *))dlsym(RTLD_DEFAULT, "objc_autoreleasePoolPop");
+	if (!autorelease.pop)
+		autorelease.push = NULL;
+	pool = autorelease_push();
+#endif
 
 	(void)argument;
 	pthread_mutex_lock(&render.lock);
@@ -1147,6 +1219,12 @@ static void *render_thread(void *argument)
 			atomic_store(&render_playing, 1);
 			reached = host_render_decode(render.decoder, from, to);
 			atomic_store(&render_playing, 0);
+#ifdef __APPLE__
+			/* (what the records, and the fences and calls since the last,
+			autoreleased) */
+			autorelease_pop(pool);
+			pool = autorelease_push();
+#endif
 			frame_ended = render.decoder->frame_ended;
 			if (frame_ended)
 			{
@@ -1212,6 +1290,9 @@ static void *render_thread(void *argument)
 	pthread_mutex_unlock(&render.lock);
 	if (loading.frame.active)
 		loading_set(loading.backend, 0);
+#ifdef __APPLE__
+	autorelease_pop(pool);
+#endif
 	return NULL;
 }
 
@@ -1252,7 +1333,7 @@ int host_render_stream_open(uint32_t ring_address)
 		return -1;
 	}
 	render.ring = ring;
-	host_render_stream_display_hdr(-1, 0.0f);
+	host_render_stream_display_hdr(-1, 0.0f, 0.0f, 0);
 	render.decoder = host_render_decoder_new(backend, ring);
 	if (!render.decoder)
 		return -1;
@@ -1287,26 +1368,34 @@ int host_render_stream_open(uint32_t ring_address)
 /* (render.lock held) the guest waits for done, counted in its statistics */
 /* ---------- display.hdr's display */
 
-/* what the backend last said of its display (headroom: a float's bits) */
-static _Atomic uint32_t display_hdr, display_headroom = 0x3f800000u;
+/* what the backend last said of its display (headroom, white: a float's
+bits) */
+static _Atomic uint32_t display_hdr, display_headroom = 0x3f800000u, display_white, display_white_reported;
 
-void host_render_stream_display_hdr(int hdr, float headroom)
+void host_render_stream_display_hdr(int hdr, float headroom, float white_nits, int white_reported)
 {
 	struct xgpu_stream_ring *ring = render.ring;
 
 	/* (-1: as last said, into a ring just opened) */
 	if (hdr >= 0)
 	{
-		uint32_t bits;
+		uint32_t bits, white_bits;
 
 		if (!(headroom >= 1.0f))
 			headroom = 1.0f;
+		if (!(white_nits > 0.0f))
+			white_nits = 0.0f;
 		memcpy(&bits, &headroom, sizeof(bits));
+		memcpy(&white_bits, &white_nits, sizeof(white_bits));
+		atomic_store(&display_white, white_bits);
+		atomic_store(&display_white_reported, white_reported ? 1u : 0u);
 		atomic_store(&display_hdr, hdr ? 1u : 0u);
 		atomic_store(&display_headroom, bits);
 	}
 	if (ring)
 	{
+		__atomic_store_n(&ring->display_white, atomic_load(&display_white), __ATOMIC_RELEASE);
+		__atomic_store_n(&ring->display_white_reported, atomic_load(&display_white_reported), __ATOMIC_RELEASE);
 		__atomic_store_n(&ring->display_headroom, atomic_load(&display_headroom), __ATOMIC_RELEASE);
 		__atomic_store_n(&ring->display_hdr, atomic_load(&display_hdr), __ATOMIC_RELEASE);
 	}
@@ -1495,7 +1584,7 @@ time, its budget before the latch the frame is for */
 static void display_wait(uint64_t *start)
 {
 	struct timespec until;
-	uint64_t start_time, now;
+	uint64_t start_time, now, budget, extra;
 
 	if (!render.display_paced)
 		return;
@@ -1525,14 +1614,18 @@ static void display_wait(uint64_t *start)
 	}
 	if (render.ring->error || !render.display_paced)
 		return;
+	/* (and the time the guest says the next frame takes more than its
+	frames do, a load zone's switch: its start so much earlier, within a
+	refresh) */
+	extra = (uint64_t)__atomic_load_n(&render.ring->frame_extra_microseconds, __ATOMIC_RELAXED) * 1000ull;
+	budget = frame_pacing_budget(&render.costs, render.period) + (extra < render.period ? extra : render.period);
 	start_time = frame_pacing_start_time(render.latch, render.period,
-		render.ring->frames_submitted - render.frames_taken, frame_pacing_budget(&render.costs, render.period));
+		render.ring->frames_submitted - render.frames_taken, budget);
 	now = monotonic_nanoseconds();
 	/* (the refresh the next frame is for: host_render_stream_frame_displayed
 	tells a miss by it) */
 	{
 		uint32_t next = render.ring->frames_submitted + 1;
-		uint64_t budget = frame_pacing_budget(&render.costs, render.period);
 
 		render.targets[next % 8].frame = next;
 		render.targets[next % 8].target = start_time ? start_time + budget : 0;

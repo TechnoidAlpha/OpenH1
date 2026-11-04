@@ -31,12 +31,12 @@ TOUCH_DISPLAYS = [("phone", 2400, 1080, 420), ("phone 21:9", 2520, 1080, 420), (
 SCREENS = {
     "multiplayer": (f"{MT}/multiplayer_type_select_screen",
                     ["hub_matchmaking", "hub_join_internet", "hub_join_lan_item", "hub_join_direct", "hub_party",
-                     "hub_friends", "hub_create", "hub_create_bots", "hub_coop", "hub_gametypes", "browser_note",
+                     "hub_friends", "hub_create", "hub_coop", "hub_gametypes", "browser_note",
                      "item_note", "invite_note", "party_note", "matchmaking_note", "friends_note", "hub_panel",
                      "multiplayer_status", "multiplayer_status_detail",
                      "multiplayer_options_txt", "online_now_label", "online_games_2", "online_players_2",
                      "best_2_name", "best_2_badge", "best_2_players", "best_2_ping", "prompt_refresh"]),
-    "create game": (f"{MT}/hub/create_screen", ["hub_create_inter", "hub_create_lan_item", "hub_panel"]),
+    "create game": (f"{MT}/hub/create_screen", ["hub_create_inter", "hub_create_lan_item", "hub_create_offline", "hub_panel"]),
     "co-op campaign": (f"{MT}/hub/coop_screen", ["hub_online_coop", "hub_split_coop", "hub_panel"]),
     "server browser": (f"{MT}/join_game/join_game_screen",
                        ["browser_tabs", "tab_all", "tab_favorites", "server_item_1", "server_item_server_name",
@@ -48,8 +48,8 @@ SCREENS = {
                         "prompt_back", "browser_empty", "browser_counts"]),
     "lobby": (f"{MT}/lobby/lobby_screen",
               ["board_players", "board_row_1_12", "board_name_0_0", "board_panel", "board_gametype", "board_map",
-               "board_limits", "board_kind", "board_status", "board_waiting", "board_section_bots", "board_bots_count",
-               "board_bots_count_spinner", "board_bots_teams_spinner", "board_settings", "board_start", "board_prompts",
+               "board_limits", "board_kind", "board_status", "board_waiting", "board_bots_count",
+               "board_bots_count_spinner", "board_bots_skill_spinner", "board_bots_teams_spinner", "board_settings", "board_start", "board_prompts",
                "prompt_team", "prompt_invite", "prompt_add", "prompt_leave", "board_subtitle", "board_host",
                "board_after", "board_after_label"]),
     "host controls": ("main_menu/host_controls/host_controls_screen",
@@ -163,11 +163,6 @@ def test_touch_targets(screen, width):
             # (a footer's alternatives in one place, the game showing one: PASTE LINK for REFRESH, COPY LINK
             # for MAKE PARTY)
             if box[1:5] == other[1:5] and box.path == other.path and box.name.startswith("prompt_"):
-                continue
-            # (the lobby's alternatives in one place, never shown together: the bots' rows a game of this machine
-            # alone's, HOST CONTROLS a network game's host's: lobby_menu.inc)
-            if {box.name, other.name} & {"board_host"} and any(name.startswith("board_bots_")
-                                                                  for name in (box.name, other.name)):
                 continue
             assert not box.overlaps(other), f"{screen} at {width}: {name} {box} is over {other_name} {other}"
 

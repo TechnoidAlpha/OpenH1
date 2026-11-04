@@ -29,13 +29,17 @@ Conventions carried over from the Xbox:
 #include "xgpu_backend.h"
 #include "xgpu_hdr.h"
 #include "xgpu_manifest.h"
+#include "xgpu_stream.h"
 #include "frame_pacing.h"
 #include "sdl_platform.h"
 #include "halo_ui_pointer.h"
 #include "halo_dynamic_lights.h"
 #include "port_config.h"
 #include "battery_saver.h"
+#include "menu_pictures.h"
+#include "bink_import.h"
 #include "halo_linux_source_fixups.h"
+#include "panini_projection.h"
 #include "main/console.h"
 
 #include <SDL3/SDL.h>
@@ -177,10 +181,11 @@ frames (halo_screen_commit): the back buffer is made again when it changes. */
 
 static struct
 {
-	/* the frame is drawn in HDR; display.hdr_mode, display.hdr_paper_white
-	as last sent to the backend (sent: once at least) */
+	/* the frame is drawn in HDR; display.hdr_mode,
+	display.hdr_paper_white_nits, display.hdr_paper_white and
+	display.hdr_ui_nits as last sent to the backend (sent: once at least) */
 	BOOL active, sent;
-	int mode, paper_white;
+	int mode, paper_white_nits, paper_white, ui_nits;
 	/* the game's renderer's category, and what its code says of the draws
 	(halo_hdr_category, halo_hdr_draw_kind) */
 	int category, kind;
@@ -189,9 +194,13 @@ static struct
 	BOOL view;
 	/* the draws' target is the HDR back buffer (bind_targets) */
 	BOOL target;
-	/* the display's state, last logged */
+	/* the display's state, last logged; its peak and SDR white, last
+	logged, and the frames since (a change logged once it has held a
+	moment: a Mac's headroom follows its brightness as it is slid) */
 	int display_logged;
-} hdr = { FALSE, FALSE, 0, 0, -1, 0, FALSE, FALSE, -1 };
+	char display_text[160];
+	int display_text_frames;
+} hdr = { FALSE, FALSE, 0, 0, -1, 0, 0, FALSE, FALSE, -1 };
 
 static int hdr_back_buffer_format(void)
 {
@@ -223,6 +232,86 @@ void halo_hdr_draw_kind(int kind)
 	hdr.kind = kind;
 }
 
+/* ---------- display.ambient_occlusion (xgpu_backend_ambient_occlusion)
+
+Each window's 3D view is occluded once its opaque surfaces have drawn their
+light (halo_screen_ambient_occlusion, after the structure's lightmap pass):
+the backend finds the occlusion from the depth and multiplies the light by
+it, before the diffuse textures, the decals, the dynamic lights, the
+specular light, the transparent surfaces and the effects. Draws mark their
+pixels in the stencil as they draw (pipeline_state_describe): an object's
+(a model's: one ambient sample lights it, so everything about it occludes
+it, where the level's lightmap holds the level's own occlusion and only
+objects add to it), and a surface's that lights itself (a structure's
+lightmap pass or a model's with its self-illumination: halo_hdr_draw_kind),
+which with the first-person weapon's (the game's own bit) the occlusion
+leaves as it was; every other draw that writes the depth clears the marks
+where it does (ambient_occlusion_mark). Read between frames
+(halo_screen_commit). */
+
+static struct
+{
+	/* XGPU_AMBIENT_OCCLUSION_SUBTLE or _STRONG, 0 off; the view shown alone
+	(debug.ambient_occlusion_view); config_changes() when read; laid over
+	a view since its last show */
+	int quality;
+	BOOL view, laid;
+	long read_at;
+} ambient_occlusion = { 0, FALSE, FALSE, -1 };
+
+static void ambient_occlusion_read(void)
+{
+	const char *setting;
+	int quality;
+
+	if (ambient_occlusion.read_at == config_changes())
+		return;
+	ambient_occlusion.read_at = config_changes();
+	setting = config_string("display.ambient_occlusion");
+	quality = !strcmp(setting, "strong") ? XGPU_AMBIENT_OCCLUSION_STRONG :
+		!strcmp(setting, "subtle") ? XGPU_AMBIENT_OCCLUSION_SUBTLE : 0;
+	if (quality != ambient_occlusion.quality)
+		platform_log("ambient occlusion: %s", quality ? setting : "off");
+	ambient_occlusion.quality = quality;
+	ambient_occlusion.view = config_boolean("debug.ambient_occlusion_view");
+}
+
+/* a draw that writes the depth, made to write the occlusion's marks of its
+pixels in the stencil with it (the bits: XGPU_AMBIENT_OCCLUSION_OBJECT,
+_SELF_ILLUMINATED, or none), where its depth passes. Its own or none: the
+objects draw before the level, so a wall drawn over an object behind it (or
+a plain object over a self-illuminated one) must take the pixel's marks with
+its depth, or the occlusion goes on finding the hidden object there. With
+the stencil's test off, or beside a test that reads none of the marks,
+changes nothing where it or the depth fails, and writes nothing (the game's
+rejection of the first-person weapon's pixels, on once it is drawn) or
+replaces its own bits (the weapon's drawing); the game's bits as they were.
+(tools/test_ambient_occlusion_marks.py) */
+static void ambient_occlusion_mark(struct xgpu_pipeline_key *key, unsigned long *reference, unsigned char bits)
+{
+	const unsigned char marks = XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED | XGPU_AMBIENT_OCCLUSION_OBJECT;
+
+	if (!key->stencil_test)
+	{
+		key->stencil_test = 1;
+		key->stencil_function = XGPU_COMPARE_ALWAYS;
+		key->stencil_read_mask = 0;
+		key->stencil_fail = XGPU_STENCIL_KEEP;
+		key->stencil_depth_fail = XGPU_STENCIL_KEEP;
+		key->stencil_pass = XGPU_STENCIL_REPLACE;
+		key->stencil_write_mask = marks;
+		*reference = bits;
+	}
+	else if (!(key->stencil_read_mask & marks) && !(key->stencil_write_mask & marks) &&
+		key->stencil_fail == XGPU_STENCIL_KEEP && key->stencil_depth_fail == XGPU_STENCIL_KEEP &&
+		(!key->stencil_write_mask || key->stencil_pass == XGPU_STENCIL_REPLACE))
+	{
+		key->stencil_pass = XGPU_STENCIL_REPLACE;
+		key->stencil_write_mask |= marks;
+		*reference = (*reference & ~(unsigned long)marks) | bits;
+	}
+}
+
 /* a draw's tag (nv2a_pixel_shader_key.hdr): 0 but into the HDR back
 buffer */
 static unsigned short hdr_tag(const struct xgpu_pipeline_key *key)
@@ -247,6 +336,69 @@ static unsigned short hdr_tag(const struct xgpu_pipeline_key *key)
 #ifdef HALO_VR
 static BOOL vr_screen_mode(long *width, float scale[2]);
 #endif
+
+/* ---------- display.panini (port/linux/game/panini.c)
+
+The 3D view drawn through the Panini projection is drawn larger at its
+middle (port/linux/include/panini_projection.h): by its magnification there,
+1.5 at 120 degrees across 16:9 at full strength, 2.4 at 150. So that the
+middle keeps its sharpness, the screen is supersampled by as much, as
+"ssaa2x" supersamples it (the display blit scales it down), at most twice
+the pixels each way, as "ssaa2x": the magnification at the widest of
+display.fov's and display.vehicle_fov's views on the display's shape. Not on
+Android, Metal (the Mac and iOS) or VR, where supersampling is not either;
+there the middle is drawn from the pixels the view has. */
+
+#define PANINI_SUPERSAMPLING_MOST 2.0f
+
+/* a field of view in degrees across 16:9 as the tangent of half the
+vertical (view_fov.c's fov_tangent), or the stock view's (the cyborg's 70
+degrees across 4:3, as the game widens it: render_camera_get_adjusted_field_
+of_view_tangent's 0.85) outside 20 to 160 (panini_field_of_view, the
+projection on) */
+static float panini_vertical_tangent(double degrees)
+{
+	degrees = panini_field_of_view(degrees, 1.0f);
+	return degrees ? (float)(tan(degrees * M_PI / 360.0) * (9.0 / 16.0)) :
+		(float)(0.75 * 0.85 * tan(35.0 * M_PI / 180.0));
+}
+
+static float panini_supersampling(long display_width, long display_height)
+{
+#if defined(HALO_ANDROID) || defined(HALO_MACOS) || defined(HALO_VR)
+	(void)display_width;
+	(void)display_height;
+	return 1.0f;
+#else
+	static long read_at = -1;
+	static float strength, tangent;
+	float factor;
+
+	if (read_at != (long)config_changes())
+	{
+		read_at = (long)config_changes();
+		strength = (float)config_real("display.panini");
+		if (strength > 0.0f)
+		{
+			const char *vehicle = config_string("display.vehicle_fov");
+			double foot = config_real("display.fov");
+			char *end;
+			double degrees = strtod(vehicle, &end);
+			float seated;
+
+			tangent = panini_vertical_tangent(foot);
+			/* ("default": the stock view; "match": display.fov's) */
+			seated = !strcmp(vehicle, "match") ? tangent : panini_vertical_tangent(end != vehicle ? degrees : 0.0);
+			if (seated > tangent)
+				tangent = seated;
+		}
+	}
+	if (!(strength > 0.0f) || display_height <= 0)
+		return 1.0f;
+	factor = panini_projection_scale(strength, tangent * (float)display_width / (float)display_height);
+	return factor < PANINI_SUPERSAMPLING_MOST ? factor : PANINI_SUPERSAMPLING_MOST;
+#endif
+}
 
 /* the narrowest picture, in columns of the 480 lines: a display narrower
 than it letterboxes it (display.picture_shape on Android: 4:3 or 16:9, the
@@ -288,11 +440,15 @@ static void screen_mode_choose(long *width, float scale[2])
 		/* supersampling: twice the pixels each way, or as many as the GPU's
 		largest target has (once it is known), which the display blit
 		scales down; not with "original" resolution scaling, which draws
-		the Xbox's 640x480 */
-		if (anti_aliasing() == _anti_aliasing_ssaa && xgpu_backend_capabilities.largest_target > 0)
+		the Xbox's 640x480. display.panini's: its middle's magnification
+		(above), as much as "ssaa2x" at most */
+		if (xgpu_backend_capabilities.largest_target > 0)
 		{
-			float factor = 2.0f;
+			float factor = anti_aliasing() == _anti_aliasing_ssaa ? 2.0f : 1.0f;
+			float panini = panini_supersampling(display_width, display_height);
 
+			if (factor < panini)
+				factor = panini;
 			if (*width * scale[0] * factor > (float)xgpu_backend_capabilities.largest_target)
 				factor = (float)xgpu_backend_capabilities.largest_target / (*width * scale[0]);
 			if (SCREEN_HEIGHT * scale[1] * factor > (float)xgpu_backend_capabilities.largest_target)
@@ -621,6 +777,8 @@ struct d3d8_device
 
 	/* inside a visibility test (D3DDevice_BeginVisibilityTest) */
 	BOOL visibility_test_active;
+	/* the number of the last test ended (0: none; never 0 after) */
+	unsigned long visibility_test_number;
 
 	unsigned long frame;
 	unsigned long next_vertex_shader_id;
@@ -1123,6 +1281,16 @@ static struct render_target_entry *render_target_remember(const D3DSurface *surf
 	return entry;
 }
 
+/* a colour target of the screen's, drawn in HDR with the back buffer
+(display.hdr): the back buffer, and the screen effects' copy of it, which
+their passes copy the view through and back (a scope's warp and mask: the
+depth buffer's memory, as the Xbox's, rasterizer_xbox_screen_effect.c) */
+static BOOL render_target_screen_colour(const struct render_target_entry *entry)
+{
+	return !entry->target.depth && entry->kind == _render_target_screen && entry->target.layers == 1 &&
+		(entry->screen_buffer || entry->target.data == device.depth_buffer.Data);
+}
+
 static struct render_target_entry *render_target_get(const D3DSurface *surface)
 {
 	struct render_target_entry *entry;
@@ -1203,8 +1371,8 @@ static struct render_target_entry *render_target_get(const D3DSurface *surface)
 	entry->target.pixel_height = (unsigned long)(height * scale[1] + 0.5f);
 	entry->target.layers = layers;
 	entry->screen_buffer = surface->Data == (depth ? device.depth_buffer.Data : device.back_buffer.Data);
-	entry->target.format = depth ? XGPU_FORMAT_D24S8 : entry->screen_buffer && kind == _render_target_screen &&
-		layers == 1 ? hdr_back_buffer_format() : XGPU_FORMAT_BGRA8;
+	entry->target.format = depth ? XGPU_FORMAT_D24S8 : render_target_screen_colour(entry) ? hdr_back_buffer_format() :
+		XGPU_FORMAT_BGRA8;
 	description.width = entry->target.pixel_width;
 	description.height = entry->target.pixel_height;
 	description.depth = depth;
@@ -1573,6 +1741,14 @@ HRESULT WINAPI Direct3D_CreateDevice(UINT adapter, D3DDEVTYPE device_type, void 
 	return S_OK;
 }
 
+/* whether the frames the game draws are shown nowhere: the device made
+with no backend behind it (debug.null_renderer, a dedicated server, or no
+display). main.c then draws none (port/linux/game/unseen_frames.c) */
+int halo_frames_unseen(void)
+{
+	return device.created && !device.gl_ready;
+}
+
 /* ---------- the menus' pointer */
 
 /* display.picture_position (Android): a picture of another shape than the
@@ -1646,6 +1822,33 @@ static void picture_position_send(void)
 	{
 		xgpu_backend_picture_top(top);
 		picture_top_sent = top;
+	}
+#endif
+}
+
+/* display.gamma's range (tools/port_settings.py's GAMMA) */
+#define GAMMA_LEAST 0.5f
+#define GAMMA_MOST 2.0f
+
+/* (between frames: halo_screen_commit) display.gamma, to the backend's
+present, when it changes: 0.5 to 2, 1 none. Not the VR build's: its
+headset shows the eyes' images, and its window is no SDR picture to curve. */
+static void gamma_send(void)
+{
+#ifndef HALO_VR
+	static float sent;
+	float gamma;
+
+	if (!device.gl_ready)
+		return;
+	gamma = (float)config_real("display.gamma");
+	gamma = !(gamma > 0.0f) ? 1.0f : gamma < GAMMA_LEAST ? GAMMA_LEAST : gamma > GAMMA_MOST ? GAMMA_MOST : gamma;
+	if (gamma != sent)
+	{
+		if (sent || gamma != 1.0f)
+			platform_log("gamma: %.2f", gamma);
+		xgpu_backend_gamma(gamma);
+		sent = gamma;
 	}
 #endif
 }
@@ -1738,6 +1941,24 @@ int halo_ui_pointer_update(int menus_active, struct halo_ui_pointer *pointer)
 	return 1;
 }
 
+/* the display's peak and SDR white as the backend last said them, as text
+of a kind (XGPU_HDR_DISPLAY_*: Video Setup's DISPLAY PEAK row, its panel,
+the log); FALSE where no renderer draws HDR */
+static BOOL hdr_display_text(int kind, char *text, unsigned int size)
+{
+	struct xgpu_hdr_display display;
+
+	if (size)
+		text[0] = 0;
+	if (!device.gl_ready || !xgpu_backend_capabilities.hdr)
+		return FALSE;
+	memset(&display, 0, sizeof(display));
+	display.hdr = xgpu_backend_display_hdr(&display.headroom) != FALSE;
+	display.white_reported = xgpu_backend_display_white(&display.white_nits) != FALSE;
+	xgpu_hdr_display_text(&display, kind, text, size);
+	return TRUE;
+}
+
 /* (between frames: halo_screen_commit) the settings and the display as
 they are now; the back buffer made again if the frame is drawn otherwise */
 static void hdr_read(void)
@@ -1745,6 +1966,8 @@ static void hdr_read(void)
 	float headroom = 1.0f;
 	BOOL display = FALSE, active = FALSE;
 	int setting = hdr_setting(), paper_white = (int)config_integer("display.hdr_paper_white");
+	int paper_white_nits = (int)config_integer("display.hdr_paper_white_nits");
+	int ui_nits = (int)config_integer("display.hdr_ui_nits");
 	int mode = config_string("display.hdr_mode") && !strcmp(config_string("display.hdr_mode"), "punchy") ?
 		XGPU_HDR_MODE_PUNCHY : XGPU_HDR_MODE_FAITHFUL;
 
@@ -1759,14 +1982,43 @@ static void hdr_read(void)
 	if (halo_vr_running())
 		active = FALSE;
 #endif
+	/* (display.hdr_paper_white, the percent of the system's white, only
+	while paper white is the system's) */
+	if (paper_white_nits > 0)
+	{
+		paper_white_nits = paper_white_nits < XGPU_HDR_PAPER_WHITE_NITS_LEAST ? XGPU_HDR_PAPER_WHITE_NITS_LEAST :
+			paper_white_nits > XGPU_HDR_PAPER_WHITE_NITS_MOST ? XGPU_HDR_PAPER_WHITE_NITS_MOST : paper_white_nits;
+		paper_white = 100;
+	}
+	else
+		paper_white_nits = 0;
 	if (paper_white <= 0)
 		paper_white = 100;
 	paper_white = paper_white < XGPU_HDR_PAPER_WHITE_LEAST ? XGPU_HDR_PAPER_WHITE_LEAST :
 		paper_white > XGPU_HDR_PAPER_WHITE_MOST ? XGPU_HDR_PAPER_WHITE_MOST : paper_white;
+	/* (display.hdr_ui_nits: 0, paper white's) */
+	ui_nits = ui_nits <= 0 ? 0 : ui_nits < XGPU_HDR_UI_NITS_LEAST ? XGPU_HDR_UI_NITS_LEAST :
+		ui_nits > XGPU_HDR_UI_NITS_MOST ? XGPU_HDR_UI_NITS_MOST : ui_nits;
 	if (hdr.display_logged != (display ? 1 : 0) && xgpu_backend_capabilities.hdr)
 	{
 		platform_log("display: %s (headroom %.2f)", display ? "HDR" : "SDR", headroom);
 		hdr.display_logged = display ? 1 : 0;
+	}
+	if (xgpu_backend_capabilities.hdr)
+	{
+		/* (the peak and SDR white Video Setup shows, logged at the start
+		and as they change) */
+		char text[sizeof(hdr.display_text)];
+
+		hdr_display_text(XGPU_HDR_DISPLAY_LOG, text, sizeof(text));
+		if (hdr.display_text_frames < 1000)
+			hdr.display_text_frames++;
+		if (strcmp(text, hdr.display_text) && (!hdr.display_text[0] || hdr.display_text_frames >= 30))
+		{
+			platform_log("%s", text);
+			snprintf(hdr.display_text, sizeof(hdr.display_text), "%s", text);
+			hdr.display_text_frames = 0;
+		}
 	}
 	if (active != hdr.active)
 	{
@@ -1775,13 +2027,21 @@ static void hdr_read(void)
 		hdr.active = active;
 		render_targets_evict();
 	}
-	if (!hdr.sent || mode != hdr.mode || paper_white != hdr.paper_white || active != hdr.active)
+	if (!hdr.sent || mode != hdr.mode || paper_white_nits != hdr.paper_white_nits || paper_white != hdr.paper_white ||
+		ui_nits != hdr.ui_nits || active != hdr.active)
 	{
-		xgpu_backend_hdr(active, mode, paper_white);
+		xgpu_backend_hdr(active, mode, paper_white_nits, paper_white, ui_nits);
 		hdr.sent = TRUE;
 		hdr.mode = mode;
+		hdr.paper_white_nits = paper_white_nits;
 		hdr.paper_white = paper_white;
+		hdr.ui_nits = ui_nits;
 	}
+}
+
+int halo_hdr_display_text(int words, char *text, unsigned int size)
+{
+	return hdr_display_text(words ? XGPU_HDR_DISPLAY_WORDS : XGPU_HDR_DISPLAY_VALUE, text, size);
 }
 
 /* takes up the display's shape and resolution, or the window's, if they
@@ -1795,13 +2055,20 @@ long halo_screen_commit(void)
 	/* (display.battery_saver first: on, it reads the settings below at
 	cheaper values) */
 	battery_saver_update();
+	/* (display.movies: the movies copied from the disc image when the data
+	root has none) */
+	bink_import_update();
 	/* (display.anti_aliasing, as Settings or config.toml has it now:
 	supersampling changes the scale below) */
 	anti_aliasing_read();
 	/* (display.hdr, and the display: the back buffer's format) */
 	hdr_read();
+	/* (display.ambient_occlusion) */
+	ambient_occlusion_read();
 	/* (display.picture_position) */
 	picture_position_send();
+	/* (display.gamma) */
+	gamma_send();
 	/* display.shadow_resolution, if it has changed: the maps' entries at
 	the old scale are freed (render_targets_evict), new ones made at the new */
 	if (shadow_scale && shadow_scale_read_at != config_changes())
@@ -1999,22 +2266,40 @@ HRESULT WINAPI D3DDevice_EndVisibilityTest(DWORD index)
 	if (vr_gl.multiview)
 		views = 2;
 #endif
+	/* (numbered: the count reaches the game frames later, and the slot may
+	have been tested for something else since: the number says which
+	test the count is of, D3DDevice_GetVisibilityTestResult) */
+	device.visibility_test_number = (device.visibility_test_number + 1) & 0xffffffffUL;
+	if (!device.visibility_test_number)
+		device.visibility_test_number = 1;
 	xgpu_backend_visibility_end(index % XGPU_VISIBILITY_TEST_SLOTS, target_scale[0] * target_scale[1], views,
-		target_samples);
+		target_samples, device.visibility_test_number);
 	return S_OK;
 }
 
+/* The latest count known for the slot, never pending (the Xbox's waited
+for the test, D3DERR_TESTINCOMPLETE; here the counts are the GPU's of a
+frame or more before). time_stamp: the number of the test the count is of
+(d3d8_visibility_test_number's; 0: none yet), so that a caller whose slot
+is tested for one thing frame after frame can tell a count of its own test
+from an older one of the slot */
 HRESULT WINAPI D3DDevice_GetVisibilityTestResult(DWORD index, UINT *result, ULONGLONG *time_stamp)
 {
 	UINT count = 0;
+	unsigned long test = 0;
 
-	if (time_stamp)
-		*time_stamp = 0;
 	if (device.gl_ready)
-		count = xgpu_backend_visibility_result(index % XGPU_VISIBILITY_TEST_SLOTS);
+		count = xgpu_backend_visibility_result(index % XGPU_VISIBILITY_TEST_SLOTS, &test);
+	if (time_stamp)
+		*time_stamp = test;
 	if (result)
 		*result = count;
 	return S_OK;
+}
+
+unsigned long d3d8_visibility_test_number(void)
+{
+	return device.visibility_test_number;
 }
 
 /* ---------- render and texture stage state */
@@ -2503,8 +2788,7 @@ static BOOL render_target_stale(const struct render_target_entry *entry)
 	case _render_target_screen:
 		return entry->target.scale[0] != screen_scale[0] || entry->target.scale[1] != screen_scale[1] ||
 			(entry->target.height == SCREEN_HEIGHT && entry->target.width != (unsigned long)halo_screen_width()) ||
-			(entry->screen_buffer && !entry->target.depth && entry->target.layers == 1 &&
-				entry->target.format != hdr_back_buffer_format());
+			(render_target_screen_colour(entry) && entry->target.format != hdr_back_buffer_format());
 	case _render_target_shadow_map:
 		return entry->target.scale[0] != (float)halo_shadow_map_scale();
 	default:
@@ -2820,6 +3104,13 @@ static void pipeline_state_describe(BOOL has_depth, struct xgpu_pipeline_key *ke
 		key->stencil_write_mask = rs[D3DRS_STENCILWRITEMASK];
 		dynamic->stencil_reference = rs[D3DRS_STENCILREF];
 	}
+	/* display.ambient_occlusion: an object (a model: rasterizer.h's
+	_rasterizer_profile_models) and a surface that lights itself mark their
+	pixels (ambient_occlusion_mark) */
+	if (ambient_occlusion.quality && key->depth_write)
+		ambient_occlusion_mark(key, &dynamic->stencil_reference, (unsigned char)(
+			((hdr.kind & HALO_HDR_KIND_SELF_ILLUMINATION) ? XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED : 0) |
+			(hdr.category == 2 ? XGPU_AMBIENT_OCCLUSION_OBJECT : 0)));
 
 	key->blend = rs[D3DRS_ALPHABLENDENABLE] != 0;
 	if (key->blend)
@@ -2981,6 +3272,9 @@ lights cost what lights each pixel, not their number. A plasma bolt's light
 backend has them (xgpu_backend_capabilities: Vulkan, Metal). */
 static struct
 {
+	/* the settings read, as config_changes() was then (0 too, before any
+	change: the flag says whether they have been read) */
+	BOOL read;
 	unsigned long read_at;
 	BOOL enhanced;
 	/* the look: [0] the lights' brightness, the core (1 / (1 + core x^2)),
@@ -3004,8 +3298,9 @@ static void dynamic_lights_read_settings(void)
 	static const float defaults[2][4] = { { 1.7f, 12.0f, 0.18f, 0.25f }, { 0.22f, 1.2f, 0.12f, 0.035f } };
 	const char *look;
 
-	if (dynamic_lights.read_at == config_changes() && dynamic_lights.read_at)
+	if (dynamic_lights.read && dynamic_lights.read_at == config_changes())
 		return;
+	dynamic_lights.read = TRUE;
 	dynamic_lights.read_at = config_changes();
 	dynamic_lights.enhanced = !strcmp(config_string("display.dynamic_lights"), "enhanced");
 	memcpy(dynamic_lights.look, defaults, sizeof(defaults));
@@ -3159,6 +3454,11 @@ void halo_dynamic_lights_environment(int drawing)
 		memcpy(halos->viewport_offset, device.viewport_offset, sizeof(halos->viewport_offset));
 	}
 }
+
+/* (the register the game gives a model's own lights in is the one the
+backends read them from) */
+typedef char dynamic_lights_own_lights_register[XGPU_MODEL_LIGHT_REGISTER(XGPU_MODEL_LIGHT_OWN_LIGHTS) ==
+	XGPU_VERTEX_CONSTANT_BIAS + HALO_DYNAMIC_LIGHTS_OWN_LIGHTS_REGISTER ? 1 : -1];
 
 /* the frame's draws are lit by the enhanced dynamic lights */
 static BOOL dynamic_lights_active(void)
@@ -3352,6 +3652,44 @@ static void unread_stage_fields_clear(DWORD *state, DWORD texture_modes)
 	state[D3DRS_PSCOMPAREMODE] = compare;
 }
 
+/* the combiners' part of a draw's pixel shader key, from the render states
+and the texture modes: most draws share them with the draw before, and so
+share the key's part (the same inputs, the same part) */
+static void combiner_state_describe(DWORD *state, DWORD texture_modes)
+{
+	static DWORD last_inputs[D3DRS_PS_MAX], last_state[D3DRS_PS_MAX];
+	static DWORD last_texture_modes;
+	static BOOL described;
+	int stage;
+
+	if (described && texture_modes == last_texture_modes &&
+		words_equal(D3D__RenderState, last_inputs, sizeof(last_inputs)))
+	{
+		memcpy(state, last_state, sizeof(last_state));
+		return;
+	}
+	memcpy(state, D3D__RenderState, D3DRS_PS_MAX * sizeof(DWORD));
+	/* constants are uniforms, not part of the program */
+	memset(&state[D3DRS_PSCONSTANT0_0], 0, 16 * sizeof(DWORD));
+	state[D3DRS_PSFINALCOMBINERCONSTANT0] = 0;
+	state[D3DRS_PSFINALCOMBINERCONSTANT1] = 0;
+	/* nor are the stages past the combiner count (what earlier draws left
+	in them): one program, one key */
+	for (stage = (int)(D3D__RenderState[D3DRS_PSCOMBINERCOUNT] & 0xff); stage < 8; stage++)
+	{
+		state[D3DRS_PSALPHAINPUTS0 + stage] = 0;
+		state[D3DRS_PSALPHAOUTPUTS0 + stage] = 0;
+		state[D3DRS_PSRGBINPUTS0 + stage] = 0;
+		state[D3DRS_PSRGBOUTPUTS0 + stage] = 0;
+	}
+	dead_portions_clear(state);
+	unread_stage_fields_clear(state, texture_modes);
+	memcpy(last_inputs, D3D__RenderState, sizeof(last_inputs));
+	memcpy(last_state, state, sizeof(last_state));
+	last_texture_modes = texture_modes;
+	described = TRUE;
+}
+
 /* the draw's description to the backend: its textures, its targets, its
 pipeline (shaders and fixed-function state), its dynamic state and its
 uniforms; FALSE if it is not drawn */
@@ -3392,23 +3730,8 @@ static BOOL prepare_draw(BOOL immediate, unsigned long primitive)
 		}
 	}
 	memset(&key, 0, sizeof(key));
-	memcpy(key.combiner_state, D3D__RenderState, sizeof(key.combiner_state));
-	/* constants are uniforms, not part of the program */
-	memset(&key.combiner_state[D3DRS_PSCONSTANT0_0], 0, 16 * sizeof(DWORD));
-	key.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT0] = 0;
-	key.combiner_state[D3DRS_PSFINALCOMBINERCONSTANT1] = 0;
-	/* nor are the stages past the combiner count (what earlier draws left
-	in them): one program, one key */
-	for (stage = (int)(D3D__RenderState[D3DRS_PSCOMBINERCOUNT] & 0xff); stage < 8; stage++)
-	{
-		key.combiner_state[D3DRS_PSALPHAINPUTS0 + stage] = 0;
-		key.combiner_state[D3DRS_PSALPHAOUTPUTS0 + stage] = 0;
-		key.combiner_state[D3DRS_PSRGBINPUTS0 + stage] = 0;
-		key.combiner_state[D3DRS_PSRGBOUTPUTS0 + stage] = 0;
-	}
-	dead_portions_clear(key.combiner_state);
 	key.texture_modes = D3D__RenderState[D3DRS_PSTEXTUREMODES];
-	unread_stage_fields_clear(key.combiner_state, key.texture_modes);
+	combiner_state_describe(key.combiner_state, key.texture_modes);
 	/* the textures before the targets: a render target the draw samples
 	has its multisampled pixels resolved by the backend, and the back buffer
 	can be both sampled and drawn into */
@@ -3739,11 +4062,12 @@ static void trace_draw(const char *kind, D3DPRIMITIVETYPE type, unsigned long co
 	{
 		int reg;
 
+		/* (the registers written since Begin: immediate_emit keeps those alone) */
 		for (reg = 0; reg < XGPU_VERTEX_ATTRIBUTE_COUNT; reg++)
 		{
 			const float *v = first_vertex + reg * 4;
 
-			if (v[0] || v[1] || v[2] || v[3] != 1.0f)
+			if ((device.immediate_written & (1UL << reg)) && (v[0] || v[1] || v[2] || v[3] != 1.0f))
 				platform_log("    v%d = %g %g %g %g", reg, v[0], v[1], v[2], v[3]);
 		}
 	}
@@ -3762,13 +4086,22 @@ while, and draws that use it stream their data as before. */
 
 #define MIRROR_SEGMENT_SIZE XGPU_MIRROR_SEGMENT_SIZE
 #define MIRROR_SEGMENT_COUNT (PLATFORM_CONTIGUOUS_SIZE / MIRROR_SEGMENT_SIZE)
+/* (the protection's page: 16 KB on Apple's hardware, the Mac's and the
+iPhone's; a 4 KB page there shared its protection with three others, whose
+game-written vertices then faulted every frame) */
+#if defined(HALO_MACOS)
+#define MIRROR_PAGE_SIZE 0x4000UL
+#else
 #define MIRROR_PAGE_SIZE 0x1000UL
+#endif
 #define MIRROR_PAGE_COUNT (PLATFORM_CONTIGUOUS_SIZE / MIRROR_PAGE_SIZE)
 /* rewrites no more than this many frames apart ... */
 #define MIRROR_REWRITE_FRAMES 2
 /* ... this many times in a row make a page volatile ... */
 #define MIRROR_VOLATILE_REWRITES 4
-/* ... for this many frames */
+/* ... for this many frames, doubled each time the page turns volatile again
+(to 32 times as many): a page that keeps proving dynamic is not watched
+again, and faulted on, every few seconds */
 #define MIRROR_VOLATILE_FRAMES 600
 
 enum
@@ -3785,6 +4118,8 @@ static struct
 	/* the page's memory_watch generation when it was uploaded */
 	unsigned long generation[MIRROR_PAGE_COUNT];
 	unsigned long rewritten_frame[MIRROR_PAGE_COUNT];
+	/* the times the page has turned volatile (its period's doublings) */
+	unsigned char volatile_times[MIRROR_PAGE_COUNT];
 } mirror;
 
 /* uploads the pages of [first, last) that are absent or stale; FALSE if one
@@ -3823,6 +4158,8 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 			if (mirror.rewrites[page] >= MIRROR_VOLATILE_REWRITES)
 			{
 				mirror.state[page] = _mirror_page_volatile;
+				if (mirror.volatile_times[page] < 6)
+					mirror.volatile_times[page]++;
 				volatile_page = TRUE;
 			}
 		}
@@ -3869,6 +4206,55 @@ static BOOL mirror_refresh(unsigned long first, unsigned long last)
 	return TRUE;
 }
 
+/* the pages of [address, address + size) the mirror holds and the game has
+written since, uploaded now, before the frame's draws read their segments
+(d3d8_mirror_rewritten): a load zone's switch writes a whole structure over
+the one before, and uploaded as the frame's draws find them, each run of
+those pages was a copy of its whole segment made in the frame (the backend's
+buffer renamed, as a segment a draw of the frame has read must be), 27 of
+them on a10's switch into its seventh structure, 8 ms of the GPU's time. Not
+counted as a rewrite (the pages are not volatile for it), nor uploaded where
+no draw has read them yet: those are uploaded as they are first drawn, as
+ever. */
+void d3d8_mirror_rewritten(unsigned long address, unsigned long size)
+{
+	unsigned long start, end, page, run;
+
+	if (address < PLATFORM_CONTIGUOUS_BASE || !size)
+		return;
+	start = (address - PLATFORM_CONTIGUOUS_BASE) / MIRROR_PAGE_SIZE;
+	end = (address - PLATFORM_CONTIGUOUS_BASE + size + MIRROR_PAGE_SIZE - 1) / MIRROR_PAGE_SIZE;
+	if (end > MIRROR_PAGE_COUNT)
+		end = MIRROR_PAGE_COUNT;
+	for (page = start; page < end; page = run)
+	{
+		unsigned long segment = page * MIRROR_PAGE_SIZE / MIRROR_SEGMENT_SIZE;
+		unsigned long segment_end = (segment + 1) * (MIRROR_SEGMENT_SIZE / MIRROR_PAGE_SIZE);
+		unsigned long first;
+
+		for (run = page; run < end && run < segment_end && mirror.state[run] == _mirror_page_present &&
+			memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + run * MIRROR_PAGE_SIZE, MIRROR_PAGE_SIZE) >
+				mirror.generation[run];
+			run++)
+		{
+		}
+		if (run == page)
+		{
+			run = page + 1;
+			continue;
+		}
+		/* protect first, so a write racing with the upload is noticed */
+		memory_watch_protect(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE, (run - page) * MIRROR_PAGE_SIZE);
+		for (first = page; first < run; first++)
+		{
+			mirror.generation[first] = memory_watch_generation(PLATFORM_CONTIGUOUS_BASE + first * MIRROR_PAGE_SIZE,
+				MIRROR_PAGE_SIZE);
+		}
+		xgpu_backend_mirror_write(segment, page * MIRROR_PAGE_SIZE - segment * MIRROR_SEGMENT_SIZE,
+			(run - page) * MIRROR_PAGE_SIZE, (const void *)(PLATFORM_CONTIGUOUS_BASE + page * MIRROR_PAGE_SIZE), FALSE);
+	}
+}
+
 /* makes [address, address + size) current in the mirror, giving the segment
 that holds it, the range's offset in that segment and the newest upload
 generation of its pages (which changes whenever its contents do); FALSE if
@@ -3891,7 +4277,8 @@ static BOOL mirror_range(unsigned long address, unsigned long size, long *segmen
 	{
 		if (mirror.state[page] == _mirror_page_volatile)
 		{
-			if (device.frame - mirror.rewritten_frame[page] < MIRROR_VOLATILE_FRAMES)
+			if (device.frame - mirror.rewritten_frame[page] <
+				(MIRROR_VOLATILE_FRAMES << (mirror.volatile_times[page] ? mirror.volatile_times[page] - 1 : 0)))
 				return FALSE;
 			mirror.state[page] = _mirror_page_absent;
 		}
@@ -4049,12 +4436,27 @@ static int primitive_kind(D3DPRIMITIVETYPE type)
 	}
 }
 
-/* quads become two triangles each */
+/* quads become two triangles each, in a buffer kept for the next draw's
+(NULL if there is no memory for them) */
 static WORD *quad_indices(const WORD *indices, unsigned long count, unsigned long *out_count)
 {
+	static WORD *buffer;
+	static unsigned long capacity;
 	unsigned long quads = count / 4;
-	WORD *result = malloc(quads * 6 * sizeof(WORD) + 2);
+	WORD *result;
 	unsigned long quad;
+
+	*out_count = 0;
+	if (quads * 6 + 1 > capacity)
+	{
+		WORD *grown = realloc(buffer, (quads * 6 + 1) * sizeof(WORD));
+
+		if (!grown)
+			return NULL;
+		buffer = grown;
+		capacity = quads * 6 + 1;
+	}
+	result = buffer;
 
 	for (quad = 0; quad < quads; quad++)
 	{
@@ -4106,7 +4508,6 @@ void WINAPI D3DDevice_DrawVertices(D3DPRIMITIVETYPE primitive_type, UINT start_v
 		WORD *indices = quad_indices(NULL, vertex_count, &count);
 
 		xgpu_backend_draw_indices(XGPU_TRIANGLES, indices, count);
-		free(indices);
 	}
 	else
 	{
@@ -4157,7 +4558,6 @@ void WINAPI D3DDevice_DrawIndexedVertices(D3DPRIMITIVETYPE primitive_type, UINT 
 		source = indices;
 	}
 	xgpu_backend_draw_indexed(primitive_kind(primitive_type), source, count, minimum, -1, 0, indices != NULL);
-	free(indices);
 	preparation_draw_complete();
 }
 
@@ -4171,9 +4571,13 @@ void WINAPI D3DDevice_Begin(D3DPRIMITIVETYPE primitive_type)
 	device.immediate_written = 0;
 }
 
+/* the vertex the registers make: those written since Begin alone, the only
+ones the backend takes (xgpu_backend_draw_immediate) */
 static void immediate_emit(void)
 {
 	unsigned long floats = XGPU_VERTEX_ATTRIBUTE_COUNT * 4;
+	unsigned long written = device.immediate_written;
+	float *vertex;
 
 	if (device.immediate_count == device.immediate_capacity)
 	{
@@ -4186,7 +4590,14 @@ static void immediate_emit(void)
 		device.immediate_vertices = vertices;
 		device.immediate_capacity = capacity;
 	}
-	memcpy(device.immediate_vertices + device.immediate_count * floats, device.attributes, floats * sizeof(float));
+	vertex = device.immediate_vertices + device.immediate_count * floats;
+	while (written)
+	{
+		int reg = __builtin_ctzl(written);
+
+		memcpy(vertex + reg * 4, device.attributes[reg], 4 * sizeof(float));
+		written &= written - 1;
+	}
 	device.immediate_count++;
 }
 
@@ -4210,7 +4621,6 @@ void WINAPI D3DDevice_End(void)
 		indices = quad_indices(NULL, count, &index_count);
 	xgpu_backend_draw_immediate(type == D3DPT_QUADLIST ? XGPU_TRIANGLES : primitive_kind(type), device.immediate_vertices,
 		count, device.immediate_written, (const float (*)[4])device.attributes, indices, index_count);
-	free(indices);
 	preparation_draw_complete();
 }
 
@@ -4225,12 +4635,23 @@ static void set_attribute(INT reg, float a, float b, float c, float d)
 	}
 	if (reg < 0 || reg >= XGPU_VERTEX_ATTRIBUTE_COUNT)
 		return;
+	if (device.immediate_active && !(device.immediate_written & (1UL << reg)))
+	{
+		/* a register first written after some of the vertices: theirs is
+		the value it had (immediate_emit keeps only the written ones) */
+		unsigned long vertex;
+
+		for (vertex = 0; vertex < device.immediate_count; vertex++)
+		{
+			memcpy(device.immediate_vertices + (vertex * XGPU_VERTEX_ATTRIBUTE_COUNT + reg) * 4,
+				device.attributes[reg], 4 * sizeof(float));
+		}
+		device.immediate_written |= 1UL << reg;
+	}
 	device.attributes[reg][0] = a;
 	device.attributes[reg][1] = b;
 	device.attributes[reg][2] = c;
 	device.attributes[reg][3] = d;
-	if (device.immediate_active)
-		device.immediate_written |= 1UL << reg;
 	/* like the hardware, writing register 0 completes a vertex */
 	if (device.immediate_active && (emit || reg == 0))
 		immediate_emit();
@@ -4364,6 +4785,62 @@ void halo_screen_anti_alias(short x0, short y0, short x1, short y1)
 	xgpu_backend_anti_alias(target->target.number, mode == _anti_aliasing_smaa, corners);
 }
 
+/* the corners of a window's 3D view in the back buffer's pixels */
+static void view_corners(struct render_target_entry *target, short x0, short y0, short x1, short y1, long corners[4])
+{
+	corners[0] = scaled_pixel(x0, target->target.scale[0]);
+	corners[1] = scaled_pixel(y0, target->target.scale[1]);
+	corners[2] = scaled_pixel(x1, target->target.scale[0]);
+	corners[3] = scaled_pixel(y1, target->target.scale[1]);
+}
+
+/* display.panini's pass over a window's 3D view (port/linux/game/panini.c),
+once it is whole, tone mapped and antialiased, before the HUD: the window's
+bounds in the game's units of the screen, and the projection (its d, s and
+magnification, then the rectilinear view's tangents at the window's left,
+right, top and bottom) */
+void halo_screen_panini(short x0, short y0, short x1, short y1, const float projection[8])
+{
+	struct render_target_entry *target;
+	long corners[4];
+
+	if (!device.gl_ready)
+		return;
+	target = render_target_get(&device.back_buffer);
+	if (!target)
+		return;
+	/* (no longer multisampled: the pass reads the view's pixels resolved,
+	as anti-aliasing's do; the HUD's draws multisample it again) */
+	render_target_multisample(&target->target, 0);
+	view_corners(target, x0, y0, x1, y1, corners);
+	xgpu_backend_panini(target->target.number, corners, projection);
+}
+
+/* display.ambient_occlusion over a window's 3D view once its opaque
+surfaces have drawn their light (source/render/render.c), from the camera
+it was drawn with: its near and far planes and its projection's x and y
+scales and offsets (render_frustum's projection_matrix [0][0], [1][1],
+[2][0], [2][1]) */
+void halo_screen_ambient_occlusion(short x0, short y0, short x1, short y1, float z_near, float z_far,
+	const float projection[4])
+{
+	struct render_target_entry *target;
+	long corners[4];
+	float camera[6];
+
+	if (!device.gl_ready || !ambient_occlusion.quality)
+		return;
+	target = render_target_get(&device.back_buffer);
+	if (!target || !device.depth_stencil)
+		return;
+	view_corners(target, x0, y0, x1, y1, corners);
+	camera[0] = z_near;
+	camera[1] = z_far;
+	memcpy(camera + 2, projection, sizeof(float) * 4);
+	xgpu_backend_ambient_occlusion(target->target.number, corners, ambient_occlusion.quality, camera);
+	ambient_occlusion.laid = TRUE;
+}
+
 /* display.hdr's tone map of a window's 3D view (source/render/render.c),
 before its anti-aliasing and the HUD: the draws from now on are the HUD's
 and the menus' (xgpu_hdr.h) */
@@ -4372,6 +4849,14 @@ void halo_screen_tone_map(short x0, short y0, short x1, short y1)
 	struct render_target_entry *target;
 	long corners[4];
 
+	/* (debug.ambient_occlusion_view: the view is the occlusion alone) */
+	if (device.gl_ready && ambient_occlusion.laid && ambient_occlusion.view &&
+		(target = render_target_get(&device.back_buffer)))
+	{
+		view_corners(target, x0, y0, x1, y1, corners);
+		xgpu_backend_ambient_occlusion(target->target.number, corners, XGPU_AMBIENT_OCCLUSION_SHOW, NULL);
+	}
+	ambient_occlusion.laid = FALSE;
 	hdr.view = FALSE;
 	if (!device.gl_ready || !hdr.active)
 		return;
@@ -4464,9 +4949,8 @@ unsigned long xgpu_screenshot_number(void)
 	return device.frame;
 }
 
-/* port/linux/src/dsound_sdl.c: a frame's sound owed to a mix paced by the
-frames (debug.audio_record with debug.frame_time), and the sound recorded */
-void dsound_sdl_frame(double seconds);
+/* port/linux/src/dsound_sdl.c: the sound recorded (debug.audio_record; with
+the frames' time fixed, mixed in step with them: frames_clock.c) */
 unsigned long dsound_sdl_recorded_frames(void);
 
 /* debug.screenshot_stream: each frame's pixels (BGRA, top row first, no
@@ -4895,15 +5379,29 @@ static BOOL screenshot_this_frame(void)
 	return now >= from && (until <= 0.0 || now <= until);
 }
 
+/* the frame being drawn's pixels so far (BGRA, rows from the top; malloc's,
+the caller's to free), and its size; NULL if there is none: a menu
+picture's frame (port/linux/game/menu_pictures_render.c) */
+unsigned char *d3d8_back_buffer_read(unsigned long *width, unsigned long *height)
+{
+	struct render_target_entry *back_buffer;
+	unsigned char *pixels;
+
+	if (!device.gl_ready || !(back_buffer = render_target_get(&device.back_buffer)) || !back_buffer->target.number)
+		return NULL;
+	render_target_resolve(&back_buffer->target);
+	pixels = xgpu_backend_read_target(back_buffer->target.number, -1, TRUE);
+	if (pixels)
+	{
+		*width = back_buffer->target.pixel_width;
+		*height = back_buffer->target.pixel_height;
+	}
+	return pixels;
+}
+
 void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destination_rectangle,
 	void *unused, void *unused2)
 {
-	static double frame_time = -1.0;
-
-	if (frame_time < 0.0)
-		frame_time = config_real("debug.frame_time");
-	if (frame_time > 0.0)
-		dsound_sdl_frame(frame_time);
 	(void)source_rectangle;
 	(void)destination_rectangle;
 	(void)unused;
@@ -4943,6 +5441,9 @@ void WINAPI D3DDevice_Present(CONST RECT *source_rectangle, CONST RECT *destinat
 		}
 		if (platform_screenshot_take_request())
 			write_key_screenshot(back_buffer);
+		/* (a menu picture's frame: kept, and not shown, the preparing
+		screen staying: port/linux/game/menu_pictures_render.c) */
+		if (!menu_pictures_frame_kept())
 		xgpu_backend_present(back_buffer->target.number);
 		memory_watch_begin_frame();
 		xgpu_backend_frame_end();

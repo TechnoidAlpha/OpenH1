@@ -35,6 +35,7 @@ def test_info_plist():
                                                          "UIInterfaceOrientationLandscapeRight"]
     assert plist["UISupportedInterfaceOrientations~ipad"] == plist["UISupportedInterfaceOrientations"]
     assert plist["UIRequiresFullScreen"] is True
+    assert plist["CADisableMinimumFrameDurationOnPhone"] is True
     assert plist["UIFileSharingEnabled"] is True and plist["LSSupportsOpeningDocumentsInPlace"] is True
     assert plist["GCSupportsControllerUserInteraction"] is True
     assert plist["LSApplicationCategoryType"] == "public.app-category.games"

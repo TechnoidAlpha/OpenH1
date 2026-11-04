@@ -11,6 +11,7 @@
     python tools/ci_build.py windows release       (on Windows)
     python tools/ci_build.py macos release         (on a Mac with Apple silicon)
     python tools/ci_build.py ios debug             (on a Mac with Apple silicon and Xcode's iOS SDK)
+    python tools/ci_build.py notes                 (the release notes' network versions, below)
 
 Builds are portable (any x86-64 processor; any ARMv8.0 one for
 linux_arm64 and android), so they run on other computers. Debug builds skip link-time and profile-guided optimisation,
@@ -44,6 +45,13 @@ the licences): the disk image keeps the app's modes and links, which the
 workflow's artifacts would lose, and the release has it as it is,
 OpenH1.dmg (OpenH1-debug.dmg).
 
+notes prints the lines the release's notes carry for a dedicated server's
+self-updater (port/linux/src/updater.c, updater_server_*), which compares
+them with its own to know whether its players can join the new build:
+
+    Network version: <HALO_PORT_NETWORK_VERSION>
+    Standard network version: <HALO_PORT_STANDARD_NETWORK_VERSION>
+
 The iOS build is the app (ninja ios), signed ad hoc (tools/ios_app.py: a
 device refuses it, a sideloading tool such as AltStore signs it again), as
 an .ipa (Payload/OpenH1.app, zipped), alone in dist/halo-ios-<config>/. The
@@ -52,6 +60,7 @@ release does not publish it yet (port/ios/README.md).
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -95,6 +104,28 @@ def dist_name(platform: str, config: str, vr: bool = False) -> str:
     return f"halo-{platform}-{config}"
 
 
+def network_versions() -> dict:
+    """the network versions of halo_port_limits.h: HALO_PORT_NETWORK_VERSION
+    (OpenCE's and Legacy games') and HALO_PORT_STANDARD_NETWORK_VERSION
+    (OpenH1's Standard games')"""
+    text = (ROOT / "port/linux/include/halo_port_limits.h").read_text()
+    versions = {}
+    for name in ("HALO_PORT_NETWORK_VERSION", "HALO_PORT_STANDARD_NETWORK_VERSION"):
+        match = re.search(rf"^#define {name} (\d+)\b", text, re.MULTILINE)
+        if not match:
+            sys.exit(f"halo_port_limits.h has no {name}")
+        versions[name] = int(match.group(1))
+    return versions
+
+
+def release_notes_versions() -> str:
+    """the release's notes' lines that updater.c's updater_latest_release
+    reads (the last of each key)"""
+    versions = network_versions()
+    return (f"Network version: {versions['HALO_PORT_NETWORK_VERSION']}\n"
+            f"Standard network version: {versions['HALO_PORT_STANDARD_NETWORK_VERSION']}\n")
+
+
 def run(command, cwd=ROOT):
     print("+", " ".join(str(part) for part in command), flush=True)
     subprocess.run([str(part) for part in command], cwd=cwd, check=True)
@@ -123,6 +154,9 @@ def check_guest_image(platform: str) -> None:
 
 
 def main() -> int:
+    if sys.argv[1:] == ["notes"]:
+        sys.stdout.write(release_notes_versions())
+        return 0
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("platform", choices=sorted(OUTPUTS))
     parser.add_argument("config", choices=["debug", "release", "profile"])
@@ -259,6 +293,9 @@ def main() -> int:
     # and the dedicated server (network.masters_file, server.masters_file:
     # docs/dedicated_server.md)
     shutil.copy2(ROOT / "port/assets/network/masters.txt", dist / "masters.txt")
+    # ... and the relays a machine offers when a direct connection fails
+    # (network.relays_file, server.relays_file: none in it)
+    shutil.copy2(ROOT / "port/assets/network/relays.txt", dist / "relays.txt")
     return 0
 
 

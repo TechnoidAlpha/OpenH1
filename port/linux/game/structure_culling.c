@@ -7,6 +7,8 @@ Six-plane rejection and conservative facing summaries for structure buckets.
 /* ---------- headers */
 
 #include "structure_culling.h"
+#include "far_clip.h"
+#include "custom_edition_cache.h"
 #include "cseries/cseries_windows.h"
 #include "cseries/errors.h"
 #include "cseries/profile.h"
@@ -36,6 +38,8 @@ Six-plane rejection and conservative facing summaries for structure buckets.
 #define STRUCTURE_CULLING_CONE_SPLIT_CUTOFF 0.5f
 #define STRUCTURE_CULLING_BUILD_BUDGET (64UL * 1024 * 1024)
 #define STRUCTURE_CULLING_MAXIMUM_DEBUG_TRIANGLES 6144
+/* the map's bsps whose buckets are kept while another is loaded */
+#define STRUCTURE_CULLING_KEPT_BSPS 32
 
 enum
 {
@@ -121,6 +125,8 @@ struct structure_culling_data
 	long triangle_count;
 	unsigned long build_milliseconds;
 	boolean from_subclusters;
+	/* the bsp's index in its scenario */
+	short structure_bsp_index;
 };
 
 struct structure_culling_workspace
@@ -138,6 +144,10 @@ struct structure_culling_workspace
 
 static short structure_culling_split_axis;
 static struct structure_culling_data structure_culling;
+/* each of the map's bsps' buckets as they were built, kept for a switch back
+to it (a load zone): a bsp is loaded again where it was, with the same
+bytes (structure_bsp_cache.c), so its buckets, which point into it, hold */
+static struct structure_culling_data structure_culling_kept[STRUCTURE_CULLING_KEPT_BSPS];
 static long structure_culling_tests = FLAG(_structure_culling_triangle_frustum_bit) |
 	FLAG(_structure_culling_bucket_facing_bit) | FLAG(_structure_culling_triangle_facing_bit) |
 	FLAG(_structure_culling_finer_buckets_bit) | FLAG(_structure_culling_near_first_bit);
@@ -851,12 +861,65 @@ long structure_culling_gather_pairings(long const *list, long list_count, boolea
 
 void structure_culling_dispose(void)
 {
+	short index;
+
 	/* debug_free rejects NULL, including before the first bsp load */
 	if (structure_culling.allocation)
 	{
 		free(structure_culling.allocation);
 	}
 	memset(&structure_culling, 0, sizeof(structure_culling));
+	for (index = 0; index < STRUCTURE_CULLING_KEPT_BSPS; ++index)
+	{
+		if (structure_culling_kept[index].allocation)
+		{
+			free(structure_culling_kept[index].allocation);
+		}
+	}
+	memset(structure_culling_kept, 0, sizeof(structure_culling_kept));
+}
+
+/* the bsp let go of keeps its buckets (not when it is loaded again: they
+are built again); the one loaded takes its own back, if it had them, the
+same bsp where it was: TRUE. (Not a Custom Edition
+map's: its bsps' vertices, which the buckets point into, are made again
+each time one loads: custom_edition_geometry.c) */
+static boolean structure_culling_switch(struct structure_bsp *structure, short structure_bsp_index)
+{
+	struct structure_culling_data *kept;
+
+	if (structure_culling.allocation && !custom_edition_cache_tags_loaded() &&
+		structure_culling.structure_bsp_index != structure_bsp_index &&
+		(unsigned short)structure_culling.structure_bsp_index < STRUCTURE_CULLING_KEPT_BSPS &&
+		!structure_culling_kept[structure_culling.structure_bsp_index].allocation)
+	{
+		structure_culling_kept[structure_culling.structure_bsp_index] = structure_culling;
+	}
+	else if (structure_culling.allocation)
+	{
+		free(structure_culling.allocation);
+	}
+	memset(&structure_culling, 0, sizeof(structure_culling));
+	if (!structure || custom_edition_cache_tags_loaded() ||
+		(unsigned short)structure_bsp_index >= STRUCTURE_CULLING_KEPT_BSPS)
+	{
+		return FALSE;
+	}
+	kept = &structure_culling_kept[structure_bsp_index];
+	if (!kept->allocation)
+	{
+		return FALSE;
+	}
+	if (kept->structure == structure && kept->surface_address == structure->surfaces.address &&
+		kept->surface_count == structure->surfaces.count)
+	{
+		structure_culling = *kept;
+		memset(kept, 0, sizeof(*kept));
+		return TRUE;
+	}
+	free(kept->allocation);
+	memset(kept, 0, sizeof(*kept));
+	return FALSE;
 }
 
 void structure_culling_order_clusters(short *order, real const *distances, short count)
@@ -1018,7 +1081,7 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 		planes[_structure_culling_frustum_plane_far].n.i * render.camera.position.x +
 		planes[_structure_culling_frustum_plane_far].n.j * render.camera.position.y +
 		planes[_structure_culling_frustum_plane_far].n.k * render.camera.position.z +
-		rasterizer_globals.far_clip_distance;
+		render_far_clip_distance();
 	/* mirror projections are oblique: this perpendicular plane is not their GPU far clip */
 	if (render.camera.z_near == 0.0f)
 	{
@@ -1179,10 +1242,10 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 	return TRUE;
 }
 
-void structure_culling_structure_bsp_loaded(void)
+/* the structure's buckets built, as the structure_bsp_index'th bsp's */
+static void structure_culling_build(struct structure_bsp *structure, short structure_bsp_index)
 {
 	unsigned long started = system_milliseconds();
-	struct structure_bsp *structure;
 	struct structure_culling_workspace work;
 	long l;
 	long m;
@@ -1199,8 +1262,6 @@ void structure_culling_structure_bsp_loaded(void)
 	byte *cursor;
 	byte *allocation;
 
-	structure_culling_dispose();
-	structure = global_structure_bsp_get();
 	if (!structure || !structure_bsp_port_verify(structure))
 	{
 		return;
@@ -1333,6 +1394,7 @@ void structure_culling_structure_bsp_loaded(void)
 	structure_culling.pairings =
 		(struct structure_culling_pairing *)(structure_culling.buckets + structure_culling.bucket_count);
 	structure_culling.structure = structure;
+	structure_culling.structure_bsp_index = structure_bsp_index;
 	structure_culling.surface_address = structure->surfaces.address;
 	structure_culling.surface_count = structure->surfaces.count;
 	structure_culling.bytes = (long)final_size;
@@ -1345,4 +1407,30 @@ void structure_culling_structure_bsp_loaded(void)
 		structure_culling.bucket_count, structure_culling.from_subclusters ? "subclusters" : "surface lists",
 		structure_culling.split_count, structure_culling.surface_count, structure_culling.bytes,
 		structure_culling.build_milliseconds, structure_culling.disagree_count, structure_culling.triangle_count);
+}
+
+void structure_culling_structure_bsp_loaded(void)
+{
+	struct structure_bsp *structure = global_structure_bsp_get();
+	short structure_bsp_index = global_structure_bsp_index_get();
+
+	if (!structure_culling_switch(structure, structure_bsp_index))
+	{
+		structure_culling_build(structure, structure_bsp_index);
+	}
+}
+
+void structure_culling_structure_bsp_read(struct structure_bsp *structure, short structure_bsp_index)
+{
+	struct structure_culling_data loaded = structure_culling;
+
+	if ((unsigned short)structure_bsp_index >= STRUCTURE_CULLING_KEPT_BSPS ||
+		structure_culling_kept[structure_bsp_index].allocation)
+	{
+		return;
+	}
+	memset(&structure_culling, 0, sizeof(structure_culling));
+	structure_culling_build(structure, structure_bsp_index);
+	structure_culling_kept[structure_bsp_index] = structure_culling;
+	structure_culling = loaded;
 }

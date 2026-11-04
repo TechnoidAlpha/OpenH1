@@ -19,12 +19,15 @@ without a display to wait for, and its exits.
 
 #if HALO_SERVER_BUILD
 
+#include "p2p.h"
 #include "posix_server.h"
 #include "server_console.h"
 #include "server_http.h"
 #include "server_log.h"
 #include "server_master.h"
+#include "server_netlist.h"
 #include "server_rotation.h"
+#include "map_import.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -58,6 +61,8 @@ static struct
 	/* the pace: the next frame's deadline, and whether the server is idle */
 	Uint64 deadline;
 	int idle;
+	/* (an OpenH1 game's tick rate: server_mode_set_minimum_frame_rate) */
+	long minimum_rate;
 	/* the frames' work this minute and the last: the longest and the sum */
 	Uint64 frame_began;
 	Uint64 minute_began;
@@ -161,13 +166,41 @@ void server_mode_fatal(const char *text)
 static void print_help(void)
 {
 	fprintf(stdout,
-		"halo [--server] [--config <file>] [--keygen] [--sign <text>] [--probe [<invite>]] [--version] [--help]\n"
+		"halo [--server] [--relay] [--config <file>] [--keygen] [--sign <text>] [--probe [<invite>]] "
+		"[--import-maps <file>] [--version] [--help]\n"
 		"  --server         a dedicated server (docs/dedicated_server.md)\n"
+		"  --relay          a relay alone, for players who cannot connect directly (docs/dedicated_server.md)\n"
 		"  --probe [<invite>]  prints the invite's game (or the LAN's first) as one line of JSON\n"
 		"  --config <file>  the settings file (else config.toml beside the executable)\n"
 		"  --keygen         writes a publisher key for the master servers and prints its public key\n"
 		"  --sign <text>    prints the publisher key's signature of the text (an application's proof)\n"
+		"  --import-maps <file>  adds the multiplayer maps of Custom Edition's installer (halocesetup_en_1.00.exe)\n"
+		"                   to the custom_maps folder\n"
 		"  --version        prints the build and its network version\n");
+}
+
+/* halo --relay's end: SIGINT or SIGTERM */
+static int relay_stop(void)
+{
+	int quit_signal = 0;
+
+	return (posix_server_signals_take(&quit_signal) & _posix_server_signal_quit) != 0;
+}
+
+/* halo --relay: a relay alone (p2p.c's p2p_relay_run), no game, no data;
+until a signal ends it */
+static void run_relay(void)
+{
+	char config[1024];
+	int result;
+
+	posix_server_stdout_line_buffered();
+	posix_server_signals_install();
+	config_folder(config, sizeof(config));
+	fprintf(stdout, "OpenH1 %s, relay; settings in %s\n", server_mode_build(), config[0] ? config : "./");
+	result = p2p_relay_run(relay_stop);
+	fflush(NULL);
+	exit(result < 0 ? SERVER_EXIT_PORT_IN_USE : SERVER_EXIT_STOPPED);
 }
 
 /* the command line's arguments that are answered and end the process */
@@ -188,6 +221,8 @@ static void answer_command_line(void)
 			print_help();
 			exit(EXIT_SUCCESS);
 		}
+		if (!strcmp(argument, "--relay"))
+			run_relay();
 		if (!strcmp(argument, "--keygen"))
 			exit(server_master_keygen() ? EXIT_SUCCESS : SERVER_EXIT_CONFIGURATION);
 		if (!strcmp(argument, "--sign"))
@@ -200,6 +235,17 @@ static void answer_command_line(void)
 				exit(SERVER_EXIT_CONFIGURATION);
 			}
 			exit(server_master_sign_text(text) ? EXIT_SUCCESS : SERVER_EXIT_CONFIGURATION);
+		}
+		if (!strcmp(argument, "--import-maps"))
+		{
+			char path[1024];
+
+			if (!posix_command_line_argument(index + 1, path, sizeof(path)))
+			{
+				fprintf(stderr, "--import-maps: give Custom Edition's installer (halocesetup_en_1.00.exe)\n");
+				exit(SERVER_EXIT_CONFIGURATION);
+			}
+			map_import_command_line(path);
 		}
 	}
 }
@@ -392,6 +438,8 @@ void server_mode_start(void)
 	if (!server_http_start())
 		server_mode_exit(SERVER_EXIT_PORT_IN_USE);
 	server_master_start();
+	/* (the netlists of the masters it publishes to: its VPN policy) */
+	server_netlist_start();
 }
 
 int server_mode_signals(int *quit_signal)
@@ -406,13 +454,44 @@ void server_mode_set_idle(int idle)
 	server_mode.idle = idle;
 }
 
+void server_mode_set_minimum_frame_rate(long rate)
+{
+	server_mode.minimum_rate = rate;
+}
+
+/* the rest of the frame waited out; with receive, the datagrams that come
+meanwhile read as they come (receive waits for them, up to whole
+milliseconds a millisecond short of the deadline, which the precise delay
+keeps), until it says it cannot */
+static void server_mode_wait(Uint64 deadline, int (*receive)(long milliseconds))
+{
+	for (;;)
+	{
+		Uint64 now = SDL_GetTicksNS();
+
+		if (now >= deadline)
+			return;
+		if (receive && deadline - now >= 2000000ULL && receive((long)((deadline - now) / 1000000ULL) - 1))
+			continue;
+		SDL_DelayPrecise(deadline - now);
+		return;
+	}
+}
+
 void server_mode_pace_frame(void)
+{
+	server_mode_pace_frame_receiving(NULL);
+}
+
+void server_mode_pace_frame_receiving(int (*receive)(long milliseconds))
 {
 	long rate = server_mode.idle ? SERVER_IDLE_FRAME_RATE : config_integer("server.frame_rate");
 	Uint64 now = SDL_GetTicksNS();
 	Uint64 period;
 	double work;
 
+	if (rate < server_mode.minimum_rate)
+		rate = server_mode.minimum_rate;
 	if (rate < 30)
 		rate = 30;
 	if (rate > 120)
@@ -445,7 +524,7 @@ void server_mode_pace_frame(void)
 	if (now > server_mode.deadline + SERVER_RESYNCHRONISE_NANOSECONDS)
 		server_mode.deadline = now;
 	else if (server_mode.deadline > now)
-		SDL_DelayPrecise(server_mode.deadline - now);
+		server_mode_wait(server_mode.deadline, receive);
 	server_mode.frame_began = SDL_GetTicksNS();
 }
 
@@ -491,9 +570,19 @@ void server_mode_pace_frame(void)
 {
 }
 
+void server_mode_pace_frame_receiving(int (*receive)(long milliseconds))
+{
+	(void)receive;
+}
+
 void server_mode_set_idle(int idle)
 {
 	(void)idle;
+}
+
+void server_mode_set_minimum_frame_rate(long rate)
+{
+	(void)rate;
 }
 
 void server_mode_frame_times(double *longest, double *mean)

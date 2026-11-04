@@ -232,11 +232,13 @@ symbols in this file:
 #include "sound_environment_definitions.h"
 #include "game_sound.h"
 #include "sound_preferences.h"
+#include "camera/director.h" /* port: the listener's velocity (refresh_listener) */
 #include "camera/observer.h"
 #include "effects/player_effects.h"
 #include "game/game.h"
 #include "game/game_globals.h"
 #include "game/players.h"
+#include "objects/objects.h" /* port: the listener's velocity (refresh_listener) */
 #include "render/render_debug.h"
 #include "scenario/scenario.h"
 #include "tag_files/tag_files.h"
@@ -247,7 +249,7 @@ symbols in this file:
 /* port: a stereo channel's sound in the world panned towards it, muffled
 and reverberated as a 3D channel's is (sound_dsound_xbox.c; update_channels) */
 void dsound_port_set_channel_stereo_position(short virtual_channel_index, boolean positioned, real pan,
-	real distance, real minimum_distance, real distance_fade, real occlusion, real obstruction,
+	real distance, real minimum_distance, real distance_fade, real obstruction, real occlusion,
 	boolean attenuate_direct_path);
 
 #ifdef HALO_VR
@@ -401,11 +403,13 @@ struct sound_listener
 #ifdef HALO_VR
 /* port: in the VR mode, the first player's listener is the head
 (refresh_listener), and the game's camera it would have been, which the
-sounds placed about the listener are about (sound_vr_relative) */
+sounds placed about the listener are about (sound_vr_relative), and the
+head's place, which the sounds' obstruction is judged from (game_sound.c) */
 static struct
 {
 	boolean head;
 	real_matrix4x3 camera;
+	real_point3d position;
 } sound_vr_listener;
 #endif
 
@@ -599,6 +603,20 @@ typedef char verify_sound_manager_channel_count_offset[
 	offsetof(struct sound_manager_globals, channel_count) == 0x174 ? 1 : -1];
 
 /* ---------- prototypes */
+
+/* port: the sound manager's clock, which times the sounds: the computer's,
+or with the frames' time fixed (debug.frame_time, debug.fixed_step) the
+frames' time, which the mix keeps step with (port/linux/game/frames_clock.c),
+so that two runs of the same input leave the same in the game state */
+static long sound_clock_milliseconds(
+	void)
+{
+	unsigned long frames_milliseconds;
+
+	if (frames_clock(&frames_milliseconds))
+		return (long)frames_milliseconds;
+	return (long)system_milliseconds();
+}
 
 static void sound_update_time(
 	void);
@@ -881,7 +899,7 @@ void sound_pause(
 
 		if (!paused)
 		{
-			sound_manager_globals.render_time = system_milliseconds();
+			sound_manager_globals.render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 		}
 	}
 
@@ -1081,7 +1099,7 @@ void sound_stop_impulse_by_source_and_definition(
 static void sound_update_time(
 	void)
 {
-	long render_time = system_milliseconds();
+	long render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 
 	sound_manager_globals.ticks_elapsed =
 		((real)render_time - sound_manager_globals.render_time) * 0.029999999f;
@@ -3331,7 +3349,7 @@ void sound_dispose_from_old_map(
 	{
 		sound_manager_globals.paused = FALSE;
 		sound_manager_globals.platform_definition->set_pause(FALSE);
-		sound_manager_globals.render_time = system_milliseconds();
+		sound_manager_globals.render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 	}
 
 	sound_stop_all();
@@ -3578,6 +3596,24 @@ static void sound_vr_relative(
 	matrix4x3_inverse_transform_vector(&listener->matrix, &vector, &location->translational_velocity);
 
 	return;
+}
+
+/* port: where a local player hears from while the listener is the head
+(refresh_listener), for the sounds' obstruction (game_sound.c); FALSE while
+it is the game's camera. The head's place as placed last, not the listener's
+matrix: a sound started while the listener is placed (debug.vr_test_sound's)
+would find it still the game's camera */
+boolean sound_vr_listener_head(
+	short local_player_index,
+	real_point3d *position)
+{
+	if (local_player_index != 0 || !sound_vr_listener.head || !listener_get(0)->valid)
+	{
+		return FALSE;
+	}
+	*position = sound_vr_listener.position;
+
+	return TRUE;
 }
 #endif
 
@@ -4082,6 +4118,7 @@ static void refresh_listener(
 					&head_up);
 				if (sound_vr_listener.head)
 				{
+					sound_vr_listener.position = head_position;
 					matrix4x3_from_point_and_vectors(
 						&listener->matrix,
 						&head_position,
@@ -4090,10 +4127,35 @@ static void refresh_listener(
 				}
 			}
 #endif
-			matrix4x3_inverse_transform_vector(
-				&listener->matrix,
-				&camera->velocity,
-				&listener->velocity);
+			/* port: the listener moves as the player's unit (or what it rides)
+			moves, its velocity a tick's, as every sound's is (update_channels),
+			when the view is the player's own, in the first or the third
+			person. The camera's velocity is its last frame's movement over the
+			frame's time, and the native ports draw several frames a tick (and
+			at game.sim_rate 60 and 120 move the view in sub-steps spread over
+			them): it jumped from frame to frame between none and several times
+			the player's speed, and with it every sound's Doppler shift: a
+			warble of up to a semitone while the player walked, of several
+			riding a Pelican. Other views (a cinematic's, a dead player's) keep
+			the camera's */
+			{
+				real_vector3d velocity = camera->velocity;
+				long player_index = local_player_get_player_index(local_player_index);
+				long unit_index = player_get(player_index)->unit_index;
+				director_perspective perspective = director_get_perspective(local_player_index);
+
+				if (unit_index != NONE &&
+					(perspective == _director_perspective_first_person ||
+					perspective == _director_perspective_third_person))
+				{
+					object_get_velocities(unit_index, &velocity, NULL);
+					scale_vector3d(&velocity, (real)TICKS_PER_SECOND, &velocity);
+				}
+				matrix4x3_inverse_transform_vector(
+					&listener->matrix,
+					&velocity,
+					&listener->velocity);
+			}
 		}
 		else
 		{
@@ -4162,7 +4224,7 @@ void sound_render(
 
 		if (!sound_manager_globals.paused)
 		{
-			long render_time = system_milliseconds();
+			long render_time = sound_clock_milliseconds(); /* port: the sound's clock */
 
 			sound_manager_globals.ticks_elapsed =
 				((real)render_time - sound_manager_globals.render_time) *

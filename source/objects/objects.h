@@ -372,7 +372,8 @@ long cluster_get_first_collideable_object(long *reference_index, short cluster_i
 long cluster_get_next_collideable_object(long *reference_index);
 short object_get_next_cluster(struct object_cluster_iterator *iterator, long object_index);
 void *object_try_and_get_and_verify_type(long object_index, unsigned long valid_type_flags);
-void *object_get_and_verify_type(long object_index, unsigned long valid_type_flags);
+/* port: object_get_and_verify_type where its fast path (below) finds another type */
+void *object_get_and_verify_type_slow(long object_index, unsigned long valid_type_flags);
 void object_iterator_new(struct object_iterator *iterator, unsigned long type_flags, byte flags);
 void *object_iterator_next(struct object_iterator *iterator);
 long object_get_ultimate_parent(long object_index);
@@ -551,6 +552,24 @@ extern boolean debug_objects_bounding_spheres;
 extern boolean debug_objects_collision_models;
 
 /* ---------- public code */
+
+/* port: object_get_and_verify_type without a call where the object is of
+a type expected (datum_get, data.h, is its own fast path), and the
+function where it is not, which asserts as it always has (__inline__:
+msvc_comdat.c makes __inline weak, which a static function cannot be) */
+static __inline__ void *object_get_and_verify_type(
+	long object_index,
+	unsigned long valid_type_flags)
+{
+	struct object_datum *result = object_header_get(object_index)->datum;
+
+	if (TEST_FLAG(valid_type_flags, result->object.type))
+	{
+		return result;
+	}
+
+	return object_get_and_verify_type_slow(object_index, valid_type_flags);
+}
 
 __inline short object_get_type(
 	long object_index)

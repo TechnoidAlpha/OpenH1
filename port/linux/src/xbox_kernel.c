@@ -6,6 +6,7 @@ threads, asynchronous procedure calls, time, memory and debug output.
 */
 
 #include "platform.h"
+#include "port_config.h"
 
 #include <errno.h>
 #include <sched.h>
@@ -639,6 +640,17 @@ VOID WINAPI Sleep(DWORD milliseconds)
 	SleepEx(milliseconds, FALSE);
 }
 
+/* a wait finer than Sleep's milliseconds (port/linux/game/unseen_frames.c) */
+void platform_delay_nanoseconds(unsigned long long nanoseconds)
+{
+	struct timespec duration;
+
+	duration.tv_sec = (time_t)(nanoseconds / 1000000000ULL);
+	duration.tv_nsec = (long)(nanoseconds % 1000000000ULL);
+	while (nanosleep(&duration, &duration) == -1 && errno == EINTR)
+		;
+}
+
 /* ---------- time */
 
 /* The game's clocks count from when it started, as the Xbox's count from
@@ -809,6 +821,9 @@ HGLOBAL WINAPI GlobalAlloc(UINT flags, SIZE_T size)
 		return NULL;
 	}
 	block->size = size;
+	/* (debug.fresh_memory_fill) */
+	if (!(flags & GMEM_ZEROINIT) && halo_fresh_memory_fill() >= 0)
+		memset((char *)block + sizeof(*block) + 8, halo_fresh_memory_fill(), size);
 	return (char *)block + sizeof(*block) + 8;
 }
 

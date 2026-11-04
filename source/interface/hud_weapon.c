@@ -83,6 +83,10 @@ symbols in this file:
 #include <math.h>
 #include <string.h>
 
+/* port: the high-res HUD's texture of some of a bitmap's sprites (the
+reticle's warnings), port/linux/game/hud_hires_tags.c */
+struct bitmap_data const *hud_hires_sprite_bitmap(struct bitmap_data const *bitmap, short sequence_index);
+
 #ifdef HALO_VR
 /* port/linux/game/vr_scope.c: a scope's view is shown in the VR mode,
 raised to an eye or smart-linked (a window about the reticle), showing
@@ -1348,7 +1352,9 @@ static void crosshairs_draw(
 												(short)(render.camera.window_bounds.y1 - render.camera.window_bounds.y0),
 												&placement);
 											hud_draw_bitmap(
-												bitmap,
+												/* port: drawn from the high-res HUD's texture of its
+												sprite where there is one */
+												sequence ? hud_hires_sprite_bitmap(bitmap, item->sequence_index) : bitmap,
 												&absolute_placement,
 												&placement,
 												sequence ?
@@ -1740,8 +1746,11 @@ static void render_weapon_hud(
 				real delta_y;
 				real delta_z;
 
-				unit_get_camera_position(unit_index, &position);
-				object_get_origin(target_object_index, &target_position);
+				/* port: both where they are drawn
+				(port/linux/game/render_interpolation.c), the numbers
+				moving with the view, not a tick's step at a time */
+				render_interpolation_unit_camera_position(unit_index, &position);
+				render_interpolation_object_origin(target_object_index, &target_position);
 				delta_x = position.x - target_position.x;
 				delta_y = position.y - target_position.y;
 				delta_z = position.z - target_position.z;

@@ -46,17 +46,12 @@
 		<on event="start" open="main_menu/multiplayer_type_select/hub/create_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/hub_create_bots" type="text" width="182" height="52" wide="-66 40" bitmap="main_menu/parts/tile_182x52" text="PLAY WITH BOTS" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="17">
-		<on event="a" run="join controller to mp game"/>
-		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/hub_coop" type="text" width="182" height="52" wide="-106 40" bitmap="main_menu/parts/tile_182x52" text="CO-OP ›" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="17">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/hub_coop" type="text" width="182" height="52" wide="-66 40" bitmap="main_menu/parts/tile_182x52" text="CO-OP ›" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="17">
 		<on event="a" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
 		<on event="start" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/hub_gametypes" type="text" width="182" height="52" wide="-66 40" bitmap="main_menu/parts/tile_182x52" text="GAMETYPES" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="17">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/hub_gametypes" type="text" width="182" height="52" wide="-106 40" bitmap="main_menu/parts/tile_182x52" text="GAMETYPES" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="17">
 		<on event="a" open="main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen"/>
 		<on event="start" open="main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -74,9 +69,8 @@
 		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_friends" x="214" y="216"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/section_host" x="28" y="274"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_create" x="28" y="298"/>
-		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_create_bots" x="214" y="298"/>
-		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_coop" x="28" y="354"/>
-		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_gametypes" x="214" y="354"/>
+		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_coop" x="214" y="298"/>
+		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_gametypes" x="28" y="354"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_hint"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_prompts" y="414"/>
 	</widget>
@@ -86,17 +80,17 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/online_now_label" type="text" controller="1" left="418" top="92" width="200" height="16" font="ui\small_ui" color="#FF6F9CD0" text="ONLINE NOW" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_0" controller="1" left="418" top="108" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_0" controller="1" left="418" top="108" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_1" controller="1" left="442" top="108" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_1" controller="1" left="444" top="108" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_2" controller="1" left="466" top="108" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_2" controller="1" left="470" top="108" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/online_players_0" controller="1" left="514" top="108" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits" wide="66 0">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/online_players_0" controller="1" left="514" top="108" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits" wide="66 0">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/online_players_1" controller="1" left="538" top="108" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits" wide="66 0">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/online_players_1" controller="1" left="540" top="108" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits" wide="66 0">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/online_players_2" controller="1" left="562" top="108" width="24" height="36" bitmap="main_menu/multiplayer_type_select/status_digits" wide="66 0">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/online_players_2" controller="1" left="566" top="108" width="26" height="36" bitmap="main_menu/multiplayer_type_select/status_digits" wide="66 0">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/online_games_label" type="text" controller="1" left="418" top="126" width="80" height="18" font="ui\small_ui" color="#FF2896FF" text_flags="no_focus_test">
 	</widget>
@@ -106,7 +100,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/best_0_name" type="text" controller="1" left="418" top="174" width="176" height="20" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/best_0_badge" type="text" controller="1" left="418" top="177" width="64" height="16" bitmap="main_menu/parts/pill_64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/best_0_badge" type="text" controller="1" left="418" top="177" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/best_0_about" type="text" controller="1" left="418" top="193" width="76" height="18" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
 	</widget>
@@ -116,7 +110,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/best_1_name" type="text" controller="1" left="418" top="214" width="176" height="20" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/best_1_badge" type="text" controller="1" left="418" top="217" width="64" height="16" bitmap="main_menu/parts/pill_64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/best_1_badge" type="text" controller="1" left="418" top="217" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/best_1_about" type="text" controller="1" left="418" top="233" width="76" height="18" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
 	</widget>
@@ -126,7 +120,7 @@
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/best_2_name" type="text" controller="1" left="418" top="254" width="176" height="20" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/hub/touch/best_2_badge" type="text" controller="1" left="418" top="257" width="64" height="16" bitmap="main_menu/parts/pill_64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/hub/touch/best_2_badge" type="text" controller="1" left="418" top="257" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/best_2_about" type="text" controller="1" left="418" top="273" width="76" height="18" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
 	</widget>
@@ -207,11 +201,17 @@
 		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
+	<widget name="main_menu/multiplayer_type_select/hub/touch/hub_create_offline" type="text" width="368" height="52" wide="-106 80" bitmap="main_menu/parts/tile_368x52" text="OFFLINE" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="17">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/create_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" description="main_menu/multiplayer_type_select/hub/touch/hub_panel">
 		<data input="port multiplayer status"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/section_create" x="28" y="80"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_create_inter" x="28" y="106"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_create_lan_item" x="28" y="162"/>
+		<child widget="main_menu/multiplayer_type_select/hub/touch/hub_create_offline" x="28" y="218"/>
 		<child widget="main_menu/multiplayer_type_select/hub/touch/page_prompts" y="414"/>
 	</widget>
 	<widget name="main_menu/multiplayer_type_select/hub/touch/section_coop" type="text" width="368" height="20" wide="-106 80" bitmap="main_menu/parts/section_368" text="CO-OP CAMPAIGN" font="ui\small_ui" color="#FF6F9CD0" text_x="4">

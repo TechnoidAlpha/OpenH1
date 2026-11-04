@@ -2344,6 +2344,16 @@ void _rasterizer_model_draw(
 					(boolean)TEST_FLAG(
 						shader_model->model.flags,
 						_shader_model_true_atmospheric_fog_bit));
+				/* port: display.hdr: the self-illumination, which combiner
+				stage 1 adds to the light (its constant), glows past paper
+				white (port/linux/src/xgpu_hdr.h) */
+				halo_hdr_draw_kind(
+					!local_sky_flag &&
+					(self_illumination_color.red>0.0f ||
+						self_illumination_color.green>0.0f ||
+						self_illumination_color.blue>0.0f) ?
+						HALO_HDR_KIND_SELF_ILLUMINATION | HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(1<<1) :
+						HALO_HDR_KIND_NONE);
 
 				IDirect3DDevice8_SetRenderState(
 					global_d3d_device,
@@ -2433,6 +2443,7 @@ void _rasterizer_model_draw(
 								vertex_buffer);
 					}
 				}
+				halo_hdr_draw_kind(HALO_HDR_KIND_NONE); /* port: (drawn) */
 			}
 
 			if (local_environment_fog_screen_flag)

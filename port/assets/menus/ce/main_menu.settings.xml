@@ -84,9 +84,9 @@
 		<on event="deleted" run="NULL" back="true"/>
 		<child widget="error/warning_creating_player_profile_screen"/>
 	</widget>
-	<widget name="main_menu/settings/tab_prompt_previous" type="text" controller="1" width="30" height="22" wide="-106 0" text="%white-button" color="#FF2896FF" text_x="2" text_y="3" font="ui\small_ui">
+	<widget name="main_menu/settings/tab_prompt_previous" type="text" controller="1" width="30" height="22" wide="-106 0" text="%white-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui">
 	</widget>
-	<widget name="main_menu/settings/tab_prompt_next" type="text" controller="1" width="30" height="22" wide="106 0" text="%black-button" color="#FF2896FF" text_x="2" text_y="3" font="ui\small_ui">
+	<widget name="main_menu/settings/tab_prompt_next" type="text" controller="1" width="30" height="22" wide="106 0" text="%black-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui">
 	</widget>
 	<strings name="main_menu/settings/tab_names">
 		<string text="VIDEO"/>
@@ -94,7 +94,7 @@
 		<string text="CONTROLS"/>
 		<string text="ONLINE"/>
 		<string text="INTERFACE"/>
-		<string text="PROFILE"/>
+		<string text="PROFILES"/>
 	</strings>
 	<strings name="main_menu/settings/tab_about">
 		<string text="The window, the frame rate and the graphics."/>
@@ -102,7 +102,7 @@
 		<string text="The mouse, the controller and the keys."/>
 		<string text="Internet play, sharing maps and updates."/>
 		<string text="The HUD, the players' names, the scoreboard and the chat."/>
-		<string text="Your player profile: your name and your color."/>
+		<string text="Your player profiles, your name and color, and the mods."/>
 	</strings>
 	<strings name="main_menu/settings/button_help">
 		<string text="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
@@ -116,4 +116,8 @@
 		<string text="CLASSIC"/>
 		<string text="ENHANCED"/>
 	</strings>
+	<widget name="main_menu/settings/stepped_left" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_left" wide="120 0">
+	</widget>
+	<widget name="main_menu/settings/stepped_right" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_right" wide="120 0">
+	</widget>
 </menus>

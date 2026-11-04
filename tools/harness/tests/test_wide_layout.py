@@ -71,7 +71,7 @@ def test_generator_is_the_engine():
 def test_game_menus_stay_centred():
     """Only the port's own screens (the generator's files) are laid out wide, and Multiplayer's title (the PC
     version's, over the hub: WIDGET_PATCHES); every wide attribute is "dx dw" within the extra width."""
-    ours = {*port_settings.settings_files(), *port_settings.multiplayer_files()}
+    ours = {*port_settings.settings_files(), *port_settings.multiplayer_files(), *port_settings.campaign_files()}
     patched = {name for name, patch in port_settings.WIDGET_PATCHES.items() if "wide" in patch.get("set", {})}
     assert patched == {f"{MT}/header_multiplayer"}
     for path in sorted(menu_layout.CE.glob("*.xml")):
@@ -164,7 +164,7 @@ def test_hub_layout(aspect):
     with its items."""
     width = WIDTHS[aspect]
     area = inner(width)
-    for root, page_items in ((f"{MT}/multiplayer_type_select_screen", 10), (f"{MT}/hub/create_screen", 2),
+    for root, page_items in ((f"{MT}/multiplayer_type_select_screen", 9), (f"{MT}/hub/create_screen", 3),
                              (f"{MT}/hub/coop_screen", 2)):
         boxes = layout(root, width)
         items = [box for box in boxes if box.name.startswith("hub_") and box.path[-1].endswith("_list")

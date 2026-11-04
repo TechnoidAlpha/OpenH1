@@ -987,6 +987,25 @@ int WSAAPI halo_ws_getpeername(SOCKET socket, struct sockaddr *address, int *add
 	return winsock_result(result);
 }
 
+/* (a dedicated server between its frames: network_distributed.c's
+network_distributed_server_receive) waits up to milliseconds for a datagram
+on a game's socket: 1 when one is there to read, 0 when none came, -1 when
+it cannot wait so (debug.network_latency holds them back, as they came) */
+int xnet_socket_wait_readable(long socket, long milliseconds)
+{
+	int readable = (int)socket;
+	int readable_count = 1;
+
+	if (delayed_enabled())
+		return -1;
+	if (posix_socket_select(&readable, &readable_count, NULL, NULL, NULL, NULL, 0,
+		(posix_long)milliseconds * 1000, 0) < 0)
+	{
+		return -1;
+	}
+	return readable_count > 0;
+}
+
 /* ---------- select and fd_set */
 
 static int descriptors_from_set(halo_ws_fd_set *set, int *descriptors)

@@ -47,15 +47,19 @@ TAKER_LABELS = {
 
 
 # the game state's allocations that the frames move, not the ticks (the
-# particles and the decals' vertices as they are drawn, the time left over
-# from the last tick, the lights each frame, the sound's update count, the
+# particles; the decals, their globals and vertices and the vertex cache,
+# which counts the frames: the frames make decals too, an effect a particle
+# makes as it strikes, and every decal takes the frames' seed, decals.c; the
+# time left over from the last tick, the lights each frame, the sound's
+# update count, the
 # motion sensor's sweep as the HUD is drawn, the fog and the sound
 # environment as they ease toward the camera's, the first-person weapon
 # posed at the camera), and the input as the
 # frames take it (player control's look, each frame's turn): two
 # runs at different frame rates differ there, and nothing the ticks do
 # reads them
-FRAME_ALLOCATIONS = ["game time globals", "lights", "decal vertex cache", "particle systems",
+FRAME_ALLOCATIONS = ["game time globals", "lights", "decals", "decal globals", "decal vertices",
+                     "decal vertex cache", "particle systems",
                      "particle system particles", "particle", "contrail", "contrail point", "game sound globals",
                      "cached object render states", "motion sensor (radar)", "object looping sounds",
                      "scenario globals", "player control globals", "first person weapons"]
@@ -67,8 +71,11 @@ CLASSIC_RATE = 30
 
 
 class Tick:
-    def __init__(self, number, global_seed, local_seed, state_hash, rate=CLASSIC_RATE):
+    def __init__(self, number, global_seed, local_seed, state_hash, rate=CLASSIC_RATE, asserts=(0, 0)):
         self.number = number
+        # (the run's failed assertions and warnings by this tick's end:
+        # debug.fatal_asserts, assert_report.c)
+        self.asserts = asserts
         self.global_seed = global_seed
         self.local_seed = local_seed
         self.state_hash = state_hash
@@ -97,6 +104,7 @@ def read_log(path):
     pending_allocations = None
     current = None
     rate = CLASSIC_RATE
+    asserts = (0, 0)
     with open(path, errors="replace") as log:
         for line in log:
             parts = line.split()
@@ -109,8 +117,10 @@ def read_log(path):
                 pending_allocations = parts[1:]
             elif kind == "rate" and len(parts) >= 2 and parts[1].isdigit():
                 rate = int(parts[1])
+            elif kind == "asserts" and len(parts) >= 3 and parts[1].isdigit() and parts[2].isdigit():
+                asserts = (int(parts[1]), int(parts[2]))
             elif kind == "t" and len(parts) >= 8:
-                current = Tick(int(parts[1]), parts[3], parts[5], parts[7], rate)
+                current = Tick(int(parts[1]), parts[3], parts[5], parts[7], rate, asserts)
                 current.allocations = pending_allocations or []
                 pending_allocations = None
                 ticks.append(current)
@@ -281,6 +291,13 @@ def compare_dumps(allocations, path_a, path_b, ignored, limit=12):
     return 1 if differing else 0
 
 
+def last_game(ticks):
+    """the ticks from the last time the tick count began again at 1 (a network test's game after its lobby,
+    whose length is the network's: its messages and joins, by the computer's clock), else all of them"""
+    starts = [index for index, tick in enumerate(ticks) if tick.number == 1]
+    return ticks[starts[-1]:] if len(starts) > 1 else ticks
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("a")
@@ -289,6 +306,10 @@ def main():
     parser.add_argument("--ignore", action="append", default=[],
                         help="a game state allocation not to compare (by name; repeatable)")
     parser.add_argument("--from-tick", type=int, default=0, help="compare from this tick on")
+    parser.add_argument("--game", action="store_true",
+                        help="compare from each log's last game's start, where the tick count began again at 1: "
+                             "a network test's game (debug.network_test), after its lobby, whose length the "
+                             "network's clock sets")
     parser.add_argument("--dump", nargs=2, metavar=("A_BIN", "B_BIN"),
                         help="compare two game states written at one tick (debug.determinism_dump)")
     parser.add_argument("--simulation", action="store_true",
@@ -310,6 +331,8 @@ def main():
     except OSError as error:
         print(f"error: {error}")
         return 2
+    if args.game:
+        ticks_a, ticks_b = last_game(ticks_a), last_game(ticks_b)
     if not ticks_a or not ticks_b:
         print("error: a log has no ticks")
         return 2
@@ -324,6 +347,12 @@ def main():
                   "against is made at the same rate (HALO_SIM_RATE), or --across-rates compares them anyway")
             return 2
         print(f"note: comparing across simulation rates ({rates})")
+    for name, ticks in (("A", ticks_a), ("B", ticks_b)):
+        failed, warned = ticks[-1].asserts
+        if failed or warned:
+            first = next(tick.number for tick in ticks if tick.asserts != (0, 0))
+            print(f"note: {name}'s run failed {failed} assertions and {warned} warnings, the first by tick {first} "
+                  "(its stderr's \"asserts:\" lines, or debug.txt, name them)")
     symbols = Symbols(args.symbols)
     if args.simulation:
         args.ignore += FRAME_ALLOCATIONS

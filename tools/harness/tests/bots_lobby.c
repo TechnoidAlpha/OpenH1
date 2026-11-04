@@ -86,6 +86,8 @@ static long joined_ingame;
 static boolean network_game_is_splitscreen_local(void) { return local_game; }
 static long bots_wanted_count(void) { return wanted; }
 static short bots_teams(void) { return teams_setting; }
+/* (Basic Training's teams: not playing, the team the setting chose) */
+static long bots_team(long bot_index, long players_team, long chosen_team) { return chosen_team; }
 static int bots_make_room(void) { return make_room; }
 static long bots_fill_to(void) { return fill_to; }
 static long game_time_get(void) { return game_time; }
@@ -427,29 +429,33 @@ int main(int argc, char **argv)
 		CHECK(sends == 1, "the lobby sent %ld times, not once", sends);
 		return 0;
 	}
-	/* the gametypes bots.c plays alone (Slayer's: SWAT, Infection and Gun
-	Game are Slayer's): none in CTF, and those of a Slayer lobby leave when
-	it becomes King of the Hill; a network game's as a local one's */
-	CASE("slayer-only")
+	/* the gametypes bots.c plays (all but Race: Slayer's, and so SWAT,
+	Infection and Gun Game, and the objectives'): none in Race, and those of
+	a King of the Hill lobby leave when it becomes Race; a network game's as
+	a local one's */
+	CASE("not-race")
 	{
 		long round;
 
 		for (round = 0; round < 2; round++)
 		{
 			if (round)
-				network_lobby(game_engine_ctf, 16);
+				network_lobby(game_engine_race, 16);
 			else
-				lobby(game_engine_ctf, 16);
+				lobby(game_engine_race, 16);
 			player(0, 0);
 			wanted = 6;
 			idle(1);
-			CHECK(bots() == 0, "%ld bots in CTF", bots());
-			server.game.variant.game_engine_index = game_engine_slayer;
+			CHECK(bots() == 0, "%ld bots in Race", bots());
+			server.game.variant.game_engine_index = game_engine_ctf;
 			idle(1);
-			CHECK(bots() == 6, "%ld bots in Slayer, not 6", bots());
+			CHECK(bots() == 6, "%ld bots in CTF, not 6", bots());
 			server.game.variant.game_engine_index = game_engine_king;
 			idle(1);
-			CHECK(bots() == 0, "%ld bots stayed for King of the Hill", bots());
+			CHECK(bots() == 6, "%ld bots in King of the Hill, not 6", bots());
+			server.game.variant.game_engine_index = game_engine_race;
+			idle(1);
+			CHECK(bots() == 0, "%ld bots stayed for Race", bots());
 		}
 		return 0;
 	}
@@ -567,13 +573,13 @@ int main(int argc, char **argv)
 		wanted = 15;
 		idle(1);
 		CHECK(bots() == 13 && server.game.player_count == 16, "%ld bots in a game of 16 with 3 players, not 13", bots());
-		/* (a local game's are as many as it has room for, whatever the fill) */
+		/* (a local game's are filled to it too: the lobby's FILL TO) */
 		lobby(game_engine_slayer, 16);
 		player(0, 0);
 		wanted = 10;
 		fill_to = 4;
 		idle(1);
-		CHECK(bots() == 10, "%ld bots in a local game, not 10", bots());
+		CHECK(bots() == 3, "%ld bots in a local game filled to 4, not 3", bots());
 		return 0;
 	}
 	/* a party's members on their way (network_party.c's holds): the bots

@@ -37,8 +37,8 @@ screen statistics.
 With display.vsync off (host_metal_vsync, the Mac's default), the game is
 not paced by the display: it draws as many frames as display.max_fps lets
 it (sdl_platform.c's platform_video_swap, twice the display's rate by
-default, a press starting the next frame at once), and each refresh shows
-the newest frame queued, the older one dropped. The link still presents
+default), and each refresh shows the newest frame queued, the older one
+dropped. The link still presents
 only at the refreshes, so nothing tears, in a window or fullscreen. The
 newest frame is taken just before the link's deadline for the refresh (its
 update's targetTimestamp, TAKE_MARGIN_MS before it), not as the
@@ -70,6 +70,12 @@ whether the display shows HDR (display.hdr "auto"), its headroom now is the
 peak the tone map and the encoding roll off to (it changes with the
 display's brightness). HALO_METAL_EDR_HEADROOM=<headroom> stands in for the
 display's (both), for tests and for the replay, which has no window.
+
+display.gamma: into a BGRA8 layer, where the setting is not 1, the
+presentation draws the frame with its curve (each channel raised to one
+over the setting: xgpu_metal_post_shaders.h's) in place of the plain copy,
+so that it costs no pass of its own; the loading screen's colours are
+curved alike. An EDR layer is never curved: paper white is its brightness.
 
 HALO_METAL_STATS=<seconds> logs the pacing that often: the link's
 refreshes, the frames presented, the intervals between the times the
@@ -128,8 +134,9 @@ static void drawn_size(int *width, int *height);
 #define PRESENT_IMAGES 2
 #define LOADING_UPLOADS 3
 /* the longest a frame waits for an image before the oldest queued frame is
-dropped (100 ms: six refreshes at 60 Hz) */
-#define PRESENT_WAIT_MAXIMUM_NS 100000000L
+dropped (34 ms: two refreshes at 60 Hz; 100 ms froze an iPhone's game, which
+runs on the main thread, for a fifth of a second each time its link paused) */
+#define PRESENT_WAIT_MAXIMUM_NS 34000000L
 /* how long before the link's deadline for a refresh its frame is taken
 (the newest with vsync off, the oldest queued with it on): the
 presentation's GPU work is about 0.1 ms, and waits for the frame's own if
@@ -167,10 +174,15 @@ static struct
 	id<MTLRenderPipelineState> loading_pipeline;
 	/* display.hdr: the presentation's encoding for an EDR layer (half
 	floats); the front end's state (drawn in HDR, the mode, paper white in
-	percent); the window's screen's potential headroom and headroom now (a
+	nits, or 0 and its percent of the system's white; the UI's white in nits,
+	or 0); the window's screen's potential headroom and headroom now (a
 	float's bits); the layer is EDR's; HALO_METAL_EDR_HEADROOM's (0: none) */
 	id<MTLRenderPipelineState> edr_pipeline, loading_edr_pipeline;
-	_Atomic int hdr_active, hdr_mode, hdr_paper_white;
+	/* display.gamma: the presentation with its curve, into an SDR layer
+	(nil: none), and the setting (a float's bits; 0 or 1: none) */
+	id<MTLRenderPipelineState> gamma_pipeline;
+	_Atomic uint32_t gamma;
+	_Atomic int hdr_active, hdr_mode, hdr_paper_white_nits, hdr_paper_white, hdr_ui_nits;
 	_Atomic uint32_t edr_potential, edr_current;
 	BOOL layer_edr;
 	uint32_t edr_ticks;
@@ -208,6 +220,11 @@ static struct
 	link's rate was last set for it (the link's thread's) */
 	_Atomic int battery_saver;
 	int battery_saver_set;
+	/* (an iPhone) the link at half the display's rate while the frames do
+	not keep up with its full rate (rate_adapt, the link's thread's) */
+	int rate_halved;
+	uint32_t adapt_refreshes, adapt_repeats, adapt_good_windows;
+	double adapt_since, adapt_hold, adapt_hold_until;
 	/* the window went to a display of another rate (display_rate_read):
 	the link's rate is set again at its next refresh */
 	_Atomic int rate_changed;
@@ -331,7 +348,11 @@ static void display_hdr_read(void)
 		host_logf(HOST_LOG_INFO, "metal: the display's EDR headroom: %.2f potential, %.2f now", potential, current);
 	atomic_store(&presentation.edr_potential, float_bits(potential));
 	atomic_store(&presentation.edr_current, float_bits(current));
-	host_render_stream_display_hdr(potential > XGPU_HDR_DISPLAY_HEADROOM, current);
+	/* (the guest shows and logs the display's peak: its potential headroom,
+	which the headroom now, the tone map's, rises toward as EDR content is
+	shown; macOS and iOS give no nits: EDR's 1.0 taken as
+	XGPU_HDR_EDR_WHITE_NITS) */
+	host_render_stream_display_hdr(potential > XGPU_HDR_DISPLAY_HEADROOM, potential, XGPU_HDR_EDR_WHITE_NITS, 0);
 }
 
 void host_metal_hdr_override(float headroom)
@@ -339,14 +360,17 @@ void host_metal_hdr_override(float headroom)
 	presentation.edr_override = headroom;
 	atomic_store(&presentation.edr_potential, float_bits(headroom > 1.0f ? headroom : 1.0f));
 	atomic_store(&presentation.edr_current, float_bits(headroom > 1.0f ? headroom : 1.0f));
-	host_render_stream_display_hdr(headroom > XGPU_HDR_DISPLAY_HEADROOM, headroom > 1.0f ? headroom : 1.0f);
+	host_render_stream_display_hdr(headroom > XGPU_HDR_DISPLAY_HEADROOM, headroom > 1.0f ? headroom : 1.0f,
+		XGPU_HDR_EDR_WHITE_NITS, 0);
 }
 
-void host_metal_hdr_state(int active, int mode, int paper_white)
+void host_metal_hdr_state(int active, int mode, int paper_white_nits, int paper_white, int ui_nits)
 {
 	atomic_store(&presentation.hdr_active, active);
 	atomic_store(&presentation.hdr_mode, mode);
+	atomic_store(&presentation.hdr_paper_white_nits, paper_white_nits);
 	atomic_store(&presentation.hdr_paper_white, paper_white);
+	atomic_store(&presentation.hdr_ui_nits, ui_nits > 0 ? ui_nits : 0);
 }
 
 /* the layer is EDR's while the frame is drawn in HDR and the display has
@@ -359,7 +383,9 @@ static BOOL edr_wanted(void)
 void host_metal_hdr_frame(struct xgpu_hdr_frame *frame)
 {
 	float current = bits_float(atomic_load(&presentation.edr_current));
-	float paper_white = (float)atomic_load(&presentation.hdr_paper_white) / 100.0f;
+	/* (paper white over the system's SDR white, EDR's 1.0) */
+	float paper_white = xgpu_hdr_paper_white_nits(atomic_load(&presentation.hdr_paper_white_nits),
+		atomic_load(&presentation.hdr_paper_white), XGPU_HDR_EDR_WHITE_NITS) / XGPU_HDR_EDR_WHITE_NITS;
 
 	if (presentation.edr_override > 0.0f && !presentation.window)
 		current = presentation.edr_override;
@@ -368,6 +394,7 @@ void host_metal_hdr_frame(struct xgpu_hdr_frame *frame)
 	frame->output = XGPU_HDR_OUTPUT_SDR;
 	frame->paper_white = 1.0f;
 	frame->peak = 1.0f;
+	frame->ui = 1.0f;
 	if (!(paper_white > 0.0f))
 		paper_white = 1.0f;
 	/* (the replay's, which has no window, as its layer would be) */
@@ -379,19 +406,38 @@ void host_metal_hdr_frame(struct xgpu_hdr_frame *frame)
 		frame->output = XGPU_HDR_OUTPUT_EXTENDED_LINEAR;
 		frame->paper_white = paper_white;
 		frame->peak = current / paper_white;
+		/* (the UI's white, no brighter than the display either) */
+		frame->ui = xgpu_hdr_ui_white((float)atomic_load(&presentation.hdr_ui_nits) / XGPU_HDR_EDR_WHITE_NITS,
+			paper_white, current);
 	}
 }
 
+void host_metal_gamma(float gamma)
+{
+	atomic_store(&presentation.gamma, float_bits(gamma));
+}
+
+/* display.gamma's power for an SDR drawable (one over the setting), or 0
+where the setting is 1: none, the presentation's own pipeline */
+static float gamma_power(void)
+{
+	float gamma = bits_float(atomic_load(&presentation.gamma));
+
+	return gamma > 0.0f && gamma != 1.0f && presentation.gamma_pipeline ? 1.0f / gamma : 0.0f;
+}
+
 /* a colour's channel (the frame's values) as an EDR drawable takes it:
-linear, times paper white; as it is for an SDR one */
+linear, times the UI's white; as it is for an SDR one, curved by
+display.gamma as the frame is */
 static float edr_value(id<CAMetalDrawable> drawable, float value)
 {
 	struct xgpu_hdr_frame frame;
+	float power;
 
 	if (drawable.texture.pixelFormat != MTLPixelFormatRGBA16Float)
-		return value;
+		return (power = gamma_power()) > 0.0f && value > 0.0f ? powf(value, power) : value;
 	host_metal_hdr_frame(&frame);
-	return xgpu_hdr_linear(value) * (frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white);
+	return xgpu_hdr_linear(value) * (frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white * frame.ui);
 }
 
 /* (the presentation thread, before it draws into the drawable) the layer
@@ -460,6 +506,23 @@ void host_metal_loading_progress(void *context, float progress)
 	pthread_mutex_unlock(&presentation.lock);
 }
 
+void host_metal_loading_mode(void *context, int follow_progress)
+{
+	(void)context;
+	pthread_mutex_lock(&presentation.lock);
+	loading_art_follow(&presentation.loading_art, follow_progress ? 1u : 0u);
+	pthread_mutex_unlock(&presentation.lock);
+}
+
+void host_metal_loading_caption(void *context, const unsigned char *coverage, uint32_t width, uint32_t height)
+{
+	(void)context;
+	pthread_mutex_lock(&presentation.lock);
+	loading_art_caption(&presentation.loading_art, coverage, width, height);
+	presentation.loading_texture_valid = NO;
+	pthread_mutex_unlock(&presentation.lock);
+}
+
 void host_metal_loading_scene(void *context, const void *data, uint32_t bytes)
 {
 	(void)context;
@@ -472,7 +535,9 @@ void host_metal_loading_scene(void *context, const void *data, uint32_t bytes)
 static void loading_upload_initialize(void)
 {
 	MTLTextureDescriptor *description;
-	NSUInteger size = LOADING_ART_FRAME_MAXIMUM_PIXELS * 4;
+	/* (the larger of the 480 rows' widest frame and the sharp frame's) */
+	NSUInteger size = (LOADING_ART_FRAME_MAXIMUM_PIXELS > LOADING_ART_HD_BUDGET ? LOADING_ART_FRAME_MAXIMUM_PIXELS :
+		LOADING_ART_HD_BUDGET) * 4;
 	int index;
 
 	description = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm
@@ -492,17 +557,34 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 	id<MTLBuffer> upload = nil;
 	id<MTLBlitCommandEncoder> blit;
 	const uint8_t *pixels;
-	unsigned int width;
+	unsigned int width, height;
 	int index;
 
 	pthread_mutex_lock(&presentation.lock);
-	/* (the frame at the screen's shape: a texture of its width) */
+	/* (the frame at the screen's shape, at its rows where the loading
+	screen draws them sharp: a texture of its size) */
 	loading_art_width(&presentation.loading_art, (unsigned int)screen_width, (unsigned int)screen_height);
-	width = presentation.loading_art.width;
-	if (presentation.loading_texture && presentation.loading_texture.width != width)
+	width = loading_art_frame_width(&presentation.loading_art);
+	height = loading_art_frame_height(&presentation.loading_art);
+	for (index = 0; index < LOADING_UPLOADS; index++)
+	{
+		if (presentation.loading_uploads[index] && !presentation.loading_upload_busy[index])
+			break;
+	}
+	pixels = presentation.loading_texture && index < LOADING_UPLOADS ?
+		loading_art_render(&presentation.loading_art, frame) : NULL;
+	/* (what the render gave: the sharp frame's size, or, without its
+	memory, the 480 rows') */
+	if (pixels)
+	{
+		width = loading_art_output_width(&presentation.loading_art);
+		height = loading_art_output_height(&presentation.loading_art);
+	}
+	if (presentation.loading_texture && (presentation.loading_texture.width != width ||
+		presentation.loading_texture.height != height))
 	{
 		MTLTextureDescriptor *description = [MTLTextureDescriptor
-			texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:width height:LOADING_ART_FRAME_HEIGHT
+			texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:width height:height
 			mipmapped:NO];
 
 		description.storageMode = MTLStorageModePrivate;
@@ -510,20 +592,14 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 		presentation.loading_texture = [xgpu_metal_device() newTextureWithDescriptor:description];
 		presentation.loading_texture_valid = NO;
 	}
-	for (index = 0; index < LOADING_UPLOADS; index++)
-	{
-		if (presentation.loading_uploads[index] && !presentation.loading_upload_busy[index])
-			break;
-	}
 	if (presentation.loading_texture && index < LOADING_UPLOADS)
 	{
-		pixels = loading_art_render(&presentation.loading_art, frame);
 		if (pixels && host_loading_capture_due(frame))
-			host_loading_capture_write(frame, pixels, width, LOADING_ART_FRAME_HEIGHT, 0, 0);
+			host_loading_capture_write(frame, pixels, width, height, 0, 0);
 		if (pixels)
 		{
 			upload = presentation.loading_uploads[index];
-			memcpy(upload.contents, pixels, (size_t)width * LOADING_ART_FRAME_HEIGHT * 4);
+			memcpy(upload.contents, pixels, (size_t)width * height * 4);
 			presentation.loading_upload_busy[index] = YES;
 			presentation.loading_texture_valid = YES;
 		}
@@ -541,7 +617,7 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 	aside cannot delay them, and CPU writes never reuse an in-flight buffer. */
 	blit = [buffer blitCommandEncoder];
 	[blit copyFromBuffer:upload sourceOffset:0 sourceBytesPerRow:width * 4
-		sourceBytesPerImage:0 sourceSize:MTLSizeMake(width, LOADING_ART_FRAME_HEIGHT, 1)
+		sourceBytesPerImage:0 sourceSize:MTLSizeMake(width, height, 1)
 		toTexture:texture destinationSlice:0 destinationLevel:0 destinationOrigin:MTLOriginMake(0, 0, 0)];
 	[blit endEncoding];
 	[buffer addCompletedHandler:^(id<MTLCommandBuffer> done) {
@@ -805,6 +881,25 @@ static void presented(double when, double target, const struct xgpu_metal_compil
 		presentation.compiled_before = *compiled;
 }
 
+/* the device's thermal state, in the statistics: a phone that is hot runs
+the game's threads slower, on fewer of its fast cores */
+static const char *thermal_state(void)
+{
+	switch (NSProcessInfo.processInfo.thermalState)
+	{
+	case NSProcessInfoThermalStateNominal:
+		return "nominal";
+	case NSProcessInfoThermalStateFair:
+		return "fair";
+	case NSProcessInfoThermalStateSerious:
+		return "serious";
+	case NSProcessInfoThermalStateCritical:
+		return "critical";
+	default:
+		return "unknown";
+	}
+}
+
 static void pacing_log(double now)
 {
 	double seconds = now - presentation.stats_since;
@@ -851,7 +946,8 @@ static void pacing_log(double now)
 		"playing %u, the game %u), %u callbacks late (drawables all pending %u, some free %u; after another %u, after a slow one %u, target skipped %u, delivered late %u; the slowest %.2f ms), %u waits for an image, "
 		"%u frames dropped, %u shown after their refresh; "
 		"%u ended on the GPU within 1 ms of their target (the least slack %.2f ms); "
-		"drawable %ux%u, presentation's GPU %.3f ms a refresh, queued %.3f ms (the most %.3f); frames %u, draws %u, passes %u",
+		"drawable %ux%u, presentation's GPU %.3f ms a refresh, queued %.3f ms (the most %.3f); frames %u, draws %u, passes %u; "
+		"thermal state %s",
 		seconds, presentation.ticks, presentation.ticks / seconds, presentation.frames_presented + presentation.idle_presented,
 		presentation.frames_presented, presentation.idle_presented, shown, shown / seconds,
 		intervals ? (double)sum / 1000.0 / intervals : 0.0,
@@ -868,13 +964,23 @@ static void pacing_log(double now)
 		buffers ? atomic_exchange(&presentation.present_gpu_ns, 0) / 1e6 / buffers : 0.0,
 		buffers ? atomic_exchange(&presentation.present_queued_ns, 0) / 1e6 / buffers : 0.0,
 		atomic_exchange(&presentation.present_queued_most_ns, 0) / 1e6,
-		statistics.frames, statistics.draws, statistics.passes);
+		statistics.frames, statistics.draws, statistics.passes, thermal_state());
+	{
+		/* (the write tracking's faults: each a trip through the kernel) */
+		static uint64_t faults_before;
+		uint64_t faults = host_memory_watch_faults();
+
+		host_logf(HOST_LOG_INFO, "metal: %.1f s: %llu write-tracking faults (%.1f a frame)", seconds,
+			(unsigned long long)(faults - faults_before),
+			presentation.frames_presented ? (double)(faults - faults_before) / presentation.frames_presented : 0.0);
+		faults_before = faults;
+	}
 	if (statistics.frames)
 		host_logf(HOST_LOG_INFO,
 			"metal: a frame: GPU busy %.2f ms (%.0f%% of the time); its command buffers' GPU time %.2f ms (%u), render thread CPU %.2f ms, %.1f draws, %.1f passes (%.1f put aside, %.1f targets renamed for it), "
 			"%.1f ordered uploads, %.1f copies of a target drawn into, %.1f pictures restored; the last played in %.2f ms, its stream %u KB "
 			"(the most %u KB); the game waited %u times (%.1f ms); textures made %u, made again %u, images %u, "
-			"%.1f MB read; shaders compiled %u (%.1f ms), %u from the library, %u the combiner's specialised; pipelines made %u (%u from the archive, %.1f ms); %u pipelines made while drawing (not prepared)",
+			"%.1f MB read; shaders compiled %u (%.1f ms), %u from the library, %u the combiner's specialised; pipelines made %u (%u from the archive, %.1f ms); %u pipelines made while drawing (not prepared); thermal state %s",
 			statistics.gpu_busy_seconds * 1000.0 / statistics.frames, statistics.gpu_busy_seconds * 100.0 / seconds,
 			statistics.gpu_seconds * 1000.0 / statistics.frames, statistics.command_buffers,
 			statistics.render_cpu_seconds * 1000.0 / statistics.frames, (double)statistics.draws / statistics.frames,
@@ -887,7 +993,7 @@ static void pacing_log(double now)
 			textures.bytes / 1048576.0, statistics.shaders_made, statistics.shader_seconds * 1000.0,
 			statistics.shaders_from_library, statistics.shaders_specialised,
 			statistics.pipelines_made, statistics.pipelines_from_archive,
-			statistics.pipeline_seconds * 1000.0, statistics.draws_waiting);
+			statistics.pipeline_seconds * 1000.0, statistics.draws_waiting, thermal_state());
 	waits_before = waits;
 	wait_nanoseconds_before = wait_nanoseconds;
 	presentation.stats_since = now;
@@ -958,6 +1064,78 @@ static void take_wait(double when)
 
 @interface HaloDisplayLinkTarget : NSObject <CAMetalDisplayLinkDelegate>
 @end
+
+/* ---------- an iPhone's rate: 120 while the frames keep up, else 60
+
+A frame that misses its refresh at 120 Hz shows the one before for two
+refreshes: in a busy fight, a phone's GPU or its heat makes some of the
+frames late, and the picture judders between 8 and 17 ms steps. Half the
+rate shows every frame for two refreshes, evenly. Each second of play, the
+refreshes that showed no new frame (the game's own, not a loading screen)
+are counted: more than RATE_ADAPT_REPEATS of them at the full rate halves
+it; at half, the full rate is tried again after a hold that starts at
+RATE_ADAPT_HOLD seconds and doubles (to RATE_ADAPT_HOLD_MOST) at each
+try that fails, and starts again once the full rate has held for
+RATE_ADAPT_GOOD seconds. Battery saver's and HALO_METAL_RATE's rates are
+their own; HALO_METAL_ADAPTIVE_RATE=0: the full rate always. */
+
+#define RATE_ADAPT_REPEATS 0.10
+#define RATE_ADAPT_HOLD 5.0
+#define RATE_ADAPT_HOLD_MOST 80.0
+#define RATE_ADAPT_GOOD 10
+
+/* a refresh of the game's frames (shown: a new frame); whether the link's
+rate is to change */
+static BOOL rate_adapt(BOOL shown, double now)
+{
+#if TARGET_OS_IPHONE
+	static int enabled = -1;
+	double share;
+
+	if (enabled < 0)
+		enabled = !getenv("HALO_METAL_RATE") && getenv("HALO_METAL_ADAPTIVE_RATE") &&
+			atoi(getenv("HALO_METAL_ADAPTIVE_RATE")) != 0;
+	if (!enabled || presentation.battery_saver_set || presentation.refresh_rate < 90.0f)
+		return NO;
+	if (presentation.adapt_since == 0.0)
+		presentation.adapt_since = now;
+	presentation.adapt_refreshes++;
+	if (!shown)
+		presentation.adapt_repeats++;
+	if (now - presentation.adapt_since < 1.0)
+		return NO;
+	share = (double)presentation.adapt_repeats / (double)presentation.adapt_refreshes;
+	presentation.adapt_refreshes = presentation.adapt_repeats = 0;
+	presentation.adapt_since = now;
+	if (!presentation.rate_halved)
+	{
+		if (share <= RATE_ADAPT_REPEATS)
+		{
+			if (++presentation.adapt_good_windows >= RATE_ADAPT_GOOD)
+				presentation.adapt_hold = 0.0;
+			return NO;
+		}
+		presentation.adapt_good_windows = 0;
+		presentation.adapt_hold = presentation.adapt_hold > 0.0 ?
+			fmin(presentation.adapt_hold * 2.0, RATE_ADAPT_HOLD_MOST) : RATE_ADAPT_HOLD;
+		presentation.adapt_hold_until = now + presentation.adapt_hold;
+		presentation.rate_halved = 1;
+		host_logf(HOST_LOG_INFO, "metal: %.0f%% of a second's refreshes showed no new frame: the display link at %.0f Hz "
+			"(the full rate tried again in %.0f s)", share * 100.0, presentation.refresh_rate / 2.0f, presentation.adapt_hold);
+		return YES;
+	}
+	if (now < presentation.adapt_hold_until)
+		return NO;
+	presentation.rate_halved = 0;
+	presentation.adapt_good_windows = 0;
+	host_logf(HOST_LOG_INFO, "metal: the display link at %.0f Hz again", presentation.refresh_rate);
+	return YES;
+#else
+	(void)shown;
+	(void)now;
+	return NO;
+#endif
+}
 
 @implementation HaloDisplayLinkTarget
 
@@ -1179,6 +1357,11 @@ static void take_wait(double when)
 			host_render_stream_frame_taken();
 		else if (latch_ns)
 			host_render_stream_display_latched(latch_ns, period_ns);
+		if (!idle && !loading_frame.active && rate_adapt(image != nil, now))
+		{
+			link.preferredFrameRateRange = link_rate_range(presentation.battery_saver_set);
+			memset(presentation.target_intervals, 0, sizeof(presentation.target_intervals));
+		}
 		if (!image && !idle && !loading_frame.active)
 		{
 			/* (the frame shown stays: nothing new to present) */
@@ -1252,7 +1435,24 @@ static void take_wait(double when)
 				uniforms.hdr[0] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white;
 				uniforms.hdr[1] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.peak;
 				uniforms.hdr[2] = (float)XGPU_HDR_OUTPUT_EXTENDED_LINEAR;
+				uniforms.hdr[3] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.ui;
 				[encoder setRenderPipelineState:presentation.edr_pipeline];
+				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
+				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+			}
+			else if (drawable.texture.pixelFormat == MTLPixelFormatBGRA8Unorm && gamma_power() > 0.0f)
+			{
+				/* display.gamma: the frame curved as it is drawn into the
+				SDR layer (no pass of its own: this is the frame's last) */
+				struct xgpu_metal_post_uniforms uniforms;
+
+				memset(&uniforms, 0, sizeof(uniforms));
+				uniforms.metrics[0] = (float)viewport.originX;
+				uniforms.metrics[1] = (float)viewport.originY;
+				uniforms.metrics[2] = 1.0f / (float)viewport.width;
+				uniforms.metrics[3] = 1.0f / (float)viewport.height;
+				uniforms.bounds[0] = gamma_power();
+				[encoder setRenderPipelineState:presentation.gamma_pipeline];
 				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
 				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
 			}
@@ -1366,10 +1566,20 @@ static void take_wait(double when)
 /* the link's rate: a ProMotion display's follows the frames, up to its
 highest; HALO_METAL_RATE, the link at a rate of its own (the pacing of
 another display, tested on this one); battery saver (saving), a whole
-fraction of the display's, 30 to 60 frames a second (frame_pacing.h) */
+fraction of the display's, 30 to 60 frames a second (frame_pacing.h). An
+iPhone's is its highest alone: given a range, iOS chose 80 Hz on an iPhone
+15 Pro Max that held 120 with its GPU half idle */
 static CAFrameRateRange link_rate_range(int saving)
 {
 	float rate = presentation.refresh_rate > 0.0f ? presentation.refresh_rate : 60.0f;
+
+#if TARGET_OS_IPHONE
+	if (presentation.rate_halved && !saving && !getenv("HALO_METAL_RATE"))
+	{
+		rate /= 2.0f;
+		return CAFrameRateRangeMake(rate, rate, rate);
+	}
+#endif
 
 	if (getenv("HALO_METAL_RATE"))
 		rate = (float)atof(getenv("HALO_METAL_RATE"));
@@ -1379,8 +1589,15 @@ static CAFrameRateRange link_rate_range(int saving)
 		host_logf(HOST_LOG_INFO, "metal: battery saver: the display link at %.0f Hz", rate);
 		return CAFrameRateRangeMake(rate, rate, rate);
 	}
+#if TARGET_OS_IPHONE
+	/* (its highest alone: given a range, iOS slows the link to save power,
+	to 80 Hz on an iPhone 15 Pro Max whose frames kept 120; rate_adapt's
+	halving is off by default, its changes pausing the link) */
+	return CAFrameRateRangeMake(rate, rate, rate);
+#else
 	return getenv("HALO_METAL_RATE") ? CAFrameRateRangeMake(rate, rate, rate) :
 		CAFrameRateRangeMake(rate < 60.0f ? rate : 30.0f, rate, rate);
+#endif
 }
 
 static void *presentation_thread(void *context)
@@ -1479,7 +1696,9 @@ int host_metal_initialize(void)
 		return result;
 	atomic_store(&presentation.edr_potential, float_bits(1.0f));
 	atomic_store(&presentation.edr_current, float_bits(1.0f));
+	atomic_store(&presentation.hdr_paper_white_nits, 0);
 	atomic_store(&presentation.hdr_paper_white, 100);
+	atomic_store(&presentation.hdr_ui_nits, 0);
 	if (edr && atof(edr) > 0.0)
 		host_metal_hdr_override((float)atof(edr));
 	memset(&options, 0, sizeof(options));
@@ -1718,6 +1937,17 @@ int host_metal_window_open(uint32_t window)
 		[xgpu_metal_device() newRenderPipelineStateWithDescriptor:descriptor error:&error] : nil;
 	if (!presentation.edr_pipeline)
 		host_logf(HOST_LOG_WARN, "metal: no HDR presentation (%s): the window stays SDR",
+			error ? error.localizedDescription.UTF8String : "its functions");
+	/* display.gamma: the presentation into an SDR layer with its curve
+	(tools/vulkan_post_shaders.py's GLSL: xgpu_metal_post_shaders.h) */
+	error = nil;
+	descriptor = xgpu_metal_present_descriptor();
+	descriptor.vertexFunction = post_function(XGPU_METAL_POST_VERTEX);
+	descriptor.fragmentFunction = post_function(XGPU_METAL_POST_GAMMA);
+	presentation.gamma_pipeline = descriptor.vertexFunction && descriptor.fragmentFunction ?
+		[xgpu_metal_device() newRenderPipelineStateWithDescriptor:descriptor error:&error] : nil;
+	if (!presentation.gamma_pipeline)
+		host_logf(HOST_LOG_WARN, "metal: no display.gamma (%s): the frame is shown as drawn",
 			error ? error.localizedDescription.UTF8String : "its functions");
 	display_hdr_read();
 #if !TARGET_OS_IPHONE

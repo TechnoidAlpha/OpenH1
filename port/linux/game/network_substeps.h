@@ -62,6 +62,24 @@ enum
 	LIVE_CONTROL_FORWARD_SIZE = 19,
 };
 word network_substeps_live_forward_write(short player_index, byte *buffer);
+/* (the host) a player's controls as its own sub-steps ran them, at their
+latest press (the held controls changed, or a stick or the trigger moved
+far), for a client its plan does not send the player's every control to
+(NETCODE.md, "Presses to far clients"): last, what was last sent that
+client; whether this is to go (then last is it), and its bytes */
+struct live_control_far
+{
+	boolean valid;
+	word held_flags;
+	short throttle_i;
+	short throttle_j;
+	short primary_trigger;
+};
+boolean network_substeps_live_far_due(short player_index, struct live_control_far *last);
+word network_substeps_live_far_write(short player_index, byte *buffer);
+/* (the host) whether it has had live controls of the player's own (a
+client's player's, or its own player's; not a bot's) */
+boolean network_substeps_live_own(short player_index);
 void network_substeps_live_forwarded(void);
 boolean network_substeps_live_pending(void);
 /* (a client, after each tick's actions are given to the units: game.c) the

@@ -1,9 +1,10 @@
-"""The bots in the menus: Multiplayer's PLAY WITH BOTS (a game of this machine alone, whose lobby the bots join), and
-Server Setup's bots rows (bots.count, bots.skill, bots.teams), which tools/port_settings.py writes and
-port/linux/game/menu_functions.c's server_settings_bots shows in a game of this machine alone, writes as they change,
-and locks (dimmed, passed over, a line saying why) for a gametype the bots do not play."""
+"""The bots in the menus: every hosted game's lobby but co-op's has the host's bots' rows (BOTS: NONE, ADD n, FILL TO
+n; BOT SKILL; BOT TEAMS), which tools/port_settings.py writes and port/linux/game/lobby_menu.inc shows and writes;
+Server Setup has none (a game of this machine alone, Create Game's OFFLINE, hides the network's rows and says what it
+is in their place: menu_functions.c's server_settings_local); the menus' spinners of more than two values stop at
+their ends (ui_widget.c's ui_widget_port_spinner_stops: the bots' count once went round from the most to none), and a
+game the bots left one team alone in goes on (game_engine.c's game_engine_should_end_game)."""
 
-import json
 import re
 import sys
 from pathlib import Path
@@ -11,29 +12,26 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, ROOT, build, function, mutated, read, run, structure  # noqa: E402
+from harness import CHECK_FAILED, ROOT, build, constant, function, mutated, read, run, structure  # noqa: E402
 
-CASES = ["network", "local", "locked", "network-row", "network-row-locked"]
+CASES = ["local", "spinner-ends", "lobby-bots", "bots-left"]
 
 NEGATIVE_CONTROLS = {
     "network-rows-kept": (("visible_set(named(list, server_settings_network_rows[index], 0), !local);", ""), "local"),
-    "rows-always-shown": (("visible_set(row, local);", "visible_set(row, TRUE);"), "network"),
-    "never-written": (("\t\t\tsetting_changed_save(spinner, setting);\n", ""), "local"),
-    "written-in-network-game": (("if (local && setting)", "if (setting)"), "network"),
-    "never-locked": (("boolean locked = local && !playable;", "boolean locked = FALSE;"), "locked"),
-    "not-dimmed": (("\t\trow->alpha_modifier = locked ? 0.4f : 1.0f;", "\t\trow->alpha_modifier = 1.0f;"), "locked"),
-    "network-row-not-dimmed": (("\n\trow->alpha_modifier = locked ? 0.4f : 1.0f;", "\n\trow->alpha_modifier = 1.0f;"),
-                               "network-row-locked"),
-    "no-line": (('visible_set(named(screen_of(list), "bots_hint", 0), locked);', ""), "locked"),
-    "focus-kept": (("\t\tif (locked && list->focused_child == row)", "\t\tif (0)"), "locked"),
-    "help-of-another": (("(short)(BOTS_HELP + index)", "(short)BOTS_HELP"), "local"),
-    "network-row-hidden": (("\tvisible_set(row, shown);", "\tvisible_set(row, FALSE);"), "network-row"),
-    "network-row-everywhere": (("\tvisible_set(row, shown);", "\tvisible_set(row, TRUE);"), "network-row"),
-    "fill-always-shown": (("else if (bots_make_room())", "else if (1)"), "network-row"),
-    "network-row-never-locked": (("boolean locked = shown && !playable;", "boolean locked = FALSE;"),
-                                 "network-row-locked"),
-    "network-row-focus-kept": (("\tif (locked && list->focused_child == row)\n\t{", "\tif (0)\n\t{"),
-                               "network-row-locked"),
+    "no-line": (('visible_set(named(screen_of(list), "local_note", 0), local);', ""), "local"),
+    "spinner-wraps": (("return forward ? widget->parameters.list.selected_index >= count - 1 :",
+                       "return FALSE && forward ? widget->parameters.list.selected_index >= count - 1 :"),
+                      "spinner-ends"),
+    "toggles-stop": (("|| count <= 2)", ")"), "spinner-ends"),
+    "xbox-spinners-stop": (("|| !pc_menu_tag(widget->definition_tag_index)", ""), "spinner-ends"),
+    "bots-load-writes": (("\tlobby_board.bots_shown = NONE;\n\tlobby_board_bots_choice(spinner, TRUE);",
+                          "\tlobby_board_bots_choice(spinner, FALSE);"), "lobby-bots"),
+    "bots-never-written": (("if (!locked && lobby_board.bots_shown != NONE", "if (0"), "lobby-bots"),
+    "bots-locked-written": (("if (!locked && lobby_board.bots_shown", "if (lobby_board.bots_shown"), "lobby-bots"),
+    "bots-left-ends-game": (("!multiple_teams_alive() && !game_engine_port_bot_left()", "!multiple_teams_alive()"),
+                            "bots-left"),
+    "players-left-goes-on": (("!multiple_teams_alive() && !game_engine_port_bot_left()",
+                              "!multiple_teams_alive() && 0"), "bots-left"),
 }
 
 MT = "main_menu/multiplayer_type_select"
@@ -42,16 +40,18 @@ CE = ROOT / "port/assets/menus/ce"
 
 def generated(fault=None):
     menus = read("port/linux/game/menu_functions.c")
-    config = "".join("#define %s %s\n" % (name, re.search(rf"#define {name} (\d+)", menus).group(1))
-                     for name in ("BOTS_HELP", "BOT_OPTIONS_HELP", "BOT_OPTIONS_LOCKED_HELP"))
-    config += structure(menus, "pc_menu_setting") + "\n"
+    lobby = read("port/linux/game/lobby_menu.inc")
+    widgets = read("source/interface/ui_widget.c")
+    engine = read("source/game/game_engine.c")
     rows = menus[menus.index("static char const *const server_settings_network_rows"):]
-    rows = rows[:rows.index("};", rows.index("server_settings_bots_rows")) + 2]
-    code = "\n\n".join([rows] + [function(menus, name) for name in (
-        "screen_of", "setting_changed_save", "server_settings_bots", "server_settings_network_bots")])
+    rows = rows[:rows.index("};") + 2]
+    code = "\n\n".join([rows, function(menus, "server_settings_local"),
+                        function(widgets, "ui_widget_port_spinner_stops"),
+                        function(lobby, "lobby_board_bots_choice"), function(lobby, "lobby_board_bots_load"),
+                        function(engine, "game_engine_port_bot_left"), function(engine, "game_engine_should_end_game")])
     if fault:
         code = mutated(code, *fault)
-    return (("config.inc", config), ("under_test.inc", code))
+    return (("under_test.inc", code),)
 
 
 @pytest.mark.parametrize("case", CASES)
@@ -74,123 +74,56 @@ def _port_settings():
     return port_settings
 
 
-def test_server_setup_has_the_rows():
-    """Server Setup's three bots rows: spinners of bots.count (0 to 15), bots.skill and bots.teams with the values
-    port_config.c takes, in the places of GAME, INVITE LINK and LISTING (which a game of this machine alone hides),
-    the line below them, and the file in port/assets/menus as tools/port_settings.py writes it."""
+def test_lobby_has_the_bots_rows():
+    """the lobby's bots' rows, the computer's and the touchscreen's, as tools/port_settings.py writes them: BOTS's
+    spinner the choices (network_host_controls.c's, as many: bots.h's BOTS_MAXIMUM) loaded by "port lobby bots
+    load", BOT SKILL's and BOT TEAMS' their settings' with the values port_config.c takes"""
+    port_settings = _port_settings()
+    assert port_settings.BOTS_MAXIMUM == int(constant(read("port/linux/game/bots.h"), "BOTS_MAXIMUM"))
+    choices = port_settings.BOT_CHOICES
+    assert choices[0] == "NONE" and choices[1] == "ADD 1" and "ADD 16" in choices and "ADD 20" in choices
+    assert choices[-1] == f"FILL TO {port_settings.BOTS_MAXIMUM}" and "FILL TO 2" in choices
+    assert len(choices) == 1 + (16 + (port_settings.BOTS_MAXIMUM - 16) // 4) * 2 - 1
+    config = read("port/linux/src/port_config.c")
+    for name in ("lobby", "lobby.touch"):
+        file_name = f"{MT}.{name}".replace("/", ".") + ".xml"
+        text = (CE / file_name).read_text()
+        assert text == "\n".join(port_settings.multiplayer_files()[file_name]), "run python3 tools/port_settings.py"
+        folder = f"{MT}/lobby" + ("/touch" if name == "lobby.touch" else "")
+        count = re.search(rf'<widget name="{folder}/board_bots_count_spinner"[^>]*>(.*?)</widget>', text, re.S)
+        assert f'strings="{"|".join(choices)}"' in count.group(0) and "setting=" not in count.group(0)
+        assert 'run="port lobby bots load"' in count.group(1)
+        for setting, values in (("bots.skill", ["easy", "normal", "heroic", "legendary"]),
+                                ("bots.teams", ["even", "against"])):
+            key = setting.replace(".", "_")
+            spinner = re.search(rf'<widget name="{folder}/board_{key}_spinner"[^>]*>', text).group(0)
+            assert f'setting="{setting}"' in spinner and f'values="{"|".join(values)}"' in spinner, spinner
+            assert f'{{ "{setting}", _config_' in config
+    assert '"port lobby bots load"' in read("port/linux/game/menu_tags.c")
+    assert '"port lobby bots load"' in read("port/linux/game/menu_functions.c")
+
+
+def test_server_setup_has_no_bots():
+    """Server Setup has no bots' rows (the lobby has them), and a game of this machine alone's line where the
+    network's rows are"""
     port_settings = _port_settings()
     name = f"{MT}/server_settings".replace("/", ".") + ".xml"
-    lines = port_settings.multiplayer_files()[name]
-    assert (CE / name).read_text() == "\n".join(lines), "run python3 tools/port_settings.py"
-    text = "\n".join(lines)
-    config = read("port/linux/src/port_config.c")
-    expected = {
-        "bots.count": [str(count) for count in range(16)],
-        "bots.skill": ["easy", "normal", "heroic", "legendary"],
-        "bots.teams": ["even", "against"],
-    }
-    for setting, values in expected.items():
-        key = setting.replace(".", "_")
-        spinner = re.search(rf'<widget name="{MT}/server_settings/{key}_spinner"[^>]*>', text).group(0)
-        assert f'setting="{setting}"' in spinner and f'values="{"|".join(values)}"' in spinner, spinner
-        assert f'{{ "{setting}", _config_' in config
-        child = re.search(rf'<child widget="{MT}/server_settings/op_{key}" x="54" y="(\d+)"/>', text)
-        assert child, f"op_{key} is not in Server Setup's list"
-    places = [int(re.search(rf'<child widget="{MT}/server_settings/op_{row}" x="54" y="(\d+)"/>', text).group(1))
-              for row in ("game_mode", "invite", "listing", "bots_count", "bots_skill", "bots_teams")]
-    assert places[3:] == places[:3], places
-    assert f'<child widget="{MT}/server_settings/bots_hint"/>' in text
-    assert port_settings.BOTS_HINT in text
-    # (each row's help, where menu_functions.c's BOTS_HELP says)
-    helps = re.search(rf'<strings name="{MT}/server_settings/help_strings">(.*?)</strings>', text, re.S).group(1)
-    helps = re.findall(r'<string text="([^"]*)"/>', helps)
-    first = int(re.search(r"#define BOTS_HELP (\d+)", read("port/linux/game/menu_functions.c")).group(1))
-    assert helps[first:first + 3] == [help_text for _, _, _, help_text in port_settings.BOTS_ROWS]
-    labels = re.search(rf'<strings name="{MT}/server_settings/labels">(.*?)</strings>', text, re.S).group(1)
-    labels = re.findall(r'<string text="([^"]*)"/>', labels)
-    for key, label, _, _ in port_settings.BOTS_ROWS:
-        index = int(re.search(rf'<widget name="{MT}/server_settings/{key}_label"[^>]*string_index="(\d+)"', text)
-                    .group(1))
-        assert labels[index] == label, (key, labels[index])
+    text = (CE / name).read_text()
+    assert text == "\n".join(port_settings.multiplayer_files()[name]), "run python3 tools/port_settings.py"
+    assert not re.search(r"name=\"[^\"]*bot", text), "a bots row in Server Setup"
+    assert f'<child widget="{MT}/server_settings/local_note"/>' in text
+    note_top = int(re.search(rf'<widget name="{MT}/server_settings/local_note"[^>]*top="(\d+)"', text).group(1))
+    game_y = int(re.search(rf'<child widget="{MT}/server_settings/op_game_mode" x="54" y="(\d+)"/>', text).group(1))
+    assert abs(note_top - game_y) <= 8, (note_top, game_y)
 
 
-def test_server_setup_has_the_network_bots_row():
-    """a network game's BOTS row, after the gametype's rows (its own place), opening the bots' screen
-    (tools/port_settings.py's BOT_SETUP), whose spinners are gametype_options' settings of bots.count, bots.skill,
-    bots.teams, bots.make_room and bots.fill_to with the values port_config.c takes, FILL TO last; and the row's
-    helps where menu_functions.c says"""
-    port_settings = _port_settings()
-    name = f"{MT}/server_settings".replace("/", ".") + ".xml"
-    text = "\n".join(port_settings.multiplayer_files()[name])
+def test_multiplayer_has_offline():
+    """Multiplayer's HOST has no PLAY WITH BOTS: CREATE GAME's page has OFFLINE (a game of this machine alone), the
+    computer's and the touchscreen's, which menu_functions.c's multiplayer_mode_set hosts so"""
+    for name in ("hub", "hub.touch"):
+        hub = (CE / f"main_menu.multiplayer_type_select.{name}.xml").read_text()
+        assert "hub_create_bots" not in hub
+        assert re.search(r'<widget name="[^"]*hub_create_offline"', hub), name
     menus = read("port/linux/game/menu_functions.c")
-    config = read("port/linux/src/port_config.c")
-    places = {row: int(re.search(rf'<child widget="{MT}/server_settings/op_{row}" x="54" y="(\d+)"/>', text).group(1))
-              for row in ("team_options", "bot_options")}
-    assert places["bot_options"] == places["team_options"] + port_settings.SERVER_SETTINGS_SPACING, places
-    help_top = int(re.search(rf'<widget name="{MT}/server_settings/help"[^>]*top="(\d+)"', text).group(1))
-    assert places["bot_options"] + 24 <= help_top, "the BOTS row runs into the help"
-    key, _, _, rows = port_settings.BOT_SETUP
-    row = re.search(rf'<widget name="{MT}/server_settings/op_{key}"[^>]*>(.*?)</widget>', text, re.S).group(1)
-    assert f'open="{MT}/server_settings/{key}/{key}_screen"' in row
-    expected = {"bot_count": ("bots.count", [str(count) for count in range(16)]),
-                "bot_skill": ("bots.skill", ["easy", "normal", "heroic", "legendary"]),
-                "bot_teams": ("bots.teams", ["even", "against"]),
-                "bot_make_room": ("bots.make_room", ["true", "false"]),
-                "bot_fill_to": ("bots.fill_to", [str(count) for count in port_settings.BOT_FILLS])}
-    assert [row_key for row_key, *_ in rows] == list(expected) and rows[-1][0] == "bot_fill_to"
-    for row_key, label, choices, helps in rows:
-        setting, values = expected[row_key]
-        entry = re.search(rf'\{{ "{row_key}_spinner", _option_setting, 0, 0, (\d+), \{{ 0 \}}, "{re.escape(setting)}",'
-                          r'\s*\{([^}]*)\}', menus)
-        assert entry, f"no gametype_options entry for {row_key}"
-        assert int(entry.group(1)) == len(values) == len(choices) == len(helps), row_key
-        assert re.findall(r'"([^"]*)"', entry.group(2)) == values, row_key
-        assert f'{{ "{setting}", _config_' in config, setting
-    helps = re.search(rf'<strings name="{MT}/server_settings/help_strings">(.*?)</strings>', text, re.S).group(1)
-    helps = re.findall(r'<string text="([^"]*)"/>', helps)
-    first = int(re.search(r"#define BOT_OPTIONS_HELP (\d+)", menus).group(1))
-    locked = int(re.search(r"#define BOT_OPTIONS_LOCKED_HELP (\d+)", menus).group(1))
-    assert helps[first] == port_settings.BOT_SETUP[2] and helps[locked] == port_settings.BOTS_HINT
-    labels = re.search(rf'<strings name="{MT}/server_settings/labels">(.*?)</strings>', text, re.S).group(1)
-    labels = re.findall(r'<string text="([^"]*)"/>', labels)
-    index = int(re.search(rf'<widget name="{MT}/server_settings/{key}_label"[^>]*string_index="(\d+)"', text).group(1))
-    assert labels[index] == "BOTS:"
-
-
-def test_multiplayer_has_play_with_bots():
-    """Multiplayer's PLAY WITH BOTS: its item (a file of its own the game embeds), in the list under Create Game
-    above EDIT GAMETYPES' line, its name and description where the list's others have theirs, and the mode it
-    chooses: a game of this machine alone (menu_functions.c's multiplayer_mode_set, multiplayer_host)."""
-    port_settings = _port_settings()
-    name = f"{MT}/bots".replace("/", ".") + ".xml"
-    assert (CE / name).read_text() == "\n".join(port_settings.multiplayer_files()[name])
-    assert f"ce/{name}" in json.loads((ROOT / "port/assets/menus/menus.json").read_text())["files"]
-    item = (CE / name).read_text()
-    assert 'name="main_menu/multiplayer_type_select/multiplayer_type_create_bots_item"' in item
-    assert 'run="join controller to mp game"' in item and 'run="mp type set mode"' in item
-    menu = (CE / "main_menu.multiplayer_type_select.xml").read_text()
-    for row, (x, y) in port_settings.MULTIPLAYER_ROWS.items():
-        place = (f' x="{x}"' if x else "") + f' y="{y}"'
-        assert f'<child widget="{MT}/{row}"{place}/>' in menu, row
-    # (the computer's list, Multiplayer's own: PLAY WITH BOTS under HOST, above EDIT GAMETYPES' line,
-    # test_browser_menu.py's test_hub_keeps_every_place)
-    hub = (CE / "main_menu.multiplayer_type_select.hub.xml").read_text()
-    bots_y = int(re.search(rf'<child widget="{MT}/hub/hub_create_bots" x="\d+" y="(\d+)"/>', hub).group(1))
-    assert bots_y + port_settings.HUB_ITEM[1] <= port_settings.MULTIPLAYER_LINE_PLACE[1]
-    assert hub.index(f"{MT}/hub/section_host") < hub.index(f"{MT}/hub/hub_create_bots") < \
-        hub.index(f'{MT}/hub/hub_gametypes" x=')
-    strings = (CE / "strings.xml").read_text()
-    options = re.search(rf'<strings name="{MT}/multiplayer_options"[^>]*>(.*?)</strings>', strings, re.S).group(1)
-    assert re.findall(r'text="([^"]*)"', options) == port_settings.STRING_OVERRIDES[f"{MT}/multiplayer_options"]
-    assert re.findall(r'text="([^"]*)"', options)[9] == "PLAY WITH BOTS"
-    descriptions = re.search(rf'<strings name="{MT}/multiplayer_option_descriptions"[^>]*>(.*?)</strings>', strings,
-                             re.S).group(1)
-    assert re.findall(r'text="([^"]*)"', descriptions) == \
-        port_settings.STRING_OVERRIDES[f"{MT}/multiplayer_option_descriptions"]
-    menus = read("port/linux/game/menu_functions.c")
-    mode_set = function(menus, "multiplayer_mode_set")
-    assert 'strstr(name, "create_bots") ? _multiplayer_mode_host_local' in mode_set
-    host = function(menus, "multiplayer_host")
-    assert "ui_widget_port_host_local(widget, event, widget_deleted)" in host
-    local = function(read("source/interface/ui_widget_event_handler_functions.c"), "ui_widget_port_host_local")
-    assert "network_game_accept_remote_connections(FALSE);" in local
+    assert 'strstr(name, "create_offline")' in function(menus, "multiplayer_mode_set")
+    assert '{ "hub_create_offline", _multiplayer_item_offline }' in menus

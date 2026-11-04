@@ -78,6 +78,10 @@ static void object_get_origin(long index, real_point3d *point) { memset(point, 0
 static long distributed_latest_host_time(void) { return 10; }
 static void network_test_note_hit(char const *what, long object_index) { (void)what; (void)object_index; }
 static void distributed_damage_material(struct damage_data *damage, long index, short material) { material_calls++; }
+/* (no hit shown ahead of the host's word here: test_predicted_hits) */
+static boolean distributed_predicted_dealing(long index) { return FALSE; }
+static boolean distributed_predict_hit(struct damage_data *damage, long index, short node, short region, short material,
+	real_vector3d const *normal) { return FALSE; }
 #define csmemset memset
 #include "under_test.inc"
 

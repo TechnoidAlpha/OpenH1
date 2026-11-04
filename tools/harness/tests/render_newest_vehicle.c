@@ -237,7 +237,7 @@ static void render_interpolation_seat(long unit_index, boolean *gun_view, boolea
 	*gun_view = seat_gun_view;
 	*aim_in_world = seat_aim_in_world;
 }
-struct interpolation_ghost { boolean in_use; long tick; };
+struct interpolation_ghost { boolean in_use; long tick; long step; short substep_count; };
 static struct interpolation_ghost ghosts[64];
 static void render_interpolation_ghosts_tick(void) {}
 

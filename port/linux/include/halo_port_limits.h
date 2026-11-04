@@ -66,7 +66,7 @@ is newer (network_client_manager.c). A host advertises it, with its netcode,
 in its game's advertisement's reserved bytes (network_server_message_handler.c),
 which hosts built before there was a version send as zeros: version 0.
 Raise it with any change to what the machines send each other. */
-#define HALO_PORT_NETWORK_VERSION 39
+#define HALO_PORT_NETWORK_VERSION 41
 /* ... the advertisement's reserved bytes: the version (a little-endian word),
 then flags, then the game's kind (an OpenCE gametype's mode, and Hardcore:
 port/linux/game/game_modes.h's game_modes_kind), for the server browser */
@@ -95,7 +95,7 @@ takes it for a newer version and does not join. Raise it with any change to
 what a Standard game's machines send each other, and with every raise of
 HALO_PORT_NETWORK_VERSION: HALO_PORT_STANDARD_BASE_VERSION is the network
 version it was last raised for, and the build fails until they agree. */
-#define HALO_PORT_STANDARD_NETWORK_VERSION 10
+#define HALO_PORT_STANDARD_NETWORK_VERSION 18
 /* (1: the rate agreed; 2: the players' sub-steps sent, network_substeps.c;
 3: OpenCE players in the game, network_standard.c's mixed games; 4: a
 player moved to the other team by the host, network_host_controls.c; 5:
@@ -107,8 +107,26 @@ prediction as the host's tick begins, network_distributed.c's
 distributed_prediction_at_tick_start; 9: every client player's state to
 every OpenH1 client with the client's tick the host has them at,
 network_distributed.c's distributed_correct_remote_unit; 10: the variant's
-flags of a game under way the host changed, network_host_rules.c) */
-#define HALO_PORT_STANDARD_BASE_VERSION 39
+flags of a game under way the host changed, network_host_rules.c; 11:
+network version 41, OpenCE's votes, map vote and join request with a
+Discord pass; 12: the host's word to each client on how long before its
+tick its inputs came, and a client's clock led by it, network_clock.c; 13:
+every player's presses as the host's sub-steps ran them sent on to every
+OpenH1 client, not only to those near, network_distributed.c's
+distributed_far_live; 14: the states of the players near a client, or aimed
+at, as each of the host's sub-steps ends, network_distributed.c's
+_distributed_message_substep_states; 15: a dedicated server's admins in the
+game, their player keys proven and their Host Controls asked of the server,
+network_admin.c; 16: relays for machines whose NATs keep them apart,
+p2p_relay.c: the relays' packets on the tunnel's socket, the signalling's
+relay offers, a dedicated server's relays told its players; 17: the bots'
+machines the session's last 64 (port/linux/game/bots.h's BOTS_FIRST_MACHINE,
+113 before), by which every OpenH1 machine tells a bot's player; 18: the
+host's way of picking up a second weapon in the game record
+(_network_game_hold_to_pick_up_bit, network_standard.c's
+network_standard_walk_over_pickup). Legacy games, and what an OpenCE
+machine sees, are unchanged) */
+#define HALO_PORT_STANDARD_BASE_VERSION 41
 #define HALO_PORT_STANDARD_VERSION_BIT 0x8000
 #define HALO_PORT_STANDARD_ADVERTISED_VERSION (HALO_PORT_STANDARD_VERSION_BIT | HALO_PORT_STANDARD_NETWORK_VERSION)
 #if HALO_PORT_STANDARD_BASE_VERSION != HALO_PORT_NETWORK_VERSION

@@ -3,8 +3,10 @@ playlist's next entry that can be played, round from its end; a ban's and a mute
 Host Controls take it; and the teams shuffled (as many on each, drawn from the seed) or balanced (as few moved as can
 be; by score where there are scores), the teams' colours kept for the most players; what the lobby after a game takes
 (nothing in co-op, a restart its own game), the playlist past entries that can no longer be played (each tried once),
-a playlist kept whole within its text, the console's ban line (a quoted name, its length and reason), and a saved
-gametype's key. Each check has a fault that it must catch."""
+a playlist kept whole within its text, the console's ban line (a quoted name, its length and reason), a saved
+gametype's key, and a change of map alone (MAPS' CURRENT, the console's host_map without a gametype) keeping the
+lobby's gametype, score, time and rules while a gametype named is built, MAPS' gametype found by the game's name.
+Each check has a fault that it must catch."""
 
 import sys
 from pathlib import Path
@@ -15,10 +17,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run  # noqa: E402
 
 SOURCE = "port/linux/game/network_host_game.c"
-CASES = ["playlist", "duration", "shuffle", "balance", "takes", "try", "fits", "ban", "saved"]
+CASES = ["playlist", "duration", "shuffle", "balance", "takes", "try", "fits", "ban", "saved", "kept", "find"]
 PURE = ("network_host_game_playlist_after", "network_host_game_duration_parse", "network_host_game_teams_plan",
         "network_host_game_lobby_takes", "network_host_game_playlist_try", "network_host_game_playlist_fits",
-        "network_host_game_ban_parse")
+        "network_host_game_ban_parse", "network_host_game_entry_keeps", "network_host_game_variant_kept",
+        "network_host_game_gametype_find")
 GAMETYPES = "port/linux/game/server_gametypes.c"
 
 # a fault in the code, and the case that must catch it
@@ -52,6 +55,13 @@ NEGATIVE_CONTROLS = {
     "ban-quoted-name": ("\tif (line[0] == '\"')", "\tif (FALSE)", "ban"),
     "ban-parenthesis-kept": ("\tif (length > 0 && line[length - 1] == ')')\n\t\tline[--length] = 0;\n", "", "ban"),
     "saved-key-spaces": ("\t\telse\n\t\t\tgap = TRUE;", "\t\telse\n\t\t\tgap = FALSE;", "saved"),
+    # (a map alone played as Slayer at its defaults: the bug; a gametype named kept as the lobby's)
+    "map-alone-is-slayer": ("return text && !strchr(text, ':');", "return FALSE;", "kept"),
+    "named-gametype-kept": ("\tif (entry->gametype[0] || !game)", "\tif (!game)", "kept"),
+    "kept-score-lost": ("\t*variant = game->variant;", "\t(void)variant;", "kept"),
+    # (MAPS' selector on the list's first whatever the game plays, or on a name the game's begins with)
+    "find-the-first": ("\t\t\treturn index;\n\t}\n\treturn NONE;", "\t\t\treturn 0;\n\t}\n\treturn 0;", "find"),
+    "find-a-prefix": (": listed[at] == shown[at])", ": !listed[at])", "find"),
 }
 
 
@@ -66,6 +76,9 @@ def generated(fault=None):
     config += f"#define HOST_GAME_TEAMS {constant(source, 'HOST_GAME_TEAMS')}\n"
     config += enum_with(read("port/linux/game/network_host_game.h"), "_host_game_take_change,") + ";\n"
     config += f"#define SERVER_SAVED_NAME_SIZE {constant(read(GAMETYPES), 'SERVER_SAVED_NAME_SIZE')}\n"
+    header = read("port/linux/game/network_host_game.h")
+    config += f"#define HOST_GAME_GAMETYPE_SHOWN_SIZE {constant(header, 'HOST_GAME_GAMETYPE_SHOWN_SIZE')}\n"
+    config += header[header.index("struct host_game_gametype\n{"):header.index("/* ---------- prototypes")]
     text = ""
     sources = {name: source for name in PURE}
     sources["server_gametype_saved_key"] = read(GAMETYPES)

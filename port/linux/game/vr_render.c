@@ -966,6 +966,20 @@ static void listener_test_sound(real_point3d const *eye)
 		location.position.x, location.position.y, location.position.z);
 }
 
+/* game_sound.c (compute_sound_obstruction), with debug.vr_audio_log: the
+obstruction and occlusion of debug.vr_test_sound's sound, once a tick while
+it plays, and whether it was judged from the head or the game's eye */
+void vr_render_sound_obstruction(real_point3d const *position, boolean head, real obstruction, real occlusion)
+{
+	if (!vr_render.test_sound_placed || !config_boolean("debug.vr_audio_log") ||
+		distance_squared3d(position, &vr_render.test_sound_position) > 0.01f * 0.01f)
+	{
+		return;
+	}
+	platform_log("vr audio: tick %ld: test sound obstruction %.2f occlusion %.2f, from the %s", game_time_get(),
+		obstruction, occlusion, head ? "head" : "game's eye");
+}
+
 /* debug.vr_audio_log: each frame, the listener placed before it was
 drawn against the head it was drawn from, and the game's camera (the
 body's heading), which the listener is not */

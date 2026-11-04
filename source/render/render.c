@@ -91,6 +91,7 @@ symbols in this file:
 /* port: static transparent part links for the newly loaded model tags. */
 #include "models/models.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
+#include "panini.h" /* port: port/linux/game/panini.c */
 
 #ifdef HALO_VR
 #include "../../port/linux/src/vr.h"
@@ -230,6 +231,10 @@ void render_initialize_for_new_map(
 	frames the menus and the loading drew before, as many as the loading
 	took, made two runs of one game differ */
 	render.frame_index = 0;
+	/* port: and no leaf of the map before's: a camera in no leaf is drawn
+	from the leaf it was last drawn in (structure_visibility_find_camera),
+	which in another map is any leaf, or none */
+	render.leaf_index = NONE;
 	/* port: preserve retail's energy-then-two-sided-glass compositing. */
 	models_fix_transparent_part_links();
 	render_objects_initialize_for_new_map();
@@ -411,6 +416,9 @@ static void render_window(
 	(port/linux/game/render_enumerate.c) */
 	render_enumerate_structure();
 	player_effect_get_screen_flash(local_player_index, &parameters.screen_flash);
+	/* port: display.panini, the view drawn through it with this projection
+	(port/linux/game/panini.c) */
+	panini_window_begin(local_player_index, rasterizer_target, rasterizer_camera, &parameters.frustum);
 	rasterizer_window_begin(&parameters);
 
 	if (!bink_playback_in_progress())
@@ -441,6 +449,30 @@ static void render_window(
 		render_enumerate_models();
 		structure_render_preprocess();
 		structure_render_lightmaps();
+		/* port: display.ambient_occlusion over the opaque surfaces' light,
+		the depth now whole (not the VR mode's eye or scope passes, whose
+		targets have a layer for each eye) */
+		if (rasterizer_target == _render_target_primary
+#ifdef HALO_VR
+			&& !render_vr_eye_pass && !render_vr_scope_pass
+#endif
+			)
+		{
+			float projection[4];
+
+			projection[0] = parameters.frustum.projection_matrix[0][0];
+			projection[1] = parameters.frustum.projection_matrix[1][1];
+			projection[2] = parameters.frustum.projection_matrix[2][0];
+			projection[3] = parameters.frustum.projection_matrix[2][1];
+			halo_screen_ambient_occlusion(
+				rasterizer_camera->viewport_bounds.x0,
+				rasterizer_camera->viewport_bounds.y0,
+				rasterizer_camera->viewport_bounds.x1,
+				rasterizer_camera->viewport_bounds.y1,
+				parameters.frustum.z_near,
+				parameters.frustum.z_far,
+				projection);
+		}
 #ifdef HALO_VR
 		/* the scope's view: no lens flares (their visibility tests are the
 		eyes', counted per frame), nor the objects' shadows, which a few
@@ -588,6 +620,9 @@ static void render_window(
 				rasterizer_camera->viewport_bounds.y0,
 				rasterizer_camera->viewport_bounds.x1,
 				rasterizer_camera->viewport_bounds.y1);
+			/* port: and drawn through display.panini's projection, the HUD
+			not (port/linux/game/panini.c) */
+			panini_window_draw();
 		}
 		interface_draw_screen();
 		/* port: and every HUD's (port/linux/game/render_enumerate.c) */
@@ -615,6 +650,7 @@ static void render_window(
 	}
 	/* port: the loading transition too (port/linux/game/render_enumerate.c) */
 	render_enumerate_loading_screen();
+	panini_window_end(); /* port */
 	rasterizer_window_end();
 	profile_render_window_end();
 

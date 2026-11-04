@@ -49,6 +49,19 @@ The draws' tags (nv2a_pixel_shader_key.hdr, decided by xgpu_hdr_classify):
   lightmap pass) goes on past white: the same curve below white, and what
   the SDR shoulder squeezed under it rolled off toward
   XGPU_HDR_LIGHTS_WHITE instead (xgpu_hdr_lights).
+- XGPU_HDR_UNCLAMPED: the pixel stage carries values past 1 (no clamp
+  above, where the NV2A's are: the combiners' results and inputs, the
+  pixel's colour), for the screen effects' passes, which copy the tone
+  mapped view through their target and back (a scope's warp and mask): they
+  keep its light past white instead of cutting it at paper white.
+- XGPU_HDR_SELF_ILLUMINATION: a surface whose own pass adds its
+  self-illumination to its light (a model's; a structure's lightmap pass,
+  which the textures' pass multiplies after) draws as the SDR frame has it
+  but for its self-illumination (a door's panel, a computer's screen, a
+  Forerunner glyph): the pixel less the same pixel without it (the
+  constants of the combiner stages the tag names, its colours, made 0) is
+  brightened toward XGPU_HDR_SELF_ILLUMINATION_VALUE as a glow is, where
+  it is bright (xgpu_hdr_self_illuminate).
 
 The tone map (xgpu_backend_tone_map) brings each window's 3D view into the
 display's range before the HUD is drawn over it: XGPU_HDR_MODE_FAITHFUL
@@ -87,10 +100,47 @@ enum
 	XGPU_HDR_MODE_PUNCHY,
 };
 
-/* display.hdr_paper_white: percent of the system's SDR white, these at
+/* display.hdr_paper_white_nits: paper white in nits, these at most and
+least (0: the system's SDR white); display.hdr_paper_white, its percent of
+the system's SDR white while that is 0 (the setting before nits), these at
 most and least */
+#define XGPU_HDR_PAPER_WHITE_NITS_LEAST 80
+#define XGPU_HDR_PAPER_WHITE_NITS_MOST 500
 #define XGPU_HDR_PAPER_WHITE_LEAST 50
 #define XGPU_HDR_PAPER_WHITE_MOST 250
+/* display.hdr_ui_nits: the brightness of what is drawn over the tone mapped
+view (the HUD, the menus, the screen flashes) in nits, these at most and
+least (0: paper white's) */
+#define XGPU_HDR_UI_NITS_LEAST 80
+#define XGPU_HDR_UI_NITS_MOST 500
+/* the system's SDR white in nits where it gives none: BT.2408's reference
+white (Vulkan's, without SDL's), and EDR's 1.0 as macOS's reference modes
+show it (Metal's: macOS and iOS give no nits, their SDR white following the
+display's brightness) */
+#define XGPU_HDR_REFERENCE_WHITE_NITS 203.0f
+#define XGPU_HDR_EDR_WHITE_NITS 100.0f
+
+/* paper white in nits from the settings (xgpu_backend_hdr's) and the
+system's SDR white in nits */
+static inline float xgpu_hdr_paper_white_nits(int nits, int percent, float system_white)
+{
+	if (nits > 0)
+		return (float)nits;
+	return system_white * (float)(percent > 0 ? percent : 100) / 100.0f;
+}
+
+/* the UI's white over paper white (xgpu_hdr_frame.ui), in any one
+unit: display.hdr_ui_nits's (ui, 0 for paper white's), paper white's as
+the encoding has it (no brighter than the display), and the display's
+peak; the UI no brighter than the peak either */
+static inline float xgpu_hdr_ui_white(float ui, float paper_white, float peak)
+{
+	if (!(ui > 0.0f) || !(paper_white > 0.0f))
+		return 1.0f;
+	if (peak > 0.0f && ui > peak)
+		ui = peak;
+	return ui / paper_white;
+}
 
 /* a display shows HDR (display.hdr "auto" turns it on) when its potential
 headroom is more than this: macOS gives an SDR panel up to twice by dimming
@@ -116,6 +166,17 @@ XGPU_HDR_ALPHA_LIMIT */
 #define XGPU_HDR_SHADER_BLENDS(hdr) (XGPU_HDR_CEILING_OF(hdr) != 0 || ((hdr) & XGPU_HDR_ALPHA_LIMIT) != 0)
 /* the draw is a glow, brightened toward its ceiling (xgpu_hdr_expand) */
 #define XGPU_HDR_GLOW(hdr) (XGPU_HDR_CEILING_OF(hdr) >= XGPU_HDR_CEILING_WEAPON)
+/* the pixel stage unclamped above (a blend operation no draw has, without
+a ceiling or the alpha limit: no draw the shader blends) */
+#define XGPU_HDR_UNCLAMPED XGPU_HDR_BLEND(0, 0, 7)
+#define XGPU_HDR_IS_UNCLAMPED(hdr) ((hdr) == XGPU_HDR_UNCLAMPED)
+/* a self-illuminated surface's pass (another blend operation no draw has,
+without a ceiling or the alpha limit; XGPU_HDR_LIGHTS may be set too): the
+combiner stages whose constants are the self-illumination's colours, a bit
+each (stage n's 1 << n) */
+#define XGPU_HDR_SELF_ILLUMINATION(stages) ((unsigned short)(XGPU_HDR_BLEND(0, 0, 6) | ((stages) & 0xff)))
+#define XGPU_HDR_IS_SELF_ILLUMINATED(hdr) (!XGPU_HDR_SHADER_BLENDS(hdr) && XGPU_HDR_BLEND_OPERATION(hdr) == 6)
+#define XGPU_HDR_SELF_ILLUMINATION_STAGES(hdr) ((hdr) & 0xff)
 
 /* the ceilings, in the frame's values (sRGB's curve, extended): paper
 white; then the glows': the first-person weapon's, 1.75 times paper
@@ -143,6 +204,13 @@ dimmer than the weapon's displays) */
 #define XGPU_HDR_EXPAND_LIGHT_KNEE 0.4f
 /* ... the light the draw added at most this many times more */
 #define XGPU_HDR_EXPAND_MOST 2.0f
+
+/* a self-illuminated surface's glow (XGPU_HDR_SELF_ILLUMINATION): toward 2
+times paper white's light, from the light of the world's knee (a screen's
+light is drawn as dim as a fixture's): well past the surfaces, short of the
+lights and fixtures (a panel lights no room) */
+#define XGPU_HDR_SELF_ILLUMINATION_VALUE 1.353256f
+#define XGPU_HDR_SELF_ILLUMINATION_KNEE XGPU_HDR_EXPAND_LIGHT_KNEE
 
 /* the enhanced dynamic lights' white with XGPU_HDR_LIGHTS: the linear light
 (the lights' own gamma, 2.2) their shoulder rolls off toward, 8 times paper
@@ -181,16 +249,20 @@ enum
 
 /* what the tone map and the encoding are given: the front end's settings,
 and what the backend's display says. Paper white and the peak are linear
-light: paper white in the output's units (the system's SDR white times
-display.hdr_paper_white for EDR; nits over 80 for scRGB; nits over 10 000
-for PQ), the peak in paper whites (the display's headroom over paper
-white: 1 for SDR) */
+light: paper white in the output's units (over the system's SDR white for
+EDR, xgpu_hdr_paper_white_nits over XGPU_HDR_EDR_WHITE_NITS; nits over 80
+for scRGB; nits over 10 000 for PQ), the peak in paper whites (the display's headroom over paper
+white: 1 for SDR). ui is the UI's white over paper white
+(display.hdr_ui_nits: 1, or 0, for paper white's; 1 for SDR): the frame's
+1.0 is the UI's white, the tone map leaves the 3D view in it (its light
+over ui), and the encoding takes the frame's light times it. */
 struct xgpu_hdr_frame
 {
 	int mode;
 	int output;
 	float paper_white;
 	float peak;
+	float ui;
 };
 
 
@@ -233,11 +305,11 @@ static inline float xgpu_hdr_smoothstep(float edge0, float edge1, float x)
 	return t * t * (3.0f - 2.0f * t);
 }
 
-/* a glow's blended pixel (rgb) brightened toward its ceiling: its
-brightest channel by up to (ceiling - 1) times itself, where it is bright,
-by more of the light the draw added to what the pixel had (had), at most
+/* a pixel (rgb) brightened toward a ceiling (its value): its brightest
+channel by up to (ceiling - 1) times itself, where it is bright (from the
+knee), by more of the light added to what the pixel had (had), at most
 XGPU_HDR_EXPAND_MOST times more */
-static inline void xgpu_hdr_expand(float rgb[3], const float had[3], int ceiling)
+static inline void xgpu_hdr_expand_toward(float rgb[3], const float had[3], float ceiling, float knee)
 {
 	float added[3], most = fmaxf(rgb[0], fmaxf(rgb[1], rgb[2])), added_most, more;
 	int channel;
@@ -247,10 +319,24 @@ static inline void xgpu_hdr_expand(float rgb[3], const float had[3], int ceiling
 	added_most = fmaxf(added[0], fmaxf(added[1], added[2]));
 	if (added_most <= 0.0f)
 		return;
-	more = fminf((xgpu_hdr_ceiling_value(ceiling) - 1.0f) * xgpu_hdr_smoothstep(xgpu_hdr_expand_knee(ceiling), 1.0f, most) *
-		most / added_most, XGPU_HDR_EXPAND_MOST);
+	more = fminf((ceiling - 1.0f) * xgpu_hdr_smoothstep(knee, 1.0f, most) * most / added_most, XGPU_HDR_EXPAND_MOST);
 	for (channel = 0; channel < 3; channel++)
 		rgb[channel] += added[channel] * more;
+}
+
+/* a glow's blended pixel (rgb) brightened toward its ceiling, by more of
+the light the draw added to what the pixel had (had) */
+static inline void xgpu_hdr_expand(float rgb[3], const float had[3], int ceiling)
+{
+	xgpu_hdr_expand_toward(rgb, had, xgpu_hdr_ceiling_value(ceiling), xgpu_hdr_expand_knee(ceiling));
+}
+
+/* a self-illuminated surface's pixel (rgb, as its combiners leave it, in
+[0, 1]) brightened toward XGPU_HDR_SELF_ILLUMINATION_VALUE by more of its
+self-illumination: what it has past the same pixel without it (base) */
+static inline void xgpu_hdr_self_illuminate(float rgb[3], const float base[3])
+{
+	xgpu_hdr_expand_toward(rgb, base, XGPU_HDR_SELF_ILLUMINATION_VALUE, XGPU_HDR_SELF_ILLUMINATION_KNEE);
 }
 
 /* the soft shoulder: identity to the knee, then toward the peak, never
@@ -309,12 +395,25 @@ static inline void xgpu_hdr_tone_map(float rgb[3], int mode, float peak)
 		rgb[channel] = xgpu_hdr_encoded(light[channel] * hue * (1.0f - clipped) + sdr[channel] * brightened * clipped);
 }
 
+/* the 3D view's tone mapped colour (xgpu_hdr_tone_map's) in the frame's
+values, in place, where the UI's white is not paper white: its light over
+the UI's white (xgpu_hdr_frame.ui; 0 or 1, as it is) */
+static inline void xgpu_hdr_to_ui(float rgb[3], float ui)
+{
+	int channel;
+
+	if (!(ui > 0.0f) || ui == 1.0f)
+		return;
+	for (channel = 0; channel < 3; channel++)
+		rgb[channel] = xgpu_hdr_encoded(xgpu_hdr_linear(rgb[channel]) / ui);
+}
+
 /* the encoding of one pixel's colour (the frame's values after the tone
-map and the HUD) for the display, in place: linear, at most the peak,
-times paper white (and PQ's primaries and curve) */
+map and the HUD) for the display, in place: linear, times the UI's white,
+at most the peak, times paper white (and PQ's primaries and curve) */
 static inline void xgpu_hdr_encode(float rgb[3], const struct xgpu_hdr_frame *frame)
 {
-	float light[3];
+	float light[3], ui = frame->ui > 0.0f ? frame->ui : 1.0f;
 	int channel;
 
 	for (channel = 0; channel < 3; channel++)
@@ -324,7 +423,7 @@ static inline void xgpu_hdr_encode(float rgb[3], const struct xgpu_hdr_frame *fr
 			rgb[channel] = rgb[channel] < 0.0f ? 0.0f : rgb[channel] > 1.0f ? 1.0f : rgb[channel];
 			continue;
 		}
-		light[channel] = fminf(xgpu_hdr_linear(rgb[channel]), frame->peak) * frame->paper_white;
+		light[channel] = fminf(xgpu_hdr_linear(rgb[channel]) * ui, frame->peak) * frame->paper_white;
 	}
 	if (frame->output == XGPU_HDR_OUTPUT_SDR)
 		return;
@@ -433,7 +532,41 @@ says emits light (its radiosity power: a teleporter's field, a light
 fixture), a plasma shader (an energy shield), a light's volume (a plasma
 bolt's) */
 #define HALO_HDR_KIND_LIGHT 32
+/* a surface's pass that adds its self-illumination to its light (a
+model's, a structure's lightmap pass), in the 3D view: the combiner stages
+whose constants are its colours, a bit each, in the bits above 8
+(HALO_HDR_KIND_SELF_ILLUMINATION_STAGES) */
+#define HALO_HDR_KIND_SELF_ILLUMINATION 64
+#define HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(stages) ((stages) << 8)
 #endif
+
+/* ---------- the display, as the menus and the log show it (xgpu_hdr.c) */
+
+/* what the backend says of its display (xgpu_backend_display_hdr): whether
+it shows HDR, its headroom over its SDR white now, and that white in nits:
+the system's (reported), or, where it gives none, the one the encoding
+takes (XGPU_HDR_REFERENCE_WHITE_NITS on Vulkan, XGPU_HDR_EDR_WHITE_NITS on
+Metal) */
+struct xgpu_hdr_display
+{
+	int hdr;
+	float headroom;
+	float white_nits;
+	int white_reported;
+};
+
+/* xgpu_hdr_display_text's texts: Video Setup's DISPLAY PEAK row's value
+("800 NITS"), its panel's words, the log's line */
+enum
+{
+	XGPU_HDR_DISPLAY_VALUE,
+	XGPU_HDR_DISPLAY_WORDS,
+	XGPU_HDR_DISPLAY_LOG,
+};
+
+/* the display's peak (its headroom times its SDR white) and SDR white, as
+text of a kind (XGPU_HDR_DISPLAY_*) */
+void xgpu_hdr_display_text(const struct xgpu_hdr_display *display, int kind, char *text, unsigned int size);
 
 /* the tag (nv2a_pixel_shader_key.hdr) of a draw into the HDR back buffer */
 unsigned short xgpu_hdr_classify(const struct xgpu_hdr_draw *draw);

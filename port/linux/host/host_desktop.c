@@ -29,6 +29,10 @@ Only integers, floats, strings and flat structures cross, as in host_sdl.c.
 const char *host_app_settings_folder(void);
 #if !TARGET_OS_IPHONE
 int host_app_choose_game_data(SDL_Window *window, char *path, uint32_t size);
+/* port/macos/host_raw_mouse.m: the cursor shown while the mouse is not
+parked (NULL: the system's) */
+void host_raw_mouse_menu_cursor(SDL_Cursor *cursor);
+#define HOST_RAW_MOUSE_CURSOR
 #endif
 #endif
 
@@ -151,6 +155,99 @@ int host_sdl_warp_mouse_in_window(uint32_t window, float x, float y)
 	return 1;
 }
 
+/* ---------- the menus' cursor (sdl_platform.c's menu_cursor_fit)
+
+The guest reaches no SDL surfaces, so the host makes the menus' blue arrow
+from the picture the guest embeds (port/assets/cursor/menu_cursor.png) at
+the size the guest chooses. One cursor at a time: SDL's cursor is the
+mouse's, not a window's. */
+
+static SDL_Surface *menu_cursor_picture;
+static SDL_Cursor *menu_cursor;
+
+/* the picture at a height, halved first while it is twice that or more (one
+linear scaling to less than half the size skips pixels) */
+static SDL_Surface *menu_cursor_scale(int height)
+{
+	int width = (menu_cursor_picture->w * height + menu_cursor_picture->h / 2) / menu_cursor_picture->h;
+	SDL_Surface *surface = SDL_DuplicateSurface(menu_cursor_picture);
+
+	while (surface && surface->h / 2 >= height)
+	{
+		SDL_Surface *half = SDL_ScaleSurface(surface, surface->w / 2, surface->h / 2, SDL_SCALEMODE_LINEAR);
+
+		SDL_DestroySurface(surface);
+		surface = half;
+	}
+	if (surface && surface->h != height)
+	{
+		SDL_Surface *sized = SDL_ScaleSurface(surface, width > 0 ? width : 1, height, SDL_SCALEMODE_LINEAR);
+
+		SDL_DestroySurface(surface);
+		surface = sized;
+	}
+	return surface;
+}
+
+/* the cursor, or the system's (NULL), shown (on macOS, while the mouse is
+not parked in fullscreen: port/macos/host_raw_mouse.m) */
+static void menu_cursor_set(SDL_Cursor *cursor)
+{
+#ifdef HOST_RAW_MOUSE_CURSOR
+	host_raw_mouse_menu_cursor(cursor);
+#else
+	SDL_SetCursor(cursor ? cursor : SDL_GetDefaultCursor());
+#endif
+}
+
+/* the window's cursor made from the PNG (size bytes; read once), height
+pixels tall, its click point at (tip, tip) of the picture's pixels scaled
+with it; where the desktop counts in points (macOS, Wayland at a scale), it
+is that size in points with the pixels' image as its alternate. A height of
+0 puts the system's back. 1 on success */
+int host_sdl_menu_cursor(uint32_t window, const void *png, uint32_t size, int height, int tip)
+{
+	SDL_Window *object = window_of(window);
+	SDL_Surface *pixels, *points;
+	SDL_Cursor *cursor = NULL;
+	float density;
+
+	if (height <= 0)
+	{
+		menu_cursor_set(NULL);
+		SDL_DestroyCursor(menu_cursor);
+		menu_cursor = NULL;
+		return 1;
+	}
+	if (!menu_cursor_picture && size)
+		menu_cursor_picture = SDL_LoadPNG_IO(SDL_IOFromConstMem(png, size), true);
+	if (!menu_cursor_picture || menu_cursor_picture->w <= 0 || menu_cursor_picture->h <= 0)
+		return 0;
+	density = object ? SDL_GetWindowPixelDensity(object) : 1.0f;
+	pixels = menu_cursor_scale(height);
+	points = density > 1.0f ? menu_cursor_scale((int)(height / density + 0.5f)) : pixels;
+	if (pixels && points && (points == pixels || SDL_AddSurfaceAlternateImage(points, pixels)))
+		cursor = SDL_CreateColorCursor(points,
+			(tip * points->w + menu_cursor_picture->w / 2) / menu_cursor_picture->w,
+			(tip * points->h + menu_cursor_picture->h / 2) / menu_cursor_picture->h);
+	if (cursor)
+	{
+		menu_cursor_set(cursor);
+		SDL_DestroyCursor(menu_cursor);
+		menu_cursor = cursor;
+	}
+	if (points != pixels)
+		SDL_DestroySurface(points);
+	SDL_DestroySurface(pixels);
+	return cursor ? 1 : 0;
+}
+
+/* SDL_ShowCursor, or (show 0) SDL_HideCursor */
+int host_sdl_show_cursor(int show)
+{
+	return (show ? SDL_ShowCursor() : SDL_HideCursor()) ? 1 : 0;
+}
+
 /* ---------- text input (Steam's on-screen keyboard, sdl_platform.c) */
 
 int host_sdl_has_screen_keyboard_support(void)
@@ -161,6 +258,17 @@ int host_sdl_has_screen_keyboard_support(void)
 int host_sdl_get_hint_boolean(const char *name, int default_value)
 {
 	return SDL_GetHintBoolean(name, default_value != 0) ? 1 : 0;
+}
+
+/* SDL's video driver ("x11", "wayland", "windows", "cocoa"...), 0 if none */
+int host_sdl_get_current_video_driver(char *name, int size)
+{
+	const char *driver = SDL_GetCurrentVideoDriver();
+
+	if (!driver || size < 1)
+		return 0;
+	SDL_strlcpy(name, driver, (size_t)size);
+	return 1;
 }
 
 int host_sdl_text_input_active(uint32_t window)

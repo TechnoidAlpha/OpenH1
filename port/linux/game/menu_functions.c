@@ -31,11 +31,15 @@ calls them from PC_MENU_FUNCTION_BASE on):
   Resolution or Window Size, for the display mode shown, Graphics' rows
   at the values of the preset chosen, display.graphics, and its SIMULATION
   row locked at ORIGINAL (30) where game.sim_rate is set aside);
-- Controls Setup's: the keyboard and mouse's controls, two bindings each,
-  shown a group at a time ("controls update menu"); "controls begin
-  binding" takes the next key or button pressed for the binding left and
-  right choose ("controls binding slot"); OK ("controls screen change set")
-  writes them, "controls screen defaults" shows the defaults.
+- Key Bindings' page (a page of Settings'): the keyboard and mouse's
+  controls, two bindings each, shown a group at a time (controls_update,
+  from the page's "port settings page"); "controls begin binding" takes the
+  next key or button pressed for the binding left and right choose
+  ("controls binding slot"), or the pointer is over or clicked
+  (ui_widget_port_take_point, take_click); the page's OK writes them, its
+  Defaults shows the defaults. The game's own controls (moving, the
+  weapons, action, flashlight, pause) each keep a key: a change that would
+  leave one with none is refused.
 
 A spinner's values are its strings' (setting= and values= in its <widget>,
 menu_tags.c's pc_menu_setting).
@@ -64,7 +68,7 @@ campaign's New Game and difficulty start the game for both.
 
 The update question (the self-updater's, port/linux/src/updater.c, on the
 Steam Frame and under gamescope, where it can show no system dialog):
-"port update question", the main menu's MODS item's game data input, notes
+"port update question", the main menu's QUIT item's game data input, notes
 that the main menu is shown; pc_menu_update_question_open, from the updater
 between frames, then opens main_menu/update/update_screen over it, whose
 UPDATE runs "port update now" (updater_update_now: on the Frame, the game
@@ -93,22 +97,30 @@ their handlers open opens.
 #include "text/unicode.h"
 
 #include "halo_menus.h"
+#include "controller_buttons.h"
+#include "controller_remap.h"
 #include "custom_edition_cache.h"
 #include "custom_edition_maps.h"
 #include "game_modes.h"
 #include "network_voice.h"
 #include "network_chat.h"
 #include "network_host_controls.h"
+#include "network_admin.h"
 #include "network_host_rules.h"
 #include "network_host_game.h"
 #include "sim_rate.h"
 #include "network_standard.h"
 #include "bots.h"
+#include "network_map_vote.h"
 #include "text/draw_string.h"
 #include "halo_keyboard.h"
 /* (internet play's server browser: the platform layer's) */
 #include "../src/p2p.h"
 #include "../src/browser_favorites.h"
+/* (the server browser's master servers, and Server Setup's publisher key) */
+#include "../src/master_list.h"
+#include "../src/player_link.h" /* port: port/linux/src/player_link.c */
+#include "../src/server_master.h"
 #include "text_filter.h"
 /* (the party: party_menu.inc) */
 #include "party.h"
@@ -116,6 +128,7 @@ their handlers open opens.
 #include "matchmaking.h"
 /* (the lobby's bots: lobby_menu.inc) */
 #include "bots.h"
+#include "basic_training.h"
 #include "bungie_net/network/transport.h"
 
 #include <stdlib.h>
@@ -140,11 +153,15 @@ boolean ui_widget_port_switch(struct widget_instance *widget, char const *name, 
 char const *config_string(char const *name);
 void platform_display_apply(void);
 void platform_binding_capture_begin(void);
+void platform_binding_capture_cancel(void);
 int platform_binding_capture_poll(int *input);
 void halo_input_name(int input, char *name, unsigned int size);
 void halo_input_shown_name(char const *binding, char *shown, unsigned int size);
 short pc_menu_string_index(long definition_index);
 void updater_update_now(void);
+/* main.c's: this build's number, configuration, repository and label */
+void main_build_identity(long *number, char *flavor, size_t flavor_size, char *repository, size_t repository_size,
+	char *version, size_t version_size);
 /* cseries_windows.c's */
 unsigned long system_milliseconds(void);
 
@@ -172,6 +189,7 @@ void pc_menu_game_data_function_invoke(struct widget_instance *widget, long func
 #define BUTTON_A 0
 #define BUTTON_B 1
 #define BUTTON_X 2
+#define BUTTON_Y 3
 #define BUTTON_START 12
 
 enum
@@ -260,9 +278,13 @@ struct pc_menu_setting
 };
 
 struct pc_menu_setting *pc_menu_setting_get(long definition_index);
-/* the menus' pointer and their latest click on an item (ui_widget.c) */
+/* sdl_platform.c's: whether fullscreen can set the display's refresh rate */
+int platform_refresh_rates_settable(void);
+/* the menus' pointer, their latest click on an item and the latest place
+the pointer chose one at (ui_widget.c) */
 boolean ui_widget_port_pointer(short *x);
 boolean ui_widget_port_take_click(short *x, short *y);
+boolean ui_widget_port_take_point(short *x, short *y);
 
 /* ---------- private code */
 
@@ -275,7 +297,8 @@ static void settings_sliders_default(struct widget_instance *screen);
 static boolean settings_slider_function(char const *name, struct widget_instance *row);
 static short settings_slider_of(struct widget_instance const *row);
 static double settings_slider_value(short slider);
-static void settings_slider_text(double value, char *text, unsigned int size);
+static void settings_slider_text(short slider, double value, char *text, unsigned int size);
+static short settings_slider_stop_nearest(short slider);
 
 static boolean text_is_number(char const *text, double *number)
 {
@@ -732,6 +755,9 @@ struct campaign_level
 	/* finished on Normal, Heroic, Legendary (difficulty_options_small's
 	frames 1 to 3) */
 	boolean finished[3];
+	/* finished on each difficulty, Easy's the first bit (the profile's
+	single_player_map_flags: the campaign's cards, campaign_menu.inc) */
+	byte beaten;
 };
 
 struct campaign_saved_game
@@ -745,8 +771,11 @@ struct campaign_saved_game
 static struct
 {
 	struct campaign_level levels[NUMBER_OF_SINGLE_PLAYER_LEVELS];
-	/* player 1's saved game's level, else NONE */
+	/* player 1's saved game's level, else NONE, and its difficulty, read
+	when a screen opens (campaign_levels_read): reading the saved game reads
+	and checks the whole of its file, too long for each frame */
 	short saved_level;
+	short saved_difficulty;
 	/* the level and saved game the lists' descriptions last showed */
 	short shown_level;
 	short shown_saved_game;
@@ -778,6 +807,18 @@ static struct widget_instance *descendant(struct widget_instance *widget, char c
 static struct widget_instance *named(struct widget_instance *widget, char const *name, long nth)
 {
 	return widget ? descendant(widget, name, &nth) : NULL;
+}
+
+/* a widget's left edge on the screen (its offsets and its parents', as the
+menus draw them: each widget's in its parent's, and its move in the wide
+layout, ui_widget_port_wide_offset) */
+static short widget_screen_x(struct widget_instance *widget)
+{
+	short x = 0;
+
+	for (; widget; widget = widget->parent)
+		x = (short)(x + widget->horizontal_offset + ui_widget_port_wide_offset(widget->definition_tag_index));
+	return x;
 }
 
 /* the text box's own text (as the server list sets its items'), in a
@@ -939,12 +980,14 @@ static void campaign_levels_read(struct player_profile const *profile)
 			short marker;
 
 			campaign.levels[level].available |= flags || level == highest_level + 1 || level == 0;
+			campaign.levels[level].beaten |= flags & 0xF;
 			for (marker = 0; marker < 3; marker++)
 				campaign.levels[level].finished[marker] |= (flags >> (marker + 1)) & 1;
 		}
 	}
 	if (player_spawn_count >= 2 || !ui_widget_port_saved_game(&map_name, &campaign.saved_level, &difficulty))
 		campaign.saved_level = NONE;
+	campaign.saved_difficulty = campaign.saved_level != NONE ? difficulty : NONE;
 }
 
 /* plays the map, at the difficulty (a saved game in it goes on: main.c's
@@ -1686,6 +1729,24 @@ static void video_rows_show(struct widget_instance *list)
 	}
 }
 
+/* Video Setup's Refresh Rate, shown while Window shows FULLSCREEN where
+fullscreen can set the display's rate (sdl_platform.c); the rows below close
+the gap (settings_rows_pack), and a focus on it hidden goes to the first row
+shown (settings_focus_shown) */
+static void refresh_rate_row_show(struct widget_instance *list)
+{
+	struct widget_instance *mode = named(list, "mode_spinner", 0);
+	struct widget_instance *row = named(list, "op_refresh_rate", 0);
+	struct pc_menu_setting *setting = mode ? pc_menu_setting_get(mode->definition_tag_index) : NULL;
+	short index;
+
+	if (!row)
+		return;
+	index = mode ? mode->parameters.list.selected_index : NONE;
+	row->visible = setting && index >= 0 && index < setting->value_count &&
+		!strcmp(setting->values[index], "fullscreen") && platform_refresh_rates_settable();
+}
+
 /* Interface's button style, shown while the HUD shown is the high-res one
 (Defaults too); the rows below close the gap (settings_rows_pack) */
 static void hud_button_style_row_show(struct widget_instance *list)
@@ -1699,6 +1760,67 @@ static void hud_button_style_row_show(struct widget_instance *list)
 		return;
 	index = hud->parameters.list.selected_index;
 	row->visible = index >= 0 && index < setting->value_count && !strcmp(setting->values[index], "true");
+}
+
+/* Mouse's Menu Cursor (display.menu_cursor), hidden while VR Setup's row is
+there (the game in the headset, whose menus have no desktop pointer): that
+row takes its room on the page (tools/port_settings.py) */
+static void menu_cursor_row_show(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_menu_cursor", 0);
+
+	if (row)
+		row->visible = !named(list, "op_vr_setup", 0);
+}
+
+/* Brightness's Gamma (display.gamma), hidden in the VR build, whose frames
+are never curved (d3d8_device.c's gamma_send) */
+static void gamma_row_show(struct widget_instance *list)
+{
+#ifdef HALO_VR
+	struct widget_instance *row = named(list, "op_gamma", 0);
+
+	if (row)
+		row->visible = FALSE;
+#else
+	(void)list;
+#endif
+}
+
+/* First Person's Panini Projection (display.panini, port/linux/game/panini.c)
+and Panini Vertical: none in the VR build, which never draws through it */
+static void panini_rows_show(struct widget_instance *list)
+{
+#ifdef HALO_VR
+	static char const *const rows[] = { "op_panini", "op_panini_vertical" };
+	short index;
+
+	for (index = 0; index < (short)NUMBEROF(rows); index++)
+	{
+		struct widget_instance *row = named(list, rows[index], 0);
+
+		if (row)
+			row->visible = FALSE;
+	}
+#else
+	(void)list;
+#endif
+}
+
+/* Video's Frame Rate Limit, shown while VSync shows OFF (Defaults too):
+with vsync on, the display paces the frames and the limit does nothing;
+the rows below close the gap (settings_rows_pack) */
+static void max_fps_row_show(struct widget_instance *list)
+{
+	struct widget_instance *vsync = named(list, "vsync_spinner", 0);
+	struct widget_instance *row = named(list, "op_max_fps", 0);
+	struct pc_menu_setting *setting = vsync ? pc_menu_setting_get(vsync->definition_tag_index) : NULL;
+	short index;
+
+	if (!setting || !row)
+		return;
+	index = vsync->parameters.list.selected_index;
+	row->visible = index >= 0 && index < setting->value_count && !strcmp(setting->values[index], "false");
 }
 
 /* a setting's value as Settings shows it: the change kept, else
@@ -1870,6 +1992,18 @@ static void sim_rate_row_show(struct widget_instance *list)
 	}
 }
 
+/* (Controller's Button Remapping, a page of Settings') */
+#include "controller_remap_menu.inl"
+
+/* Key Bindings' page, as Button Remapping's (its code below, with the
+keyboard and mouse's controls) */
+static boolean controls_page(struct widget_instance *screen);
+static void controls_page_update(struct widget_instance *list);
+static boolean controls_page_save(struct widget_instance *screen);
+static boolean controls_page_cancel(struct widget_instance *screen);
+static void controls_page_defaults(struct widget_instance *screen);
+static boolean controls_panel(struct widget_instance *row, wchar_t *name, wchar_t *value, wchar_t const **help);
+
 /* ---------- Settings' tabs and pages (tools/port_settings.py's PAGES)
 
 "port settings begin" (the main menu's and the pause menu's SETTINGS) forgets
@@ -1883,7 +2017,10 @@ settings ok") writes every change kept, saves the profile's and applies the
 window's. A page a row opens writes them too at its OK ("port settings
 keep": an OK saves, wherever it is), and its Cancel ("port settings page
 cancel") puts back what was kept when it opened. "port settings new profile" (CREATE PROFILE) asks for a new
-profile's name, as the main menu's items do.
+profile's name, as the main menu's items do. "port settings profiles"
+(MANAGE PROFILES, before the profile manager opens) writes every change
+kept, as an OK does, and the PROFILES tab, shown again, edits player 1's
+profile then: the one chosen there, made or left after a delete.
 
 "port settings page" (a tab's or a page's list, each frame) shows the rows
 that are for this game (settings_rows_show), packs them at the steps
@@ -1903,6 +2040,10 @@ places under its name (_settings_shared) */
 #define SETTINGS_PANEL_TEXT_UNDER_STILLS 122
 #define SETTINGS_PANEL_TEXT_UNDER_PICTURE 146
 #define SETTINGS_PANEL_TEXT_LENGTH 512
+/* the panels' bottom (tools/port_settings.py's SETTINGS_PANEL_BOTTOM), and
+the room kept clear above it, inside its rim */
+#define SETTINGS_PANEL_BOTTOM 400
+#define SETTINGS_PANEL_TEXT_MARGIN 6
 #define SETTINGS_FOLDER "pc\\main_menu\\settings_select\\player_setup\\player_profile_edit\\"
 #define SETTINGS_SHARED "pc\\main_menu\\settings\\"
 /* the link rows' sign, after their labels (U+203A) */
@@ -1926,11 +2067,12 @@ static struct
 
 /* the rows hidden in a game (not on the main menu): those that would drop
 it or are the main menu's (internet play, the router, the clipboard, the
-updates), and those whose screens are ui.map's (the name's keyboard, the
-colours' pictures) or make a profile */
+updates, the profiles, the mods), and those whose screens are ui.map's (the
+name's keyboard, the colours' pictures) or make a profile */
 static char const *const settings_in_game_hidden[] =
 {
 	"op_online", "op_allow_upnp", "op_join_from_clipboard", "op_auto", "op_name", "op_color", "op_create_profile",
+	"op_profiles", "op_mods",
 };
 
 static struct
@@ -1939,7 +2081,9 @@ static struct
 	struct widget_instance *screen;
 	long screen_tag;
 	long screen_time;
-} settings_page = { NULL, NONE, 0 };
+	/* MANAGE PROFILES opened: the profile to edit again, as a tab shows */
+	boolean profiles_opened;
+} settings_page = { NULL, NONE, 0, FALSE };
 
 static short settings_tab_of(struct widget_instance const *screen)
 {
@@ -2080,14 +2224,32 @@ static boolean settings_function(char const *name, struct widget_instance *widge
 	{
 		settings_each(screen, setting_stash);
 		settings_pending_write(FALSE);
+		pad_editor_save(screen);
+		controls_page_save(screen);
 	}
 	else if (!strcmp(name, "page cancel"))
 	{
+		/* (Button Remapping's button being taken, or its replacement
+		asked, or Key Bindings' key being taken: dropped, the page kept) */
+		if (!pad_editor_cancel(screen) || !controls_page_cancel(screen))
+		{
+			*result = FALSE;
+			return TRUE;
+		}
 		settings_pending = settings_snapshot;
 	}
 	else if (!strcmp(name, "new profile"))
 	{
 		*result = settings_profile_new(widget, event, widget_deleted);
+	}
+	else if (!strcmp(name, "profiles"))
+	{
+		/* (MANAGE PROFILES: the profile manager may change player 1's
+		profile, or delete the one edited, so the changes are written to
+		this one first) */
+		settings_each(screen, setting_stash);
+		settings_pending_write(TRUE);
+		settings_page.profiles_opened = TRUE;
 	}
 	else
 	{
@@ -2097,12 +2259,12 @@ static boolean settings_function(char const *name, struct widget_instance *widge
 }
 
 /* whether the row sets one of the profile's settings ("profile.<field>"),
-or opens what is the profile's (its name, its colour) */
+or opens what is the profile's (its name, its colour, the other profiles) */
 static boolean settings_row_profile(struct widget_instance *row)
 {
 	struct widget_instance *child;
 
-	if (!strcmp(row->name, "op_name") || !strcmp(row->name, "op_color"))
+	if (!strcmp(row->name, "op_name") || !strcmp(row->name, "op_color") || !strcmp(row->name, "op_profiles"))
 		return TRUE;
 	for (child = row->child; child; child = child->next)
 	{
@@ -2332,11 +2494,47 @@ static short settings_text_wrap(wchar_t const *text, wchar_t *wrapped, short siz
 	return lines;
 }
 
+/* the height of the panel's words of so many lines, and of its note under
+them (none: 0 lines) */
+static short settings_panel_height(short lines, short note_lines, short line)
+{
+	return (short)(lines * line + (note_lines ? line / 2 + note_lines * line : 0));
+}
+
+/* wrapped words (settings_text_wrap's) cut to so many lines, the last one's
+last word "..." if any were cut: the lines left */
+static short settings_text_lines_cut(wchar_t *wrapped, short lines)
+{
+	wchar_t *end = wrapped, *space;
+	short line = 1;
+
+	for (; *end; end++)
+	{
+		if (end[0] == '\r' && end[1] == '\n' && ++line > lines)
+			break;
+	}
+	if (!*end)
+		return line;
+	*end = 0;
+	for (space = end; space > wrapped && space[-1] != ' ' && space[-1] != '\n'; space--)
+	{
+	}
+	if (space > wrapped && space[-1] == ' ')
+		end = space;
+	if (end + 3 < wrapped + SETTINGS_PANEL_TEXT_LENGTH)
+	{
+		end[0] = end[1] = end[2] = '.';
+		end[3] = 0;
+	}
+	return lines;
+}
+
 /* a row's picture of each value (tools/port_settings.py's
 SETTINGS_VALUE_PICTURES: panel_picture_<the row's key>) shown, at the value
-shown, the others hidden; FALSE if the row has none */
+shown (its spinner's index, or a slider's stop nearest it: frame), the
+others hidden; FALSE if the row has none */
 static boolean settings_value_picture_show(struct widget_instance *panel, struct widget_instance *row,
-	struct widget_instance *spinner)
+	short frame)
 {
 	struct widget_instance *child;
 	boolean shown = FALSE;
@@ -2345,15 +2543,381 @@ static boolean settings_value_picture_show(struct widget_instance *panel, struct
 	{
 		if (!child->name || strncmp(child->name, "panel_picture_", 14))
 			continue;
-		child->visible = row && spinner && row->name && !strncmp(row->name, "op_", 3) &&
+		child->visible = row && frame != NONE && row->name && !strncmp(row->name, "op_", 3) &&
 			!strcmp(child->name + 14, row->name + 3);
 		if (child->visible)
 		{
-			child->animation.current_frame_index = spinner->parameters.list.selected_index;
+			child->animation.current_frame_index = frame;
 			shown = TRUE;
 		}
 	}
 	return shown;
+}
+
+/* ---------- Online's DISCORD ACCOUNT (tools/port_settings.py's
+DISCORD_ACCOUNT; port/linux/src/player_link.c)
+
+The Online tab's row opens the page, its value the account's state. The page
+has the account's row (its state; the panel names the account and how many
+master servers it is linked with), UNLINK (shown while there is something to
+forget: a first press asks, a second within DISCORD_UNLINK_MILLISECONDS
+forgets it), a row for each master server of masters.txt (its host and the
+account's state with it; A or a click opens its link page in the browser at
+once, and a waiting row shows the page's code), and SHOW TO SERVERS
+(network.link_share). The page opens on the master a server that refused
+this machine for its VPN is listed by, if there is one. */
+
+#define DISCORD_UNLINK_MILLISECONDS 5000
+
+static struct
+{
+	/* the page's screen last seen (a new one: the needed master focused) */
+	long screen_tag;
+	long screen_time;
+	/* UNLINK's first press, 0: none */
+	unsigned long unlink_asked;
+} discord_account = { NONE, 0, 0 };
+
+static void discord_widen(char const *text, wchar_t *wide, short size)
+{
+	short length = 0;
+
+	for (; text && *text && length < size - 1; text++)
+		wide[length++] = (wchar_t)(unsigned char)*text;
+	wide[length] = 0;
+}
+
+static void discord_text_set(struct widget_instance *text_box, char const *text)
+{
+	wchar_t wide[ROW_TEXT_LENGTH];
+
+	discord_widen(text, wide, ROW_TEXT_LENGTH);
+	text_set(text_box, wide);
+}
+
+/* a state's word for a row's value */
+static char const *discord_state_word(int state)
+{
+	switch (state)
+	{
+	case _player_link_state_linked:
+		return "LINKED";
+	case _player_link_state_waiting:
+		return "WAITING";
+	case _player_link_state_revoked:
+		return "REVOKED";
+	case _player_link_state_expired:
+		return "EXPIRED";
+	case _player_link_state_needed:
+		return "LINK NEEDED";
+	}
+	return "NOT LINKED";
+}
+
+/* a master's host as its row and the panel show it: without "master.", to
+fit */
+static char const *discord_host_shown(char const *host)
+{
+	return strncmp(host, "master.", 7) || !host[7] ? host : host + 7;
+}
+
+static boolean discord_unlink_asked(void)
+{
+	return discord_account.unlink_asked &&
+		system_milliseconds() - discord_account.unlink_asked < DISCORD_UNLINK_MILLISECONDS;
+}
+
+/* the master's index of a row's name ("op_link_master_<n>"), NONE if not
+one */
+static int discord_master_of(char const *name)
+{
+	int master;
+
+	if (!name || strncmp(name, "op_link_master_", 15))
+		return NONE;
+	master = atoi(name + 15) - 1;
+	return master >= 0 && master < PLAYER_LINK_MAXIMUM_MASTERS ? master : NONE;
+}
+
+/* each frame of Online's list and of the page's: the rows' values, the
+masters' hosts, the rows shown */
+static void discord_account_show(struct widget_instance *list)
+{
+	struct widget_instance *screen = screen_of(list);
+	struct widget_instance *row;
+	char name[PLAYER_LINK_NAME_SIZE + 1], code[PLAYER_LINK_CODE_SIZE], host[80], text[ROW_TEXT_LENGTH];
+	int state, linked, masters, master, needed = player_link_needed_master();
+	boolean page = named(list, "op_link_status", 0) != NULL;
+
+	if (!named(list, "op_discord_account", 0) && !page)
+		return;
+	state = player_link_state(name, sizeof(name), code, sizeof(code), &linked, &masters);
+	if (state != _player_link_state_linked && state != _player_link_state_waiting && needed >= 0)
+		state = _player_link_state_needed;
+	discord_text_set(named(list, "discord_account_value", 0), discord_state_word(state));
+	if (!page)
+		return;
+	discord_text_set(named(list, "link_status_value", 0), discord_state_word(state));
+	if ((row = named(list, "op_link_unlink", 0)) != NULL)
+	{
+		row->visible = state != _player_link_state_none && state != _player_link_state_needed;
+		if (!row->visible)
+			discord_account.unlink_asked = 0;
+		discord_text_set(named(row, "link_unlink_value", 0), discord_unlink_asked() ? "SELECT AGAIN" : "");
+	}
+	for (master = 0; master < PLAYER_LINK_MAXIMUM_MASTERS; master++)
+	{
+		char row_name[32];
+		int master_state = player_link_master_state(master, host, sizeof(host), name, sizeof(name), code,
+			sizeof(code));
+
+		snprintf(row_name, sizeof(row_name), "op_link_master_%d", master + 1);
+		if (!(row = named(list, row_name, 0)))
+			continue;
+		row->visible = host[0] != 0;
+		snprintf(row_name, sizeof(row_name), "link_master_%d_label", master + 1);
+		discord_text_set(named(row, row_name, 0), discord_host_shown(host));
+		if (master_state == _player_link_state_waiting)
+			snprintf(text, sizeof(text), "CODE %s", code);
+		else
+			snprintf(text, sizeof(text), "%s", master_state == _player_link_state_none ? "LINK" :
+				discord_state_word(master_state));
+		snprintf(row_name, sizeof(row_name), "link_master_%d_value", master + 1);
+		discord_text_set(named(row, row_name, 0), text);
+	}
+	/* (a page opened: on the master to link with, if a server asked) */
+	if (screen && (screen->definition_tag_index != discord_account.screen_tag ||
+		screen->creation_time != discord_account.screen_time))
+	{
+		discord_account.screen_tag = screen->definition_tag_index;
+		discord_account.screen_time = screen->creation_time;
+		discord_account.unlink_asked = 0;
+		if (needed >= 0)
+		{
+			short index = 0;
+
+			for (row = list->child; row; row = row->next, index++)
+			{
+				if (discord_master_of(row->name) == needed && row->visible)
+				{
+					list->focused_child = row;
+					list->parameters.list.selected_index = index;
+				}
+			}
+		}
+	}
+}
+
+/* each frame of Advanced Graphics' list: the DISPLAY PEAK row's value,
+the display's peak as the backend says it now (it follows the window to
+another display, and the system's brightness) */
+static void hdr_display_show(struct widget_instance *list)
+{
+	struct widget_instance *value = named(list, "hdr_display_value", 0);
+	char text[ROW_TEXT_LENGTH];
+
+	if (!value)
+		return;
+	halo_hdr_display_text(0, text, sizeof(text));
+	discord_text_set(value, text);
+}
+
+/* the DISPLAY PEAK row's panel: its value and words, the display's peak and
+SDR white now (the others': FALSE) */
+static boolean hdr_display_panel(struct widget_instance *row, wchar_t *value, wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	char text[SETTINGS_PANEL_TEXT_LENGTH];
+
+	if (!row->name || strcmp(row->name, "op_hdr_display") || !halo_hdr_display_text(0, text, sizeof(text)))
+		return FALSE;
+	discord_widen(text, value, ROW_TEXT_LENGTH);
+	halo_hdr_display_text(1, text, sizeof(text));
+	discord_widen(text, words, SETTINGS_PANEL_TEXT_LENGTH);
+	*help = words;
+	return TRUE;
+}
+
+/* Profile's ABOUT row's panel: this build (its number, or a local build's),
+and in the note its label and the Xbox build the game's sources were
+decompiled from, which the main menu used to show (the others': FALSE) */
+static boolean about_panel(struct widget_instance *row, wchar_t *value, wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	char flavor[32], repository[160], version[96], text[SETTINGS_PANEL_TEXT_LENGTH];
+	char *bar;
+	long number;
+	short length;
+
+	if (!row->name || strcmp(row->name, "op_about"))
+		return FALSE;
+	main_build_identity(&number, flavor, sizeof(flavor), repository, sizeof(repository), version, sizeof(version));
+	/* (the label's " | ", a comma) */
+	if ((bar = strstr(version, " | ")) != NULL)
+	{
+		bar[0] = ',';
+		memmove(bar + 1, bar + 2, strlen(bar + 2) + 1);
+	}
+	if (number > 0)
+		snprintf(text, sizeof(text), "BUILD %ld", number);
+	else
+		snprintf(text, sizeof(text), "LOCAL BUILD");
+	discord_widen(text, value, ROW_TEXT_LENGTH);
+	settings_wide_copy(words, *help, SETTINGS_PANEL_TEXT_LENGTH);
+	for (length = 0; words[length]; length++)
+	{
+	}
+	snprintf(text, sizeof(text), "|%s. Made from the Xbox game's build 01.01.14.2342.", version);
+	discord_widen(text, words + length, (short)(SETTINGS_PANEL_TEXT_LENGTH - length));
+	*help = words;
+	return TRUE;
+}
+
+/* (the server browsers' Filters page's SEARCH: below) */
+static void browser_search_show(struct widget_instance *list);
+static boolean browser_search_panel(struct widget_instance *row, wchar_t *value);
+
+/* the panel's name, value and words for a row of the page (the others':
+FALSE) */
+static boolean discord_account_panel(struct widget_instance *row, wchar_t *name, wchar_t *value,
+	wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	char account[PLAYER_LINK_NAME_SIZE + 1], code[PLAYER_LINK_CODE_SIZE], host[80];
+	char text[SETTINGS_PANEL_TEXT_LENGTH], shown[ROW_TEXT_LENGTH];
+	int master = discord_master_of(row->name), state, linked, masters;
+
+	if (row->name && !strcmp(row->name, "op_discord_account"))
+	{
+		/* (Online's row: its words its own, the value the account's state) */
+		state = player_link_state(account, sizeof(account), code, sizeof(code), &linked, &masters);
+		if (state == _player_link_state_linked)
+			snprintf(shown, sizeof(shown), "%s", account);
+		else
+			snprintf(shown, sizeof(shown), "%s", discord_state_word(state != _player_link_state_waiting &&
+				player_link_needed_master() >= 0 ? _player_link_state_needed : state));
+		discord_widen(shown, value, ROW_TEXT_LENGTH);
+		return TRUE;
+	}
+	if (master != NONE)
+	{
+		state = player_link_master_state(master, host, sizeof(host), account, sizeof(account), code, sizeof(code));
+		discord_widen(discord_host_shown(host), name, ROW_TEXT_LENGTH);
+		snprintf(shown, sizeof(shown), "%s", discord_state_word(state));
+		/* (the panel's name is its host: the words say "this master server") */
+		switch (state)
+		{
+		case _player_link_state_linked:
+			snprintf(shown, sizeof(shown), "%s", account);
+			snprintf(text, sizeof(text), "Linked as %s. The servers this master server lists let you in while you "
+				"use a VPN. Select to link again.", account);
+			break;
+		case _player_link_state_waiting:
+			snprintf(shown, sizeof(shown), "CODE %s", code);
+			snprintf(text, sizeof(text), "Finish in your browser: check that the page shows the code %s, then "
+				"sign in with Discord. Select to open the page again.", code);
+			break;
+		case _player_link_state_revoked:
+			snprintf(text, sizeof(text), "This master server revoked the link. Select to link your Discord "
+				"account again in your browser.");
+			break;
+		case _player_link_state_expired:
+			snprintf(shown, sizeof(shown), "%s", account);
+			snprintf(text, sizeof(text), "Linked as %s, but this master server has not renewed the link. It "
+				"renews by itself when the master answers; select to link again.", account);
+			break;
+		case _player_link_state_needed:
+			snprintf(text, sizeof(text), "A server you tried to join blocks VPNs and is listed by this master "
+				"server. Select to link your Discord account with it in your browser, then join again.");
+			break;
+		default:
+			snprintf(text, sizeof(text), "Select to open this master server's link page in your browser and "
+				"sign in with Discord. The servers it lists then let you in while you use a VPN.");
+			break;
+		}
+	}
+	else if (row->name && !strcmp(row->name, "op_link_status"))
+	{
+		int needed = player_link_needed_master();
+
+		state = player_link_state(account, sizeof(account), code, sizeof(code), &linked, &masters);
+		snprintf(shown, sizeof(shown), "%s", discord_state_word(state));
+		if (state == _player_link_state_linked)
+		{
+			snprintf(shown, sizeof(shown), "%s", account);
+			snprintf(text, sizeof(text), "Linked as %s with %d of the %d master servers. The servers they list "
+				"let you in while you use a VPN.", account, linked, masters);
+		}
+		else if (state == _player_link_state_waiting)
+		{
+			snprintf(shown, sizeof(shown), "CODE %s", code);
+			snprintf(text, sizeof(text), "Finish in your browser: check that the page shows the code %s, then "
+				"sign in with Discord. This page shows the link once the master server confirms it.", code);
+		}
+		else if (state == _player_link_state_expired)
+		{
+			snprintf(text, sizeof(text), "Linked as %s, but no master server has renewed the link. It renews "
+				"by itself when one answers.", account);
+		}
+		else if (state == _player_link_state_revoked)
+		{
+			snprintf(text, sizeof(text), "A master server revoked the link. Select it below to link again.");
+		}
+		else if (needed >= 0 && player_link_master_state(needed, host, sizeof(host), account, sizeof(account),
+			code, sizeof(code)) == _player_link_state_needed)
+		{
+			snprintf(shown, sizeof(shown), "%s", discord_state_word(_player_link_state_needed));
+			snprintf(text, sizeof(text), "A server you tried to join blocks VPNs. Link your Discord account with "
+				"%s, below, to join it while you use one.", host);
+		}
+		else
+		{
+			snprintf(text, sizeof(text), "Not linked. Select a master server below to link your Discord account "
+				"with it in your browser: servers that block VPNs then let you in while you use one.");
+		}
+	}
+	else if (row->name && !strcmp(row->name, "op_link_unlink") && discord_unlink_asked())
+	{
+		snprintf(shown, sizeof(shown), "SELECT AGAIN");
+		snprintf(text, sizeof(text), "Select UNLINK again to forget the linked account on this device. You can "
+			"link it again at any time.");
+	}
+	else
+	{
+		return FALSE;
+	}
+	discord_widen(shown, value, ROW_TEXT_LENGTH);
+	discord_widen(text, words, SETTINGS_PANEL_TEXT_LENGTH);
+	*help = words;
+	return TRUE;
+}
+
+/* "port discord link" (a master's row): its link page opened in the browser */
+static boolean discord_link(struct widget_instance *row)
+{
+	int master = discord_master_of(row ? row->name : NULL);
+
+	if (master == NONE || !player_link_begin(master))
+	{
+		ui_play_audio_feedback_sound(SOUND_ERROR);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+/* "port discord unlink": the first press asks, the second forgets */
+static boolean discord_unlink(void)
+{
+	if (!discord_unlink_asked())
+	{
+		discord_account.unlink_asked = system_milliseconds();
+		if (!discord_account.unlink_asked)
+			discord_account.unlink_asked = 1;
+		return TRUE;
+	}
+	discord_account.unlink_asked = 0;
+	player_link_unlink();
+	return TRUE;
 }
 
 /* the panel: the row chosen's name, its value in large type and its words
@@ -2369,9 +2933,10 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 	short text_width, note_width;
 	wchar_t name[ROW_TEXT_LENGTH] = { 0 }, value[ROW_TEXT_LENGTH] = { 0 };
 	wchar_t words[SETTINGS_PANEL_TEXT_LENGTH] = { 0 }, wrapped[SETTINGS_PANEL_TEXT_LENGTH];
+	wchar_t noted[SETTINGS_PANEL_TEXT_LENGTH] = { 0 };
 	wchar_t const *help = NULL;
 	wchar_t *bar;
-	short still = NONE, length, lines, index;
+	short still = NONE, length, lines, note_lines, line = 12, index;
 	boolean stills = FALSE, picture = FALSE;
 	struct widget_instance *row_spinner = NULL;
 	char const *const stills_names[] = { "panel_classic", "panel_enhanced" };
@@ -2417,7 +2982,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 			/* (a slider's: its number) */
 			char number[32];
 
-			settings_slider_text(settings_slider_value(settings_slider_of(row)), number, sizeof(number));
+			settings_slider_text(settings_slider_of(row), settings_slider_value(settings_slider_of(row)), number,
+				sizeof(number));
 			for (length = 0; number[length] && length < ROW_TEXT_LENGTH - 1; length++)
 				value[length] = (wchar_t)number[length];
 			value[length] = 0;
@@ -2433,6 +2999,20 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 				profile->primary_color_index, value);
 		}
 		help = settings_row_help(label);
+		/* (the Discord account's page: its words of the state now) */
+		discord_account_panel(row, name, value, &help);
+		/* (the display's peak: its words of the display now) */
+		hdr_display_panel(row, value, &help);
+		/* (Profile's ABOUT: this build) */
+		about_panel(row, value, &help);
+		/* (the browsers' SEARCH: its words) */
+		browser_search_panel(row, value);
+		/* (Button Remapping's: a button being taken, a replacement asked) */
+		if (pad_editor_page(screen_of(list)))
+			pad_editor_panel(row, name, value, &help);
+		/* (Key Bindings': an action's name, keys and words) */
+		if (controls_page(screen_of(list)))
+			controls_panel(row, name, value, &help);
 		row_spinner = spinner;
 		/* (Quality: CLASSIC or ENHANCED framed, neither for CUSTOM) */
 		if (!strcmp(row->name, "op_graphics") && spinner)
@@ -2445,7 +3025,8 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 				still = !strcmp(setting->values[shown], "classic") ? 0 : !strcmp(setting->values[shown], "enhanced") ? 1 : NONE;
 		}
 	}
-	picture = settings_value_picture_show(panel, row, row_spinner) && !stills;
+	picture = settings_value_picture_show(panel, row, row_spinner ? row_spinner->parameters.list.selected_index :
+		settings_slider_of(row) != NONE ? settings_slider_stop_nearest(settings_slider_of(row)) : NONE) && !stills;
 	settings_wide_copy(words, help, SETTINGS_PANEL_TEXT_LENGTH);
 	for (bar = words; *bar && *bar != '|'; bar++)
 	{
@@ -2462,37 +3043,54 @@ static void settings_panel_show(struct widget_instance *list, short tab)
 	text_font = ui_widget_port_text_box_font(text, &text_width);
 	note_font = ui_widget_port_text_box_font(note, &note_width);
 	lines = settings_text_wrap(words, wrapped, SETTINGS_PANEL_TEXT_LENGTH, text_font, text_width);
-	text_set_length(text, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
-	/* (under the name, or under Quality's pictures) */
+	note_lines = *bar ? settings_text_wrap(bar, noted, SETTINGS_PANEL_TEXT_LENGTH, note_font, note_width) : 0;
+	if (text_font != NONE)
+	{
+		rectangle2d bounds, text_bounds, cursor;
+		static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+		bounds.x0 = 0;
+		bounds.y0 = 0;
+		bounds.x1 = 0x3FFF;
+		bounds.y1 = 480;
+		/* (a line's height: two lines' less one's) */
+		draw_string_set_draw_mode(text_font, NONE, 0, 0, &white);
+		draw_unicode_string_compute_bounds(&bounds, L"X\r\nX", &text_bounds, &cursor);
+		line = (short)(text_bounds.y1 - text_bounds.y0);
+		draw_unicode_string_compute_bounds(&bounds, L"X", &text_bounds, &cursor);
+		line = (short)(line - (text_bounds.y1 - text_bounds.y0));
+	}
+	/* (under the name, or under the pictures; the words and the note kept
+	inside the panel, whatever the screen's width: the pictures left out if
+	the words do not fit under them, then the note, then the words' last
+	lines) */
 	if (text && named(panel, "panel_name", 0))
-		text->vertical_offset = (short)(named(panel, "panel_name", 0)->vertical_offset +
-			(stills ? SETTINGS_PANEL_TEXT_UNDER_STILLS : picture ? SETTINGS_PANEL_TEXT_UNDER_PICTURE :
-			SETTINGS_PANEL_TEXT_TOP));
-	settings_text_wrap(bar, wrapped, SETTINGS_PANEL_TEXT_LENGTH, note_font, note_width);
-	text_set_length(note, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
+	{
+		short name_top = named(panel, "panel_name", 0)->vertical_offset;
+		short room = (short)(SETTINGS_PANEL_BOTTOM - SETTINGS_PANEL_TEXT_MARGIN - name_top);
+		short top = stills ? SETTINGS_PANEL_TEXT_UNDER_STILLS : picture ? SETTINGS_PANEL_TEXT_UNDER_PICTURE :
+			SETTINGS_PANEL_TEXT_TOP;
+
+		if ((stills || picture) && settings_panel_height(lines, note_lines, line) > room - top)
+		{
+			settings_value_picture_show(panel, row, NONE);
+			stills = FALSE;
+			still = NONE;
+			top = SETTINGS_PANEL_TEXT_TOP;
+		}
+		if (note_lines && settings_panel_height(lines, note_lines, line) > room - top)
+			note_lines = 0;
+		if (settings_panel_height(lines, 0, line) > room - top)
+			lines = settings_text_lines_cut(wrapped, (short)MAX((room - top) / line, 1));
+		text->vertical_offset = (short)(name_top + top);
+	}
+	text_set_length(text, wrapped, SETTINGS_PANEL_TEXT_LENGTH);
+	if (!note_lines)
+		noted[0] = 0;
+	text_set_length(note, noted, SETTINGS_PANEL_TEXT_LENGTH);
 	/* (the note a line under the words) */
 	if (note && text)
-	{
-		short line = 12;
-
-		if (text_font != NONE)
-		{
-			rectangle2d bounds, text_bounds, cursor;
-			static real_argb_color const white = { 1.0f, 1.0f, 1.0f, 1.0f };
-
-			bounds.x0 = 0;
-			bounds.y0 = 0;
-			bounds.x1 = 0x3FFF;
-			bounds.y1 = 480;
-			/* (a line's height: two lines' less one's) */
-			draw_string_set_draw_mode(text_font, NONE, 0, 0, &white);
-			draw_unicode_string_compute_bounds(&bounds, L"X\r\nX", &text_bounds, &cursor);
-			line = (short)(text_bounds.y1 - text_bounds.y0);
-			draw_unicode_string_compute_bounds(&bounds, L"X", &text_bounds, &cursor);
-			line = (short)(line - (text_bounds.y1 - text_bounds.y0));
-		}
 		note->vertical_offset = (short)(text->vertical_offset + lines * line + line / 2);
-	}
 	for (index = 0; index < 2; index++)
 	{
 		char frame_name[32];
@@ -2527,14 +3125,32 @@ static void settings_page_update(struct widget_instance *list)
 		settings_page.screen_time = screen->creation_time;
 		if (tab == NONE)
 			settings_snapshot = settings_pending;
+		/* (back from the profile manager: player 1's profile edited, the
+		one chosen there; none, if every profile was deleted) */
+		if (tab != NONE && settings_page.profiles_opened)
+		{
+			settings_page.profiles_opened = FALSE;
+			if (!player_ui_get_edit_player_profile())
+				pc_menu_profile_edit_begin();
+		}
 	}
 	video_rows_show(list);
+	refresh_rate_row_show(list);
 	hud_button_style_row_show(list);
+	max_fps_row_show(list);
+	panini_rows_show(list);
+	menu_cursor_row_show(list);
+	gamma_row_show(list);
 	settings_rows_show(list);
+	discord_account_show(list);
+	hdr_display_show(list);
+	pad_editor_update(list);
+	controls_page_update(list);
 	graphics_preset_show(list);
 	sim_rate_row_show(list);
 	settings_each(screen, setting_stash);
 	settings_sliders_show(list);
+	browser_search_show(list);
 	settings_rows_pack(list, tab != NONE);
 	settings_focus_shown(list);
 	settings_tabs_show(list, tab);
@@ -2949,35 +3565,43 @@ bindings each */
 #define CONTROL_ROWS 7
 #define CONTROL_NAME_LENGTH 32
 
+/* (a refused change's help shown this long: control_capture_poll) */
+#define CONTROL_REFUSED_MILLISECONDS 4000
+
+/* each control's setting, label, group, and whether it is the game's own,
+which must keep a key (the game cannot be played without it) */
 static struct
 {
 	char const *setting;
 	wchar_t const *label;
 	short group;
+	boolean essential;
 } const controls[] =
 {
-	{ "controls.move_forward", L"MOVE FORWARD", 0 },
-	{ "controls.move_backward", L"MOVE BACKWARD", 0 },
-	{ "controls.strafe_left", L"STRAFE LEFT", 0 },
-	{ "controls.strafe_right", L"STRAFE RIGHT", 0 },
-	{ "controls.jump", L"JUMP", 0 },
-	{ "controls.crouch", L"CROUCH", 0 },
-	{ "controls.fire", L"FIRE", 1 },
-	{ "controls.throw_grenade", L"THROW GRENADE", 1 },
-	{ "controls.melee", L"MELEE", 1 },
-	{ "controls.reload", L"RELOAD", 1 },
-	{ "controls.zoom", L"ZOOM", 1 },
-	{ "controls.switch_weapon", L"SWITCH WEAPON", 1 },
-	{ "controls.switch_grenade", L"SWITCH GRENADE", 1 },
-	{ "controls.action", L"ACTION", 2 },
-	{ "controls.flashlight", L"FLASHLIGHT", 2 },
-	{ "controls.scoreboard", L"SHOW SCORES", 2 },
-	{ "controls.pause", L"PAUSE MENU", 2 },
-	{ "controls.screenshot", L"SCREENSHOT", 2 },
-	{ "controls.push_to_talk", L"PUSH TO TALK", 3 },
-	{ "controls.chat", L"CHAT", 3 },
-	{ "controls.team_chat", L"TEAM CHAT", 3 },
-	{ "controls.party_accept", L"ACCEPT INVITE", 3 },
+	{ "controls.move_forward", L"MOVE FORWARD", 0, TRUE },
+	{ "controls.move_backward", L"MOVE BACKWARD", 0, TRUE },
+	{ "controls.strafe_left", L"STRAFE LEFT", 0, TRUE },
+	{ "controls.strafe_right", L"STRAFE RIGHT", 0, TRUE },
+	{ "controls.jump", L"JUMP", 0, TRUE },
+	{ "controls.crouch", L"CROUCH", 0, TRUE },
+	{ "controls.fire", L"FIRE", 1, TRUE },
+	{ "controls.throw_grenade", L"THROW GRENADE", 1, TRUE },
+	{ "controls.melee", L"MELEE", 1, TRUE },
+	{ "controls.reload", L"RELOAD", 1, TRUE },
+	{ "controls.zoom", L"ZOOM", 1, TRUE },
+	{ "controls.switch_weapon", L"SWITCH WEAPON", 1, TRUE },
+	{ "controls.switch_grenade", L"SWITCH GRENADE", 1, TRUE },
+	{ "controls.action", L"ACTION", 2, TRUE },
+	{ "controls.flashlight", L"FLASHLIGHT", 2, TRUE },
+	{ "controls.scoreboard", L"SHOW SCORES", 2, FALSE },
+	{ "controls.pause", L"PAUSE MENU", 2, TRUE },
+	{ "controls.screenshot", L"SCREENSHOT", 2, FALSE },
+	{ "controls.push_to_talk", L"PUSH TO TALK", 3, FALSE },
+	{ "controls.chat", L"CHAT", 3, FALSE },
+	{ "controls.team_chat", L"TEAM CHAT", 3, FALSE },
+	{ "controls.party_accept", L"ACCEPT INVITE", 3, FALSE },
+	{ "controls.vote_yes", L"VOTE YES", 3, FALSE },
+	{ "controls.vote_no", L"VOTE NO", 3, FALSE },
 };
 
 static struct
@@ -2988,7 +3612,11 @@ static struct
 	short slot;
 	short capturing_control;
 	short capturing_slot;
-} controls_screen = { { { { 0 } } }, 0, NONE, 0 };
+	/* the page the bindings were read for (a page opened reads them again) */
+	long screen_tag, screen_time;
+	/* when a change was refused last (its help shown a while), 0 for not */
+	unsigned long refused_time;
+} controls_screen = { { { { 0 } } }, 0, NONE, 0, NONE, 0, 0 };
 
 /* a setting's bindings ("Left Ctrl, C") into the control's */
 static void control_bindings_read(short control, char const *text)
@@ -3093,20 +3721,72 @@ static short controls_group(struct widget_instance *screen)
 	return spinner ? spinner->parameters.list.selected_index : 0;
 }
 
-/* "controls begin binding" (A on a row): the next key or button pressed */
+/* a row's text box of a binding (the first or the second) */
+static struct widget_instance *control_binding_box(struct widget_instance *row, short slot)
+{
+	return named(row, slot ? "command_binding_second" : "command_binding", 0);
+}
+
+/* the binding of a row at a place on the screen: the second from its left
+edge on, else the first */
+static short control_slot_at(struct widget_instance *row, short x)
+{
+	struct widget_instance *second = control_binding_box(row, 1);
+
+	return (short)(second && x >= widget_screen_x(second));
+}
+
+/* "controls begin binding" (A on a row, or a click on it: the binding
+clicked): the next key or button pressed */
 static boolean control_capture_begin(struct widget_instance *widget)
 {
-	short control = control_of_row(control_row(widget), controls_group(screen_of(widget)));
+	struct widget_instance *row = control_row(widget);
+	short control = control_of_row(row, controls_group(screen_of(widget)));
+	short x, y;
 
 	if (control == NONE)
 		return FALSE;
+	if (ui_widget_port_take_click(&x, &y))
+		controls_screen.slot = control_slot_at(row, x);
 	controls_screen.capturing_control = control;
 	controls_screen.capturing_slot = controls_screen.slot;
 	platform_binding_capture_begin();
 	return TRUE;
 }
 
-/* the key or button taken (then bound to no other control), or cleared */
+/* whether clearing the control's bindings that are name (NULL: the one in
+slot) would take its last key: a game control must keep one */
+static boolean control_left_without_key(short control, short slot, char const *name)
+{
+	boolean taken = FALSE;
+	short other_slot;
+
+	if (!controls[control].essential)
+		return FALSE;
+	for (other_slot = 0; other_slot < CONTROL_BINDINGS; other_slot++)
+	{
+		char const *binding = controls_screen.bindings[control][other_slot];
+
+		if (!*binding)
+			continue;
+		if (name ? _stricmp(binding, name) != 0 : other_slot != slot)
+			return FALSE;
+		taken = TRUE;
+	}
+	return taken;
+}
+
+/* a change that would leave a game control with no key: not made, the
+error's sound and the help's why (controls_update) */
+static void control_refuse(void)
+{
+	controls_screen.refused_time = system_milliseconds() ? system_milliseconds() : 1;
+	ui_play_audio_feedback_sound(SOUND_ERROR);
+}
+
+/* the key or button taken (then bound to no other control), or cleared;
+not where a game control would be left with no key (its only key taken
+for another control, or cleared) */
 static void control_capture_poll(void)
 {
 	short control = controls_screen.capturing_control;
@@ -3117,6 +3797,7 @@ static void control_capture_poll(void)
 	if (control == NONE || !(result = platform_binding_capture_poll(&input)))
 		return;
 	controls_screen.capturing_control = NONE;
+	controls_screen.refused_time = 0;
 	if (result == 1)
 	{
 		char name[CONTROL_NAME_LENGTH];
@@ -3125,6 +3806,14 @@ static void control_capture_poll(void)
 		halo_input_name(input, name, sizeof(name));
 		if (!*name)
 			return;
+		for (other = 0; other < NUMBEROF(controls); other++)
+		{
+			if (other != control && control_left_without_key(other, NONE, name))
+			{
+				control_refuse();
+				return;
+			}
+		}
 		for (other = 0; other < NUMBEROF(controls); other++)
 		{
 			for (other_slot = 0; other_slot < CONTROL_BINDINGS; other_slot++)
@@ -3137,19 +3826,28 @@ static void control_capture_poll(void)
 	}
 	else if (result == 2)
 	{
+		if (control_left_without_key(control, slot, NULL))
+		{
+			control_refuse();
+			return;
+		}
 		controls_screen.bindings[control][slot][0] = 0;
 	}
 }
 
-/* "controls update menu": the group's rows, their bindings (the one left
-and right choose marked on the row chosen), and the help */
+/* each frame of Key Bindings' list (settings_page_update, after
+controls_page_update): the group's rows, and their bindings (the one left
+and right choose, or the pointer is over, marked on the row chosen) */
 static void controls_update(struct widget_instance *list)
 {
 	short group = controls_group(list);
 	struct widget_instance *row;
 	struct widget_instance *focused_row = control_row(list->focused_child);
+	short x, y;
 
 	control_capture_poll();
+	if (ui_widget_port_take_point(&x, &y) && focused_row && controls_screen.capturing_control == NONE)
+		controls_screen.slot = control_slot_at(focused_row, x);
 	for (row = list->child; row; row = row->next)
 	{
 		short control = control_of_row(row, group);
@@ -3181,20 +3879,118 @@ static void controls_update(struct widget_instance *list)
 			if (controls_screen.capturing_control == control && controls_screen.capturing_slot == slot)
 				snprintf(shown, sizeof(shown), "%s", "PRESS A KEY");
 			else if (row == focused_row && controls_screen.slot == slot)
-				snprintf(shown, sizeof(shown), "> %s <", name);
+				snprintf(shown, sizeof(shown), "[ %s ]", name);
 			else
 				snprintf(shown, sizeof(shown), "%s", name);
 			for (index = 0; shown[index] && index < ROW_TEXT_LENGTH - 1; index++)
 				text[index] = (wchar_t)(unsigned char)shown[index];
 			text[index] = 0;
-			text_set(named(row, "command_binding", slot), text);
+			text_set(control_binding_box(row, slot), text);
 		}
 	}
-	if (list->parameters.list.extended_description)
+}
+
+/* whether the screen is Key Bindings' page (tools/port_settings.py's
+KEY_BINDINGS: its rows of actions, op_command_<n>) */
+static boolean controls_page(struct widget_instance *screen)
+{
+	return screen && named(screen, "op_command_1", 0) != NULL;
+}
+
+/* each frame of the page's list: the bindings read again as the page opens,
+then its rows (controls_update) */
+static void controls_page_update(struct widget_instance *list)
+{
+	struct widget_instance *screen = screen_of(list);
+
+	if (!controls_page(screen))
+		return;
+	if (screen->definition_tag_index != controls_screen.screen_tag ||
+		screen->creation_time != controls_screen.screen_time)
 	{
-		list->parameters.list.extended_description->parameters.text_box.string_list_index =
-			controls_screen.capturing_control != NONE ? 2 : focused_row ? 1 : 0;
+		controls_screen.screen_tag = screen->definition_tag_index;
+		controls_screen.screen_time = screen->creation_time;
+		controls_screen.slot = 0;
+		controls_load(FALSE);
 	}
+	controls_update(list);
+}
+
+/* the page's OK ("port settings keep"): the bindings written */
+static boolean controls_page_save(struct widget_instance *screen)
+{
+	return !controls_page(screen) || controls_save();
+}
+
+/* the page's Cancel, B and Escape ("port settings page cancel"): a key
+being taken is dropped, the page kept (FALSE); else the page is left, its
+changes forgotten (read again when it opens) */
+static boolean controls_page_cancel(struct widget_instance *screen)
+{
+	if (!controls_page(screen) || controls_screen.capturing_control == NONE)
+		return TRUE;
+	controls_screen.capturing_control = NONE;
+	platform_binding_capture_cancel();
+	return FALSE;
+}
+
+/* the page's Defaults ("port settings defaults"): every action's default
+keys shown, written by OK */
+static void controls_page_defaults(struct widget_instance *screen)
+{
+	if (controls_page(screen))
+		controls_load(TRUE);
+}
+
+/* the panel's words for an action's row (controls_help_index's): how to
+change its keys, while one is taken how to give it, and why a change was
+refused */
+static char const *const control_help[] =
+{
+	"Enter, A or a click takes the next key or button pressed for the binding chosen; left and right choose "
+	"which of the two, as does the pointer.|A key put here leaves any other action it was on.",
+	"Press a key or a mouse button, or turn the wheel.|Escape cancels; Delete leaves it without one.",
+	"That was this action's only key, and the game needs one for it. Give it another key first.",
+};
+
+/* which of control_help's words the panel shows: while a key is taken, a
+while after a change was refused, or else how to change them */
+static short controls_help_index(void)
+{
+	boolean refused = controls_screen.refused_time &&
+		system_milliseconds() - controls_screen.refused_time < CONTROL_REFUSED_MILLISECONDS;
+
+	return (short)(controls_screen.capturing_control != NONE ? 1 : refused ? 2 : 0);
+}
+
+/* the panel's name, value and words for an action's row: its name, its
+keys, and how to change them (while one is taken, how to give it) */
+static boolean controls_panel(struct widget_instance *row, wchar_t *name, wchar_t *value, wchar_t const **help)
+{
+	static wchar_t words[SETTINGS_PANEL_TEXT_LENGTH];
+	short control = control_of_row(row, controls_group(screen_of(row)));
+	char text[2 * CONTROL_NAME_LENGTH + 8];
+	short slot;
+
+	if (!row->name || strncmp(row->name, "op_command_", 11) || control == NONE)
+		return FALSE;
+	ustrncpy(name, controls[control].label, ROW_TEXT_LENGTH - 1);
+	name[ROW_TEXT_LENGTH - 1] = 0;
+	/* (its keys as the keyboard's layout labels them, NONE without one) */
+	text[0] = 0;
+	for (slot = 0; slot < CONTROL_BINDINGS; slot++)
+	{
+		char shown[CONTROL_NAME_LENGTH];
+
+		if (!controls_screen.bindings[control][slot][0])
+			continue;
+		halo_input_shown_name(controls_screen.bindings[control][slot], shown, sizeof(shown));
+		snprintf(text + strlen(text), sizeof(text) - strlen(text), "%s%s", text[0] ? ", " : "", shown);
+	}
+	discord_widen(text[0] ? text : "NONE", value, ROW_TEXT_LENGTH);
+	discord_widen(control_help[controls_help_index()], words, SETTINGS_PANEL_TEXT_LENGTH);
+	*help = words;
+	return TRUE;
 }
 
 /* ---------- Mods (the main menu's: tools/port_settings.py's _mods), laid
@@ -3664,7 +4460,7 @@ static struct
 	unsigned long main_menu_generation;
 } update_question = { FALSE, NONE, 0 };
 
-/* "port update question": the MODS item, drawn on the main menu */
+/* "port update question": the QUIT item, drawn on the main menu */
 static void update_question_note(struct widget_instance *widget)
 {
 	struct widget_instance *screen = widget;
@@ -3752,7 +4548,8 @@ enum
 	_multiplayer_mode_direct_link,
 	_multiplayer_mode_host_internet,
 	_multiplayer_mode_host_lan,
-	/* a game of this machine alone, with bots (PLAY WITH BOTS) */
+	/* a game of this machine alone (Create Game's OFFLINE): split screen,
+	and bots as in every game */
 	_multiplayer_mode_host_local,
 };
 
@@ -3900,8 +4697,14 @@ static struct
 } multiplayer = { .maximum_players_index = NUMBEROF(maximum_players) - 1 };
 
 /* ---- a text field (Direct Link's link, the game's name): the keyboard
-types into it (Ctrl+V pastes), its row's A (enter) is done, B (escape)
-cancels */
+types into it (Ctrl+V pastes), its row's A is done, B (escape) cancels.
+Enter is its row's A too, posted to the menus (text_field_show), never the
+controller's Start, which in a game closes the menus (ui_widget.c's
+ui_check_for_pause_game) and would throw away what was typed and every
+change on the screen (port/linux/src/xinput_sdl.c's typing_gamepad). A
+value's field (a slider's number) starts with its value chosen: the first
+key typed replaces it, the first backspace clears it, as a value box does
+(text_field_begin_value) */
 static struct
 {
 	struct widget_instance *row;
@@ -3911,6 +4714,9 @@ static struct
 	void (*done)(char const *text);
 	/* a password's: shown as stars (text_field_begin_masked) */
 	boolean masked;
+	/* the text is the value as it was, chosen: what is typed first
+	replaces it (text_field_begin_value) */
+	boolean chosen;
 } text_field;
 
 /* when the field was last shown (a field not shown for a while is let go
@@ -3933,6 +4739,7 @@ static void text_field_open(struct widget_instance *row, char const *text, short
 	text_field.maximum = (short)MIN(maximum, TEXT_FIELD_LENGTH - 1);
 	text_field.done = done;
 	text_field.masked = masked;
+	text_field.chosen = FALSE;
 	text_field_shown_time = system_milliseconds();
 	while (input_get_key(&key))
 		;
@@ -3943,6 +4750,15 @@ static void text_field_begin(struct widget_instance *row, char const *text, shor
 	void (*done)(char const *text))
 {
 	text_field_open(row, text, maximum, done, FALSE);
+}
+
+/* a value's field (a slider's number): as text_field_begin, its value
+chosen, which the first key typed replaces */
+static void text_field_begin_value(struct widget_instance *row, char const *text, short maximum,
+	void (*done)(char const *text))
+{
+	text_field_open(row, text, maximum, done, FALSE);
+	text_field.chosen = text[0] != 0;
 }
 
 /* a password's field: as text_field_begin, its text shown as stars */
@@ -3967,7 +4783,13 @@ static void text_field_end(boolean keep)
 
 static void text_field_insert(char const *text)
 {
-	size_t length = strlen(text_field.text);
+	size_t length;
+
+	/* (the value chosen: replaced) */
+	if (text_field.chosen)
+		text_field.text[0] = 0;
+	text_field.chosen = FALSE;
+	length = strlen(text_field.text);
 
 	for (; *text && length < (size_t)text_field.maximum; text++)
 	{
@@ -3994,10 +4816,23 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 		{
 			size_t length = strlen(text_field.text);
 
+			/* (Enter: the row's A, which ends the field as the row ends
+			it, keeping what was typed; no key after it is typed) */
+			if (key.key_code == _key_return)
+			{
+				ui_widget_port_post_button(0, BUTTON_A);
+				while (input_get_key(&key))
+					;
+				break;
+			}
 			if (key.key_code == _key_backspace)
 			{
-				if (length)
+				/* (the value chosen: cleared) */
+				if (text_field.chosen)
+					text_field.text[0] = 0;
+				else if (length)
 					text_field.text[length - 1] = 0;
+				text_field.chosen = FALSE;
 			}
 			else if (TEST_FLAG(key.modifier_flags, KEY_MODIFIER_CONTROL_BIT) && key.key_code == _key_v)
 			{
@@ -4033,26 +4868,114 @@ static void text_field_show(struct widget_instance *value, char const *text, boo
 with its thumb at the value, and the value's number. Left and right step it
 ("port slider left", "right"); a click on the track sets it where it is, and
 the mouse held drags it along; A, Start or a click elsewhere on the row
-types a value into its number ("port slider edit": Enter, which is Start
+types a value into its number ("port slider edit": the number chosen, so
+that what is typed replaces it, and a word's field empty; Enter, the row's A
 while typing, keeps it, Escape forgets it). The value is a change kept, as a
-spinner's is (settings_pending), which Settings' OK writes. */
+spinner's is (settings_pending), which Settings' OK writes. A slider with
+stops has them along its track, evenly spaced, in place of its range: left,
+right and the track go from stop to stop, and a value typed between two
+stops sits between them; a stop shown as a word (AUTO, NONE, DEFAULT) is a
+value of its own, which may be typed as the word or as its number. A word's
+stop may write a word of the setting's in place of its number
+(display.vehicle_fov's "default" and "match"). */
+
+/* a slider's stop: its value, the word it is shown as (NULL: its number),
+and the setting's word it writes (NULL: its number) */
+struct settings_slider_stop
+{
+	double value;
+	char const *word;
+	char const *text;
+};
+
+/* (tools/port_settings.py's FRAME_RATE_LIMITS and FIELDS_OF_VIEW) */
+static struct settings_slider_stop const settings_frame_rate_stops[] =
+{
+	{ 0.0, "AUTO" }, { 30.0, NULL }, { 60.0, NULL }, { 75.0, NULL }, { 90.0, NULL }, { 100.0, NULL },
+	{ 120.0, NULL }, { 144.0, NULL }, { 165.0, NULL }, { 200.0, NULL }, { 240.0, NULL }, { 280.0, NULL },
+	{ 360.0, NULL }, { 480.0, NULL }, { 540.0, NULL }, { -1.0, "NONE" },
+};
+static struct settings_slider_stop const settings_fov_stops[] =
+{
+	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
+	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
+	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL }, { 155.0, NULL }, { 160.0, NULL },
+};
+/* (tools/port_settings.py's WEAPON_FIELDS_OF_VIEW: the world's, to 150, the
+widest a rectilinear view is drawn at; the projection does not widen the
+weapon's) */
+static struct settings_slider_stop const settings_viewmodel_fov_stops[] =
+{
+	{ 0.0, "DEFAULT" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL }, { 95.0, NULL }, { 100.0, NULL },
+	{ 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL }, { 125.0, NULL }, { 130.0, NULL },
+	{ 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+};
+/* (tools/port_settings.py's VEHICLE_FIELDS_OF_VIEW: the game's own view, and
+display.fov's) */
+static struct settings_slider_stop const settings_vehicle_fov_stops[] =
+{
+	{ -2.0, "DEFAULT", "default" }, { -1.0, "MATCH", "match" }, { 80.0, NULL }, { 85.0, NULL }, { 90.0, NULL },
+	{ 95.0, NULL }, { 100.0, NULL }, { 105.0, NULL }, { 110.0, NULL }, { 115.0, NULL }, { 120.0, NULL },
+	{ 125.0, NULL }, { 130.0, NULL }, { 135.0, NULL }, { 140.0, NULL }, { 145.0, NULL }, { 150.0, NULL },
+	{ 155.0, NULL }, { 160.0, NULL },
+};
+
+/* (tools/port_settings.py's PANINI_STRENGTHS: off, and strengths) */
+static struct settings_slider_stop const settings_panini_stops[] =
+{
+	{ 0.0, "OFF" }, { 0.25, NULL }, { 0.5, NULL }, { 0.75, NULL }, { 1.0, NULL },
+};
+
+/* (tools/port_settings.py's DRAW_DISTANCES: the game's own far clip, and
+farther ones) */
+static struct settings_slider_stop const settings_draw_distance_stops[] =
+{
+	{ 1024.0, "DEFAULT" }, { 1536.0, NULL }, { 2048.0, NULL }, { 3072.0, NULL }, { 4096.0, NULL }, { 6144.0, NULL },
+	{ 8192.0, NULL }, { 10000.0, NULL },
+};
+
+#define SLIDER_STOPS(stops) stops, (short)NUMBEROF(stops)
 
 /* each slider by its row: its setting, its track's range and step, the
-values it may be typed (as tools/port_settings.py's Slider has them) */
+values it may be typed, whether they are whole numbers, and its stops (as
+tools/port_settings.py's Slider has them) */
 static struct
 {
 	char const *row;
 	char const *setting;
 	double least, most, step;
 	double typed_least, typed_most;
+	boolean whole;
+	struct settings_slider_stop const *stops;
+	short stop_count;
 } const settings_sliders[] =
 {
-	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0 },
+	{ "op_mouse_sensitivity", "input.mouse_sensitivity", 0.1, 10.0, 0.05, 0.01, 100.0, FALSE, NULL, 0 },
+	{ "op_max_fps", "display.max_fps", 30.0, 540.0, 1.0, 10.0, 1000.0, TRUE, SLIDER_STOPS(settings_frame_rate_stops) },
+	/* (above 150 with display.panini on: panini_projection.h's
+	PANINI_FIELD_OF_VIEW_MOST) */
+	{ "op_fov", "display.fov", 80.0, 160.0, 5.0, 20.0, 160.0, FALSE, SLIDER_STOPS(settings_fov_stops) },
+	{ "op_viewmodel_fov", "display.viewmodel_fov", 80.0, 150.0, 5.0, 20.0, 150.0, FALSE,
+		SLIDER_STOPS(settings_viewmodel_fov_stops) },
+	{ "op_viewmodel_offset_x", "display.viewmodel_offset_x", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
+	{ "op_viewmodel_offset_y", "display.viewmodel_offset_y", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
+	{ "op_viewmodel_offset_z", "display.viewmodel_offset_z", -20.0, 20.0, 0.5, -20.0, 20.0, FALSE, NULL, 0 },
+	{ "op_lowered_reticle_amount", "display.lowered_reticle_amount", 1.0, 25.0, 1.0, 0.0, 30.0, TRUE, NULL, 0 },
+	{ "op_vehicle_fov", "display.vehicle_fov", 80.0, 160.0, 5.0, 20.0, 160.0, FALSE,
+		SLIDER_STOPS(settings_vehicle_fov_stops) },
+	/* (tools/port_settings.py's GAMMA) */
+	{ "op_gamma", "display.gamma", 0.5, 2.0, 0.05, 0.5, 2.0, FALSE, NULL, 0 },
+	/* (tools/port_settings.py's PANINI_STRENGTHS and PANINI_VERTICAL) */
+	{ "op_panini", "display.panini", 0.0, 1.0, 0.25, 0.0, 1.0, FALSE, SLIDER_STOPS(settings_panini_stops) },
+	{ "op_panini_vertical", "display.panini_vertical", 0.0, 1.0, 0.05, 0.0, 1.0, FALSE, NULL, 0 },
+	/* (tools/port_settings.py's DRAW_DISTANCES; port/linux/game/far_clip.c) */
+	{ "op_draw_distance", "display.draw_distance", 1024.0, 10000.0, 1.0, 1024.0, 10000.0, TRUE,
+		SLIDER_STOPS(settings_draw_distance_stops) },
 };
 
 /* the track and the thumb, as tools/port_settings.py lays them out
 (SLIDER_TRACK_WIDTH, SLIDER_THUMB_WIDTH) */
-#define SLIDER_TRACK_WIDTH 92
+#define SLIDER_TRACK_WIDTH 62
 #define SLIDER_THUMB_WIDTH 8
 
 /* the slider the mouse drags (its row), and the one typed into */
@@ -4074,6 +4997,43 @@ static short settings_slider_of(struct widget_instance const *row)
 	return NONE;
 }
 
+/* the stop shown as a word that has this value, or NONE */
+static short settings_slider_word(short slider, double value)
+{
+	short stop;
+
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].word && settings_sliders[slider].stops[stop].value == value)
+			return stop;
+	}
+	return NONE;
+}
+
+/* a setting's text as the slider's value: a stop's word of the setting's,
+else its number */
+static boolean settings_slider_text_value(short slider, char const *text, double *value)
+{
+	short stop;
+
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].text && !_stricmp(text, settings_sliders[slider].stops[stop].text))
+		{
+			*value = settings_sliders[slider].stops[stop].value;
+			return TRUE;
+		}
+	}
+	return text_is_number(text, value);
+}
+
+/* whether the slider takes the value: one it may be typed, or a word's */
+static boolean settings_slider_valid(short slider, double value)
+{
+	return (value >= settings_sliders[slider].typed_least && value <= settings_sliders[slider].typed_most) ||
+		settings_slider_word(slider, value) != NONE;
+}
+
 /* the slider's value as Settings shows it: the change kept, else the
 setting's (else its default) */
 static double settings_slider_value(short slider)
@@ -4081,33 +5041,68 @@ static double settings_slider_value(short slider)
 	char text[64];
 	double value;
 
-	if (!settings_value(settings_sliders[slider].setting, text, sizeof(text)) || !text_is_number(text, &value) ||
-		!(value > 0.0))
+	if (!settings_value(settings_sliders[slider].setting, text, sizeof(text)) ||
+		!settings_slider_text_value(slider, text, &value) || !settings_slider_valid(slider, value))
 	{
-		if (!setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) || !text_is_number(text, &value))
+		if (!setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) ||
+			!settings_slider_text_value(slider, text, &value))
+		{
 			value = settings_sliders[slider].least;
+		}
 	}
 	return value;
 }
 
-/* a value as the slider shows and writes it: at most three decimals */
-static void settings_slider_text(double value, char *text, unsigned int size)
+/* a value as the slider writes it: a whole number, or at most three
+decimals */
+static void settings_slider_number(short slider, double value, char *text, unsigned int size)
 {
 	size_t length;
 
+	if (settings_sliders[slider].whole)
+	{
+		snprintf(text, size, "%ld", (long)(value < 0.0 ? value - 0.5 : value + 0.5));
+		return;
+	}
 	snprintf(text, size, "%.3f", value);
 	length = strlen(text);
 	while (length > 3 && text[length - 1] == '0' && text[length - 2] != '.')
 		text[--length] = 0;
 }
 
+/* a value as the slider shows it: its stop's word, else its number */
+static void settings_slider_text(short slider, double value, char *text, unsigned int size)
+{
+	short word = settings_slider_word(slider, value);
+
+	if (word != NONE)
+		snprintf(text, size, "%s", settings_sliders[slider].stops[word].word);
+	else
+		settings_slider_number(slider, value, text, size);
+}
+
+/* a value as the slider's field starts to be typed into: its number, or
+nothing for a stop shown as a word */
+static void settings_slider_field_text(short slider, double value, char *text, unsigned int size)
+{
+	if (settings_slider_word(slider, value) != NONE)
+		text[0] = 0;
+	else
+		settings_slider_number(slider, value, text, size);
+}
+
 /* the value kept as a change, or none if it is the setting's */
 static void settings_slider_set(short slider, double value)
 {
 	char text[64], current[64];
+	short word = settings_slider_word(slider, value);
 
-	value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
-	settings_slider_text(value, text, sizeof(text));
+	if (word == NONE)
+		value = PIN(value, settings_sliders[slider].typed_least, settings_sliders[slider].typed_most);
+	if (word != NONE && settings_sliders[slider].stops[word].text)
+		snprintf(text, sizeof(text), "%s", settings_sliders[slider].stops[word].text);
+	else
+		settings_slider_number(slider, value, text, sizeof(text));
 	if (setting_text(settings_sliders[slider].setting, current, sizeof(current), FALSE) &&
 		settings_values_same(current, text))
 	{
@@ -4119,38 +5114,105 @@ static void settings_slider_set(short slider, double value)
 	}
 }
 
-/* the track's left edge on the screen (its offsets and its parents', as the
-menus draw them: each widget's in its parent's, and its move in the wide
-layout, ui_widget_port_wide_offset) */
-static short settings_slider_track_x(struct widget_instance *track)
+/* where the value is along a slider's stops, from 0 (the first) to the
+last's index: a stop's own place, or between the two numbers it is between
+(past the numbers' ends, at the end) */
+static double settings_slider_stop_place(short slider, double value)
 {
-	short x = 0;
+	struct settings_slider_stop const *stops = settings_sliders[slider].stops;
+	short count = settings_sliders[slider].stop_count;
+	short stop, first = NONE, last = NONE;
 
-	for (; track; track = track->parent)
-		x = (short)(x + track->horizontal_offset + ui_widget_port_wide_offset(track->definition_tag_index));
-	return x;
+	for (stop = 0; stop < count; stop++)
+	{
+		if (stops[stop].value == value)
+			return stop;
+	}
+	for (stop = 0; stop < count; stop++)
+	{
+		if (stops[stop].word)
+			continue;
+		if (first == NONE)
+			first = stop;
+		last = stop;
+		if (stop + 1 < count && !stops[stop + 1].word && value > stops[stop].value && value < stops[stop + 1].value)
+			return stop + (value - stops[stop].value) / (stops[stop + 1].value - stops[stop].value);
+	}
+	if (first == NONE)
+		return 0.0;
+	return value < stops[first].value ? first : last;
+}
+
+/* the stop nearest the slider's value (its picture's: settings_panel_show),
+or NONE for a slider without stops */
+static short settings_slider_stop_nearest(short slider)
+{
+	if (!settings_sliders[slider].stop_count)
+		return NONE;
+	return (short)(settings_slider_stop_place(slider, settings_slider_value(slider)) + 0.5);
+}
+
+/* the thumb's place along the track, from 0 to 1 */
+static double settings_slider_fraction(short slider, double value)
+{
+	if (settings_sliders[slider].stop_count > 1)
+		return settings_slider_stop_place(slider, value) / (settings_sliders[slider].stop_count - 1);
+	return (value - settings_sliders[slider].least) / (settings_sliders[slider].most - settings_sliders[slider].least);
+}
+
+/* a value to the nearest step, either side of 0 */
+static double settings_slider_round(double value, double step)
+{
+	double steps = value / step;
+
+	return (double)(long)(steps < 0.0 ? steps - 0.5 : steps + 0.5) * step;
 }
 
 /* the value at a place on the track (its range, in steps) */
 static void settings_slider_place(short slider, struct widget_instance *track, short x)
 {
-	double fraction = (double)(x - settings_slider_track_x(track) - SLIDER_THUMB_WIDTH / 2) /
+	double fraction = (double)(x - widget_screen_x(track) - SLIDER_THUMB_WIDTH / 2) /
 		(SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH);
 	double least = settings_sliders[slider].least, most = settings_sliders[slider].most;
 	double step = settings_sliders[slider].step;
 	double value = least + PIN(fraction, 0.0, 1.0) * (most - least);
+	short count = settings_sliders[slider].stop_count;
 
-	settings_slider_set(slider, PIN((double)(long)(value / step + 0.5) * step, least, most));
+	/* (with stops, the one nearest) */
+	if (count > 1)
+	{
+		settings_slider_set(slider,
+			settings_sliders[slider].stops[(short)(PIN(fraction, 0.0, 1.0) * (count - 1) + 0.5)].value);
+		return;
+	}
+	settings_slider_set(slider, PIN(settings_slider_round(value, step), least, most));
 }
 
-/* (the number typed: kept if it is one) */
+/* (the number typed: kept if it is one, past 0 (or in a range that takes 0
+and below), or a word's; or a word) */
 static void settings_slider_typed(char const *text)
 {
+	short slider = settings_slider.typed;
 	double value;
+	short stop;
 
-	if (settings_slider.typed != NONE && text_is_number(text, &value) && value > 0.0)
-		settings_slider_set(settings_slider.typed, value);
 	settings_slider.typed = NONE;
+	if (slider == NONE)
+		return;
+	if (text_is_number(text, &value) && (value > 0.0 || settings_sliders[slider].typed_least <= 0.0 ||
+		settings_slider_word(slider, value) != NONE))
+	{
+		settings_slider_set(slider, value);
+		return;
+	}
+	for (stop = 0; stop < settings_sliders[slider].stop_count; stop++)
+	{
+		if (settings_sliders[slider].stops[stop].word && !_stricmp(text, settings_sliders[slider].stops[stop].word))
+		{
+			settings_slider_set(slider, settings_sliders[slider].stops[stop].value);
+			return;
+		}
+	}
 }
 
 static struct widget_instance *settings_slider_track(struct widget_instance *row)
@@ -4177,11 +5239,24 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 	{
 		double step = settings_sliders[slider].step;
 		double value = settings_slider_value(slider);
+		short count = settings_sliders[slider].stop_count;
 
 		/* (the arrow keys move nothing while the number is typed) */
 		if (text_field_editing(row))
 			return TRUE;
-		value = (double)(long)(value / step + 0.5) * step + (!strcmp(name, "left") ? -step : step);
+		/* (with stops, to the next one along: from between two, the one on
+		that side) */
+		if (count > 1)
+		{
+			double place = settings_slider_stop_place(slider, value);
+			short at = (short)place;
+			short stop = !strcmp(name, "left") ? (short)(place > at ? at : at - 1) : (short)(at + 1);
+
+			settings_slider_set(slider, settings_sliders[slider].stops[PIN(stop, 0, count - 1)].value);
+			ui_play_audio_feedback_sound(SOUND_CURSOR);
+			return TRUE;
+		}
+		value = settings_slider_round(value, step) + (!strcmp(name, "left") ? -step : step);
 		settings_slider_set(slider, PIN(value, settings_sliders[slider].least, settings_sliders[slider].most));
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
 		return TRUE;
@@ -4197,8 +5272,8 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 			return TRUE;
 		}
 		/* (a click on the track sets the value there, and drags it) */
-		if (ui_widget_port_take_click(&x, &y) && x >= settings_slider_track_x(track) - 4 &&
-			x < settings_slider_track_x(track) + SLIDER_TRACK_WIDTH + 4)
+		if (ui_widget_port_take_click(&x, &y) && x >= widget_screen_x(track) - 4 &&
+			x < widget_screen_x(track) + SLIDER_TRACK_WIDTH + 4)
 		{
 			settings_slider_place(slider, track, x);
 			settings_slider.dragged = row;
@@ -4206,10 +5281,19 @@ static boolean settings_slider_function(char const *name, struct widget_instance
 		}
 		if (text_field_editing(NULL))
 			text_field_end(TRUE);
-		settings_slider.typed = slider;
-		settings_slider_text(settings_slider_value(slider), text, sizeof(text));
-		text_field_begin(row, text, 7, settings_slider_typed);
+#ifdef HALO_ANDROID
+		/* (Android's app raises no keyboard for a field: the track alone) */
+		(void)text;
 		return TRUE;
+#else
+		/* (its number, chosen, which typing replaces; a word (DEFAULT,
+		AUTO, NONE, OFF) is no number to edit: an empty field, typed into
+		at once) */
+		settings_slider.typed = slider;
+		settings_slider_field_text(slider, settings_slider_value(slider), text, sizeof(text));
+		text_field_begin_value(row, text, 7, settings_slider_typed);
+		return TRUE;
+#endif
 	}
 	return FALSE;
 }
@@ -4229,7 +5313,7 @@ struct widget_instance *menu_functions_finger_down(struct widget_instance *item,
 	for (depth = 0; row && depth < 3 && (slider = settings_slider_of(row)) == NONE; depth++)
 		row = row->parent;
 	track = slider != NONE ? settings_slider_track(row) : NULL;
-	if (!track || x < settings_slider_track_x(track) - 4 || x >= settings_slider_track_x(track) + SLIDER_TRACK_WIDTH + 4)
+	if (!track || x < widget_screen_x(track) - 4 || x >= widget_screen_x(track) + SLIDER_TRACK_WIDTH + 4)
 		return NULL;
 	/* (a number being typed is kept, and the finger places the value
 	too, where the mouse's click would only end the typing) */
@@ -4270,14 +5354,13 @@ static void settings_sliders_show(struct widget_instance *list)
 		if (text_field_editing(row) && list->focused_child != row)
 			text_field_end(TRUE);
 		value = settings_slider_value(slider);
-		fraction = (value - settings_sliders[slider].least) /
-			(settings_sliders[slider].most - settings_sliders[slider].least);
+		fraction = settings_slider_fraction(slider, value);
 		if (thumb)
 			thumb->horizontal_offset = (short)(PIN(fraction, 0.0, 1.0) * (SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH) + 0.5);
 		for (value_text = track->next; value_text && value_text->type != 1; value_text = value_text->next)
 		{
 		}
-		settings_slider_text(value, text, sizeof(text));
+		settings_slider_text(slider, value, text, sizeof(text));
 		text_field_show(value_text, text, text_field_editing(row));
 		/* (typed into: its field lit, and the caret held on, not blinking,
 		so that it is plain that the number takes what is typed) */
@@ -4313,11 +5396,115 @@ static void settings_sliders_default(struct widget_instance *screen)
 	for (slider = 0; slider < (short)NUMBEROF(settings_sliders); slider++)
 	{
 		if (named(screen, settings_sliders[slider].row, 0) &&
-			setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) && text_is_number(text, &value))
+			setting_text(settings_sliders[slider].setting, text, sizeof(text), TRUE) &&
+			settings_slider_text_value(slider, text, &value))
 		{
 			settings_slider_set(slider, value);
 		}
 	}
+}
+
+/* ---- the server browsers' Filters page (tools/port_settings.py's
+BROWSER_FILTERS, its rows the network.browser_* settings): opened by the
+browsers' FILTERS (the left trigger; "port browser filters", which starts
+it with no change kept: its OK writes its own, as a page of Settings' does)
+or by Settings' Online. Its SEARCH row's words are typed into its value
+("port browser search": A, Start or a click begins, Enter keeps, Escape
+forgets), a change kept as a spinner's is. The browser reads them all again
+as it opens (browser_filters_read) */
+
+#define BROWSER_SEARCH_SETTING "network.browser_search"
+#define BROWSER_SEARCH_TEXT 32
+
+/* "port browser filters": not Join by Link's, whose games are not filtered */
+static boolean browser_filters_open(void)
+{
+	if (multiplayer.mode == _multiplayer_mode_direct_link)
+		return FALSE;
+	if (text_field_editing(NULL))
+		text_field_end(FALSE);
+	settings_pending_clear();
+	ui_play_audio_feedback_sound(SOUND_FORWARD);
+	return TRUE;
+}
+
+/* (the words typed: a change kept, or none if they are the setting's) */
+static void browser_search_typed(char const *text)
+{
+	char current[BROWSER_SEARCH_TEXT] = "";
+
+	setting_text(BROWSER_SEARCH_SETTING, current, sizeof(current), FALSE);
+	if (!strcmp(current, text))
+		settings_pending_remove(BROWSER_SEARCH_SETTING);
+	else
+		settings_pending_set(BROWSER_SEARCH_SETTING, text);
+}
+
+/* "port browser search" (its row's A: begins, or ends) */
+static boolean browser_search_edit(struct widget_instance *row)
+{
+	char text[BROWSER_SEARCH_TEXT] = "";
+
+	if (text_field_editing(row))
+	{
+		text_field_end(TRUE);
+		return TRUE;
+	}
+	if (text_field_editing(NULL))
+		text_field_end(TRUE);
+	settings_value(BROWSER_SEARCH_SETTING, text, sizeof(text));
+	text_field_begin(row, text, BROWSER_SEARCH_TEXT - 1, browser_search_typed);
+	return TRUE;
+}
+
+/* SEARCH's value as its row and the panel show it: the words, or OFF */
+static void browser_search_text(char *text, unsigned int size)
+{
+	text[0] = 0;
+	settings_value(BROWSER_SEARCH_SETTING, text, size);
+	if (!text[0])
+		snprintf(text, size, "OFF");
+}
+
+/* (each frame of a page) SEARCH's value, the words typed while they are;
+typing whose row lost the focus keeps what was typed */
+static void browser_search_show(struct widget_instance *list)
+{
+	struct widget_instance *row = named(list, "op_browser_search", 0);
+	struct widget_instance *value = row ? named(row, "browser_search_value", 0) : NULL;
+	char text[BROWSER_SEARCH_TEXT];
+
+	if (!value)
+		return;
+	if (text_field_editing(row) && list->focused_child != row)
+		text_field_end(TRUE);
+	browser_search_text(text, sizeof(text));
+	text_field_show(value, text, text_field_editing(row));
+}
+
+/* the SEARCH row's panel: its words (the others': FALSE) */
+static boolean browser_search_panel(struct widget_instance *row, wchar_t *value)
+{
+	char text[BROWSER_SEARCH_TEXT];
+	short index;
+
+	if (!row->name || strcmp(row->name, "op_browser_search"))
+		return FALSE;
+	browser_search_text(text, sizeof(text));
+	for (index = 0; text[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		value[index] = (wchar_t)(unsigned char)text[index];
+	value[index] = 0;
+	return TRUE;
+}
+
+/* "port settings defaults": no words searched for (what is typed forgotten) */
+static void browser_search_default(struct widget_instance *screen)
+{
+	if (!named(screen, "op_browser_search", 0))
+		return;
+	if (text_field_editing(NULL))
+		text_field_end(FALSE);
+	browser_search_typed("");
 }
 
 /* ---- the menu */
@@ -4333,7 +5520,7 @@ static void multiplayer_mode_set(struct widget_instance *widget)
 	multiplayer.mode =
 		strstr(name, "create_inter") || multiplayer.campaign_first ? _multiplayer_mode_host_internet :
 		strstr(name, "create_lan") ? _multiplayer_mode_host_lan :
-		strstr(name, "create_bots") ? _multiplayer_mode_host_local :
+		strstr(name, "create_offline") || strstr(name, "create_bots") ? _multiplayer_mode_host_local :
 		strstr(name, "join_lan") ? _multiplayer_mode_lan :
 		strstr(name, "join_direct") ? _multiplayer_mode_direct_link : _multiplayer_mode_server_browser;
 }
@@ -4349,8 +5536,8 @@ static boolean multiplayer_player(short controller)
 }
 
 /* Create Game's ("join controller to mp game", first): player 1 in, and
-the server made: an internet one (an invite, Discord), a LAN one, or (PLAY
-WITH BOTS) one of this machine alone */
+the server made: an internet one (an invite, Discord), a LAN one, or
+(OFFLINE) one of this machine alone */
 static boolean multiplayer_host(struct widget_instance *widget, struct event_record *event, short controller,
 	boolean *widget_deleted)
 {
@@ -4798,12 +5985,6 @@ VOTING), PASSWORD's and MAP SHARING's (its help_strings, tools/port_settings.py)
 #define MAP_SHARE_OPTIONS_HELP 15
 /* ... and GAME's first choice's (each choice its own) */
 #define GAME_MODE_HELP 16
-/* ... and the bots' rows' (BOTS, BOT SKILL, BOT TEAMS), after GAME's four */
-#define BOTS_HELP 20
-/* ... and a network game's BOTS row's, then its line for a gametype the bots
-do not play */
-#define BOT_OPTIONS_HELP 23
-#define BOT_OPTIONS_LOCKED_HELP 24
 
 /* Server Setup's GAME: the kind of game hosted (network.game_mode) and its
 tick rate (network.sim_rate), as tools/port_settings.py's GAME_MODES have
@@ -4945,115 +6126,19 @@ static void wide_to_text(wchar_t const *wide, char *text, short size)
 	text[index] = 0;
 }
 
-/* Server Setup's bots (bots.count, bots.skill, bots.teams: bots.c), in a
-game of this machine alone (PLAY WITH BOTS), in the place of the rows of the
-network (GAME, INVITE LINK, MAP SHARING), which it hides; each row written to
-config.toml as it changes, so that the lobby's bots follow it. A gametype
-the bots do not play (not Slayer's: CTF, Oddball, King, Race) locks them,
-dimmed, passed over, and the line below them says why (tools/port_settings.py's
-BOTS_ROWS) */
+/* Server Setup in a game of this machine alone (Create Game's OFFLINE): the
+network's rows (GAME, INVITE LINK, MAP SHARING) hidden, and in their place a
+line saying what the game is (tools/port_settings.py's LOCAL_NOTE). Its bots
+are the lobby's, as every game's (lobby_menu.inc) */
 static char const *const server_settings_network_rows[] = { "op_game_mode", "op_invite", "op_map_share_options" };
-static char const *const server_settings_bots_rows[][2] =
-{
-	{ "op_bots_count", "bots_count_spinner" },
-	{ "op_bots_skill", "bots_skill_spinner" },
-	{ "op_bots_teams", "bots_teams_spinner" },
-};
 
-static void server_settings_bots(struct widget_instance *list, boolean local, boolean playable)
+static void server_settings_local(struct widget_instance *list, boolean local)
 {
-	struct widget_instance *help = list->parameters.list.extended_description;
-	boolean locked = local && !playable;
 	short index;
 
 	for (index = 0; index < NUMBEROF(server_settings_network_rows); index++)
 		visible_set(named(list, server_settings_network_rows[index], 0), !local);
-	for (index = 0; index < NUMBEROF(server_settings_bots_rows); index++)
-	{
-		struct widget_instance *row = named(list, server_settings_bots_rows[index][0], 0);
-		struct widget_instance *spinner = named(list, server_settings_bots_rows[index][1], 0);
-		struct pc_menu_setting *setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
-
-		if (!row || !spinner)
-			continue;
-		visible_set(row, local);
-		row->disabled = locked;
-		spinner->disabled = locked;
-		row->alpha_modifier = locked ? 0.4f : 1.0f;
-		/* (the focus on a row locked goes to the buttons) */
-		if (locked && list->focused_child == row)
-		{
-			struct widget_instance *child;
-			short child_index = 0;
-
-			for (child = list->child; child && strncmp(child->name, "button_bar", 10); child = child->next)
-				child_index++;
-			if (child)
-			{
-				list->focused_child = child;
-				list->parameters.list.selected_index = child_index;
-			}
-		}
-		/* (setting_changed_save passes over a locked spinner) */
-		if (local && setting)
-			setting_changed_save(spinner, setting);
-		if (help && local && list->focused_child == row)
-			help->parameters.text_box.string_list_index = (short)(BOTS_HELP + index);
-	}
-	visible_set(named(screen_of(list), "bots_hint", 0), locked);
-}
-
-/* Server Setup's BOTS in a network game (system link, internet: not co-op's),
-after the gametype's rows: its value what the bots are (bots.count,
-bots.skill, bots.make_room and bots.fill_to), and A opens their screen
-(tools/port_settings.py's BOT_SETUP), whose spinners write the settings. A
-gametype the bots do not play dims it, passed over, its value and its help
-saying why. bots_wanted_count and the others are what the lobby and the
-game in progress read (network_server_manager.c), each time */
-static void server_settings_network_bots(struct widget_instance *list, boolean shown, boolean playable)
-{
-	struct widget_instance *row = named(list, "op_bot_options", 0);
-	struct widget_instance *help = list->parameters.list.extended_description;
-	static wchar_t const *const skills[] = { L"EASY", L"NORMAL", L"HEROIC", L"LEGENDARY" };
-	wchar_t text[ROW_TEXT_LENGTH];
-	long count = bots_wanted_count();
-	boolean locked = shown && !playable;
-
-	if (!row)
-		return;
-	visible_set(row, shown);
-	row->disabled = locked;
-	row->alpha_modifier = locked ? 0.4f : 1.0f;
-	if (locked && list->focused_child == row)
-	{
-		struct widget_instance *child;
-		short child_index = 0;
-
-		for (child = list->child; child && strncmp(child->name, "button_bar", 10); child = child->next)
-			child_index++;
-		if (child)
-		{
-			list->focused_child = child;
-			list->parameters.list.selected_index = child_index;
-		}
-	}
-	if (!shown)
-		return;
-	if (locked)
-		usnprintf(text, NUMBEROF(text) - 1, L"NOT IN THIS GAMETYPE");
-	else if (!count)
-		usnprintf(text, NUMBEROF(text) - 1, L"NONE");
-	else if (bots_make_room())
-	{
-		usnprintf(text, NUMBEROF(text) - 1, L"%ld, %s, FILL TO %ld", count,
-			skills[PIN(bots_skill(), 0, (short)NUMBEROF(skills) - 1)], bots_fill_to());
-	}
-	else
-		usnprintf(text, NUMBEROF(text) - 1, L"%ld, %s", count, skills[PIN(bots_skill(), 0, (short)NUMBEROF(skills) - 1)]);
-	text[NUMBEROF(text) - 1] = 0;
-	text_set(named(list, "bot_options_value", 0), text);
-	if (help && list->focused_child == row)
-		help->parameters.text_box.string_list_index = locked ? BOT_OPTIONS_LOCKED_HELP : BOT_OPTIONS_HELP;
+	visible_set(named(screen_of(list), "local_note", 0), local);
 }
 
 /* "server settings update" */
@@ -5104,16 +6189,11 @@ static void server_settings_update(struct widget_instance *list)
 				help->parameters.text_box.string_list_index = MAP_SHARE_OPTIONS_HELP;
 		}
 	}
-	/* (a game of this machine alone: its bots, and none of the network's
-	rows) */
+	/* (a game of this machine alone: none of the network's rows) */
 	{
 		void *server = global_network_game_server_get();
-		boolean local = server && network_game_is_splitscreen_local();
 
-		server_settings_bots(list, local,
-			local && bots_play_game_engine(network_game_server_get_game(server)->variant.game_engine_index));
-		server_settings_network_bots(list, server && !local && !hosting_cooperative(),
-			server && bots_play_game_engine(network_game_server_get_game(server)->variant.game_engine_index));
+		server_settings_local(list, server && network_game_is_splitscreen_local());
 	}
 	/* LISTING (an internet game's): PUBLIC, listed in everyone's server
 	browser, or PRIVATE, for this game. Its help is its choice's */
@@ -5206,6 +6286,29 @@ static boolean invite_copy(void)
 }
 
 /* "ss start game": the settings given the server, then the lobby */
+/* the co-op game's settings, as CO-OP OPTIONS left them in config.toml
+(network.coop_friendly_fire, in cooperative_friendly_fire_modes' order,
+network.coop_player_collisions and network.coop_ally_friendly_fire), given
+the game's server: Server Setup's START, and a dedicated server's co-op
+entry (server_director.c's server_apply_entry) */
+void ui_widget_port_cooperative_settings_apply(void)
+{
+	static char const *const friendly_fire_names[] = { "off", "on", "shields_only", "explosives_only" };
+	char const *friendly_fire = config_string("network.coop_friendly_fire");
+	short index;
+
+	multiplayer.cooperative_friendly_fire = _friendly_fire_on;
+	for (index = 0; friendly_fire && index < (short)NUMBEROF(friendly_fire_names); index++)
+	{
+		if (!strcmp(friendly_fire, friendly_fire_names[index]))
+			multiplayer.cooperative_friendly_fire = cooperative_friendly_fire_modes[index];
+	}
+	multiplayer.cooperative_no_player_collisions = !config_boolean("network.coop_player_collisions");
+	network_game_server_port_set_cooperative_friendly_fire(multiplayer.cooperative_friendly_fire);
+	network_game_server_port_set_cooperative_player_collisions(!multiplayer.cooperative_no_player_collisions);
+	network_game_server_port_set_cooperative_ally_friendly_fire(config_boolean("network.coop_ally_friendly_fire"));
+}
+
 static boolean server_start(void)
 {
 	if (text_field_editing(NULL))
@@ -5222,24 +6325,8 @@ static boolean server_start(void)
 	and its FRIENDLY FIRE) */
 	if (hosting_cooperative())
 	{
-		/* (as CO-OP OPTIONS left them: network.coop_friendly_fire, in
-		cooperative_friendly_fire_modes' order, network.coop_player_collisions
-		and network.coop_ally_friendly_fire) */
-		static char const *const friendly_fire_names[] = { "off", "on", "shields_only", "explosives_only" };
-		char const *friendly_fire = config_string("network.coop_friendly_fire");
-		short index;
-
 		gametype_setup_end();
-		multiplayer.cooperative_friendly_fire = _friendly_fire_on;
-		for (index = 0; friendly_fire && index < (short)NUMBEROF(friendly_fire_names); index++)
-		{
-			if (!strcmp(friendly_fire, friendly_fire_names[index]))
-				multiplayer.cooperative_friendly_fire = cooperative_friendly_fire_modes[index];
-		}
-		multiplayer.cooperative_no_player_collisions = !config_boolean("network.coop_player_collisions");
-		network_game_server_port_set_cooperative_friendly_fire(multiplayer.cooperative_friendly_fire);
-		network_game_server_port_set_cooperative_player_collisions(!multiplayer.cooperative_no_player_collisions);
-		network_game_server_port_set_cooperative_ally_friendly_fire(config_boolean("network.coop_ally_friendly_fire"));
+		ui_widget_port_cooperative_settings_apply();
 	}
 	else if (!gametype_setup_apply())
 		return campaign_fail();
@@ -5625,6 +6712,7 @@ static void lobby_browser_update(struct widget_instance *list);
 static boolean lobby_browser_select(struct widget_instance *widget, short controller, short row,
 	boolean *widget_deleted);
 static void browser_prompts_show(struct widget_instance *list);
+static void browser_filters_refresh(void);
 
 /* "gamespy screen init": the mode's title and parts; the games' client */
 static boolean browser_initialize(struct widget_instance *screen, struct event_record *event,
@@ -5637,6 +6725,8 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 	short index;
 
 	server_browser_initialize(screen);
+	/* (the filters as Filters left them: browser_filters_read, below) */
+	browser_filters_refresh();
 	for (index = 0; index < NUMBEROF(titles); index++)
 		visible_set(named(screen, titles[index], 0), !strcmp(titles[index], title));
 	/* (the tabs and their prompts, but for Join by Link's list, whose games
@@ -5971,6 +7061,13 @@ struct browser_sort_entry
 	boolean coop;
 	/* a dedicated server's */
 	boolean dedicated;
+	/* what the filters see of it (browser_filters_show): its most players
+	(0: not known), its game engine (0: co-op's none), its password, and
+	its map's name as the rows show it */
+	short maximum_players;
+	short engine_type;
+	boolean locked;
+	wchar_t map_shown[ROW_TEXT_LENGTH];
 };
 
 static short browser_sort_column = _browser_sort_players;
@@ -6087,6 +7184,126 @@ static boolean browser_tab_lists_offline(void)
 	return browser_tab == _browser_tab_all || browser_tab == _browser_tab_favorites;
 }
 
+/* ---- the browsers' filters (the Filters page, tools/port_settings.py's
+BROWSER_FILTERS: the network.browser_* settings, read as a list opens and
+kept): full games, empty ones and those with a password listed or not, only
+the games whose ping is under a limit (one whose ping is not known is
+listed: a local network game's, a master server's dedicated server's, one
+being timed), the gametypes listed (a co-op game has none: CO-OP is its
+tab), and words a game's name or map must have. The server browser's and
+the local network's lists are filtered, not Join by Link's, whose games are
+the invites taken. Nothing is sent: the lists' own */
+
+#define BROWSER_SEARCH_LENGTH 31
+#define BROWSER_ALL_ENGINES 0x3E
+
+struct browser_filters
+{
+	boolean show_full, show_empty, show_password;
+	/* milliseconds; 0: any */
+	short maximum_ping;
+	/* a bit for each game engine listed (1 << 1 CTF to 1 << 5 Race) */
+	short engines;
+	char search[BROWSER_SEARCH_LENGTH + 1];
+};
+
+static struct browser_filters browser_filters = { TRUE, TRUE, TRUE, 0, BROWSER_ALL_ENGINES, "" };
+/* whether the list being ordered is filtered, and how many of the games its
+tab lists the filters hid */
+static boolean browser_filtering;
+static short browser_filtered_count;
+
+/* whether text has the words, in any case (ASCII's) */
+static boolean browser_text_has(wchar_t const *text, char const *words)
+{
+	short start, index;
+
+	for (start = 0; text[start]; start++)
+	{
+		for (index = 0; words[index] && text[start + index]; index++)
+		{
+			int x = text[start + index] >= 'a' && text[start + index] <= 'z' ? text[start + index] - 32 :
+				text[start + index];
+			int y = words[index] >= 'a' && words[index] <= 'z' ? words[index] - 32 : words[index];
+
+			if (x != y)
+				break;
+		}
+		if (!words[index])
+			return TRUE;
+	}
+	return !words[0];
+}
+
+/* whether the filters list the game */
+static boolean browser_filters_show(struct browser_filters const *filters, struct browser_sort_entry const *entry)
+{
+	wchar_t text[ROW_TEXT_LENGTH];
+	short index;
+
+	if (!filters->show_full && entry->maximum_players > 0 && entry->players >= entry->maximum_players)
+		return FALSE;
+	if (!filters->show_empty && entry->players <= 0)
+		return FALSE;
+	if (!filters->show_password && entry->locked)
+		return FALSE;
+	/* (a ping not known, NONE, under any limit) */
+	if (filters->maximum_ping > 0 && entry->ping >= filters->maximum_ping)
+		return FALSE;
+	if (entry->engine_type >= 1 && entry->engine_type <= 5 && !(filters->engines & (1 << entry->engine_type)))
+		return FALSE;
+	if (!filters->search[0])
+		return TRUE;
+	/* (its name, its map as shown (Blood Gulch), and its map's own name
+	(bloodgulch)) */
+	for (index = 0; entry->name[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		text[index] = (wchar_t)(unsigned char)entry->name[index];
+	text[index] = 0;
+	if (browser_text_has(text, filters->search) || browser_text_has(entry->map_shown, filters->search))
+		return TRUE;
+	for (index = 0; entry->map[index] && index < ROW_TEXT_LENGTH - 1; index++)
+		text[index] = (wchar_t)(unsigned char)entry->map[index];
+	text[index] = 0;
+	return browser_text_has(text, filters->search);
+}
+
+/* the filters as the settings have them (the words without the spaces
+around them) */
+static void browser_filters_read(struct browser_filters *filters)
+{
+	static char const *const engines[] =
+	{
+		NULL, "network.browser_show_ctf", "network.browser_show_slayer", "network.browser_show_oddball",
+		"network.browser_show_king", "network.browser_show_race",
+	};
+	char text[BROWSER_SEARCH_LENGTH + 1];
+	char const *search = config_string("network.browser_search");
+	short index, length;
+
+	filters->show_full = config_boolean("network.browser_show_full") != 0;
+	filters->show_empty = config_boolean("network.browser_show_empty") != 0;
+	filters->show_password = config_boolean("network.browser_show_password") != 0;
+	filters->maximum_ping = (short)PIN(config_integer("network.browser_ping"), 0, 9999);
+	filters->engines = 0;
+	for (index = 1; index < (short)NUMBEROF(engines); index++)
+	{
+		if (config_boolean(engines[index]))
+			filters->engines |= (short)(1 << index);
+	}
+	for (search = search ? search : ""; *search == ' '; search++)
+	{
+	}
+	snprintf(text, sizeof(text), "%s", search);
+	for (length = (short)strlen(text); length > 0 && text[length - 1] == ' '; length--)
+		text[length - 1] = 0;
+	snprintf(filters->search, sizeof(filters->search), "%s", text);
+}
+
+static void browser_filters_refresh(void)
+{
+	browser_filters_read(&browser_filters);
+}
+
 /* the order of the games found: the favorites first, then the others, those
 the tab shows, each part sorted by the column chosen; into `order`,
 returning how many */
@@ -6097,6 +7314,7 @@ static short browser_favorites_order(short const *favorite_of, struct browser_so
 	short written = 0;
 
 	browser_found_favorites = 0;
+	browser_filtered_count = 0;
 	for (pass = 0; pass < 2; pass++)
 	{
 		short start = written;
@@ -6104,7 +7322,12 @@ static short browser_favorites_order(short const *favorite_of, struct browser_so
 
 		for (index = 0; index < count; index++)
 		{
-			if ((favorite_of[index] != NONE) == (pass == 0) && browser_tab_shows(&entries[index], pass == 0))
+			if ((favorite_of[index] != NONE) != (pass == 0) || !browser_tab_shows(&entries[index], pass == 0))
+				continue;
+			/* (those the filters hide counted, for the words over the list) */
+			if (browser_filtering && !browser_filters_show(&browser_filters, &entries[index]))
+				browser_filtered_count++;
+			else
 				order[written++] = index;
 		}
 		/* (each part sorted, alike ones kept in the order found) */
@@ -6220,9 +7443,9 @@ static boolean browser_tab_choose(short tab)
 /* the words in the list's place while it has no rows: what it shows, why
 there are none and what to do (the mode's, multiplayer.mode; the tab's;
 the server browser's: internet play off, or its list, still being looked
-for, newer games it cannot join), into text */
+for, newer games it cannot join; the games its filters hid), into text */
 static void browser_empty_text(short mode, short tab, boolean online, boolean public_lobby, boolean looking,
-	int newer, wchar_t *text, short size)
+	int newer, short filtered, wchar_t *text, short size)
 {
 	static wchar_t const *const kinds[NUMBER_OF_BROWSER_TABS] =
 	{
@@ -6241,6 +7464,11 @@ static void browser_empty_text(short mode, short tab, boolean online, boolean pu
 		usnprintf(text, size - 1, L"The server browser is off\r\n(network.public_lobby).");
 	else if (server_browser && looking)
 		usnprintf(text, size - 1, L"Looking for public games...");
+	else if (filtered > 0)
+	{
+		usnprintf(text, size - 1, L"%d %s hidden by your filters.\r\nChoose FILTERS to change them.", filtered,
+			filtered == 1 ? L"game is" : L"games are");
+	}
 	else if (tab == _browser_tab_favorites)
 	{
 		usnprintf(text, size - 1, server_browser ? L"None of your favorites is online.\r\n%s" :
@@ -6713,13 +7941,14 @@ static void browser_status_text(struct browser_row const *row, wchar_t *text, sh
 }
 
 /* the footer's prompts for the list's mode: REFRESH the server browser's,
-PASTE LINK Join by Link's in its place */
+PASTE LINK Join by Link's in its place; FILTERS but Join by Link's */
 static void browser_prompts_show(struct widget_instance *list)
 {
 	struct widget_instance *bar = named(list, "join_game_button_bar", 0);
 
 	menu_prompts_show(bar, "prompt_refresh", multiplayer.mode == _multiplayer_mode_server_browser);
 	menu_prompts_show(bar, "prompt_paste", multiplayer.mode == _multiplayer_mode_direct_link);
+	menu_prompts_show(bar, "prompt_filters", multiplayer.mode != _multiplayer_mode_direct_link);
 }
 
 /* what the list shows above its rows: its tabs, the sort, its games and
@@ -6762,6 +7991,13 @@ static void browser_header_show(struct widget_instance *list, short games, long 
 	}
 	usnprintf(text, NUMBEROF(text) - 1, L"%d %s    %ld %s", games, games == 1 ? L"GAME" : L"GAMES", players,
 		players == 1 ? L"PLAYER" : L"PLAYERS");
+	/* (and how many the filters hide) */
+	if (browser_filtering && browser_filtered_count > 0)
+	{
+		short length = (short)ustrlen(text);
+
+		usnprintf(text + length, NUMBEROF(text) - 1 - length, L"    %d HIDDEN", browser_filtered_count);
+	}
 	text[NUMBEROF(text) - 1] = 0;
 	text_set(named(screen, "browser_counts", 0), text);
 	visible_set(named(screen, "browser_empty", 0), rows == 0);
@@ -6829,8 +8065,13 @@ what internet play knows, and what would help; RETRY asks again, BACK (B)
 gives the join up */
 
 #define CONNECT_NAME "pc\\main_menu\\multiplayer_type_select\\join_game\\connect\\connect_screen"
-/* milliseconds: a host not reached in this long is given up */
+/* milliseconds: a host not reached in this long is given up; this long
+while relays are being tried for it (p2p_relay.c: they start a few
+seconds in) */
 #define CONNECT_TIMEOUT 10000
+#define CONNECT_RELAY_TIMEOUT 20000
+#define CONNECT_TIMED_OUT(status, elapsed) \
+	((elapsed) > ((status)->relaying ? CONNECT_RELAY_TIMEOUT : CONNECT_TIMEOUT))
 #define CONNECT_HEADLINE_LENGTH 32
 #define CONNECT_DETAIL_LENGTH 160
 #define CONNECT_LINE_LENGTH 64
@@ -6858,11 +8099,25 @@ static struct
 	wchar_t detail[CONNECT_DETAIL_LENGTH];
 } connect_dialog;
 
+/* whether the server browser's join has run past its time (longer while
+relays are tried) */
+static boolean lobby_browser_join_timed_out(unsigned long elapsed)
+{
+	struct p2p_join_status status;
+
+	if (elapsed <= CONNECT_TIMEOUT)
+		return FALSE;
+	p2p_join_status(&status);
+	return CONNECT_TIMED_OUT(&status, elapsed);
+}
+
 /* the step a join is at, for the box and the server browser's line */
 static void connect_stage_text(struct p2p_join_status const *status, wchar_t *text, short length)
 {
 	if (status->stage == _p2p_join_reached)
-		usnprintf(text, length - 1, L"Joining...");
+		usnprintf(text, length - 1, status->relayed ? L"Connected through a relay.\r\nJoining..." : L"Joining...");
+	else if (status->stage == _p2p_join_opening && status->relaying)
+		usnprintf(text, length - 1, L"Trying a relay...\r\n(try %d)", status->tries + 1);
 	else if (status->stage == _p2p_join_opening)
 		usnprintf(text, length - 1, L"Opening a path to the host...\r\n(try %d)", status->tries + 1);
 	else
@@ -6972,7 +8227,7 @@ static void connect_update(struct widget_instance *screen)
 			connect_dialog.proceed = TRUE;
 			ui_widget_port_post_button(connect_dialog.controller, BUTTON_A);
 		}
-		else if (status.stage == _p2p_join_idle || now - connect_dialog.start_time > CONNECT_TIMEOUT)
+		else if (status.stage == _p2p_join_idle || CONNECT_TIMED_OUT(&status, now - connect_dialog.start_time))
 		{
 			char name[P2P_LISTING_NAME_SIZE + 1];
 			wchar_t line[CONNECT_LINE_LENGTH];
@@ -7144,8 +8399,16 @@ static short lobby_browser_favorites(short count)
 		entries[index].dedicated = game->dedicated != 0;
 		settings_wide_copy(entries[index].mode, game_kind_name(game->engine_type, game->kind, FALSE),
 			BROWSER_MODE_LENGTH);
+		entries[index].maximum_players = game->maximum_player_count;
+		entries[index].engine_type = (short)game->engine_type;
+		entries[index].locked = game->locked != 0;
+		/* (the map's name as shown, for the words searched for alone) */
+		entries[index].map_shown[0] = 0;
+		if (browser_filters.search[0])
+			map_display_name(game->map, entries[index].map_shown);
 	}
 	browser_favorites_match(favorites, count, favorite_of, "net:");
+	browser_filtering = TRUE;
 	listed = browser_favorites_order(favorite_of, entries, count, order);
 	for (index = 0; index < listed; index++)
 		ordered[index] = lobby_browser.games[order[index]];
@@ -7323,7 +8586,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			lobby_browser.ready_time = now;
 			ui_widget_port_post_button(lobby_browser.controller, BUTTON_A);
 		}
-		else if (now - lobby_browser.join_time > CONNECT_TIMEOUT)
+		else if (lobby_browser_join_timed_out(now - lobby_browser.join_time))
 		{
 			struct p2p_join_status status;
 			wchar_t headline[CONNECT_HEADLINE_LENGTH], detail[CONNECT_DETAIL_LENGTH];
@@ -7400,7 +8663,7 @@ static void lobby_browser_update(struct widget_instance *list)
 			players += lobby_browser.games[index].player_count;
 		browser_empty_text(multiplayer.mode, browser_tab, config_boolean("network.online"),
 			config_boolean("network.public_lobby"), now - lobby_browser.begin_time < LOBBY_BROWSER_LOOK_TIME,
-			p2p_lobby_newer_games(), text, NUMBEROF(text));
+			p2p_lobby_newer_games(), browser_filtered_count, text, NUMBEROF(text));
 		browser_header_show(list, lobby_browser.count, players, rows, text);
 	}
 	browser_focus(list, browser_chosen_row());
@@ -7614,9 +8877,17 @@ static short local_browser_favorites(struct widget_instance *list)
 		entries[index].dedicated = advertised_dedicated(game);
 		settings_wide_copy(entries[index].mode, game_kind_name(game->engine_type, favorites[index].kind, FALSE),
 			BROWSER_MODE_LENGTH);
+		entries[index].maximum_players = game->maximum_player_count;
+		entries[index].engine_type = (short)game->engine_type;
+		entries[index].locked = FALSE;
+		entries[index].map_shown[0] = 0;
+		if (browser_filters.search[0])
+			game_map_name(game, entries[index].map_shown);
 	}
 	browser_favorites_match(favorites, multiplayer.game_count, favorite_of,
 		multiplayer.mode == _multiplayer_mode_lan ? "lan:" : NULL);
+	/* (Join by Link's games are the invites taken: never hidden) */
+	browser_filtering = multiplayer.mode != _multiplayer_mode_direct_link;
 	multiplayer.game_count = browser_favorites_order(favorite_of, entries, multiplayer.game_count, order);
 	for (index = 0; index < multiplayer.game_count; index++)
 		multiplayer.games[index] = games[order[index]];
@@ -7722,7 +8993,8 @@ static void browser_update(struct widget_instance *list)
 		multiplayer.mode == _multiplayer_mode_direct_link ? L"JOIN BY LINK" : L"LOCAL NETWORK", text);
 	for (index = 0; index < multiplayer.game_count; index++)
 		players += multiplayer.games[index]->player_count;
-	browser_empty_text(multiplayer.mode, browser_tab, TRUE, TRUE, FALSE, 0, text, NUMBEROF(text));
+	browser_empty_text(multiplayer.mode, browser_tab, TRUE, TRUE, FALSE, 0, browser_filtered_count, text,
+		NUMBEROF(text));
 	browser_header_show(list, multiplayer.game_count, players, rows, text);
 	browser_focus(list, browser_chosen_row());
 }
@@ -7746,7 +9018,7 @@ enum
 	_multiplayer_item_create_local,
 	_multiplayer_item_online_coop,
 	_multiplayer_item_split_screen_coop,
-	_multiplayer_item_bots,
+	_multiplayer_item_offline,
 	_multiplayer_item_gametypes,
 	/* (CREATE GAME's and CO-OP CAMPAIGN's, which open their pages) */
 	_multiplayer_item_create,
@@ -7771,11 +9043,11 @@ static struct
 	{ "hub_join_lan_item", _multiplayer_item_join_local },
 	{ "hub_join_direct", _multiplayer_item_join_link },
 	{ "hub_create", _multiplayer_item_create },
-	{ "hub_create_bots", _multiplayer_item_bots },
 	{ "hub_coop", _multiplayer_item_coop },
 	{ "hub_gametypes", _multiplayer_item_gametypes },
 	{ "hub_create_inter", _multiplayer_item_create_internet },
 	{ "hub_create_lan_item", _multiplayer_item_create_local },
+	{ "hub_create_offline", _multiplayer_item_offline },
 	{ "hub_online_coop", _multiplayer_item_online_coop },
 	{ "hub_split_coop", _multiplayer_item_split_screen_coop },
 	{ "hub_party", _multiplayer_item_party },
@@ -7801,6 +9073,9 @@ static struct
 	unsigned long read_time;
 	short games, players;
 	boolean invite;
+	/* the campaign's next level for player 1's profile, else NONE (read
+	from the profile's file with the rest, not each frame) */
+	short next_level;
 } multiplayer_status;
 
 /* "port multiplayer status end" (the menu's deleted): its looking stopped
@@ -7816,6 +9091,22 @@ static void multiplayer_status_end(void)
 static boolean multiplayer_status_online(void)
 {
 	return config_boolean("network.online") && config_boolean("network.public_lobby");
+}
+
+/* the campaign's next level for player 1's profile (the one after the last
+it finished), else NONE: without changing the profile chosen */
+static short multiplayer_status_next_level(void)
+{
+	struct player_profile profile;
+	long profile_index = player_ui_get_active_player_profile_index(0);
+	short level, difficulty;
+
+	if (profile_index == NONE)
+		profile_index = player_ui_get_player1_last_used_profile_index();
+	if (profile_index == NONE || !player_profile_get(profile_index, &profile))
+		return NONE;
+	player_profile_get_highest_completed_solo_level(&profile, &level, &difficulty);
+	return (short)PIN(level + 1, 0, NUMBER_OF_SINGLE_PLAYER_LEVELS - 1);
 }
 
 static void multiplayer_status_read(void)
@@ -7844,27 +9135,12 @@ static void multiplayer_status_read(void)
 			multiplayer_status.players = (short)(multiplayer_status.players + lobby_browser.games[index].player_count);
 	}
 	multiplayer_status.invite = platform_clipboard_has_invite() != 0;
-}
-
-/* the campaign's next level for player 1's profile (the one after the last
-it finished), else NONE: without changing the profile chosen */
-static short multiplayer_status_next_level(void)
-{
-	struct player_profile profile;
-	long profile_index = player_ui_get_active_player_profile_index(0);
-	short level, difficulty;
-
-	if (profile_index == NONE)
-		profile_index = player_ui_get_player1_last_used_profile_index();
-	if (profile_index == NONE || !player_profile_get(profile_index, &profile))
-		return NONE;
-	player_profile_get_highest_completed_solo_level(&profile, &level, &difficulty);
-	return (short)PIN(level + 1, 0, NUMBER_OF_SINGLE_PLAYER_LEVELS - 1);
+	multiplayer_status.next_level = multiplayer_status_next_level();
 }
 
 /* the width of a digit of the counts (port_settings.DIGIT_SIZE), and how
 many places a count has */
-#define MULTIPLAYER_STATUS_DIGIT_WIDTH 24
+#define MULTIPLAYER_STATUS_DIGIT_WIDTH 26
 #define MULTIPLAYER_STATUS_DIGIT_PLACES 3
 #define MULTIPLAYER_STATUS_BEST_GAMES 3
 
@@ -8177,11 +9453,11 @@ static void multiplayer_status_update(struct widget_instance *list)
 				L"Some players can't reach\r\nyou. Hosting on another\r\nnetwork may help." :
 				L"Some players can't reach\r\nyou. Turn on OPEN ROUTER\r\nPORT in Settings, Online.");
 		}
-		else if (item == _multiplayer_item_online_coop && multiplayer_status_next_level() != NONE)
+		else if (item == _multiplayer_item_online_coop && multiplayer_status.next_level != NONE)
 		{
 			wchar_t level[ROW_TEXT_LENGTH];
 
-			string_get("pc\\main_menu\\map_list", multiplayer_status_next_level(), level);
+			string_get("pc\\main_menu\\map_list", multiplayer_status.next_level, level);
 			usnprintf(headline, NUMBEROF(headline) - 1, L"NEXT LEVEL");
 			usnprintf(detail, NUMBEROF(detail) - 1, L"%s", level);
 		}
@@ -8196,11 +9472,11 @@ static void multiplayer_status_update(struct widget_instance *list)
 		usnprintf(detail, NUMBEROF(detail) - 1, L"Players on this network\r\nsee it in LOCAL NETWORK.");
 		break;
 	case _multiplayer_item_split_screen_coop:
-		if (multiplayer_status_next_level() != NONE)
+		if (multiplayer_status.next_level != NONE)
 		{
 			wchar_t level[ROW_TEXT_LENGTH];
 
-			string_get("pc\\main_menu\\map_list", multiplayer_status_next_level(), level);
+			string_get("pc\\main_menu\\map_list", multiplayer_status.next_level, level);
 			usnprintf(headline, NUMBEROF(headline) - 1, L"NEXT LEVEL");
 			usnprintf(detail, NUMBEROF(detail) - 1, L"%s", level);
 		}
@@ -8224,9 +9500,9 @@ static void multiplayer_status_update(struct widget_instance *list)
 	case _multiplayer_item_friends:
 		friends_hub_status(headline, NUMBEROF(headline), detail, NUMBEROF(detail));
 		break;
-	case _multiplayer_item_bots:
-		usnprintf(headline, NUMBEROF(headline) - 1, L"BOTS ON THIS COMPUTER");
-		usnprintf(detail, NUMBEROF(detail) - 1, L"Slayer, SWAT, Infection and\r\nGun Game. Set them up in\r\nServer Setup.");
+	case _multiplayer_item_offline:
+		usnprintf(headline, NUMBEROF(headline) - 1, L"THIS COMPUTER ONLY");
+		usnprintf(detail, NUMBEROF(detail) - 1, L"No network. Add bots in\r\nthe lobby; friends join\r\nwith a controller.");
 		break;
 	case _multiplayer_item_gametypes:
 	{
@@ -8340,7 +9616,7 @@ static boolean browser_click_on_star(struct widget_instance *row)
 
 	if (!star || !ui_widget_port_take_click(&x, &y))
 		return FALSE;
-	left = settings_slider_track_x(star);
+	left = widget_screen_x(star);
 	/* (a little wider than the star, for a finger) */
 	return x >= left - 4 && x < left + 20;
 }
@@ -8426,6 +9702,111 @@ static boolean profile_save_changes(struct widget_instance *widget, boolean *wid
 	ui_widget_port_go_back(widget);
 	*widget_deleted = TRUE;
 	return TRUE;
+}
+
+/* ---------- Basic Training's chapters (port/linux/game/basic_training.c;
+tools/port_settings.py's _training): the main menu's VR TUTORIAL, the
+pause menu's CHAPTERS */
+
+/* the chapter of a row (op_chapter_1 is chapter 0), or of the widget in
+one; NONE */
+static short training_row_chapter(struct widget_instance *widget)
+{
+	for (; widget; widget = widget->parent)
+	{
+		if (!strncmp(widget->name, "op_chapter_", 11))
+			return (short)(atoi(widget->name + 11) - 1);
+	}
+	return NONE;
+}
+
+/* "port training chapter" (A on a row): the chapter played (from the main
+menu, a training game started at it; in one, jumped to); a chapter not made
+yet fails */
+static boolean training_chapter_choose(struct widget_instance *widget)
+{
+	short chapter = training_row_chapter(widget);
+
+	return chapter != NONE && basic_training_choose(chapter);
+}
+
+/* a narrow text as the menus' (Latin-1) */
+static void training_wide(char const *text, wchar_t *wide, short length)
+{
+	short index;
+
+	for (index = 0; index < length - 1 && text[index]; index++)
+		wide[index] = (wchar_t)(unsigned char)text[index];
+	wide[index] = 0;
+}
+
+/* "port training update": each row's number and name, DONE for a chapter
+finished, SOON for one not made yet (dimmed); the chapter chosen's name and
+what it is about in the frame */
+static void training_update(struct widget_instance *list)
+{
+	struct widget_instance *row;
+	struct widget_instance *details = list->parameters.list.extended_description;
+	short chosen = training_row_chapter(list->focused_child);
+
+	for (row = list->child; row; row = row->next)
+	{
+		short chapter = training_row_chapter(row);
+		wchar_t text[ROW_TEXT_LENGTH];
+		char narrow[ROW_TEXT_LENGTH];
+
+		if (chapter == NONE || strncmp(row->name, "op_chapter_", 11))
+			continue;
+		row->animation.current_frame_index = row == list->focused_child ? 1 : 0;
+		snprintf(narrow, sizeof(narrow), "%d   %s", chapter, basic_training_chapter_name(chapter));
+		training_wide(narrow, text, (short)NUMBEROF(text));
+		text_set(named(row, "chapter_name", 0), text);
+		text_set(named(row, "chapter_state", 0), !basic_training_chapter_ready(chapter) ? L"SOON" :
+			basic_training_chapter_finished(chapter) ? L"DONE" : L"");
+	}
+	if (details && chosen != NONE)
+	{
+		wchar_t text[SETTINGS_PANEL_TEXT_LENGTH];
+
+		training_wide(basic_training_chapter_name(chosen), text, (short)NUMBEROF(text));
+		menu_text_box_wrap(named(details, "chapter_details_name", 0), text, 2);
+		/* (each of its lines wrapped to the box, a blank line between) */
+		{
+			struct widget_instance *box = named(details, "chapter_details_text", 0);
+			char const *about = basic_training_chapter_about(chosen);
+			wchar_t all[SETTINGS_PANEL_TEXT_LENGTH];
+			short width, used = 0;
+			long font = ui_widget_port_text_box_font(box, &width);
+
+			all[0] = 0;
+			while (*about && used < (short)NUMBEROF(all) - 8)
+			{
+				char line[SETTINGS_PANEL_TEXT_LENGTH];
+				char const *end = strchr(about, '\n');
+				size_t count = end ? (size_t)(end - about) : strlen(about);
+				wchar_t wrapped[SETTINGS_PANEL_TEXT_LENGTH];
+				short index;
+
+				snprintf(line, sizeof(line), "%.*s", (int)count, about);
+				training_wide(line, text, (short)NUMBEROF(text));
+				settings_text_wrap(text, wrapped, (short)NUMBEROF(wrapped), font, width);
+				if (used)
+				{
+					all[used++] = '\r';
+					all[used++] = '\n';
+					all[used++] = '\r';
+					all[used++] = '\n';
+				}
+				for (index = 0; wrapped[index] && used < (short)NUMBEROF(all) - 1; index++)
+					all[used++] = wrapped[index];
+				all[used] = 0;
+				about += count;
+				if (*about == '\n')
+					about++;
+			}
+			text_set_length(box, all, (short)NUMBEROF(all));
+		}
+	}
 }
 
 /* "port pause end game" (the in-game pause menu's END GAME, the host's:
@@ -8670,9 +10051,10 @@ static void lobby_map_show(struct widget_instance *description, char const *map_
 	short level = campaign_level_of(map_name);
 	struct widget_instance *widget;
 
+	/* (by the scenario's own name: a map vote's choices name only that) */
 	for (index = 0; index < count; index++)
 	{
-		if (!_stricmp(names[index], map_name))
+		if (!_stricmp(scenario_name(names[index]), scenario_name(map_name)))
 			map = index;
 	}
 	/* (a Custom Edition map's picture and name, multiplayer or campaign, by
@@ -8695,6 +10077,144 @@ static void lobby_map_show(struct widget_instance *description, char const *map_
 		widget->animation.current_frame_index = level;
 	if ((widget = named(description, "replay_level_right_name", 0)) != NULL)
 		widget->parameters.text_box.string_list_index = level;
+}
+
+/* ---- a dedicated server's map vote (network_map_vote.c, OpenCE's screen):
+the lobby opens its screen as a vote begins (a posted Y: the lobby's Y opens
+it again while the vote runs, and copies the invite otherwise), the choices a
+row each with their votes, the focused one's map and the time left at the
+right; A votes (again, for another). Once the vote is over it shows the
+winner a moment, and goes back to the lobby */
+
+/* the winner shown this long before the screen goes back */
+#define MAP_VOTE_WINNER_MILLISECONDS 3000
+
+static struct
+{
+	/* the vote whose screen the lobby opened, and the one it closed for */
+	short opened_round;
+	short closed_round;
+	/* when the winner was first shown (0: not yet) */
+	unsigned long winner_at;
+	short winner_round;
+	struct network_map_vote_status status;
+} map_vote_screen = { -1, -1 };
+
+/* (the lobby's update: lobby_board_update) a vote begun since: its screen
+opened */
+static void map_vote_lobby_check(void)
+{
+	struct network_map_vote_status status;
+
+	if (network_map_vote_status_get(&status) && status.winner == NONE && status.round != map_vote_screen.opened_round)
+	{
+		map_vote_screen.opened_round = status.round;
+		ui_widget_port_post_button(0, BUTTON_Y);
+	}
+}
+
+/* "port map vote open" (the lobby's Y): only while a vote runs */
+static boolean map_vote_open(void)
+{
+	struct network_map_vote_status status;
+
+	return network_map_vote_status_get(&status) && status.winner == NONE;
+}
+
+/* "port map vote choose" (a row's A) */
+static boolean map_vote_choose(struct widget_instance *widget)
+{
+	if (!network_map_vote_choose(sibling_index(widget)))
+		return campaign_fail();
+	return TRUE;
+}
+
+/* a choice's gametype, upper case */
+static void map_vote_gametype(short row, wchar_t *gametype)
+{
+	struct network_map_vote_status const *status = &map_vote_screen.status;
+	short index;
+
+	for (index = 0; status->gametypes[row][index] && index < NETWORK_MAP_VOTE_GAMETYPE_SIZE - 1; index++)
+	{
+		char character = status->gametypes[row][index];
+
+		gametype[index] = (wchar_t)(unsigned char)(character >= 'a' && character <= 'z' ? character - 'a' + 'A' :
+			character);
+	}
+	gametype[index] = 0;
+}
+
+static void map_vote_row_text(short row, wchar_t *text)
+{
+	struct network_map_vote_status const *status = &map_vote_screen.status;
+	wchar_t map[ROW_TEXT_LENGTH];
+	wchar_t gametype[NETWORK_MAP_VOTE_GAMETYPE_SIZE];
+
+	map_display_name(status->map_names[row], map);
+	map_vote_gametype(row, gametype);
+	usnprintf(text, ROW_TEXT_LENGTH - 1, L"%s%s  %s  (%d)", row == status->chosen ? L"* " : L"", map, gametype,
+		status->votes[row]);
+	text[ROW_TEXT_LENGTH - 1] = 0;
+}
+
+/* "port map vote update" */
+static void map_vote_update(struct widget_instance *list)
+{
+	struct widget_instance *description = list->parameters.list.extended_description;
+	struct network_map_vote_status *status = &map_vote_screen.status;
+	wchar_t text[LOBBY_TEXT_LENGTH];
+	wchar_t name[ROW_TEXT_LENGTH];
+	short row;
+	boolean heard = network_map_vote_status_get(status);
+	unsigned long now = system_milliseconds();
+
+	/* (no vote, or its winner shown long enough: back to the lobby, once) */
+	if (heard && status->winner != NONE && map_vote_screen.winner_round != status->round)
+	{
+		map_vote_screen.winner_round = status->round;
+		map_vote_screen.winner_at = now;
+	}
+	if (!heard || (status->winner != NONE && now - map_vote_screen.winner_at >= MAP_VOTE_WINNER_MILLISECONDS))
+	{
+		if (map_vote_screen.closed_round != (heard ? status->round : map_vote_screen.opened_round))
+		{
+			map_vote_screen.closed_round = heard ? status->round : map_vote_screen.opened_round;
+			ui_widget_port_post_button(0, BUTTON_B);
+		}
+		if (!heard)
+		{
+			rows_update(list, 0, map_vote_row_text);
+			visible_set(named(description, "lobby_right_item", 0), FALSE);
+			return;
+		}
+	}
+	rows_update(list, status->count, map_vote_row_text);
+	row = focused_row(list);
+	if (status->winner != NONE)
+		row = status->winner;
+	else if (row == NONE || row >= status->count)
+		row = status->chosen != NONE ? status->chosen : 0;
+	visible_set(named(description, "lobby_right_item", 0), TRUE);
+	lobby_map_show(description, status->map_names[row]);
+	if (status->winner != NONE)
+	{
+		map_display_name(status->map_names[status->winner], name);
+		usnprintf(text, NUMBEROF(text) - 1, L"Next game:\r\n%s\r\n%d vote%s", name, status->votes[status->winner],
+			status->votes[status->winner] == 1 ? L"" : L"s");
+	}
+	else
+	{
+		wchar_t gametype[NETWORK_MAP_VOTE_GAMETYPE_SIZE];
+
+		map_vote_gametype(row, gametype);
+		usnprintf(text, NUMBEROF(text) - 1, L"%s\r\n%d vote%s\r\n\r\n%d s left\r\n\r\n%s", gametype,
+			status->votes[row], status->votes[row] == 1 ? L"" : L"s", status->seconds_left,
+			status->chosen == NONE ? L"A: vote" : row == status->chosen ? L"Your vote" : L"A: change vote");
+	}
+	text[NUMBEROF(text) - 1] = 0;
+	text_set_length(named(description, "lobby_game_data", 0), text, LOBBY_TEXT_LENGTH);
+	profile_name_show(description);
 }
 
 /* the lobby's rows' texts as last updated, and their players' machines,
@@ -9117,15 +10637,6 @@ static struct gametype_option const gametype_options[] =
 	{ "map_share_spinner", _option_setting, 0, 0, 2, { 0 }, "network.map_share", { "true", "false" } },
 	{ "map_share_upload_spinner", _option_setting, 0, 0, 8, { 0 }, "network.map_share_upload",
 		{ "256", "512", "1024", "2048", "4096", "8192", "16384", "20480" } },
-	/* a network game's bots (Server Setup's BOTS: tools/port_settings.py's
-	BOT_SETUP; bots.c) */
-	{ "bot_count_spinner", _option_setting, 0, 0, 16, { 0 }, "bots.count",
-		{ "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15" } },
-	{ "bot_skill_spinner", _option_setting, 0, 0, 4, { 0 }, "bots.skill", { "easy", "normal", "heroic", "legendary" } },
-	{ "bot_teams_spinner", _option_setting, 0, 0, 2, { 0 }, "bots.teams", { "even", "against" } },
-	{ "bot_make_room_spinner", _option_setting, 0, 0, 2, { 0 }, "bots.make_room", { "true", "false" } },
-	{ "bot_fill_to_spinner", _option_setting, 0, 0, 15, { 0 }, "bots.fill_to",
-		{ "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16" } },
 	/* vehicle options (the side's set and counts: vehicles_update) */
 	{ "vehicles_respawn_spinner", _option_short, OPTIONS_FIELD(vehicle_respawn_time), 0, 7,
 		{ 0, 30, 60, 90, 120, 180, 300 } },
@@ -9705,12 +11216,6 @@ static void gametype_option_help(struct widget_instance *list)
 			}
 		}
 	}
-	/* (BOTS' FILL TO with MAKE ROOM on alone: its row last) */
-	if (named(list, "bot_make_room_spinner", 0))
-	{
-		visible_set(named(list, "op_bot_fill_to", 0),
-			named(list, "bot_make_room_spinner", 0)->parameters.list.selected_index == 0);
-	}
 	/* CO-OP OPTIONS: enemies, pickups and vehicles share the amount rows.
 	Mixed modes may need both rows at once. */
 	if (named(list, "coop_extra_enemies_spinner", 0))
@@ -9828,6 +11333,8 @@ static void gametype_engine_name(struct widget_instance *text_box)
 #include "matchmaking_menu.inc"
 #include "friends_menu.inc"
 #include "lobby_menu.inc"
+/* (the campaign's screens: the Campaign menu, Choose Mission, Choose Difficulty) */
+#include "campaign_menu.inc"
 
 /* ---------- Host Controls: the pause menu's HOST CONTROLS, the host's */
 
@@ -9865,6 +11372,10 @@ boolean pc_menu_event_function_invoke(
 
 		if (!name)
 			return FALSE;
+		if (!strncmp(name, "port controller ", 16))
+			return pad_editor_event(widget, name);
+		if (!strncmp(name, "port campaign ", 14))
+			return campaign_menu_event(widget, name + 14, controller);
 		if (!strcmp(name, "main menu quit game"))
 		{
 			platform_request_quit();
@@ -9957,6 +11468,14 @@ boolean pc_menu_event_function_invoke(
 		{
 			return browser_refresh(widget, controller, widget_deleted);
 		}
+		else if (!strcmp(name, "port browser filters"))
+		{
+			return browser_filters_open();
+		}
+		else if (!strcmp(name, "port browser search"))
+		{
+			return browser_search_edit(widget);
+		}
 		else if (!strcmp(name, "gamespy back handler") && text_field_editing(NULL))
 		{
 			text_field_end(FALSE);
@@ -10035,6 +11554,14 @@ boolean pc_menu_event_function_invoke(
 			&result))
 		{
 			return result;
+		}
+		else if (!strcmp(name, "port discord link"))
+		{
+			return discord_link(widget);
+		}
+		else if (!strcmp(name, "port discord unlink"))
+		{
+			return discord_unlink();
 		}
 		else if (!strcmp(name, "direct ip connect go"))
 		{
@@ -10123,6 +11650,9 @@ boolean pc_menu_event_function_invoke(
 		{
 			settings_each(screen_of(widget), setting_default_show);
 			settings_sliders_default(screen_of(widget));
+			browser_search_default(screen_of(widget));
+			pad_editor_defaults(screen_of(widget));
+			controls_page_defaults(screen_of(widget));
 		}
 		else if (!strncmp(name, "port slider ", 12))
 		{
@@ -10143,6 +11673,14 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port mods save"))
 		{
 			return mods_save();
+		}
+		else if (!strcmp(name, "port training chapter"))
+		{
+			return training_chapter_choose(widget);
+		}
+		else if (!strcmp(name, "port training open"))
+		{
+			/* (the pause menu's CHAPTERS: its screen opened by the button) */
 		}
 		else if (!strcmp(name, "port update now"))
 		{
@@ -10231,6 +11769,10 @@ boolean pc_menu_event_function_invoke(
 		{
 			return lobby_board_start();
 		}
+		else if (!strcmp(name, "port lobby bots load"))
+		{
+			return lobby_board_bots_load(widget);
+		}
 		else if (!strcmp(name, "port lobby invite"))
 		{
 			return lobby_board_invite_copy();
@@ -10262,6 +11804,14 @@ boolean pc_menu_event_function_invoke(
 		else if (!strcmp(name, "port lobby open"))
 		{
 			return lobby_join_reset();
+		}
+		else if (!strcmp(name, "port map vote open"))
+		{
+			return map_vote_open();
+		}
+		else if (!strcmp(name, "port map vote choose"))
+		{
+			return map_vote_choose(widget);
 		}
 		else if (!strcmp(name, "port lobby add player"))
 		{
@@ -10384,7 +11934,9 @@ void pc_menu_game_data_function_invoke(
 	/* (a text field whose screen has gone: let go of) */
 	if (text_field.row && system_milliseconds() - text_field_shown_time > 500)
 		text_field_end(FALSE);
-	if (!strcmp(name, "solo map list update"))
+	if (!strncmp(name, "port campaign ", 14))
+		campaign_menu_update(widget, name + 14);
+	else if (!strcmp(name, "solo map list update"))
 		level_list_update(widget);
 	else if (!strcmp(name, "mp map list update"))
 		map_list_update(widget);
@@ -10410,6 +11962,8 @@ void pc_menu_game_data_function_invoke(
 		preview_update(widget);
 	else if (!strcmp(name, "port lobby board update"))
 		lobby_board_update(widget);
+	else if (!strcmp(name, "port map vote update"))
+		map_vote_update(widget);
 	else if (!strcmp(name, "port settings help"))
 	{
 		sim_rate_row_show(widget);
@@ -10421,6 +11975,8 @@ void pc_menu_game_data_function_invoke(
 		controls_update(widget);
 	else if (!strcmp(name, "port mods update"))
 		mods_update(widget);
+	else if (!strcmp(name, "port training update"))
+		training_update(widget);
 	else if (!strcmp(name, "port update question"))
 		update_question_note(widget);
 	else if (!strcmp(name, "port connect update"))

@@ -13,10 +13,14 @@ in unit_control, and the bursts it holds the trigger for) and sends it to
 each client with the unit's state: position, seat, shields and health,
 camouflage, and whether it flees in a panic. Units near a client's players
 are sent every tick, others less often, but a unit starting a one-tick
-action (a jump, a grenade) goes to everyone that tick. Each tick a client
-feeds the latest control into unit_control, the same path that drives a
-remote player's unit, so the unit walks, aims, fires and throws as it does
-on the host. The state corrects any drift.
+action (a jump, a grenade) goes to everyone that tick. In an OpenH1 game a
+unit whose control makes a press (a trigger pulled or let go, a start, a
+stop, a sharp turn) goes to every OpenH1 client that tick too, and a unit
+aiming at a client's player, or that player's aim on it, goes to that
+client every tick. Each tick a client feeds the latest control into
+unit_control, the same path that drives a remote player's unit, so the unit
+walks, aims, fires and throws as it does on the host. The state corrects
+any drift.
 
 What the AI starts once is numbered, so a client plays each once however
 many times it receives it: animation impulses (dives, vaults), melee
@@ -43,6 +47,7 @@ an AI unit the same way it kills a player's.
 #include "units/unit_control_data.h"
 #include "network_coop.h"
 #include "network_distributed.h"
+#include "network_standard.h"
 
 #include <math.h>
 
@@ -78,6 +83,13 @@ enum
 	ONE_SHOT_CONTROL_FLAGS = FLAG(_unit_control_jump_bit) | FLAG(_unit_control_action_bit) |
 		FLAG(_unit_control_weapon_reload_bit) | FLAG(_unit_control_throw_grenade_bit) |
 		FLAG(_unit_control_swap_weapons_bit),
+
+	/* a press (actor_state_pressed): the trigger or a stick (of 255 and of
+	127) moved by a quarter of its reach, or the aim turned by 1/32 of a
+	turn (11 degrees, of the 65536 of the packed angles) */
+	PRESSED_TRIGGER_STEP = 64,
+	PRESSED_STICK_STEP = 32,
+	PRESSED_AIM_STEP = 2048,
 };
 
 /* struct distributed_actor_state flags */
@@ -171,6 +183,18 @@ struct distributed_actor_state_message
 	struct distributed_actor_state states[MAXIMUM_ENTRIES_PER_MESSAGE];
 };
 
+/* host: the control of the entry last sent to every client at once (an
+OpenH1 game's press is told against it) */
+struct actor_pressed
+{
+	boolean valid;
+	byte animation_state;
+	byte primary_trigger;
+	word control_flags;
+	signed char throttle[3];
+	short aiming[NUMBER_OF_ANGLES];
+};
+
 /* host: what an actor gave its unit this tick */
 struct host_actor
 {
@@ -182,6 +206,8 @@ struct host_actor
 	struct unit_control_data control;
 	/* the control flags of the last tick's entry */
 	word sent_control_flags;
+	/* the control last sent to every client at once */
+	struct actor_pressed pressed;
 	/* the latest impulse, how many more entries carry it, and its number */
 	short impulse;
 	short impulse_sends;
@@ -238,6 +264,12 @@ static byte host_event_number;
 static struct client_actor client_actors[MAXIMUM_NETWORK_ACTORS];
 static short client_actor_count;
 
+/* host: the bytes of actors' states sent since the tests last asked, and of
+those the entries an OpenH1 game's press or aim alone sent */
+static long actors_bytes_sent;
+static long actors_pressed_bytes_sent;
+static long actors_aimed_bytes_sent;
+
 /* ---------- private code */
 
 static void angles_pack(
@@ -258,6 +290,50 @@ static void angles_unpack(
 	vector->i = (real)(cos(pitch) * cos(yaw));
 	vector->j = (real)(cos(pitch) * sin(yaw));
 	vector->k = (real)sin(pitch);
+}
+
+/* the difference of two packed angles, the short way round */
+static long angle_difference(
+	short a,
+	short b)
+{
+	return ABS((long)(short)(word)((word)a - (word)b));
+}
+
+/* Host: whether an entry's control is a press against what every client
+was last sent (last): the control flags or the animation state changed, the
+trigger or a stick moved by a quarter of its reach, or the aim turned by
+PRESSED_AIM_STEP. Then last is the entry's. A steady turn or a stick's drift
+is no press until it adds up to one. */
+static boolean actor_state_pressed(
+	struct actor_pressed *last,
+	struct distributed_actor_state const *state)
+{
+	short index;
+	boolean pressed = !last->valid || last->control_flags != state->control_flags ||
+		last->animation_state != state->animation_state ||
+		ABS((long)last->primary_trigger - (long)state->primary_trigger) >= PRESSED_TRIGGER_STEP ||
+		(last->primary_trigger == 0) != (state->primary_trigger == 0);
+
+	for (index = 0; index < 3; index++)
+	{
+		if (ABS((long)last->throttle[index] - (long)state->throttle[index]) >= PRESSED_STICK_STEP)
+			pressed = TRUE;
+	}
+	for (index = 0; index < NUMBER_OF_ANGLES; index++)
+	{
+		if (angle_difference(last->aiming[index], state->aiming[index]) >= PRESSED_AIM_STEP)
+			pressed = TRUE;
+	}
+	if (!pressed)
+		return FALSE;
+	last->valid = TRUE;
+	last->animation_state = state->animation_state;
+	last->primary_trigger = state->primary_trigger;
+	last->control_flags = state->control_flags;
+	csmemcpy(last->throttle, state->throttle, sizeof(last->throttle));
+	csmemcpy(last->aiming, state->aiming, sizeof(last->aiming));
+	return TRUE;
 }
 
 /* host: the next event's number (never 0, which a client's new entry has
@@ -573,6 +649,22 @@ void network_actors_new_game(
 {
 	host_actor_count = 0;
 	client_actor_count = 0;
+	actors_bytes_sent = 0;
+	actors_pressed_bytes_sent = 0;
+	actors_aimed_bytes_sent = 0;
+}
+
+void network_actors_bytes_sent(
+	long *all,
+	long *pressed,
+	long *aimed)
+{
+	*all = actors_bytes_sent;
+	*pressed = actors_pressed_bytes_sent;
+	*aimed = actors_aimed_bytes_sent;
+	actors_bytes_sent = 0;
+	actors_pressed_bytes_sent = 0;
+	actors_aimed_bytes_sent = 0;
 }
 
 /* host: unit_control calls this when an actor drives its unit */
@@ -723,15 +815,29 @@ static void host_send_damage(
 Units near the client's players go every tick, others less often. A unit
 with a fresh impulse, action, speech or animation goes to everyone in each
 of the next IMPULSE_REPEAT_TICKS ticks, and one starting a one-tick action
-goes that tick. A unit no actor drove this tick is dropped from the table,
-unless it is fleeing: a unit running blindly moves by itself, without its
-actor's control, and dropped it stood running in place on the clients. */
+goes that tick. In an OpenH1 game a unit whose control made a press
+(actor_state_pressed) goes to every OpenH1 client that tick, and one aiming
+at an OpenH1 client's player, or that player's aim on it, goes to that client
+every tick: a far sniper's or a Banshee's shot leaves it where it is aimed
+as the host fires it, not some ticks later. A unit no actor drove this tick
+is dropped from the table, unless it is fleeing: a unit running blindly
+moves by itself, without its actor's control, and dropped it stood running
+in place on the clients. */
 void network_actors_host_tick(
 	void)
 {
 	static struct distributed_actor_state states[MAXIMUM_NETWORK_ACTORS];
-	/* sent to every client this tick, whatever its period */
-	static boolean urgent[MAXIMUM_NETWORK_ACTORS];
+	/* sent to every client this tick (_urgent_to_all), or every OpenH1
+	client (_urgent_pressed), whatever its period */
+	static byte urgent[MAXIMUM_NETWORK_ACTORS];
+	static real_vector3d aims[MAXIMUM_NETWORK_ACTORS];
+	enum
+	{
+		_urgent_none,
+		_urgent_to_all,
+		_urgent_pressed,
+	};
+	boolean openh1 = network_standard_hosting();
 	struct distributed_actor_state_message message;
 	long machine_indices[HALO_PORT_MAXIMUM_NETWORK_MACHINES];
 	short machine_count = distributed_client_machines(machine_indices, HALO_PORT_MAXIMUM_NETWORK_MACHINES);
@@ -753,7 +859,16 @@ void network_actors_host_tick(
 		actor_state_from_unit(actor, &states[state_count]);
 		urgent[state_count] = states[state_count].impulse != NO_IMPULSE || states[state_count].speech_sound != NONE ||
 			states[state_count].user_animation_graph != NONE ||
-			(states[state_count].control_flags & ~actor->sent_control_flags & ONE_SHOT_CONTROL_FLAGS) != 0;
+			(states[state_count].control_flags & ~actor->sent_control_flags & ONE_SHOT_CONTROL_FLAGS) != 0 ?
+			_urgent_to_all : _urgent_none;
+		/* (the press told against what went to every client, so one that
+		went to every client for its own reason is noted too) */
+		if (openh1 && actor_state_pressed(&actor->pressed, &states[state_count]) &&
+			urgent[state_count] == _urgent_none)
+		{
+			urgent[state_count] = _urgent_pressed;
+		}
+		aims[state_count] = actor->control.aiming_vector;
 		actor->sent_control_flags = states[state_count].control_flags;
 		state_count++;
 		actor->noted = FALSE;
@@ -768,6 +883,7 @@ void network_actors_host_tick(
 	for (machine_number = 0; machine_number < machine_count; machine_number++)
 	{
 		long machine_index = machine_indices[machine_number];
+		boolean machine_openh1 = openh1 && network_standard_machine_is_openh1(machine_index);
 		short count = 0;
 
 		for (index = 0; index < state_count; index++)
@@ -775,8 +891,20 @@ void network_actors_host_tick(
 			struct distributed_actor_state const *state = &states[index];
 			short period = network_objects_send_period(machine_index, &state->position);
 
-			if (!urgent[index] && (now + DATUM_INDEX_TO_ABSOLUTE_INDEX(state->unit_index)) % period != 0)
-				continue;
+			if (urgent[index] != _urgent_to_all && period > 1 &&
+				(now + DATUM_INDEX_TO_ABSOLUTE_INDEX(state->unit_index)) % period != 0)
+			{
+				if (machine_openh1 && urgent[index] == _urgent_pressed)
+					actors_pressed_bytes_sent += sizeof(*state);
+				else if (machine_openh1 &&
+					network_objects_aims_with_machine(machine_index, &state->position, &aims[index]))
+				{
+					actors_aimed_bytes_sent += sizeof(*state);
+				}
+				else
+					continue;
+			}
+			actors_bytes_sent += sizeof(*state);
 			message.states[count++] = *state;
 			if (count == MAXIMUM_ENTRIES_PER_MESSAGE || count == DATAGRAM_ENTRIES(struct distributed_actor_state))
 			{

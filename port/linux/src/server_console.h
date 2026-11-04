@@ -38,6 +38,8 @@ enum
 	_server_origin_standard_input,
 	_server_origin_web,
 	_server_origin_telnet,
+	/* an admin's Host Controls, in the game (network_admin.c) */
+	_server_origin_game,
 };
 
 /* reads the init file's lines (the first to be taken) */

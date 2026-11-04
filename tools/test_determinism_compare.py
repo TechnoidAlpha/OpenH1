@@ -58,6 +58,17 @@ def test_frames_and_takers(tmp_path):
     assert status == 0, out
 
 
+def test_game_after_a_lobby(tmp_path):
+    # (a network test's lobby, of a length the network sets, then its game from tick 1)
+    write_log(tmp_path / "a.txt", [(1, 10), (2, 11), (3, 12), (1, 20), (2, 21)])
+    write_log(tmp_path / "b.txt", [(1, 10), (2, 11), (1, 20), (2, 21)])
+    status, out = run(tmp_path / "a.txt", tmp_path / "b.txt")
+    assert status == 1
+    status, out = run(tmp_path / "a.txt", tmp_path / "b.txt", "--game")
+    assert status == 0, out
+    assert "2 ticks alike" in out
+
+
 def pool(blocks, magic):
     """an objects' memory pool with blocks of 0x200 bytes, each object's
     magic number given"""
@@ -114,3 +125,16 @@ def test_rates(tmp_path):
     assert status == 2 and "different rates (A 30 Hz, B 60 Hz" in out
     status, out = run(tmp_path / "30.txt", tmp_path / "60.txt", "--across-rates")
     assert status == 0 and "comparing across simulation rates" in out, out
+
+
+def test_asserts_noted(tmp_path):
+    # (the asserts line, before a tick's line, gives the run's totals by its end: a note, not a difference)
+    ticks = [(1, 10), (2, 11), (3, 12)]
+    write_log(tmp_path / "a.txt", ticks)
+    lines = (tmp_path / "a.txt").read_text().splitlines()
+    lines.insert(lines.index("t 2 g 00000001 l 00000002 h 0000000b"), "asserts 1 3")
+    (tmp_path / "b.txt").write_text("\n".join(lines) + "\n")
+    status, out = run(tmp_path / "a.txt", tmp_path / "b.txt")
+    assert status == 0, out
+    assert "note: B's run failed 1 assertions and 3 warnings, the first by tick 2" in out
+    assert "A's run" not in out

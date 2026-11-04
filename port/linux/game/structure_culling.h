@@ -84,6 +84,9 @@ long structure_culling_gather_pairings(long const *list, long list_count, boolea
 	short group_material, long surface_count, short const *surface_materials, long const *material_vertex_counts,
 	word const *surface_vertex_indices, struct structure_culling_pairing *pairings);
 void structure_culling_structure_bsp_loaded(void);
+/* the buckets of the map's structure_bsp_index'th bsp, just read where it
+loads (another loaded or none), built and kept for the switch to it */
+void structure_culling_structure_bsp_read(struct structure_bsp *structure, short structure_bsp_index);
 void structure_culling_dispose(void);
 void structure_culling_order_clusters(short *order, real const *distances, short count);
 boolean structure_culling_traverse(struct structure_bsp *structure);

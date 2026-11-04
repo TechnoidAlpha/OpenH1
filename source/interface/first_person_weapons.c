@@ -125,6 +125,7 @@ symbols in this file:
 #include "sound/sound_manager.h"
 #include "units/units.h"
 #include "view_fov.h" /* port: port/linux/game/view_fov.c */
+#include "lowered_reticle.h" /* port: port/linux/game/lowered_reticle.c */
 #include "shaders/shader_definitions.h" /* port: (the shield's flare on the arms) */
 #include "shaders/shaders.h"
 /* port: port/linux/game/shield_color.c */
@@ -1465,10 +1466,17 @@ static void first_person_weapon_build_node_matrices(
 	short local_player_index)
 {
 	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
+	/* port: posed along the aim, which is below the view's middle with
+	display.lowered_reticle (lowered_reticle.c): render.camera turned back
+	down to it, so the weapon points at the reticle and sways as the aim
+	turns; render.camera itself when the reticle is in the middle */
+	struct render_camera const *pose_camera= lowered_reticle_aim_camera(
+		local_player_index,
+		&render.camera);
 
 	if (!first_person_weapon->rendered)
 	{
-		euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &render.camera.forward);
+		euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);
 		first_person_weapon->render_position= render.camera.position;
 	}
 	/* The native ports draw several frames per tick. The turning sway
@@ -1484,9 +1492,9 @@ static void first_person_weapon_build_node_matrices(
 			last_render_ticks[local_player_index]= game_time_get();
 		}
 	}
-	euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &render.camera.forward);
+	euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);
 	first_person_weapon->render_position= render.camera.position;
-	first_person_weapon->render_forward= render.camera.forward;
+	first_person_weapon->render_forward= pose_camera->forward;
 	first_person_weapon->rendered= TRUE;
 
 	if (first_person_weapon->weapon_index!=NONE &&
@@ -1647,8 +1655,13 @@ static void first_person_weapon_build_node_matrices(
 							{
 								settle_fraction= 1.0f;
 							}
+							/* port: BUG (original): the needles the reload ends with
+							are the rounds loaded and the rounds left to load, not
+							those left alone: with fewer than a magazine left, the
+							needles went down to that many as the gun was raised, then
+							grew all at once to the full count as the reload ended */
 							predicted_frame_index= (short)MIN(
-								weapon->weapon.magazines[0].rounds_total,
+								weapon->weapon.magazines[0].rounds_loaded+weapon->weapon.magazines[0].rounds_total,
 								magazine_definition->rounds_loaded_maximum);
 							frame_index= (short)((predicted_frame_index-frame_index)*settle_fraction)+
 								frame_index;
@@ -1839,20 +1852,34 @@ static void first_person_weapon_build_node_matrices(
 			weapon_definition->weapon.interface_definition.first_person_animations.index,
 			first_person_weapon->node_matrices,
 			first_person_weapon->node_orientations,
-			&render.camera.position,
-			&render.camera.forward,
-			&render.camera.up);
+			&pose_camera->position,
+			&pose_camera->forward,
+			&pose_camera->up);
 		/* the pose between the last two ticks (render_interpolation.c) */
 		/* port: no more nodes than the weapon's matrices hold (a map's count) */
 		render_interpolation_first_person(
 			local_player_index,
 			first_person_weapon->node_matrices,
 			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),
-			&render.camera);
+			pose_camera);
 		/* port: the view as drawn (debug.trace, port/linux/game/sim_trace.c) */
 		SIM_TRACE(sim_trace_frame(local_player_index, &render.camera.position, &render.camera.forward,
 			&render.camera.up, first_person_weapon->node_matrices,
 			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION)));
+#ifndef HALO_VR
+		/* port: moved along the view's right, up and forward
+		(display.viewmodel_offset_x, _y and _z, view_fov.c), after the
+		interpolation, which keeps the pose at the camera: the weapon, the
+		hands and their markers together. Not the VR mode's, whose hands are
+		the controllers'. (The camera posed at: with a lowered reticle the
+		aim's right, up and forward) */
+		viewmodel_offset_apply(
+			local_player_index,
+			first_person_weapon->weapon_index,
+			first_person_weapon->node_matrices,
+			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),
+			pose_camera);
+#endif
 #ifdef HALO_VR
 		{
 			/* the VR mode: the hands and arms follow the controllers

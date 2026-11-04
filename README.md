@@ -95,6 +95,13 @@ problems. The [Releases](https://github.com/OpenH1/OpenH1/releases) page
 keeps the last five releases: if the latest build has a problem, get an
 older build there.
 
+Each release also has `SHA256SUMS`, the SHA-256 of each of its files, and
+`SHA256SUMS.sig`, that file's Ed25519 signature by OpenH1's release key,
+whose public key is [port/assets/release-key.pub](port/assets/release-key.pub)
+(the self-updaters check both). `sha256sum -c --ignore-missing SHA256SUMS`
+checks the downloads, and `python3 tools/release_sign.py verify SHA256SUMS`
+(OpenSSL 3) the signature.
+
 - **macOS:** open the `.dmg` and drag OpenH1 to Applications. The app
   is signed with a Developer ID and notarized by Apple, so it opens like any
   other downloaded app.
@@ -147,11 +154,31 @@ so players of the two versions can play together.
    file picker (a disc image next to `halo.exe` is used without one). The
    macOS app's open panel takes the disc image or the maps folder copied
    from the disc.
-3. The game extracts the `maps/` folder. Then the game starts.
+3. The game extracts the `maps/` folder, and the disc's movies (its `bink/`
+   folder, for the startup movies, `display.movies`) when the image has
+   them. Then the game starts.
+
+A game whose maps came from elsewhere, or from a version before the movies
+were extracted, copies them when Startup Movies (Settings > Video) is
+turned on, if the disc image the maps came from is still where it was.
+Otherwise put the disc's `bink/` folder (`intro.bik` and the rest) beside
+`maps/`.
 
 The `maps/` folder holds the Xbox maps only. If it holds Halo PC's maps
 instead (a Halo PC or Custom Edition install's `maps` folder), the game says
 so and stops: Custom Edition maps go in `custom_maps/`, beside `maps/`.
+
+The Halo PC multiplayer maps (Gearbox's among them) come from your own copy
+of Custom Edition's installer (`halocesetup_en_1.00.exe`): the first start
+offers to add them to `custom_maps/` on Linux, macOS and Windows, and a game
+that already has its maps adds them with `openh1 --import-maps
+<installer>` (`halo.exe` on Windows). They show in the map lists' CUSTOM
+MULTIPLAYER. The game reads the installer without running it, with
+ChupathingyCE's reader (their pull request
+[#313](https://github.com/ChupathingyCE/chupathingyce/pull/313), by
+Milenko). Halo PC's own CD has the same maps in a form OpenH1 does not play.
+Refer to "Custom Edition's maps from its installer" in
+[port/linux/README.md](port/linux/README.md).
 
 On Linux, the game puts `maps/` in the folder of the release (next to
 `bin/`). On Windows, the game puts `maps/` next to the executable. On
@@ -166,7 +193,7 @@ data folder. Refer to [port/android/README.md](port/android/README.md).
 Mods are folders of Halo PC tag files, as the Halo Editing Kit and Invader
 write them, in `mods/` next to `maps/`: texture, sound, text and model packs
 that play over the maps' on your machine only, in any game. Each has a
-`mod.toml`. Every mod in the folder is on; the main menu's Mods turns them
+`mod.toml`. Every mod in the folder is on; Settings > Profiles > Mods turns them
 off and on and sets the order they load in.
 Refer to [docs/mods.md](docs/mods.md).
 
@@ -247,6 +274,7 @@ Give these options to `configure.py`:
 | `--release` | A release build. The game does not examine assertions, as in the retail game. |
 | `--vr` | The VR mode (OpenXR) in the Linux build of the computer. Refer to "VR" in [port/linux/README.md](port/linux/README.md#vr). |
 | `--pgo=off` | No profile-guided optimization. |
+| `--pgo=generate` | A build that records a profile for profile-guided optimization. Refer to "Optimization profiles". |
 | `--profile` | A profiling build. It records CPU times. Refer to "Profiling builds". |
 | `--guest-llvm=system`, `--guest-llvm=FOLDER` | The guest builds (Linux arm64 and x86-64, Android, macOS, Windows) compile the guest with clang and the LLVM tools on the PATH, or with the LLVM in FOLDER, not with the pinned LLVM. Refer to "The guests' compiler". |
 | `--guest-llvm-cache FOLDER` | The folder for the pinned LLVM (else `~/.cache/openh1`, on macOS `~/Library/Caches/openh1`). |
@@ -280,18 +308,50 @@ with `--guest-llvm=system`.
 
 ### Optimization profiles
 
-The builds use profiles of the game to optimize the code:
+Every build uses one profile of the game to optimize the code:
+`pgo/halo_linux.profdata`. All the builds are guest builds (Linux, Android,
+macOS, iOS, Windows), and the profile is of the guest: the game and the
+platform layer. A function that has changed since the profile was recorded
+is compiled without it.
 
-- `pgo/halo_linux.profdata`, for every build (they are all guest builds:
-  Linux, Android, macOS, Windows).
+The profile needs clang 22 or later. With an older clang, the builds do not
+use it. The guest builds' pinned LLVM (refer to "The guests' compiler")
+reads it on all platforms. `--pgo-profile PROFDATA` uses another profile.
 
-The profiles need clang 22 or later. With an older clang, the builds do not
-use the profiles. The guest builds' pinned LLVM (refer to "The guests'
-compiler") reads them on all platforms.
+To record the profile again (after large changes to the game's hot code,
+or to how the compiler lays it out, as a change to inlining), use a guest
+build of your computer. On a Mac:
 
-The profile was recorded by the 32-bit Linux build, which is gone: the
-guest builds cannot record one yet, and use it as it is (code changed since
-then goes without).
+1. Enter `python configure.py --release --pgo=generate`, then
+   `ninja macos`. The guest is compiled with clang's instrumentation
+   (`-fprofile-generate`), and its own small profile runtime
+   (`port/android/guest/runtime/guest_profile.c`) writes the counters when
+   the game exits, to the file that `HALO_PGO_FILE` names. The
+   instrumented image is larger than the 64 MB that the host keeps for the
+   guest image, so this build (only this one: `HALO_PGO_GENERATE`) keeps
+   128 MB for it (`HALO_GUEST_IMAGE_RESERVE`).
+2. Enter `python tools/pgo_train.py --binary build/macos/halo --data
+   <game data>`. The tool plays three short system link games (a host with
+   bots and a joined client, both drawing in hidden windows) and the start
+   of a campaign level, silently, in approximately five minutes. Then it
+   merges the recordings into `pgo/halo_linux.profdata` with the pinned
+   LLVM's `llvm-profdata`. `--work FOLDER` keeps the runs' data roots and
+   logs out of `build/`, and `--output` writes the profile elsewhere.
+3. Configure the build again without `--pgo=generate` (for example
+   `python configure.py --release`), and build it.
+4. Compare the new profile with the old one before you commit it: build
+   `python configure.py --release --profile --pgo-profile <profile>` with
+   each, play the same game with each build (for example a local bot game
+   with a fixed frame time, `HALO_NETWORK_TEST=local:bloodgulch:slayer
+   HALO_BOTS=6 HALO_TEST_INPUT=bot:1 HALO_FRAME_TIME=0.0333333
+   HALO_PROFILE_RECORD=true HALO_PROFILE_RECORD_WHEN=game`), and compare
+   `game_tick` and `render` in `tools/net_report.py`'s summaries.
+
+On Linux, use `ninja linux_arm64` or `ninja linux_x86_64` and
+`build/linux_*/halo` with a display (a virtual one: Xvfb with
+`SDL_VIDEO_DRIVER=x11`). The profile was last recorded by the macOS
+build (`arm64_32`, as the Android, iOS and Linux arm64 builds are); the
+x86-64 builds use it too.
 
 ### Profiling builds
 
@@ -375,8 +435,8 @@ it calculates the game, needs `HALO_PORT_NETWORK_VERSION` and a
 players can still play together.
 
 Report problems on the [issue tracker](https://github.com/OpenH1/OpenH1/issues),
-with the build number (the main menu shows it) and `debug.txt`. For help,
-or to talk about a change before you make it, ask on the
+with the build number (Settings, Profile, About shows it) and `debug.txt`.
+For help, or to talk about a change before you make it, ask on the
 [Discord](https://discord.gg/MJa327PSWt): #help, and #dev-general.
 
 ## Licence

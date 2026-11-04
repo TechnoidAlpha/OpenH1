@@ -28,6 +28,15 @@ area (clear of the sensor housing and the rounded corners); its options are
 a panel of UIKit's; the layout file is exported to and imported from the
 app's Documents (touch-layout.txt, which the Files app shows); the phone's
 haptics stand in for Android's vibrator.
+
+The game runs on the main thread (host_sdl.c), whose run loop also takes
+the fingers, draws this view and commits its layers; so the view draws
+nothing per finger. Each control is a small layer of its own whose picture
+is drawn once for the look it has (pressed or not, the context's glow,
+the captions, the profile's names) and kept; a finger moving the stick
+moves the knob's layer, the idle fade is the layers' opacity, and the view
+itself has no backing store. The gyroscope's samples are taken on a queue
+of their own.
 */
 
 #import <CoreMotion/CoreMotion.h>
@@ -37,6 +46,8 @@ haptics stand in for Android's vibrator.
 
 #include <SDL3/SDL.h>
 #include <math.h>
+#include <stdatomic.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "host_touch.h"
@@ -57,6 +68,13 @@ haptics stand in for Android's vibrator.
 #define MAX_MINIMUM_RADIUS 34.0f
 #define GRID_WIDTH 960.0f
 #define GRID_HEIGHT 540.0f
+/* on a display taller than the grid (an iPad) the top row (the grid's lines
+   down to TOP_ROW) keeps its distance from the top and the rest (from
+   LOWER_PART down) its distance from the bottom, so the controls under the
+   thumbs sit as low as on a phone; the lines between take the extra height
+   (TouchLayout.java's displayY) */
+#define TOP_ROW 72.0f
+#define LOWER_PART 90.0f
 #define LAYOUT_VERSION 3
 #define MAX_FILE_LENGTH 65536
 
@@ -102,6 +120,34 @@ static float clampf(float value, float low, float high)
 	return value < low ? low : value > high ? high : value;
 }
 
+/* a line of the grid on a display this high, in logical units */
+static float display_y(float line, float height)
+{
+	float extra = height - GRID_HEIGHT;
+
+	if (!(extra > 0.0f))
+		return line * height / GRID_HEIGHT;
+	if (line <= TOP_ROW)
+		return line;
+	if (line >= LOWER_PART)
+		return line + extra;
+	return TOP_ROW + (line - TOP_ROW) * (LOWER_PART - TOP_ROW + extra) / (LOWER_PART - TOP_ROW);
+}
+
+/* the grid's line at this height on a display this high: display_y's inverse */
+static float grid_y(float y, float height)
+{
+	float extra = height - GRID_HEIGHT;
+
+	if (!(extra > 0.0f))
+		return y * GRID_HEIGHT / height;
+	if (y <= TOP_ROW)
+		return y;
+	if (y >= LOWER_PART + extra)
+		return y - extra;
+	return TOP_ROW + (y - TOP_ROW) * (LOWER_PART - TOP_ROW) / (LOWER_PART - TOP_ROW + extra);
+}
+
 static float layout_radius(const struct layout *layout, int control)
 {
 	float radius = RADII[layout->controls[control].type] * layout->controls[control].size;
@@ -139,7 +185,7 @@ static void layout_reset(struct layout *layout)
 
 		control->type = index;
 		control->x = DEFAULTS[index][0] * layout->width / GRID_WIDTH;
-		control->y = DEFAULTS[index][1] * layout->height / GRID_HEIGHT;
+		control->y = display_y(DEFAULTS[index][1], layout->height);
 		control->shown = index != KIND_FIRE_LEFT;
 		control->size = 1.0f;
 	}
@@ -166,7 +212,7 @@ static void layout_bounds(struct layout *layout, float width, float height)
 	for (index = 0; index < layout->count; index++)
 	{
 		layout->controls[index].x *= width / layout->width;
-		layout->controls[index].y *= height / layout->height;
+		layout->controls[index].y = display_y(grid_y(layout->controls[index].y, layout->height), height);
 	}
 	layout->width = width;
 	layout->height = height;
@@ -234,7 +280,7 @@ static NSString *layout_export(const struct layout *layout, float sensitivity)
 
 		[text appendFormat:@"control.%d.type=%d\ncontrol.%d.x=%g\ncontrol.%d.y=%g\ncontrol.%d.visible=%s\n"
 			"control.%d.size=%g\n", index, control->type, index, control->x * GRID_WIDTH / layout->width, index,
-			control->y * GRID_HEIGHT / layout->height, index, control->shown ? "true" : "false", index,
+			grid_y(control->y, layout->height), index, control->shown ? "true" : "false", index,
 			control->size];
 	}
 	return text;
@@ -479,18 +525,19 @@ static float context_alpha(int control, int context)
 	return control == CONTROL_GRENADE && (context & CONTEXT_NO_GRENADES) ? CONTEXT_DIMMED : 1.0f;
 }
 
-static float context_glow(int control, int context, double seconds)
+/* (pulse: context_pulse's, at the time drawn) */
+static float context_glow(int control, int context, float pulse)
 {
 	if (control != CONTROL_ACTION)
 		return 0.0f;
 	if (context & CONTEXT_RELOAD)
-		return 0.2f + 0.8f * context_pulse(seconds);
+		return 0.2f + 0.8f * pulse;
 	return context & CONTEXT_ACTION ? 1.0f : 0.0f;
 }
 
-static float context_swell(int control, int context, double seconds)
+static float context_swell(int control, int context, float pulse)
 {
-	return control == CONTROL_ACTION && (context & CONTEXT_RELOAD) ? 1.0f + PULSE_SWELL * context_pulse(seconds) : 1.0f;
+	return control == CONTROL_ACTION && (context & CONTEXT_RELOAD) ? 1.0f + PULSE_SWELL * pulse : 1.0f;
 }
 
 /* ---------- the view (TouchControls.java) */
@@ -510,7 +557,8 @@ static float context_swell(int control, int context, double seconds)
 #define STICK_REACH 1.28f
 #define STICK_KNOB_RADIUS 24.0f
 #define FLOATING_ZONE_WIDTH 0.45f
-#define FLOATING_ZONE_TOP 0.35f
+/* (and logical units up from the bottom: 65% of a 16:9 display's height, as low on a taller one) */
+#define FLOATING_ZONE_HEIGHT 351.0f
 #define LOOK_RADIANS_PER_UNIT 0.0022f
 #define BUTTON_ALPHA 0.8f
 #define MINOR_BUTTON_ALPHA 0.55f
@@ -557,6 +605,19 @@ static UIColor *hud_color(float alpha)
 @property (nonatomic, weak) HaloTouchView *controls;
 @end
 
+/* (HALO_TOUCH_TEST) a finger of the test's, at a point it is given */
+@interface HaloTestTouch : UITouch
+@property (nonatomic) CGPoint point;
+@end
+
+@implementation HaloTestTouch
+- (CGPoint)locationInView:(UIView *)view
+{
+	(void)view;
+	return self.point;
+}
+@end
+
 @implementation HaloTouchView
 {
 	struct layout layout;
@@ -598,12 +659,36 @@ static UIColor *hud_color(float alpha)
 	UIFont *caption_font;
 	CADisplayLink *poll;
 	CMMotionManager *motion;
+	/* the gyroscope's queue, and its state there: what the main thread
+	shares with it is atomic (whether it aims, the sensitivity, the
+	screen's rotation, a restart of the integration) */
+	NSOperationQueue *gyro_queue;
 	double gyro_previous_time;
 	int gyro_previous_orientation;
 	float gyro_previous_x, gyro_previous_y;
+	atomic_bool gyro_aiming;
+	_Atomic(float) gyro_sensitivity;
+	atomic_int gyro_rotation;
+	atomic_bool gyro_restart;
+	/* the layers: the controls' (with the look each picture was drawn
+	for, and the pictures drawn, by their look), the stick's ring and
+	knob, the toolbar's, all in one whose opacity is the idle fade */
+	CALayer *container, *ring_layer, *knob_layer, *toolbar_layer;
+	CALayer *control_layers[MAX_CONTROLS];
+	NSMutableDictionary<NSData *, id> *control_pictures[MAX_CONTROLS];
+	NSData *control_looks[MAX_CONTROLS];
+	NSMutableDictionary<NSData *, id> *stick_pictures;
+	NSData *ring_look, *knob_look, *toolbar_look;
+	NSMutableDictionary<NSData *, id> *toolbar_pictures;
+	float draw_pulse;
 	UIImpactFeedbackGenerator *tap_feedback;
 	UIImpactFeedbackGenerator *rumble_feedback;
 	double last_vibration;
+	/* (HALO_TOUCH_TEST) the test's fingers: a thumb circling the move stick
+	and one swiping to aim, through fingers: at the display's rate */
+	CADisplayLink *test_link;
+	HaloTestTouch *test_stick, *test_look;
+	double test_start;
 }
 
 @synthesize sensitivity, editing, controlsHidden, dialogOpen;
@@ -626,7 +711,6 @@ static NSString *const KEY_HIDDEN = @"touch-layout-v2.hidden";
 	self.opaque = NO;
 	self.backgroundColor = UIColor.clearColor;
 	self.multipleTouchEnabled = YES;
-	self.contentMode = UIViewContentModeRedraw;
 	self.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	self.accessibilityLabel = @"Halo touch controller";
 	owners = [NSMapTable weakToStrongObjectsMapTable];
@@ -681,10 +765,82 @@ static NSString *const KEY_HIDDEN = @"touch-layout-v2.hidden";
 	tap_feedback = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight];
 	rumble_feedback = [[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleHeavy];
 	motion = [CMMotionManager new];
+	gyro_queue = [NSOperationQueue new];
+	gyro_queue.maxConcurrentOperationCount = 1;
+	gyro_queue.qualityOfService = NSQualityOfServiceUserInteractive;
+	atomic_init(&gyro_aiming, false);
+	atomic_init(&gyro_sensitivity, sensitivity);
+	atomic_init(&gyro_rotation, 0);
+	atomic_init(&gyro_restart, true);
+	container = [CALayer layer];
+	ring_layer = [self pictureLayer];
+	knob_layer = [self pictureLayer];
+	for (index = 0; index < MAX_CONTROLS; index++)
+	{
+		control_layers[index] = [self pictureLayer];
+		control_pictures[index] = [NSMutableDictionary dictionary];
+	}
+	toolbar_layer = [self pictureLayer];
+	stick_pictures = [NSMutableDictionary dictionary];
+	toolbar_pictures = [NSMutableDictionary dictionary];
+	container.hidden = YES;
+	[self.layer addSublayer:container];
 	poll = [CADisplayLink displayLinkWithTarget:self selector:@selector(pollGame:)];
 	poll.preferredFrameRateRange = CAFrameRateRangeMake(30, 60, 60);
 	[poll addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+	if (getenv("HALO_TOUCH_TEST") && strstr(getenv("HALO_TOUCH_TEST"), "stick"))
+	{
+		if (strstr(getenv("HALO_TOUCH_TEST"), "gyro"))
+			layout.gyroscope = YES;
+		NSLog(@"touch test: a stick and an aiming finger at 120 Hz, gyroscope %s", layout.gyroscope ? "on" : "off");
+		test_link = [CADisplayLink displayLinkWithTarget:self selector:@selector(testFingers:)];
+		test_link.preferredFrameRateRange = CAFrameRateRangeMake(120, 120, 120);
+		[test_link addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
+	}
 	return self;
+}
+
+/* (HALO_TOUCH_TEST) moves the test's fingers, putting them down once the controls show */
+- (void)testFingers:(CADisplayLink *)link
+{
+	double now = CACurrentMediaTime(), turn;
+	float radius = layout_radius(&layout, KIND_LEFT) * 0.8f;
+
+	(void)link;
+	if (!showing || controlsHidden || editing || dialogOpen)
+	{
+		test_stick = test_look = nil;
+		return;
+	}
+	if (!test_stick || ![owners objectForKey:test_stick])
+	{
+		test_stick = [HaloTestTouch new];
+		test_look = [HaloTestTouch new];
+		test_start = now;
+		test_stick.point = CGPointMake(origin.x + layout.controls[KIND_LEFT].x * scale,
+			origin.y + layout.controls[KIND_LEFT].y * scale);
+		test_look.point = CGPointMake(origin.x + logical_width * 0.62f * scale, origin.y + logical_height * 0.6f * scale);
+		[self updateSensors];
+		[self fingers:[NSSet setWithObjects:test_stick, test_look, nil] phase:UITouchPhaseBegan];
+		return;
+	}
+	turn = (now - test_start) * 2.0 * M_PI;
+	test_stick.point = CGPointMake(origin.x + (layout.controls[KIND_LEFT].x + radius * cos(turn * 0.5)) * scale,
+		origin.y + (layout.controls[KIND_LEFT].y + radius * sin(turn * 0.5)) * scale);
+	test_look.point = CGPointMake(origin.x + (logical_width * 0.62f + 40.0f * sin(turn * 0.4)) * scale,
+		origin.y + (logical_height * 0.6f + 10.0f * sin(turn * 0.3)) * scale);
+	[self fingers:[NSSet setWithObjects:test_stick, test_look, nil] phase:UITouchPhaseMoved];
+}
+
+/* a layer of the container's, holding a picture */
+- (CALayer *)pictureLayer
+{
+	CALayer *layer = [CALayer layer];
+
+	layer.hidden = YES;
+	layer.contentsGravity = kCAGravityResize;
+	[container addSublayer:layer];
+	return layer;
 }
 
 - (struct layout)layoutState
@@ -719,6 +875,10 @@ static NSString *const KEY_HIDDEN = @"touch-layout-v2.hidden";
 
 	if (area.size.width <= 0 || area.size.height <= 0)
 		return;
+	[CATransaction begin];
+	[CATransaction setDisableActions:YES];
+	container.frame = self.bounds;
+	[CATransaction commit];
 	[self resetFingers];
 	scale = fmaxf(0.01f, fminf(area.size.width / GRID_WIDTH, area.size.height / GRID_HEIGHT));
 	origin = area.origin;
@@ -726,14 +886,14 @@ static NSString *const KEY_HIDDEN = @"touch-layout-v2.hidden";
 	logical_height = area.size.height / scale;
 	layout_bounds(&layout, logical_width, logical_height);
 	layout_set_minimum_radius(&layout, MINIMUM_RADIUS_POINTS / scale);
-	[self setNeedsDisplay];
+	[self updateLayers];
 }
 
 - (void)layoutChanged
 {
 	layout_bounds(&layout, logical_width, logical_height);
 	layout_set_minimum_radius(&layout, MINIMUM_RADIUS_POINTS / scale);
-	[self setNeedsDisplay];
+	[self updateLayers];
 }
 
 - (CGPoint)logical:(CGPoint)point
@@ -794,7 +954,7 @@ static BOOL other_input_connected(void)
 		showing = show;
 		[self resetFingers];
 		[self updateSensors];
-		[self setNeedsDisplay];
+		[self updateLayers];
 	}
 	/* the menus (and anything but a game) take the fingers as SDL's mouse;
 	a game does not, where a tap would fire */
@@ -829,13 +989,13 @@ static BOOL other_input_connected(void)
 		(was >> SCENE_CONTEXT_SHIFT) != (scene >> SCENE_CONTEXT_SHIFT) ||
 		(showing && !controlsHidden && ((scene >> SCENE_CONTEXT_SHIFT) & CONTEXT_RELOAD)))
 	{
-		[self setNeedsDisplay];
+		[self updateLayers];
 	}
 	/* (a crouch tapped on stands up at death or in a seat, with no finger down) */
 	if (((was ^ scene) & SCENE_CROUCH_TOGGLE) || [self contextOf:was] != [self context])
 	{
 		[self publish];
-		[self setNeedsDisplay];
+		[self updateLayers];
 	}
 	[self fadeWhenIdle];
 	[self updateShowing];
@@ -847,9 +1007,14 @@ static BOOL other_input_connected(void)
 		bindings_serial = serial;
 		for (index = 0; index < 16; index++)
 			bindings[index] = read[index];
-		[self setNeedsDisplay];
+		[self updateLayers];
 	}
 	[self updateRumble];
+	if (motion.gyroActive)
+	{
+		atomic_store(&gyro_rotation, [self screenRotation]);
+		atomic_store(&gyro_sensitivity, sensitivity);
+	}
 }
 
 /* ---------- the controller state the game reads */
@@ -864,11 +1029,11 @@ static BOOL other_input_connected(void)
 	look_touch = nil;
 	stick_floating = NO;
 	crouched_kind = -1;
-	gyro_previous_orientation = -1;
+	atomic_store(&gyro_restart, true);
 	host_touch_look_reset();
 	memset(axes, 0, sizeof(axes));
 	[self publish];
-	[self setNeedsDisplay];
+	[self updateLayers];
 }
 
 - (void)publish
@@ -1075,7 +1240,7 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 
 - (BOOL)inFloatingZone:(CGPoint)point
 {
-	return point.x < logical_width * FLOATING_ZONE_WIDTH && point.y > logical_height * FLOATING_ZONE_TOP;
+	return point.x < logical_width * FLOATING_ZONE_WIDTH && point.y > logical_height - FLOATING_ZONE_HEIGHT;
 }
 
 - (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
@@ -1132,7 +1297,7 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 		axes[0] != was_x || axes[1] != was_y || [self stickCenterX] != was_center_x ||
 		[self stickCenterY] != was_center_y)
 	{
-		[self setNeedsDisplay];
+		[self updateLayers];
 	}
 }
 
@@ -1266,7 +1431,7 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 	if (save)
 		[[NSUserDefaults standardUserDefaults] setBool:hidden forKey:KEY_HIDDEN];
 	[self updateSensors];
-	[self setNeedsDisplay];
+	[self updateLayers];
 }
 
 /* a finger in the layout editor: drags controls; Save, Export and Import act at once */
@@ -1402,7 +1567,7 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 	[self saveLayout];
 	[self resetFingers];
 	[self updateSensors];
-	[self setNeedsDisplay];
+	[self updateLayers];
 }
 
 /* ---------- the gyroscope and the haptics */
@@ -1411,13 +1576,16 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 {
 	BOOL needed = showing && !controlsHidden && layout.gyroscope && motion.gyroAvailable && !editing && !dialogOpen;
 
+	atomic_store(&gyro_aiming, needed);
+	atomic_store(&gyro_sensitivity, sensitivity);
+	atomic_store(&gyro_rotation, [self screenRotation]);
 	if (needed && !motion.gyroActive)
 	{
 		__weak HaloTouchView *weak = self;
 
-		gyro_previous_orientation = -1;
+		atomic_store(&gyro_restart, true);
 		motion.gyroUpdateInterval = 1.0 / 120.0;
-		[motion startGyroUpdatesToQueue:[NSOperationQueue mainQueue] withHandler:^(CMGyroData *data, NSError *error) {
+		[motion startGyroUpdatesToQueue:gyro_queue withHandler:^(CMGyroData *data, NSError *error) {
 			(void)error;
 			[weak gyroSample:data];
 		}];
@@ -1425,23 +1593,34 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 	else if (!needed && motion.gyroActive)
 	{
 		[motion stopGyroUpdates];
-		gyro_previous_orientation = -1;
+		atomic_store(&gyro_restart, true);
 	}
 }
 
-/* the turn since the last sample, in the screen's axes (GyroscopeAim.java):
-the trapezoid rule over two samples, as a swipe of so many logical units */
-- (void)gyroSample:(CMGyroData *)data
+/* the screen's turn from portrait, in quarters (on the main thread) */
+- (int)screenRotation
 {
 	UIInterfaceOrientation orientation = self.window.windowScene.effectiveGeometry.interfaceOrientation;
-	float x = (float)data.rotationRate.x, y = (float)data.rotationRate.y, screen_x = x, screen_y = y;
-	int rotation = orientation == UIInterfaceOrientationLandscapeRight ? 1 :
+
+	return orientation == UIInterfaceOrientationLandscapeRight ? 1 :
 		orientation == UIInterfaceOrientationPortraitUpsideDown ? 2 :
 		orientation == UIInterfaceOrientationLandscapeLeft ? 3 : 0;
+}
+
+/* the turn since the last sample, in the screen's axes (GyroscopeAim.java):
+the trapezoid rule over two samples, as a swipe of so many logical units
+(on the gyroscope's queue: it reads only the atomics the main thread keeps) */
+- (void)gyroSample:(CMGyroData *)data
+{
+	float x = (float)data.rotationRate.x, y = (float)data.rotationRate.y, screen_x = x, screen_y = y;
+	int rotation = atomic_load(&gyro_rotation);
+	float aim_sensitivity = atomic_load(&gyro_sensitivity);
 	double seconds = data.timestamp - gyro_previous_time;
 	BOOL valid;
 
-	if (!showing || controlsHidden || !layout.gyroscope || editing || dialogOpen || !isfinite(x) || !isfinite(y))
+	if (atomic_exchange(&gyro_restart, false))
+		gyro_previous_orientation = -1;
+	if (!atomic_load(&gyro_aiming) || !isfinite(x) || !isfinite(y))
 	{
 		gyro_previous_orientation = -1;
 		return;
@@ -1472,7 +1651,8 @@ the trapezoid rule over two samples, as a swipe of so many logical units */
 		float pitch = -(screen_x + gyro_previous_x) * 0.5f * (float)seconds;
 
 		if (yaw != 0.0f || pitch != 0.0f)
-			host_touch_add_gyro(-yaw / LOOK_RADIANS_PER_UNIT * sensitivity, -pitch / LOOK_RADIANS_PER_UNIT * sensitivity);
+			host_touch_add_gyro(-yaw / LOOK_RADIANS_PER_UNIT * aim_sensitivity,
+				-pitch / LOOK_RADIANS_PER_UNIT * aim_sensitivity);
 	}
 	gyro_previous_time = data.timestamp;
 	gyro_previous_orientation = rotation;
@@ -1517,7 +1697,7 @@ for IDLE_SECONDS, back to whole at a touch */
 	{
 		idle = faded;
 		if (showing)
-			[self setNeedsDisplay];
+			[self updateLayers];
 	}
 }
 
@@ -1607,9 +1787,8 @@ held; with a glow (the HUD's colour) of strength glow */
 	if (art)
 	{
 		int game = [self gameControl:type], context = editing ? 0 : [self context];
-		double now = CACurrentMediaTime();
-		float glow = context_glow(game, context, now);
-		float size = radius * ART_SIZE * sink * context_swell(game, context, now);
+		float glow = context_glow(game, context, draw_pulse);
+		float size = radius * ART_SIZE * sink * context_swell(game, context, draw_pulse);
 		float alpha = (active ? 1.0f : minor ? MINOR_BUTTON_ALPHA : BUTTON_ALPHA) * opacity * context_alpha(game, context);
 
 		[self fitted:art x:x y:y radius:size alpha:alpha active:active || glow > 0.6f glow:glow * fmaxf(opacity, 0.5f)];
@@ -1671,54 +1850,294 @@ held; with a glow (the HUD's colour) of strength glow */
 	}
 }
 
-- (void)drawStick:(float)opacity
+- (void)drawRingAt:(float)x y:(float)y radius:(float)radius opacity:(float)opacity
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
-	float radius = layout_radius(&layout, KIND_LEFT), size = layout.controls[KIND_LEFT].size;
-	float x = fmaxf(radius, fminf(logical_width - radius, [self stickCenterX]));
-	float y = fmaxf(radius, fminf(logical_height - radius, [self stickCenterY]));
-	float knob = fmaxf(STICK_KNOB_RADIUS * size, radius * 0.375f);
-	float knob_x = x + axes[0] / 32767.0f * radius, knob_y = y + axes[1] / 32767.0f * radius;
-	BOOL active = [self held:KIND_LEFT] || drag_control == KIND_LEFT;
 
 	CGContextSaveGState(context);
 	CGContextSetShadowWithColor(context, CGSizeMake(0, 1), 3, [UIColor colorWithWhite:0 alpha:0.5 * opacity].CGColor);
 	CGContextSetStrokeColorWithColor(context, hud_color(STICK_RING_ALPHA * opacity).CGColor);
 	CGContextSetLineWidth(context, 2.0);
 	CGContextStrokeEllipseInRect(context, CGRectMake(x - radius + 1, y - radius + 1, 2 * radius - 2, 2 * radius - 2));
-	CGContextSetFillColorWithColor(context, hud_color((active ? 0.8f : STICK_KNOB_ALPHA) * opacity).CGColor);
-	CGContextFillEllipseInRect(context, CGRectMake(knob_x - knob, knob_y - knob, 2 * knob, 2 * knob));
 	CGContextRestoreGState(context);
 }
 
-- (void)drawRect:(CGRect)rect
+- (void)drawKnobAt:(float)x y:(float)y radius:(float)knob active:(BOOL)active opacity:(float)opacity
 {
 	CGContextRef context = UIGraphicsGetCurrentContext();
-	float opacity = layout.opacity * (editing ? 1.0f : idle);
+
+	CGContextSaveGState(context);
+	CGContextSetShadowWithColor(context, CGSizeMake(0, 1), 3, [UIColor colorWithWhite:0 alpha:0.5 * opacity].CGColor);
+	CGContextSetFillColorWithColor(context, hud_color((active ? 0.8f : STICK_KNOB_ALPHA) * opacity).CGColor);
+	CGContextFillEllipseInRect(context, CGRectMake(x - knob, y - knob, 2 * knob, 2 * knob));
+	CGContextRestoreGState(context);
+}
+
+/* ---------- the layers */
+
+/* what a control's picture is drawn for: a picture is drawn again only
+when this changes (its place on the display moves its layer, but for the
+fraction of a pixel it is drawn at) */
+struct control_look
+{
+	float scale, pixels, radius, size, offset_x, offset_y, opacity, pulse;
+	int type, style, captions, game, context, active, editing;
+};
+
+static void layer_hidden(CALayer *layer, BOOL hidden)
+{
+	if (layer.hidden != hidden)
+		layer.hidden = hidden;
+}
+
+static void layer_frame(CALayer *layer, CGRect frame)
+{
+	if (!CGRectEqualToRect(layer.frame, frame))
+		layer.frame = frame;
+}
+
+/* the display's pixels per point */
+- (CGFloat)pixelScale
+{
+	CGFloat pixels = self.traitCollection.displayScale;
+
+	return pixels > 0.0 ? pixels : UIScreen.mainScreen.scale;
+}
+
+/* a picture of this many points, drawn by draw */
+- (UIImage *)picture:(CGSize)size draw:(void (^)(CGContextRef context))draw
+{
+	UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+	UIGraphicsImageRenderer *renderer;
+
+	format.opaque = NO;
+	format.scale = [self pixelScale];
+	format.preferredRange = UIGraphicsImageRendererFormatRangeStandard;
+	renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+	return [renderer imageWithActions:^(UIGraphicsImageRendererContext *context) {
+		draw(context.CGContext);
+	}];
+}
+
+/* a frame on whole pixels around a box (logical units), and the fraction
+of a pixel the box begins in it */
+- (CGRect)pixelFrame:(CGRect)box offset:(CGPoint *)offset
+{
+	CGFloat pixels = [self pixelScale];
+	CGFloat left = origin.x + box.origin.x * scale, top = origin.y + box.origin.y * scale;
+	CGRect frame;
+
+	frame.origin = CGPointMake(floor(left * pixels) / pixels, floor(top * pixels) / pixels);
+	offset->x = left - frame.origin.x;
+	offset->y = top - frame.origin.y;
+	frame.size = CGSizeMake(ceil((offset->x + box.size.width * scale) * pixels) / pixels,
+		ceil((offset->y + box.size.height * scale) * pixels) / pixels);
+	return frame;
+}
+
+- (void)updateControl:(int)index shown:(BOOL)shown
+{
+	CALayer *layer = control_layers[index];
+	const struct control *control = &layout.controls[index];
+	struct control_look look;
+	float radius, margin, half, top, bottom;
+	int game, context;
+	CGRect box, frame;
+	CGPoint offset;
+
+	if (!shown)
+	{
+		layer_hidden(layer, YES);
+		return;
+	}
+	game = [self gameControl:control->type];
+	context = editing ? 0 : [self context];
+	radius = layout_radius(&layout, index);
+	/* (room for the art, the reload's swell and glow, and the caption under it) */
+	margin = radius * (game == CONTROL_ACTION ? 2.4f : 1.25f);
+	half = fmaxf(margin, 34.0f);
+	top = margin + 2.0f;
+	bottom = margin + 2.0f * CAPTION_SIZE + 6.0f;
+	box = CGRectMake(control->x - half, control->y - top, 2.0f * half, top + bottom);
+	frame = [self pixelFrame:box offset:&offset];
+	memset(&look, 0, sizeof(look));
+	look.scale = scale;
+	look.pixels = (float)[self pixelScale];
+	look.radius = radius;
+	look.size = control->size;
+	look.offset_x = (float)offset.x;
+	look.offset_y = (float)offset.y;
+	look.opacity = layout.opacity;
+	/* (the reload's pulse, in steps a cycle's pictures are kept for) */
+	look.pulse = game == CONTROL_ACTION && (context & CONTEXT_RELOAD) ?
+		roundf(context_pulse(CACurrentMediaTime()) * 24.0f) / 24.0f : 0.0f;
+	look.type = control->type;
+	look.style = (scene >> SCENE_STYLE_SHIFT) & 3;
+	look.captions = (scene & SCENE_CAPTIONS) != 0;
+	look.game = game;
+	look.context = context;
+	look.active = [self pressed:index] || drag_control == index;
+	look.editing = editing;
+	if (!control_looks[index] || memcmp(control_looks[index].bytes, &look, sizeof(look)))
+	{
+		NSData *key = [NSData dataWithBytes:&look length:sizeof(look)];
+		UIImage *picture = control_pictures[index][key];
+
+		if (!picture)
+		{
+			draw_pulse = look.pulse;
+			picture = [self picture:frame.size draw:^(CGContextRef graphics) {
+				CGContextTranslateCTM(graphics, offset.x, offset.y);
+				CGContextScaleCTM(graphics, self->scale, self->scale);
+				CGContextTranslateCTM(graphics, -box.origin.x, -box.origin.y);
+				[self drawControl:index active:look.active opacity:self->layout.opacity];
+			}];
+			if (control_pictures[index].count >= 64)
+				[control_pictures[index] removeAllObjects];
+			control_pictures[index][key] = picture;
+		}
+		layer.contents = (__bridge id)picture.CGImage;
+		control_looks[index] = key;
+	}
+	layer_frame(layer, frame);
+	layer_hidden(layer, NO);
+}
+
+/* a picture of the stick's centred on a point (logical units), drawn
+again only when its look changes; a finger moves its layer */
+- (void)stickLayer:(CALayer *)layer look:(NSData *)key current:(NSData *__strong *)current half:(float)half
+	x:(float)x y:(float)y draw:(void (^)(void))draw
+{
+	if (![key isEqual:*current])
+	{
+		UIImage *picture = stick_pictures[key];
+
+		if (!picture)
+		{
+			picture = [self picture:CGSizeMake(2.0f * half * scale, 2.0f * half * scale) draw:^(CGContextRef graphics) {
+				CGContextScaleCTM(graphics, self->scale, self->scale);
+				CGContextTranslateCTM(graphics, half, half);
+				draw();
+			}];
+			if (stick_pictures.count >= 16)
+				[stick_pictures removeAllObjects];
+			stick_pictures[key] = picture;
+		}
+		layer.contents = (__bridge id)picture.CGImage;
+		layer.bounds = CGRectMake(0, 0, 2.0f * half * scale, 2.0f * half * scale);
+		*current = key;
+	}
+	{
+		CGPoint position = CGPointMake(origin.x + x * scale, origin.y + y * scale);
+
+		if (!CGPointEqualToPoint(layer.position, position))
+			layer.position = position;
+	}
+	layer_hidden(layer, NO);
+}
+
+- (void)updateStick:(BOOL)shown
+{
+	float radius, size, x, y, knob, opacity = layout.opacity;
+	float pixels = (float)[self pixelScale];
+	BOOL active;
+
+	if (!shown)
+	{
+		layer_hidden(ring_layer, YES);
+		layer_hidden(knob_layer, YES);
+		return;
+	}
+	radius = layout_radius(&layout, KIND_LEFT);
+	size = layout.controls[KIND_LEFT].size;
+	x = fmaxf(radius, fminf(logical_width - radius, [self stickCenterX]));
+	y = fmaxf(radius, fminf(logical_height - radius, [self stickCenterY]));
+	knob = fmaxf(STICK_KNOB_RADIUS * size, radius * 0.375f);
+	active = [self held:KIND_LEFT] || drag_control == KIND_LEFT;
+	{
+		float ring[5] = { 0.0f, scale, pixels, radius, opacity };
+		float disc[6] = { 1.0f, scale, pixels, knob, opacity, active ? 1.0f : 0.0f };
+		/* (the shadows' room, in points) */
+		float margin = 6.0f / scale;
+
+		[self stickLayer:ring_layer look:[NSData dataWithBytes:ring length:sizeof(ring)] current:&ring_look
+			half:radius + margin x:x y:y draw:^{
+				[self drawRingAt:0.0f y:0.0f radius:radius opacity:opacity];
+			}];
+		[self stickLayer:knob_layer look:[NSData dataWithBytes:disc length:sizeof(disc)] current:&knob_look
+			half:knob + margin x:x + axes[0] / 32767.0f * radius y:y + axes[1] / 32767.0f * radius draw:^{
+				[self drawKnobAt:0.0f y:0.0f radius:knob active:active opacity:opacity];
+			}];
+	}
+}
+
+- (void)updateToolbar
+{
+	float toolbar = [self toolbarY];
+	CGRect box = CGRectMake(logical_width / 2.0f - 200.0f, 0.0f, [self optionsX] + 216.0f - (logical_width / 2.0f - 200.0f),
+		toolbar + 80.0f);
+	CGPoint offset;
+	CGRect frame = [self pixelFrame:box offset:&offset];
+	float look[9] = { scale, (float)[self pixelScale], logical_width, toolbar, editing ? 1.0f : 0.0f,
+		controlsHidden ? 1.0f : 0.0f, layout.opacity, (float)offset.x, (float)offset.y };
+	NSData *key = [NSData dataWithBytes:look length:sizeof(look)];
+
+	if (![key isEqual:toolbar_look])
+	{
+		UIImage *picture = toolbar_pictures[key];
+
+		if (!picture)
+		{
+			picture = [self picture:frame.size draw:^(CGContextRef graphics) {
+				float faded = self->idle;
+
+				CGContextTranslateCTM(graphics, offset.x, offset.y);
+				CGContextScaleCTM(graphics, self->scale, self->scale);
+				CGContextTranslateCTM(graphics, -box.origin.x, -box.origin.y);
+				/* (the idle fade is the container's opacity) */
+				self->idle = 1.0f;
+				[self drawToolbar];
+				self->idle = faded;
+			}];
+			if (toolbar_pictures.count >= 8)
+				[toolbar_pictures removeAllObjects];
+			toolbar_pictures[key] = picture;
+		}
+		toolbar_layer.contents = (__bridge id)picture.CGImage;
+		toolbar_look = key;
+	}
+	layer_frame(toolbar_layer, frame);
+	layer_hidden(toolbar_layer, NO);
+}
+
+/* the layers as the controls are now: cheap unless a control's look
+changed (then only its picture is drawn), and no drawing while a finger
+moves the stick or aims */
+- (void)updateLayers
+{
+	BOOL visible = showing || editing, controls_up = visible && (!controlsHidden || editing);
 	int index;
 
-	(void)rect;
-	if (!showing && !editing)
+	if (!container)
 		return;
-	CGContextSaveGState(context);
-	CGContextTranslateCTM(context, origin.x, origin.y);
-	CGContextScaleCTM(context, scale, scale);
-	if (!controlsHidden || editing)
+	[CATransaction begin];
+	[CATransaction setDisableActions:YES];
+	layer_hidden(container, !visible);
+	if (visible)
 	{
-		if (layout.controls[KIND_LEFT].shown)
-			[self drawStick:opacity];
-		for (index = 0; index < layout.count; index++)
+		float faded = editing ? 1.0f : idle;
+
+		if (container.opacity != faded)
+			container.opacity = faded;
+		[self updateStick:controls_up && layout.controls[KIND_LEFT].shown];
+		for (index = 0; index < MAX_CONTROLS; index++)
 		{
-			if (!layout.controls[index].shown || layout.controls[index].type == KIND_LEFT ||
-				(!editing && [self hiddenNow:layout.controls[index].type]))
-			{
-				continue;
-			}
-			[self drawControl:index active:[self pressed:index] || drag_control == index opacity:opacity];
+			[self updateControl:index shown:controls_up && index < layout.count && layout.controls[index].shown &&
+				layout.controls[index].type != KIND_LEFT && (editing || ![self hiddenNow:layout.controls[index].type])];
 		}
+		[self updateToolbar];
 	}
-	[self drawToolbar];
-	CGContextRestoreGState(context);
+	[CATransaction commit];
 }
 
 @end

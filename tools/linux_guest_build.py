@@ -42,10 +42,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .android_build import (GUEST_ARCH_SCRIPT, GUEST_TOOLCHAIN_SCRIPT,
-                            SDL_TAG, TOML_DIR, fetch_third_party, generate_guest_image, host_memory_sources)
+from .android_build import (GUEST_ARCH_SCRIPT, GUEST_TOOLCHAIN_SCRIPT, SDL_ANDROID_MOUSE_PATCH,
+                            SDL_TAG, SDL_WAYLAND_REFERENCE_PATCH, TOML_DIR, fetch_third_party, generate_guest_image, host_memory_sources)
 from .build_common import (MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUPNPC_DIR, OWN_CODE_ERRORS, SDL_RPATH_LDFLAGS,
-                           compile_launcher, download, miniupnpc_sources, sdl3_rule, updater_defines)
+                           compile_launcher, download, miniupnpc_sources, sdl3_desktop_check, sdl3_rule,
+                           pgo_generate_defines, updater_defines)
 from .guest_arch import ARM64_32, X32, GuestArch
 from .guest_toolchain import LLVM_VERSION, guest_toolchain
 from .ninja_syntax import Writer, escape
@@ -196,7 +197,7 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
     try:
         fetch_third_party(third_party)
     except (subprocess.CalledProcessError, OSError, RuntimeError) as error:
-        raise RuntimeError(f"cannot fetch musl or SDL3 ({error})") from error
+        raise RuntimeError(f"cannot fetch musl, SDL3 or FFmpeg ({error})") from error
     try:
         fetch_vulkan_headers(vulkan_headers)
     except (RuntimeError, OSError) as error:
@@ -249,8 +250,11 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
     sdl_build = build / "sdl3-build"
     libsdl = sdl_build / "libSDL3.so.0"
     sdl3_rule(n, sln, name=f"{prefix}_sdl3", description=f"{label} SDL3 {SDL_TAG}", source=sdl_dir,
-              sdl_build=sdl_build, log_dir=build, cc=f"${prefix}_cc")
-    n.build(outputs=libsdl, rule=f"{prefix}_sdl3", implicit=[sdl_dir / "CMakeLists.txt"])
+              sdl_build=sdl_build, log_dir=build, cc=f"${prefix}_cc", check=sdl3_desktop_check(sdl_build))
+    # (built again when a patch of it changes: fetch_third_party applies them
+    # at configure)
+    n.build(outputs=libsdl, rule=f"{prefix}_sdl3",
+            implicit=[sdl_dir / "CMakeLists.txt", SDL_ANDROID_MOUSE_PATCH, SDL_WAYLAND_REFERENCE_PATCH])
 
     # ---------- the host
 
@@ -270,6 +274,7 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
         "-D_GNU_SOURCE",
         f"-I{ANDROID_DIR}/include", f"-I{ANDROID_DIR}/host", f"-I{sdl_dir}/include", f"-I{LINUX_DIR}/src",
         f"-I{TOML_DIR}", f"-I{openxr_dir}", f"-I{PORT_DIR}", f"-I{vulkan_headers}", *host_defines,
+        *pgo_generate_defines(sln),
     ])
     # (the app's own: its entry point, and the touch controls through Java)
     android_only = {"host_main.c", "host_touch.c"}
@@ -360,5 +365,8 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
     # ... and the master servers of dedicated servers (network.masters_file)
     masters = build / "masters.txt"
     n.build(outputs=masters, rule=f"{prefix}_copy", inputs=Path("port/assets/network/masters.txt"))
-    n.build(outputs=target.name, rule="phony", inputs=[output, staged_sdl, sdl_license, brokers, masters])
+    # ... and the relays offered when a direct connection fails (network.relays_file)
+    relays = build / "relays.txt"
+    n.build(outputs=relays, rule=f"{prefix}_copy", inputs=Path("port/assets/network/relays.txt"))
+    n.build(outputs=target.name, rule="phony", inputs=[output, staged_sdl, sdl_license, brokers, masters, relays])
     n.newline()

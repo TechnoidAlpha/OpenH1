@@ -439,8 +439,8 @@ static void shot_half_floats(struct stream_target *entry, const char *path)
 	snprintf(name, sizeof(name), "%s.encoded.txt", path);
 	if ((file = fopen(name, "w")) != NULL)
 	{
-		fprintf(file, "paper_white %.6f peak %.6f output %d mode %d\n", (double)frame.paper_white, (double)frame.peak,
-			frame.output, frame.mode);
+		fprintf(file, "paper_white %.6f peak %.6f output %d mode %d ui %.6f\n", (double)frame.paper_white,
+			(double)frame.peak, frame.output, frame.mode, (double)frame.ui);
 		fclose(file);
 	}
 	free(halves);
@@ -605,9 +605,10 @@ static void textures_bind(void)
 /* ---------- pipelines */
 
 /* the per-pixel lighting's lights' registers (xgpu_backend.h's
-XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69]) */
+XGPU_MODEL_LIGHT_REGISTER: c[-82], c[-79] to c[-69], c[-57]) */
 #define MODEL_LIGHT_FIRST (96 - 82)
 #define MODEL_LIGHT_LAST (96 - 69)
+#define MODEL_LIGHT_OWN_LIGHTS (96 - 57)
 
 static void stream_set_constants(void *context, const struct xgpu_stream_constants *record)
 {
@@ -619,7 +620,8 @@ static void stream_set_constants(void *context, const struct xgpu_stream_constan
 	if (count > XGPU_METAL_VERTEX_CONSTANT_COUNT - record->first)
 		count = XGPU_METAL_VERTEX_CONSTANT_COUNT - record->first;
 	memcpy(stream.constants[record->first], record->values, (size_t)count * sizeof(stream.constants[0]));
-	if (record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST)
+	if ((record->first <= MODEL_LIGHT_LAST && record->first + count > MODEL_LIGHT_FIRST) ||
+		(record->first <= MODEL_LIGHT_OWN_LIGHTS && record->first + count > MODEL_LIGHT_OWN_LIGHTS))
 		stream.uniforms_dirty = YES;
 	xgpu_metal_set_vertex_constants(record->first, count, &record->values[0][0]);
 }
@@ -1262,6 +1264,30 @@ static void stream_anti_alias(void *context, const struct xgpu_stream_anti_alias
 	stream_state_restore();
 }
 
+/* display.panini over a window's 3D view, after its anti-aliasing and
+before the HUD: the target's texture (the front end no longer multisamples
+it, as for the anti-aliasing) */
+static void stream_panini(void *context, const struct xgpu_stream_panini *record)
+{
+	struct stream_target *target = target_get(record->target);
+
+	(void)context;
+	if (!target || (target->description.format != XGPU_METAL_FORMAT_BGRA8 &&
+		target->description.format != XGPU_METAL_FORMAT_RGBA16F) || target->description.samples > 1 ||
+		target->description.depth_or_layers > 1)
+		return;
+	if (stream.preparing)
+	{
+		/* (made as the map loads, as the game's pipelines are) */
+		(void)xgpu_metal_post_panini_prepare();
+		return;
+	}
+	target->written++;
+	xgpu_metal_post_panini(target->texture, target->description.format, target->description.width,
+		target->description.height, record->corners, record->projection);
+	stream_state_restore();
+}
+
 /* ---------- display.hdr (port/linux/src/xgpu_hdr.h)
 
 The front end's state: whether the frame is drawn in HDR, the mode and
@@ -1272,11 +1298,21 @@ static void stream_hdr(void *context, const struct xgpu_stream_hdr *record)
 {
 	(void)context;
 	host_metal_hdr_state(record->active != 0, record->mode == XGPU_HDR_MODE_PUNCHY ? XGPU_HDR_MODE_PUNCHY :
-		XGPU_HDR_MODE_FAITHFUL, (int)record->paper_white);
+		XGPU_HDR_MODE_FAITHFUL, (int)record->paper_white_nits, (int)record->paper_white, (int)record->ui_nits);
 	/* (the tone map's function and its pipeline for the back buffer's pass,
 	made as HDR is chosen, not in the middle of a frame) */
 	if (record->active)
 		(void)xgpu_metal_post_prepare_hdr(XGPU_METAL_FORMAT_D24S8, 0);
+}
+
+/* display.gamma: the presentation curves an SDR frame by it */
+static void stream_gamma(void *context, uint32_t gamma)
+{
+	float value;
+
+	(void)context;
+	memcpy(&value, &gamma, sizeof(value));
+	host_metal_gamma(value);
 }
 
 /* a window's 3D view tone mapped, in the pass that drew it, before the HUD
@@ -1302,11 +1338,43 @@ static void stream_tone_map(void *context, const struct xgpu_stream_tone_map *re
 	host_metal_hdr_frame(&frame);
 	hdr[0] = (float)frame.mode;
 	hdr[1] = frame.peak;
-	hdr[2] = hdr[3] = 0.0f;
+	/* (the view's light over the UI's white) */
+	hdr[2] = frame.ui;
+	hdr[3] = 0.0f;
 	target->written++;
 	xgpu_metal_post_tone_map(target->texture, target->description.width, target->description.height,
 		depth ? depth->texture : 0, depth ? depth->description.format : XGPU_METAL_FORMAT_NONE, samples,
 		record->corners, hdr);
+	stream_state_restore();
+}
+
+/* display.ambient_occlusion over a window's 3D view once its opaque
+surfaces have drawn their light (xgpu_metal_post.c), with the depth target
+drawn with it, or the occlusion last laid in the view's place
+(debug.ambient_occlusion_view); none over a multisampled target */
+static void stream_ambient_occlusion(void *context, const struct xgpu_stream_ambient_occlusion *record)
+{
+	struct stream_target *target = target_get(record->target);
+	struct stream_target *depth = stream.color == record->target ? target_get(stream.depth) : NULL;
+
+	(void)context;
+	if (!target || target->description.depth_or_layers > 1 || target->description.samples > 1 || !depth ||
+		depth->description.samples > 1 || record->quality < XGPU_AMBIENT_OCCLUSION_SUBTLE ||
+		record->quality > XGPU_AMBIENT_OCCLUSION_SHOW)
+		return;
+	if (stream.preparing)
+	{
+		(void)xgpu_metal_post_ambient_occlusion_prepare(target->description.format, depth->description.format);
+		return;
+	}
+	target->written++;
+	if (record->quality == XGPU_AMBIENT_OCCLUSION_SHOW)
+		xgpu_metal_post_ambient_occlusion_show(target->texture, target->description.format, target->description.width,
+			target->description.height, record->corners);
+	else
+		xgpu_metal_post_ambient_occlusion(target->texture, target->description.format, target->description.width,
+			target->description.height, depth->texture, depth->description.format, record->corners, (int)record->quality,
+			record->camera);
 	stream_state_restore();
 }
 
@@ -1323,7 +1391,8 @@ static void stream_visibility_end(void *context, const struct xgpu_stream_visibi
 	(void)context;
 	/* (the count written for the game is of its pixels: divided by the
 	samples one of them is, as the GL backend's) */
-	xgpu_metal_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1));
+	xgpu_metal_visibility_end(record->slot, record->area * (float)(record->samples > 1 ? record->samples : 1),
+		record->test);
 }
 
 static void stream_present(void *context, uint32_t back_buffer)
@@ -1466,6 +1535,8 @@ const struct host_render_backend *xgpu_metal_stream_backend(void)
 		backend.loading_art = host_metal_loading_art;
 		backend.loading_scene = host_metal_loading_scene;
 		backend.loading_progress = host_metal_loading_progress;
+		backend.loading_mode = host_metal_loading_mode;
+		backend.loading_caption = host_metal_loading_caption;
 		backend.dynamic_lights_prepare = stream_dynamic_lights_prepare;
 		backend.dynamic_lights_upload = stream_dynamic_lights_upload;
 		backend.dynamic_lights_halos = stream_dynamic_lights_halos;
@@ -1473,6 +1544,9 @@ const struct host_render_backend *xgpu_metal_stream_backend(void)
 		backend.anti_alias = stream_anti_alias;
 		backend.hdr = stream_hdr;
 		backend.tone_map = stream_tone_map;
+		backend.ambient_occlusion = stream_ambient_occlusion;
+		backend.gamma = stream_gamma;
+		backend.panini = stream_panini;
 	}
 	return &backend;
 }

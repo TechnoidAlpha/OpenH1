@@ -46,9 +46,10 @@ The core:
 - keeps depth reversed (xgpu_backend.h, "Reversed depth"), in a float
   format where the device has one (D32_SFLOAT_S8_UINT): the pipelines'
   depth functions mirrored, the clears and the depth range as 1 - them,
-  the constant depth bias the shaders' and the slope's turned; but in the
-  VR build (HALO_VR), whose eyes, effects, cockpit and compositor's depth
-  read depth as the game has it (XGPU_VULKAN_REVERSED_DEPTH 0).
+  the constant depth bias the shaders' and the slope's turned; in the VR
+  build (HALO_VR) too, whose eyes' passes, effects, cockpit, scope window,
+  rim and compositor's depth read and write it reversed
+  (host_vulkan_vr.c, xgpu_spirv.h's reversed_depth).
 
 Submissions are numbered by a timeline semaphore: xgpu_vulkan_fence ends the
 work recorded so far and returns its number, xgpu_vulkan_wait waits for it.
@@ -64,11 +65,7 @@ work recorded so far and returns its number, xgpu_vulkan_wait waits for it.
 #include <vulkan/vulkan_core.h>
 
 /* depth kept reversed (above) */
-#ifdef HALO_VR
-#define XGPU_VULKAN_REVERSED_DEPTH 0
-#else
 #define XGPU_VULKAN_REVERSED_DEPTH 1
-#endif
 
 /* ---------- the core's life */
 
@@ -120,16 +117,24 @@ struct xgpu_vulkan_options
 	/* display.hdr: what the backend tells of its display (the render
 	thread, as it changes): whether it shows HDR (the window's display
 	does, and the surface has an HDR colour space), its headroom over
-	SDR white (host_render_stream_display_hdr). And the encoding of a
+	SDR white, that white in nits and whether the system gave it
+	(host_render_stream_display_hdr). And the encoding of a
 	frame for an HDR swapchain (xgpu_vulkan_post.c's): encode_prepare
 	makes its pipelines at the start (1 if it can), encode draws the frame
 	into an image of its own of the swapchain's format
 	(XGPU_VULKAN_FORMAT_*) and returns it, NULL if it cannot. NULL: no HDR
 	swapchain. */
-	void (*display_hdr)(int hdr, float headroom);
+	void (*display_hdr)(int hdr, float headroom, float white_nits, int white_reported);
 	int (*encode_prepare)(void);
 	struct xgpu_vulkan_image *(*encode)(struct xgpu_vulkan_image *image, const struct xgpu_hdr_frame *frame,
 		uint8_t format);
+	/* display.gamma: its curve over an SDR frame before the swapchain
+	(xgpu_vulkan_post.c's): gamma_prepare makes its pipeline at the start
+	(1 if it can), gamma draws the frame curved (each channel raised to a
+	power) into an image of its own and returns it, NULL if it cannot.
+	NULL: no curve (the VR build's). */
+	int (*gamma_prepare)(void);
+	struct xgpu_vulkan_image *(*gamma)(struct xgpu_vulkan_image *image, float power);
 };
 
 /* 1 on success: a device that has what the backend needs (logged if not) */
@@ -536,10 +541,13 @@ void xgpu_vulkan_visibility_count_samples(int enabled);
 uint32_t xgpu_vulkan_visibility_counter(void);
 VkFormat xgpu_vulkan_depth_format(void);
 /* area: the samples a pixel of the game's is, which the count written for
-the game is divided by */
-void xgpu_vulkan_visibility_end(uint32_t slot, float area);
+the game is divided by; number: the game's number for the test, written
+with its count */
+void xgpu_vulkan_visibility_end(uint32_t slot, float area, uint32_t number);
 /* where each slot's latest count is written, divided by its area (a count
-of the game's pixels, as the game reads it; any thread) */
+of the game's pixels, as the game reads it; any thread), then, after
+XGPU_VULKAN_VISIBILITY_SLOTS counts, the number of the test each count is
+of, written after the count (a release store: xgpu_stream.h) */
 void xgpu_vulkan_set_visibility_output(volatile uint32_t *counts);
 #define XGPU_VULKAN_VISIBILITY_SLOTS 4096
 /* the largest count written (the game halts on a negative one:
@@ -601,17 +609,22 @@ changes: SDL's): whether HDR is on, its SDR white in scRGB's units (1.0:
 80 nits; 1.0 also where the system does not say) and its headroom over SDR
 white; the swapchain is made again where its output changes. And the front
 end's state (the stream's record, render thread): whether the frames are
-HDR (a half-float back buffer), the mode, paper white (percent of SDR
-white). */
+HDR (a half-float back buffer), the mode, paper white (in nits; 0: the
+system's SDR white, in percent of it: xgpu_hdr_paper_white_nits), the
+UI's white (in nits; 0: paper white's). */
 void xgpu_vulkan_window_hdr(int enabled, float sdr_white, float headroom);
-void xgpu_vulkan_hdr_state(int active, int mode, int paper_white);
+void xgpu_vulkan_hdr_state(int active, int mode, int paper_white_nits, int paper_white, int ui_nits);
 /* display.picture_position: a picture of another shape than the window
 this many pixels from its top (no lower than its bottom) or centered (-1)
 (present), from the next present on */
 void xgpu_vulkan_picture_top(int top);
+/* display.gamma (the stream's record, render thread): the setting, 1 for
+none, from the next present on; an SDR frame is curved by one over it
+(present), an HDR swapchain's never */
+void xgpu_vulkan_gamma(float gamma);
 /* the tone map's and the encoding's parameters now (xgpu_hdr.h): the
-swapchain's output, paper white in its units, the peak in paper whites (1
-and SDR where the swapchain is SDR) */
+swapchain's output, paper white in its units, the peak in paper whites, the
+UI's white over paper white (1 and SDR where the swapchain is SDR) */
 void xgpu_vulkan_hdr_frame(struct xgpu_hdr_frame *frame);
 
 /* the frame's end: its last work submitted, and (with a window) an image
@@ -649,6 +662,10 @@ struct xgpu_vulkan_statistics
 	resolved in the pass that drew them, and resolves of samples resolved
 	already (not made again) */
 	uint32_t stores_discarded, frame_end_discards, resolves_in_pass, resolves_skipped;
+	/* aside passes (xgpu_vulkan.c): passes that continued the one before
+	them in one rendering, passes put aside before it, and buffers renamed
+	rather than written in order */
+	uint32_t passes_continued, passes_aside, buffers_renamed;
 	/* debug.gpu_stats (not the VR mode's): the frames' GPU time (from each
 	frame's first work to its last, waits between its submissions
 	included) and the frames it is of; the time between frames' ends and

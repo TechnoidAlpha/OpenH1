@@ -40,6 +40,17 @@ void render_interpolation_frame_end(void);
 float render_interpolation_fraction(void);
 struct real_matrix4x3 *render_interpolation_object_node_matrices(long object_index);
 void render_interpolation_object_point(long object_index, union real_point3d *point);
+/* an object's origin and a unit's camera where a frame draws them, not
+mixed of the tick's state and the frame's (render_interpolation.c) */
+void render_interpolation_object_origin(long object_index, union real_point3d *origin);
+void render_interpolation_unit_camera_position(long unit_index, union real_point3d *position);
+/* a widget's shape (an antenna's chain, a cloth flag's grid), stepped in the
+tick, drawn between the ticks hung from its marker as drawn */
+void render_interpolation_shape_tick(unsigned long owner, long index, struct real_matrix4x3 const *anchor,
+	short count, union real_point3d const *points);
+void render_interpolation_shape_forget(unsigned long owner, long index);
+unsigned char render_interpolation_shape(unsigned long owner, long index, struct real_matrix4x3 const *anchor,
+	short count, union real_point3d *drawn);
 float const *render_interpolation_object_function_values(long object_index);
 union real_rgb_color const *render_interpolation_object_change_colors(long object_index);
 float render_interpolation_unit_camouflage(long unit_index, float *super_amount);
@@ -77,9 +88,25 @@ const char *log_address(const unsigned char *bytes, int length, int port, char *
 /* the port's menus' screen for one of ui.map's, by name, else the name
 (port/linux/game/menu_tags.c) */
 char const *pc_menus_screen(char const *name);
+/* every failed assertion and warning counted by its place, with how many
+times it has failed; then, once it is logged, under debug.fatal_asserts a
+failed assertion ends the run (port/linux/game/assert_report.c; cseries.c) */
+unsigned long assert_report_failed(char const *information, char const *file, long line, unsigned char fatal);
+void assert_report_logged(char const *information, char const *file, long line, unsigned char fatal);
+void assert_report_counts(unsigned long *failed, unsigned long *warned);
 /* debug.fixed_step: a game of this machine alone runs a tick a frame
 (port/linux/src/port_config.c; game_time.c, main.c) */
 int halo_fixed_step(void);
+/* debug.fresh_memory_fill: the byte (0x00, 0xAA) the allocators fill what
+they give out uncleared with, or -1 for the game's own fill
+(port/linux/src/port_config.c; debug_memory.c, xbox_memory.c, xbox_kernel.c) */
+int halo_fresh_memory_fill(void);
+/* the frames' clock, with each frame's time fixed (debug.frame_time,
+debug.fixed_step): whether, and the frames' time since the start in
+milliseconds; and each frame's time, which main.c gives it
+(port/linux/game/frames_clock.c) */
+int frames_clock(unsigned long *milliseconds);
+void frames_clock_frame(double seconds);
 /* debug.trace, the scorecard's per-step log (port/linux/game/sim_trace.c):
 each simulation step (the tick it ran, the sub-step's index in the tick and
 the sub-steps a tick, 0 and 1 at 30 Hz: game_time.c after each tick, for
@@ -172,8 +199,15 @@ short ui_widget_port_wide_stretch(long definition_index);
 /* whether a widget's picture keeps its ends at the widget's width (its port
 flag keep_ends) */
 unsigned char ui_widget_port_keep_ends(long flags);
+/* whether the desktop's mouse wheel steps a widget, a row its own left and
+right step through, sideways (its port flag wheel_sideways) */
+unsigned char ui_widget_port_wheel_sideways(long flags);
 /* the screen's pixels to the Xbox's one (port/linux/src/d3d8_device.c) */
 float halo_screen_scale(void);
+/* the number of the last visibility test ended (D3DDevice_EndVisibilityTest;
+0: none), which D3DDevice_GetVisibilityTestResult gives as the time stamp
+of the test a slot's count is of (port/linux/src/d3d8_device.c) */
+unsigned long d3d8_visibility_test_number(void);
 /* takes up a new width between frames (F11); returns the width */
 long halo_screen_commit(void);
 /* the shadow maps' pixels for each of their 128 texels each way, a power of
@@ -186,6 +220,10 @@ float halo_model_detail_scale(int level);
 /* whether display.model_detail is "stock" (port/linux/src/d3d8_gl.c), for
 each permutation's level (port/linux/game/model_detail.c) */
 int halo_model_detail_stock(void);
+/* a meter's value as drawn on the object it is drawn on: a weapon's meter
+that shows its charge shows its heat when that is more, the plasma pistol's
+gauge (port/linux/game/weapon_gauge.c) */
+float weapon_gauge_meter_value(long object_index, short value_source, float meter_value);
 /* while TRUE, drawing shifts right to center 640-column layouts */
 void halo_screen_ui_offset(unsigned char centered);
 /* names a model lighting vertex program, whose draws can be lit for each
@@ -196,6 +234,11 @@ void halo_gpu_draw_preserved(void (*draw)(void *), void *data);
 /* display.anti_aliasing's pass over a window's 3D view, before the HUD and
 menus (source/render/render.c): the window's bounds on the screen */
 void halo_screen_anti_alias(short x0, short y0, short x1, short y1);
+/* display.panini's pass over a window's 3D view, after its anti-aliasing and
+before the HUD (port/linux/game/panini.c): the window's bounds on the
+screen, and the projection: d, s, the middle's magnification, 0, and the
+rectilinear view's tangents at its left, right, top and bottom */
+void halo_screen_panini(short x0, short y0, short x1, short y1, const float projection[8]);
 /* the enhanced dynamic lights (display.dynamic_lights) */
 #include "halo_dynamic_lights.h"
 /* display.hdr's tone map of a window's 3D view, before its anti-aliasing
@@ -204,8 +247,17 @@ draws (port/linux/src/d3d8_device.c, xgpu_hdr.h): the category drawing now
 (rasterizer.h's _rasterizer_profile_*, -1 none: rasterizer_profile_begin and
 _end), and what the code drawing knows of them (HALO_HDR_KIND_*, 0 none) */
 void halo_screen_tone_map(short x0, short y0, short x1, short y1);
+/* display.ambient_occlusion over a window's 3D view once its opaque
+surfaces have drawn their light: the camera's near and far planes and its
+projection's x and y scales and offsets (port/linux/src/d3d8_device.c) */
+void halo_screen_ambient_occlusion(short x0, short y0, short x1, short y1, float z_near, float z_far,
+	const float projection[4]);
 void halo_hdr_category(int category);
 void halo_hdr_draw_kind(int kind);
+/* the display's peak and SDR white, as the backend says them, as text
+(Video Setup's DISPLAY PEAK row: its value, "800 NITS"; words, its panel's
+words); 0 where no renderer draws HDR (port/linux/src/d3d8_device.c) */
+int halo_hdr_display_text(int words, char *text, unsigned int size);
 #ifndef HALO_HDR_KIND_NONE
 #define HALO_HDR_KIND_NONE 0
 #define HALO_HDR_KIND_FIRST_PERSON 1
@@ -214,7 +266,14 @@ void halo_hdr_draw_kind(int kind);
 #define HALO_HDR_KIND_SPECULAR 8
 #define HALO_HDR_KIND_HUD_GLOW 16
 #define HALO_HDR_KIND_LIGHT 32
+#define HALO_HDR_KIND_SELF_ILLUMINATION 64
+#define HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(stages) ((stages) << 8)
 #endif
+/* a run whose frames nobody sees (debug.null_renderer, a dedicated server,
+no display: port/linux/src/d3d8_device.c): main.c draws none, and paces its
+frames to the game's clock (port/linux/game/unseen_frames.c) */
+int halo_frames_unseen(void);
+void unseen_frame_wait(void);
 /* network.client_timeout_seconds, in milliseconds (port/linux/src/port_config.c) */
 unsigned long network_client_timeout_milliseconds(void);
 /* a dedicated server (halo --server: port/linux/src/server_mode.c,
@@ -225,6 +284,7 @@ output, which it logs and captures for its commands' replies (terminal.c) */
 int halo_server_mode(void);
 void server_mode_start(void);
 void server_mode_pace_frame(void);
+void server_mode_pace_frame_receiving(int (*receive)(long milliseconds));
 void server_fatal(char const *text);
 void server_console_output(const char *text);
 /* ... whether debug.txt's lines go to the standard error too
@@ -240,6 +300,17 @@ void cache_slot_source_load(short slot);
 void cache_slot_source_record(short slot, const char *map_path);
 void cache_slot_source_forget(short slot);
 int cache_slot_source_matches(short slot, const char *map_path);
+/* the deflection of a stick (0 the left, 1 the right) read as none, of
+32767: input.left_stick_dead_zone and input.right_stick_dead_zone, else the
+game's own (port/linux/src/xinput_sdl.c) */
+short halo_stick_dead_range(short stick);
+/* whether a controller's look turns the other way side to side:
+input.invert_look_horizontal (port/linux/src/xinput_sdl.c) */
+int halo_look_horizontal_inverted(void);
+/* whether a key, a mouse button or a finger went down since it was last
+asked, which skips a Bink movie as a controller's button does
+(port/linux/src/sdl_platform.c; source/bink/bink_playback.c) */
+int platform_movie_skip_pressed(void);
 /* the mouse in the menus (source/interface/ui_widget.c) */
 #include "halo_ui_pointer.h"
 

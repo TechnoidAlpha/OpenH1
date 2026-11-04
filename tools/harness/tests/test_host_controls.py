@@ -16,10 +16,10 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, ROOT, build, constant, mutated, read, run  # noqa: E402
+from harness import enum_with, CHECK_FAILED, ROOT, build, constant, mutated, read, run  # noqa: E402
 
 CASES = ["seats", "actions", "team_moves", "kick", "move", "lock", "end", "next", "same", "maximum", "bans",
-         "players", "bots", "bots_tab", "bot_count", "bot_skill"]
+         "players", "bots", "bots_tab", "bot_count", "bot_skill", "bot_choices"]
 
 # a fault in network_host_controls.c, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -75,11 +75,18 @@ NEGATIVE_CONTROLS = {
     "ban-of-nothing": (("if (!ban->address[0] && (!ban->hardware_id[0] || !strcmp(ban->hardware_id, \"none\")))",
                         "if (0)"), "bans"),
     "quit-listed": (("\t\tif (player->quit_out_of_game)\n\t\t\tcontinue;", ""), "players"),
-    "bot-out-kept-in-count": (("\thost_controls_bot_write(\"bots.count\", text);", "\t(void)text;"), "bots"),
+    "bot-out-kept-in-count": (("\tnetwork_host_controls_choose_bots(left ? _host_bots_add : _host_bots_none, left);",
+                               "\t(void)left;"), "bots"),
+    "bot-choice-wraps": (("return (short)(stepped < 0 ? 0 : stepped > last ? last : stepped);",
+                          "return (short)(stepped < 0 ? last : stepped > last ? 0 : stepped);"), "bot_choices"),
+    "fill-kept-after-a-bot-out": (("return host_controls_bot_write(\"bots.make_room\", kind == _host_bots_fill ? "
+                                   "\"true\" : \"false\");", "return TRUE;"), "bots"),
+    "skill-wraps": (("return value < least ? least : value > most ? most : value;",
+                     "return value < least ? most : value > most ? least : value;"), "bots"),
     "bot-out-of-asked-for": (("long left = MIN(count, playing) - 1;", "long left = count - 1;"), "bots"),
     "bot-out-in-matchmaking": (("bots_player_is_bot(player_index) && !bots_matchmaking_on();",
                                 "bots_player_is_bot(player_index);"), "bots"),
-    "matchmaking-count-changed": (("bots_matchmaking_on() || count < 0", "count < 0"), "bots"),
+    "matchmaking-count-changed": (("if (bots_matchmaking_on() || (kind != _host_bots_none", "if ((kind != _host_bots_none"), "bots"),
     "bots-play-any-gametype": (("return server && bots_play_game_engine(network_game_server_get_game(server)->variant"
                                 ".game_engine_index);", "return server != NULL;"), "bots"),
     "tactics-not-written": (("return host_controls_bot_write(\"bots.tactics\"", "return TRUE || host_controls_bot_write("
@@ -102,8 +109,8 @@ NEGATIVE_CONTROLS = {
     "skill-prefix": (("if (!name[index] && (!text[index] ||", "if (!name[index] && (1 ||"), "bot_skill"),
     "bot-out-by-a-client": (("return player && !player->quit_out_of_game && global_network_game_server_get() &&",
                              "return player && !player->quit_out_of_game &&"), "bots"),
-    "fill-row-always": (("(row == _host_bot_row_fill_to && !bots_make_room())", "0"), "bots"),
-    "balance-row-always": (("(row == _host_bot_row_balance && !network_host_game_teams_arrangeable())", "0"), "bots"),
+    "balance-row-always": (("if (row == _host_bot_row_balance && !network_host_game_teams_arrangeable())",
+                            "if (0)"), "bots"),
     "legacy-told-apart": (("\t\telse if (network_standard_machine_is_openh1(machine_index))\n"
                            "\t\t\tentry->tag = _host_controls_tag_openh1;", ""), "players"),
 }
@@ -116,6 +123,7 @@ def generated(fault=None):
         "HALO_PORT_MAXIMUM_NETWORK_MACHINES", "HALO_PORT_MAXIMUM_NETWORK_PLAYERS"))
     value = re.search(r"\b_distributed_message_host_team = (\d+)", distributed).group(1)
     config += f"#define _distributed_message_host_team {value}\n"
+    config += enum_with(read("port/linux/game/network_admin.h"), "_network_admin_lists,") + "\n"
     header = read("port/linux/game/network_host_controls.h")
     # (the constants, structures and prototypes: the code's functions call each other in any order)
     config += header[header.index("/* ---------- constants */"):header.rindex("#endif")]
@@ -151,7 +159,10 @@ def test_pause_menu_is_the_network_hosts():
     menu = read("port/linux/game/host_controls_menu.inc")
     opened = menu[menu.index("static boolean host_controls_open(void)"):]
     opened = opened[:opened.index("\n}\n")]
-    assert "if (!network_host_controls_available())" in opened and "return FALSE;" in opened
+    assert "if (!host_available())" in opened and "return FALSE;" in opened
+    # (the host's, or a dedicated server's admin's: network_admin.c)
+    available = menu[menu.index("static boolean host_available(void)"):]
+    assert "return network_host_controls_available() || host_remote();" in available[:available.index("\n}\n")]
 
 
 def test_scoreboard_offers_host_controls():
@@ -163,7 +174,7 @@ def test_scoreboard_offers_host_controls():
     assert order == ["vote", "mute", "party_invite", "party_join", "party_accept", "party_friend", "host_mute", "kick",
                      "ban", "move_team", "host_controls", "cancel"]
     offered = engine[engine.index("static void scoreboard_menu_items("):engine.index("static long scoreboard_menu_first_row(")]
-    assert "if (network_host_controls_available())" in offered
+    assert "if (network_host_controls_available() || network_admin_remote())" in offered
     for item, action in (("host_mute", "mute"), ("kick", "kick"), ("ban", "ban"), ("move_team", "move_team")):
         assert re.search(rf"offered\[_scoreboard_item_{item}\] = TEST_FLAG\(actions, _host_controls_{action}\)",
                          offered), item

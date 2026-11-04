@@ -36,8 +36,8 @@ a whole, and asks of them:
   not gone for it by then lets the next take it. Each human of the team has
   the nearest bot with it as its escort, while the team keeps a bot free.
 
-The game's modes the bots play are Slayer's, with no objective to claim.
-What the team knows is what its players could: where its own players are
+Their game's objective (a flag, a ball, a hill: bots_objectives.h) comes
+before the team's asks but its trades and falling back. What the team knows is what its players could: where its own players are
 (the motion tracker and the HUD show teammates), the kill feed, the damage
 its own players did; of the enemies only what its bots saw.
 

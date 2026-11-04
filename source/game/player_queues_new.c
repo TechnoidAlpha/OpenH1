@@ -891,6 +891,12 @@ void update_client_local_ticks(
 		"c:\\halo\\SOURCE\\game\\player_queues_new.c",
 		0x20B,
 		game_connection()==_game_connection_local);
+	/* port: not in a network client's game whose host went down, which
+	network_game_abort leaves running as a local game until the main menu
+	loads: a client never started the host's queues (game_time_start), and
+	the first one asked for was not valid, NULL, and written to */
+	if (!update_server_globals.initialized || !update_server_globals.queues->valid)
+		return;
 	update_client_build_client_update(&action_collection);
 	update_server_handle_client_update(machine_index, action_collection.actions);
 	while (ticks-->0)

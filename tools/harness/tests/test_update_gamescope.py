@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import HARNESS, ROOT, function, mutated, read  # noqa: E402
+from harness import HARNESS, ROOT, function, mutated, read, structure  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "tools"))
 import linux_package  # noqa: E402
@@ -48,7 +48,7 @@ NEGATIVE_CONTROLS = {
                                            "\tif (0)\n\t{\n\t\tif (!pc_menu_update_question_open())"),
                                "test_not_now"),
     # the new version started as a process of its own, as on the desktop
-    "restart-in-another-process": ("updater", ("\t\t\t\tupdate_restart(launch);", "\t\t\t\tupdate_launch(launch);"),
+    "restart-in-another-process": ("updater", ("\t\t\tupdate_restart(launch);", "\t\t\tupdate_launch(launch);"),
                                    "test_update"),
     # the old game's files left open in the new one
     "files-kept": ("posix", ("fcntl(descriptor, F_SETFD, flags | FD_CLOEXEC);", "(void)flags;"), "test_update"),
@@ -68,6 +68,12 @@ def generated(fault=None):
     return {
         "under_test.inc": posix + "\n\n" + updater,
         "update.h": read("port/linux/src/update.h"),
+        "release_signature.h": read("port/linux/src/release_signature.h"),
+        "p2p_internal.h": "#ifndef TEST_P2P_INTERNAL\n#define TEST_P2P_INTERNAL\n" +
+        structure(read("port/linux/src/p2p_internal.h"), "p2p_sha256") + "\n"
+        "void p2p_sha256_begin(struct p2p_sha256 *context);\n"
+        "void p2p_sha256_add(struct p2p_sha256 *context, const void *data, int size);\n"
+        "void p2p_sha256_end(struct p2p_sha256 *context, unsigned char *digest);\n#endif\n",
         # (update_gamescope.c's fakes are declared before under_test.inc)
         "SDL3/SDL.h": "", "platform.h": "", "install_layout.h": "", "port_config.h": "",
     }
@@ -181,11 +187,22 @@ def test_update(tmp_path, tmp_path_factory):
     output = check_update(build(tmp_path_factory), tmp_path, player="update")
     lines_in_order(output, "test: started", "test: download https://api.github.com/repos/OpenH1/OpenH1/releases/latest",
                    f"test: download https://github.com/OpenH1/OpenH1/releases/download/build-{BUILD + 1}/{ASSET}",
+                   "test: asked for SHA256SUMS", "test: asked for SHA256SUMS.sig",
+                   f"test: release check of {ASSET}: sums 0, signature 0, required 1: unsigned",
                    f"update: build {BUILD + 1} is downloaded",
                    "test: the update question opened over the main menu",
                    f"update: asking about build {BUILD + 1} at the main menu", "test: UPDATE",
                    f"update: updating to build {BUILD + 1} (UPDATE)", f"update: starting build {BUILD + 1}")
     assert output.count("UPDATE)") == 1, output
+
+
+def test_refused(tmp_path, tmp_path_factory):
+    """a download its release's check refuses (release_signature.c): deleted, never asked about, the tree as it was"""
+    tree, release = installed_tree(tmp_path), fake_release(tmp_path)
+    _, output = start(build(tmp_path_factory), tree, release, player="update", verdict="refused")
+    assert f"update: build {BUILD + 1} was refused: a test's refusal" in output, output
+    assert "update question" not in output and "is downloaded" not in output, output
+    assert contents(tree) == OLD and not (tree / "update.partial").exists()
 
 
 def test_answer_yes(tmp_path, tmp_path_factory):

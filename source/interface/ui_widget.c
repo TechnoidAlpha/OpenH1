@@ -680,6 +680,7 @@ struct widget_instance;
 #include "text/text_group.h"
 #include "text/unicode.h"
 #include "ui_widget.h"
+#include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
 /* port: port/linux/game/menu_functions.c: a text's colour in place of its
 own (the server browser's pings) */
 boolean pc_menu_text_color(struct widget_instance *widget, real_argb_color *color);
@@ -1307,6 +1308,8 @@ static short get_icon_type(
 	wchar_t const *string);
 static boolean ui_mouse_menus_active(
 	void);
+static void ui_mouse_forget_widget(
+	struct widget_instance *widget);
 static void render_state_text(
 	rectangle2d *bounds,
 	rectangle2d *cursor_bounds,
@@ -1411,6 +1414,33 @@ boolean hud_key_prompt_draw_key(
 	rectangle2d *bounds,
 	rectangle2d *cursor,
 	pixel32 color);
+short hud_key_prompt_cap_widening(
+	short name_width);
+int halo_keyboard_prompts(
+	void);
+/* port: a button's word in a message as its icon's name
+(port/linux/game/hud_key_prompts.c) */
+void hud_key_prompt_button_word(
+	wchar_t *text,
+	long length,
+	wchar_t const *word,
+	wchar_t const *icon);
+static boolean ui_widget_port_key_label_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length);
+static boolean ui_widget_port_key_legend_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length);
+static short ui_widget_port_key_legend_shift(
+	struct widget_instance *label);
+static short ui_widget_port_key_label_widening(
+	struct widget_instance *label);
+static boolean ui_widget_port_key_icon_hidden(
+	struct widget_instance *widget);
 static void widget_instance_initialize(
 	struct widget_instance *widget,
 	struct widget_instance *parent,
@@ -2498,6 +2528,8 @@ void ui_widget_delete(
 		break;
 	}
 	dispose_pointer(widget_memory_pool, widget);
+	/* port: the mouse's targets name widgets, and this one is gone */
+	ui_mouse_forget_widget(widget);
 	for (widget_index = 0;
 		widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS;
 		widget_index++)
@@ -2808,6 +2840,22 @@ static void widget_instance_give_focus_by_tag(
 	return;
 }
 
+/* port: whether a spinner of the port's menus is at the end it is stepped
+toward, where it stops: a spinner of more than two values (a count, a list
+of choices) does not wrap round from its last to its first, nor back, so
+that a count stepped past its most is never its least (the bots' BOTS once
+went from the most to none). Two values (ON and OFF) still toggle */
+static boolean ui_widget_port_spinner_stops(
+	struct widget_instance *widget,
+	boolean forward)
+{
+	long count = widget->parameters.list.number_of_items;
+
+	if (widget->type != _ui_widget_type_spinner_list || !pc_menu_tag(widget->definition_tag_index) || count <= 2)
+		return FALSE;
+	return forward ? widget->parameters.list.selected_index >= count - 1 : widget->parameters.list.selected_index <= 0;
+}
+
 boolean widget_event_function_list_widget_goto_next_item(
 	struct widget_instance *widget,
 	struct event_record *event,
@@ -2828,6 +2876,9 @@ boolean widget_event_function_list_widget_goto_next_item(
 		1233,
 		widget->type == _ui_widget_type_spinner_list || widget->type == _ui_widget_type_column_list,
 		"calling a list widget function on a non-list widget");
+	/* port: (a spinner at its end stops there: ui_widget_port_spinner_stops) */
+	if (ui_widget_port_spinner_stops(widget, TRUE))
+		return TRUE;
 	if (widget->parameters.list.list_items && widget->parameters.list.number_of_items > 0)
 	{
 		item_index = widget->parameters.list.selected_index + 1;
@@ -2966,6 +3017,9 @@ boolean widget_event_function_list_widget_goto_previous_item(
 		1362,
 		widget->type == _ui_widget_type_spinner_list || widget->type == _ui_widget_type_column_list,
 		"calling a list widget function on a non-list widget");
+	/* port: (a spinner at its end stops there: ui_widget_port_spinner_stops) */
+	if (ui_widget_port_spinner_stops(widget, FALSE))
+		return TRUE;
 	if (widget->parameters.list.list_items && widget->parameters.list.number_of_items > 0)
 	{
 		item_index = widget->parameters.list.selected_index - 1;
@@ -4316,9 +4370,9 @@ X as E (the delete of Load Game, Profiles and the gametypes), or in a server
 browser as Tab (its sort: halo_keyboard_browser_keys_active), Y as F (their
 favorite), LB and RB (the white and black buttons, Settings' and the
 browsers' tabs) as Q and E, the right trigger (Multiplayer's and the
-browsers' refresh) as R, back as F1;
-NULL for the others (the D-pad, which the arrow keys press, Start, the left
-trigger and the sticks), drawn as the controller's */
+browsers' refresh) as R, the left trigger (the browsers' Filters) as L, back
+as F1; NULL for the others (the D-pad, which the arrow keys press, Start and
+the sticks), drawn as the controller's */
 static char const *ui_widget_port_menu_key(
 	short icon_type)
 {
@@ -4334,6 +4388,8 @@ static char const *ui_widget_port_menu_key(
 		return "E";
 	case _icon_right_trigger:
 		return "R";
+	case _icon_left_trigger:
+		return "L";
 	case _icon_y_button:
 		return "F";
 	case _icon_white_button:
@@ -4429,21 +4485,30 @@ void draw_string_and_hack_in_icons(
 		{
 			short remapped_icon_type;
 			short icon_index;
+			short key_icon_type;
 			real_argb_color key_color;
 
 			current = icon_spec + wcslen(icon_names[icon_type]);
 			/* port: a game control's key for the keyboard and mouse
 			(input.button_prompts) */
 			draw_string_get_color(&key_color);
+			/* port: the menus' accept and back (the help screens' "Press
+			%accept to continue") are the A and Back buttons, move and look
+			the sticks, as the icons below draw them; their keys are those
+			buttons' */
+			key_icon_type = icon_type == _icon_accept ? _icon_a_button :
+				icon_type == _icon_back ? _icon_back_button :
+				icon_type == _icon_move ? _icon_left_stick :
+				icon_type == _icon_look ? _icon_right_stick : icon_type;
 			/* port: a controller button as its key while the keyboard and
 			mouse play: where the keyboard drives the menus (their screens,
 			and the scores after a game, whose A picks the next game and B
 			quits), the menus' key for it (ui_widget_port_menu_key); in game,
 			the key of the control the player's profile puts on it */
-			if (icon_type <= _icon_right_thumb)
+			if (key_icon_type <= _icon_right_thumb)
 			{
 				boolean menus = ui_mouse_menus_active();
-				char const *menu_key = menus ? ui_widget_port_menu_key(icon_type) : NULL;
+				char const *menu_key = menus ? ui_widget_port_menu_key(key_icon_type) : NULL;
 
 				if (menu_key &&
 					hud_key_prompt_draw_key(menu_key, bounds, &cursor_bounds, real_argb_color_to_pixel32(&key_color)))
@@ -4454,13 +4519,26 @@ void draw_string_and_hack_in_icons(
 					hud_key_prompt_draw(
 						local_player_index_for_draw_string_and_hack_in_icons,
 						NONE,
-						icon_type,
+						key_icon_type,
 						bounds,
 						&cursor_bounds,
 						real_argb_color_to_pixel32(&key_color)))
 				{
 					continue;
 				}
+			}
+			/* port: the sticks as the movement keys and the mouse, in the
+			menus too (the help screens tell how to play) */
+			if ((key_icon_type == _icon_left_stick || key_icon_type == _icon_right_stick) &&
+				hud_key_prompt_draw(
+					local_player_index_for_draw_string_and_hack_in_icons,
+					NONE,
+					key_icon_type,
+					bounds,
+					&cursor_bounds,
+					real_argb_color_to_pixel32(&key_color)))
+			{
+				continue;
 			}
 			if (icon_type >= _icon_action && icon_type <= _icon_zoom &&
 				hud_key_prompt_draw(
@@ -4486,6 +4564,11 @@ void draw_string_and_hack_in_icons(
 						struct game_input_preferences preferences;
 
 						input_abstraction_get_local_player_preferences(
+							local_player_index_for_draw_string_and_hack_in_icons,
+							&preferences);
+						/* port: the player's own button layout
+						(input.controller_p1 to p4), as the HUD's prompts */
+						controller_remap_prompt(
 							local_player_index_for_draw_string_and_hack_in_icons,
 							&preferences);
 						icon_index = preferences.game_control_to_xbox_buttons[
@@ -4522,6 +4605,13 @@ void draw_string_and_hack_in_icons(
 			else
 			{
 				icon_index = remapped_icon_type;
+			}
+			/* port: an action the player's layout leaves without a button
+			(input.controller_p1 to p4) says so, as the HUD's prompts do */
+			if (icon_index == CONTROLLER_REMAP_UNBOUND)
+			{
+				render_state_text(bounds, &cursor_bounds, L"UNBOUND");
+				continue;
 			}
 
 			{
@@ -4728,6 +4818,29 @@ boolean ui_widgets_active_for_local_player(
 	}
 
 	return result;
+}
+
+/* port: whether a screen made for no one player is up (its
+local_player_index NONE: the main menu's, a network game's postgame and
+pregame screens, an error), which any controller drives: a controller's own
+button layout then gives way to the stock buttons
+(port/linux/game/controller_remap_game.c) */
+boolean ui_widgets_port_active_for_everyone(
+	void)
+{
+	long widget_index;
+
+	if (!widget_globals.initialized)
+		return FALSE;
+	for (widget_index = 0; widget_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; widget_index++)
+	{
+		if (widget_globals.active_widgets[widget_index] &&
+			widget_globals.active_widgets[widget_index]->local_player_index == NONE)
+		{
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 void display_error(
@@ -4973,9 +5086,15 @@ void display_error_abort_to_dashboard(
 	return;
 }
 
+/* port: (port/linux/game/menu_pictures_render.c) */
+void menu_pictures_abandon(char const *why);
+
 void display_error_damaged_media(
 	void)
 {
+	/* port: a map of the menus' pictures that stops the game: its picture
+	given up for good, and the error shown, not their loading screen */
+	menu_pictures_abandon("a map could not be read");
 	display_error_abort_to_dashboard(_error_media_damaged, FALSE);
 	input_frame_end();
 	main_loop_of_death();
@@ -5383,6 +5502,20 @@ static boolean widget_instance_text_box_is_focused(
 	return focused;
 }
 
+/* port: whether the widget and each of its parents is its parent's focused
+child, up to the screen: on the path the focus takes, not only focused
+within its parent, which a widget no longer on the path stays */
+static boolean widget_instance_port_on_focus_path(
+	struct widget_instance *widget)
+{
+	for (; widget && widget->parent; widget = widget->parent)
+	{
+		if (widget->parent->focused_child != widget)
+			return FALSE;
+	}
+	return TRUE;
+}
+
 static boolean string_has_icons_to_draw(
 	wchar_t *string)
 {
@@ -5487,6 +5620,51 @@ static long search_and_replace(
 	return replacements;
 }
 
+/* port: whether a widget is an error dialog's (it or a widget it is in) */
+static boolean ui_widget_port_in_error_dialog(
+	struct widget_instance const *widget)
+{
+	for (; widget; widget = widget->parent)
+	{
+		if (widget->widget_is_error_dialog)
+			return TRUE;
+	}
+	return FALSE;
+}
+
+/* port: the port's own error text's line breaks, written for one dialog's
+lines in one font, made spaces, so that ui_widget_port_text_wrap breaks it
+where the dialog drawn needs: a line kept as written ran past a dialog
+narrower than it was written for (#523). A blank line (a paragraph) is kept.
+In place. */
+static void ui_widget_port_text_unbreak(
+	wchar_t *text)
+{
+	long from, to = 0;
+
+	for (from = 0; text[from]; from++)
+	{
+		if (text[from] == L'\r' || text[from] == L'\n')
+		{
+			long breaks = 0;
+
+			for (; text[from] == L'\r' || text[from] == L'\n'; from++)
+				breaks += text[from] == L'\n' || (text[from] == L'\r' && text[from + 1] != L'\n');
+			from--;
+			if (to > 0 && text[to - 1] == L' ')
+				to--;
+			if (breaks > 1)
+				text[to++] = L'\r';
+			text[to++] = breaks > 1 ? L'\r' : L' ';
+			continue;
+		}
+		if (text[from] == L' ' && to > 0 && (text[to - 1] == L' ' || text[to - 1] == L'\r'))
+			continue;
+		text[to++] = text[from];
+	}
+	text[to] = 0;
+}
+
 /* port: the port's own error text (display_error_text_deferred), which may be
 longer than a line of its dialog: broken at spaces (the strings' line break,
 '\r') where a line would be wider than `width` in the font drawn with.
@@ -5504,14 +5682,17 @@ static boolean ui_widget_port_text_wrap(
 	for (index = 0; ; index++)
 	{
 		wchar_t character = text[index];
+		boolean line_end = character == L'\r' || character == L'\n';
 
-		if (character == L'\r' || character == L'\n')
+		/* (a line's end is measured as a space is: the last word of a line
+		before a break was never measured, and ran past the dialog, #523) */
+		if (line_end && index == line_start)
 		{
 			line_start = index + 1;
 			last_space = NONE;
 			continue;
 		}
-		if (character == L' ' || character == 0)
+		if (character == L' ' || character == 0 || line_end)
 		{
 			wchar_t line[256];
 			long length = MIN(index - line_start, (long)NUMBEROF(line) - 1);
@@ -5535,6 +5716,12 @@ static boolean ui_widget_port_text_wrap(
 				fits = FALSE;
 			if (character == 0)
 				break;
+			if (line_end)
+			{
+				line_start = index + 1;
+				last_space = NONE;
+				continue;
+			}
 			last_space = index;
 		}
 	}
@@ -5558,6 +5745,11 @@ static void widget_instance_render_text_box(
 	real_argb_color color;
 	rectangle2d bounds;
 	rectangle2d clip;
+	/* port: (ui_widget_port_key_label_text) */
+	wchar_t keyed[256];
+	wchar_t named[256];
+	/* port: (an error dialog's button named in words) */
+	wchar_t prompted[256];
 
 	if (definition->text_label_string_list.index != NONE)
 	{
@@ -5577,6 +5769,17 @@ static void widget_instance_render_text_box(
 			string_list_index < SPINNER_EXTRA_DESCRIPTION_BASE + (short)NUMBEROF(kills_to_win_extra_descriptions))
 		{
 			string = (wchar_t *)kills_to_win_extra_descriptions[string_list_index - SPINNER_EXTRA_DESCRIPTION_BASE];
+		}
+		/* port: an error dialog's "Press START to Continue" (the map's
+		words for the button): its button the menus' accept, drawn as the
+		prompts draw it, the controller's Start or, while the keyboard plays,
+		the key that closes the dialog (Enter: #523) */
+		if (widget != ui_widget_port_error_text_box && ui_widget_port_in_error_dialog(widget))
+		{
+			ustrncpy(prompted, string, NUMBEROF(prompted) - 1);
+			prompted[NUMBEROF(prompted) - 1] = 0;
+			hud_key_prompt_button_word(prompted, NUMBEROF(prompted), L"START", L"%accept");
+			string = prompted;
 		}
 		length = ustrlen(string);
 		widget->parameters.text_box.text = pool_resize_pointer(
@@ -5698,7 +5901,7 @@ static void widget_instance_render_text_box(
 
 		if (background && background->width > 0 && background->width < width)
 			width = background->width;
-		width = (short)(width - 4 * definition->horizontal_offset);
+		width = (short)(width - 4 * definition->horizontal_offset);		ui_widget_port_text_unbreak(*text);
 		ustrncpy(wrapped, *text, NUMBEROF(wrapped) - 1);
 		wrapped[NUMBEROF(wrapped) - 1] = 0;
 		if (!ui_widget_port_text_wrap(wrapped, &bounds, width) ||
@@ -5715,7 +5918,48 @@ static void widget_instance_render_text_box(
 		}
 		ui_widget_port_text_wrap(*text, &bounds, width);
 	}
-	if (string_has_icons_to_draw(*text))
+	/* port: the key of a button pictured beside the words in their gap
+	(ui_widget_port_key_label_text), the words left-justified moved left
+	by as much as the key's cap is wider than the gap, so that they end
+	where they did, inside their panel */
+	if (ui_widget_port_key_label_text(widget, FALSE, keyed, NUMBEROF(keyed)))
+	{
+		if (justification == _text_justification_left &&
+			ui_widget_port_key_label_text(widget, TRUE, named, NUMBEROF(named)))
+		{
+			rectangle2d text_bounds, cursor_bounds;
+			short end, widening;
+
+			widening = ui_widget_port_key_label_widening(widget);
+			draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
+			draw_string_set_indents(0, 0);
+			draw_unicode_string_compute_bounds(&bounds, *text, &text_bounds, &cursor_bounds);
+			end = text_bounds.x1;
+			draw_unicode_string_compute_bounds(&bounds, named, &text_bounds, &cursor_bounds);
+			/* (and the cap's edges about the name, a narrow name's cap
+			widened) */
+			if (end != SHORT_MIN && text_bounds.x1 + widening > end - 6)
+				bounds.x0 = (short)(bounds.x0 - (text_bounds.x1 + widening + 6 - end));
+		}
+		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
+	}
+	/* port: the key of a button pictured just left of the words (the
+	legends' "(B) =CANCEL", ui_widget_port_key_legend_text) drawn before
+	them, the row of keys and words laid out as wide as they are
+	(ui_widget_port_key_legend_shift), not clipped by the words' box */
+	else if (ui_widget_port_key_legend_text(widget, FALSE, keyed, NUMBEROF(keyed)))
+	{
+		if (justification == _text_justification_left)
+		{
+			short shift = ui_widget_port_key_legend_shift(widget);
+
+			draw_string_set_draw_mode(font_index, NONE, justification, 0, &color);
+			bounds.x0 = (short)(bounds.x0 + shift);
+			bounds.x1 = (short)(bounds.x1 + 640);
+		}
+		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, keyed, FALSE);
+	}
+	else if (string_has_icons_to_draw(*text))
 		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, *text, FALSE);
 	else
 		rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, *text);
@@ -5967,7 +6211,10 @@ focus, a left click presses A on it (on a spinner list, left or right by the
 half clicked), a right click presses B and the wheel the d-pad. The items and
 where they are drawn are noted while the menus draw (ui_mouse_note_target),
 for the next frame's processing (ui_widgets_process_mouse), which forgets
-them: widgets can be deleted from then on. */
+them: widgets can be deleted from then on. A widget deleted before that (a
+map changed at the next frame's start, which closes every screen) takes its
+targets with it, and what the pointer did on the screen that went is let go
+(ui_mouse_forget_widget, ui_mouse_targets_stale). */
 
 #define UI_MOUSE_MAXIMUM_TARGETS 96
 
@@ -6020,6 +6267,13 @@ mirror (render.c), and a second render would note the same widgets again
 and widen the values once more, which moves their split off the arrows.
 Cleared with the targets, by ui_widgets_process_mouse */
 static boolean ui_mouse_targets_settled = FALSE;
+/* port: whether a widget has been deleted since the menus were last drawn
+(ui_mouse_forget_targets): the screen the pointer's latest clicks, wheel
+and motion were made on is not the one up now, nor are its widgets there
+(a map changed between the frame's drawing and the next frame's
+processing: Save and Quit, whose main menu then took its clicks), so they
+are let go, not resolved against the new screen's targets */
+static boolean ui_mouse_targets_stale = FALSE;
 
 /* The presses the mouse makes, posted one a frame: the event queue keeps
 only the latest event posted between two frames (queue_event). What they
@@ -6040,11 +6294,61 @@ a click (or the d-pad): the server browser's game stays chosen
 (menu_functions.c) */
 static boolean ui_mouse_hovered_last = FALSE;
 static short ui_mouse_hover_x, ui_mouse_hover_y;
+/* port: the wheel steps a row its own left and right step through
+(ui_widget_port_wheel_sideways: Choose Mission's cards) a card a notch, but
+no sooner than this after its last step, the notches between dropped
+(ui_mouse_wheel_sideways_steps); and when it stepped last, NONE for never */
+#define UI_MOUSE_WHEEL_SIDEWAYS_MILLISECONDS 80
+static long ui_mouse_wheel_sideways_last = NONE;
 static short ui_mouse_click_x, ui_mouse_click_y;
 /* whether the latest pointer read was the touchscreen: the taller legend
 areas, the merged setting rows and the widened values are for a finger only
 (render_ui_widgets); the desktop mouse keeps their original areas */
 static boolean ui_mouse_pointer_is_touch = FALSE;
+
+/* port: whether render_ui_widgets is drawing (ui_mouse_forget_widget) */
+static boolean ui_mouse_rendering = FALSE;
+
+/* port: (ui_widget_delete) the widget is freed: no target noted keeps it
+(its memory is soon another widget's, of another screen, which a click
+resolved against it would press, or read as garbage), and, unless the
+menus are being drawn (which go on to note what is left), the pointer waits
+for them to be drawn again (ui_mouse_targets_stale) */
+static void ui_mouse_forget_widget(
+	struct widget_instance *widget)
+{
+	long index;
+	long kept = 0;
+
+	for (index = 0; index < ui_mouse_target_count; index++)
+	{
+		if (ui_mouse_targets[index].widget != widget && ui_mouse_targets[index].label != widget)
+			ui_mouse_targets[kept++] = ui_mouse_targets[index];
+	}
+	ui_mouse_target_count = kept;
+	if (!ui_mouse_rendering)
+		ui_mouse_targets_stale = TRUE;
+
+	return;
+}
+
+/* port: (ui_widgets_process_mouse, ui_mouse_targets_stale) what the pointer
+did since the screen it did it on went is let go, and the presses it
+queued for that screen with it: a click there is no click on the next
+screen, which has not been seen yet (nor, while that is not drawn, a press
+of A on a screen with nothing to pick) */
+static void ui_mouse_let_go_if_stale(
+	struct halo_ui_pointer *pointer)
+{
+	if (!ui_mouse_targets_stale)
+		return;
+	ui_mouse_press_count = 0;
+	ui_mouse_hover_pending = FALSE;
+	ui_mouse_click_pending = FALSE;
+	pointer->wheel_steps = 0;
+
+	return;
+}
 
 /* ---------- the debug view of the targets (debug.touch_targets)
 
@@ -6261,6 +6565,324 @@ static short ui_mouse_key_button(
 	}
 
 	return NONE;
+}
+
+/* port: an Xbox screen's picture of a controller button beside its words
+(the help screens' "PRESS [A] TO CONTINUE") is drawn as the key the
+keyboard presses it with while the keyboard and mouse play
+(input.button_prompts; ui_widget_port_menu_key): in the gap its words leave
+for it, which widens to the key's cap (where they leave none, the picture
+stays). These give the key (NULL while a controller plays, or for a
+button the keyboard has no key for), the words (the nearest text box among
+the children of the picture's parents) and the gap (the first run of
+spaces in them, its length in *length; NONE for none) */
+static char const *ui_widget_port_key_icon_key(
+	struct widget_instance *widget)
+{
+	short button_index = ui_mouse_key_button(widget);
+
+	if (button_index == NONE || !ui_mouse_menus_active() || !halo_keyboard_prompts())
+		return NULL;
+	/* (the controller's buttons are in the order of the icons, A to the
+	right thumb) */
+	return ui_widget_port_menu_key(button_index);
+}
+
+static struct widget_instance *ui_widget_port_key_icon_label(
+	struct widget_instance *widget)
+{
+	struct widget_instance *ancestor;
+	struct widget_instance *child;
+
+	for (ancestor = widget->parent; ancestor; ancestor = ancestor->parent)
+	{
+		for (child = ancestor->child; child; child = child->next)
+		{
+			if (child->type == _ui_widget_type_text_box)
+				return child;
+		}
+	}
+
+	return NULL;
+}
+
+static long ui_widget_port_key_gap(
+	wchar_t const *text,
+	long *length)
+{
+	long index;
+
+	for (index = 0; text && text[index]; index++)
+	{
+		if (text[index] == L' ' && text[index + 1] == L' ')
+		{
+			*length = 0;
+			while (text[index + *length] == L' ')
+				(*length)++;
+			return index;
+		}
+	}
+
+	return NONE;
+}
+
+/* a picture of a button among a widget's children and theirs whose key
+the words of label show */
+static struct widget_instance *ui_widget_port_label_key_icon(
+	struct widget_instance *widget,
+	struct widget_instance *label,
+	short depth)
+{
+	struct widget_instance *child;
+
+	for (child = widget->child; child && depth < 4; child = child->next)
+	{
+		struct widget_instance *icon;
+
+		if (ui_widget_port_key_icon_key(child) && ui_widget_port_key_icon_label(child) == label)
+			return child;
+		icon = ui_widget_port_label_key_icon(child, label, (short)(depth + 1));
+		if (icon)
+			return icon;
+	}
+
+	return NULL;
+}
+
+/* the words with the button pictured beside them in their gap, as its
+icon ("%a-button"), which draw_string_and_hack_in_icons draws as the
+menus' key, or (named) as the key's name; FALSE where they are drawn as
+they are */
+static boolean ui_widget_port_key_label_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length)
+{
+	wchar_t const *text = label->parameters.text_box.text;
+	wchar_t const *parts[4];
+	wchar_t name[16];
+	struct widget_instance *icon;
+	long gap, gap_length;
+	long used;
+	long part;
+
+	gap = ui_widget_port_key_gap(text, &gap_length);
+	if (gap == NONE || !label->parent)
+		return FALSE;
+	icon = ui_widget_port_label_key_icon(label->parent, label, 0);
+	if (!icon)
+		return FALSE;
+	name[0] = 0;
+	parts[0] = named ? L" " : L" %";
+	parts[1] = named ? name : icon_names[ui_mouse_key_button(icon)];
+	if (named)
+		ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+	parts[2] = L" ";
+	parts[3] = text + gap + gap_length;
+	for (used = 0; used < gap && used < length - 1; used++)
+		keyed[used] = text[used];
+	for (part = 0; part < NUMBEROF(parts); part++)
+	{
+		wchar_t const *letter;
+
+		for (letter = parts[part]; *letter && used < length - 1; letter++)
+			keyed[used++] = *letter;
+	}
+	keyed[used] = 0;
+
+	return TRUE;
+}
+
+/* a widget's left in its parent, as widget_instance_render_recursive
+places it */
+static short ui_widget_port_left_in_parent(
+	struct widget_instance *widget)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(widget->definition_tag_index);
+
+	return (short)(definition->bounds.x0 + widget->horizontal_offset +
+		ui_widget_port_anchor_offset(definition->flags) +
+		ui_widget_port_wide_offset(widget->definition_tag_index));
+}
+
+/* the words a picture of a button stands just left of, in its row: the
+Xbox's legends of a picture and its words each ("(B) =CANCEL (A) =SELECT",
+ui\shell\main_menu\button_key_sm, under the campaign's pause menu), a text
+box among the picture's siblings; else NULL */
+static struct widget_instance *ui_widget_port_key_icon_legend(
+	struct widget_instance *icon)
+{
+	struct ui_widget_definition *icon_definition = ui_widget_definition_get(icon->definition_tag_index);
+	struct widget_instance *sibling;
+	short right = (short)(ui_widget_port_left_in_parent(icon) +
+		icon_definition->bounds.x1 - icon_definition->bounds.x0);
+	short top = (short)(icon_definition->bounds.y0 + icon->vertical_offset);
+	short bottom = (short)(icon_definition->bounds.y1 + icon->vertical_offset);
+
+	for (sibling = icon->parent ? icon->parent->child : NULL; sibling; sibling = sibling->next)
+	{
+		struct ui_widget_definition *definition;
+		short left;
+
+		if (sibling->type != _ui_widget_type_text_box)
+			continue;
+		definition = ui_widget_definition_get(sibling->definition_tag_index);
+		left = ui_widget_port_left_in_parent(sibling);
+		if (left >= right - 2 && left <= right + 8 &&
+			definition->bounds.y0 + sibling->vertical_offset < bottom &&
+			definition->bounds.y1 + sibling->vertical_offset > top)
+		{
+			return sibling;
+		}
+	}
+
+	return NULL;
+}
+
+/* the words of a legend with the key of the button pictured left of them
+before them, as its icon ("%b-button=CANCEL", which
+draw_string_and_hack_in_icons draws as the menus' key), or (named) as the
+key's name; FALSE where they are drawn as they are */
+static boolean ui_widget_port_key_legend_text(
+	struct widget_instance *label,
+	boolean named,
+	wchar_t *keyed,
+	long length)
+{
+	wchar_t const *text = label->parameters.text_box.text;
+	struct widget_instance *icon;
+	wchar_t const *parts[3];
+	wchar_t name[16];
+	long used = 0;
+	long part;
+
+	for (icon = label->parent ? label->parent->child : NULL; icon; icon = icon->next)
+	{
+		if (ui_widget_port_key_icon_key(icon) && ui_widget_port_key_icon_legend(icon) == label)
+			break;
+	}
+	if (!icon || !text)
+		return FALSE;
+	name[0] = 0;
+	if (named)
+		ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+	parts[0] = named ? L"" : L"%";
+	parts[1] = named ? name : icon_names[ui_mouse_key_button(icon)];
+	parts[2] = text;
+	for (part = 0; part < NUMBEROF(parts); part++)
+	{
+		wchar_t const *letter;
+
+		for (letter = parts[part]; *letter && used < length - 1; letter++)
+			keyed[used++] = *letter;
+	}
+	keyed[used] = 0;
+
+	return TRUE;
+}
+
+/* the width of words in a text box's font, as one line from 0; 0 for none */
+static short ui_widget_port_text_width(
+	struct widget_instance *label,
+	wchar_t const *text)
+{
+	struct ui_widget_definition *definition = ui_widget_definition_get(label->definition_tag_index);
+	real_argb_color color = definition->text_color;
+	rectangle2d bounds, text_bounds, cursor_bounds;
+
+	if (!text || !*text || definition->text_font.index == NONE)
+		return 0;
+	bounds.x0 = 0;
+	bounds.y0 = 0;
+	bounds.x1 = SHORT_MAX;
+	bounds.y1 = SHORT_MAX;
+	draw_string_set_draw_mode(definition->text_font.index, NONE, _text_justification_left, 0, &color);
+	draw_string_set_indents(0, 0);
+	draw_unicode_string_compute_bounds(&bounds, text, &text_bounds, &cursor_bounds);
+
+	return text_bounds.x1 == SHORT_MIN ? 0 : text_bounds.x1;
+}
+
+/* how much wider a narrow key's cap is drawn than its name and edges
+(hud_key_prompts.c's key_cap_draw), for the key pictured in a label's gap
+(ui_widget_port_key_label_text). Leaves the draw mode the measuring's: the
+caller sets its own again */
+static short ui_widget_port_key_label_widening(
+	struct widget_instance *label)
+{
+	struct widget_instance *icon = label->parent ? ui_widget_port_label_key_icon(label->parent, label, 0) : NULL;
+	wchar_t name[16];
+
+	if (!icon || !ui_widget_port_key_icon_key(icon))
+		return 0;
+	ascii_to_wide(ui_widget_port_key_icon_key(icon), name, sizeof(name));
+
+	return hud_key_prompt_cap_widening(ui_widget_port_text_width(label, name));
+}
+
+/* how far right of its words' box a legend's key is drawn: the legends of
+the label's parent drawn in turn as each key's cap and its words, the gaps
+between them as they were, the row centred on the pictures' and words'.
+Leaves the draw mode the measuring's: the caller sets its own again */
+static short ui_widget_port_key_legend_shift(
+	struct widget_instance *label)
+{
+	struct widget_instance *icon;
+	wchar_t name[256];
+	short old_left = SHORT_MAX, old_right = SHORT_MIN;
+	short x = 0, start, label_x = 0;
+	short previous_end = SHORT_MIN;
+
+	for (icon = label->parent ? label->parent->child : NULL; icon; icon = icon->next)
+	{
+		struct widget_instance *words;
+		short icon_left, words_left, words_width, name_width;
+
+		if (!ui_widget_port_key_icon_key(icon))
+			continue;
+		words = ui_widget_port_key_icon_legend(icon);
+		if (!words || !ui_widget_port_key_legend_text(words, TRUE, name, NUMBEROF(name)))
+			continue;
+		icon_left = ui_widget_port_left_in_parent(icon);
+		words_left = ui_widget_port_left_in_parent(words);
+		words_width = ui_widget_port_text_width(words, words->parameters.text_box.text);
+		/* (the gap from the words before, as it was) */
+		if (previous_end != SHORT_MIN)
+			x = (short)(x + MAX(icon_left - previous_end, 4));
+		if (words == label)
+			label_x = x;
+		/* (the key's name and the words, and the cap's edges about the
+		name, a narrow name's cap widened: hud_key_prompts.c's
+		key_cap_draw) */
+		name_width = ui_widget_port_text_width(words, name);
+		x = (short)(x + name_width + 4 + hud_key_prompt_cap_widening(name_width));
+		previous_end = (short)(words_left + words_width);
+		old_left = MIN(old_left, icon_left);
+		old_right = MAX(old_right, previous_end);
+	}
+	if (old_left == SHORT_MAX)
+		return 0;
+	start = (short)(old_left - (x - (old_right - old_left)) / 2);
+
+	return (short)(start + label_x - ui_widget_port_left_in_parent(label));
+}
+
+/* whether the picture is left out, its key drawn in its words (in their
+gap, or before them in a legend) */
+static boolean ui_widget_port_key_icon_hidden(
+	struct widget_instance *widget)
+{
+	struct widget_instance *label;
+	long gap_length;
+
+	if (!ui_widget_port_key_icon_key(widget))
+		return FALSE;
+	label = ui_widget_port_key_icon_label(widget);
+	if (label && ui_widget_port_key_gap(label->parameters.text_box.text, &gap_length) != NONE)
+		return TRUE;
+
+	return ui_widget_port_key_icon_legend(widget) != NULL;
 }
 
 /* whether the d-pad moves the focus to a widget: an item of a column list,
@@ -6894,7 +7516,9 @@ static void ui_mouse_step_list_to_slot(
 d-pad steps through; a touch drag skips a list showing one value at a time
 (a setting), moving between the rows, so a drag never changes a value; that
 takes a tap on one of its halves; the desktop wheel keeps the game's own
-d-pad reach and steps a setting's value */
+d-pad reach and steps a setting's value; port: and the desktop wheel steps
+a row its own left and right step through (ui_widget_port_wheel_sideways),
+which a touch drag, across it, leaves be */
 static struct widget_instance *ui_mouse_wheel_widget(
 	struct widget_instance *root,
 	boolean skip_settings)
@@ -6911,7 +7535,8 @@ static struct widget_instance *ui_mouse_wheel_widget(
 		if (definition->flags & (FLAG(_widget_dpad_updown_tabs_thru_children_bit) |
 			FLAG(_widget_dpad_leftright_tabs_thru_children_bit) |
 			FLAG(_widget_dpad_updown_tabs_thru_list_items_bit) |
-			FLAG(_widget_dpad_leftright_tabs_thru_list_items_bit)))
+			FLAG(_widget_dpad_leftright_tabs_thru_list_items_bit)) ||
+			(!skip_settings && ui_widget_port_wheel_sideways(definition->flags)))
 		{
 			result = widget;
 		}
@@ -7017,6 +7642,29 @@ static long ui_mouse_wheel_room(
 	}
 
 	return NONE;
+}
+
+/* port: how many presses the wheel's notches turned now (notches, their
+number) make on a row its own left and right step through
+(ui_widget_port_wheel_sideways), at now (milliseconds), its last step's
+time in *last (NONE: none yet): one, no sooner than
+UI_MOUSE_WHEEL_SIDEWAYS_MILLISECONDS after the last, the notches between
+dropped, so that a trackpad's or a high-resolution wheel's fast scroll (many
+notches at once, or one a frame) moves the row a card at a time, not on to
+its end, while a wheel turned a notch at a time steps it a card a notch */
+static long ui_mouse_wheel_sideways_steps(
+	long notches,
+	unsigned long now,
+	long *last)
+{
+	if (notches <= 0 ||
+		(*last != NONE && now - (unsigned long)*last < UI_MOUSE_WHEEL_SIDEWAYS_MILLISECONDS))
+	{
+		return 0;
+	}
+	*last = (long)now;
+
+	return 1;
 }
 
 /* the menu the mouse drives: the first player's, or everyone's */
@@ -7160,6 +7808,42 @@ boolean ui_widget_port_take_click(
 	return TRUE;
 }
 
+/* port: the latest place the pointer chose an item at without pressing it
+(passed over it, or a click that only chose it), once, if it was at most a
+quarter of a second ago, for a row of several choices (menu_functions.c's
+Controls Setup: the binding under the pointer is the one chosen) */
+static short ui_widget_port_point_x, ui_widget_port_point_y;
+static unsigned long ui_widget_port_point_time;
+static boolean ui_widget_port_point_taken = TRUE;
+
+static void ui_widget_port_note_point(
+	short x,
+	short y)
+{
+	ui_widget_port_point_x = x;
+	ui_widget_port_point_y = y;
+	ui_widget_port_point_time = widget_globals.current_system_milliseconds;
+	ui_widget_port_point_taken = FALSE;
+
+	return;
+}
+
+boolean ui_widget_port_take_point(
+	short *x,
+	short *y)
+{
+	if (ui_widget_port_point_taken ||
+		widget_globals.current_system_milliseconds - ui_widget_port_point_time > 250)
+	{
+		return FALSE;
+	}
+	ui_widget_port_point_taken = TRUE;
+	*x = ui_widget_port_point_x;
+	*y = ui_widget_port_point_y;
+
+	return TRUE;
+}
+
 /* logs a tap while the virtual keyboard is up: the key or legend that took it */
 static void ui_debug_log_keyboard_tap(
 	short x,
@@ -7259,6 +7943,7 @@ static void ui_widgets_process_mouse(
 		}
 		if (pointer.right_clicks)
 			ui_mouse_press(_widget_event_b_button);
+		ui_mouse_let_go_if_stale(&pointer);
 		/* port: (ui_widget_port_finger_taken) at the finger's first move
 		sideways, by where it went down */
 		if (pointer.touch && pointer.left_held && !was_held)
@@ -7287,6 +7972,7 @@ static void ui_widgets_process_mouse(
 			long room = NONE;
 			long index;
 			long step;
+			long steps = ABS(pointer.wheel_steps);
 
 			if (widget)
 				ui_mouse_list_directions(widget, &back, &forward);
@@ -7300,6 +7986,18 @@ static void ui_widgets_process_mouse(
 			{
 				back = _widget_event_dpad_up;
 				forward = _widget_event_dpad_down;
+			}
+			/* port: a row its own left and right step through (Choose
+			Mission's cards) steps sideways, a card a notch, the away notch
+			back (left), as the d-pad's sideways lists do, and not too fast
+			(ui_mouse_wheel_sideways_steps) */
+			if (widget && !touch &&
+				ui_widget_port_wheel_sideways(ui_widget_definition_get(widget->definition_tag_index)->flags))
+			{
+				back = _widget_event_dpad_left;
+				forward = _widget_event_dpad_right;
+				steps = ui_mouse_wheel_sideways_steps(steps, widget_globals.current_system_milliseconds,
+					&ui_mouse_wheel_sideways_last);
 			}
 			button = going_forward ? forward : back;
 			/* only a touch drag stops at the ends, and does nothing with no list
@@ -7317,7 +8015,7 @@ static void ui_widgets_process_mouse(
 						room++;
 				}
 			}
-			for (step = 0; step < ABS(pointer.wheel_steps) && step < 4 && (room == NONE || step < room); step++)
+			for (step = 0; step < steps && step < 4 && (room == NONE || step < room); step++)
 				ui_mouse_press(button);
 		}
 		if (!ui_mouse_press_count && ui_mouse_hover_pending)
@@ -7340,6 +8038,9 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 						/* port: (ui_mouse_hovered_last) */
 						ui_mouse_hovered_last = TRUE;
+						/* port: (ui_widget_port_take_point) */
+						if (target->kind == _ui_mouse_target_item)
+							ui_widget_port_note_point(ui_mouse_hover_x, ui_mouse_hover_y);
 					}
 					break;
 				case _ui_mouse_target_list_slot:
@@ -7375,10 +8076,11 @@ static void ui_widgets_process_mouse(
 						ui_mouse_give_focus(target->widget);
 						break;
 					}
-					/* port: (ui_mouse_tap_chooses_first) */
+					/* port: (ui_mouse_tap_chooses_first; ui_widget_port_take_point) */
 					if (ui_mouse_tap_chooses_first(target->widget))
 					{
 						ui_mouse_give_focus(target->widget);
+						ui_widget_port_note_point(ui_mouse_click_x, ui_mouse_click_y);
 						break;
 					}
 					ui_mouse_give_focus(target->widget);
@@ -7585,6 +8287,10 @@ static void widget_instance_render_recursive(
 				alpha_modifier;
 		}
 		color = modulate_pixel32_by_real_alpha(0xFFFFFFFF, alpha);
+		/* port: a controller button's picture left out where its words
+		show its key for the keyboard and mouse
+		(ui_widget_port_key_label_text) */
+		if (!ui_widget_port_key_icon_hidden(widget))
 		{
 			/* port: a frame of ui.map's that the menus scale (the Xbox's
 			picture of the button settings, in the profile settings' smaller
@@ -7634,6 +8340,9 @@ static void widget_instance_render_recursive(
 			}
 			else if (shown)
 			{
+				/* port: a scaled frame of ui.map's faded by its widget (the
+				campaign's badges not earned: menu_functions.c) drawn without
+				the plasma's combiners, which leave out the colour's alpha */
 				draw_bitmap_in_rect(
 					bitmap,
 					&bounds,
@@ -7641,7 +8350,7 @@ static void widget_instance_render_recursive(
 					clip,
 					color,
 					&multitexture_params,
-					FALSE);
+					placed && alpha < 1.0f && !use_nifty_plasma_fx);
 			}
 		}
 		if (use_nifty_plasma_fx)
@@ -7676,12 +8385,17 @@ static void widget_instance_render_recursive(
 		break;
 
 	case _ui_widget_type_spinner_list:
+		/* port: drawn focused (its text white) only on the screen's focus
+		path: a row of the port's settings is a container whose spinner is
+		its focused child from its creation on, so every row's value was
+		white until the focus had passed through it
+		(widget_instance_port_on_focus_path) */
 		widget_instance_render_spinner_list(
 			widget,
 			definition,
 			clip_rect,
 			offset,
-			focus);
+			focus && widget_instance_port_on_focus_path(widget));
 		if (TEST_FLAG(
 				definition->list_flags,
 				_list_items_generated_from_string_list_tag) &&
@@ -7819,6 +8533,8 @@ void render_ui_widgets(
 	/* port: the port's screens laid out for the view's width (a split
 	screen's quarter has the menus' 640) */
 	ui_widget_port_wide_layout(window_bounds->x1 - window_bounds->x0);
+	/* port: (ui_mouse_forget_widget) */
+	ui_mouse_rendering = TRUE;
 	if (!virtual_keyboard_active())
 	{
 		local_player_index = PIN(
@@ -7919,6 +8635,8 @@ void render_ui_widgets(
 				ui_mouse_widen_values();
 			}
 			ui_mouse_targets_settled = TRUE;
+			/* port: (ui_mouse_targets_stale) the screen up is the one drawn */
+			ui_mouse_targets_stale = FALSE;
 		}
 		/* port: a Discord friend's ask to join, over the menus, near the top
 		of the whole screen (port/linux/game/network_party.c; the HUD shows
@@ -7951,6 +8669,7 @@ void render_ui_widgets(
 	{
 		virtual_keyboard_render();
 	}
+	ui_mouse_rendering = FALSE;
 	ui_debug_draw_targets(first_players_render);
 
 	return;

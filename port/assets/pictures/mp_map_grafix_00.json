@@ -1,0 +1,17 @@
+{
+ "picture": "ui.map mp_map_grafix 00 (Battle Creek)",
+ "scenario": "levels\\test\\beavercreek\\beavercreek",
+ "bsp": 0,
+ "aspect": 1.2169,
+ "pose": {
+  "x": 20.4001,
+  "y": 6.5008,
+  "z": 4.3834,
+  "yaw": 143.4615,
+  "pitch": -8.3797,
+  "roll": 1.6977,
+  "vfov": 51.2403
+ },
+ "colour": "curve",
+ "score": 0.7545
+}

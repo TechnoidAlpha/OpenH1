@@ -66,7 +66,9 @@ being hit looks and feels like on the clients).
 #include "items/projectile_definitions.h"
 #include "scenario/scenario.h"
 #include "units/units.h"
+#include "network_coop.h"
 #include "network_distributed.h"
+#include "network_standard.h"
 
 #include <math.h>
 
@@ -87,6 +89,12 @@ boolean distributed_get_death(short dead_player_index, byte *killing_player_inde
 boolean tag_index_is_group(long tag_index, long group_tag);
 /* game_engine.c's */
 long game_engine_network_player_score(long player_index);
+void game_engine_player_killed(long killing_player_index, long killing_object_index, long dead_player_index,
+	boolean friendly_fire);
+/* players.c's */
+void network_player_attach_unit(long player_index, long unit_index);
+/* network_objects.c's: a unit's weapons put back in its hands */
+void network_objects_client_restore_weapons(long unit_index, long const *weapon_indices, short current_weapon_index);
 /* physics.c's (world units a tick, each tick) */
 extern real global_gravity;
 /* network_test.c's: a hit's times, for the tests' latency figures */
@@ -161,6 +169,12 @@ enum
 	/* how long a player's fire origin holds after the last came (a network
 	that delivers in bursts) */
 	FIRE_ORIGIN_FRESH_TICKS = TICKS_PER_SECOND,
+	/* a client: its own players' hits it shows ahead of the host's word, kept
+	until that word comes */
+	MAXIMUM_PREDICTED_HITS = 64,
+	/* ... waited for this long past the round trip (a report resent, a
+	frame's wait each way), then taken as refused */
+	PREDICTED_HIT_SLACK_TICKS = TICKS_PER_SECOND / 2,
 };
 
 /* a fire origin's offset from the unit's camera: in 1/4096 of a world unit,
@@ -228,6 +242,12 @@ enum
 {
 	/* struct damage_effect_definition flags */
 	_damage_effect_dont_scale_damage_by_distance_bit = 0,
+};
+enum
+{
+	/* struct damage_definition category */
+	_damage_category_melee = 6,
+	_damage_category_flame,
 };
 enum
 {
@@ -530,6 +550,44 @@ static long damage_replayed_events;
 /* a client: its players' hits this tick */
 static struct distributed_hit_report damage_reports[MAXIMUM_HIT_REPORTS_PER_TICK];
 static short damage_report_count;
+/* ... those it showed at once, until the host's word on each comes (object
+NONE: none), and what each took of the unit (its vitality), whether it
+broke its shield or killed it, and what the unit was before, should it
+stand again */
+static struct damage_predicted_hit
+{
+	long object_index;
+	long player_index;
+	long definition_index;
+	long time;
+	real shield_damage;
+	real body_damage;
+	boolean shield_depleted;
+	boolean killed;
+	/* (the host's word on it has come: kept until a state of the unit that
+	has it) */
+	boolean answered;
+	long victim_player_index;
+	real shield_vitality;
+	real body_vitality;
+	boolean was_shield_depleted;
+	long weapon_indices[MAXIMUM_WEAPONS_PER_UNIT];
+	short current_weapon_index;
+	char grenade_counts[NUMBER_OF_UNIT_GRENADE_TYPES];
+} damage_predicted_hits[MAXIMUM_PREDICTED_HITS];
+/* ... dealing one (the unit it is dealt to, NONE once it has been) */
+static short damage_predicted_hit_count;
+static boolean damage_predicting;
+static long damage_predicting_object;
+/* ... and how they went, for the tests (network_test.c): hits shown, the
+host's word on them come, none come; kills shown, the host's kill come,
+refused (the unit standing again) */
+static long damage_predicted_shown;
+static long damage_predicted_answered;
+static long damage_predicted_unanswered;
+static long damage_predicted_kills;
+static long damage_predicted_kills_confirmed;
+static long damage_predicted_kills_refused;
 /* ... replaying the host's killing blow (its player effect came before),
 and its killer and their score after it (NONE: none) */
 static boolean damage_replaying_kill;
@@ -627,6 +685,402 @@ static boolean static_target_damage(
 	struct damage_data const *damage)
 {
 	return damage->owner_object_index != NONE && static_target(damage->owner_object_index);
+}
+
+/* ---------- a client's own players' hits, shown at once
+
+A client shows its own players' hits on other players at once, as the host
+will deal them: it deals the damage to its copy of the unit (the shield's
+flare and its breaking, blood, the flinch and pain sound, and the death,
+the body falling as the hit had it), with the least damage the hit's roll
+gives, and counts nothing (damage.c). The host still decides: the hit is
+reported as before, and the host's word on it confirms it (the damage it
+dealt; the killing blow, which announces the kill and its killer, as it
+did, and the score), or, missing past the round trip, refuses it: what the
+hit took is the host's again (its states say), and a unit it killed stands
+again where it fell, its player's again, as it was. Until then the host's
+states of the unit, which do not have the hit yet, are taken less what it
+took. In OpenH1 games, but co-op's; not a unit that rides, burns or comes
+apart (a body destroyed), whose undoing the game has no way back from. */
+
+/* (network.predict_hits, read again when a setting changes) */
+static boolean distributed_hits_predicted(
+	void)
+{
+	static unsigned long read_at = (unsigned long)-1;
+	static boolean predicted;
+
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		predicted = config_boolean("network.predict_hits") != 0;
+	}
+	return predicted;
+}
+
+/* whether object_cause_damage deals the damage to the unit as a hit shown
+ahead of the host's word (once: nothing it sets off is dealt) */
+static boolean distributed_predicted_dealing(
+	long object_index)
+{
+	if (!damage_predicting || object_index != damage_predicting_object)
+		return FALSE;
+	damage_predicting_object = NONE;
+	return TRUE;
+}
+
+boolean network_damage_predicting(
+	void)
+{
+	return damage_predicting;
+}
+
+/* whether this machine shows its own player's hit at once: another player's
+living unit on foot, damage that neither burns nor is the host's instant
+kill, a unit whose body is not destroyed */
+static boolean distributed_hit_predictable(
+	struct damage_data const *damage,
+	long object_index)
+{
+	struct unit_datum *unit;
+	struct player_datum *player;
+	long collision_model_index;
+
+	if (damage_predicting || network_standard_agreed_rate() == 0 || network_coop_active() ||
+		!distributed_hits_predicted() || !distributed_player_is_local(damage->owner_player_index) ||
+		TEST_FLAG(damage->flags, _damage_kill_instantly_bit) ||
+		!tag_index_is_group(damage->definition_index, DAMAGE_EFFECT_DEFINITION_TAG) ||
+		damage_effect_definition_get(damage->definition_index)->damage.category == _damage_category_flame)
+	{
+		return FALSE;
+	}
+	unit = (struct unit_datum *)object_try_and_get_and_verify_type(object_index, _object_mask_biped);
+	if (!unit || TEST_FLAG(unit->object.damage_flags, _object_dead_bit) ||
+		unit->object.parent_object_index != NONE || unit->unit.player_index == NONE ||
+		distributed_player_is_local(unit->unit.player_index) || unit->unit.flaming_death_delay > 0)
+	{
+		return FALSE;
+	}
+	player = player_try_and_get(unit->unit.player_index);
+	if (!player || distributed_living_unit(player) != object_index)
+		return FALSE;
+	collision_model_index = object_definition_get(unit->definition_index)->object.collision_model.index;
+	return collision_model_index != NONE &&
+		collision_model_definition_get(collision_model_index)->resistance.body_destroyed_threshold >= 0.0f;
+}
+
+static void distributed_predicted_hits_reset(
+	void)
+{
+	short index;
+
+	damage_predicting = FALSE;
+	damage_predicting_object = NONE;
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS; index++)
+		damage_predicted_hits[index].object_index = NONE;
+	damage_predicted_hit_count = 0;
+}
+
+static void distributed_predicted_hit_free(
+	struct damage_predicted_hit *hit)
+{
+	if (hit->object_index != NONE)
+	{
+		hit->object_index = NONE;
+		damage_predicted_hit_count--;
+	}
+}
+
+/* the hits of the unit forgotten (its death the host's, or the unit gone) */
+static void distributed_predicted_hits_forget(
+	long object_index)
+{
+	short index;
+
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS; index++)
+	{
+		if (damage_predicted_hits[index].object_index == object_index)
+			distributed_predicted_hit_free(&damage_predicted_hits[index]);
+	}
+}
+
+/* a client's own player's hit on the host's unit, shown at once
+(distributed_hit_predictable): dealt here, and kept until the host's word
+on it comes. FALSE if it is not (nothing dealt) */
+static boolean distributed_predict_hit(
+	struct damage_data *damage,
+	long object_index,
+	short node_index,
+	short region_index,
+	short material_index,
+	real_vector3d const *object_normal)
+{
+	struct damage_predicted_hit *hit = NULL;
+	struct unit_datum *unit;
+	short index;
+
+	if (!distributed_hit_predictable(damage, object_index))
+		return FALSE;
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS && !hit; index++)
+	{
+		if (damage_predicted_hits[index].object_index == NONE)
+			hit = &damage_predicted_hits[index];
+	}
+	if (!hit)
+		return FALSE;
+	unit = unit_get(object_index);
+	csmemset(hit, 0, sizeof(*hit));
+	damage_predicted_hit_count++;
+	hit->object_index = object_index;
+	hit->player_index = damage->owner_player_index;
+	hit->definition_index = damage->definition_index;
+	hit->time = game_time_get();
+	hit->victim_player_index = unit->unit.player_index;
+	hit->shield_vitality = unit->object.shield_vitality;
+	hit->body_vitality = unit->object.body_vitality;
+	hit->was_shield_depleted = TEST_FLAG(unit->object.damage_flags, _object_shield_depleted_bit);
+	for (index = 0; index < MAXIMUM_WEAPONS_PER_UNIT; index++)
+		hit->weapon_indices[index] = unit->unit.weapon_object_indices[index];
+	hit->current_weapon_index = unit->unit.current_weapon_index;
+	for (index = 0; index < NUMBER_OF_UNIT_GRENADE_TYPES; index++)
+		hit->grenade_counts[index] = unit->unit.grenade_counts[index];
+	damage_predicting = TRUE;
+	damage_predicting_object = object_index;
+	object_cause_damage(damage, object_index, node_index, region_index, material_index, object_normal);
+	damage_predicting = FALSE;
+	damage_predicting_object = NONE;
+	unit = (struct unit_datum *)object_try_and_get_and_verify_type(object_index, _object_mask_biped);
+	if (!unit)
+	{
+		distributed_predicted_hit_free(hit);
+		return TRUE;
+	}
+	hit->shield_damage = MAX(0.0f, hit->shield_vitality - unit->object.shield_vitality);
+	hit->body_damage = MAX(0.0f, hit->body_vitality - unit->object.body_vitality);
+	hit->shield_depleted = !hit->was_shield_depleted &&
+		TEST_FLAG(unit->object.damage_flags, _object_shield_depleted_bit);
+	hit->killed = TEST_FLAG(unit->object.damage_flags, _object_dead_bit);
+	/* (damage that harms nothing, a grenade's shock wave: the host sends no
+	word of it) */
+	if (!hit->killed && !hit->shield_depleted && hit->shield_damage <= 0.0f && hit->body_damage <= 0.0f)
+	{
+		distributed_predicted_hit_free(hit);
+		return TRUE;
+	}
+	damage_predicted_shown++;
+	if (hit->killed)
+		damage_predicted_kills++;
+	network_test_note_hit("shown", object_index);
+	return TRUE;
+}
+
+/* (a client) the host's damage of one of its own players' hits came: the
+hit it showed of it answered (the oldest of that damage to the unit), and
+TRUE if there was one (what the damage does was shown with it) */
+static boolean distributed_predicted_hit_answered(
+	long object_index,
+	struct damage_data const *damage)
+{
+	struct damage_predicted_hit *oldest = NULL;
+	short index;
+
+	if (!distributed_player_is_local(damage->owner_player_index))
+		return FALSE;
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS; index++)
+	{
+		struct damage_predicted_hit *hit = &damage_predicted_hits[index];
+
+		if (hit->object_index == object_index && !hit->answered && !hit->killed &&
+			hit->player_index == damage->owner_player_index && hit->definition_index == damage->definition_index &&
+			(!oldest || hit->time < oldest->time))
+		{
+			oldest = hit;
+		}
+	}
+	if (!oldest)
+		return FALSE;
+	oldest->answered = TRUE;
+	damage_predicted_answered++;
+	return TRUE;
+}
+
+/* the kill shown of a unit (NULL: none) */
+static struct damage_predicted_hit *distributed_predicted_kill(
+	long object_index)
+{
+	short index;
+
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS; index++)
+	{
+		if (damage_predicted_hits[index].object_index == object_index && damage_predicted_hits[index].killed)
+			return &damage_predicted_hits[index];
+	}
+	return NULL;
+}
+
+/* the host's word that the unit a kill was shown of died: the kill
+announced, with the host's killer (the death set, network_distributed.c),
+and their score after it where the host's blow said it (score_said) */
+static void distributed_predicted_kill_confirmed(
+	struct damage_predicted_hit *hit,
+	boolean score_said,
+	long killer_score)
+{
+	byte killer;
+	boolean friendly_fire;
+	boolean killed_by_vehicle;
+
+	if (player_try_and_get(hit->victim_player_index) &&
+		distributed_get_death((short)DATUM_INDEX_TO_ABSOLUTE_INDEX(hit->victim_player_index), &killer,
+			&friendly_fire, &killed_by_vehicle))
+	{
+		damage_replaying_kill = TRUE;
+		damage_replaying_killer = killer != NO_PLAYER && score_said ? distributed_player_from_byte(killer) : NONE;
+		damage_replaying_killer_score = killer_score;
+		game_engine_player_killed(NONE, NONE, hit->victim_player_index, friendly_fire);
+		damage_replaying_kill = FALSE;
+		damage_replaying_killer = NONE;
+	}
+	damage_predicted_kills_confirmed++;
+	distributed_predicted_hits_forget(hit->object_index);
+}
+
+/* the host's word did not come of a kill shown: the unit stands again where
+it fell, as it was, its player's again (the host's states of it and what it
+carries follow) */
+static void distributed_predicted_kill_refused(
+	struct damage_predicted_hit *hit)
+{
+	long object_index = hit->object_index;
+	struct unit_datum *unit = (struct unit_datum *)object_try_and_get_and_verify_type(object_index, _object_mask_biped);
+	struct player_datum *player = player_try_and_get(hit->victim_player_index);
+
+	damage_predicted_kills_refused++;
+	if (unit && player && TEST_FLAG(unit->object.damage_flags, _object_dead_bit) && player->unit_index == NONE &&
+		!player->quit_out_of_game)
+	{
+		short index;
+
+		unit_port_revive(object_index);
+		unit->object.shield_vitality = hit->shield_vitality;
+		unit->object.body_vitality = hit->body_vitality;
+		SET_FLAG(unit->object.damage_flags, _object_shield_depleted_bit, hit->was_shield_depleted);
+		for (index = 0; index < NUMBER_OF_UNIT_GRENADE_TYPES; index++)
+			unit->unit.grenade_counts[index] = hit->grenade_counts[index];
+		network_objects_client_restore_weapons(object_index, hit->weapon_indices, hit->current_weapon_index);
+		network_player_attach_unit(hit->victim_player_index, object_index);
+	}
+	distributed_predicted_hits_forget(object_index);
+}
+
+/* (damage.c's damage_set_network_state) the host's state of a unit, less
+what the hits shown of it took that the host does not have yet: TRUE where
+it is changed (result) */
+boolean network_damage_predicted_state(
+	long object_index,
+	struct damage_network_state const *state,
+	struct damage_network_state *result)
+{
+	struct object_datum *object = object_get(object_index);
+	short index;
+	short count = 0;
+
+	if (!damage_predicted_hit_count)
+		return FALSE;
+	*result = *state;
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS; index++)
+	{
+		struct damage_predicted_hit *hit = &damage_predicted_hits[index];
+
+		if (hit->object_index != object_index)
+			continue;
+		/* (the host's word on it came before this state, which has it) */
+		if (hit->answered)
+		{
+			distributed_predicted_hit_free(hit);
+			continue;
+		}
+		result->shield_vitality -= hit->shield_damage;
+		result->body_vitality -= hit->body_damage;
+		if (hit->shield_depleted)
+		{
+			result->shield_depleted = TRUE;
+			result->shield_charging = FALSE;
+		}
+		count++;
+	}
+	if (!count)
+		return FALSE;
+	result->shield_vitality = MAX(0.0f, result->shield_vitality);
+	result->body_vitality = MAX(0.0f, result->body_vitality);
+	/* (the flare and the damage shown, as this machine's hits left them) */
+	result->current_shield_damage = MAX(result->current_shield_damage, object->object.current_shield_damage);
+	result->recent_shield_damage = MAX(result->recent_shield_damage, object->object.recent_shield_damage);
+	result->current_body_damage = MAX(result->current_body_damage, object->object.current_body_damage);
+	result->recent_body_damage = MAX(result->recent_body_damage, object->object.recent_body_damage);
+	return TRUE;
+}
+
+/* (a client, each tick) the hits shown whose word has not come in the round
+trip and a while: refused (a kill shown of a unit the host has dead is
+confirmed, its blow lost) */
+static void distributed_predicted_hits_update(
+	void)
+{
+	long now = game_time_get();
+	long wait = MIN((long)distributed_own_round_trip_ticks() + PREDICTED_HIT_SLACK_TICKS, REPORT_MAXIMUM_AGE_TICKS);
+	short index;
+
+	for (index = 0; index < MAXIMUM_PREDICTED_HITS; index++)
+	{
+		struct damage_predicted_hit *hit = &damage_predicted_hits[index];
+		byte killer;
+		boolean friendly_fire;
+		boolean killed_by_vehicle;
+
+		if (hit->object_index == NONE)
+			continue;
+		if (!object_try_and_get_and_verify_type(hit->object_index, _object_mask_biped))
+		{
+			distributed_predicted_hit_free(hit);
+			continue;
+		}
+		if (now >= hit->time && now - hit->time <= wait)
+			continue;
+		if (hit->killed)
+		{
+			if (player_try_and_get(hit->victim_player_index) &&
+				distributed_get_death((short)DATUM_INDEX_TO_ABSOLUTE_INDEX(hit->victim_player_index), &killer,
+					&friendly_fire, &killed_by_vehicle))
+			{
+				distributed_predicted_kill_confirmed(hit, FALSE, 0);
+			}
+			else
+			{
+				distributed_predicted_kill_refused(hit);
+			}
+			continue;
+		}
+		if (!hit->answered)
+			damage_predicted_unanswered++;
+		distributed_predicted_hit_free(hit);
+	}
+}
+
+void network_damage_prediction_statistics(
+	long *shown,
+	long *answered,
+	long *unanswered,
+	long *kills,
+	long *kills_confirmed,
+	long *kills_refused)
+{
+	*shown = damage_predicted_shown;
+	*answered = damage_predicted_answered;
+	*unanswered = damage_predicted_unanswered;
+	*kills = damage_predicted_kills;
+	*kills_confirmed = damage_predicted_kills_confirmed;
+	*kills_refused = damage_predicted_kills_refused;
 }
 
 /* ---------- object_cause_damage (damage.c) */
@@ -760,7 +1214,9 @@ boolean network_damage_deals(
 	{
 		struct unit_datum *unit;
 
-		if (authorized)
+		/* (and the hit of its own player's it shows ahead of the host's word,
+		distributed_predict_hit) */
+		if (authorized || distributed_predicted_dealing(object_index))
 			return TRUE;
 		/* a weapon's own shake of this machine's own player firing it: its
 		screen effect at once (the host does not send it,
@@ -797,6 +1253,12 @@ boolean network_damage_deals(
 				report->has_normal = TRUE;
 			}
 			network_test_note_hit("made", object_index);
+			/* (shown at once, where it can be) */
+			if (distributed_predict_hit((struct damage_data *)damage, object_index, node_index, region_index,
+				material_index, object_normal))
+			{
+				return FALSE;
+			}
 		}
 		distributed_damage_material((struct damage_data *)damage, object_index, material_index);
 		return FALSE;
@@ -825,7 +1287,7 @@ players' screen effects (which came as their own) */
 boolean network_damage_replaying_kill(
 	void)
 {
-	return damage_replaying_kill;
+	return damage_replaying_kill || damage_predicting;
 }
 
 /* (game_engine.c) a client replaying the host's killing blow: its
@@ -2687,6 +3149,28 @@ void network_damage_host_tick(
 
 /* ---------- a client */
 
+/* the host's killing blow of a unit: of one this machine killed ahead of it
+(distributed_predict_hit), the kill announced with the blow's killer and
+their score, TRUE; else the hits shown of it forgotten (its blow, replayed,
+shows the rest) */
+static boolean distributed_predicted_kill_answered(
+	struct distributed_damage_event const *event)
+{
+	struct damage_predicted_hit *predicted = distributed_predicted_kill(event->object_index);
+
+	if (!predicted || !object_try_and_get(predicted->object_index) ||
+		!TEST_FLAG(object_get(predicted->object_index)->object.damage_flags, _object_dead_bit))
+	{
+		distributed_predicted_hits_forget(event->object_index);
+		return FALSE;
+	}
+	distributed_set_death((short)DATUM_INDEX_TO_ABSOLUTE_INDEX(predicted->victim_player_index), event->player_index,
+		TEST_FLAG(event->kill_flags, _damage_event_friendly_fire_bit),
+		TEST_FLAG(event->kill_flags, _damage_event_killed_by_vehicle_bit));
+	distributed_predicted_kill_confirmed(predicted, event->player_index != NO_PLAYER, event->killer_score);
+	return TRUE;
+}
+
 void network_damage_handle_events(
 	void const *entries,
 	short count)
@@ -2717,6 +3201,9 @@ void network_damage_handle_events(
 			break;
 		}
 		case _damage_event_aftermath:
+			/* (of a hit of this machine's own player it showed: shown) */
+			if (distributed_predicted_hit_answered(event->object_index, &damage))
+				break;
 			if (network_objects_client_has(event->object_index) &&
 				object_try_and_get_and_verify_type(event->object_index, _object_mask_unit))
 			{
@@ -2729,6 +3216,9 @@ void network_damage_handle_events(
 			}
 			break;
 		case _damage_event_kill:
+			/* (of a unit this machine killed ahead of it: the kill announced) */
+			if (distributed_predicted_kill_answered(event))
+				break;
 			/* (a biped's: a vehicle's riders the blow would kill too) */
 			if (network_objects_client_has(event->object_index) &&
 				object_try_and_get_and_verify_type(event->object_index, _object_mask_biped) &&
@@ -2884,6 +3374,7 @@ void network_damage_client_tick(
 	short count = 0;
 
 	distributed_send_fire_origins();
+	distributed_predicted_hits_update();
 
 	damage_sent_reports += damage_report_count;
 	for (index = 0; index < damage_report_count; index++)
@@ -2962,6 +3453,7 @@ void network_damage_new_game(
 	damage_report_count = 0;
 	damage_dealing_report = FALSE;
 	damage_replaying_kill = FALSE;
+	distributed_predicted_hits_reset();
 	csmemset(damage_players, 0, sizeof(damage_players));
 	for (player_index = 0; player_index < TARGET_HISTORY_TICKS; player_index++)
 		damage_history[player_index].time = NONE;

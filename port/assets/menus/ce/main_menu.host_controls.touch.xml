@@ -147,7 +147,7 @@
 	</widget>
 	<widget name="main_menu/host_controls/touch/host_item_ping" type="text" width="66" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="124 20">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_tag" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/host_item_tag" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
 	</widget>
 	<widget name="main_menu/host_controls/touch/host_item_value" type="text" width="170" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="84 60">
 	</widget>

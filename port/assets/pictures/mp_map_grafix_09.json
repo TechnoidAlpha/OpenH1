@@ -1,0 +1,36 @@
+{
+ "picture": "ui.map mp_map_grafix 09 (Blood Gulch)",
+ "scenario": "levels\\test\\bloodgulch\\bloodgulch",
+ "bsp": 0,
+ "aspect": 1.3722,
+ "pose": {
+  "x": 94.041,
+  "y": -146.6443,
+  "z": 0.6506,
+  "yaw": 282.3013,
+  "pitch": 3.203,
+  "roll": -0.7158,
+  "vfov": 43.0049
+ },
+ "objects": [
+  {
+   "tag": "vehicles\\warthog\\warthog",
+   "x": 95.0808,
+   "y": -149.0627,
+   "z": 1.6486,
+   "yaw": 142.4662,
+   "pitch": 0.0,
+   "roll": 0.0
+  },
+  {
+   "tag": "characters\\cyborg_mp\\cyborg_mp",
+   "seat": "W-gunner",
+   "color": [
+    0.2,
+    0.35,
+    0.15
+   ]
+  }
+ ],
+ "score": 0.7319
+}

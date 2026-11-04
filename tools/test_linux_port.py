@@ -285,7 +285,7 @@ def test_menus_are_well_formed():
 
 def test_menu_settings_exist():
     """Every setting a menu's spinner sets is one of config.toml's
-    (port/linux/src/port_config.c) or of the profile (menu_functions.c), and
+    (port/linux/src/port_config.c) or of the profile, and
     the keyboard's controls are the same in the settings, in the controls'
     screen and in the input code."""
     root = MENUS.parent.parent.parent
@@ -514,8 +514,9 @@ def test_battery_saver_reads_the_classic_values(config_check_mac):
 
 
 def test_vsync_default_by_build(tmp_path, monkeypatch, config_check_mac):
-    """display.vsync: off on the Linux builds (the Steam Deck's Game Mode
-    too), Windows and the Mac, and as set where the player has set it"""
+    """display.vsync: off on the Linux builds, Windows and the Mac; on under
+    gamescope (the Steam Deck's Game Mode) where the player has not set it,
+    paced by display.low_latency, and as set where they have"""
     for name in ("GAMESCOPE_WAYLAND_DISPLAY", "XDG_CURRENT_DESKTOP", "SteamDeck", "SteamGamepadUI", "HALO_NO_VSYNC"):
         monkeypatch.delenv(name, raising=False)
     assert config_check_mac("get", "display.vsync") == "false"
@@ -524,9 +525,16 @@ def test_vsync_default_by_build(tmp_path, monkeypatch, config_check_mac):
     assert "\n# vsync = false\n" in run.config.read_text()
     monkeypatch.setenv("SteamDeck", "1")
     monkeypatch.setenv("SteamGamepadUI", "1")
-    assert run("get", "display.vsync") == "false"
-    run("write", "display.vsync", "true")
     assert run("get", "display.vsync") == "true"
+    run("write", "display.vsync", "false")
+    assert run("get", "display.vsync") == "false"
+    # (gamescope's own variable alone)
+    monkeypatch.delenv("SteamDeck")
+    monkeypatch.delenv("SteamGamepadUI")
+    monkeypatch.setenv("GAMESCOPE_WAYLAND_DISPLAY", "gamescope-0")
+    gamescope = config_check_build(tmp_path / "gamescope", ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"])
+    assert gamescope("get", "display.vsync") == "true"
+    assert "\n# vsync = true\n" in gamescope.config.read_text()
 
 
 def test_graphics_preset_on_a_headset(config_check):

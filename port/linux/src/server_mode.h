@@ -44,9 +44,17 @@ int server_mode_signals(int *quit_signal);
 /* waits out the rest of the frame (server.frame_rate a second, or 10 a
 second while idle): before the frame's time is measured (main.c) */
 void server_mode_pace_frame(void);
+/* ... with receive reading the datagrams that come while it waits (an
+OpenH1 game's: network_distributed_server_receive), which says FALSE when it
+cannot wait for them */
+void server_mode_pace_frame_receiving(int (*receive)(long milliseconds));
 /* whether the server is idle (no other machine connected): its frames
 slower */
 void server_mode_set_idle(int idle);
+/* the least frames a second while not idle, whatever server.frame_rate
+says: an OpenH1 game's tick rate (so that each sub-step is a frame's, and
+what its clients send is read and sent on at once), 0 for none */
+void server_mode_set_minimum_frame_rate(long rate);
 /* the frames' time (milliseconds): the longest of the last minute's and the
 mean, for the health line and the metrics */
 void server_mode_frame_times(double *longest, double *mean);

@@ -136,10 +136,10 @@ struct xgpu_spirv_uniforms
   sample its own (sample shading);
 - reversed_depth: depth reversed (xgpu_backend.h, "Reversed depth"): the
   vertex shaders write w - z (from the projection's rows where the program
-  has them and draws one view: xgpu_vertex_program_depth_rows) and add the
-  uniforms' depth_bias, a z-sprite writes its depth reversed, the flat
-  glows read the scene's depth reversed (not with the VR mode's views or
-  effects, whose depth stays the game's). */
+  has them: xgpu_vertex_program_depth_rows; in an eye's view, with its
+  correction's rows) and add the uniforms' depth_bias, a z-sprite writes
+  its depth reversed, the glows and the VR mode's effects read the scene's
+  depth and their own reversed (their unprojections stay the game's). */
 struct xgpu_spirv_options
 {
 	BOOL count_samples;

@@ -55,6 +55,10 @@ void model_node_matrices_from_orientations(
 short model_find_marker(
 	long model_index,
 	char const *name);
+/* port: the names model_find_marker keeps are forgotten (a map's tags are
+loaded or let go of) */
+void model_port_markers_forget(
+	void);
 struct real_matrix4x3 *model_get_default_inverse_matrix(
 	struct model *model,
 	short node_index);

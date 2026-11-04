@@ -81,8 +81,12 @@ static void draw_string_set_draw_mode(long font_index, short style, short justif
 	drawn_alpha = color->alpha;
 }
 static void rasterizer_text_set_shadow_color(pixel32 color) { shadow = color; }
-static short halo_screen_width(void) { return 640; }
-#define rasterizer_draw_unicode_string(bounds, style, color, flags, string) (draws++, drawn_shadow = shadow)
+/* the screen's width in the 480 lines (640 the Xbox's 4:3), and where the title was drawn */
+static short screen_width = 640;
+static short halo_screen_width(void) { return screen_width; }
+static rectangle2d drawn_bounds;
+#define rasterizer_draw_unicode_string(bounds, style, color, flags, string) \
+	(draws++, drawn_shadow = shadow, drawn_bounds = *(bounds))
 
 #include "under_test.inc"
 
@@ -107,6 +111,7 @@ static void queue_title(real up_time, real fade_out_time)
 	titles[0].fade_in_time = 0.0f;
 	titles[0].up_time = up_time;
 	titles[0].fade_out_time = fade_out_time;
+	titles[0].justification = _cinematic_title_justified_right;
 }
 
 /* one frame: the draws it made */
@@ -116,6 +121,18 @@ static long frame(void)
 	ticks++;
 	cinematic_render();
 	return draws;
+}
+
+/* a title (a10's chapter titles' bounds, 0-597, at a justification) drawn once on a screen that wide: its bounds */
+static rectangle2d drawn_at(short width, short justification)
+{
+	queue_title(1000000.0f, 1.0f);
+	titles[0].bounds.x0 = 0;
+	titles[0].bounds.x1 = 597;
+	titles[0].justification = justification;
+	screen_width = width;
+	CHECK(frame() == 1, "the title was not drawn");
+	return drawn_bounds;
 }
 
 int main(int argc, char **argv)
@@ -159,6 +176,44 @@ int main(int argc, char **argv)
 		CHECK(slot->title_index == NONE, "the title's slot is still taken after its 10 ticks under a menu");
 		menu_up = FALSE;
 		CHECK(frame() == 0, "an ended title was drawn after the menu was gone");
+		return 0;
+	}
+	/* the Xbox's 4:3: where the bounds say */
+	CASE("xbox-screen")
+	{
+		short justification;
+
+		for (justification = 0; justification < 3; justification++)
+		{
+			rectangle2d bounds = drawn_at(640, justification);
+
+			CHECK(bounds.x0 == 0 && bounds.x1 == 597, "a title justified %d drawn at %d-%d on a 4:3 screen",
+				justification, bounds.x0, bounds.x1);
+		}
+		return 0;
+	}
+	/* a wider screen (16:9's 852 columns, 21:9's 1138, 32:9's 1706, the widest's 1920): a right-justified title
+	keeps its 43 columns from the letterbox's right end, a left-justified one its place from the left end, a
+	centred one stays in the middle */
+	CASE("wide-screens")
+	{
+		static short const widths[] = { 852, 1138, 1706, 1920 };
+		short index;
+
+		for (index = 0; index < 4; index++)
+		{
+			short width = widths[index];
+			rectangle2d right = drawn_at(width, _cinematic_title_justified_right);
+			rectangle2d left = drawn_at(width, _cinematic_title_justified_left);
+			rectangle2d centre = drawn_at(width, _cinematic_title_justified_center);
+
+			CHECK(width - right.x1 == 640 - 597 && right.x1 - right.x0 == 597,
+				"a right-justified title drawn at %d-%d on a screen %d wide", right.x0, right.x1, width);
+			CHECK(left.x0 == 0 && left.x1 == 597, "a left-justified title drawn at %d-%d on a screen %d wide",
+				left.x0, left.x1, width);
+			CHECK(centre.x0 + centre.x1 - width == 597 - 640 && centre.x1 - centre.x0 == 597,
+				"a centred title drawn at %d-%d on a screen %d wide", centre.x0, centre.x1, width);
+		}
 		return 0;
 	}
 	fprintf(stderr, "unknown case: %s\n", case_name);

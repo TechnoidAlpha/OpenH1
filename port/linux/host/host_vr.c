@@ -1941,10 +1941,12 @@ void host_vr_frame_end(const struct vr_host_layers *layers)
 				depths[eye].type = XR_TYPE_COMPOSITION_LAYER_DEPTH_INFO_KHR;
 				depths[eye].subImage = views[eye].subImage;
 				depths[eye].subImage.swapchain = vr.swapchains[VR_SWAPCHAIN_DEPTH];
+				/* (kept reversed, xgpu_vulkan.h: 1 at the near plane, 0 at
+				the far, which OpenXR has as a nearZ beyond the farZ) */
 				depths[eye].minDepth = 0.0f;
 				depths[eye].maxDepth = 1.0f;
-				depths[eye].nearZ = layers->near_z;
-				depths[eye].farZ = layers->far_z;
+				depths[eye].nearZ = layers->far_z;
+				depths[eye].farZ = layers->near_z;
 				views[eye].next = &depths[eye];
 			}
 		}

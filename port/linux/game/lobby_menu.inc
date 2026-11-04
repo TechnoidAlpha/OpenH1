@@ -2,8 +2,8 @@
 LOBBY_MENU.INC
 
 The lobby on the computer (tools/port_settings.py's _lobby_board), the
-network game's and a game of this machine alone's (PLAY WITH BOTS, split
-screen), in Multiplayer's look: the menus' shared parts, included in
+network game's and a game of this machine alone's (Create Game's OFFLINE,
+split screen), in Multiplayer's look: the menus' shared parts, included in
 menu_functions.c after party_menu.inc, whose helpers it uses. The
 touchscreen's is the same by the same names, its panel's controls and the
 footer's buttons a finger's size (tools/port_settings.py's
@@ -15,18 +15,21 @@ players (the host's record, which every machine has), each in its team's
 column (one list, both columns', in a game without teams, and in Infection,
 whose zombies are chosen when it starts), with a tag: HOST (the host's
 machine: the host's own; for a player, the game's first machine, which the
-host's own client is), BOT (bots.c's machines), PARTY (a member of this
-machine's party, by the name the party knows it by), OPENCE or OPENH1 (the
+host's own client is), BOT and the bots' skill (bots.c's machines), PARTY
+(a member of this machine's party, by the name the party knows it by), OPENCE or OPENH1 (the
 host knows each machine's join token: network_standard.c; a player knows
 only its own). This machine's players are framed. In each column the host
 first, then the party's members together, then the others as they joined,
 the bots last. The details panel: the next game (its gametype, map and
 limits; OPENH1 n TICK or LEGACY, whether OpenCE's players may join, which
-the host alone knows), a game of this machine alone's bots (Server Setup's
-rows: bots.count, bots.skill, bots.teams, written as they change, which
-the host's bots follow), how the game is, and the host's GAME SETTINGS
-(Server Setup, in the lobby's place) and START GAME, or a player's WAITING
-FOR THE HOST.
+the host alone knows), THEN (a network game's host: the game after it),
+the host's bots in any game but co-op (BOTS: NONE, ADD n or FILL TO n, the
+choices Host Controls' BOTS steps, network_host_controls.c; SKILL and
+TEAMS, bots.skill and bots.teams: each written as it changes, which the
+host's bots follow, dimmed for a gametype the bots do not play, and BOTS
+for a matchmaking game's, its playlist's), how the game is, and the host's
+GAME SETTINGS (Server Setup, in the lobby's place), HOST CONTROLS and START
+GAME, or a player's WAITING FOR THE HOST.
 
 Left and right (the arrow keys, the D-pad) put the pressing controller's
 player on red's or blue's team, a click on a column on its team; in a game
@@ -43,6 +46,11 @@ LOBBY_BOARD_COLUMNS, are menu_functions.c's, for the voice chat's icons) */
 #define LOBBY_BOARD_COLUMN_GAP 12
 /* milliseconds the panel says the invite link was copied */
 #define LOBBY_BOARD_COPIED_TIME 4000
+/* a row's tag's width a name leaves room for (tools/port_settings.py's
+LOBBY_TAG_WIDTH: a bot's tag with its skill is wider, its name then cut
+to the rest, else the tag BOT alone) and the space between them */
+#define LOBBY_BOARD_TAG_WIDTH 58
+#define LOBBY_BOARD_TAG_GAP 6
 
 /* a row's tag */
 enum
@@ -97,8 +105,8 @@ struct lobby_board_controls
 	boolean start;
 	boolean settings;
 	boolean waiting;
-	/* the bots' rows (a game of this machine alone's), locked (dimmed: a
-	gametype the bots do not play) */
+	/* the bots' rows (the host's, but in co-op), locked (dimmed: a gametype
+	the bots do not play) */
 	boolean bots;
 	boolean bots_locked;
 	/* CHANGE TEAM, COPY INVITE, ADD PLAYER */
@@ -122,7 +130,15 @@ static struct
 	boolean invitable[LOBBY_BOARD_COLUMNS][LOBBY_BOARD_ROWS];
 	/* when COPY INVITE last copied it */
 	unsigned long copied_time;
+	/* the BOTS choice its spinner last showed ("port lobby bots load"): one
+	the spinner leaves is the host's, written */
+	short bots_shown;
 } lobby_board;
+
+/* the bots' rows (tools/port_settings.py's BOTS_ROWS), each a row and its
+spinner: BOTS (the choices: lobby_board_bots_choice), SKILL and TEAMS
+(bots.skill's and bots.teams' spinners) */
+static char const *const lobby_board_bots_rows[] = { "board_bots_count", "board_bots_skill", "board_bots_teams" };
 
 /* ---- the pure parts */
 
@@ -221,17 +237,17 @@ static void lobby_board_lay_out(struct lobby_board_entry const *entries, short c
 }
 
 /* what the lobby offers: the host's start and settings (a player waits for
-the host), a game of this machine alone's bots (locked for a gametype they
-do not play), a team change while this machine has a player in a game whose
+the host), the host's bots in any game but co-op (locked for a gametype
+they do not play), a team change while this machine has a player in a game whose
 players choose a team, the invite link while there is one, ADD PLAYER while
 this machine has room for another */
-static void lobby_board_controls_for(boolean host, boolean local, boolean bots_play, boolean teams,
+static void lobby_board_controls_for(boolean host, boolean cooperative, boolean bots_play, boolean teams,
 	boolean own_player, boolean invite, boolean room, struct lobby_board_controls *controls)
 {
 	controls->start = host;
 	controls->settings = host;
 	controls->waiting = !host;
-	controls->bots = host && local;
+	controls->bots = host && !cooperative;
 	controls->bots_locked = controls->bots && !bots_play;
 	controls->team_change = teams && own_player;
 	controls->invite = invite;
@@ -462,6 +478,67 @@ static struct widget_instance *lobby_board_part(struct widget_instance *screen, 
 	return named(screen, name, 0);
 }
 
+/* a bot's row's tag: BOT and the bots' skill, if its name still fits beside
+it, else BOT alone (the name box fitted to what is left) */
+static void lobby_board_bot_tag(struct widget_instance *tag, struct widget_instance *name_box)
+{
+	static wchar_t const *const skills[] = { L"EASY", L"NORMAL", L"HEROIC", L"LEGENDARY" };
+	wchar_t text[ROW_TEXT_LENGTH], name[ROW_TEXT_LENGTH];
+	short name_width, tag_width, room;
+	long font;
+
+	if (!tag || !name_box || !name_box->parameters.text_box.text)
+		return;
+	ustrncpy(name, name_box->parameters.text_box.text, NUMBEROF(name) - 1);
+	name[NUMBEROF(name) - 1] = 0;
+	font = ui_widget_port_text_box_font(name_box, &name_width);
+	usnprintf(text, NUMBEROF(text) - 1, L"BOT \x00B7 %s", skills[PIN(bots_skill(), 0, (short)NUMBEROF(skills) - 1)]);
+	text[NUMBEROF(text) - 1] = 0;
+	tag_width = menu_text_box_fit(tag, text, 0);
+	room = (short)(name_width + LOBBY_BOARD_TAG_WIDTH - tag_width - LOBBY_BOARD_TAG_GAP);
+	if (font == NONE || !tag_width || settings_text_width(font, name) > room)
+		text_set(tag, lobby_tag_words[_lobby_tag_bot]);
+}
+
+/* BOTS' spinner (its strings the choices, network_host_controls.c's, in
+order): the choice the settings make shown, or one the host stepped to
+written (as Host Controls' BOTS writes it), unless locked */
+static void lobby_board_bots_choice(struct widget_instance *spinner, boolean locked)
+{
+	short chosen = network_host_controls_bots_chosen();
+	short shown = spinner->parameters.list.selected_index;
+	long number;
+	short kind;
+
+	if (!locked && lobby_board.bots_shown != NONE && shown != lobby_board.bots_shown)
+	{
+		kind = network_host_controls_bot_choice(shown, &number);
+		if (network_host_controls_choose_bots(kind, number))
+		{
+			lobby_board.bots_shown = shown;
+			return;
+		}
+	}
+	spinner->parameters.list.selected_index = chosen;
+	lobby_board.bots_shown = chosen;
+}
+
+/* "port lobby bots load" (BOTS' spinner made): the choice the settings make */
+static boolean lobby_board_bots_load(struct widget_instance *spinner)
+{
+	/* (one of the spinner's items, each made from the spinner's own
+	definition and so given its created event too: ui_widget.c's list
+	items, before the spinner's own) */
+	if (spinner->parameters.list.number_of_items == 0)
+		return TRUE;
+	if (spinner->parameters.list.number_of_items != network_host_controls_bot_choice_count())
+		platform_log("menus: the lobby's BOTS has %d choices, not %d", (int)spinner->parameters.list.number_of_items,
+			(int)network_host_controls_bot_choice_count());
+	lobby_board.bots_shown = NONE;
+	lobby_board_bots_choice(spinner, TRUE);
+	return TRUE;
+}
+
 /* "port lobby board update" (the list's) */
 static void lobby_board_update(struct widget_instance *list)
 {
@@ -489,6 +566,9 @@ static void lobby_board_update(struct widget_instance *list)
 
 	if (!game || state < _client_state_pregame)
 		game = NULL;
+	/* (a dedicated server's map vote begun: its screen, map_vote_lobby_check) */
+	if (game)
+		map_vote_lobby_check();
 	p2p_party_status(&party);
 	for (index = 0; game && index < HALO_PORT_MAXIMUM_NETWORK_PLAYERS; index++)
 	{
@@ -521,7 +601,8 @@ static void lobby_board_update(struct widget_instance *list)
 		seconds = network_game_client_get_seconds_to_game_start(client);
 	}
 	lobby_board_lay_out(entries, count, teams, &layout);
-	lobby_board_controls_for(host, local, game && game->variant.game_engine_index == game_engine_slayer, teams,
+	lobby_board_controls_for(host, game && !game->variant.game_engine_index,
+		game && bots_play_game_engine(game->variant.game_engine_index), teams,
 		own_player, lobby_board_invite(link, sizeof(link)) > 0, lobby_local_player_count() < MAXIMUM_LOCAL_PLAYERS,
 		&controls);
 
@@ -535,7 +616,7 @@ static void lobby_board_update(struct widget_instance *list)
 		for (index = 0; index < count; index++)
 			bots |= entries[index].bot;
 		usnprintf(text, NUMBEROF(text) - 1, count == 1 ? L"%s \x00B7 1 player" : L"%s \x00B7 %d players",
-			bots ? L"Play with Bots" : L"This computer", count);
+			bots ? L"Offline with bots" : L"Offline", count);
 	}
 	else if (game)
 	{
@@ -638,6 +719,10 @@ static void lobby_board_update(struct widget_instance *list)
 				menu_text_box_fit(name_box, text, 0);
 			}
 			text_set(tag, lobby_tag_words[lobby_board_tag(entry)]);
+			/* (a bot's with its skill, as wide as its name leaves room for:
+			lobby_board_bot_tag) */
+			if (entry->bot)
+				lobby_board_bot_tag(tag, name_box);
 			/* (its speaker, in voice chat: menu_functions_text_box_drawn) */
 			if (lobby_icons.count < LOBBY_ICON_ROWS)
 			{
@@ -709,7 +794,7 @@ static void lobby_board_update(struct widget_instance *list)
 		else if (lobby_board.copied_time && system_milliseconds() - lobby_board.copied_time < LOBBY_BOARD_COPIED_TIME)
 			usnprintf(text, NUMBEROF(text) - 1, L"Invite copied: paste it in a chat to your friends.");
 		else if (controls.bots_locked)
-			usnprintf(text, NUMBEROF(text) - 1, L"Bots play Slayer, SWAT, Infection and Gun Game only.");
+			usnprintf(text, NUMBEROF(text) - 1, L"Bots play every gametype but Race.");
 		else if (lobby_join.adding)
 			usnprintf(text, NUMBEROF(text) - 1, L"New player: press START.");
 		else if (mode == _game_mode_infection)
@@ -748,37 +833,40 @@ static void lobby_board_update(struct widget_instance *list)
 	visible_set(named(list, "board_start", 0), game && controls.start);
 	visible_set(named(list, "board_settings", 0), game && controls.settings);
 	visible_set(named(panel, "board_waiting", 0), controls.waiting);
-	visible_set(named(panel, "board_section_bots", 0), controls.bots);
-	for (index = 0; index < NUMBEROF(server_settings_bots_rows); index++)
+	for (index = 0; index < NUMBEROF(lobby_board_bots_rows); index++)
 	{
 		char name[32];
 		struct widget_instance *bots_row, *spinner;
 		struct pc_menu_setting *setting;
+		/* (BOTS a matchmaking game's too, its playlist's) */
+		boolean locked = controls.bots_locked || (index == 0 && bots_matchmaking_on());
 
-		snprintf(name, sizeof(name), "board_%s", server_settings_bots_rows[index][0] + 3);
-		bots_row = named(list, name, 0);
-		snprintf(name, sizeof(name), "board_%s", server_settings_bots_rows[index][1]);
+		bots_row = named(list, lobby_board_bots_rows[index], 0);
+		snprintf(name, sizeof(name), "%s_spinner", lobby_board_bots_rows[index]);
 		spinner = named(list, name, 0);
 		setting = spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
 		if (!bots_row || !spinner)
 			continue;
 		visible_set(bots_row, controls.bots);
-		bots_row->disabled = controls.bots_locked;
-		spinner->disabled = controls.bots_locked;
-		bots_row->alpha_modifier = controls.bots_locked ? 0.4f : 1.0f;
+		bots_row->disabled = locked;
+		spinner->disabled = locked;
+		bots_row->alpha_modifier = locked ? 0.4f : 1.0f;
 		/* (the focus on a row locked goes to the players) */
-		if (controls.bots_locked && list->focused_child == bots_row)
+		if (locked && list->focused_child == bots_row)
 		{
 			list->focused_child = list->child;
 			list->parameters.list.selected_index = 0;
 		}
-		/* (written to config.toml as it changes: the host's bots follow it;
+		/* (BOTS' choice written as it changes; the others written to
+		config.toml as they change: the host's bots follow them.
 		setting_changed_save passes over a locked spinner) */
-		if (controls.bots && setting)
+		if (index == 0)
+			lobby_board_bots_choice(spinner, !controls.bots || locked);
+		else if (controls.bots && setting)
 			setting_changed_save(spinner, setting);
 	}
 	/* (a network game's host: the game after this one, its playlist's, and
-	HOST CONTROLS, in the bots' place: network_host_game.c) */
+	HOST CONTROLS: network_host_game.c) */
 	{
 		struct server_entry after;
 		boolean now;
@@ -792,7 +880,8 @@ static void lobby_board_update(struct widget_instance *list)
 		}
 		visible_set(named(panel, "board_after", 0), then);
 		visible_set(named(panel, "board_after_label", 0), then);
-		visible_set(named(list, "board_host", 0), hosting);
+		/* (and a dedicated server's admin's: network_admin.c) */
+		visible_set(named(list, "board_host", 0), hosting || (game && !host && network_admin_remote()));
 	}
 	menu_prompts_show(bar, "prompt_team", controls.team_change);
 	menu_prompts_show(bar, "prompt_invite", controls.invite);
@@ -855,7 +944,7 @@ static boolean lobby_board_click(struct widget_instance *widget, short controlle
 	if (!blue || !blue->visible)
 		return TRUE;
 	return lobby_board_team(widget, controller,
-		(short)(x >= settings_slider_track_x(blue) - LOBBY_BOARD_COLUMN_GAP / 2 ? 1 : 0));
+		(short)(x >= widget_screen_x(blue) - LOBBY_BOARD_COLUMN_GAP / 2 ? 1 : 0));
 }
 
 /* "port lobby invite" (Y, COPY INVITE's prompt): a message with the
