@@ -267,8 +267,8 @@
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/help_strings">
 		<string text=""/>
 		<string text=""/>
-		<string text="How wide your weapon and hands are drawn, in degrees across a 16:9 screen. Default keeps the weapon's own view.|Click the number (or press A) to type any from 20 to 150."/>
-		<string text="Moves your weapon and hands right, or left below 0, in centimeters, for every weapon. 0 keeps them where the game puts them.|Click the number (or press A) to type any from -20 to 20."/>
+		<string text="How wide your weapon and hands are drawn, in degrees across a 16:9 screen: wider draws them smaller. Default keeps the weapon's own view.|Click the number (or press A) to type any from 20 to 150."/>
+		<string text="Moves your weapon and hands right, or left below 0, in centimeters, for every weapon, as far on the screen at any weapon field of view. 0 keeps them where the game puts them.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="Moves your weapon and hands up, or down below 0, in centimeters. Lower it to see more of the screen.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="Pushes your weapon and hands away from you, or closer below 0, in centimeters. Too close and they cut off.|Click the number (or press A) to type any from -20 to 20."/>
 		<string text="How wide you see in a vehicle, in degrees across a 16:9 screen. Default keeps the game's view; Match uses your Field of View.|Click the number (or press A) to type any from 20 to 150."/>

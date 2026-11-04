@@ -6,9 +6,12 @@ the first-person weapon's and hands' node matrices, built at the camera,
 moved along the view's right, up and forward by centimeters (a world unit is
 ten feet), every node alike, so that on the screen the weapon goes right,
 up or back at any field of view; 0 leaves them as the game built them, and
-a value past 20 centimeters is held at 20. And the settings' slider, whose
-track rounds a negative value to its nearest step (menu_functions.c's
-settings_slider_round).
+a value past 20 centimeters is held at 20. With display.viewmodel_fov the
+moves right and up are scaled by the tangents' ratio of the weapon's drawn
+angle to its stock one, so that they go as far across the screen as at the
+stock angle; the move away is not, as it shrinks the weapon by the same part
+at any angle. And the settings' slider, whose track rounds a negative value
+to its nearest step (menu_functions.c's settings_slider_round).
 */
 
 #include "harness.h"
@@ -26,6 +29,18 @@ struct render_camera
 
 static double fake_x, fake_y, fake_z;
 static unsigned long fake_changes = 1;
+/* display.viewmodel_fov's angle and the stock one (view_fov.c's
+viewmodel_angles), for local player 1; 0: the stock angle */
+static real fake_drawn, fake_stock;
+
+static boolean viewmodel_angles(short local_player_index, real *drawn, real *stock)
+{
+	if (local_player_index != 1 || !fake_drawn)
+		return FALSE;
+	*drawn = fake_drawn;
+	*stock = fake_stock;
+	return TRUE;
+}
 
 static unsigned long config_changes(void) { return fake_changes; }
 static double config_real(const char *name)
@@ -124,6 +139,17 @@ static void check_moved(struct render_camera const *camera, struct real_matrix4x
 	}
 }
 
+#define PI_ 3.14159265358979323846f
+/* the unit's 70 degrees across at 4:3 as main.c draws it, vertical */
+#define STOCK_VERTICAL (2.f * atanf(0.75f * 0.85f * tanf(70.f * PI_ / 360.f)))
+
+/* an angle in degrees across at 16:9 as the vertical one, in radians, as
+display.viewmodel_fov's is */
+static real across_16_9(real degrees)
+{
+	return 2.f * atanf(tanf(degrees * PI_ / 360.f) * 9.f / 16.f);
+}
+
 static real_vector3d vector(real i, real j, real k)
 {
 	real_vector3d v;
@@ -149,7 +175,7 @@ int main(int argc, char **argv)
 		/* 0, 0, 0: the game's pose, untouched */
 		settings(0.0, 0.0, 0.0);
 		CHECK(!viewmodel_offset(5, &offset), "an offset of none");
-		viewmodel_offset_apply(5, after, NODES, &camera);
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
 		CHECK(!memcmp(after, before, sizeof(after)), "the pose moved");
 	}
 	CASE("right")
@@ -157,7 +183,7 @@ int main(int argc, char **argv)
 		/* along x, z up, the view's right is -y */
 		settings(10.0, 0.0, 0.0);
 		CHECK(viewmodel_offset(5, &offset), "no offset");
-		viewmodel_offset_apply(5, after, NODES, &camera);
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
 		check_moved(&camera, before, after, UNITS(10.0), 0.f, 0.f);
 		CHECK(NEAR(after[0].position.y - before[0].position.y, -UNITS(10.0)), "moved %f along y",
 			after[0].position.y - before[0].position.y);
@@ -165,7 +191,7 @@ int main(int argc, char **argv)
 	CASE("up_and_forward")
 	{
 		settings(0.0, -4.5, 6.0);
-		viewmodel_offset_apply(5, after, NODES, &camera);
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
 		check_moved(&camera, before, after, 0.f, -UNITS(4.5), UNITS(6.0));
 		CHECK(NEAR(after[1].position.z - before[1].position.z, -UNITS(4.5)), "moved %f along z",
 			after[1].position.z - before[1].position.z);
@@ -179,7 +205,7 @@ int main(int argc, char **argv)
 		pose(&camera, before);
 		memcpy(after, before, sizeof(after));
 		settings(3.0, -5.0, 2.0);
-		viewmodel_offset_apply(5, after, NODES, &camera);
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
 		check_moved(&camera, before, after, UNITS(3.0), -UNITS(5.0), UNITS(2.0));
 	}
 	CASE("on_the_screen")
@@ -191,7 +217,7 @@ int main(int argc, char **argv)
 		short a, node;
 
 		settings(4.0, -3.0, 0.0);
-		viewmodel_offset_apply(5, after, NODES, &camera);
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
 		for (a = 0; a < (short)(sizeof(angles) / sizeof(angles[0])); a++)
 		{
 			for (node = 0; node < NODES; node++)
@@ -206,7 +232,7 @@ int main(int argc, char **argv)
 		/* and pushed away, it is nearer the screen's middle (smaller) */
 		memcpy(after, before, sizeof(after));
 		settings(0.0, 0.0, 5.0);
-		viewmodel_offset_apply(5, after, NODES, &camera);
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
 		for (node = 0; node < NODES; node++)
 		{
 			real x0, y0, x1, y1;
@@ -214,6 +240,92 @@ int main(int argc, char **argv)
 			screen_of(&camera, &before[node].position, angles[0], &x0, &y0);
 			screen_of(&camera, &after[node].position, angles[0], &x1, &y1);
 			CHECK(fabsf(x1) < fabsf(x0) && fabsf(y1) < fabsf(y0), "node %d: %f %f to %f %f", node, x0, y0, x1, y1);
+		}
+	}
+	CASE("weapon_fov_across")
+	{
+		/* moved right and down at a wide weapon field of view (150 across at
+		16:9), a narrow one (60) and between (110): each node goes as far
+		across the screen as the same move at the stock angle, the unit's 70
+		across at 4:3 as main.c draws it; with no weapon field of view, the
+		move set */
+		real stock = STOCK_VERTICAL;
+		real const drawn[] = { across_16_9(150.f), across_16_9(60.f), across_16_9(110.f) };
+		struct real_matrix4x3 stock_moved[NODES];
+		short a, node;
+
+		settings(4.0, -3.0, 0.0);
+		memcpy(stock_moved, before, sizeof(stock_moved));
+		viewmodel_offset_apply(1, 5, stock_moved, NODES, &camera);
+		check_moved(&camera, before, stock_moved, UNITS(4.0), -UNITS(3.0), 0.f);
+		for (a = 0; a < (short)(sizeof(drawn) / sizeof(drawn[0])); a++)
+		{
+			real scale = tanf(drawn[a] / 2.f) / tanf(stock / 2.f);
+
+			memcpy(after, before, sizeof(after));
+			fake_drawn = drawn[a];
+			fake_stock = stock;
+			viewmodel_offset_apply(1, 5, after, NODES, &camera);
+			check_moved(&camera, before, after, UNITS(4.0) * scale, -UNITS(3.0) * scale, 0.f);
+			for (node = 0; node < NODES; node++)
+			{
+				real x0, y0, x1, y1, sx0, sy0, sx1, sy1;
+
+				screen_of(&camera, &before[node].position, drawn[a], &x0, &y0);
+				screen_of(&camera, &after[node].position, drawn[a], &x1, &y1);
+				screen_of(&camera, &before[node].position, stock, &sx0, &sy0);
+				screen_of(&camera, &stock_moved[node].position, stock, &sx1, &sy1);
+				CHECK(fabsf((x1 - x0) - (sx1 - sx0)) < 1e-4f && fabsf((y1 - y0) - (sy1 - sy0)) < 1e-4f,
+					"angle %f node %d: moved %f %f on the screen, at the stock angle %f %f", drawn[a], node,
+					x1 - x0, y1 - y0, sx1 - sx0, sy1 - sy0);
+			}
+		}
+		/* another local player's view, or none: the move set */
+		memcpy(after, before, sizeof(after));
+		viewmodel_offset_apply(0, 5, after, NODES, &camera);
+		check_moved(&camera, before, after, UNITS(4.0), -UNITS(3.0), 0.f);
+	}
+	CASE("weapon_fov_depth")
+	{
+		/* pushed closer at the wide weapon field of view: moved exactly the
+		centimeters set, and each node is drawn larger by the part it is at
+		the stock angle (its place on the screen over its place before is
+		the same ratio at both angles) */
+		real stock = STOCK_VERTICAL;
+		short node;
+
+		settings(0.0, 0.0, -6.0);
+		fake_drawn = across_16_9(150.f);
+		fake_stock = stock;
+		viewmodel_offset_apply(1, 5, after, NODES, &camera);
+		check_moved(&camera, before, after, 0.f, 0.f, -UNITS(6.0));
+		for (node = 0; node < NODES; node++)
+		{
+			real x0, y0, x1, y1, sx0, sy0, sx1, sy1;
+
+			screen_of(&camera, &before[node].position, fake_drawn, &x0, &y0);
+			screen_of(&camera, &after[node].position, fake_drawn, &x1, &y1);
+			screen_of(&camera, &before[node].position, stock, &sx0, &sy0);
+			screen_of(&camera, &after[node].position, stock, &sx1, &sy1);
+			CHECK(x1 / x0 > 1.05f && fabsf(x1 / x0 - sx1 / sx0) < 1e-4f && fabsf(y1 / y0 - sy1 / sy0) < 1e-4f,
+				"node %d: grown %f %f, at the stock angle %f %f", node, x1 / x0, y1 / y0, sx1 / sx0, sy1 / sy0);
+		}
+	}
+	CASE("weapon_fov_unusable")
+	{
+		/* angles that are none (below 0, 0, a half turn and more): the move
+		set */
+		static real const bad[][2] = { { -1.f, 1.f }, { 1.f, 0.f }, { 3.2f, 1.f }, { 1.f, -0.5f } };
+		short b;
+
+		settings(4.0, -3.0, 2.0);
+		for (b = 0; b < (short)(sizeof(bad) / sizeof(bad[0])); b++)
+		{
+			memcpy(after, before, sizeof(after));
+			fake_drawn = bad[b][0];
+			fake_stock = bad[b][1];
+			viewmodel_offset_apply(1, 5, after, NODES, &camera);
+			check_moved(&camera, before, after, UNITS(4.0), -UNITS(3.0), UNITS(2.0));
 		}
 	}
 	CASE("held_at_the_range")

@@ -1874,6 +1874,7 @@ static void first_person_weapon_build_node_matrices(
 		the controllers'. (The camera posed at: with a lowered reticle the
 		aim's right, up and forward) */
 		viewmodel_offset_apply(
+			local_player_index,
 			first_person_weapon->weapon_index,
 			first_person_weapon->node_matrices,
 			(short)MIN(animation_graph->nodes.count, MAXIMUM_NODES_PER_ANIMATION),

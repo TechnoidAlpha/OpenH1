@@ -1,6 +1,8 @@
 """display.viewmodel_offset_x, _y and _z (view_fov.c's viewmodel_offset_apply): the first-person weapon's and hands'
 node matrices moved along the view's right, up and forward, in centimeters, every node alike, so the weapon goes right,
-up or away on the screen at any field of view; none by default, held at 20 centimeters. Applied once the pose is
+up or away on the screen at any field of view; none by default, held at 20 centimeters. With display.viewmodel_fov,
+the moves right and up are scaled by the tangents' ratio of the weapon's drawn angle to its stock one, so a value goes as
+far across the screen at any weapon field of view (#509); the move away is not scaled. Applied once the pose is
 interpolated, with the markers' matrices, but not in the VR mode; and the settings' rows, sliders and defaults."""
 import re
 import sys
@@ -11,8 +13,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, inline, mutated, read, run, structure  # noqa: E402
 
-CASES = ["stock", "right", "up_and_forward", "turned_view", "on_the_screen", "held_at_the_range", "changed",
-         "slider_steps"]
+CASES = ["stock", "right", "up_and_forward", "turned_view", "on_the_screen", "weapon_fov_across", "weapon_fov_depth",
+         "weapon_fov_unusable", "held_at_the_range", "changed", "slider_steps"]
 CONTROLS = [
     # the world's axes, not the view's
     ("\tcross_product3d(&camera->forward, &camera->up, &right);",
@@ -32,6 +34,25 @@ CONTROLS = [
     ("\tif (centimeters > VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS)\n", "\tif (FALSE)\n", "held_at_the_range"),
     # read once, not on a change
     ("if (!initialized || read_at != changes)\n\t{\n\t\tglobal.i", "if (!initialized || !read_at)\n\t{\n\t\tglobal.i", "changed"),
+    # the weapon field of view's scale left out: the move set, as far in the world, shorter on the screen
+    ("\t\toffset.i *= scale;\n\t\toffset.j *= scale;\n", "", "weapon_fov_across"),
+    # the scale the other way about (the stock angle's over the drawn one's)
+    ("return tanf(drawn * 0.5f) / tanf(stock * 0.5f);", "return tanf(stock * 0.5f) / tanf(drawn * 0.5f);",
+     "weapon_fov_across"),
+    # the angles' ratio, not their tangents'
+    ("return tanf(drawn * 0.5f) / tanf(stock * 0.5f);", "return drawn / stock;", "weapon_fov_across"),
+    # the whole angle's tangents, not the half's
+    ("return tanf(drawn * 0.5f) / tanf(stock * 0.5f);", "return tanf(drawn) / tanf(stock);", "weapon_fov_across"),
+    # the depth scaled too (as #509 first proposed): the weapon pushed through the eye at a wide angle
+    ("\t\toffset.j *= scale;\n", "\t\toffset.j *= scale;\n\t\toffset.k *= scale;\n", "weapon_fov_depth"),
+    # only the horizontal scaled
+    ("\t\toffset.j *= scale;\n", "", "weapon_fov_across"),
+    # another view's angles: the local player's not passed on
+    ("if (viewmodel_angles(local_player_index, &drawn, &stock))", "if (viewmodel_angles(1, &drawn, &stock))",
+     "weapon_fov_across"),
+    # angles that are none taken
+    ("\tif (!(drawn > 0.0f && drawn < _pi && stock > 0.0f && stock < _pi))\n\t\treturn 1.0f;\n", "",
+     "weapon_fov_unusable"),
     # a track's step rounded toward 0 below it, as before
     ("steps < 0.0 ? steps - 0.5 : steps + 0.5", "steps + 0.5", "slider_steps"),
 ]
@@ -48,7 +69,8 @@ def generated(fault=None, slider_fault=None):
         else:
             slider = mutated(slider, *fault)
     math = read("source/math/real_math.h")
-    types = structure(math, "real_matrix4x3") + "\n" + inline(math, "cross_product3d") + "\n"
+    pi = re.search(r"#define _pi .*", math).group(0)
+    types = pi + "\n" + structure(math, "real_matrix4x3") + "\n" + inline(math, "cross_product3d") + "\n"
     return (("types.inc", types), ("under_test.inc", section + "\n" + slider + "\n"))
 
 
@@ -97,6 +119,32 @@ def test_the_settings():
                          config), name
         assert f"| `{name}` | `0.0` | `HALO_VIEWMODEL_OFFSET_{axis.upper()}` |" in readme, name
         assert rows[name][2] == port_settings.VIEWMODEL_OFFSETS, name
-    # the sliders go half the range typed, which is view_fov.c's
-    assert port_settings.VIEWMODEL_OFFSETS.typed_most == 20 and port_settings.VIEWMODEL_OFFSETS.typed_least == -20
+    # the sliders go the whole range typed, which is view_fov.c's (#509: half was not far enough)
+    offsets = port_settings.VIEWMODEL_OFFSETS
+    assert (offsets.least, offsets.most, offsets.typed_least, offsets.typed_most) == (-20, 20, -20, 20)
     assert "#define VIEWMODEL_OFFSET_MAXIMUM_CENTIMETERS 20.0" in read("port/linux/game/view_fov.c")
+
+
+def test_the_weapon_angles():
+    # viewmodel_angles: display.viewmodel_fov's angle (none: the stock one, the default, unscaled) against the unit's
+    # unzoomed one as main.c's set_window_camera_values draws it, in the views viewmodel_projection_begin projects
+    # the weapon in, which both ask the same function; display.panini's widening is not in it (its center zoom draws
+    # the weapon back at that angle's size)
+    code = read("port/linux/game/view_fov.c")
+    angles = function(code, "viewmodel_angles")
+    assert "*drawn = viewmodel_vertical();" in angles
+    assert "if (!*drawn || !viewmodel_projection_view(local_player_index))" in angles
+    assert "unit.camera_field_of_view" in angles
+    assert "*stock = 2.0f * atanf(0.75f * render_camera_get_adjusted_field_of_view_tangent(unzoomed));" in angles
+    assert "panini" not in angles.split("*/", 1)[-1]
+    main = read("source/main/main.c")
+    assert "2.0f * arctangent(\n\t\t\t\t0.75f * render_camera_get_adjusted_field_of_view_tangent(\n" \
+        "\t\t\t\t\tobserver->field_of_view)" in main
+    begin = function(code, "viewmodel_projection_begin")
+    assert "angle = viewmodel_vertical();" in begin
+    assert "!viewmodel_projection_view(render.local_player_index)" in begin
+    # the local player whose weapon is posed
+    weapons = read("source/interface/first_person_weapons.c")
+    call = function(weapons, "first_person_weapon_build_node_matrices")
+    call = call[call.index("viewmodel_offset_apply("):]
+    assert call.startswith("viewmodel_offset_apply(\n\t\t\tlocal_player_index,\n")

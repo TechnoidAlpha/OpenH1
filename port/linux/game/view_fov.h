@@ -40,13 +40,15 @@ _y and _z): this weapon's offset along the view's right, up and forward, in
 world units (every weapon's, for now); FALSE when it has none */
 union real_vector3d;
 boolean viewmodel_offset(long weapon_index, union real_vector3d *offset);
-/* the weapon's and hands' node matrices, built at the camera, moved by that
-offset: what is drawn and the markers the muzzle's effects, the shells and
-the lights are placed at, together */
+/* the local player's weapon's and hands' node matrices, built at the camera,
+moved by that offset: what is drawn and the markers the muzzle's effects,
+the shells and the lights are placed at, together. With display.viewmodel_fov
+the moves right and up are scaled to go as far on the screen as at the
+weapon's stock angle */
 struct real_matrix4x3;
 struct render_camera;
-void viewmodel_offset_apply(long weapon_index, struct real_matrix4x3 *node_matrices, short node_count,
-	struct render_camera const *camera);
+void viewmodel_offset_apply(short local_player_index, long weapon_index, struct real_matrix4x3 *node_matrices,
+	short node_count, struct render_camera const *camera);
 
 /* whether the first-person weapon, hands and attached visuals are drawn
 (display.viewmodel_visible); its firing, sounds and lights go on either way */
