@@ -39,6 +39,7 @@ static void draw_pause_menu(void)
 {
 	long index;
 
+	CHECK(!ui_mouse_rendering, "the menus drawn twice at once");
 	ui_mouse_rendering = TRUE;
 	ui_mouse_target_count = 0;
 	for (index = 0; index < 5; index++)
