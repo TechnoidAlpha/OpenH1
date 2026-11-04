@@ -128,7 +128,7 @@ void halo_loading_screen_begin(int follow_progress)
 	halo_loading_scene();
 	loading_presentation_active = 3;
 	loading_screen_caption[0] = 0;
-	halo_load_trace("loading.request", "screen follow=%d", follow_progress ? 1 : 0);
+	halo_load_trace("loading.request", follow_progress ? "screen follow=1" : "screen follow=0");
 	xgpu_backend_loading_mode(follow_progress ? 1 : 0);
 	xgpu_backend_loading_caption(NULL, 0, 0);
 	xgpu_backend_loading_progress(0.0f);
