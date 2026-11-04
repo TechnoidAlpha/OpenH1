@@ -95,7 +95,7 @@ takes it for a newer version and does not join. Raise it with any change to
 what a Standard game's machines send each other, and with every raise of
 HALO_PORT_NETWORK_VERSION: HALO_PORT_STANDARD_BASE_VERSION is the network
 version it was last raised for, and the build fails until they agree. */
-#define HALO_PORT_STANDARD_NETWORK_VERSION 17
+#define HALO_PORT_STANDARD_NETWORK_VERSION 18
 /* (1: the rate agreed; 2: the players' sub-steps sent, network_substeps.c;
 3: OpenCE players in the game, network_standard.c's mixed games; 4: a
 player moved to the other team by the host, network_host_controls.c; 5:
@@ -121,8 +121,11 @@ network_admin.c; 16: relays for machines whose NATs keep them apart,
 p2p_relay.c: the relays' packets on the tunnel's socket, the signalling's
 relay offers, a dedicated server's relays told its players; 17: the bots'
 machines the session's last 64 (port/linux/game/bots.h's BOTS_FIRST_MACHINE,
-113 before), by which every OpenH1 machine tells a bot's player. Legacy
-games, and what an OpenCE machine sees, are unchanged) */
+113 before), by which every OpenH1 machine tells a bot's player; 18: the
+host's way of picking up a second weapon in the game record
+(_network_game_hold_to_pick_up_bit, network_standard.c's
+network_standard_walk_over_pickup). Legacy games, and what an OpenCE
+machine sees, are unchanged) */
 #define HALO_PORT_STANDARD_BASE_VERSION 41
 #define HALO_PORT_STANDARD_VERSION_BIT 0x8000
 #define HALO_PORT_STANDARD_ADVERTISED_VERSION (HALO_PORT_STANDARD_VERSION_BIT | HALO_PORT_STANDARD_NETWORK_VERSION)

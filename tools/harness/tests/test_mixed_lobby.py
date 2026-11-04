@@ -25,6 +25,8 @@ NEGATIVE_CONTROLS = {
                                   "if (!csmemcmp(request_token, game_token"), "openh1-host"),
     "mixed-refuses-opence": (("\t\treturn _network_standard_join_opence;", "\t\treturn NONE;"), "mixed-host"),
     "record-keeps-rate": (("legacy_game.standard_rate = 0;", ";"), "record"),
+    "record-keeps-pickup": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
+                             ""), "record"),
     "openh1-messages-to-opence": (("return type < FIRST_OPENH1_DISTRIBUTED_MESSAGE || "
                                    "!network_standard_machine_is_opence(machine_index);", "return TRUE;"), "messages"),
     "opence-players-unknown": (("network_standard_globals.opence_players[absolute_index] = TRUE;", ";"), "players"),
