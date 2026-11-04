@@ -614,6 +614,27 @@ boolean cache_files_precache_map_loaded(
 /* (the port's, port/linux/src/sdl_platform.c) */
 void platform_log(char const *format, ...);
 
+/* port: the checksum of a map of the maps folder (a10), as the precache
+would copy it: its header read where and as cache_files_precache_map_begin
+reads it (the map directory of the game's language, through the data root
+paths.data names, any case), a cache file header naming the map's own file,
+with a cache file to hold it; 0 if the precache would refuse it. The menus'
+pictures ask before they load a map (port/linux/game/menu_pictures_render.c) */
+unsigned long cache_files_map_copyable_checksum(
+	const char *map_name)
+{
+	const char *cache_map_name = tag_name_strip_path(map_name);
+	struct cache_file_header header;
+
+	if (custom_edition_level_name(map_name) || !cache_file_read_header_from_dvd(cache_map_name, &header) ||
+		_stricmp(header.name, cache_map_name) != 0 ||
+		cached_map_files_find_free_map(header.file_length, header.scenario_type) == NONE)
+	{
+		return 0;
+	}
+	return (unsigned long)header.checksum;
+}
+
 boolean cache_files_precache_map_begin(
 	const char *map_name,
 	boolean copy_map)

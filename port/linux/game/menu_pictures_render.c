@@ -51,7 +51,16 @@ kept are not presented). It fades out over the main menu loading. It
 counts only the pictures that can be made (menu_pictures_wanted: none
 whose map is missing or modded, nor one that failed twice; with none, no
 screen at all). Nothing stops it: a picture that fails is noted and passed
-at once, its original kept.
+at once, its original kept. Its maps are the game's own, as its loader finds
+and takes them (cache_files_map_copyable_checksum: paths.data, the
+language's maps folder, any case), and each map's file is copied into the
+cache a frame at a time here (prepare_precache), never in the loading's own
+wait, which waits for ever and stops the game on a failed copy. A picture
+past 30 seconds, or the pass past 120 (menu_picture_overdue), ends the pass:
+the main menu shows, the pictures not made keeping their originals. Should
+the game stop on a map all the same (the error a damaged disc gives:
+menu_pictures_abandon), that picture is given up for good and the error is
+shown, not the loading screen.
 */
 
 #include "cseries.h"
@@ -219,6 +228,12 @@ long menu_picture_at(
 	return -1;
 }
 
+unsigned long menu_picture_map_checksum(
+	char const *map)
+{
+	return cache_files_map_copyable_checksum(map);
+}
+
 int menu_pictures_preparing(void)
 {
 	return prepare.state != _prepare_off;
@@ -360,8 +375,40 @@ static void prepare_next(
 	prepare.quiet_ticks = 0;
 	prepare.frames = prepare.picture_frames = 0;
 	menu_pictures_render_begin(pose);
-	main_menu_pictures_map(menu_picture_poses[pose].scenario);
-	prepare.state = _prepare_loading;
+	/* (its map's file copied into the cache first, a frame at a time:
+	_prepare_load) */
+	prepare.state = _prepare_load;
+}
+
+/* a map's file copied into the cache, as the game's background copy does
+(main_queue_map_private), but a frame at a time here, where the pass's time
+is counted: never the loading's own wait for it (game.c's, which waits for
+ever, and gives a failed copy the damaged disc's error, which stops the
+game): 1 copied, 0 not yet, -1 it cannot be */
+static int prepare_precache(
+	char const *scenario)
+{
+	real progress;
+
+	if (cache_files_precache_map_loaded(scenario))
+		return 1;
+	if (cache_files_precache_in_progress())
+	{
+		short status = cache_files_precache_map_status(&progress);
+		boolean ours = cache_files_precache_is_copying_map(scenario);
+
+		/* (ended once it has: this map's copied or failed; another's, this
+		one's begun at the next frame) */
+		if (status == _cached_map_file_in_progress)
+			return 0;
+		cache_files_precache_map_end();
+		if (cache_files_precache_map_loaded(scenario))
+			return 1;
+		return ours ? -1 : 0;
+	}
+	if (!cache_files_precache_map_begin(scenario, FALSE))
+		return -1;
+	return 0;
 }
 
 static void prepare_picture_failed(
@@ -422,8 +469,38 @@ static void prepare_update(
 		prepare.index : 0]];
 	char line[MAXIMUM_RENDER_LINE];
 
+	/* (the picture's or the pass's time spent: the pass ended, the main menu
+	shown, the pictures not made keeping their originals; the one being made
+	counted as failed) */
+	if (prepare.state != _prepare_menu && prepare.index < prepare.count &&
+		menu_picture_overdue(prepare_now(), prepare.began, prepare.picture_began))
+	{
+		platform_log("menu pictures: out of time: the pass ends, the %ld not made keep their originals",
+			prepare.count - prepare.made);
+		prepare.capture_wanted = FALSE;
+		menu_pictures_render_failed(prepare.poses[prepare.index], "took too long");
+		prepare_picture_log(prepare.poses[prepare.index], "failed");
+		prepare.index = prepare.count;
+		prepare_next();
+		return;
+	}
 	switch (prepare.state)
 	{
+	case _prepare_load:
+		switch (prepare_precache(picture->scenario))
+		{
+		case 1:
+			main_menu_pictures_map(picture->scenario);
+			prepare.frames = 0;
+			prepare.state = _prepare_loading;
+			break;
+		case -1:
+			prepare_picture_failed("could not be read");
+			break;
+		default:
+			break;
+		}
+		break;
 	case _prepare_loading:
 		if (!main_menu_loaded && game_in_progress() && !strcasecmp(cache_file_loaded_map_name(), picture->map))
 		{
@@ -437,7 +514,8 @@ static void prepare_update(
 
 				if (strcasecmp(menu_picture_poses[prepare.poses[next]].map, picture->map))
 				{
-					main_queue_map_name((char *)scenario);
+					/* (begun, and followed at its turn: _prepare_load) */
+					prepare_precache(scenario);
 					break;
 				}
 			}
@@ -645,6 +723,27 @@ void menu_pictures_frame(
 		prepare.line_drawn ? 3 : 0;
 	prepare.line_drawn = FALSE;
 	prepare_screen();
+}
+
+void menu_pictures_abandon(
+	char const *why)
+{
+	if (prepare.state == _prepare_off)
+		return;
+	/* (the picture being made never tried again: the next start shows the
+	main menu, not this again) */
+	if (prepare.state != _prepare_menu && prepare.index < prepare.count)
+		menu_pictures_render_given_up(prepare.poses[prepare.index], why);
+	platform_log("menu pictures: the pass stopped (%s)", why);
+	main_queue_map_name(NULL);
+	prepare.capture_wanted = FALSE;
+	prepare.state = _prepare_off;
+	prepare.drawn = 0;
+	/* (the game's own frames shown again: its error, not the loading screen) */
+	halo_loading_screen_end();
+	config_picture_view(FALSE);
+	sound_enable(TRUE);
+	game_time_set_speed(1.0f);
 }
 
 int menu_pictures_frame_kept(

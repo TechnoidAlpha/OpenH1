@@ -368,6 +368,46 @@ int main(int argc, char **argv)
 			picture[(20 * 45 + 20) * 4 + 1]);
 	}
 
+	/* the pass never waits for ever: a picture past its budget, or the
+	whole pass past its own, ends it (the main menu shown); within both, it
+	goes on (seconds, in nanoseconds) */
+	CASE("budget")
+	{
+		unsigned long long const second = 1000000000ULL;
+		unsigned long long const pass = 1000 * second;
+
+		CHECK(!menu_picture_overdue(pass, pass, pass), "a pass just begun is overdue");
+		CHECK(!menu_picture_overdue(pass + 29 * second, pass, pass), "a picture of 29 s is overdue");
+		CHECK(menu_picture_overdue(pass + 31 * second, pass, pass), "a picture stalled for 31 s goes on");
+		CHECK(menu_picture_overdue(pass + 3600 * second, pass, pass), "a picture stalled for an hour goes on");
+		/* (each picture well within its own budget, the pass past its) */
+		CHECK(!menu_picture_overdue(pass + 119 * second, pass, pass + 110 * second), "a pass of 119 s is overdue");
+		CHECK(menu_picture_overdue(pass + 121 * second, pass, pass + 110 * second),
+			"a pass of 121 s of quick pictures goes on");
+		CHECK(!menu_picture_overdue(pass - second, pass, pass), "a clock gone back is overdue");
+	}
+
+	/* a render that stopped the game is never tried again (for this pose
+	and map), and a picture rendered before it is still drawn */
+	CASE("give_up")
+	{
+		struct menu_picture_note note;
+
+		memset(&note, 0, sizeof(note));
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 3);
+		menu_picture_note_give_up(&note);
+		CHECK(note.result == _menu_picture_failed, "a render given up is noted %d, not failed", note.result);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 3) == 0, "a render given up once is tried again");
+		note = note_of(&pose, 0x22222222UL, _menu_picture_rendered, 2, 0);
+		menu_picture_note_begin(&note, &pose, 0x22222222UL, 6);
+		menu_picture_note_give_up(&note);
+		CHECK(menu_picture_decide(&pose, 0x22222222UL, &note, 6) == USE,
+			"a larger render given up hides or retries the picture rendered before (%lx)",
+			menu_picture_decide(&pose, 0x22222222UL, &note, 6));
+		/* (a new map, or pose, is tried again) */
+		CHECK(menu_picture_decide(&pose, 0x11111111UL, &note, 3) == RENDER, "a changed map is not tried");
+	}
+
 	/* laid out in the frame's top left, its last column and row repeated */
 	CASE("frame")
 	{

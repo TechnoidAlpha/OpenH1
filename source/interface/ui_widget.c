@@ -5086,9 +5086,15 @@ void display_error_abort_to_dashboard(
 	return;
 }
 
+/* port: (port/linux/game/menu_pictures_render.c) */
+void menu_pictures_abandon(char const *why);
+
 void display_error_damaged_media(
 	void)
 {
+	/* port: a map of the menus' pictures that stops the game: its picture
+	given up for good, and the error shown, not their loading screen */
+	menu_pictures_abandon("a map could not be read");
 	display_error_abort_to_dashboard(_error_media_damaged, FALSE);
 	input_frame_end();
 	main_loop_of_death();

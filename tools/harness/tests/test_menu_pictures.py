@@ -11,11 +11,11 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
 
-CASES = ["scale", "fallback", "cached", "failures", "order", "makeable", "retry", "resume", "notes", "colour", "cut", "frame"]
+CASES = ["scale", "fallback", "cached", "failures", "order", "makeable", "retry", "resume", "notes", "colour", "cut", "frame", "budget", "give_up"]
 
 SOURCE = "port/linux/src/menu_pictures.c"
 FUNCTIONS = ("menu_picture_scale_for_height", "menu_picture_decide", "menu_picture_order", "menu_picture_note_begin",
-             "menu_picture_note_end", "menu_picture_note_parse",
+             "menu_picture_note_end", "menu_picture_note_give_up", "menu_picture_overdue", "menu_picture_note_parse",
              "menu_picture_note_format", "picture_sorted_at", "picture_quantile", "menu_picture_colour_curve",
              "menu_picture_cut", "menu_picture_frame")
 
@@ -54,6 +54,11 @@ NEGATIVE_CONTROLS = {
     "cut-from-the-top": (("top = (frame_height - cut_height) / 2;", "top = 0;"), "menu_picture_cut", "cut"),
     "red-and-blue-swapped": (("sum[0] += row[column * 4 + 2] * part;", "sum[0] += row[column * 4 + 0] * part;"),
                              "menu_picture_cut", "cut"),
+    "no-picture-budget": (("now - picture_began > MENU_PICTURE_TIME_BUDGET || ", ""), "menu_picture_overdue", "budget"),
+    "no-pass-budget": ((" || now - pass_began > MENU_PICTURES_TIME_BUDGET", ""), "menu_picture_overdue", "budget"),
+    "give-up-retried": (("note->failures = MENU_PICTURE_FAILURES;", ";"), "menu_picture_note_give_up", "give_up"),
+    "give-up-hides-picture": (("if (note->result != _menu_picture_rendered)\n\t\tnote->result = _menu_picture_failed;",
+                               "note->result = _menu_picture_failed;"), "menu_picture_note_give_up", "give_up"),
     "edges-not-repeated": (("(x < width ? x : width - 1)", "(x < width ? x : 0)"), "menu_picture_frame", "frame"),
 }
 
@@ -62,7 +67,8 @@ def generated(fault=None, faulty_function=None):
     header = read("port/linux/include/menu_pictures.h")
     source = read(SOURCE)
     config = "#include <math.h>\n"
-    for name in ("MENU_PICTURES_VERSION", "MENU_PICTURE_FAILURES", "MENU_PICTURE_LARGEST_UNITS"):
+    for name in ("MENU_PICTURES_VERSION", "MENU_PICTURE_FAILURES", "MENU_PICTURE_LARGEST_UNITS",
+                 "MENU_PICTURE_TIME_BUDGET", "MENU_PICTURES_TIME_BUDGET"):
         line = next(line for line in source.splitlines() if line.startswith(f"#define {name} "))
         config += line + "\n"
     start = source.index("static char const *const menu_picture_result_names[]")
