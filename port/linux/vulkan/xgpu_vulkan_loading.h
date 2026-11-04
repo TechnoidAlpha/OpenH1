@@ -11,6 +11,8 @@ void xgpu_vulkan_loading_scene(void *context, const void *data, uint32_t bytes);
 /* VR: the loading image is the stereo pair when the scene allows; whether
 the last one drawn was */
 void xgpu_vulkan_loading_progress(void *context, float progress);
+void xgpu_vulkan_loading_mode(void *context, int follow_progress);
+void xgpu_vulkan_loading_caption(void *context, const unsigned char *coverage, uint32_t width, uint32_t height);
 void xgpu_vulkan_loading_stereo(int stereo);
 int xgpu_vulkan_loading_stereo_drawn(void);
 /* where VR's eyes are (loading_art_stereo_eyes), and how wide the window is

@@ -191,6 +191,15 @@ struct loading_art
 	/* the load's progress (negative: none told this load), and when it
 	completed (the fade out's start) */
 	float progress;
+	/* the sweep following the progress (loading_art_follow): its place as
+	the Xbox's had it (the progress smoothed, with a slow wobble), and the
+	phase of the last two steps, for the sharp frame between them */
+	unsigned int follow;
+	float smoothed, wobble, phases[2];
+	/* a line under the words (loading_art_caption): its coverage, at four
+	times the 480 lines' size */
+	uint8_t *caption;
+	unsigned int caption_width, caption_height;
 	uint64_t progress_epoch, completed_ns;
 	unsigned int text_valid, stereo, eyes_valid, composed;
 	/* the feedback's rows blurred across (loading_art_row) */
@@ -461,9 +470,15 @@ static inline void loading_art_set(struct loading_art *art, const uint8_t *rgba)
 	unsigned int stereo = art->stereo, width = art->width;
 	struct loading_ring ring = art->ring;
 	struct loading_art_hd hd = art->hd;
+	uint8_t *caption = art->caption;
+	unsigned int caption_width = art->caption_width, caption_height = art->caption_height, follow = art->follow;
 	memset(art, 0, sizeof(*art));
 	art->ring = ring;
 	art->hd = hd;
+	art->caption = caption;
+	art->caption_width = caption_width;
+	art->caption_height = caption_height;
+	art->follow = follow;
 	art->hd.built = 0;
 	art->stereo = stereo;
 	art->width = width >= LOADING_ART_WIDTH && width <= LOADING_ART_FRAME_MAXIMUM_WIDTH ? width : LOADING_ART_WIDTH;
@@ -478,7 +493,7 @@ static inline void loading_art_set(struct loading_art *art, const uint8_t *rgba)
 	art->valid = 1;
 }
 
-static void *loading_art_hd_worker(void *data);
+static inline void *loading_art_hd_worker(void *data);
 
 /* the threads drawing the sharp frame's rows, each with its rows' memory;
 NULL without the memory (and as few workers as can be started) */
@@ -738,6 +753,87 @@ static inline void loading_art_progress(struct loading_art *art, float progress)
 {
 	art->progress = progress == progress ? (progress < 0.0f ? 0.0f : progress > 1.0f ? 1.0f : progress) : 0.0f;
 	art->progress_epoch = art->epoch;
+}
+
+/* How the sweep moves: following the progress (1: once across as it goes
+ * from 0 to 1, the Xbox's own, its trail fading over its last tenth), or
+ * on its own clock, every four seconds (0: a map load's). */
+static inline void loading_art_follow(struct loading_art *art, unsigned int follow)
+{
+	if (art->follow != (follow ? 1u : 0u))
+	{
+		art->follow = follow ? 1u : 0u;
+		art->started = 0;
+	}
+}
+
+/* A line under the words (a wait's: what is being done), its coverage
+ * `width` by `height`, set at four times the 480 lines' size (copied);
+ * NULL: none. */
+static inline void loading_art_caption(struct loading_art *art, const uint8_t *coverage, unsigned int width,
+	unsigned int height)
+{
+	free(art->caption);
+	art->caption = NULL;
+	art->caption_width = art->caption_height = 0;
+	if (!coverage || !width || !height || width > 8192 || height > 512)
+		return;
+	art->caption = malloc((size_t)width * height);
+	if (!art->caption)
+		return;
+	memcpy(art->caption, coverage, (size_t)width * height);
+	art->caption_width = width;
+	art->caption_height = height;
+}
+
+/* the caption's colour: the words' pale blue */
+#define LOADING_ART_CAPTION_RED 150
+#define LOADING_ART_CAPTION_GREEN 190
+#define LOADING_ART_CAPTION_BLUE 255
+/* its top, in the 480 lines (under the words) */
+#define LOADING_ART_CAPTION_TOP 268
+
+/* The caption drawn into a frame's pixels (RGBA, `width` by `height`, 480
+ * lines its height), in its middle under the words, each pixel its
+ * caption's pixels' average, as much of it as `completion` (of 256) has
+ * left. */
+static inline void loading_art_caption_draw(const struct loading_art *art, uint8_t *pixels, unsigned int width,
+	unsigned int height, unsigned int completion)
+{
+	/* (the frame's pixels a caption's pixel is, of 1024) */
+	unsigned int scale = (unsigned int)((uint64_t)height * 1024 / (LOADING_ART_FRAME_HEIGHT * 4));
+	unsigned int drawn_width, drawn_height, left, top, x, y;
+	if (!art->caption || !scale)
+		return;
+	drawn_width = (unsigned int)((uint64_t)art->caption_width * scale / 1024);
+	drawn_height = (unsigned int)((uint64_t)art->caption_height * scale / 1024);
+	if (!drawn_width || !drawn_height || drawn_width > width)
+		return;
+	left = (width - drawn_width) / 2;
+	top = (unsigned int)((uint64_t)LOADING_ART_CAPTION_TOP * height / LOADING_ART_FRAME_HEIGHT);
+	for (y = 0; y < drawn_height && top + y < height; y++)
+	{
+		unsigned int y0 = (unsigned int)((uint64_t)y * 1024 / scale);
+		unsigned int y1 = (unsigned int)(((uint64_t)(y + 1) * 1024 + scale - 1) / scale);
+		y1 = y1 > y0 ? (y1 < art->caption_height ? y1 : art->caption_height) : y0 + 1;
+		for (x = 0; x < drawn_width; x++)
+		{
+			unsigned int x0 = (unsigned int)((uint64_t)x * 1024 / scale);
+			unsigned int x1 = (unsigned int)(((uint64_t)(x + 1) * 1024 + scale - 1) / scale);
+			unsigned int sum = 0, count = 0, sx, sy, coverage;
+			uint8_t *out = pixels + ((size_t)(top + y) * width + left + x) * 4;
+			x1 = x1 > x0 ? (x1 < art->caption_width ? x1 : art->caption_width) : x0 + 1;
+			for (sy = y0; sy < y1 && sy < art->caption_height; sy++)
+				for (sx = x0; sx < x1 && sx < art->caption_width; sx++, count++)
+					sum += art->caption[sy * art->caption_width + sx];
+			coverage = count ? sum / count * completion >> 8 : 0;
+			if (!coverage)
+				continue;
+			out[0] = (uint8_t)(out[0] + ((int)LOADING_ART_CAPTION_RED - out[0]) * (int)coverage / 255);
+			out[1] = (uint8_t)(out[1] + ((int)LOADING_ART_CAPTION_GREEN - out[1]) * (int)coverage / 255);
+			out[2] = (uint8_t)(out[2] + ((int)LOADING_ART_CAPTION_BLUE - out[2]) * (int)coverage / 255);
+		}
+	}
 }
 
 /* How much of the picture is left as the load completes, of 256. */
@@ -1393,7 +1489,7 @@ static inline void loading_art_hd_band_run(struct loading_art_hd_band *band, uns
 
 /* The sharp frame's workers: each draws a band of its rows as a frame is
  * composed, the presenter's thread the first. */
-static void *loading_art_hd_worker(void *data)
+static inline void *loading_art_hd_worker(void *data)
 {
 	struct loading_art_hd_band *band = data;
 	struct loading_art_hd_pool *pool = band->pool;
@@ -1428,7 +1524,8 @@ static inline void loading_art_hd_compose(struct loading_art *art, unsigned int 
 {
 	struct loading_art_hd *hd = &art->hd;
 	unsigned int width = hd->width, x, row;
-	float phase = (float)(art->step % 240) - 1.0f + (float)fraction / 256.0f, shift, brightness;
+	float phase = art->follow ? art->phases[0] + (art->phases[1] - art->phases[0]) * (float)fraction / 256.0f :
+		(float)(art->step % 240) - 1.0f + (float)fraction / 256.0f, shift, brightness;
 	/* (the 480 rows' pixels a sharp pixel is, across) */
 	float across = (float)art->width / (float)width;
 	/* the sweep's brightness at the phase (between the steps': nothing
@@ -1533,7 +1630,7 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 		(frame->elapsed_ns % UINT64_C(1000000000)) * 60 / UINT64_C(1000000000);
 	reset = !art->started || art->epoch != frame->epoch || target < art->step;
 	skipped = art->started && target > art->step && target - art->step > 1;
-	if (reset || (target != art->step && target / 240 != art->step / 240))
+	if (reset || (!art->follow && target != art->step && target / 240 != art->step / 240))
 	{
 		memset(art->history, 0, sizeof(art->history));
 		if (art->hd.built)
@@ -1546,6 +1643,7 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 	{
 		art->tone_valid = 0;
 		art->still_valid = 0;
+		art->smoothed = 0.0f;
 		/* (the sharp frame's still layers again: the scene's brightness is
 		matched again) */
 		art->hd.built = 0;
@@ -1557,6 +1655,20 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 	{
 		float seconds = (float)((double)frame->elapsed_ns * 1e-9);
 		unsigned int phase = (unsigned int)(target % 240);
+		/* (following the progress: the band where the Xbox's was, its
+		position the progress smoothed toward, a fifth of the way a step,
+		with a wobble of a twentieth) */
+		if (art->follow)
+		{
+			float told = art->progress_epoch == frame->epoch ? art->progress : 0.0f;
+			art->wobble += 0.01f;
+			art->smoothed += (sinf(art->wobble) * 0.05f + told - art->smoothed) * 0.2f;
+			art->smoothed = art->smoothed < 0.0f ? 0.0f : art->smoothed > 1.0f ? 1.0f : art->smoothed;
+			phase = (unsigned int)(art->smoothed * 240.0f);
+			phase = phase < 239 ? phase : 239;
+			art->phases[0] = reset ? art->smoothed * 240.0f : art->phases[1];
+			art->phases[1] = art->smoothed * 240.0f;
+		}
 		/* (the scene every other step: its motion is slow, the sweep's is
 		the feedback's, at every step) */
 		if (art->ring.valid && (reset || skipped || !(target & 1)))
@@ -1611,6 +1723,7 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 		loading_art_hd_compose(art, fraction, base, completion);
 		art->output_width = art->hd.width;
 		art->output_height = art->hd.height;
+		loading_art_caption_draw(art, art->hd.output, art->hd.width, art->hd.height, completion);
 		return art->hd.output;
 	}
 	art->output_width = art->width;
@@ -1632,6 +1745,10 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 						(uint8_t)(art->output_right[pixel * 4 + channel] * completion >> 8);
 			}
 	}
+	/* (the caption, under the words: on both eyes' windows in VR) */
+	loading_art_caption_draw(art, art->output, art->width, LOADING_ART_FRAME_HEIGHT, completion);
+	if (stereo)
+		loading_art_caption_draw(art, art->output_right, LOADING_ART_FRAME_WIDTH, LOADING_ART_FRAME_HEIGHT, completion);
 	return art->output;
 }
 

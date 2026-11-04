@@ -18,6 +18,8 @@ and the debug keyboard that the game's console reads.
 #include "load_trace.h"
 #include "loading_presentation.h"
 #include "loading_art.h"
+#include "loading_screen.h"
+#include "text_hires.h"
 #include "p2p.h"
 #include "port_mods.h"
 #include "server_mode.h"
@@ -87,14 +89,77 @@ void halo_loading_begin(void)
 		halo_loading_scene();
 		loading_presentation_active = 1;
 		halo_load_trace("loading.request", "begin");
+		xgpu_backend_loading_mode(0);
 		xgpu_backend_loading(1);
+		/* (the monks' chant under it, swelling with the load's progress) */
+		platform_loading_chant(1, 0.0f);
 	}
 }
 
 void halo_loading_progress(float progress)
 {
-	if (loading_presentation_active)
+	if (loading_presentation_active == 1)
+	{
 		xgpu_backend_loading_progress(progress);
+		platform_loading_chant(1, progress);
+	}
+}
+
+/* ---------- the loading screen for the port's own waits (loading_screen.h):
+loading_presentation_active 3 while it is shown */
+
+static char loading_screen_caption[256];
+
+void halo_loading_screen_begin(int follow_progress)
+{
+	if (loading_presentation_active || !platform_window)
+		return;
+	halo_loading_scene();
+	loading_presentation_active = 3;
+	loading_screen_caption[0] = 0;
+	halo_load_trace("loading.request", "screen follow=%d", follow_progress ? 1 : 0);
+	xgpu_backend_loading_mode(follow_progress ? 1 : 0);
+	xgpu_backend_loading_caption(NULL, 0, 0);
+	xgpu_backend_loading_progress(0.0f);
+	xgpu_backend_loading(1);
+	platform_loading_chant(1, 0.0f);
+}
+
+void halo_loading_screen_progress(float progress, char const *caption)
+{
+	if (loading_presentation_active != 3)
+		return;
+	if (!(progress == progress))
+		progress = 0.0f;
+	progress = progress < 0.0f ? 0.0f : progress > 1.0f ? 1.0f : progress;
+	xgpu_backend_loading_progress(progress);
+	platform_loading_chant(1, progress);
+	if (!caption)
+		caption = "";
+	if (strncmp(caption, loading_screen_caption, sizeof(loading_screen_caption) - 1))
+	{
+		int width = 0, height = 0;
+		/* (set at four times the 480 lines' size, in the menus' heading
+		font; its capitals ten of the lines tall) */
+		unsigned char *coverage = caption[0] ? text_hires_line("pc\\heading", caption, 40.0f, &width, &height) : NULL;
+
+		snprintf(loading_screen_caption, sizeof(loading_screen_caption), "%s", caption);
+		xgpu_backend_loading_caption(coverage, (unsigned long)width, (unsigned long)height);
+		free(coverage);
+	}
+}
+
+void halo_loading_screen_end(void)
+{
+	if (loading_presentation_active != 3)
+		return;
+	platform_loading_chant(0, 0.0f);
+	xgpu_backend_loading_caption(NULL, 0, 0);
+	xgpu_backend_loading(0);
+	xgpu_backend_loading_mode(0);
+	loading_presentation_active = 0;
+	loading_screen_caption[0] = 0;
+	halo_load_trace("loading.request", "screen end");
 }
 
 int halo_loading_owned(void)
@@ -110,8 +175,10 @@ void halo_loading_retire(void)
 
 void halo_loading_end(void)
 {
-	if (loading_presentation_active)
+	/* (a map load's: the port's own waits end themselves) */
+	if (loading_presentation_active && loading_presentation_active != 3)
 	{
+		platform_loading_chant(0, 0.0f);
 		xgpu_backend_loading(0);
 		loading_presentation_active = 0;
 	}
@@ -121,6 +188,8 @@ void halo_loading_ready(void)
 {
 	if (loading_presentation_active == 1)
 	{
+		/* (the chant fades as the level comes up) */
+		platform_loading_chant(0, 0.0f);
 		/* the level's first pictures come up out of the dark (VR's eyes) */
 		halo_loading_fade_begin();
 		xgpu_backend_loading(2);

@@ -1882,6 +1882,36 @@ void xgpu_backend_loading_progress(float progress)
 	record_value(XGPU_STREAM_LOADING_PROGRESS, bits);
 }
 
+void xgpu_backend_loading_mode(int follow_progress)
+{
+	if (!stream.open)
+		return;
+	record_value(XGPU_STREAM_LOADING_MODE, follow_progress ? 1u : 0u);
+}
+
+void xgpu_backend_loading_caption(const unsigned char *coverage, unsigned long width, unsigned long height)
+{
+	struct xgpu_stream_value *body;
+	uint32_t size[2], bytes;
+
+	if (!stream.open)
+		return;
+	if (!coverage || !width || !height || width > 8192 || height > 512)
+		width = height = 0;
+	bytes = width ? (uint32_t)(sizeof(size) + width * height) : 0;
+	if (bytes > XGPU_STREAM_RECORD_MAXIMUM - sizeof(*body) - 64)
+		return;
+	body = record(XGPU_STREAM_LOADING_CAPTION, sizeof(*body) + bytes);
+	body->value = bytes;
+	if (bytes)
+	{
+		size[0] = (uint32_t)width;
+		size[1] = (uint32_t)height;
+		memcpy(body + 1, size, sizeof(size));
+		memcpy((unsigned char *)(body + 1) + sizeof(size), coverage, width * height);
+	}
+}
+
 void xgpu_backend_loading(int active)
 {
 	if (!stream.open)
