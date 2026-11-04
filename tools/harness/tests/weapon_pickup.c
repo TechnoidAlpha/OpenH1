@@ -66,7 +66,7 @@ static long network_standard_server_rate(boolean in_lobby) { return network_stan
 static boolean network_standard_player_is_opence(long player_index) { return player_index == OPENCE_PLAYER; }
 
 /* the player's unit, its weapons, the weapon walked over */
-static long weapon_count;
+static long carried;
 static long unit_player = PLAYER;
 struct unit_datum { struct { long player_index; } unit; };
 static struct unit_datum unit;
@@ -74,14 +74,14 @@ static struct unit_datum *unit_get(long index) { CHECK(index == UNIT, "wrong uni
 struct weapon_datum { long definition_index; };
 static struct weapon_datum weapon = { 9 };
 struct weapon_definition { struct { unsigned long flags; } weapon; };
-static struct weapon_definition weapon_definition;
+static struct weapon_definition the_definition;
 static struct weapon_datum *weapon_try_and_get(long index)
 {
 	CHECK(index == WEAPON, "wrong weapon %ld", index);
 	return &weapon;
 }
-#define weapon_definition_get(index) (&weapon_definition)
-#define unit_get_weapon_count(index) (weapon_count)
+static struct weapon_definition *weapon_definition_get(long index) { return &the_definition; }
+static long unit_get_weapon_count(long index) { return carried; }
 #define unit_approve_weapon_pickup(unit, weapon) TRUE
 #define game_engine_force_autopickup(unit, weapon) FALSE
 
@@ -90,7 +90,7 @@ static struct weapon_datum *weapon_try_and_get(long index)
 /* a player with one weapon (or as many as given) walks over another */
 static boolean walks_over(long count)
 {
-	weapon_count = count;
+	carried = count;
 	return unit_should_autopick_weapon(UNIT, WEAPON);
 }
 
