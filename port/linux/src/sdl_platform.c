@@ -127,6 +127,8 @@ void halo_loading_screen_begin(int follow_progress)
 
 void halo_loading_screen_progress(float progress, char const *caption)
 {
+	int changed = 0;
+
 	if (loading_presentation_active != 3)
 		return;
 	if (!(progress == progress))
@@ -146,6 +148,20 @@ void halo_loading_screen_progress(float progress, char const *caption)
 		snprintf(loading_screen_caption, sizeof(loading_screen_caption), "%s", caption);
 		xgpu_backend_loading_caption(coverage, (unsigned long)width, (unsigned long)height);
 		free(coverage);
+		/* (a new caption goes out at once) */
+		changed = 1;
+	}
+	/* (sent now: the game may draw nothing meanwhile, whose frames would
+	carry them; at most 30 times a second) */
+	{
+		static unsigned long long sent;
+		unsigned long long now = SDL_GetTicksNS();
+
+		if (changed || now - sent >= 33000000ULL)
+		{
+			sent = now;
+			xgpu_backend_flush();
+		}
 	}
 }
 

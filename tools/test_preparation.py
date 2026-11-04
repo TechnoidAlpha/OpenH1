@@ -104,6 +104,9 @@ static void xgpu_backend_loading_caption(const unsigned char *coverage, unsigned
     assert(!coverage == !width && !width == !height); captions += coverage != NULL;
 }
 static void platform_loading_chant(int playing, float progress) { (void)progress; chanting = playing; }
+static int flushes;
+static void xgpu_backend_flush(void) { flushes++; }
+static unsigned long long SDL_GetTicksNS(void) { return 0; }
 static unsigned char *text_hires_line(const char *tag, const char *text, float cap, int *width, int *height) {
     (void)tag; (void)cap; *width = (int)strlen(text) * 4; *height = 8; return calloc((size_t)*width * 8, 1);
 }
@@ -138,7 +141,9 @@ int main(void) {
     assert(epochs == 2 && follows == 1 && chanting && loading_presentation_active == 3);
     halo_loading_screen_progress(0.25f, "Preparing menu pictures");
     halo_loading_screen_progress(0.5f, "Preparing menu pictures");
-    assert(captions == 1);
+    /* (sent at once, the game drawing nothing to carry them: a new caption
+    always, else at most 30 times a second) */
+    assert(captions == 1 && flushes == 1);
     halo_loading_end();
     assert(loading_presentation_active == 3);
     halo_loading_screen_progress(1.0f, NULL);
