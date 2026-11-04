@@ -552,8 +552,7 @@ static void update_motion_sensor(
 			real_point3d drawn_camera_position;
 			short drawn_blip_index;
 
-			unit_get_camera_position(unit_index, &drawn_camera_position);
-			render_interpolation_object_point(unit_index, &drawn_camera_position);
+			render_interpolation_unit_camera_position(unit_index, &drawn_camera_position);
 			motion_sensor_drawn[local_player_index].valid = halo_interpolation_enabled();
 			for (drawn_blip_index = 0; drawn_blip_index < MAXIMUM_MOTION_SENSOR_BLIPS; drawn_blip_index++)
 			{

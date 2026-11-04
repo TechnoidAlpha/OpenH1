@@ -34,6 +34,9 @@ void flag_delete(
 	long flag_index);
 void flags_update(
 	real delta);
+/* port: the cloth stepped, in the tick (game.c) */
+void flags_tick(
+	real delta);
 void flag_render(
 	long object_index,
 	long flag_index,
