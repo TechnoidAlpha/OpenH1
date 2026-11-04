@@ -144,6 +144,29 @@ Reading `ao`'s summary: off vs subtle and off vs strong should differ in
 almost every shot (that is the occlusion being laid); if they match, it did
 not run. "passes cannot be made" warnings and error lines should both be 0.
 
+## The same tests on a laptop
+
+`laptop_test.py` runs the same plans (`smoke`, `ao`) with the release's
+`halo.exe`, in a 1920x1080 window with the sound off, and writes the same
+`summary.txt`, plus the comparison sheets:
+
+```sh
+python tools/technoid/laptop_test.py --game <folder with halo.exe> --data <folder with maps> --label iris-xe ao
+```
+
+- The game: the release zip of the same build as `dev` (`OpenH1-Windows.zip`
+  from the release whose commit `dev` merged), unzipped. The ambient occlusion
+  and the stats are upstream's, so the release is the same code.
+- The game data: a folder with `maps\`. The game copies it out of an Xbox disc
+  image on its first start, or it can be copied off a phone's Dev app folder.
+- `HALO_VULKAN_STATS` is set in the game's environment directly; a computer
+  needs no `debug.host_environment`.
+- The game takes the discrete GPU whenever one is switched on, and has no
+  setting to choose. A laptop with two is run twice: once with the discrete GPU
+  off (`--label iris-xe`), once with it on (`--label rtx3050ti`).
+- The game window takes the screen for a moment at each of the 16 runs; leave
+  the laptop alone and on charge while it runs (about 25 minutes).
+
 ## On the computer: comparison sheets
 
 ```sh
