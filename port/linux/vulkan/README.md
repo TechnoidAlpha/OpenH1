@@ -425,8 +425,12 @@ calls `halo_screen_ambient_occlusion` after the structure's lightmap pass
 (`source/render/render.c`), before the diffuse textures, the decals, the
 dynamic lights, the specular light, the transparent surfaces and the
 effects. As they draw, objects (models) mark their pixels in the stencil's
-bit 6 and self-illuminated surfaces in bit 7 (`pipeline_state_describe`);
-the first-person weapon's is the game's bit 0. The record
+bit 6 and self-illuminated surfaces in bit 7 (`ambient_occlusion_mark`),
+and every other draw that writes the depth clears both where it does, so
+that the marks are always the shown surface's: the objects draw before the
+level, and a wall over an object behind it must not keep the object's mark
+(`tools/test_ambient_occlusion_marks.py`). The first-person weapon's is the
+game's bit 0. The record
 (`XGPU_STREAM_AMBIENT_OCCLUSION`) carries the camera, and the passes
 (`xgpu_vulkan_post.c`, their GLSL in `tools/vulkan_post_shaders.py`) are:
 

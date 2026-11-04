@@ -2283,6 +2283,16 @@ void decal_new(
 {
 	if (decals_enabled)
 	{
+		/* port: the frames' seed (random_math_port_begin_cosmetic), in a tick
+		too. Decals are only drawn, and the frames make them as well (an effect
+		a particle makes as it strikes or dies), so the decals, their globals
+		and their vertices are the frames' as much as the ticks'. What a decal
+		takes of the local seed depended on them: none once the vertex cache
+		has no room, nor on a failed insert, nor for the rest of a chain, and
+		one more for each locked decal looked at as they are unlocked. On the
+		game's local seed, which times the effects' events, that moved the
+		ticks with the frames */
+		boolean ticking= random_math_port_begin_cosmetic();
 		unsigned long *local_random_seed_address= get_global_local_random_seed_address();
 		unsigned long local_random_seed= 0;
 		struct collision_result collision;
@@ -2341,6 +2351,8 @@ void decal_new(
 
 			*local_random_seed_address= local_random_seed;
 		}
+
+		random_math_port_end_cosmetic(ticking);
 	}
 
 	return;
