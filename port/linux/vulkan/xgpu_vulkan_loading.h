@@ -19,6 +19,7 @@ void xgpu_vulkan_loading_eyes(const float left[3], const float right[3]);
 float xgpu_vulkan_loading_stereo_tangent(void);
 /* the loading frame's width for the window (loading_art_width) */
 uint32_t xgpu_vulkan_loading_frame_width(void);
+uint32_t xgpu_vulkan_loading_frame_height(void);
 uint64_t host_vulkan_display_period(void);
 
 #endif

@@ -1494,6 +1494,19 @@ static inline void loading_art_hd_run(struct loading_art *art, unsigned int job,
 	}
 }
 
+/* The size of the picture the next render will give, as loading_art_width
+ * last set it (the sharp frame's, or the 480 rows'): what a presenter
+ * makes its image for. */
+static inline unsigned int loading_art_frame_width(const struct loading_art *art)
+{
+	return art->hd.width ? art->hd.width : art->width;
+}
+
+static inline unsigned int loading_art_frame_height(const struct loading_art *art)
+{
+	return art->hd.width ? art->hd.height : LOADING_ART_FRAME_HEIGHT;
+}
+
 /* The size of the picture the last render gave (the sharp frame's, or the
  * 480 rows'): what a presenter uploads and fills the screen with. */
 static inline unsigned int loading_art_output_width(const struct loading_art *art)
