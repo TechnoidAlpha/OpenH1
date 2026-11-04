@@ -239,6 +239,12 @@ int menu_pictures_preparing(void)
 	return prepare.state != _prepare_off;
 }
 
+int menu_pictures_stock_maps(void)
+{
+	/* (the pass's own maps: not the main menu's, shown again at its end) */
+	return prepare.state != _prepare_off && prepare.state != _prepare_menu;
+}
+
 int menu_pictures_frame_drawn(void)
 {
 	return prepare.state == _prepare_off || prepare.drawn;

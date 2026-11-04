@@ -43,6 +43,8 @@ int config_boolean(char const *key);
 
 /* the host consumes queued draws before their textures or models change */
 void xgpu_backend_consume(void);
+/* (port/linux/game/menu_pictures_render.c) */
+int menu_pictures_stock_maps(void);
 
 /* ---------- constants */
 
@@ -263,8 +265,12 @@ void mods_tags_loaded(
 	if (mods_globals.map_loaded)
 		mods_let_go(FALSE);
 	mods_globals.map_loaded = TRUE;
-	mods_globals.enabled = TRUE;
-	mods_globals.loose_sounds_enabled = config_boolean("audio.loose_sounds") != 0;
+	/* (none on the maps of the menus' pictures, drawn as they shipped:
+	a mod changes a map's tags, not its file's checksum, so a picture drawn
+	with one would be cached as the map's own; as mods_enable false, until
+	the map changes) */
+	mods_globals.enabled = !menu_pictures_stock_maps();
+	mods_globals.loose_sounds_enabled = mods_globals.enabled && config_boolean("audio.loose_sounds") != 0;
 	csstrncpy(mods_globals.map_name, map_name ? map_name : "", sizeof(mods_globals.map_name) - 1);
 	mods_globals.map_name[sizeof(mods_globals.map_name) - 1] = 0;
 	/* (found again, unless the menus of this map just found them: the
@@ -272,7 +278,7 @@ void mods_tags_loaded(
 	if (port_mods_scans() == mods_globals.scans)
 		port_mods_scan();
 	mods_globals.scans = port_mods_scans();
-	if (port_mods_played() || mods_globals.loose_sounds_enabled)
+	if (mods_globals.enabled && (port_mods_played() || mods_globals.loose_sounds_enabled))
 	{
 		mods_update(FALSE, TRUE);
 	}
