@@ -304,8 +304,8 @@ static char const *const widget_flag_names[] =
 	/* (the PC version's, which this engine has no use for) */
 	"force_handle_mouse", "no_widescreen_fill",
 	/* (the port's: ui_widget_port_anchor_offset, ui_widget_port_stretch,
-	ui_widget_port_keep_ends) */
-	"anchor_left", "anchor_right", "stretch", "keep_ends",
+	ui_widget_port_keep_ends, ui_widget_port_wheel_sideways) */
+	"anchor_left", "anchor_right", "stretch", "keep_ends", "wheel_sideways",
 };
 
 /* the port's widget flags' bits (widget_flag_names) */
@@ -313,6 +313,7 @@ static char const *const widget_flag_names[] =
 #define WIDGET_FLAG_ANCHOR_RIGHT 18
 #define WIDGET_FLAG_STRETCH 19
 #define WIDGET_FLAG_KEEP_ENDS 20
+#define WIDGET_FLAG_WHEEL_SIDEWAYS 21
 
 /* whether the menus are laid out for a touchscreen: the touchscreens'
 builds, or debug.touch_menus (read once, as the menus load: menu_files.c's
@@ -369,6 +370,14 @@ picture: ui_widget.c's draw_bitmap_widened_in_rect) */
 boolean ui_widget_port_keep_ends(long flags)
 {
 	return (flags & FLAG(WIDGET_FLAG_KEEP_ENDS)) != 0;
+}
+
+/* wheel_sideways: a row its own left and right step through (Choose
+Mission's cards), which the desktop's wheel steps as the d-pad's left and
+right (ui_widget.c's ui_mouse_wheel_widget) */
+boolean ui_widget_port_wheel_sideways(long flags)
+{
+	return (flags & FLAG(WIDGET_FLAG_WHEEL_SIDEWAYS)) != 0;
 }
 
 static char const *const widget_type_names[] = { "container", "text", "spinner", "column_list" };

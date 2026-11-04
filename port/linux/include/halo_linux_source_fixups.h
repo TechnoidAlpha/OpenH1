@@ -199,6 +199,9 @@ short ui_widget_port_wide_stretch(long definition_index);
 /* whether a widget's picture keeps its ends at the widget's width (its port
 flag keep_ends) */
 unsigned char ui_widget_port_keep_ends(long flags);
+/* whether the desktop's mouse wheel steps a widget, a row its own left and
+right step through, sideways (its port flag wheel_sideways) */
+unsigned char ui_widget_port_wheel_sideways(long flags);
 /* the screen's pixels to the Xbox's one (port/linux/src/d3d8_device.c) */
 float halo_screen_scale(void);
 /* takes up a new width between frames (F11); returns the width */

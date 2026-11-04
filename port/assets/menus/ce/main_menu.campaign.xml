@@ -162,7 +162,7 @@
 		<on event="start" run="port campaign tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/campaign/mission_cards" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child" description="main_menu/campaign/mission_panel">
+	<widget name="main_menu/campaign/mission_cards" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child wheel_sideways" description="main_menu/campaign/mission_panel">
 		<data input="port campaign missions update"/>
 		<on event="created" run="port campaign missions init"/>
 		<on event="left" run="port campaign previous"/>

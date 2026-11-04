@@ -6105,8 +6105,8 @@ def _mission_card(size: tuple, slot: int) -> list:
 def _missions() -> list:
     """Choose Mission: HALO's or CUSTOM's missions (LB and RB, Q and E, or a
     click on its chip), three cards of them in a row between their arrows
-    (left and right, the stick, A and D, the arrows or a pointer over a card
-    choose one: menu_functions.c lays the row out, the one chosen larger), a
+    (left and right, the stick, A and D, the arrows, the mouse's wheel, a card
+    a notch, or a pointer over a card choose one: menu_functions.c lays the row out, the one chosen larger), a
     dot for each, the panel of the one chosen under them (its name,
     objective, where the player is with it, and the difficulties it has been
     finished on), and the footer's key prompts; A on a card (or SELECT)
@@ -6154,8 +6154,10 @@ def _missions() -> list:
     arrow_y = MISSION_CARDS_TOP + MISSION_BIG[1] // 2 - arrow_h // 2
     cards = [f'<child widget="{base}/card_{kind}_{slot}" y="{MISSION_CARDS_TOP}"/>'
              for slot in range(3) for kind in ("big", "small")]
+    # (the mouse's wheel steps the row as left and right do, a card a notch:
+    # wheel_sideways, ui_widget.c's ui_mouse_wheel_widget)
     lines += _widget(f"{base}/mission_cards", [("type", "column_list"), ("width", 640), ("height", 480),
-                                               ("flags", "pass_unhandled_to_focused_child"),
+                                               ("flags", "pass_unhandled_to_focused_child wheel_sideways"),
                                                ("description", f"{base}/mission_panel")],
                      ['<data input="port campaign missions update"/>',
                       '<on event="created" run="port campaign missions init"/>',

@@ -809,7 +809,7 @@ static void typing_gamepad(const struct platform_input_state *input, XINPUT_GAME
 		text_typing_enter_armed = TRUE;
 	else if (text_typing_enter_armed && !text_typing_field)
 		pad->wButtons |= XINPUT_GAMEPAD_START;
-	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_ESCAPE]);
+	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_ESCAPE] || input->menu_back);
 }
 
 /* when a server browser was shown last (halo_keyboard_browser_keys): its
@@ -860,12 +860,15 @@ static void keyboard_gamepad(const struct platform_input_state *input, XINPUT_GA
 	if (k[SDL_SCANCODE_RIGHT]) pad->wButtons |= XINPUT_GAMEPAD_DPAD_RIGHT;
 	if (k[SDL_SCANCODE_F1]) pad->wButtons |= XINPUT_GAMEPAD_BACK;
 
-	/* (escape backs out, as backspace does: the pause menu's B resumes the
-	game, the main menu's asks to quit; Start would choose, as A does) */
+	/* (escape backs out, as backspace and the mouse's Back button do: the
+	pause menu's B resumes the game, the main menu's asks to quit; Start
+	would choose, as A does. The Back button comes as menu_back, the menus'
+	pointer taking the mouse's buttons (sdl_platform.c); with none, Android's,
+	as X1) */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_A] |= analog(k[SDL_SCANCODE_SPACE] || k[SDL_SCANCODE_RETURN] ||
 		k[SDL_SCANCODE_KP_ENTER]);
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE] ||
-		(mouse && m[SDL_BUTTON_X1]));
+		input->menu_back || (mouse && m[SDL_BUTTON_X1]));
 #ifdef HALO_ANDROID
 	/* the system back key (gesture or button) backs out of menus */
 	pad->bAnalogButtons[XINPUT_GAMEPAD_B] |= analog(k[SDL_SCANCODE_AC_BACK]);
@@ -898,6 +901,8 @@ next screen's A, nor the Escape that closes the scoreboard's player menu
 static void keys_held_over_switch(struct platform_input_state *input, BOOL scoreboard_holds)
 {
 	static unsigned char held[SDL_SCANCODE_COUNT];
+	/* (and the mouse's Back button, which is Escape in the menus) */
+	static BOOL back_held;
 	static int context = -1;
 	int next_context = (input->menus != FALSE) | (text_typing ? 2 : 0) | (console_is_active() ? 4 : 0) |
 		(network_chat_typing() ? 8 : 0) | (scoreboard_holds ? 16 : 0);
@@ -907,7 +912,12 @@ static void keys_held_over_switch(struct platform_input_state *input, BOOL score
 	{
 		context = next_context;
 		memcpy(held, input->keys, sizeof(held));
+		back_held = input->menu_back;
 	}
+	if (!input->menu_back)
+		back_held = FALSE;
+	else if (back_held)
+		input->menu_back = FALSE;
 	for (scancode = 0; scancode < SDL_SCANCODE_COUNT; scancode++)
 	{
 		if (!input->keys[scancode])
@@ -1675,6 +1685,55 @@ int platform_test_menu_click(float *x, float *y)
 		return 0;
 	clicked_step = step;
 	return 1;
+}
+
+/* debug.test_input "menu:...": its "mouse:<button>", a click of that mouse
+button (SDL's numbering: 4 is X1, the side button a browser goes back with),
+and its "wheel:<notches>[*<events>]", the wheel turned that far (away from
+the player positive, as SDL's), in that many events (1 by default: a
+trackpad's or a high-resolution wheel's come in fractions), once in its
+second, as the mouse's own events (sdl_platform.c's test_menu_mouse) */
+int platform_test_menu_mouse(int *button, float *wheel, int *wheel_events)
+{
+	static Uint64 played_step = (Uint64)-1;
+	Uint64 step;
+	const char *token = test_input_menu;
+	size_t length = 0;
+
+	*button = 0;
+	*wheel = 0.0f;
+	*wheel_events = 0;
+	if (!test_input_menu[0])
+		return 0;
+	for (step = (SDL_GetTicks() - test_input_menu_since) / 1000;; step--)
+	{
+		token += strspn(token, " ,");
+		length = strcspn(token, " ,");
+		if (!length || !step)
+			break;
+		token += length;
+	}
+	step = (SDL_GetTicks() - test_input_menu_since) / 1000;
+	if (!length || step == played_step)
+		return 0;
+	if (!strncmp(token, "mouse:", 6) && sscanf(token + 6, "%d", button) == 1 && *button > 0)
+	{
+		played_step = step;
+		return 1;
+	}
+	*button = 0;
+	if (!strncmp(token, "wheel:", 6) && sscanf(token + 6, "%f", wheel) == 1)
+	{
+		const char *times = memchr(token, '*', length);
+
+		*wheel_events = times ? atoi(times + 1) : 1;
+		if (*wheel_events < 1)
+			*wheel_events = 1;
+		played_step = step;
+		return 1;
+	}
+	*wheel = 0.0f;
+	return 0;
 }
 
 /* debug.test_input "menu:...": its "type:<letters and digits>" typed once in

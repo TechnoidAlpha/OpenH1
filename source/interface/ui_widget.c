@@ -6288,6 +6288,12 @@ a click (or the d-pad): the server browser's game stays chosen
 (menu_functions.c) */
 static boolean ui_mouse_hovered_last = FALSE;
 static short ui_mouse_hover_x, ui_mouse_hover_y;
+/* port: the wheel steps a row its own left and right step through
+(ui_widget_port_wheel_sideways: Choose Mission's cards) a card a notch, but
+no sooner than this after its last step, the notches between dropped
+(ui_mouse_wheel_sideways_steps); and when it stepped last, NONE for never */
+#define UI_MOUSE_WHEEL_SIDEWAYS_MILLISECONDS 80
+static long ui_mouse_wheel_sideways_last = NONE;
 static short ui_mouse_click_x, ui_mouse_click_y;
 /* whether the latest pointer read was the touchscreen: the taller legend
 areas, the merged setting rows and the widened values are for a finger only
@@ -7504,7 +7510,9 @@ static void ui_mouse_step_list_to_slot(
 d-pad steps through; a touch drag skips a list showing one value at a time
 (a setting), moving between the rows, so a drag never changes a value; that
 takes a tap on one of its halves; the desktop wheel keeps the game's own
-d-pad reach and steps a setting's value */
+d-pad reach and steps a setting's value; port: and the desktop wheel steps
+a row its own left and right step through (ui_widget_port_wheel_sideways),
+which a touch drag, across it, leaves be */
 static struct widget_instance *ui_mouse_wheel_widget(
 	struct widget_instance *root,
 	boolean skip_settings)
@@ -7521,7 +7529,8 @@ static struct widget_instance *ui_mouse_wheel_widget(
 		if (definition->flags & (FLAG(_widget_dpad_updown_tabs_thru_children_bit) |
 			FLAG(_widget_dpad_leftright_tabs_thru_children_bit) |
 			FLAG(_widget_dpad_updown_tabs_thru_list_items_bit) |
-			FLAG(_widget_dpad_leftright_tabs_thru_list_items_bit)))
+			FLAG(_widget_dpad_leftright_tabs_thru_list_items_bit)) ||
+			(!skip_settings && ui_widget_port_wheel_sideways(definition->flags)))
 		{
 			result = widget;
 		}
@@ -7627,6 +7636,29 @@ static long ui_mouse_wheel_room(
 	}
 
 	return NONE;
+}
+
+/* port: how many presses the wheel's notches turned now (notches, their
+number) make on a row its own left and right step through
+(ui_widget_port_wheel_sideways), at now (milliseconds), its last step's
+time in *last (NONE: none yet): one, no sooner than
+UI_MOUSE_WHEEL_SIDEWAYS_MILLISECONDS after the last, the notches between
+dropped, so that a trackpad's or a high-resolution wheel's fast scroll (many
+notches at once, or one a frame) moves the row a card at a time, not on to
+its end, while a wheel turned a notch at a time steps it a card a notch */
+static long ui_mouse_wheel_sideways_steps(
+	long notches,
+	unsigned long now,
+	long *last)
+{
+	if (notches <= 0 ||
+		(*last != NONE && now - (unsigned long)*last < UI_MOUSE_WHEEL_SIDEWAYS_MILLISECONDS))
+	{
+		return 0;
+	}
+	*last = (long)now;
+
+	return 1;
 }
 
 /* the menu the mouse drives: the first player's, or everyone's */
@@ -7934,9 +7966,22 @@ static void ui_widgets_process_mouse(
 			long room = NONE;
 			long index;
 			long step;
+			long steps = ABS(pointer.wheel_steps);
 
 			if (widget)
 				ui_mouse_list_directions(widget, &back, &forward);
+			/* port: a row its own left and right step through (Choose
+			Mission's cards) steps sideways, a card a notch, the away notch
+			back (left), as the d-pad's sideways lists do, and not too fast
+			(ui_mouse_wheel_sideways_steps) */
+			if (widget && !touch &&
+				ui_widget_port_wheel_sideways(ui_widget_definition_get(widget->definition_tag_index)->flags))
+			{
+				back = _widget_event_dpad_left;
+				forward = _widget_event_dpad_right;
+				steps = ui_mouse_wheel_sideways_steps(steps, widget_globals.current_system_milliseconds,
+					&ui_mouse_wheel_sideways_last);
+			}
 			/* a sideways PC widget (typically a screen's button bar) steps
 			sideways only, and the d-pad's up and down pass over it to a widget
 			above it on the focus's way, so a touch drag or the wheel leaves it
@@ -7964,7 +8009,7 @@ static void ui_widgets_process_mouse(
 						room++;
 				}
 			}
-			for (step = 0; step < ABS(pointer.wheel_steps) && step < 4 && (room == NONE || step < room); step++)
+			for (step = 0; step < steps && step < 4 && (room == NONE || step < room); step++)
 				ui_mouse_press(button);
 		}
 		if (!ui_mouse_press_count && ui_mouse_hover_pending)
