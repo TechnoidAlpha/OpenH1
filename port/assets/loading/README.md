@@ -1,6 +1,6 @@
 # Loading artwork
 
-`LOADING.jpg` is Paul Hontz's supplied remake, retained verbatim. Its SHA-256
+`LOADING.jpg` is g0atbutt's supplied remake, retained verbatim. Its SHA-256
 is `5062ff5c83664c6b2f692657ae864e9ad74d71b0af8af1e4305bd9a26dc3fa0f`.
 
 `loading.rgba.zlib` contains 640×480 RGBA bytes, compressed with zlib. It is
