@@ -165,6 +165,9 @@ static struct
 	long done, made;
 	long frames, picture_frames;
 	long ticks, quiet_ticks;
+	/* (where in the pose's lines the next is; a frame drawn for one) */
+	long line;
+	int line_drawn;
 	/* the frame drawn this frame (the one kept), and when the loading
 	screen began its fade (its progress at 1) */
 	int drawn;
@@ -490,7 +493,6 @@ static void prepare_update(
 				letterbox and title go as the world's time passes) */
 				"cinematic_stop",
 				"cinematic_show_letterbox 0",
-				"object_destroy (unit (list_get (players) 0))",
 			};
 			short index;
 
@@ -508,26 +510,41 @@ static void prepare_update(
 		break;
 	}
 	case _prepare_structure:
-	{
-		char const *commands = picture->commands;
-
 		/* (the structure switched at this frame's start) */
 		prepare_command("debug_camera_set \"0 0 0 0 0 0 50\"");
-		while (commands && *commands)
+		prepare.line = 0;
+		prepare.state = _prepare_objects;
+		break;
+	case _prepare_objects:
+	{
+		char const *commands = picture->commands ? picture->commands + prepare.line : NULL;
+
+		/* (the pose's lines a frame each, as it was found with: one may need
+		the one before it taken, a camera set by the next frame) */
+		if (commands && *commands)
 		{
 			char const *end = strchr(commands, '\n');
 			long length = end ? (long)(end - commands) : (long)strlen(commands);
 
+			prepare.line += end ? length + 1 : length;
 			if (length >= MAXIMUM_RENDER_LINE)
 				length = MAXIMUM_RENDER_LINE - 1;
 			memcpy(line, commands, length);
 			line[length] = 0;
 			prepare_command(line);
-			commands = end ? end + 1 : NULL;
+			/* (a frame drawn, not shown, at each: the camera's last leaf in
+			the map is where a camera outside it is drawn from, as when the
+			pose was found) */
+			prepare.line_drawn = TRUE;
+			break;
 		}
 		/* (a vehicle comes to rest on the ground, a rider takes its seat) */
 		if (picture->settle_milliseconds > 0)
 			prepare_ticks((picture->settle_milliseconds * TICKS_PER_SECOND + 999) / 1000);
+		/* (the player's body gone after the pose's own lines, which may
+		need it: cheat_teleport_to_camera, for where the camera's view is
+		drawn from) */
+		prepare_command("object_destroy (unit (list_get (players) 0))");
 		prepare_quiet();
 		snprintf(line, sizeof(line), "debug_camera_set \"%s\"", picture->camera);
 		prepare_command(line);
@@ -622,13 +639,18 @@ void menu_pictures_frame(
 		return;
 	/* this frame: the game's kept, or none (the loading screen's own on
 	its clock, with its progress and caption) */
-	prepare.drawn = prepare.state == _prepare_capture && prepare.capture_wanted && !prepare.captured ? 2 : 0;
+	prepare.drawn = prepare.state == _prepare_capture && prepare.capture_wanted && !prepare.captured ? 2 :
+		prepare.line_drawn ? 3 : 0;
+	prepare.line_drawn = FALSE;
 	prepare_screen();
 }
 
 int menu_pictures_frame_kept(
 	void)
 {
+	/* (a frame drawn for a pose's line: not shown either) */
+	if (prepare.state != _prepare_off && prepare.drawn == 3)
+		return TRUE;
 	if (prepare.state != _prepare_capture || !prepare.capture_wanted || prepare.captured)
 		return FALSE;
 	prepare_phase(_phase_frame);
