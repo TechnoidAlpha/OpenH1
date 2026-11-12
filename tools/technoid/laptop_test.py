@@ -77,8 +77,10 @@ class Runner:
         if view:
             lines.append("ambient_occlusion_view = true")
         if mode == "pictures":
-            lines += ["frame_time = 0.0166667", f"screenshot_directory = '{shots}'", "screenshot_every = 60",
-                      "screenshot_from = 3.0", "screenshot_until = 20.0"]
+            lines += ["frame_time = 0.0166667", f"screenshot_directory = '{shots}'", "screenshot_every = 240"]
+            # no screenshot_from/until here: on Windows the scenario clock they read ran
+            # far ahead of the frames (frame 60 was the only one inside 3 to 20 s), and
+            # with frame_time fixed a frame number is the same moment in every run
         self.config.write_bytes(("\n".join(lines) + "\n").encode())
 
     def run(self, name, map_name, aa, mode, seconds, ao=None, view=False):
@@ -166,7 +168,7 @@ class Runner:
             g, b, n = mean if mean else ("-", "-", 0)
             out.append(f"{aa:<7} {ao:<7} {r:<6} {g if isinstance(g, str) else f'{g:.3f}':<13} "
                        f"{b if isinstance(b, str) else f'{b:.3f}':<18} {n}")
-        out += ["", "Pictures (SMAA, frame_time fixed, a shot every 60 frames from 3 s to 20 s);",
+        out += ["", "Pictures (SMAA, frame_time fixed, a shot every 240 frames);",
                 "off and the others should differ, as that is the occlusion laid:"]
         for m in maps:
             s = short(m)
