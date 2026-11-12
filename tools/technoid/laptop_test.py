@@ -145,7 +145,7 @@ class Runner:
         rows = []
         for r in range(1, self.args.rounds + 1):
             order = ("off", "strong") if r % 2 else ("strong", "off")
-            for aa in ("smaa", "msaa4x"):
+            for aa in self.args.aa.split():
                 for ao in order:
                     mean = self.run(f"t{r}-{timed}-{aa}-{ao}", maps[0], aa, "timing", self.args.timing, ao)
                     rows.append((aa, ao, r, mean))
@@ -195,6 +195,8 @@ def main():
     p.add_argument("--pictures", type=int, default=35)
     p.add_argument("--keep", type=int, default=2)
     p.add_argument("--maps", default=" ".join(AO_MAPS))
+    # "smaa" alone on a GPU whose driver hangs on MSAA (an Iris Xe froze on 4 Nov 2026)
+    p.add_argument("--aa", default="smaa msaa4x", help="the timing runs' anti-aliasing, separated by spaces")
     p.add_argument("plan", choices=("smoke", "ao"))
     p.add_argument("rounds", nargs="?", type=int, default=2)
     args = p.parse_args()
