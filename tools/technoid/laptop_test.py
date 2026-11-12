@@ -41,7 +41,8 @@ class Runner:
         self.exe = next(p for p in (self.game / "halo.exe", self.game / "bin" / "openh1") if p.exists())
         self.data = Path(args.data)
         stamp = time.strftime("%Y%m%d-%H%M%S")
-        self.out = Path(args.out) / f"{args.label}-{args.plan}-{stamp}"
+        # absolute: the game resolves debug.screenshot_directory from its own folder
+        self.out = (Path(args.out) / f"{args.label}-{args.plan}-{stamp}").resolve()
         self.out.mkdir(parents=True)
         self.config = self.game / "config.toml"
         self.init = self.data / "init.txt"
