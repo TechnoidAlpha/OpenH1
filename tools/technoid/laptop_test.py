@@ -183,7 +183,7 @@ class Runner:
         for m in maps:
             s = short(m)
             subprocess.run([sys.executable, str(sheets), str(self.out), str(self.out / "sheets"),
-                            f"p-{s}-off", f"p-{s}-subtle", f"p-{s}-strong", f"p-{s}-view"])
+                            f"p-{s}-off", f"p-{s}-subtle", f"p-{s}-strong"])
 
 
 def main():
