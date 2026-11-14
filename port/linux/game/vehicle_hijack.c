@@ -134,10 +134,13 @@ enum { VEHICLE_HIJACK_BODY_LEVELS = 4 };
 #define VEHICLE_HIJACK_STANDING 0.45f
 /* the reach of a seat, as unit_find_nearby_seat's */
 #define VEHICLE_HIJACK_REACH 1.0f
-/* the throw: out and up (world units a tick: 3.6 and 3 a second), and how
-far past the vehicle's sphere the rider stands */
-#define VEHICLE_HIJACK_THROW_OUT 0.12f
-#define VEHICLE_HIJACK_THROW_UP 0.1f
+/* the throw: out and up (world units a tick: 2.1 and 1.05 a second), a
+knock off to the side: with the level's gravity (global_gravity, 0.0036 a
+tick) up about a fifth of a unit, down again some two thirds of a second
+on, about a unit and a half out; and how far past the vehicle's sphere the
+rider stands */
+#define VEHICLE_HIJACK_THROW_OUT 0.07f
+#define VEHICLE_HIJACK_THROW_UP 0.035f
 #define VEHICLE_HIJACK_THROW_MARGIN 0.15f
 /* a biped's size when its definition has none */
 #define VEHICLE_HIJACK_RIDER_RADIUS 0.3f

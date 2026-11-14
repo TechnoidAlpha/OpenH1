@@ -2837,12 +2837,14 @@ void network_test_update(
 
 				if (player->unit_index != NONE)
 				{
+					real_rgb_color const *color = &object_get(player->unit_index)->object.base_change_colors[0];
+
 					platform_log("network test: hijack: tick %ld: the first player's action %d (seat %d offered), "
-						"at %.2f %.2f %.2f", since, player->action_result,
+						"at %.2f %.2f %.2f, armor %.2f %.2f %.2f", since, player->action_result,
 						vehicle_hijack_seat_offered(local_player_get_player_index(0), network_test.hijack_vehicle),
 						object_get(player->unit_index)->object.position.x,
 						object_get(player->unit_index)->object.position.y,
-						object_get(player->unit_index)->object.position.z);
+						object_get(player->unit_index)->object.position.z, color->red, color->green, color->blue);
 				}
 			}
 		}
