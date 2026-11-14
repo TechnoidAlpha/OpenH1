@@ -75,6 +75,11 @@ enum
 	feeds (network_standard_pro_game). Only a Standard host sets it, and its
 	OpenH1 machines alone read it */
 	_network_game_pro_rules_bit = 6,
+	/* not co-op's alone: an OpenH1 game's players hijack vehicles (the
+	host's game.vehicle_hijack, or Host Controls' since:
+	network_standard_vehicle_hijack). Only a Standard host sets it, and its
+	OpenH1 machines alone read it */
+	_network_game_vehicle_hijack_bit = 7,
 };
 
 struct network_game

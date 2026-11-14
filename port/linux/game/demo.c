@@ -2172,6 +2172,13 @@ struct network_game *demo_playback_network_game(
 	return demo_playback_as_host() ? &demo_network_game : NULL;
 }
 
+struct network_game *demo_playback_recorded_game(
+	void)
+{
+	return demo_player.playing && demo_player.connection == _game_connection_network_server ? &demo_network_game :
+		NULL;
+}
+
 /* a playback over: the game quits (debug.demo_quit, or a demo that cannot be
 played), or goes back to the main menu */
 static void demo_playback_end(

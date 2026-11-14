@@ -132,6 +132,11 @@
 		<on event="created" run="port setting load"/>
 		<on event="a" run="port setting segment"/>
 	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_vehicle_hijack" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
 	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_download" flags="pass_unhandled_to_focused_child"/>
 	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<on event="created" run="port setting load"/>

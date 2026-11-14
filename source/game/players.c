@@ -240,6 +240,7 @@ symbols in this file:
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "bots.h" /* port: port/linux/game/bots.c */
 #include "demo.h" /* port: port/linux/game/demo.c */
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 #include "cutscene/cinematics.h" /* port: network co-op's first spawns */
 #include "editor/editor_stubs.h"
 #include "effects/effects.h"
@@ -1969,6 +1970,12 @@ static boolean player_handle_action(
 		}
 		break;
 	}
+
+	/* port: a hijack is held, not pressed: the press does nothing (and no
+	reload), its hold begins it (player_handle_weapon_swap) */
+	case _player_action_result_hijack_vehicle:
+		result = TRUE;
+		break;
 
 	case _player_action_result_flip_vehicle:
 		unit = unit_get(player->unit_index);
@@ -4019,6 +4026,11 @@ static boolean player_handle_weapon_swap(
 	player = player_get(player_index);
 	unit = unit_get(player->unit_index);
 	result = FALSE;
+	/* port: an enemy's seat, the action button held out on it: the hijack
+	(port/linux/game/vehicle_hijack.c), where this machine decides the
+	game; a client's waits for the host's word */
+	if (player->action_result == _player_action_result_hijack_vehicle)
+		return vehicle_hijack_held(player_index, player->action_object_index, player->action_seat_index);
 	if (!players_decide_pickups())
 		return result;
 	switch (player->action_result)
@@ -4354,6 +4366,19 @@ static void player_examine_nearby_vehicle(
 			(_pi * 0.5f) - player_control->minimum_vehicle_flipping_angle;
 		if (vehicle_get(vehicle_index)->object.up.k > (real)cos(flipping_angle))
 		{
+			/* port: an enemy's seat in reach, taken by holding the action
+			button, whether or not the vehicle moves a little
+			(port/linux/game/vehicle_hijack.c) */
+			short hijack_seat_index = vehicle_hijack_seat_offered(player_index, vehicle_index);
+
+			if (hijack_seat_index != NONE)
+			{
+				player_set_action_result(
+					player_index,
+					_player_action_result_hijack_vehicle,
+					vehicle_index,
+					hijack_seat_index);
+			}
 			if (!unit_overcharged(player->unit_index))
 			{
 				unit = unit_get(player->unit_index);
@@ -5107,6 +5132,10 @@ void players_update_before_game(
 				"c:\\halo\\SOURCE\\game\\players.c",
 				0x262,
 				(NONE == action->desired_zoom_level) || ((action->desired_zoom_level >= 0)));
+			/* port: a hijack's jacker in the leap and its thrown rider in the
+			air control nothing, and the jacker's action button waits to be
+			let go (port/linux/game/vehicle_hijack.c) */
+			vehicle_hijack_filter_action(iterator.datum_index, action);
 
 			if (player->unit_index == NONE && !game_in_editor())
 			{

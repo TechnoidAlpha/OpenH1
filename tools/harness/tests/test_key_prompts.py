@@ -121,7 +121,8 @@ def test_score_hint_drawn_as_a_button():
     order = re.findall(r"(_icon_\w+)", icon_enum[icon_enum.index("{"):])
     assert icons.index(call.group(1)) == order.index("_icon_back_button")
     renderer = function(messaging, "render_state_text")
-    assert "if (custom && game_engine_running())\n\t\tdraw_string_and_hack_in_icons(" in renderer
+    # (every custom state message's buttons drawn, the campaign's too: a vehicle hijack's prompt)
+    assert "if (custom)\n\t\tdraw_string_and_hack_in_icons(" in renderer
     custom = messaging[messaging.index("if (datum->state_message.message_buffer[0])"):][:600]
     assert "local_player_index_for_draw_string_and_hack_in_icons = local_player_index;" in custom
     # the sprite looked for is the one draw_string_and_hack_in_icons draws

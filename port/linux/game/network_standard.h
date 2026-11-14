@@ -106,6 +106,21 @@ already was lifted off the surface): every game but a Legacy one, whose
 machines (OpenCE's among them) all play the original's; a demo's
 recording's in its playback */
 boolean network_standard_simulation_fixes(void);
+/* whether the game's players hijack vehicles (vehicle_hijack.c): an OpenH1
+game's host's game.vehicle_hijack as read in the lobby, or Host Controls'
+VEHICLE HIJACKING since, which the record (_network_game_vehicle_hijack_bit)
+and, during a game, the host's message (network_hijack.c) carry to its
+OpenH1 clients; never in a Legacy game; this machine's setting as the map
+began in a game of its own; a demo's recording's in its playback (a host's:
+its record as each tick had it) */
+boolean network_standard_vehicle_hijack(void);
+/* the host's own word on it (Host Controls' row), and its change (the
+host's, in an OpenH1 game, its clients told; a game of this machine's own):
+FALSE if this game has no such rule to change (a Legacy game, a client's) */
+boolean network_standard_hosting_vehicle_hijack(void);
+boolean network_standard_set_vehicle_hijack(boolean on);
+/* a client: the host's word during the game (network_hijack.c) */
+void network_standard_vehicle_hijack_heard(boolean on);
 /* the rules above as the game has them, for a demo's header (demo.h's
 _demo_rule_*) */
 unsigned long network_standard_demo_rules(void);

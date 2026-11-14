@@ -521,7 +521,10 @@ static void render_state_text(
 	draw_unicode_string_compute_bounds(bounds, text, &text_bounds, cursor_bounds);
 	cursor_bounds->x0 -= 3;
 	text_bounds.x0 = bounds->x0;
-	if (custom && game_engine_running())
+	/* port: (the campaign's too: a vehicle hijack's prompt names its
+	button, port/linux/game/vehicle_hijack.c; the buttons are the HUD
+	globals', which every map has) */
+	if (custom)
 		draw_string_and_hack_in_icons(&text_bounds, NULL, NULL, 0, text, TRUE);
 	else
 		rasterizer_draw_unicode_string(&text_bounds, NULL, NULL, 0, text);

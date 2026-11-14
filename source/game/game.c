@@ -159,6 +159,7 @@ struct game_options;
 #include "items/projectiles.h"
 #include "main/main.h"
 #include "menu_pictures.h" /* port: port/linux/game/menu_pictures_render.c */
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 #include "main/console.h"
 #include "math/real_math.h"
 #include "memory/data.h"
@@ -441,6 +442,9 @@ game_tick_substep) */
 static void game_tick_after_substeps(
 	void)
 {
+	/* port: the vehicle hijacks under way, played on as the tick's objects
+	have moved (port/linux/game/vehicle_hijack.c) */
+	vehicle_hijack_tick();
 	profile_scope(game_tick_players_after_section, players_update_after_game();)
 	profile_scope(game_tick_hud_section, hud_update();)
 	profile_scope(game_tick_player_effect_section, player_effect_update();)
@@ -800,6 +804,8 @@ void game_initialize_for_new_map(
 	hs_initialize_for_new_map();
 	recorded_animations_initialize_for_new_map();
 	cheats_initialize_for_new_map();
+	/* port: no hijack under way (port/linux/game/vehicle_hijack.c) */
+	vehicle_hijack_reset();
 
 	game_globals->active = TRUE;
 	halo_load_trace("objects.begin", NULL); /* port: loading measurement */

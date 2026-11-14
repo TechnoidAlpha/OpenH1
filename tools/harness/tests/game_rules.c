@@ -16,6 +16,8 @@ static struct
 {
 	boolean hosting;
 	boolean hosting_classic_turning;
+	/* (the hijacks' rule: test_vehicle_hijack.py's) */
+	boolean hosting_vehicle_hijack;
 	boolean joined;
 	boolean local_enhanced_animations;
 } network_standard_globals;
