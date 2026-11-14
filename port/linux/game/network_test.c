@@ -2012,7 +2012,7 @@ static void network_test_hijack_stand(
 		out.k = 0.0f;
 		if (normalize3d(&out) == 0.0f)
 			out = *global_forward3d;
-		for (distance = 0.8f; distance > 0.25f; distance -= 0.1f)
+		for (distance = network_test.hijack_empty ? 0.4f : 0.8f; distance > 0.25f; distance -= 0.1f)
 		{
 			stand.x = entrance.x + distance * out.i;
 			stand.y = entrance.y + distance * out.j;
