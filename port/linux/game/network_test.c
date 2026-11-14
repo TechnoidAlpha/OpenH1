@@ -2712,8 +2712,10 @@ void network_test_update(
 		network_test_run_cues();
 	/* (debug.network_test_hijack: a frame a tick from a second
 	to seven in, debug.screenshot_directory's hijack<tick>.bmp, the prompt
-	and the sequence) */
-	if (network_test.hijack_time > 0.0f && game_in_progress() && !main_menu_loaded)
+	and the sequence; none with debug.screenshot_every, whose frames, every
+	one, they would take the place of) */
+	if (network_test.hijack_time > 0.0f && game_in_progress() && !main_menu_loaded &&
+		config_integer("debug.screenshot_every") <= 0)
 	{
 		static long shot_tick = NONE;
 		long since = network_test_hijack_since();
