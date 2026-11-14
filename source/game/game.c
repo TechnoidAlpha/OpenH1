@@ -432,6 +432,12 @@ static void game_tick_macro_step(
 	if (!(network_game_distributed_client() && network_coop_active()))
 		profile_scope(game_tick_hs_section, hs_update();)
 	profile_scope(game_tick_recorded_animations_section, recorded_animations_update();)
+	/* port: the vehicle hijacks under way (port/linux/game/vehicle_hijack.c):
+	the vault's place, the blow, the throw and the seat taken, before the
+	objects' update poses the units there (and their nodes are kept for the
+	frames between the ticks: render_interpolation.c) and the tick's
+	sub-steps move them on, as any unit's movement */
+	vehicle_hijack_tick();
 	profile_scope(game_tick_objects_section, objects_update();)
 
 	return;
@@ -442,9 +448,6 @@ game_tick_substep) */
 static void game_tick_after_substeps(
 	void)
 {
-	/* port: the vehicle hijacks under way, played on as the tick's objects
-	have moved (port/linux/game/vehicle_hijack.c) */
-	vehicle_hijack_tick();
 	profile_scope(game_tick_players_after_section, players_update_after_game();)
 	profile_scope(game_tick_hud_section, hud_update();)
 	profile_scope(game_tick_player_effect_section, player_effect_update();)
