@@ -823,8 +823,12 @@ static void vehicle_hijack_throw(
 			origin.y = spot.y;
 			origin.z = spot.z - (rider->object.bounding_sphere_center.z - rider->object.position.z);
 			/* (drawn moving from the seat to it: the offset to the nodes'
-			first pose, in the unit's own frame) */
-			object_start_interpolation(rider_index, VEHICLE_HIJACK_INTERPOLATION_TICKS);
+			first pose, in the unit's own frame, added to the blend the exit
+			began from the seated pose (unit_exit_seat_end's change of
+			animation state); one begun here would take the pose that has
+			already left the seat for the first, a pop) */
+			if (!rider->object.animation.interpolation_frame_count)
+				object_start_interpolation(rider_index, VEHICLE_HIJACK_INTERPOLATION_TICKS);
 			vector_from_points3d(&origin, &rider->object.position, &offset);
 			object_set_position(rider_index, &origin, NULL, NULL);
 			{
