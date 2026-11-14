@@ -2153,7 +2153,7 @@ static const struct config_setting config_settings[] =
 		"other players off to its side, facing it (:client: another machine's\n"
 		"player jacks; :watch, a client's own: it watches). The jacker holds the\n"
 		"action button as debug.test_input's script says. Each machine saves a\n"
-		"frame a tick (hijack<tick>.bmp) from 1.5 seconds on to 4, and six\n"
+		"frame a tick (hijack<tick>.bmp) from 1 second on to 7, and six\n"
 		"seconds on logs who drives it and where its riders went\n"
 		"(vehicle_hijack.c). Empty never." },
 	{ "debug.network_test_vehicle_seat", _config_string, "\"\"", "HALO_NETWORK_TEST_VEHICLE_SEAT", _environment_value,

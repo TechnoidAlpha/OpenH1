@@ -43,6 +43,7 @@ out and the seat taken, the thrown rider's own controls back once they
 land (or this long after, at the most) */
 enum
 {
+	VEHICLE_HIJACK_VAULT_TICKS = 7,
 	VEHICLE_HIJACK_STRIKE_TICKS = 7,
 	VEHICLE_HIJACK_YANK_TICKS = 11,
 	VEHICLE_HIJACK_THROWN_TICKS = 2 * 30,

@@ -1695,6 +1695,8 @@ static long network_test_hijack_reference_player(
 	return NONE;
 }
 
+static short network_test_hijack_driver_seat(long vehicle_index);
+
 /* ... the vehicle of the test's kind (debug.network_test_vehicle_seat's
 name, else a Ghost) nearest the unit, upright and whole: nobody's driving
 it, or (driven) an enemy of the unit driving it */
@@ -1712,13 +1714,28 @@ static long network_test_hijack_vehicle(
 	while (object_iterator_next(&vehicles))
 	{
 		struct unit_datum *vehicle = unit_get(vehicles.index);
-		long driver_index = vehicle->unit.driver_object_index;
+		long driver_index = NONE;
 		real distance = distance_squared3d(&unit->object.position, &vehicle->object.position);
+		short seat_index;
+		long child_index;
 
 		if (!strstr(tag_get_name(vehicle->definition_index), name) ||
 			TEST_FLAG(vehicle->object.damage_flags, _object_dead_bit) || vehicle->object.up.k < 0.7f)
 		{
 			continue;
+		}
+		/* (the rider of the test's seat: network_test_hijack_driver_seat's) */
+		seat_index = network_test_hijack_driver_seat(vehicles.index);
+		if (seat_index == NONE)
+			continue;
+		for (child_index = vehicle->object.first_child_object_index; child_index != NONE;
+			child_index = object_get(child_index)->object.next_object_index)
+		{
+			if (TEST_FLAG(_object_mask_unit, object_get(child_index)->object.type) &&
+				unit_get(child_index)->unit.parent_seat_index == seat_index)
+			{
+				driver_index = child_index;
+			}
 		}
 		if (driven ? driver_index == NONE ||
 			!game_team_is_enemy(unit->object.owner_team_index, unit_get(driver_index)->object.owner_team_index) :
@@ -1738,13 +1755,20 @@ static long network_test_hijack_vehicle(
 static short network_test_hijack_driver_seat(
 	long vehicle_index)
 {
+	struct unit_definition *definition = unit_definition_get(object_get(vehicle_index)->definition_index);
 	short seat_index;
 
-	for (seat_index = 0; seat_index < unit_definition_get(object_get(vehicle_index)->definition_index)->unit.seats.count;
-		seat_index++)
+	/* (debug.network_test_vehicle_seat's seat, "warthog:gunner", else the
+	driver's) */
+	for (seat_index = 0; seat_index < definition->unit.seats.count; seat_index++)
 	{
-		if (unit_seat_is_driver(vehicle_index, seat_index))
+		struct unit_seat *seat = TAG_BLOCK_GET_ELEMENT(&definition->unit.seats, seat_index, struct unit_seat);
+
+		if (network_test.seat_label[0] ? strstr(seat->label, network_test.seat_label) != NULL :
+			unit_seat_is_driver(vehicle_index, seat_index))
+		{
 			return seat_index;
+		}
 	}
 	return NONE;
 }
@@ -1925,20 +1949,21 @@ static void network_test_hijack_stand(
 		return;
 	}
 	network_test.hijack_vehicle = vehicle_index;
-	/* (a jacker a little out from the entrance, within reach: the leap
-	takes them the rest of the way) */
+	/* (a jacker out from the entrance the way the seat is entered, clear of
+	the vehicle and within reach: the vault takes them the rest of the
+	way) */
 	stand = entrance;
 	if (!watch)
 	{
 		real_vector3d out;
 
-		vector_from_points3d(&object_get(vehicle_index)->object.position, &entrance, &out);
+		vector_from_points3d(&seat, &entrance, &out);
 		out.k = 0.0f;
 		if (normalize3d(&out) > 0.0f)
 		{
-			stand.x += 0.3f * out.i;
-			stand.y += 0.3f * out.j;
-			stand.z += 0.1f;
+			stand.x += 0.8f * out.i;
+			stand.y += 0.8f * out.j;
+			stand.z += 0.02f;
 		}
 	}
 	if (watch)
@@ -1946,14 +1971,14 @@ static void network_test_hijack_stand(
 		real_point3d const *center = &object_get(vehicle_index)->object.position;
 		real_vector3d out;
 
-		/* (out from the vehicle past the entrance, turned a little toward
-		its front, five units off and a little up) */
-		vector_from_points3d(center, &entrance, &out);
+		/* (on the entrance's side: out from the seat past its entrance,
+		turned a little toward the vehicle's front, about four units off) */
+		vector_from_points3d(&seat, &entrance, &out);
 		out.k = 0.0f;
 		if (normalize3d(&out) == 0.0f)
 			out = *global_forward3d;
-		stand.x = center->x + 4.5f * out.i + 1.5f * object_get(vehicle_index)->object.forward.i;
-		stand.y = center->y + 4.5f * out.j + 1.5f * object_get(vehicle_index)->object.forward.j;
+		stand.x = center->x + 3.5f * out.i + 1.5f * object_get(vehicle_index)->object.forward.i;
+		stand.y = center->y + 3.5f * out.j + 1.5f * object_get(vehicle_index)->object.forward.j;
 		stand.z = entrance.z + 0.1f;
 	}
 	/* (a campaign level's opening may have the players' input off still:
@@ -1963,7 +1988,36 @@ static void network_test_hijack_stand(
 		player_input_enable(TRUE);
 		platform_log("network test: hijack: the players' input turned on (the level had it off)");
 	}
-	if (place)
+	if (place && !watch)
+	{
+		/* (the farthest out, eight tenths to three, where the seat is offered:
+		as far from the vehicle as its reach lets a jacker stand) */
+		real_vector3d out;
+		real distance;
+
+		vector_from_points3d(&seat, &entrance, &out);
+		out.k = 0.0f;
+		if (normalize3d(&out) == 0.0f)
+			out = *global_forward3d;
+		for (distance = 0.8f; distance > 0.25f; distance -= 0.1f)
+		{
+			stand.x = entrance.x + distance * out.i;
+			stand.y = entrance.y + distance * out.j;
+			stand.z = entrance.z + 0.02f;
+			object_set_position(player->unit_index, &stand, NULL, NULL);
+			/* (and the vehicle among what the player examines: its sphere
+			touching the player's, players.c's player_examine_nearby_objects) */
+			if (vehicle_hijack_seat_offered(player_index, vehicle_index) != NONE &&
+				distance3d(&object_get(player->unit_index)->object.bounding_sphere_center,
+					&object_get(vehicle_index)->object.bounding_sphere_center) <
+				object_get(player->unit_index)->object.bounding_sphere_radius +
+					object_get(vehicle_index)->object.bounding_sphere_radius - 0.1f)
+			{
+				break;
+			}
+		}
+	}
+	else if (place)
 		object_set_position(player->unit_index, &stand, NULL, NULL);
 	else
 		stand = object_get(player->unit_index)->object.position;
@@ -1977,6 +2031,12 @@ static void network_test_hijack_stand(
 		player->local_player_index != NONE ? "this machine's" : "another machine's", watch ? "watches" : "stands at",
 		vehicle_index, stand.x, stand.y, stand.z, game_time_get(),
 		network_test.cues_start == NONE ? -1.0 : (double)(game_time_get() - network_test.cues_start) / TICKS_PER_SECOND);
+	if (!watch)
+	{
+		platform_log("network test: hijack: the seat's entrance %.2f %.2f %.2f, its other point %.2f %.2f %.2f; "
+			"offered seat %d", entrance.x, entrance.y, entrance.z, seat.x, seat.y, seat.z,
+			vehicle_hijack_seat_offered(player_index, vehicle_index));
+	}
 }
 
 /* ... the host: every player not a bot stood there, its own player to jack
@@ -2650,15 +2710,15 @@ void network_test_update(
 	}
 	if (game_in_progress() && !main_menu_loaded)
 		network_test_run_cues();
-	/* (debug.network_test_hijack: a frame a tick from a second and a half
-	to four in, debug.screenshot_directory's hijack<tick>.bmp, the prompt
+	/* (debug.network_test_hijack: a frame a tick from a second
+	to seven in, debug.screenshot_directory's hijack<tick>.bmp, the prompt
 	and the sequence) */
 	if (network_test.hijack_time > 0.0f && game_in_progress() && !main_menu_loaded)
 	{
 		static long shot_tick = NONE;
 		long since = network_test_hijack_since();
 
-		if (since >= 3 * TICKS_PER_SECOND / 2 && since < 4 * TICKS_PER_SECOND && since != shot_tick)
+		if (since >= TICKS_PER_SECOND && since < 7 * TICKS_PER_SECOND && since != shot_tick)
 		{
 			char name[32];
 
@@ -2768,6 +2828,23 @@ void network_test_update(
 			}
 			if (since >= 6 * TICKS_PER_SECOND && since < 7 * TICKS_PER_SECOND)
 				network_test_hijack_result();
+			/* (the first player's offer each second until then, and where they
+			are) */
+			if (since >= TICKS_PER_SECOND && since < 6 * TICKS_PER_SECOND && local_player_get_player_index(0) != NONE &&
+				network_test.hijack_vehicle != NONE)
+			{
+				struct player_datum *player = player_get(local_player_get_player_index(0));
+
+				if (player->unit_index != NONE)
+				{
+					platform_log("network test: hijack: tick %ld: the first player's action %d (seat %d offered), "
+						"at %.2f %.2f %.2f", since, player->action_result,
+						vehicle_hijack_seat_offered(local_player_get_player_index(0), network_test.hijack_vehicle),
+						object_get(player->unit_index)->object.position.x,
+						object_get(player->unit_index)->object.position.y,
+						object_get(player->unit_index)->object.position.z);
+				}
+			}
 		}
 		if (network_test.elevator_time > 0.0f)
 			network_test_elevator_update();
