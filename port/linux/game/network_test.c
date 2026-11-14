@@ -257,6 +257,8 @@ static struct
 	real hijack_time;
 	boolean hijack_watch;
 	boolean hijack_clients_jack;
+	/* ... and whether the vehicle is left empty, for a stock entry to compare */
+	boolean hijack_empty;
 	long hijack_vehicle;
 	long hijack_victim;
 	/* debug.network_test_chat's, and the lines said this game */
@@ -434,6 +436,7 @@ static void network_test_read_settings(
 		network_test.hijack_time = (real)atof(hijack);
 		network_test.hijack_watch = strstr(hijack, ":watch") != NULL;
 		network_test.hijack_clients_jack = strstr(hijack, ":client") != NULL;
+		network_test.hijack_empty = strstr(hijack, ":empty") != NULL;
 		network_test.hijack_vehicle = NONE;
 		network_test.hijack_victim = NONE;
 	}
@@ -1834,6 +1837,16 @@ static void network_test_hijack_seat(
 		platform_log("network test: hijack: no vehicle of the kind nobody drives");
 		return;
 	}
+	/* (":empty": nobody, the stock entry's comparison: the vehicle held
+	still a while, its seat left to get into) */
+	if (network_test.hijack_empty)
+	{
+		vehicle_hijack_test_hold(vehicle_index, 8 * TICKS_PER_SECOND);
+		network_test.hijack_vehicle = vehicle_index;
+		platform_log("network test: hijack: vehicle %lx (%s) left empty, held there", vehicle_index,
+			tag_get_name(object_get(vehicle_index)->definition_index));
+		return;
+	}
 	/* (a bot) */
 	data_iterator_new(&players, player_data);
 	while ((player = (struct player_datum *)data_iterator_next(&players)) != NULL && victim_index == NONE)
@@ -1940,7 +1953,7 @@ static void network_test_hijack_stand(
 	{
 		return;
 	}
-	vehicle_index = network_test_hijack_vehicle(player_get(reference_index)->unit_index, TRUE);
+	vehicle_index = network_test_hijack_vehicle(player_get(reference_index)->unit_index, !network_test.hijack_empty);
 	seat_index = vehicle_index != NONE ? network_test_hijack_driver_seat(vehicle_index) : NONE;
 	if (seat_index == NONE ||
 		!unit_get_seat_entrance_point(player->unit_index, vehicle_index, seat_index, &entrance, &seat, NULL))
@@ -2007,7 +2020,7 @@ static void network_test_hijack_stand(
 			object_set_position(player->unit_index, &stand, NULL, NULL);
 			/* (and the vehicle among what the player examines: its sphere
 			touching the player's, players.c's player_examine_nearby_objects) */
-			if (vehicle_hijack_seat_offered(player_index, vehicle_index) != NONE &&
+			if ((network_test.hijack_empty || vehicle_hijack_seat_offered(player_index, vehicle_index) != NONE) &&
 				distance3d(&object_get(player->unit_index)->object.bounding_sphere_center,
 					&object_get(vehicle_index)->object.bounding_sphere_center) <
 				object_get(player->unit_index)->object.bounding_sphere_radius +
