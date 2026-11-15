@@ -50,7 +50,7 @@ static boolean game_engine_running(void) { return engine_running; }
 static int config_boolean(char const *name)
 {
 	/* (game.enhanced_animations: the turn's, network_standard_turns_with_aim, read as the pickup's way is) */
-	if (!strcmp(name, "game.enhanced_animations"))
+	if (!strcmp(name, "game.enhanced_animations") || !strcmp(name, "game.vehicle_hijack"))
 		return TRUE;
 	/* (network.allow_hit_sounds: the hit sounds' rule, hit_sounds.c's, read so too) */
 	if (!strcmp(name, "network.allow_hit_sounds"))
@@ -66,6 +66,8 @@ static struct
 	long hosting_rate;
 	boolean hosting_hold_to_pick_up;
 	boolean hosting_classic_turning;
+	/* (the hijacks' rule: test_vehicle_hijack.py's) */
+	boolean hosting_vehicle_hijack;
 	boolean hosting_no_hit_sounds;
 	/* (2V2 Classic's views: instant_aim_rule.c's) */
 	boolean hosting_no_direct_camera;

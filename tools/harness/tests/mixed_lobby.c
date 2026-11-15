@@ -55,7 +55,8 @@ struct distributed_message_header
 /* the record, as far as the host changes it: everything else is copied */
 /* the record's pickup bit (network_game_manager.h) */
 enum { _network_game_hold_to_pick_up_bit = 0, _network_game_classic_turning_bit = 1,
-	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4 };
+	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4,
+	_network_game_vehicle_hijack_bit = 5 };
 #define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
 
 struct network_game
@@ -120,6 +121,16 @@ static boolean demo_playback_rules(unsigned long *rules)
 static boolean demo_playing(void)
 {
 	return FALSE;
+}
+
+static struct network_game *demo_playback_recorded_game(void)
+{
+	return NULL;
+}
+
+/* (the hijacks' rule told the clients: network_hijack.c's, test_vehicle_hijack.py's) */
+static void network_hijack_send_rule(boolean on)
+{
 }
 
 static int halo_server_mode(void)

@@ -113,6 +113,8 @@ static int config_boolean(char const *name)
 		return allow_setting;
 	if (!strcmp(name, "game.auto_pickup") || !strcmp(name, "game.enhanced_animations"))
 		return TRUE;
+	if (!strcmp(name, "game.vehicle_hijack"))
+		return FALSE;
 	CHECK(FALSE, "an unexpected setting %s", name);
 	return FALSE;
 }
@@ -136,6 +138,7 @@ static struct
 	boolean hosting_classic_turning;
 	boolean hosting_no_hit_sounds;
 	boolean hosting_no_direct_camera;
+	boolean hosting_vehicle_hijack;
 	boolean joined;
 } network_standard_globals;
 static struct network_game record;

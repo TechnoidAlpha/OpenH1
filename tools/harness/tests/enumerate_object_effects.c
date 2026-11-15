@@ -119,6 +119,28 @@ static void expect(long model_index, short state, struct render_model_effect con
 	expected[expected_count++] = draw_make(model_index, state, effect, permutation, flags);
 }
 
+/* a model camouflaged: fading and fully cloaked (intensity 0.5 and 1), each
+with the ordinary and the hyper-stealth parameters */
+static void camouflage_expected(long model_index, short state, unsigned long flags)
+{
+	static real const intensities[] = { 0.5f, 1.0f };
+	struct render_model_effect effect;
+	int intensity, parameter;
+
+	memset(&effect, 0, sizeof(effect));
+	effect.type = _render_model_effect_type_active_camouflage;
+	effect.source_object_index = STAND_IN_OBJECT_INDEX;
+	for (intensity = 0; intensity < 2; intensity++)
+	{
+		for (parameter = 0; parameter < 2; parameter++)
+		{
+			effect.intensity = intensities[intensity];
+			effect.parameter = (real)parameter;
+			expect(model_index, state, &effect, 0, flags);
+		}
+	}
+}
+
 /* what the objects' tags ask for: each object's model with each of its
 effects in each state (as before the draws were told apart) */
 static void objects_expected(void)
@@ -146,13 +168,7 @@ static void objects_expected(void)
 			}
 			if (TEST_FLAG(_object_mask_unit, FLAG(definition->object.type)))
 			{
-				effect.type = _render_model_effect_type_active_camouflage;
-				effect.intensity = 0.5f;
-				expect(definition->object.model.index, state, &effect, 0, 0);
-				effect.parameter = 1.0f;
-				expect(definition->object.model.index, state, &effect, 0, 0);
-				memset(&effect, 0, sizeof(effect));
-				effect.source_object_index = STAND_IN_OBJECT_INDEX;
+				camouflage_expected(definition->object.model.index, state, 0);
 			}
 			if (TEST_FLAG(definition->object.flags, _object_transparency_self_occludes_bit))
 			{
@@ -178,13 +194,7 @@ static void first_person_expected(long model_index)
 	for (state = 0; state < 5; state++)
 	{
 		expect(model_index, state, NULL, 0, flags);
-		memset(&effect, 0, sizeof(effect));
-		effect.type = _render_model_effect_type_active_camouflage;
-		effect.source_object_index = STAND_IN_OBJECT_INDEX;
-		effect.intensity = 0.5f;
-		expect(model_index, state, &effect, 0, flags);
-		effect.parameter = 1.0f;
-		expect(model_index, state, &effect, 0, flags);
+		camouflage_expected(model_index, state, flags);
 		memset(&effect, 0, sizeof(effect));
 		effect.source_object_index = STAND_IN_OBJECT_INDEX;
 		for (index = 0; index < object_count; index++)

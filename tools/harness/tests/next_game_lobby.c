@@ -46,7 +46,8 @@ typedef word message_header;
 
 /* the record's pickup bit (network_game_manager.h) */
 enum { _network_game_hold_to_pick_up_bit = 0, _network_game_classic_turning_bit = 1,
-	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4 };
+	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4,
+	_network_game_vehicle_hijack_bit = 5 };
 #define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
 
 struct network_game

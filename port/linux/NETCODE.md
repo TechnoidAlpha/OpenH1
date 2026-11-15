@@ -1804,6 +1804,40 @@ machine:
   is OpenH1 protocol version 10. They change in a game only when no OpenCE
   machine is in it, as a team move does; otherwise, and in a Legacy game,
   they wait for the next game's lobby. A Legacy game is sent nothing new.
+- VEHICLE HIJACKING (any OpenH1 game, co-op too) turns the players' Halo 2
+  boarding on or off at once (below, "Vehicle hijacks").
+
+### Vehicle hijacks
+
+A player beside an enemy's seat they could get into (a Ghost's or a
+Warthog's driver, a Warthog's gunner, a Banshee's pilot on or near the
+ground) holds the action button to leap at it, strike, throw the rider out
+and take the seat (`vehicle_hijack.c`, `game.vehicle_hijack`, off by
+default). It changes what every machine simulates, so it is a rule of the
+game (its numbers pending: `port/linux/net_changes/vehicle-hijack.txt`):
+
+- The rule is the host's `game.vehicle_hijack`, read in the lobby as the
+  pickup's way is, carried in bit 7 of the record's `cooperative_flags`
+  (`_network_game_vehicle_hijack_bit`), which an OpenCE machine's copy leaves
+  clear (`network_standard_vehicle_hijack`). Host Controls' VEHICLE
+  HIJACKING changes it during a game: the host's own at once, its record's
+  bit (which a machine that joins takes, and a host's demo has each tick),
+  and its OpenH1 clients told. A Legacy game never hijacks, nor does an
+  OpenCE machine's player, nor is one hijacked, in a mixed game.
+- The host decides each hijack, at the end of its player's hold as its
+  simulation of the player has it (the client's own player waits for the
+  host's word: it begins nothing itself), and tells its OpenH1 clients
+  (`_distributed_message_vehicle_hijack`, reliably: the jacker's unit,
+  the rider's, the vehicle and the seat, with a format byte), and so when it
+  calls one off (the vehicle flipped or died, a unit died or left), and the
+  rule changed. A client takes them only from the host's stream in an
+  OpenH1 game under way. It plays the sequence from then for its own units,
+  which are its own to move: its own player's leap and the seat they take
+  (`network_objects_set_seat`, as the host's word on a seat), its own player
+  thrown out (the jolt, their controls held till they land); and the blow
+  of another's. Every other unit's place and seat is the host's word as any
+  is. `network_objects_set_seat` puts a unit in a seat beside an enemy
+  (the jacker beside a Warthog's enemy gunner) as the host has it.
 
 ### Pings
 

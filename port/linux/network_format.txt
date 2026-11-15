@@ -174,6 +174,7 @@ enum _distributed_message_structure_bsp 65
 enum _distributed_message_substep_states 136
 enum _distributed_message_unit_state_differences 141
 enum _distributed_message_unit_states 2
+enum _distributed_message_vehicle_hijack 144
 enum _distributed_message_vehicle_prediction 12
 enum _distributed_message_vehicle_riding_map 107
 enum _distributed_message_voice_config 82
@@ -416,6 +417,7 @@ struct distributed_structure_bsp_message 096278a05681
 struct distributed_substep_input 79949fc6d82c
 struct distributed_substep_input_control 4b2645f870ed
 struct distributed_vector e80d7f9fc970
+struct distributed_vehicle_hijack 1f4aa46b3ee8
 struct distributed_voice_config 665bdc14478b
 struct distributed_voice_down e3751d692f16
 struct distributed_voice_up 3d74ee44e4cb

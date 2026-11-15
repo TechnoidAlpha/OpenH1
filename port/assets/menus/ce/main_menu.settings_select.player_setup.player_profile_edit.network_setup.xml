@@ -23,12 +23,13 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_server_browser_filters" x="28" y="208"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_streamer_mode" x="28" y="229"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_auto_pickup" x="28" y="250"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_8" x="28" y="277" platform="desktop android"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_download" x="28" y="297" platform="desktop android"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_seed" x="28" y="318" platform="desktop android"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_seed_upload" x="28" y="339" platform="desktop android"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_12" x="28" y="366" platform="desktop android"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_auto" x="28" y="386" platform="desktop android"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_vehicle_hijack" x="28" y="271"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_9" x="28" y="298" platform="desktop android"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_download" x="28" y="318" platform="desktop android"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_seed" x="28" y="339" platform="desktop android"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_seed_upload" x="28" y="360" platform="desktop android"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_13" x="28" y="387" platform="desktop android"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_auto" x="28" y="407" platform="desktop android"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/button_bar" y="414"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/tabs" y="76"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/tabs_search" y="76"/>
@@ -238,10 +239,26 @@
 		<on event="created" run="port setting load"/>
 		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_8" width="344" height="18" bitmap="main_menu/settings/section" platform="desktop android" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_8_title"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_vehicle_hijack" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_8_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="8" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="OFF" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/vehicle_hijack_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="game.vehicle_hijack" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_9" width="344" height="18" bitmap="main_menu/settings/section" platform="desktop android" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_9_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_9_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="9" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_map_download" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="desktop android" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_label"/>
@@ -249,7 +266,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_seg0" x="188" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="9" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_download_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
@@ -265,7 +282,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_seg0" x="188" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
@@ -279,15 +296,15 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_upload_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_upload_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_upload_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_upload_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/map_seed_upload_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="64 KB/S|128 KB/S|256 KB/S|512 KB/S|1 MB/S|2 MB/S|4 MB/S|8 MB/S|10 MB/S" setting="network.map_seed_upload" values="64|128|256|512|1024|2048|4096|8192|10240" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_12" width="344" height="18" bitmap="main_menu/settings/section" platform="desktop android" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_12_title"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_13" width="344" height="18" bitmap="main_menu/settings/section" platform="desktop android" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_13_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_12_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="12" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/section_13_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="13" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/op_auto" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="desktop android" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/auto_label"/>
@@ -295,7 +312,7 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/auto_seg0" x="188" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/auto_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/auto_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/auto_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/labels" string_index="14" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
 	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/auto_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
@@ -314,6 +331,7 @@
 		<string text="SERVER BROWSER FILTERS ›"/>
 		<string text="STREAMER MODE ›"/>
 		<string text="WEAPON PICKUP"/>
+		<string text="VEHICLE HIJACKING"/>
 		<string text="MAP SHARING"/>
 		<string text="DOWNLOAD MAPS"/>
 		<string text="HELP SEND MAPS"/>
@@ -331,6 +349,7 @@
 		<string text="Which games the server browser and the local network's list show: full and empty games, a password, the ping, the game types, and words to search for."/>
 		<string text="Hides offensive words in names and text from other players, maps and mods, as stars."/>
 		<string text="Multiplayer, with a weapon slot empty: Hold picks up a weapon as you hold the action button, as on the Xbox; Walk Over as you walk over it, as in Custom Edition. Online: the host's choice."/>
+		<string text="Hold the action button beside an enemy's Ghost, Warthog or landed Banshee to throw the rider out and take it. Online: the host's choice."/>
 		<string text=""/>
 		<string text="Joining a game on a map you do not have downloads it, if it is shared: a Custom Edition map from the players, an MCC map from the host, after asking."/>
 		<string text="In another player's game, sends its map to the players who join without it, as a torrent's peers do."/>

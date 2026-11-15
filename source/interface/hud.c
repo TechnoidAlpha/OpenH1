@@ -616,6 +616,14 @@ static void hud_show_action_response(
 		return;
 	}
 
+	/* port: an enemy's seat, taken by holding the action button
+	(port/linux/game/vehicle_hijack.c): its prompt in place of entering's,
+	the button drawn as every prompt's is (hud_key_prompts.c) */
+	case _player_action_result_hijack_vehicle:
+		hud_enable_custom_state_message(render.local_player_index, TRUE);
+		hud_set_state_text(render.local_player_index, L"Hold %action to hijack");
+		return;
+
 	case _player_action_result_flip_vehicle:
 #ifdef HALO_VR
 		/* port: the VR mode's lift flips it (vr.vehicle_flip,
