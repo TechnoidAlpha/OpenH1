@@ -1812,9 +1812,9 @@ machine:
 A player beside an enemy's seat they could get into (a Ghost's or a
 Warthog's driver, a Warthog's gunner, a Banshee's pilot on or near the
 ground) holds the action button to leap at it, strike, throw the rider out
-and take the seat (`vehicle_hijack.c`, `game.vehicle_hijack`, on by
+and take the seat (`vehicle_hijack.c`, `game.vehicle_hijack`, off by
 default). It changes what every machine simulates, so it is a rule of the
-game, OpenH1 protocol version 31:
+game (its numbers pending: `port/linux/net_changes/vehicle-hijack.txt`):
 
 - The rule is the host's `game.vehicle_hijack`, read in the lobby as the
   pickup's way is, carried in bit 7 of the record's `cooperative_flags`
@@ -1827,7 +1827,7 @@ game, OpenH1 protocol version 31:
 - The host decides each hijack, at the end of its player's hold as its
   simulation of the player has it (the client's own player waits for the
   host's word: it begins nothing itself), and tells its OpenH1 clients
-  (`_distributed_message_vehicle_hijack`, 144, reliably: the jacker's unit,
+  (`_distributed_message_vehicle_hijack`, reliably: the jacker's unit,
   the rider's, the vehicle and the seat, with a format byte), and so when it
   calls one off (the vehicle flipped or died, a unit died or left), and the
   rule changed. A client takes them only from the host's stream in an

@@ -1,7 +1,7 @@
 /*
 VEHICLE_HIJACK.C
 
-Halo 2's boarding, in OpenH1's games (game.vehicle_hijack, on by default; a
+Halo 2's boarding, in OpenH1's games (game.vehicle_hijack, off by default; a
 Legacy game's machines never play it: network_standard_vehicle_hijack). A
 player on foot beside a seat of an enemy's vehicle they could get into were
 it empty (the reach of players.c's examination of a nearby vehicle and
