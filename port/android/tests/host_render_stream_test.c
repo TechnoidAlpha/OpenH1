@@ -88,6 +88,12 @@ static void *guest_allocate(size_t size)
 /* ---------- what the encoder calls besides the host (the front end's
 own code in the game) */
 
+/* (port/linux/game/render_marks.c's, which the encoder calls for a pipeline
+made in play: nothing to name here) */
+void render_marks_pipeline_unprepared(void)
+{
+}
+
 void platform_log(const char *format, ...)
 {
 	(void)format;
