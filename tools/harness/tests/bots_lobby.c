@@ -85,6 +85,9 @@ static long joined_ingame;
 
 static boolean network_game_is_splitscreen_local(void) { return local_game; }
 static long bots_wanted_count(void) { return wanted; }
+/* (bots_match.c's: a match the bot control started plays with bots alone) */
+static boolean bots_alone;
+static boolean bots_match_bots_alone(void) { return bots_alone; }
 static short bots_teams(void) { return teams_setting; }
 /* (Basic Training's teams: not playing, the team the setting chose) */
 static long bots_team(long bot_index, long players_team, long chosen_team) { return chosen_team; }
@@ -485,6 +488,13 @@ int main(int argc, char **argv)
 		wanted = 6;
 		network_game_server_port_bots(&server);
 		CHECK(bots_in(&team0, &team1) == 0 && server.game.player_count == 0, "bots in a lobby with no player");
+		/* (but a match of bots alone: match start ran) */
+		bots_alone = TRUE;
+		network_game_server_port_bots(&server);
+		CHECK(bots_in(&team0, &team1) == 6, "%ld bots in a match of bots alone", bots_in(&team0, &team1));
+		lobby(game_engine_slayer, 16);
+		bots_alone = FALSE;
+		wanted = 6;
 		human = player(0, 0);
 		network_game_server_port_bots(&server);
 		human->team_index = 5;
