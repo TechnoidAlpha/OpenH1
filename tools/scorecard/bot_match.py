@@ -88,14 +88,18 @@ class Server:
     def command(self, line):
         """a "bots <line> --json" over one HTTP session (the CLI signs in each time it runs, and the server allows
         so many sign-ins a minute): its answer's JSON"""
+        import urllib.error
         import urllib.request
 
         def post(path, body):
             request = urllib.request.Request(f"http://127.0.0.1:{self.web}{path}", data=json.dumps(body).encode(),
                                              headers={"Content-Type": "application/json", **(
                                                  {"Authorization": f"Bearer {self.session}"} if self.session else {})})
-            with urllib.request.urlopen(request, timeout=30) as answer:
-                return json.loads(answer.read())
+            try:
+                with urllib.request.urlopen(request, timeout=30) as answer:
+                    return json.loads(answer.read())
+            except urllib.error.HTTPError as refused:
+                return json.loads(refused.read() or b"{}")
         if not getattr(self, "session", None):
             self.session = None
             self.session = post("/api/login", {"password": self.password, "by": "bot match"})["token"]
