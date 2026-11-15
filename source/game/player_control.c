@@ -217,6 +217,7 @@ symbols in this file:
 #include "network_substeps.h" /* port: port/linux/game/network_substeps.c */
 #include "view_fov.h" /* port: port/linux/game/view_fov.c */
 #include "demo.h" /* port: port/linux/game/demo.c */
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 
 /* ---------- constants */
 
@@ -2956,6 +2957,14 @@ static void player_control_substep_player(
 
 	unit = unit_get(player->unit_index);
 	changed = (reading.held_flags ^ substep->last.held_flags) & PLAYER_CONTROL_SUBSTEP_HELD_FLAGS;
+	/* port: (a hijack's leap or throw holds the unit's controls as the tick
+	gave them: port/linux/game/vehicle_hijack.c) */
+	if (vehicle_hijack_unit_held(player->unit_index))
+	{
+		changed = 0;
+		reading.throttle = substep->last.throttle;
+		reading.primary_trigger = substep->last.primary_trigger;
+	}
 	substep->pressed_flags = reading.held_flags & changed;
 	unit->unit.control_flags = (word)((unit->unit.control_flags & ~changed) | (reading.held_flags & changed));
 	if (reading.throttle.i != substep->last.throttle.i || reading.throttle.j != substep->last.throttle.j)

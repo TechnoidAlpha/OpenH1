@@ -70,6 +70,8 @@ same datum index (identifier and all), so that any message can name one:
 #include "network_distributed.h"
 #include "mcc_network.h"
 #include "profile_sections.h"
+#include "vehicle_hijack.h"
+#include "network_standard.h"
 
 #include <math.h>
 
@@ -3858,7 +3860,15 @@ void network_objects_set_seat(
 	unit_can_enter_seat(unit_index, vehicle_index, seat_index, &occupant_index);
 	if (occupant_index != NONE && occupant_index != unit_index)
 		unit_exit_seat_end(occupant_index);
-	unit_enter_seat(unit_index, vehicle_index, seat_index);
+	/* (beside an enemy too, as the host has it: a hijacker's seat beside an
+	enemy gunner, vehicle_hijack.c) */
+	{
+		boolean allowed = vehicle_hijack_enemies_aboard_allowed();
+
+		vehicle_hijack_set_enemies_aboard_allowed(allowed || network_standard_vehicle_hijack());
+		unit_enter_seat(unit_index, vehicle_index, seat_index);
+		vehicle_hijack_set_enemies_aboard_allowed(allowed);
+	}
 }
 
 /* the vehicles its own players drive, to the host, with this tick (which

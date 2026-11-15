@@ -701,6 +701,7 @@ symbols in this file:
 #include "coop_enemies.h" /* port: port/linux/game/coop_enemies.c */
 #include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
 #include "demo.h" /* port: port/linux/game/demo.c */
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 #include "mcc_grenades.h" /* port: port/linux/game/mcc_grenades.h */
 
 /* port: the control and animation impulses the host's actors give their
@@ -3092,7 +3093,11 @@ boolean unit_can_enter_seat(
 				occupant_index = child_object_index;
 				result = FALSE;
 			}
+			/* port: (but a hijacker taking a seat beside an enemy who
+			stays, and a client's seat as its host has it:
+			port/linux/game/vehicle_hijack.c) */
 			else if (unit->unit.player_index!=NONE &&
+				!vehicle_hijack_enemies_aboard_allowed() &&
 				game_team_is_enemy(
 					unit->object.owner_team_index,
 					child_object->object.owner_team_index))
@@ -5676,7 +5681,13 @@ boolean unit_update(
 				unit->object.owner_team_index = driver_unit->object.owner_team_index;
 				v4 = TRUE;
 
-				if (driver_unit->unit.player_index!=NONE ||
+				/* port: a driver being hijacked drives no more
+				(port/linux/game/vehicle_hijack.c) */
+				if (vehicle_hijack_seat_held(unit_index, unit->unit.driver_object_index))
+				{
+					unit->unit.throttle = *global_zero_vector3d;
+				}
+				else if (driver_unit->unit.player_index!=NONE ||
 					driver_unit->unit.animation.state!=_unit_state_exiting_seat &&
 					driver_unit->unit.animation.state!=_unit_state_entering_seat)
 				{
@@ -5701,7 +5712,12 @@ boolean unit_update(
 					unit->object.owner_team_index = gunner_unit->object.owner_team_index;
 				}
 
-				if (gunner_unit->unit.player_index!=NONE ||
+				/* port: nor a gunner being hijacked fires */
+				if (vehicle_hijack_seat_held(unit_index, unit->unit.gunner_object_index))
+				{
+					unit->unit.primary_trigger = 0.f;
+				}
+				else if (gunner_unit->unit.player_index!=NONE ||
 					gunner_unit->unit.animation.state!=_unit_state_exiting_seat &&
 					gunner_unit->unit.animation.state!=_unit_state_entering_seat)
 				{

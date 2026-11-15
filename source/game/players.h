@@ -38,6 +38,9 @@ enum player_action_result
 	_player_action_result_evict_from_vehicle,
 	_player_action_result_touch_device,
 	_player_action_result_flip_vehicle,
+	/* port: an enemy's seat, taken by holding the action button
+	(port/linux/game/vehicle_hijack.c) */
+	_player_action_result_hijack_vehicle,
 	NUMBER_OF_PLAYER_ACTION_RESULTS,
 };
 

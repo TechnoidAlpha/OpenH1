@@ -1058,6 +1058,11 @@ PAGES = {
             ("WEAPON PICKUP", "game.auto_pickup", [("HOLD (XBOX)", "false"), ("WALK OVER (CE)", "true")],
              "Multiplayer, with a weapon slot empty: Hold picks up a weapon as you hold the action button, as on "
              "the Xbox; Walk Over as you walk over it, as in Custom Edition. Online: the host's choice.", None),
+            # (port/linux/game/vehicle_hijack.c: a network game's host's,
+            # network_standard.c's network_standard_vehicle_hijack)
+            ("VEHICLE HIJACKING", "game.vehicle_hijack", ON_OFF,
+             "Hold the action button beside an enemy's Ghost, Warthog or landed Banshee to throw the rider out "
+             "and take it. Online: the host's choice.", None),
             # (port/linux/game/map_share.c: this machine's part in another's
             # game)
             (SECTION, "MAP SHARING"),

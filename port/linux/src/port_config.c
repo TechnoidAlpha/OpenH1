@@ -1323,6 +1323,14 @@ static const struct config_setting config_settings[] =
 		"of this computer's reads it as its map begins; in a network game the\n"
 		"host's decides, read in the lobby; a Legacy game, and OpenCE's\n"
 		"players, always walk over (OpenCE's way)." },
+	{ "game.vehicle_hijack", _config_boolean, "false", "HALO_VEHICLE_HIJACK", _environment_value, _platform_all,
+		"Halo 2's boarding: a player beside an enemy's Ghost, Warthog or landed\n"
+		"Banshee holds the action button to leap at the seat, throw the rider\n"
+		"out and take it (never the Scorpion, a turret or a passenger's seat;\n"
+		"never an ally). The campaign and multiplayer alike. A game of this\n"
+		"computer's reads it as its map begins; in a network game the host's\n"
+		"decides, read in the lobby (Host Controls' VEHICLE HIJACKING changes\n"
+		"it during a game); a Legacy game never hijacks (OpenCE's way)." },
 	{ "game.spectate_on_death", _config_string, "\"off\"", "HALO_SPECTATE_ON_DEATH", _environment_value,
 		_platform_all,
 		"While you are dead in co-op or a team game, waiting to respawn:\n"
@@ -2223,6 +2231,20 @@ static const struct config_setting config_settings[] =
 	{ "debug.network_test_vehicle", _config_real, "0.0", "HALO_NETWORK_TEST_VEHICLE", _environment_value, _platform_all,
 		"This many seconds into an automated test game the host seats its last\n"
 		"player as a vehicle's driver (and out 15 seconds on); 0 never." },
+	{ "debug.network_test_hijack", _config_string, "\"\"", "HALO_NETWORK_TEST_HIJACK", _environment_value, _platform_all,
+		"\"<seconds>[:watch|:client]\": that many seconds into an automated test\n"
+		"game the host seats an enemy (a bot, else a split screen's second\n"
+		"player, else the campaign's nearest enemy that can drive it) in the\n"
+		"Ghost nearest the first player (or the vehicle\n"
+		"debug.network_test_vehicle_seat names; a campaign level's made first)\n"
+		"and holds it still a while; a second on it stands its own player (a\n"
+		"split screen's first) at the driver's entrance, to hijack it, and the\n"
+		"other players off to its side, facing it (:client: another machine's\n"
+		"player jacks; :watch, a client's own: it watches). The jacker holds the\n"
+		"action button as debug.test_input's script says. Each machine saves a\n"
+		"frame a tick (hijack<tick>.bmp) from 1 second on to 7, and six\n"
+		"seconds on logs who drives it and where its riders went\n"
+		"(vehicle_hijack.c). Empty never." },
 	{ "debug.network_test_vehicle_seat", _config_string, "\"\"", "HALO_NETWORK_TEST_VEHICLE_SEAT", _environment_value,
 		_platform_all,
 		"\"<vehicle>:<seat>\": debug.network_test_vehicle seats the player in the nearest\n"

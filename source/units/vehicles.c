@@ -278,6 +278,7 @@ struct vehicle_suspension
 #include "physics/mass_point_datum.h"
 
 #include "physics/powered_mass_point_datum.h"
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 
 struct scenario_object_permutation;
 struct scenario_unit;
@@ -3253,7 +3254,13 @@ static void vehicle_substep_take_controls(
 	{
 		struct unit_datum *driver_unit = unit_get(unit->unit.driver_object_index);
 
-		if (driver_unit->unit.player_index!=NONE ||
+		/* port: (a driver being hijacked drives no more, as unit_update
+		has it: port/linux/game/vehicle_hijack.c) */
+		if (vehicle_hijack_seat_held(vehicle_index, unit->unit.driver_object_index))
+		{
+			unit->unit.throttle = *global_zero_vector3d;
+		}
+		else if (driver_unit->unit.player_index!=NONE ||
 			driver_unit->unit.animation.state!=_unit_state_exiting_seat &&
 			driver_unit->unit.animation.state!=_unit_state_entering_seat)
 		{
@@ -3268,7 +3275,11 @@ static void vehicle_substep_take_controls(
 	{
 		struct unit_datum *gunner_unit = unit_get(unit->unit.gunner_object_index);
 
-		if (gunner_unit->unit.player_index!=NONE ||
+		if (vehicle_hijack_seat_held(vehicle_index, unit->unit.gunner_object_index))
+		{
+			unit->unit.primary_trigger = 0.f;
+		}
+		else if (gunner_unit->unit.player_index!=NONE ||
 			gunner_unit->unit.animation.state!=_unit_state_exiting_seat &&
 			gunner_unit->unit.animation.state!=_unit_state_entering_seat)
 		{

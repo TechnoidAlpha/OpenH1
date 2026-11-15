@@ -349,7 +349,12 @@
 			<choice shown="HOLD (XBOX)" value="false"/>
 			<choice shown="WALK OVER (CE)" value="true"/>
 		</row>
-		<section key="section_8" title="MAP SHARING" when="desktop android"/>
+		<row key="vehicle_hijack" kind="choice" setting="game.vehicle_hijack" label="VEHICLE HIJACKING" crumb="ONLINE › INTERNET">
+			<help>Hold the action button beside an enemy's Ghost, Warthog or landed Banshee to throw the rider out and take it. Online: the host's choice.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_9" title="MAP SHARING" when="desktop android"/>
 		<row key="map_download" kind="choice" setting="network.map_download" label="DOWNLOAD MAPS" crumb="ONLINE › MAP SHARING" when="desktop android">
 			<help>Joining a game on a map you do not have downloads it, if it is shared: a Custom Edition map from the players, an MCC map from the host, after asking.</help>
 			<choice shown="ON" value="true"/>
@@ -372,7 +377,7 @@
 			<choice shown="8 MB/S" value="8192"/>
 			<choice shown="10 MB/S" value="10240"/>
 		</row>
-		<section key="section_12" title="UPDATES" when="desktop android"/>
+		<section key="section_13" title="UPDATES" when="desktop android"/>
 		<row key="auto" kind="choice" setting="update.auto" label="CHECK FOR UPDATES" crumb="ONLINE › UPDATES" when="desktop+!in_game android+!in_game">
 			<help>Looks for a new version when the game starts.</help>
 			<choice shown="ON" value="true"/>
