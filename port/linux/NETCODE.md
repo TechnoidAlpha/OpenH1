@@ -2342,7 +2342,12 @@ header is 12 bytes, including its checkpoint epoch.
   round trip carries (about 1.4 MB/s on loopback before), within the host's
   `network.map_share_upload` (1024 KB/s unless raised). The `window` case of
   `tools/test_mcc_share.py` holds a slow host's queue full at 32 and checks
-  none is dropped; its negative controls take 16 and 33.
+  none is dropped; its negative controls take 16 and 33. OpenCE's #668 let a
+  host send up to 250 MB/s and asks eight Custom Edition map pieces of the
+  host at once (above), but left the package's window and queue as they
+  were: the window stays 32, the most any host, ours or OpenCE's, queues. So
+  with the limit raised, a package's download is held by its round trip
+  (32 chunks, 96 KB, a round trip) rather than by the limit.
   Reserved fields, counts, lengths, session IDs, offsets and sender roles are
   checked. Only the sender's established reliable stream is accepted; datagrams
   and responses from other peers cannot supply content. Backpressure retries
