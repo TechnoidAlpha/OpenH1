@@ -26,6 +26,7 @@ it signs in to a dedicated server's HTTP API (--password, or
 HALO_BOTS_PASSWORD) and runs the same commands as "bots <command>" there.
 */
 
+#include "platform.h"
 #include "bot_control.h"
 #include "port_config.h"
 #include "posix.h"
