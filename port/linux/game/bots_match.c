@@ -135,6 +135,8 @@ static struct
 	boolean has_last;
 	boolean has_asked;
 	boolean start_requested;
+	/* match start ran: the bots play with nobody else */
+	boolean bots_alone;
 	long lobby_frames;
 	/* the game being played: its map and mode, its seed, when it began */
 	char map[BOTS_MATCH_NAME_SIZE];
@@ -169,7 +171,7 @@ static struct
 	/* the last kills */
 	struct bots_match_kill kills[BOTS_MATCH_KILLS];
 	long kill_count;
-} bots_match = { 0, 0, { "", "", NONE, 0, NONE, NONE }, { "", "", NONE, 0, NONE, NONE }, FALSE, FALSE, FALSE, 0,
+} bots_match = { 0, 0, { "", "", NONE, 0, NONE, NONE }, { "", "", NONE, 0, NONE, NONE }, FALSE, FALSE, FALSE, FALSE, 0,
 	"", "", 0, 0, 0, 1.0f };
 
 /* ---------- the pure parts */
@@ -497,6 +499,11 @@ void bots_match_frame(void)
 	}
 }
 
+boolean bots_match_bots_alone(void)
+{
+	return bots_match.bots_alone;
+}
+
 /* ---------- the ticks' parts */
 
 boolean bots_match_due(long tick, char *line, long size)
@@ -812,6 +819,7 @@ static boolean bots_match_start(struct bots_match_options const *options, char *
 	bots_match.last = *options;
 	bots_match.has_last = TRUE;
 	bots_match.has_asked = TRUE;
+	bots_match.bots_alone = TRUE;
 	bots_match.start_requested = FALSE;
 	bots_match.lobby_frames = 0;
 	bots_match.line_count = 0;

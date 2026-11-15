@@ -58,6 +58,11 @@ runs none of it; NONE: the host's */
 boolean bots_match_command(char **words, long count, boolean json, short team, char *reply, long reply_size,
 	char *error, long error_size);
 
+/* whether the bots join a game with no player in it: once match start ran
+(a match of bots alone, a dedicated server's too); else a lobby takes its
+bots once a player is in, as always (network_server_manager.c) */
+boolean bots_match_bots_alone(void);
+
 /* each frame (bot_control.c, a dedicated server's too): a match asked for
 set up in the lobby and started, its seed given, its speed run, its end
 found (match_over) and its results kept */
