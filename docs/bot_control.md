@@ -23,26 +23,39 @@ It is the host's alone, and off until the host turns it on.
   (`{"line":"bots order red defend red flag"}`). It uses no second
   connection and needs no second password.
 
-`halo` is the game's executable (`openh1` when installed on Linux,
-`halo.exe` on Windows). `halo bots <command>` sends one command and prints the
+`goath1` is the game's command. It runs the game's executable, and
+`halo` and `openh1` still work the same:
+
+- Linux: the release has `bin/goath1` beside `bin/openh1`.
+- Windows: the release has `goath1.cmd` beside `halo.exe`. Add that folder
+  to your PATH to type `goath1` anywhere (`halo --install-cli` says how).
+- macOS, or Linux to put it on the PATH: run the game once with
+  `--install-cli`, for example
+  `"/Applications/GOAT H1.app/Contents/MacOS/halo" --install-cli`. It writes a
+  `goath1` script to `/usr/local/bin` (if it may write there) or to
+  `~/.local/bin`, and tells you how to add that folder to the PATH if it is
+  not on it yet. `--install-cli <folder>` picks the folder. It never replaces
+  a `goath1` it did not write.
+
+`goath1 bots <command>` sends one command and prints the
 answer. `--json` prints one JSON object a line. The exit status is 0 when the
 command did what it said, 1 when it refused (the reason is printed), and 2
 when no game answered.
 
 ```sh
-halo bots status                      # map, mode, score, time
-halo bots bots                        # each bot: team, place, health, weapon, order, traits, what it does
-halo bots places                      # the places on this map that orders can name
-halo bots watch --json                # events, one JSON a line, and the bots every 5 s
-halo bots help
+goath1 bots status                      # map, mode, score, time
+goath1 bots bots                        # each bot: team, place, health, weapon, order, traits, what it does
+goath1 bots places                      # the places on this map that orders can name
+goath1 bots watch --json                # events, one JSON a line, and the bots every 5 s
+goath1 bots help
 ```
 
 For a dedicated server, add `--http <host:port> --password <admin password>`
-(or set `HALO_BOTS_PASSWORD`): `halo bots --http 127.0.0.1:8080 status`.
+(or set `HALO_BOTS_PASSWORD`): `goath1 bots --http 127.0.0.1:8080 status`.
 
 ## Orders
 
-`halo bots order <who> <order> [target]`
+`goath1 bots order <who> <order> [target]`
 
 `<who>` is `all`, `red`, `blue` (or `all red`), a bot's name or number
 (as `bots` lists them), or several of them joined by commas (`Johnson,Jenkins`).
@@ -74,7 +87,7 @@ a teammate they followed left.
 
 ## Traits
 
-`halo bots set <who> <trait> <value>`, and `halo bots set <who> reset`.
+`goath1 bots set <who> <trait> <value>`, and `goath1 bots set <who> reset`.
 
 | Trait | Values |
 | --- | --- |
@@ -89,7 +102,7 @@ Traits last until changed, from map to map.
 
 ## Bots and teams
 
-`halo bots add [n] [red|blue]`, `remove [n]`, `fill <n>` and
+`goath1 bots add [n] [red|blue]`, `remove [n]`, `fill <n>` and
 `team <who> <red|blue>`. `add` and `remove` change `bots.count` (`fill` sets
 `bots.fill_to`) for this run only: `config.toml` is not written. The lobby
 takes them at once. A network game takes them a few seconds later, and the
@@ -115,7 +128,7 @@ following the gametype's team balance rule.
 
 ## Events
 
-`halo bots watch` prints one JSON object a line, for as long as it runs
+`goath1 bots watch` prints one JSON object a line, for as long as it runs
 (`--seconds S` stops it; `--every S` sets how often it prints the bots'
 state, 0 for never; `--from-start` prints the events the game still holds
 before going on):
@@ -133,7 +146,7 @@ Events: `kill`, `flag_taken`, `flag_dropped`, `flag_returned`,
 `flag_captured`, `command` (a line applied, and to how many bots),
 `command_failed`, `order`, `order_done`, `order_failed`, and `snapshot`.
 `seq` counts up from 0 for the whole run. The game keeps the last 512 events.
-`halo bots events <after> --json` gets the ones after a number, and the
+`goath1 bots events <after> --json` gets the ones after a number, and the
 answer's `next` is the number to ask for next time.
 
 ## An agent's loop
@@ -143,17 +156,17 @@ same commands a person does:
 
 ```sh
 halo --bot-control &                     # host a game with bots (Multiplayer > CREATE GAME, bots in the lobby)
-halo bots places --json                  # the map's places, once per map
-halo bots watch --json --every 2 | while read -r line; do
+goath1 bots places --json                  # the map's places, once per map
+goath1 bots watch --json --every 2 | while read -r line; do
   case "$line" in
-    *'"event":"flag_taken"'*'"flag":"red"'*)  halo bots order red attack red flag ;;   # hunt our flag's carrier
-    *'"event":"flag_returned"'*'"flag":"red"'*) halo bots order red defend red flag ;;
+    *'"event":"flag_taken"'*'"flag":"red"'*)  goath1 bots order red attack red flag ;;   # hunt our flag's carrier
+    *'"event":"flag_returned"'*'"flag":"red"'*) goath1 bots order red defend red flag ;;
     *'"event":"snapshot"'*)               : ;;  # decide from where everyone is
   esac
 done
 ```
 
 An agent can also skip the stream and work in turns. Each turn it calls
-`halo bots status --json` and `halo bots bots --json`, chooses orders, sends
-them (`halo bots order ... --json` replies `{"ok":true,"bots":3,"tick":...}`),
-then reads `halo bots events <next> --json` to see what happened.
+`goath1 bots status --json` and `goath1 bots bots --json`, chooses orders, sends
+them (`goath1 bots order ... --json` replies `{"ok":true,"bots":3,"tick":...}`),
+then reads `goath1 bots events <next> --json` to see what happened.

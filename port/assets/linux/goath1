@@ -1,0 +1,5 @@
+#!/bin/sh
+# goath1: GOAT H1's command line (goath1 bots status), the bin/openh1 beside this script
+# (port/linux/src/cli_install.c; through a link to it too)
+here=$(dirname "$(readlink -f "$0")")
+exec "$here/openh1" "$@"

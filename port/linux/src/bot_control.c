@@ -16,9 +16,9 @@ so a command sees the game as its frames do; what it changes waits for the
 next tick (bots_command.c). A dedicated server has no such connection: its
 admins' RCON and HTTP take "bots <command>" with their own sign-in.
 
-The command line: `halo bots <command> [--json]` reads bot_control.txt
+The command line: `goath1 bots <command> [--json]` reads bot_control.txt
 (beside this run's config.toml: --config and HALO_CONFIG_FILE as the game
-takes them), sends the command and prints the answer. `halo bots watch`
+takes them), sends the command and prints the answer. `goath1 bots watch`
 asks for the events since the last it printed four times a second, and the
 bots' state every --every seconds (5), each as one line of JSON, until
 --seconds have passed (none: until it is stopped). With --http <host:port>
@@ -643,7 +643,7 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 
 static void bot_control_help(void)
 {
-	fputs("halo bots <command> [--json]: direct the bots of a game this computer hosts\n"
+	fputs("goath1 bots <command> [--json]: direct the bots of a game this computer hosts\n"
 		"  (the game started with --bot-control, or bots.control on; docs/bot_control.md)\n"
 		"\n"
 		"  status | bots | places | watch | help\n"
@@ -658,11 +658,11 @@ static void bot_control_help(void)
 		"  --http HOST:PORT --password P a dedicated server's (its admin password; or HALO_BOTS_PASSWORD)\n"
 		"\n"
 		"Examples:\n"
-		"  halo bots status\n"
-		"  halo bots order red defend red flag\n"
-		"  halo bots order all red attack blue base\n"
-		"  halo bots set blue aggression 0.9\n"
-		"  halo bots watch --json --every 2\n", stdout);
+		"  goath1 bots status\n"
+		"  goath1 bots order red defend red flag\n"
+		"  goath1 bots order all red attack blue base\n"
+		"  goath1 bots set blue aggression 0.9\n"
+		"  goath1 bots watch --json --every 2\n", stdout);
 }
 
 /* the events and snapshots, one JSON a line */
