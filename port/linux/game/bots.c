@@ -1155,6 +1155,23 @@ static real bots_random_seconds(struct bots_bot *bot, real median, real spread, 
 	return PIN(seconds, least, most);
 }
 
+struct player_control *player_control_get(short local_player_index);
+
+/* debug.bot_player: the first player's view turned to the bot's aim, held
+within its seat's pitch limits as a player's own turn is
+(player_control_modify_desired_angles). Set past them, the frames drawn
+between the ticks showed the bot's raw pitch and the ticks the seat's limit,
+and the view from a seat flickered between the two every frame */
+static void bots_player_set_facing(real_vector3d const *facing)
+{
+	struct player_control *control;
+
+	player_control_set_facing(0, facing);
+	control = player_control_get(0);
+	control->desired_angles.pitch = PIN(control->desired_angles.pitch, control->pitch_minimum,
+		control->pitch_maximum);
+}
+
 static real bots_angle_difference(real a, real b)
 {
 	real difference = (real)fmod(a - b, 2.0f * BOTS_PI);
@@ -3063,7 +3080,7 @@ boolean bots_hunt(float *forward, float *strafe)
 		angles.yaw = facing->yaw + PIN(dyaw, -turn, turn);
 		angles.pitch = facing->pitch + PIN(dpitch, -turn, turn);
 		vector3d_from_euler_angles2d(&direction, &angles);
-		player_control_set_facing(0, &direction);
+		bots_player_set_facing(&direction);
 		return (real)fabs(dyaw) < 3.0f * BOTS_DEGREES && (real)fabs(dpitch) < 3.0f * BOTS_DEGREES;
 	}
 	return FALSE;
@@ -7305,7 +7322,7 @@ void bots_update_actions(struct player_action *actions)
 				real_vector3d facing;
 
 				vector3d_from_euler_angles2d(&facing, &actions[absolute_index].desired_facing);
-				player_control_set_facing(0, &facing);
+				bots_player_set_facing(&facing);
 			}
 		}
 		count++;
