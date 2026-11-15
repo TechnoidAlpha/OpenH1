@@ -36,9 +36,11 @@ made again only when the loaded tags change.
 #include <stdlib.h>
 #include <string.h>
 
+#include "render_enumerate.h"
 #include "render_marks.h"
 
 int config_boolean(char const *name);
+void platform_log(char const *format, ...);
 unsigned long config_changes(void);
 void halo_screen_scale_axes(float scale[2]); /* port/linux/src/d3d8_device.c */
 
@@ -66,6 +68,16 @@ struct render_mark_owner
 
 static struct render_mark_owner owner, text_saved;
 static boolean text_drawing;
+
+/* what is being drawn, kept with the setting off too (a few words a model
+or transparent group): what render_marks_pipeline_unprepared names */
+static struct
+{
+	int category;
+	long object_index, model, shader;
+	void const *shader_data;
+	boolean first_person;
+} drawing = { -1, NONE, NONE, NONE, NULL, FALSE };
 
 static void owner_clear(int kind, char const *label)
 {
@@ -294,6 +306,10 @@ static int category_kind = RENDER_MARK_OTHER;
 void render_marks_category(
 	int category)
 {
+	drawing.category = category;
+	drawing.object_index = drawing.model = drawing.shader = NONE;
+	drawing.shader_data = NULL;
+	drawing.first_person = FALSE;
 	if (!render_marks_on)
 		return;
 	if (category >= 0 && category < (int)NUMBEROF(categories))
@@ -318,6 +334,11 @@ void render_marks_model(
 	struct object_datum *object;
 	char const *name;
 
+	drawing.object_index = shadow ? NONE : object_index;
+	drawing.model = model_index;
+	drawing.shader = NONE;
+	drawing.shader_data = NULL;
+	drawing.first_person = first_person != 0;
 	if (!render_marks_on)
 		return;
 	owner_clear(shadow ? RENDER_MARK_SHADOW : first_person ? RENDER_MARK_FIRST_PERSON :
@@ -344,6 +365,7 @@ void render_marks_model(
 void render_marks_model_shader(
 	long shader_index)
 {
+	drawing.shader = shader_index;
 	if (!render_marks_on || owner.shader == shader_index)
 		return;
 	owner.shader = shader_index;
@@ -357,6 +379,10 @@ void render_marks_structure(
 {
 	char const *name;
 
+	drawing.object_index = drawing.model = NONE;
+	drawing.shader = shader_index;
+	drawing.shader_data = NULL;
+	drawing.first_person = FALSE;
 	if (!render_marks_on)
 		return;
 	owner_clear(category_kind == RENDER_MARK_OTHER ? RENDER_MARK_BSP : category_kind, NULL);
@@ -407,6 +433,10 @@ void render_marks_transparent(
 	struct object_datum *object = NULL;
 	char const *name;
 
+	drawing.object_index = object_index != 0 ? object_index : NONE;
+	drawing.model = drawing.shader = NONE;
+	drawing.shader_data = shader;
+	drawing.first_person = first_person != 0;
 	if (!render_marks_on)
 		return;
 	owner_clear(first_person ? RENDER_MARK_FIRST_PERSON : sky ? RENDER_MARK_SKY : water ? RENDER_MARK_WATER :
@@ -558,4 +588,45 @@ void render_marks_text_end(void)
 	text_drawing = FALSE;
 	owner = text_saved;
 	owner_send();
+}
+
+/* (port/linux/src/xgpu_stream_encode.c, as a draw needs a pipeline the
+stream has not been given: in play, one the map's preparation did not make,
+which the backend makes on its compilers, the draw skipped until it is) the
+draw named in the log, what it draws and in which category: a report's log
+then says what was missing. A few a map at most */
+#define UNPREPARED_PIPELINES_LOGGED 16
+
+void render_marks_pipeline_unprepared(void)
+{
+	static long scenario = NONE;
+	static short logged;
+	struct object_datum *object = NULL;
+	char const *object_name = NULL, *model_name, *shader_name;
+	long shader;
+
+	if (render_enumerating || global_scenario_index == NONE)
+		return;
+	if (scenario != global_scenario_index)
+	{
+		scenario = global_scenario_index;
+		logged = 0;
+	}
+	if (logged >= UNPREPARED_PIPELINES_LOGGED)
+		return;
+	logged++;
+	if (drawing.object_index != NONE)
+		object = object_try_and_get(drawing.object_index);
+	if (object)
+		object_name = tag_path(object->definition_index);
+	model_name = tag_path(drawing.model);
+	shader = drawing.shader != NONE ? drawing.shader : tag_of_data(drawing.shader_data);
+	shader_name = tag_path(shader);
+	platform_log("render: a pipeline the map's preparation did not make, made now (the draw skipped until it is): "
+		"%s%s%s%s%s%s%s%s%s", drawing.category >= 0 && drawing.category < (int)NUMBEROF(categories) ?
+		categories[drawing.category].label : "other",
+		object_name ? ", object " : "", object_name ? object_name : "",
+		model_name ? ", model " : "", model_name ? model_name : "",
+		shader_name ? ", shader " : "", shader_name ? shader_name : "",
+		drawing.first_person ? ", first person" : "", logged == UNPREPARED_PIPELINES_LOGGED ? " (no more logged in this map)" : "");
 }
