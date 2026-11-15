@@ -85,6 +85,24 @@ class Server:
             raise RuntimeError(f"bots {' '.join(words)}: {result.returncode} {result.stdout} {result.stderr}")
         return lines[0] if lines else {}
 
+    def command(self, line):
+        """a "bots <line> --json" over one HTTP session (the CLI signs in each time it runs, and the server allows
+        so many sign-ins a minute): its answer's JSON"""
+        import urllib.request
+
+        def post(path, body):
+            request = urllib.request.Request(f"http://127.0.0.1:{self.web}{path}", data=json.dumps(body).encode(),
+                                             headers={"Content-Type": "application/json", **(
+                                                 {"Authorization": f"Bearer {self.session}"} if self.session else {})})
+            with urllib.request.urlopen(request, timeout=30) as answer:
+                return json.loads(answer.read())
+        if not getattr(self, "session", None):
+            self.session = None
+            self.session = post("/api/login", {"password": self.password, "by": "bot match"})["token"]
+        answer = post("/api/command", {"line": f"bots {line} --json"})
+        lines = [json.loads(text) for text in answer.get("lines", []) if text.startswith("{")]
+        return lines[0] if lines else {}
+
     def stop(self):
         self.process.terminate()
         try:
@@ -101,8 +119,11 @@ def play(game, maps, folder, seed, speed, replay=None, minutes=4, score=3):
         for _ in range(120):
             if server.process.poll() is not None:
                 raise RuntimeError(f"the server stopped ({server.process.returncode}): {folder / 'server.log'}")
-            if server.bots("match", "status", check=False).get("ok"):
-                break
+            try:
+                if server.command("match status").get("ok"):
+                    break
+            except OSError:
+                pass
             time.sleep(0.5)
         else:
             raise RuntimeError("the server's HTTP never answered")
@@ -112,16 +133,19 @@ def play(game, maps, folder, seed, speed, replay=None, minutes=4, score=3):
             start += ["--replay", str(replay)]
         # (the server hosts its lobby a few seconds after its HTTP answers)
         for _ in range(60):
-            if server.bots(*start, check=False).get("ok"):
+            if server.command(" ".join(start[:-2] if replay else start)).get("ok"):
                 break
             time.sleep(1)
         else:
+            raise RuntimeError("match start never took")
+        if replay:
+            # (the CLI's --replay: the start again, with the orders for their ticks)
             server.bots(*start)
         server.bots("match", "speed", str(speed))
         began = time.monotonic()
         ordered = bool(replay)
         while time.monotonic() - began < 600:
-            status = server.bots("match", "status")
+            status = server.command("match status")
             ours = status["mode"] == "ctf"
             if ours and status["state"] == "playing" and not ordered and status["tick"] > 300:
                 # (the coach's turn: red takes the flag, blue holds its own)
@@ -132,11 +156,11 @@ def play(game, maps, folder, seed, speed, replay=None, minutes=4, score=3):
                 ordered = True
             if ours and status["state"] == "over" and ordered:
                 break
-            time.sleep(1)
+            time.sleep(2)
         else:
             raise RuntimeError("the match did not end in 600 s")
         results = server.bots("match", "results")
-        status = server.bots("match", "status")
+        status = server.command("match status")
         return results, status
     finally:
         server.stop()
