@@ -2187,6 +2187,7 @@ void bots_command_tick_begin(void)
 	char due[BOTS_COMMAND_LINE_SIZE];
 
 	bots_command_traits_ready();
+	bots_match_note_tick(game_time_get(), game_engine_can_score());
 	/* (match at's lines of this tick first, in their order: bots_match.c) */
 	while (bots_match_due(game_time_get(), due, sizeof(due)))
 		bots_command_apply(due);

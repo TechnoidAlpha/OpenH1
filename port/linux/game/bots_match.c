@@ -144,6 +144,9 @@ static struct
 	unsigned long seed;
 	long start_tick;
 	long end_tick;
+	/* (the ticks' own: the first and last that could score, as the bots'
+	ticks saw them, whatever ticks a frame ran) */
+	boolean tick_seen;
 	/* match speed: asked, run, and the frames' measure of it (ticks a
 	second over real seconds, a second at a time) */
 	real speed;
@@ -421,6 +424,7 @@ void bots_match_frame(void)
 		bots_match.seed = (unsigned long)network_game_get_random_seed();
 		bots_match.start_tick = game_time_get();
 		bots_match.end_tick = bots_match.start_tick;
+		bots_match.tick_seen = FALSE;
 		bots_match.started_wall = now;
 		bots_match.measure_wall = now;
 		bots_match.measure_tick = bots_match.start_tick;
@@ -444,7 +448,6 @@ void bots_match_frame(void)
 	if (bots_match.stage == _bots_match_playing && (over || !playing))
 	{
 		bots_match.stage = _bots_match_over;
-		bots_match.end_tick = playing ? game_time_get() : bots_match.end_tick;
 		bots_match.ended_wall = now;
 		if (playing)
 			bots_match_take_results();
@@ -454,8 +457,6 @@ void bots_match_frame(void)
 			(now - bots_match.started_wall) / 1000.0);
 		bots_match_event("match_over", TRUE);
 	}
-	if (bots_match.stage == _bots_match_playing)
-		bots_match.end_tick = game_time_get();
 
 	/* (asked for: its seed in the lobby, and the lobby's start) */
 	if (bots_match.has_asked && bots_match_in_lobby())
@@ -504,6 +505,16 @@ boolean bots_match_bots_alone(void)
 }
 
 /* ---------- the ticks' parts */
+
+void bots_match_note_tick(long tick, boolean scoring)
+{
+	if (!scoring || bots_match.stage != _bots_match_playing)
+		return;
+	if (!bots_match.tick_seen)
+		bots_match.start_tick = tick;
+	bots_match.tick_seen = TRUE;
+	bots_match.end_tick = tick + 1;
+}
 
 boolean bots_match_due(long tick, char *line, long size)
 {

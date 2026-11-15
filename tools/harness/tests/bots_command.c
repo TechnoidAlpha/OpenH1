@@ -146,6 +146,16 @@ static void bots_command_objective_events(void)
 {
 }
 
+static boolean game_engine_can_score(void)
+{
+	return TRUE;
+}
+
+static void bots_match_note_tick(long tick, boolean scoring)
+{
+	(void)tick; (void)scoring;
+}
+
 /* what the bot's team knows of its enemies (bots_knowledge.c) */
 static struct bots_known_enemy known_enemies[4];
 static short known_count;

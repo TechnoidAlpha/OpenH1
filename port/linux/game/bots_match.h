@@ -67,6 +67,9 @@ boolean bots_match_bots_alone(void);
 set up in the lobby and started, its seed given, its speed run, its end
 found (match_over) and its results kept */
 void bots_match_frame(void);
+/* each tick that runs the bots (bots_command_tick_begin), and whether the
+game could score in it: the match's first and last ticks */
+void bots_match_note_tick(long tick, boolean scoring);
 /* the start of a tick that runs the bots (bots_command_tick_begin): the
 next line that match at gave this tick (TRUE, line), else FALSE */
 boolean bots_match_due(long tick, char *line, long size);
