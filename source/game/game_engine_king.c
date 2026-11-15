@@ -1494,3 +1494,19 @@ void *game_engine_king_port_demo_state(
 	}
 	return NULL;
 }
+
+/* port: the ticks until the hill moves (a moving hill's, the game's own
+timer, which every player hears count down by the hill's move), NONE for a
+hill that stays (port/linux/game/bots_command.c's knowledge) */
+long game_engine_king_port_hill_move_ticks(
+	void)
+{
+	struct game_variant *variant = game_engine_running() ? game_engine_get_variant() : NULL;
+
+	if (!variant || variant->game_engine_index != game_engine_king ||
+		!variant->game_engine_variant.king.moving_hill)
+	{
+		return NONE;
+	}
+	return king_globals.hill_timer;
+}

@@ -40,7 +40,9 @@ HALO_BOTS_PASSWORD) and runs the same commands as "bots <command>" there.
 
 void platform_log(char const *format, ...);
 /* port/linux/game/bots_command.c's (its boolean, a byte) */
-unsigned char bots_command_run(char const *line, char *reply, long reply_size);
+unsigned char bots_command_run_as(char const *line, short team, char *reply, long reply_size);
+/* port/linux/game/bots_match.c's */
+void bots_match_frame(void);
 
 enum
 {
@@ -77,12 +79,23 @@ static void bot_control_address(unsigned char *address, unsigned long ip, long p
 	address[7] = (unsigned char)ip;
 }
 
+static const char *const bot_control_team_names[2] = { "red", "blue" };
+
 static void bot_control_file_path(char *path, size_t size)
 {
 	char folder[1024];
 
 	config_folder(folder, sizeof(folder));
 	snprintf(path, size, "%s" BOT_CONTROL_FILE, folder);
+}
+
+/* a team's coach's file (bot_control_red.txt), beside bot_control.txt */
+static void bot_control_team_file_path(int team, char *path, size_t size)
+{
+	char folder[1024];
+
+	config_folder(folder, sizeof(folder));
+	snprintf(path, size, "%sbot_control_%s.txt", folder, bot_control_team_names[team]);
 }
 
 static int bot_control_token_equal(const char *a, const char *b)
@@ -118,6 +131,9 @@ static struct
 	int listener;
 	long port;
 	char token[BOT_CONTROL_TOKEN_BYTES * 2 + 1];
+	/* each team's coach's (bot_control_<team>.txt): that team's view and
+	bots alone */
+	char team_tokens[2][BOT_CONTROL_TOKEN_BYTES * 2 + 1];
 	struct bot_control_connection connections[BOT_CONTROL_CONNECTIONS];
 	char reply[BOT_CONTROL_REPLY_SIZE];
 } bot_control;
@@ -147,6 +163,10 @@ static void bot_control_stop(void)
 		posix_socket_close(bot_control.listener);
 	bot_control.listening = 0;
 	bot_control_file_path(path, sizeof(path));
+	remove(path);
+	bot_control_team_file_path(0, path, sizeof(path));
+	remove(path);
+	bot_control_team_file_path(1, path, sizeof(path));
 	remove(path);
 	platform_log("bot control: closed");
 }
@@ -188,6 +208,16 @@ static void bot_control_start(void)
 	posix_random_bytes(bytes, sizeof(bytes));
 	for (index = 0; index < BOT_CONTROL_TOKEN_BYTES; index++)
 		snprintf(bot_control.token + index * 2, 3, "%02x", bytes[index]);
+	{
+		int team;
+
+		for (team = 0; team < 2; team++)
+		{
+			posix_random_bytes(bytes, sizeof(bytes));
+			for (index = 0; index < BOT_CONTROL_TOKEN_BYTES; index++)
+				snprintf(bot_control.team_tokens[team] + index * 2, 3, "%02x", bytes[index]);
+		}
+	}
 	bot_control.port = port;
 	bot_control.listening = 1;
 	bot_control_file_path(path, sizeof(path));
@@ -199,6 +229,19 @@ static void bot_control_start(void)
 	}
 	else
 		platform_log("bot control: %s cannot be written: the command line will not find the game", path);
+	/* (each team's coach's: hand one to a coach, and it sees what that team
+	knows and directs that team's bots, nothing more) */
+	for (index = 0; index < 2; index++)
+	{
+		bot_control_team_file_path(index, path, sizeof(path));
+		file = fopen(path, "wb");
+		if (file)
+		{
+			fprintf(file, "port %ld\ntoken %s\nteam %s\n", port, bot_control.team_tokens[index],
+				bot_control_team_names[index]);
+			fclose(file);
+		}
+	}
 	platform_log("bot control: listening on 127.0.0.1:%ld (its token in %s)", port, path);
 }
 
@@ -212,11 +255,15 @@ static void bot_control_answer(struct bot_control_connection *connection)
 	bot_control.reply[0] = 0;
 	if (space)
 		*space = 0;
-	if (!space || !bot_control_token_equal(connection->in, bot_control.token))
+	if (space && bot_control_token_equal(connection->in, bot_control.token))
+		succeeded = bots_command_run_as(space + 1, -1, bot_control.reply, sizeof(bot_control.reply));
+	else if (space && bot_control_token_equal(connection->in, bot_control.team_tokens[0]))
+		succeeded = bots_command_run_as(space + 1, 0, bot_control.reply, sizeof(bot_control.reply));
+	else if (space && bot_control_token_equal(connection->in, bot_control.team_tokens[1]))
+		succeeded = bots_command_run_as(space + 1, 1, bot_control.reply, sizeof(bot_control.reply));
+	else
 		snprintf(bot_control.reply, sizeof(bot_control.reply), "bots: the token is not this game's (%s)\n",
 			BOT_CONTROL_FILE);
-	else
-		succeeded = bots_command_run(space + 1, bot_control.reply, sizeof(bot_control.reply));
 	length = (int)strlen(bot_control.reply);
 	connection->out = malloc((size_t)length + 16);
 	if (!connection->out)
@@ -234,6 +281,8 @@ void bot_control_frame(void)
 	Uint64 now;
 	int index;
 
+	/* (a match run from the bots' commands: a dedicated server's too) */
+	bots_match_frame();
 	if (halo_server_mode())
 		return;
 	/* (opened or closed as the setting changes) */
@@ -341,6 +390,10 @@ static struct
 	double every;
 	double seconds;
 	int from_start;
+	/* --team: a coach's (0 red, 1 blue), -1 for the host's */
+	int team;
+	/* match start --replay: a match's results, whose orders play again */
+	char replay[1024];
 } bot_control_cli;
 
 /* a socket connected to 127.0.0.1 (or http's host), -1 for none */
@@ -421,8 +474,18 @@ static int bot_control_read_file(char *why, size_t why_size)
 
 	if (bot_control_cli.port > 0 && bot_control_cli.token[0])
 		return 1;
-	bot_control_file_path(path, sizeof(path));
-	file = fopen(path, "rb");
+	/* (a coach's: its team's file, when the host gave it one alone) */
+	file = NULL;
+	if (bot_control_cli.team >= 0)
+	{
+		bot_control_team_file_path(bot_control_cli.team, path, sizeof(path));
+		file = fopen(path, "rb");
+	}
+	if (!file)
+	{
+		bot_control_file_path(path, sizeof(path));
+		file = fopen(path, "rb");
+	}
 	if (!file)
 	{
 		snprintf(why, why_size, "no game is listening (%s is not there: start the game with --bot-control, or set "
@@ -520,8 +583,13 @@ static void bot_control_json_string(const char *text, char *out, size_t size)
 
 /* a command run on the game: its answer's lines (malloc'd, NUL terminated)
 and whether it succeeded; NULL (why, in why) when no game answered */
-static char *bot_control_run(const char *line, int *succeeded, char *why, size_t why_size)
+static char *bot_control_run(const char *given, int *succeeded, char *why, size_t why_size)
 {
+	char line[BOT_CONTROL_REQUEST_SIZE + 16];
+
+	/* (a coach's: its team's view, whatever the token) */
+	snprintf(line, sizeof(line), "%s%s%s", given, bot_control_cli.team >= 0 ? " --team " : "",
+		bot_control_cli.team >= 0 ? bot_control_team_names[bot_control_cli.team] : "");
 	*succeeded = 0;
 	if (bot_control_cli.http[0])
 	{
@@ -647,10 +715,14 @@ static void bot_control_help(void)
 		"  (the game started with --bot-control, or bots.control on; docs/bot_control.md)\n"
 		"\n"
 		"  status | bots | places | watch | help\n"
-		"  order <who> <attack|defend|hold|follow|push|retreat|regroup|goto|clear> [target]\n"
+		"  order <who> <attack|take|defend|hold|follow|escort|push|retreat|regroup|goto|return|clear|play> [target]\n"
 		"  set <who> <skill|aggression|teamwork|weapon|vehicles|style> <value>   set <who> reset\n"
 		"  add [n] [red|blue] | remove [n] | fill <n> | team <who> <red|blue>\n"
+		"  knowledge         what each team knows: players, ammo, enemies seen, power items, objective\n"
+		"  match start <map> <gametype> [--bots N] [--seed S] [--score N] [--time M] [--replay results.json]\n"
+		"  match restart | end | status | results | speed <x|max> | at <tick> <line>\n"
 		"\n"
+		"  --team red|blue   that team's view alone (a coach's): its bots, what it saw, its orders\n"
 		"  --json            one JSON object a line (for scripts and agents)\n"
 		"  watch --every S   a snapshot of the bots every S seconds (5; 0 for none)\n"
 		"  watch --seconds S stop after S seconds;  watch --from-start: the events kept, then on\n"
@@ -662,7 +734,10 @@ static void bot_control_help(void)
 		"  goath1 bots order red defend red flag\n"
 		"  goath1 bots order all red attack blue base\n"
 		"  goath1 bots set blue aggression 0.9\n"
-		"  goath1 bots watch --json --every 2\n", stdout);
+		"  goath1 bots watch --json --every 2\n"
+		"  goath1 bots match start bloodgulch ctf --bots 4 --seed 7 --score 3\n"
+		"  goath1 bots --team red watch --json\n"
+		"  goath1 bots match results --json > results.json\n", stdout);
 }
 
 /* the events and snapshots, one JSON a line */
@@ -732,7 +807,9 @@ static int bot_control_watch(void)
 		if (bot_control_cli.every > 0.0 && (!last_snapshot || (double)(now - last_snapshot) >= bot_control_cli.every * 1000.0))
 		{
 			last_snapshot = now;
-			answer = bot_control_run("bots --json", &succeeded, why, sizeof(why));
+			/* (a coach's: what its team knows) */
+			answer = bot_control_run(bot_control_cli.team >= 0 ? "knowledge --json" : "bots --json", &succeeded, why,
+				sizeof(why));
 			cursor = answer ? strstr(answer, "{\"ok\":true,") : NULL;
 			if (cursor)
 			{
@@ -749,6 +826,83 @@ static int bot_control_watch(void)
 	}
 }
 
+/* match start --replay: each order of a match's results (match results
+--json) sent for its tick (match at), in their order; how many, -1 (why)
+when the file is no match's results */
+static int bot_control_replay(char *why, size_t why_size)
+{
+	FILE *file = fopen(bot_control_cli.replay, "rb");
+	struct server_json_document document;
+	char *text;
+	long size;
+	int orders, index, sent = 0;
+
+	if (!file)
+	{
+		snprintf(why, why_size, "%s cannot be read", bot_control_cli.replay);
+		return -1;
+	}
+	fseek(file, 0, SEEK_END);
+	size = ftell(file);
+	fseek(file, 0, SEEK_SET);
+	text = size > 0 && size < 4 * 1024 * 1024 ? malloc((size_t)size + 1) : NULL;
+	if (!text || fread(text, 1, (size_t)size, file) != (size_t)size)
+	{
+		fclose(file);
+		bot_control_free(text);
+		snprintf(why, why_size, "%s cannot be read", bot_control_cli.replay);
+		return -1;
+	}
+	fclose(file);
+	text[size] = 0;
+	if (!server_json_parse_tokens(&document, text, (int)size, 16, 262144))
+	{
+		bot_control_free(text);
+		snprintf(why, why_size, "%s is no match's results (match results --json)", bot_control_cli.replay);
+		return -1;
+	}
+	orders = server_json_member(&document, 0, "orders");
+	for (index = 0; orders >= 0; index++)
+	{
+		int element = server_json_element(&document, orders, index);
+		int tick_token = element >= 0 ? server_json_member(&document, element, "tick") : -1;
+		int line_token = element >= 0 ? server_json_member(&document, element, "line") : -1;
+		char order[BOT_CONTROL_REQUEST_SIZE], request[BOT_CONTROL_REQUEST_SIZE + 32];
+		double tick;
+		int succeeded;
+		char *answer;
+
+		if (element < 0)
+			break;
+		if (tick_token < 0 || line_token < 0 || !server_json_get_number(&document, tick_token, &tick) ||
+			!server_json_get_string(&document, line_token, order, (int)sizeof(order)))
+		{
+			continue;
+		}
+		snprintf(request, sizeof(request), "match at %ld %s", (long)tick, order);
+		answer = bot_control_run(request, &succeeded, why, why_size);
+		if (!answer || !succeeded)
+		{
+			if (answer)
+				snprintf(why, why_size, "%s", answer);
+			bot_control_free(answer);
+			server_json_document_free(&document);
+			bot_control_free(text);
+			return -1;
+		}
+		bot_control_free(answer);
+		sent++;
+	}
+	server_json_document_free(&document);
+	bot_control_free(text);
+	if (orders < 0)
+	{
+		snprintf(why, why_size, "%s is no match's results (match results --json)", bot_control_cli.replay);
+		return -1;
+	}
+	return sent;
+}
+
 void bot_control_command_line(int first_argument)
 {
 	char argument[1024];
@@ -762,6 +916,7 @@ void bot_control_command_line(int first_argument)
 
 	memset(&bot_control_cli, 0, sizeof(bot_control_cli));
 	bot_control_cli.every = 5.0;
+	bot_control_cli.team = -1;
 	if (password)
 		snprintf(bot_control_cli.password, sizeof(bot_control_cli.password), "%s", password);
 	for (index = first_argument; posix_command_line_argument(index, argument, sizeof(argument)); index++)
@@ -781,7 +936,7 @@ void bot_control_command_line(int first_argument)
 		}
 		if (!strcmp(argument, "--port") || !strcmp(argument, "--token") || !strcmp(argument, "--http") ||
 			!strcmp(argument, "--password") || !strcmp(argument, "--every") || !strcmp(argument, "--seconds") ||
-			!strcmp(argument, "--config"))
+			!strcmp(argument, "--config") || !strcmp(argument, "--team") || !strcmp(argument, "--replay"))
 		{
 			if (!has_value)
 			{
@@ -800,6 +955,17 @@ void bot_control_command_line(int first_argument)
 				bot_control_cli.every = strtod(value, NULL);
 			else if (!strcmp(argument, "--seconds"))
 				bot_control_cli.seconds = strtod(value, NULL);
+			else if (!strcmp(argument, "--team"))
+			{
+				bot_control_cli.team = !strcmp(value, "red") ? 0 : !strcmp(value, "blue") ? 1 : -2;
+				if (bot_control_cli.team < -1)
+				{
+					fprintf(stderr, "bots: --team is red or blue\n");
+					exit(1);
+				}
+			}
+			else if (!strcmp(argument, "--replay"))
+				snprintf(bot_control_cli.replay, sizeof(bot_control_cli.replay), "%s", value);
 			/* (--config: the game's own, config_path's) */
 			index++;
 			continue;
@@ -830,9 +996,28 @@ void bot_control_command_line(int first_argument)
 		bot_control_help();
 		exit(0);
 	}
+	if (bot_control_cli.replay[0] && strncmp(line, "match start", 11) && strncmp(line, "match restart", 13))
+	{
+		fprintf(stderr, "bots: --replay goes with match start or match restart\n");
+		exit(1);
+	}
 	if (bot_control_cli.json && length + 8 < sizeof(line))
 		strcat(line, " --json");
 	answer = bot_control_run(line, &succeeded, why, sizeof(why));
+	if (answer && succeeded && bot_control_cli.replay[0])
+	{
+		int sent = bot_control_replay(why, sizeof(why));
+
+		if (sent < 0)
+		{
+			fputs(answer, stdout);
+			fprintf(stderr, "bots: %s\n", why);
+			bot_control_free(answer);
+			exit(1);
+		}
+		if (!bot_control_cli.json)
+			fprintf(stdout, "%d orders of %s at their ticks\n", sent, bot_control_cli.replay);
+	}
 	if (!answer)
 	{
 		if (bot_control_cli.json)

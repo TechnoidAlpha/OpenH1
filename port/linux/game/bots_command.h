@@ -38,6 +38,10 @@ enum
 	_bots_command_retreat,
 	_bots_command_regroup,
 	_bots_command_push,
+	/* with a teammate, or the teammate carrying a flag or ball */
+	_bots_command_escort,
+	/* to the team's own flag, to return it (after its carrier if carried) */
+	_bots_command_return,
 	NUMBER_OF_BOTS_COMMAND_ORDERS,
 };
 
@@ -79,10 +83,25 @@ real bots_command_target_bonus(long bot_index, long target_player_index);
 and an attack order on the dead player done */
 void bots_command_note_kill(long killing_player_index, long killing_object_index, long dead_player_index);
 
+/* an event of the watch's begun (its number, tick and name: the caller adds
+its fields) and ended, kept for the teams of visible (a bit each: 1 red, 2
+blue; 3 everyone) with the whole of it; public (NULL for none): the same
+event as the other team sees it (a kill, without where), else it is the
+host's and the visible teams' alone (bots_match.c's match events) */
+struct server_json;
+void bots_command_event_open(struct server_json *json, char const *name);
+void bots_command_event_close(struct server_json *json, unsigned long visible);
+/* the team bot number bot_index joins as (bots_match.c's teams of a match) */
+void bots_command_set_join_team(long bot_index, short team);
+
 /* a command's line run (without "bots"): its answer's lines into reply
 (each ending in a newline; one line of JSON with --json), TRUE if it did
 what it said. Not on a client: the host's alone */
 boolean bots_command_run(char const *line, char *reply, long reply_size);
+/* ... for a team's coach (0 red, 1 blue: bot_control.c's team token), who
+sees what that team knows and directs its bots alone; NONE: the host's
+(bots_command_run) */
+boolean bots_command_run_as(char const *line, short team, char *reply, long reply_size);
 /* the console's "bots <command>" (hs.c, a game this machine hosts): TRUE if
 the line was one, its answer printed */
 boolean bots_command_console(char const *expression, boolean *result);

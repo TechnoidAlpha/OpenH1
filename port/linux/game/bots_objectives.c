@@ -83,6 +83,9 @@ carrier */
 #define OBJECTIVES_ESCORT_RADIUS 4.0f
 /* a flag this near its place is at home */
 #define OBJECTIVES_HOME_RADIUS 1.5f
+/* a dropped flag untouched this long returns (game_engine_ctf.c's
+CTF_FLAG_RETURN_TIME) */
+#define OBJECTIVES_FLAG_RETURN_TICKS (17 * TICKS_PER_SECOND)
 
 enum
 {
@@ -820,6 +823,68 @@ boolean bots_objectives_flag(short team, long *object_index, real_point3d *posit
 	*carrier = bots_objectives.flag_carriers[team];
 	*at_home = bots_objectives.flag_at_home[team];
 	return TRUE;
+}
+
+short bots_objectives_balls(struct bots_objectives_ball *balls, short maximum)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+	short count = 0;
+	long index;
+
+	if (bots_objectives.engine != game_engine_oddball)
+		return 0;
+	for (index = 0; index < bots_objectives.ball_count && count < maximum; index++)
+	{
+		balls[count].object_index = bots_objectives.balls[index];
+		balls[count].carrier = NONE;
+		balls[count++].position = bots_objectives.ball_positions[index];
+	}
+	data_iterator_new(&iterator, player_data);
+	while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL && count < maximum)
+	{
+		long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index);
+		real_point3d position;
+
+		if (absolute_index < 0 || absolute_index >= OBJECTIVES_PLAYERS || !bots_objectives.holders[absolute_index] ||
+			!objectives_live_player(iterator.datum_index, &position))
+		{
+			continue;
+		}
+		balls[count].object_index = NONE;
+		balls[count].carrier = iterator.datum_index;
+		balls[count++].position = position;
+	}
+	return count;
+}
+
+short bots_objectives_hills(real_point3d *centers, short maximum)
+{
+	short count = 0;
+	long index;
+
+	if (bots_objectives.engine != game_engine_king)
+		return 0;
+	for (index = 0; index < bots_objectives.hill_count && count < maximum; index++)
+		centers[count++] = bots_objectives.hills[index]->center;
+	return count;
+}
+
+long bots_objectives_flag_return_ticks(short team)
+{
+	struct item_datum *item;
+	long left;
+
+	if (bots_objectives.engine != game_engine_ctf || team < 0 || team >= OBJECTIVES_TEAMS ||
+		bots_objectives.flags[team] == NONE || bots_objectives.flag_carriers[team] != NONE ||
+		bots_objectives.flag_at_home[team])
+	{
+		return NONE;
+	}
+	item = item_get(bots_objectives.flags[team]);
+	/* (game_engine_ctf.c's CTF_FLAG_RETURN_TIME, from when it was last held) */
+	left = OBJECTIVES_FLAG_RETURN_TICKS - (bots_objectives.now - item->item.last_owned_time);
+	return left > 0 ? left : 0;
 }
 
 void bots_objectives_report(char *line, long size)
