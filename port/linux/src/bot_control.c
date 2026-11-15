@@ -57,6 +57,9 @@ enum
 
 #define BOT_CONTROL_FILE "bot_control.txt"
 
+/* (the game's free takes no NULL: its debug memory asserts) */
+#define bot_control_free(pointer) do { if (pointer) free(pointer); } while (0)
+
 #if HALO_SERVER_BUILD
 
 /* ---------- helpers */
@@ -127,7 +130,7 @@ static void bot_control_close(struct bot_control_connection *connection)
 {
 	if (connection->socket >= 0)
 		posix_socket_close(connection->socket);
-	free(connection->out);
+	bot_control_free(connection->out);
 	memset(connection, 0, sizeof(*connection));
 	connection->socket = -1;
 }
@@ -491,7 +494,7 @@ static char *bot_control_http(const char *method, const char *path, const char *
 	start = strstr(text, "\r\n\r\n");
 	if (!start)
 	{
-		free(text);
+		bot_control_free(text);
 		return NULL;
 	}
 	memmove(text, start + 4, strlen(start + 4) + 1);
@@ -536,7 +539,7 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 			{
 				snprintf(why, why_size, "%s did not sign us in (HTTP %d: --password, or HALO_BOTS_PASSWORD, is the "
 					"server's admin password)", bot_control_cli.http, status);
-				free(answer);
+				bot_control_free(answer);
 				return NULL;
 			}
 			index = server_json_member(&document, 0, "token");
@@ -545,11 +548,11 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 			{
 				snprintf(why, why_size, "%s gave no session", bot_control_cli.http);
 				server_json_document_free(&document);
-				free(answer);
+				bot_control_free(answer);
 				return NULL;
 			}
 			server_json_document_free(&document);
-			free(answer);
+			bot_control_free(answer);
 		}
 		snprintf(body, sizeof(body), "bots %s", line);
 		bot_control_json_string(body, escaped, sizeof(escaped));
@@ -558,7 +561,7 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 		if (!answer || !server_json_parse_tokens(&document, answer, (int)strlen(answer), 8, 65536))
 		{
 			snprintf(why, why_size, "%s did not answer (HTTP %d)", bot_control_cli.http, status);
-			free(answer);
+			bot_control_free(answer);
 			return NULL;
 		}
 		{
@@ -575,7 +578,7 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 		if (!text)
 		{
 			server_json_document_free(&document);
-			free(answer);
+			bot_control_free(answer);
 			return NULL;
 		}
 		text[0] = 0;
@@ -598,7 +601,7 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 				strcat(text, "\n");
 		}
 		server_json_document_free(&document);
-		free(answer);
+		bot_control_free(answer);
 		return text;
 	}
 	{
@@ -626,7 +629,7 @@ static char *bot_control_run(const char *line, int *succeeded, char *why, size_t
 		posix_socket_close(socket);
 		if (!answer || !answer[0])
 		{
-			free(answer);
+			bot_control_free(answer);
 			snprintf(why, why_size, "the game did not answer");
 			return NULL;
 		}
@@ -681,7 +684,7 @@ static int bot_control_watch(void)
 		}
 		if (found)
 			next = strtol(found + 13, NULL, 10);
-		free(answer);
+		bot_control_free(answer);
 	}
 	for (;;)
 	{
@@ -724,7 +727,7 @@ static int bot_control_watch(void)
 				server_json_document_free(&document);
 			}
 		}
-		free(answer);
+		bot_control_free(answer);
 		if (bot_control_cli.every > 0.0 && (!last_snapshot || (double)(now - last_snapshot) >= bot_control_cli.every * 1000.0))
 		{
 			last_snapshot = now;
@@ -738,7 +741,7 @@ static int bot_control_watch(void)
 					*end = 0;
 				fprintf(stdout, "{\"event\":\"snapshot\",%s\n", cursor + 11);
 			}
-			free(answer);
+			bot_control_free(answer);
 		}
 		fflush(stdout);
 		SDL_Delay(250);
@@ -844,7 +847,7 @@ void bot_control_command_line(int first_argument)
 	}
 	fputs(answer, stdout);
 	fflush(stdout);
-	free(answer);
+	bot_control_free(answer);
 	exit(succeeded ? 0 : 1);
 }
 

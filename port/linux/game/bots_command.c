@@ -655,18 +655,32 @@ static void bots_command_player_name(struct player_datum const *player, char *na
 	name[index] = 0;
 }
 
+/* where a unit is in the world: in a vehicle, the vehicle's place (its own
+is its seat's, in the vehicle) */
+static boolean bots_command_unit_position(long unit_index, real_point3d *position)
+{
+	struct object_datum *object = unit_index != NONE ? object_try_and_get(unit_index) : NULL;
+
+	if (!object)
+		return FALSE;
+	if (object->object.parent_object_index != NONE && object_try_and_get(object->object.parent_object_index))
+		object = object_try_and_get(object->object.parent_object_index);
+	*position = object->object.position;
+	return TRUE;
+}
+
 static struct player_datum *bots_command_live_player(long player_index, real_point3d *position)
 {
 	struct player_datum *player = player_index != NONE ? player_try_and_get(player_index) : NULL;
-	struct object_datum *object;
+	real_point3d where;
 
-	if (!player || player->quit_out_of_game || player->unit_index == NONE)
+	if (!player || player->quit_out_of_game || player->unit_index == NONE ||
+		!bots_command_unit_position(player->unit_index, &where))
+	{
 		return NULL;
-	object = object_try_and_get(player->unit_index);
-	if (!object)
-		return NULL;
+	}
 	if (position)
-		*position = object->object.position;
+		*position = where;
 	return player;
 }
 
@@ -1050,7 +1064,9 @@ static void bots_command_event_add(struct server_json *json)
 	long slot = bots_command.next_event % BOTS_COMMAND_EVENTS;
 	char const *text = server_json_text(json);
 
-	free(bots_command.events[slot]);
+	/* (the game's free takes no NULL) */
+	if (bots_command.events[slot])
+		free(bots_command.events[slot]);
 	bots_command.events[slot] = malloc(strlen(text) + 1);
 	if (bots_command.events[slot])
 		strcpy(bots_command.events[slot], text);
@@ -1749,6 +1765,18 @@ static void bots_command_apply(char const *line)
 	bots_command_event_end(&json);
 }
 
+/* a line kept for the next tick (bots_command_tick_begin), after those
+before it; FALSE when the queue is full */
+static boolean bots_command_enqueue(char const *line)
+{
+	if (bots_command.queue_count >= BOTS_COMMAND_QUEUE)
+		return FALSE;
+	snprintf(bots_command.queue[(bots_command.queue_first + bots_command.queue_count) % BOTS_COMMAND_QUEUE],
+		BOTS_COMMAND_LINE_SIZE, "%s", line);
+	bots_command.queue_count++;
+	return TRUE;
+}
+
 void bots_command_tick_begin(void)
 {
 	bots_command_traits_ready();
@@ -1947,6 +1975,7 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 		struct bots_command_traits const *traits = &bots_command.traits[index];
 		struct bots_bot_view view;
 		struct object_datum *object = NULL;
+		real_point3d where = { 0.0f, 0.0f, 0.0f };
 		char name[16], target[16] = "", weapon[BOTS_COMMAND_NAME_SIZE] = "", doing[64];
 		char const *team = "";
 
@@ -1965,6 +1994,7 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 			char const *part = held ? bots_command_tag_part(held->definition_index) : NULL;
 
 			object = object_get(player->unit_index);
+			bots_command_unit_position(player->unit_index, &where);
 			snprintf(weapon, sizeof(weapon), "%s", part ? part : "");
 		}
 		bots_bot_view(index, &view);
@@ -1988,7 +2018,7 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 			server_json_boolean(&out, "alive", object != NULL);
 			if (object)
 			{
-				bots_command_json_point(&out, "position", &object->object.position);
+				bots_command_json_point(&out, "position", &where);
 				server_json_real(&out, "health", floor(object->object.body_vitality * 100.0 + 0.5) / 100.0);
 				server_json_real(&out, "shield", floor(object->object.shield_vitality * 100.0 + 0.5) / 100.0);
 			}
@@ -2038,7 +2068,7 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 			if (object)
 			{
 				bots_command_say(reply, "%2ld %-11s %-4s %7.1f %7.1f %6.1f  %3.0f%%/%3.0f%%  %-16s %-26s %s", index + 1, name,
-					team, object->object.position.x, object->object.position.y, object->object.position.z,
+					team, where.x, where.y, where.z,
 					object->object.body_vitality * 100.0f, object->object.shield_vitality * 100.0f, weapon, order_text, doing);
 			}
 			else
@@ -2289,15 +2319,12 @@ boolean bots_command_run(char const *line, char *reply_text, long reply_size)
 					break;
 				}
 			}
-			if (bots_command.queue_count >= BOTS_COMMAND_QUEUE)
+			if (!bots_command_enqueue(line))
 			{
 				snprintf(error, sizeof(error), "%d lines wait for the game's next tick already", BOTS_COMMAND_QUEUE);
 				succeeded = FALSE;
 				break;
 			}
-			snprintf(bots_command.queue[(bots_command.queue_first + bots_command.queue_count) % BOTS_COMMAND_QUEUE],
-				BOTS_COMMAND_LINE_SIZE, "%s", line);
-			bots_command.queue_count++;
 			if (request.json)
 			{
 				struct server_json out;
