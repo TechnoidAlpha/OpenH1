@@ -2697,7 +2697,15 @@ static void demo_playback_tick_begin(
 			demo_engine_state_set(bytes, length);
 		}
 		else if (type == 'B' || type == 'V' || type == 'W')
+		{
 			demo_playback_record(&bytes, &length, TRUE);
+			/* (the host's line to its bots, which the A's input plays) */
+			if (type == 'W' && length >= 4)
+			{
+				platform_log("demos: tick %lu, the host's bots: %.*s", demo_read_u32(bytes), (int)MIN(length - 4, 200UL),
+					(char const *)bytes + 4);
+			}
+		}
 		else
 			break;
 	}
