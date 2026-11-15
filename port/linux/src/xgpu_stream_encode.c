@@ -1497,6 +1497,9 @@ void xgpu_backend_vertex_lighting(unsigned long long program, const struct nv2a_
 	record_body->world_register = (uint32_t)lighting->world_register;
 }
 
+/* port/linux/game/render_marks.c: a new pipeline in play named in the log */
+void render_marks_pipeline_unprepared(void);
+
 BOOL xgpu_backend_pipeline(const struct xgpu_pipeline_key *key)
 {
 	uint32_t id;
@@ -1525,6 +1528,8 @@ BOOL xgpu_backend_pipeline(const struct xgpu_pipeline_key *key)
 		/* (the host's answer comes later) */
 		__atomic_store_n(&stream.pipelines[id], XGPU_STREAM_PIPELINE_UNKNOWN, __ATOMIC_RELAXED);
 		stream.pipeline = 0;
+		if (!stream.preparing)
+			render_marks_pipeline_unprepared();
 	}
 	if (id != stream.pipeline)
 	{
