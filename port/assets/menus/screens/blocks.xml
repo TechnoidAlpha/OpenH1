@@ -28,8 +28,8 @@ screen file's, set on each widget as the screen is made. -->
 	<!-- an inner screen's header: its lettered picture (the file's picture=), where the campaign menu's is -->
 	<widget name="screens/header" left="35" top="11" width="363" height="59" bitmap="main_menu/campaign/header_campaign" wide="-106 0"/>
 	<!-- a tall screen's button in its band (the server browser's HOST & MORE), in a bar of its own: its words
-	and key, and a click or a tap does its action -->
-	<widget name="screens/button" type="text" width="148" height="24" bitmap="main_menu/parts/button_148x24" font="ui\small_ui" color="#FFFFFFFF" text_x="8" text_y="3">
+	and key, and a click or a tap does its action (wider than its picture: the controller's View cap and its words) -->
+	<widget name="screens/button" type="text" width="172" height="24" flags="keep_ends" bitmap="main_menu/parts/button_148x24" font="ui\small_ui" color="#FFFFFFFF" text_x="8" text_y="3">
 		<on event="a" run="port screen do"/>
 		<on event="left_mouse" run="port screen do"/>
 	</widget>

@@ -3,7 +3,9 @@ the D-pad and the stick reach, and A presses (issue 1065): the engine steps the 
 children, up and down) and through the lists in it (a bar's buttons, the tabs, the titles: left and right), so each
 such widget must be in the body, or in a list stepped through its items that is (blocks.xml's *_tabs_* flags), and its
 block must have an A handler. The server browser's HOST & MORE, in a bar of its own on the screen itself, out of the
-body, took its key, a click and a tap but never the D-pad's focus, so a controller could not select it."""
+body, took its key, a click and a tap but never the D-pad's focus, so a controller could not select it. (The column
+titles are in the body too, but with a controller's prompts the D-pad passes over them: tall_titles_passed,
+test_tall_titles_passed.py.)"""
 
 import re
 import sys
@@ -102,10 +104,10 @@ def test_negative_control(fault):
 def test_negative_control_no_a_handler():
     """a block without an A handler is caught: the band's button's"""
     assert "a" in blocks()["button"][1]
-    faulty = mutated(read(BLOCKS), '<widget name="screens/button" type="text" width="148" height="24" '
+    faulty = mutated(read(BLOCKS), '<widget name="screens/button" type="text" width="172" height="24" flags="keep_ends" '
                      'bitmap="main_menu/parts/button_148x24" font="ui\\small_ui" color="#FFFFFFFF" text_x="8" '
                      'text_y="3">\n\t\t<on event="a" run="port screen do"/>\n',
-                     '<widget name="screens/button" type="text" width="148" height="24" '
+                     '<widget name="screens/button" type="text" width="172" height="24" flags="keep_ends" '
                      'bitmap="main_menu/parts/button_148x24" font="ui\\small_ui" color="#FFFFFFFF" text_x="8" '
                      'text_y="3">\n')
     assert "made" in unreachable(read(TALL), faulty)

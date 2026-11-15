@@ -9,6 +9,7 @@
 #include "game/players.h"
 #include "game/game.h"
 #include "render/render.h"
+#include "interface/hud.h"
 #include "interface/hud_definitions.h"
 #include "rasterizer/rasterizer.h"
 #include "rasterizer/xbox/rasterizer_xbox_hardware_bitmaps.h"
@@ -66,13 +67,20 @@ void controller_glyphs_dispose(void)
     memset(controller_glyph_cache, 0, sizeof(controller_glyph_cache));
 }
 
+/* The menus' LB and RB (the tabs' keys, Host Controls', chat's) are drawn
+ * as the shoulder buttons every pad has, never the original Xbox's white and
+ * black, which only its own controller had (controller_glyph_menu_bumper_draw,
+ * while it draws); the HUD's as display.hud_bumper_style says. */
+static boolean controller_glyph_menu_bumpers;
+
 static short controller_glyph_asset_index(short style, short slot)
 {
     short family;
     /* Older Xbox styles can use the supplied modern bumpers independently of
-     * their face buttons. The caller has already resolved automatic detection. */
+     * their face buttons (and always in the menus). The caller has already
+     * resolved automatic detection. */
     if (style >= 0 && style < 3 && (slot == 4 || slot == 5) &&
-        !strcmp(config_string("display.hud_bumper_style"), "modern"))
+        (controller_glyph_menu_bumpers || !strcmp(config_string("display.hud_bumper_style"), "modern")))
         return (short)(32 + slot - 4);
     if (style < 3 || style >= 11 || slot < 0 || slot >= 14) return NONE;
     if (slot < 4) return (short)((style - 3) * 4 + slot);
@@ -167,4 +175,29 @@ boolean controller_glyph_draw(short style, short index,
     struct icon_hud_element_definition const *icon, rectangle2d *cursor, pixel32 color)
 {
     return controller_glyph_draw_with_release(style, index, icon, cursor, color, NULL);
+}
+
+/* port: a menu's LB or RB icon (the HUD's message icons' white and black
+ * buttons, which the menus' prompts and tabs name them by: ui_widget.c's
+ * render_state_bitmap) drawn as the shoulder button of the menus' player's
+ * pad, its family's (an Xbox pad's LB and RB in every Xbox style, a
+ * PlayStation's L1 and R1, a Switch's L and R); FALSE for another icon, or
+ * where the art is missing (the classic sprite then) */
+boolean controller_glyph_menu_bumper_draw(struct icon_hud_element_definition const *icon, rectangle2d *cursor,
+    pixel32 color)
+{
+    struct icon_hud_element_definition const *buttons;
+    short index;
+    boolean drawn;
+
+    if (!hud_globals || hud_globals->messaging.button_icons.count < 6) return FALSE;
+    buttons = hud_globals->messaging.button_icons.address;
+    if (!buttons || (icon != buttons + 4 && icon != buttons + 5)) return FALSE;
+    index = (short)(icon - buttons);
+    controller_glyph_menu_bumpers = TRUE;
+    /* (the menus are drawn outside a view: their player's, player 1's) */
+    drawn = controller_glyph_draw((short)controller_button_style_for_port(render.local_player_index >= 0 &&
+        render.local_player_index < 4 ? render.local_player_index : 0), index, icon, cursor, color);
+    controller_glyph_menu_bumpers = FALSE;
+    return drawn;
 }

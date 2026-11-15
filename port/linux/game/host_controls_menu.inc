@@ -72,6 +72,9 @@ seconds.
 HOST_ACTIONS) */
 #define HOST_CONTROLS_ROWS 14
 #define HOST_CONTROLS_ACTIONS 4
+/* the room the confirm key's picture and its space take before a button's
+words (the menus' A, about 20 units, and a space) */
+#define HOST_CONTROLS_KEY_ROOM 24
 /* milliseconds a second press confirms in, a notice shows, the bans are
 read again after */
 #define HOST_CONTROLS_CONFIRM_TIME 5000
@@ -2024,7 +2027,7 @@ static void host_button_text(short action, struct host_controls_player const *pl
 		break;
 	case _host_button_map_now:
 	case _host_button_entry_now:
-		usnprintf(text, size - 1, lobby ? L"PLAY IN THIS LOBBY" : confirming ? L"PRESS AGAIN" : L"PLAY NOW");
+		usnprintf(text, size - 1, lobby ? L"PLAY IN LOBBY" : confirming ? L"PRESS AGAIN" : L"PLAY NOW");
 		break;
 	case _host_button_map_after:
 	case _host_button_entry_next:
@@ -2084,11 +2087,18 @@ static void host_buttons_show(struct widget_instance *list, struct host_controls
 		tapped, and name no key) */
 		if (text[0] && button && button == list->focused_child && !ui_widget_port_touch_menus())
 		{
+			/* (its words fitted to the room the key's picture leaves them:
+			fitted with it, "%a-button" was measured as its letters, which
+			took a word's room, "PLAY IN THIS LO...") */
 			wchar_t words[96];
+			short width;
+			long font = ui_widget_port_text_box_font(button, &width);
 
-			ustrncpy(words, text, NUMBEROF(words) - 1);
-			words[NUMBEROF(words) - 1] = 0;
+			menu_text_fit(font, text, words, NUMBEROF(words), (short)(width - HOST_CONTROLS_KEY_ROOM));
 			usnprintf(text, NUMBEROF(text) - 1, L"%%a-button %s", words);
+			text[NUMBEROF(text) - 1] = 0;
+			text_set_length(button, text, NUMBEROF(text));
+			continue;
 		}
 		text[NUMBEROF(text) - 1] = 0;
 		menu_text_box_fit(button, text, 0);
@@ -2530,14 +2540,14 @@ static void host_controls_update(struct widget_instance *list)
 		struct network_admin_state state;
 		long rate = network_admin_remote_state(&state) ? state.rate : network_standard_server_rate(FALSE);
 
-		usnprintf(text, NUMBEROF(text) - 1, L"%d %s    %ld TICK%s", host_menu.player_count,
+		usnprintf(text, NUMBEROF(text) - 1, L"%d %s   %ld TICK%s", host_menu.player_count,
 			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", rate,
-			host_lobby() ? L"    LOBBY" : L"");
+			host_lobby() ? L"   LOBBY" : L"");
 	}
 	else
 	{
-		usnprintf(text, NUMBEROF(text) - 1, L"%d %s    LEGACY%s", host_menu.player_count,
-			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", host_lobby() ? L"    LOBBY" : L"");
+		usnprintf(text, NUMBEROF(text) - 1, L"%d %s   LEGACY%s", host_menu.player_count,
+			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", host_lobby() ? L"   LOBBY" : L"");
 	}
 	text[NUMBEROF(text) - 1] = 0;
 	menu_text_box_fit(named(screen, "host_counts", 0), text, 0);

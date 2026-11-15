@@ -699,6 +699,7 @@ boolean menu_studio_note_field(wchar_t *line, long size);
 #include "text/unicode.h"
 #include "ui_widget.h"
 #include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
+#include "controller_glyphs.h" /* port: port/linux/game/controller_glyphs.c */
 #include "mcc_pause_runtime.h" /* port: port/linux/game/mcc_pause_runtime.h */
 #include "mcc_pause.h" /* port: port/linux/game/mcc_pause.h */
 #include "mcc_ui_network.h" /* port: port/linux/game/mcc_ui_network.h */
@@ -1468,6 +1469,10 @@ boolean hud_key_prompt_draw(
 	pixel32 color);
 boolean hud_key_prompt_draw_key(
 	char const *name,
+	rectangle2d *bounds,
+	rectangle2d *cursor,
+	pixel32 color);
+boolean hud_key_prompt_draw_back_cap(
 	rectangle2d *bounds,
 	rectangle2d *cursor,
 	pixel32 color);
@@ -3555,6 +3560,65 @@ static boolean widget_instance_can_receive_events(
 	return TRUE;
 }
 
+/* port: a list that steps the focus through its children (the map and
+gametype lists' up_down_tabs_children, and any other such list), given the
+focus as its screen opens again from the history, focused on a child of its
+own: the one it had as it was made (its "created" handler's, the map or
+gametype chosen last), else its first that takes events. Giving the focus
+clears focused_child all along the old focus's path, and
+widget_instance_refocus_passthrough leaves alone a widget with handlers of
+its own, as these lists are (they open the next screen), so the focus stayed
+on the list itself: no row lit, and A and Start did nothing until the d-pad
+moved */
+static void widget_instance_port_refocus_list(
+	struct widget_instance *list,
+	struct widget_instance *kept)
+{
+	struct ui_widget_definition *definition;
+	struct widget_instance *child;
+	short index;
+
+	if (!list || list->focused_child || !list->child)
+		return;
+	definition = ui_widget_definition_get(list->definition_tag_index);
+	if (!TEST_FLAG(definition->flags, _widget_dpad_updown_tabs_thru_children_bit) &&
+		!TEST_FLAG(definition->flags, _widget_dpad_leftright_tabs_thru_children_bit))
+	{
+		return;
+	}
+	for (child = list->child, index = 0; child && child != kept; child = child->next, index++)
+		;
+	if (!child || child->disabled || !child->visible ||
+		(list->type == _ui_widget_type_column_list && pc_menu_tag(list->definition_tag_index) &&
+			widget_instance_port_is_label(child)))
+	{
+		for (child = list->child, index = 0; child; child = child->next, index++)
+		{
+			struct ui_widget_definition *child_definition = ui_widget_definition_get(child->definition_tag_index);
+
+			if (child->disabled || !child->visible)
+				continue;
+			if (list->type == _ui_widget_type_column_list && pc_menu_tag(list->definition_tag_index) &&
+				widget_instance_port_is_label(child))
+			{
+				continue;
+			}
+			if (child_definition->event_handlers.count > 0 ||
+				TEST_FLAG(child_definition->flags, _widget_pass_unhandled_events_to_children_bit) ||
+				list->type == _ui_widget_type_spinner_list || list->type == _ui_widget_type_column_list)
+			{
+				break;
+			}
+		}
+	}
+	if (!child)
+		return;
+	list->focused_child = child;
+	if (list->type == _ui_widget_type_spinner_list || list->type == _ui_widget_type_column_list)
+		list->parameters.list.selected_index = index;
+	widget_instance_refocus_passthrough(child);
+}
+
 static void widget_instance_set_focused_child_by_index(
 	long tag_index,
 	struct widget_instance *widget,
@@ -3581,7 +3645,10 @@ static void widget_instance_set_focused_child_by_index(
 			}
 			if (index == child_index)
 			{
+				struct widget_instance *kept = child->focused_child; /* port */
+
 				widget_instance_give_focus_directly(widget, child);
+				widget_instance_port_refocus_list(child, kept); /* port */
 				if (child->parent &&
 					(child->parent->type == _ui_widget_type_spinner_list ||
 					child->parent->type == _ui_widget_type_column_list))
@@ -3601,7 +3668,10 @@ static void widget_instance_set_focused_child_by_index(
 			!(parent->type == _ui_widget_type_spinner_list &&
 			ui_widget_definition_get(parent->definition_tag_index)->child_widgets.count > 1))
 		{
+			struct widget_instance *kept = parent->focused_child; /* port */
+
 			widget_instance_give_focus_directly(widget, parent);
+			widget_instance_port_refocus_list(parent, kept); /* port */
 		}
 	}
 
@@ -4547,6 +4617,11 @@ static void render_state_bitmap(
 			0,
 			struct game_globals_interface_tag_references)
 		: NULL;
+	/* port: the menus' LB and RB (the white and black buttons' icons) drawn
+	as the pad's shoulder buttons, its family's (controller_glyphs.c), not
+	the original Xbox's white and black discs */
+	if (controller_glyph_menu_bumper_draw(icon, cursor_bounds, color))
+		return;
 	bitmap_group_index = interface_tag_references->interface_tag_references[_interface_bitmap_iface_map2].index;
 	frame_index = 0;
 	bitmap = NULL;
@@ -4782,6 +4857,17 @@ void draw_string_and_hack_in_icons(
 					hud_key_prompt_draw_key(menu_key, bounds, &cursor_bounds, real_argb_color_to_pixel32(&key_color)))
 				{
 					menu_layout_glyph(TRUE, menu_key, glyph_x0, cursor_bounds.y0, cursor_bounds.x0, cursor_bounds.y1);
+					key_drawn = TRUE;
+					continue;
+				}
+				/* port: the menus' View (Back) with a controller, which no
+				button style has a picture of: a cap of its name (the
+				server browser's HOST & MORE) */
+				if (menus && key_icon_type == _icon_back_button &&
+					hud_key_prompt_draw_back_cap(bounds, &cursor_bounds, real_argb_color_to_pixel32(&key_color)))
+				{
+					menu_layout_glyph_wide(TRUE, icon_names[key_icon_type], glyph_x0, cursor_bounds.y0,
+						cursor_bounds.x0, cursor_bounds.y1);
 					key_drawn = TRUE;
 					continue;
 				}

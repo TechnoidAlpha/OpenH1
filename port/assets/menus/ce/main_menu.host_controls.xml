@@ -28,7 +28,7 @@
 	</widget>
 	<widget name="main_menu/host_controls/header_host_controls" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/host_controls/header_host_controls" wide="-106 0" source="tools/port_settings.py multiplayer_files/_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/host_counts" type="text" controller="1" left="420" top="46" width="192" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="106 0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_host_controls/_part_text">
+	<widget name="main_menu/host_controls/host_counts" type="text" controller="1" left="404" top="46" width="208" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="106 0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_host_controls/_part_text">
 	</widget>
 	<widget name="main_menu/host_controls/header_label" type="text" controller="1" left="34" top="104" width="150" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="-106 84" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_host_controls/_part_text">
 	</widget>

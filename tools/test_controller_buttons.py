@@ -119,6 +119,8 @@ struct rasterizer_dynamic_screen_geometry_parameters {
  struct bitmap_data *map[3];struct {real i,j;}map_texture_scale[3],map_scale[3];int framebuffer_blend_function;
 };
 static struct {short local_player_index;}render;
+struct hud_globals_definition {struct {struct {long count;void *address;}button_icons;}messaging;};
+static struct hud_globals_definition *hud_globals;
 static struct player_datum {short local_player_index;}player;
 static long local_player_get_player_index(short p){return p==2?NONE:123;}
 static struct player_datum *player_get(long p){assert(p==123);return &player;}

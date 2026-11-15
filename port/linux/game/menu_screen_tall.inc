@@ -29,9 +29,11 @@ BROWSER_TALL, _browser and _touch_browser) */
 #define TALL_DETAIL_X 300
 #define TALL_DETAIL_Y 11
 #define TALL_DETAIL_WIDTH 312
-#define TALL_BUTTON_X 276
+/* (the band's button's left: 172 wide (blocks.xml) for the controller's View
+cap, wider than the keyboard's F1, clear of the title at 4:3) */
+#define TALL_BUTTON_X 270
 #define TALL_BUTTON_Y 8
-#define TALL_BUTTON_WIDTH 148
+#define TALL_BUTTON_WIDTH 172
 /* the tabs: their strip's top, the first's left, each's step and width;
 their keys' prompts at the screen's margin and after the last */
 #define TALL_TABS_Y 46
@@ -358,6 +360,10 @@ struct screen_prompt
 	char key[8];
 	/* (the bar's: its width, and with the controller's pictures) */
 	short width, grown;
+	/* (a panel's last: filled, with its key, always, as the action A on
+	the table's rows does too; else outlined, filled with its key only
+	while it has the focus: tall_build_panel) */
+	boolean filled;
 };
 
 /* a <panel> (one of a screen's, the first whose if has a value shown): its
@@ -422,6 +428,9 @@ struct screen_tall
 	/* (the focus put on the bar for want of a row: back on the first row
 	that comes, unless it has been moved since) */
 	boolean focus_waiting;
+	/* (the body's focus last frame: which way the d-pad moved it onto the
+	column titles, tall_titles_passed) */
+	struct widget_instance *focus_last;
 	/* its chat: its block and source, its height (the table's foot over it),
 	its panel, each line's name and words, the line typed's place, and the
 	layer its on-screen keyboard is drawn on, over the rest */
@@ -1350,9 +1359,22 @@ static void tall_build_panel(struct screen_tall *tall, struct screen_open *open,
 		if (block->kind == MENU_SCREEN_BUTTON)
 		{
 			/* (its buttons one over another up from its foot, the last at
-			the foot: the panel's action, filled; those over it outlined) */
+			the foot: the panel's action, filled with its key while it is
+			not other than what A on the table's rows does (the browser's
+			JOIN GAME); else (the lobby's START GAME, whose rows' A opens a
+			player's card), and those over it, outlined, filled only while it
+			has the focus, so that one thing looks focused) */
 			long made = made_panel->button_count;
 			boolean last = made == buttons - 1;
+			char const *rows_action = NULL;
+			long table;
+
+			for (table = 0; table < file->block_count; table++)
+			{
+				if (file->blocks[table].kind == MENU_SCREEN_TABLE && menu_screen_when(file->blocks[table].when))
+					rows_action = file->blocks[table].action;
+			}
+			last = last && !(rows_action && block->action && strcmp(rows_action, block->action));
 			short button_y = (short)(top + height - TALL_PANEL_BUTTON_FOOT - (buttons - made) * button_height -
 				(buttons - made - 1) * PANEL_BUTTON_GAP);
 			struct screen_prompt *button = &made_panel->buttons[made];
@@ -1368,6 +1390,7 @@ static void tall_build_panel(struct screen_tall *tall, struct screen_open *open,
 			tall_box_picture(tall, button->widget, touch ? "main_menu/parts/touch_button_%dx%d" : last ?
 				"main_menu/parts/button_%dx%d" : "main_menu/parts/outline_%dx%d", inner_width, button_height);
 			button->block = block;
+			button->filled = last;
 			snprintf(button->key, sizeof(button->key), "%s", block->key);
 			tall_text(tall, block->label, label, sizeof(label));
 			/* (an outlined one its words alone) */
@@ -2139,8 +2162,12 @@ static void tall_tabs_frame(struct screen_tall *tall)
 	{
 		struct widget_instance *tab = tall->tab_widgets[index];
 
-		tab->animation.current_frame_index = (short)((index == shown ? 2 : 0) +
-			(strip_focused && tab == tall->strip->focused_child ? 1 : 0));
+		/* (the tab shown outlined while the tabs have the focus; else, with
+		a controller's prompts, its words white alone, as the column sorted
+		by, so that its outline is not taken for the focus on another
+		block) */
+		tab->animation.current_frame_index = (short)((index == shown && (strip_focused || halo_keyboard_prompts() ||
+			ui_widget_port_pointer_focused()) ? 2 : 0) + (strip_focused && tab == tall->strip->focused_child ? 1 : 0));
 		tall_color(tall, tab, index == shown ? 0xFFFFFFFFUL : 0);
 	}
 }
@@ -2366,7 +2393,11 @@ static void tall_rows_frame(struct screen_tall *tall, struct widget_instance *sc
 			continue;
 		heading = tall->lanes < 2 && tall->source && tall->source->heading(row_index, words, MENU_TABLE_TEXT_LENGTH);
 		visible_set_safe(row->heading, heading);
-		row->row->animation.current_frame_index = (short)(heading ? 0 : row_index == view->chosen ? 2 :
+		/* (the game chosen marked while the focus is on the rows, the
+		pointer's or the keyboard's; with a controller's prompts not while
+		it is on another block, which alone looks focused then) */
+		row->row->animation.current_frame_index = (short)(heading ? 0 : row_index == view->chosen &&
+			(focused != NONE || view->hover || halo_keyboard_prompts() || ui_widget_port_pointer_focused()) ? 2 :
 			row_focused ? 1 : 0);
 		if (tall->lanes > 1)
 			row->row->animation.current_frame_index = (short)((state == MENU_TABLE_ROW_MARKED ? 2 : 0) + row_focused);
@@ -2957,7 +2988,10 @@ static void tall_panel_frame(struct screen_tall *tall, struct screen_open *open)
 			{
 				char label[MENU_SCREEN_MAXIMUM_TEXT];
 				char text[MENU_SCREEN_MAXIMUM_TEXT];
-				boolean plain = touch || button < panel->button_count - 1;
+				/* (the panel's last outlined (tall_build_panel): its key while
+				it has the focus) */
+				boolean plain = touch || button < panel->button_count - 1 ||
+					!(prompt->filled || tall->body->focused_child == panel->bars[button]);
 
 				tall_text(tall, prompt->block->label, label, sizeof(label));
 				snprintf(text, sizeof(text), plain ? "%s%s" : "%s %s", plain ? "" : tall_key_picture(prompt->key), label);
@@ -3125,6 +3159,8 @@ static void tall_lineup_names_frame(struct screen_tall *tall, struct screen_open
 	}
 }
 
+static void tall_titles_passed(struct screen_tall *tall);
+
 static void tall_frame(struct screen_open *open)
 {
 	struct screen_tall *tall = tall_of(open);
@@ -3191,6 +3227,7 @@ static void tall_frame(struct screen_open *open)
 	part it: the d-pad steps the body, the band's button among its blocks) */
 	if (screen->focused_child != tall->body && !ui_widget_port_pointer_focused())
 		screen->focused_child = tall->body;
+	tall_titles_passed(tall);
 	/* (the focus off what cannot have it: the first row, else the bar) */
 	focused = tall->body->focused_child;
 	if (tall->focus_waiting && focused != tall->bar)
@@ -3300,6 +3337,44 @@ static void tall_chat_keyboard_draw(struct screen_tall *tall, point2d offset)
 			(short)(offset.y + y1), screen_width, (short)SCREEN_HEIGHT);
 	}
 	(void)ui_offset;
+}
+
+/* the column titles passed over by the d-pad and the stick with a
+controller's prompts (the pointer's alone then: X sorts, R3 searches, and
+their row lit nothing, so a press of A there sorted the list in place of
+joining the game the row and the panel showed): the focus moved onto them
+goes on the way it came, down from the tabs to the first row (or the next
+block below), up from the rows to the tabs (or the next block above). With
+the keyboard's prompts they stay a stop of the arrows, as they were (Enter
+sorts); the pointer still focuses and clicks them */
+static void tall_titles_passed(struct screen_tall *tall)
+{
+	struct widget_instance *focused = tall->body->focused_child;
+	struct widget_instance *each, *tail;
+	boolean down = FALSE;
+
+	if (focused && focused == tall->titles && focused != tall->focus_last && !ui_widget_port_pointer_focused() &&
+		!halo_keyboard_prompts() && !tall_search_editing(tall))
+	{
+		/* (down: it came from a block before the titles in the body) */
+		for (each = tall->titles->previous; each; each = each->previous)
+			down |= each == tall->focus_last;
+		for (tail = tall->body->child; tail && tail->next; tail = tail->next)
+			;
+		each = down ? tall->titles->next : tall->titles->previous;
+		while (each != tall->titles)
+		{
+			if (!each)
+				each = down ? tall->body->child : tail;
+			else if (each->visible && !each->disabled)
+				break;
+			else
+				each = down ? each->next : each->previous;
+		}
+		if (each && each != tall->titles)
+			tall_focus(tall->body, each);
+	}
+	tall->focus_last = tall->body->focused_child;
 }
 
 /* ---------- events */

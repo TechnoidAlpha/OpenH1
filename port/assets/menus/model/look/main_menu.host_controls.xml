@@ -23,7 +23,7 @@
 		<at widget="main_menu/host_controls/touch/host_list" x="0" y="0"/>
 	</look>
 	<look name="main_menu/host_controls/header_host_controls" box="35 11 398 70" wide="-106 0" picture="main_menu/host_controls/header_host_controls"/>
-	<look name="main_menu/host_controls/host_counts" type="text" box="420 46 612 64" wide="106 0">
+	<look name="main_menu/host_controls/host_counts" type="text" box="404 46 612 64" wide="106 0">
 		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
 	</look>
 	<look name="main_menu/host_controls/header_label" type="text" box="34 104 184 120" wide="-106 84">
