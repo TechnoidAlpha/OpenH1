@@ -696,6 +696,59 @@ void bots_knowledge_reset(void)
 	bots_knowledge.items_tick = NONE;
 }
 
+short bots_knowledge_team_known(short team, struct bots_known_enemy *known, short maximum)
+{
+	short count = 0;
+	long index;
+
+	if (team < 0 || team > 1)
+		return 0;
+	for (index = 0; index < BOTS_KNOWLEDGE_TEAM_MEMORY && count < maximum; index++)
+	{
+		struct bots_knowledge_sighting const *latest = &bots_knowledge.team_seen[team][index].latest;
+
+		if (latest->tick <= 0 || latest->player_index == NONE)
+			continue;
+		known[count].player_index = latest->player_index;
+		known[count].tick = latest->tick;
+		known[count].position = latest->position;
+		known[count].heading = latest->heading;
+		known[count].own = TRUE;
+		count++;
+	}
+	return count;
+}
+
+boolean bots_knowledge_team_item(short team, long item_index, long *seen_tick, boolean *present, long *ticks_until)
+{
+	long index, seen = 0, period, now = game_time_get();
+	boolean there = FALSE;
+
+	*seen_tick = 0;
+	*present = FALSE;
+	*ticks_until = NONE;
+	if (team < 0 || team > 1 || item_index < 0 || item_index >= bots_knowledge.spawn_count)
+		return FALSE;
+	for (index = 0; index < BOTS_MAXIMUM; index++)
+	{
+		struct bots_knowledge_slot const *slot = &bots_knowledge.slots[index];
+		struct player_datum *player = slot->player_index != NONE ? player_try_and_get(slot->player_index) : NULL;
+
+		if (!player || bots_knowledge_team(player) != team || slot->item_seen_ticks[item_index] <= seen)
+			continue;
+		seen = slot->item_seen_ticks[item_index];
+		there = slot->item_seen_present[item_index];
+	}
+	if (seen <= 0)
+		return FALSE;
+	*seen_tick = seen;
+	*present = there;
+	period = bots_knowledge.spawns[item_index].period_ticks;
+	if (!there && period > 0 && now / period <= seen / period)
+		*ticks_until = (seen / period + 1) * period - now;
+	return TRUE;
+}
+
 void bots_knowledge_report(char *line, long size)
 {
 	if (size <= 0)

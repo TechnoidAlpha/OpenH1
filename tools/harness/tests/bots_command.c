@@ -29,6 +29,7 @@ test_bots_command.py takes the constants, structures and tables
 #define VALID_INDEX(index, count) ((index) >= 0 && (index) < (count))
 #define TICKS_PER_SECOND 30
 #define BOTS_MAXIMUM 16
+#define HALO_PORT_MAXIMUM_NETWORK_PLAYERS 16
 
 /* the game's objects and players, as the code reads them */
 enum { _object_type_biped = 0, _object_type_weapon = 2 };
@@ -108,6 +109,52 @@ static boolean bots_objectives_carrying(long player_index)
 }
 
 #include "config.inc"
+
+/* the objectives' state (bots_objectives.c): no flag, no hill in play */
+static boolean bots_command_flag_state(short team, long *object_index, real_point3d *position, long *carrier,
+	boolean *at_home)
+{
+	(void)team; (void)object_index; (void)position; (void)carrier; (void)at_home;
+	return FALSE;
+}
+
+static short bots_objectives_hills(real_point3d *centers, short maximum)
+{
+	(void)centers; (void)maximum;
+	return 0;
+}
+
+static boolean bots_objectives_in_hill(real_point3d const *point)
+{
+	(void)point;
+	return FALSE;
+}
+
+/* the game's clock, and match at's lines (bots_match.c): none due */
+static long game_time_get(void)
+{
+	return 0;
+}
+
+static boolean bots_match_due(long tick, char *line, long size)
+{
+	(void)tick; (void)line; (void)size;
+	return FALSE;
+}
+
+static void bots_command_objective_events(void)
+{
+}
+
+static boolean game_engine_can_score(void)
+{
+	return TRUE;
+}
+
+static void bots_match_note_tick(long tick, boolean scoring)
+{
+	(void)tick; (void)scoring;
+}
 
 /* what the bot's team knows of its enemies (bots_knowledge.c) */
 static struct bots_known_enemy known_enemies[4];

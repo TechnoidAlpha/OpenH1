@@ -47,6 +47,7 @@ seen (bots_command_target_bonus).
 #include "bots.h"
 #include "bots_command.h"
 #include "bots_knowledge.h"
+#include "bots_match.h"
 #include "bots_objectives.h"
 #include "bots_vehicles.h"
 #include "demo.h"
@@ -63,6 +64,8 @@ seen (bots_command_target_bonus).
 #include <string.h>
 
 void platform_log(char const *format, ...);
+/* game_engine_king.c's */
+long game_engine_king_port_hill_move_ticks(void);
 
 /* ---------- constants */
 
@@ -106,6 +109,8 @@ enum
 	_bots_request_team,
 	_bots_request_places,
 	_bots_request_events,
+	_bots_request_match,
+	_bots_request_knowledge,
 	NUMBER_OF_BOTS_REQUESTS,
 };
 
@@ -141,6 +146,8 @@ enum
 	_bots_target_object,
 	/* a player */
 	_bots_target_player,
+	/* King of the Hill's hill, where it is each tick */
+	_bots_target_hill,
 };
 
 /* the vehicles' bits (bots_vehicles.h's kinds) */
@@ -166,6 +173,8 @@ struct bots_command_request
 	long count;
 	short team;
 	long after;
+	/* --team: the team whose view the answer is (NONE: the host's, all) */
+	short view_team;
 };
 
 struct bots_command_target
@@ -211,7 +220,7 @@ struct bots_command_place
 
 static char const *const bots_command_order_names[NUMBER_OF_BOTS_COMMAND_ORDERS] =
 {
-	"free", "attack", "defend", "hold", "follow", "goto", "retreat", "regroup", "push",
+	"free", "attack", "defend", "hold", "follow", "goto", "retreat", "regroup", "push", "escort", "return",
 };
 static char const *const bots_command_order_state_names[] = { "active", "done", "failed" };
 static char const *const bots_command_skill_names[] = { "easy", "normal", "heroic", "legendary" };
@@ -262,11 +271,25 @@ static struct
 	long next_event;
 	char *events[BOTS_COMMAND_EVENTS];
 	long event_numbers[BOTS_COMMAND_EVENTS];
+	/* the teams that see each whole (a bit each), and what the others see
+	of it (NULL: nothing) */
+	unsigned long event_teams[BOTS_COMMAND_EVENTS];
+	char *event_public[BOTS_COMMAND_EVENTS];
+	/* the event being made's public text (bots_command_event_public) */
+	char *pending_public;
 
 	/* the flags as the last tick saw them, for their events */
 	boolean flags_known;
 	long flag_carriers[2];
 	boolean flag_home[2];
+	/* the objectives as the last tick saw them: the ball's holders, the
+	hill's centre and who held it, each player's laps (by absolute index) */
+	boolean objectives_known;
+	long ball_carrier;
+	boolean hill_known;
+	real_point3d hill_center;
+	short hill_control;
+	short laps[HALO_PORT_MAXIMUM_NETWORK_PLAYERS];
 } bots_command;
 
 /* ---------- text */
@@ -398,11 +421,13 @@ static boolean bots_command_parse(char const *line, struct bots_command_request 
 	short kind;
 	static char const *const verbs[NUMBER_OF_BOTS_REQUESTS] =
 	{
-		"help", "status", "bots", "order", "set", "add", "remove", "fill", "team", "places", "events",
+		"help", "status", "bots", "order", "set", "add", "remove", "fill", "team", "places", "events", "match",
+		"knowledge",
 	};
 
 	csmemset(request, 0, sizeof(*request));
 	request->team = NONE;
+	request->view_team = NONE;
 	request->count = 1;
 	error[0] = 0;
 	if (strlen(line) >= sizeof(copy))
@@ -412,11 +437,24 @@ static boolean bots_command_parse(char const *line, struct bots_command_request 
 	}
 	snprintf(copy, sizeof(copy), "%s", line);
 	count = bots_command_words(copy, words, BOTS_COMMAND_WORDS);
-	/* (--json anywhere) */
+	/* (--json and --team <red|blue> anywhere) */
 	for (index = 0; index < count; index++)
 	{
 		if (!strcmp(words[index], "--json"))
 			request->json = TRUE;
+		else if (!strcmp(words[index], "--team"))
+		{
+			short team = index + 1 < count ? bots_command_team_word(words[index + 1]) : (short)NONE;
+
+			if (team == NONE || (request->view_team != NONE && request->view_team != team))
+			{
+				snprintf(error, (size_t)error_size, team == NONE ? "--team is red or blue" :
+					"a team's coach sees that team's alone");
+				return FALSE;
+			}
+			request->view_team = team;
+			index++;
+		}
 		else
 			words[kept++] = words[index];
 	}
@@ -464,10 +502,18 @@ static boolean bots_command_parse(char const *line, struct bots_command_request 
 					request->order = _bots_command_free;
 				else if (!csstrcasecmp(words[next], "go") || !csstrcasecmp(words[next], "move"))
 					request->order = _bots_command_goto;
+				else if (!csstrcasecmp(words[next], "take") || !csstrcasecmp(words[next], "contest"))
+					request->order = _bots_command_attack;
+				else if (!csstrcasecmp(words[next], "play"))
+				{
+					/* (play objective: the bots' own play, the objective's) */
+					request->order = _bots_command_free;
+					return TRUE;
+				}
 				else
 				{
-					snprintf(error, (size_t)error_size, "\"%s\" is not an order: attack, defend, hold, follow, push, "
-						"retreat, regroup, goto, clear", words[next]);
+					snprintf(error, (size_t)error_size, "\"%s\" is not an order: attack (take, contest), defend, hold, "
+						"follow, escort, push, retreat, regroup, goto, return, clear (play objective)", words[next]);
 					return FALSE;
 				}
 			}
@@ -477,7 +523,8 @@ static boolean bots_command_parse(char const *line, struct bots_command_request 
 				memmove(request->target, request->target + 3, strlen(request->target + 3) + 1);
 			if (!strncmp(request->target, "the ", 4))
 				memmove(request->target, request->target + 4, strlen(request->target + 4) + 1);
-			if ((request->order == _bots_command_follow || request->order == _bots_command_goto) && !request->target[0])
+			if ((request->order == _bots_command_follow || request->order == _bots_command_goto ||
+				request->order == _bots_command_escort) && !request->target[0])
 			{
 				snprintf(error, (size_t)error_size, "%s needs a target: a place (bots places), a player or x,y,z",
 					bots_command_order_names[request->order]);
@@ -855,6 +902,45 @@ static long bots_command_places(struct bots_command_place *places, long maximum)
 			count++;
 		}
 	}
+	/* (King of the Hill's hill in play now, and Oddball's balls where they
+are, lying or carried, as the HUD shows them to everyone) */
+	{
+		real_point3d centers[4];
+		short hills = bots_objectives_hills(centers, 4);
+		struct object_iterator iterator;
+		long balls = 0;
+
+		for (index = 0; index < hills && count < maximum; index++)
+		{
+			csmemset(&places[count], 0, sizeof(places[count]));
+			if (index)
+				snprintf(places[count].name, sizeof(places[count].name), "hill now %ld", index + 1);
+			else
+				snprintf(places[count].name, sizeof(places[count].name), "hill");
+			snprintf(places[count].kind, sizeof(places[count].kind), "hill");
+			places[count].team = NONE;
+			places[count].point = centers[index];
+			places[count].object_index = NONE;
+			count++;
+		}
+		object_iterator_new(&iterator, _object_mask_weapon, 0);
+		while (game_engine_running() && game_engine_get_variant()->game_engine_index == game_engine_oddball &&
+			count < maximum && object_iterator_next(&iterator))
+		{
+			if (!weapon_is_flag(iterator.index))
+				continue;
+			csmemset(&places[count], 0, sizeof(places[count]));
+			if (balls++)
+				snprintf(places[count].name, sizeof(places[count].name), "ball %ld", balls);
+			else
+				snprintf(places[count].name, sizeof(places[count].name), "ball");
+			snprintf(places[count].kind, sizeof(places[count].kind), "ball");
+			places[count].team = NONE;
+			item_get_position_even_if_in_inventory(iterator.index, &places[count].point);
+			places[count].object_index = iterator.index;
+			count++;
+		}
+	}
 	/* (the vehicles, numbered by kind in the objects' order) */
 	{
 		struct object_iterator iterator;
@@ -977,7 +1063,8 @@ static boolean bots_command_resolve(short order, short team, char const *text, s
 	char wanted[BOTS_COMMAND_LINE_SIZE];
 	char const *rest;
 	long count, index;
-	boolean own = order == _bots_command_defend || order == _bots_command_hold || order == _bots_command_retreat;
+	boolean own = order == _bots_command_defend || order == _bots_command_hold || order == _bots_command_retreat ||
+		order == _bots_command_return;
 
 	csmemset(target, 0, sizeof(*target));
 	target->object_index = NONE;
@@ -1003,6 +1090,42 @@ static boolean bots_command_resolve(short order, short team, char const *text, s
 		bots_command_player_name(player_get(target->player_index), target->name, sizeof(target->name));
 		return TRUE;
 	}
+	/* (the hill in play, where it is each tick) */
+	if (!strcmp(wanted, "hill"))
+	{
+		real_point3d centers[1];
+
+		if (!bots_objectives_hills(centers, 1))
+		{
+			snprintf(error, (size_t)error_size, "no hill is in play (King of the Hill's)");
+			return FALSE;
+		}
+		target->kind = _bots_target_hill;
+		target->point = centers[0];
+		snprintf(target->name, sizeof(target->name), "hill");
+		return TRUE;
+	}
+	/* (a carrier: the object carried, after or with whoever has it; the flag
+	carrier, the enemy's one carrying ours for an attack, ours carrying
+	theirs otherwise) */
+	if (!strcmp(wanted, "ball carrier") || (!strcmp(wanted, "carrier") && game_engine_running() &&
+		game_engine_get_variant()->game_engine_index == game_engine_oddball))
+	{
+		snprintf(wanted, sizeof(wanted), "ball");
+	}
+	else if (!strcmp(wanted, "flag carrier") || !strcmp(wanted, "carrier"))
+	{
+		if (team == NONE)
+		{
+			snprintf(error, (size_t)error_size, "\"%s\" needs a team game", text);
+			return FALSE;
+		}
+		snprintf(wanted, sizeof(wanted), "%s flag", bots_command_team_names[order == _bots_command_attack ||
+			order == _bots_command_return ? team : 1 - team]);
+	}
+	csmemset(target, 0, sizeof(*target));
+	target->object_index = NONE;
+	target->player_index = NONE;
 	/* (by the bot's team: ours, theirs) */
 	rest = wanted;
 	if (!strncmp(wanted, "our ", 4) || !strncmp(wanted, "own ", 4) || !strncmp(wanted, "my ", 3) ||
@@ -1059,19 +1182,39 @@ static boolean bots_command_resolve(short order, short team, char const *text, s
 
 /* ---------- the events */
 
-static void bots_command_event_add(struct server_json *json)
+static char *bots_command_copy(char const *text)
+{
+	char *copy = text ? malloc(strlen(text) + 1) : NULL;
+
+	if (copy)
+		strcpy(copy, text);
+	return copy;
+}
+
+/* the event kept: the teams of visible see it whole, the others its public
+text (NULL: nothing) */
+static void bots_command_event_add(struct server_json *json, unsigned long visible, char const *public_text)
 {
 	long slot = bots_command.next_event % BOTS_COMMAND_EVENTS;
-	char const *text = server_json_text(json);
 
 	/* (the game's free takes no NULL) */
 	if (bots_command.events[slot])
 		free(bots_command.events[slot]);
-	bots_command.events[slot] = malloc(strlen(text) + 1);
-	if (bots_command.events[slot])
-		strcpy(bots_command.events[slot], text);
+	if (bots_command.event_public[slot])
+		free(bots_command.event_public[slot]);
+	bots_command.events[slot] = bots_command_copy(server_json_text(json));
+	bots_command.event_public[slot] = bots_command_copy(public_text);
+	bots_command.event_teams[slot] = visible;
 	bots_command.event_numbers[slot] = bots_command.next_event++;
 	server_json_free(json);
+}
+
+/* the teams' bits of a player (1 red, 2 blue; 0 for none: a free-for-all's) */
+static unsigned long bots_command_player_teams(long player_index)
+{
+	struct player_datum *player = player_index != NONE ? player_try_and_get(player_index) : NULL;
+
+	return player && game_engine_has_teams() && VALID_INDEX(player->team_index, 2) ? 1UL << player->team_index : 0;
 }
 
 /* an event's start: its number, tick and name (the caller adds its fields
@@ -1088,7 +1231,32 @@ static void bots_command_event_begin(struct server_json *json, char const *name)
 static void bots_command_event_end(struct server_json *json)
 {
 	server_json_object_end(json);
-	bots_command_event_add(json);
+	bots_command_event_add(json, 3, NULL);
+}
+
+static void bots_command_event_end_for(struct server_json *json, unsigned long visible, char const *public_text)
+{
+	server_json_object_end(json);
+	bots_command_event_add(json, visible, public_text);
+}
+
+void bots_command_event_open(struct server_json *json, char const *name)
+{
+	bots_command_event_begin(json, name);
+}
+
+void bots_command_event_close(struct server_json *json, unsigned long visible)
+{
+	bots_command_event_end_for(json, visible, NULL);
+}
+
+static void bots_command_traits_ready(void);
+
+void bots_command_set_join_team(long bot_index, short team)
+{
+	bots_command_traits_ready();
+	if (VALID_INDEX(bot_index, BOTS_MAXIMUM))
+		bots_command.join_teams[bot_index] = team;
 }
 
 static void bots_command_json_player(struct server_json *json, char const *key, long player_index)
@@ -1126,7 +1294,7 @@ static void bots_command_order_event(long bot_index, char const *name, char cons
 	server_json_string(&json, "target", order->target.name);
 	if (reason)
 		server_json_string(&json, "reason", reason);
-	bots_command_event_end(&json);
+	bots_command_event_end_for(&json, bots_command_player_teams(bots_player_of_bot(bot_index)), NULL);
 }
 
 void bots_command_note_kill(long killing_player_index, long killing_object_index, long dead_player_index)
@@ -1162,14 +1330,24 @@ void bots_command_note_kill(long killing_player_index, long killing_object_index
 	server_json_boolean(&json, "victim_bot", bots_player_is_bot(dead_player_index));
 	if (weapon)
 		server_json_string(&json, "weapon", weapon);
-	if (bots_command_live_player(dead_player_index, NULL))
+	/* (the kill feed's, which every player sees; where, the teams' of the
+	two players alone, who were there) */
 	{
 		real_point3d position;
+		char const *so_far = server_json_text(&json);
+		char *public_text = malloc(strlen(so_far) + 2);
 
-		bots_command_live_player(dead_player_index, &position);
-		bots_command_json_point(&json, "position", &position);
+		/* (the event so far, closed) */
+		if (public_text)
+			sprintf(public_text, "%s}", so_far);
+		if (bots_command_live_player(dead_player_index, &position))
+			bots_command_json_point(&json, "position", &position);
+		bots_command_event_end_for(&json, bots_command_player_teams(killing_player_index) |
+			bots_command_player_teams(dead_player_index) | (game_engine_has_teams() ? 0 : 3), public_text);
+		if (public_text)
+			free(public_text);
 	}
-	bots_command_event_end(&json);
+	bots_match_note_kill(game_time_get(), killing_player_index, dead_player_index, weapon);
 	/* (an attack on that player: done) */
 	for (index = 0; index < BOTS_MAXIMUM; index++)
 	{
@@ -1238,6 +1416,134 @@ static void bots_command_flag_events(void)
 
 		if (!bots_command_flag_state(team, &object_index, &position, &carrier, &at_home))
 			bots_command.flags_known = FALSE;
+	}
+}
+
+/* who holds the hill in play now (from the players in it, as the game's
+own hill shows): NONE nobody, 0 red, 1 blue, 2 contested; in a free-for-all
+3 (one player, holder) */
+static short bots_command_hill_control(long *holder)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+	unsigned long teams = 0;
+	long inside = 0;
+
+	*holder = NONE;
+	data_iterator_new(&iterator, player_data);
+	while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
+	{
+		real_point3d position;
+
+		if (!bots_command_live_player(iterator.datum_index, &position) || !bots_objectives_in_hill(&position))
+			continue;
+		inside++;
+		*holder = iterator.datum_index;
+		teams |= bots_command_player_teams(iterator.datum_index);
+	}
+	if (!inside)
+		return NONE;
+	if (!game_engine_has_teams())
+		return inside == 1 ? 3 : 2;
+	*holder = NONE;
+	return teams == 3 ? 2 : teams == 2 ? 1 : 0;
+}
+
+static char const *bots_command_hill_control_name(short control)
+{
+	static char const *const names[] = { "red", "blue", "contested", "held" };
+
+	return control >= 0 && control < 4 ? names[control] : "none";
+}
+
+/* the objectives' events: the ball taken and dropped (Oddball), the hill
+moved and taken, contested or let go (King of the Hill), a lap (Race), each
+as every player sees them */
+static void bots_command_objective_events(void)
+{
+	struct game_variant *variant = game_engine_running() ? game_engine_get_variant() : NULL;
+	long engine = variant ? variant->game_engine_index : NONE;
+	struct server_json json;
+	boolean known = bots_command.objectives_known;
+
+	bots_command.objectives_known = TRUE;
+	if (engine == game_engine_oddball)
+	{
+		struct bots_objectives_ball balls[8];
+		short count = bots_objectives_balls(balls, 8), index;
+		long carrier = NONE;
+		real_point3d where = { 0.0f, 0.0f, 0.0f };
+
+		for (index = 0; index < count; index++)
+		{
+			if (balls[index].carrier != NONE && carrier == NONE)
+				carrier = balls[index].carrier;
+			if (!index || balls[index].carrier == NONE)
+				where = balls[index].position;
+		}
+		if (known && carrier != bots_command.ball_carrier)
+		{
+			bots_command_event_begin(&json, carrier != NONE ? "ball_taken" : "ball_dropped");
+			bots_command_json_player(&json, "player", carrier != NONE ? carrier : bots_command.ball_carrier);
+			if (count)
+				bots_command_json_point(&json, "position", &where);
+			bots_command_event_end(&json);
+		}
+		bots_command.ball_carrier = carrier;
+	}
+	else if (engine == game_engine_king)
+	{
+		real_point3d centers[1];
+		long holder;
+		short control;
+
+		if (bots_objectives_hills(centers, 1))
+		{
+			control = bots_command_hill_control(&holder);
+			if (bots_command.hill_known && (fabs(centers[0].x - bots_command.hill_center.x) > 1.0f ||
+				fabs(centers[0].y - bots_command.hill_center.y) > 1.0f))
+			{
+				bots_command_event_begin(&json, "hill_moved");
+				bots_command_json_point(&json, "position", &centers[0]);
+				bots_command_event_end(&json);
+			}
+			if (bots_command.hill_known && control != bots_command.hill_control)
+			{
+				bots_command_event_begin(&json, control == 2 ? "hill_contested" : control == NONE ? "hill_free" :
+					"hill_controlled");
+				if (control == 0 || control == 1)
+					server_json_string(&json, "team", bots_command_team_names[control]);
+				if (control == 3)
+					bots_command_json_player(&json, "player", holder);
+				bots_command_event_end(&json);
+			}
+			bots_command.hill_known = TRUE;
+			bots_command.hill_center = centers[0];
+			bots_command.hill_control = control;
+		}
+	}
+	else if (engine == game_engine_race)
+	{
+		struct data_iterator iterator;
+		struct player_datum *player;
+
+		data_iterator_new(&iterator, player_data);
+		while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
+		{
+			long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(iterator.datum_index);
+			short laps = player->statistics.multiplayer_statistics.race_statistics.laps;
+
+			if (!VALID_INDEX(absolute_index, HALO_PORT_MAXIMUM_NETWORK_PLAYERS))
+				continue;
+			if (known && laps > bots_command.laps[absolute_index])
+			{
+				bots_command_event_begin(&json, "lap");
+				bots_command_json_player(&json, "player", iterator.datum_index);
+				server_json_integer(&json, "laps", laps);
+				bots_command_event_end(&json);
+			}
+			bots_command.laps[absolute_index] = laps;
+		}
 	}
 }
 
@@ -1427,6 +1733,35 @@ static long bots_command_select(char const *who, boolean *selected, char *error,
 	return found;
 }
 
+/* ... a team's coach's (team: NONE for the host's): of its team alone
+("all": all of its own) */
+static long bots_command_select_for(char const *who, short team, boolean *selected, char *error, long error_size)
+{
+	long found = bots_command_select(who, selected, error, error_size), index;
+
+	if (!found || team == NONE)
+		return found;
+	for (index = 0; index < BOTS_MAXIMUM; index++)
+	{
+		long player_index = bots_player_of_bot(index);
+
+		if (selected[index] && !(bots_command_player_teams(player_index) & (1UL << team)))
+		{
+			if (csstrcasecmp(who, "all") && csstrcasecmp(who, "*"))
+			{
+				snprintf(error, (size_t)error_size, "%s's coach directs %s's bots alone", bots_command_team_names[team],
+					bots_command_team_names[team]);
+				return 0;
+			}
+			selected[index] = FALSE;
+			found--;
+		}
+	}
+	if (!found)
+		snprintf(error, (size_t)error_size, "no bot of %s is in the game", bots_command_team_names[team]);
+	return found;
+}
+
 /* the order given to a bot (at the tick): its target found from its words
 for the bot's team. FALSE, why in error, for none */
 static boolean bots_command_order_give(long bot_index, short kind, char const *words, char *error, long error_size)
@@ -1453,6 +1788,8 @@ static boolean bots_command_order_give(long bot_index, short kind, char const *w
 		text = !*words ? (kind == _bots_command_push ? "enemy base" : "our base") : words;
 	else if (kind == _bots_command_attack && !*words)
 		text = "enemy base";
+	else if (kind == _bots_command_return && !*words)
+		text = "our flag";
 	else if (kind == _bots_command_defend && !*words)
 	{
 		long object_index, carrier;
@@ -1491,6 +1828,18 @@ static boolean bots_command_order_give(long bot_index, short kind, char const *w
 		order.target.kind = _bots_target_point;
 		snprintf(order.target.name, sizeof(order.target.name), "the team's middle");
 		break;
+	case _bots_command_return:
+		if (order.target.kind != _bots_target_object || !weapon_is_flag(order.target.object_index))
+		{
+			snprintf(error, (size_t)error_size, "return takes a flag (our flag)");
+			return FALSE;
+		}
+		break;
+	case _bots_command_escort:
+		if (order.target.kind == _bots_target_object)
+			break;
+		/* (else a teammate, as follow) */
+		/* fall through */
 	case _bots_command_follow:
 	{
 		struct player_datum *leader = order.target.kind == _bots_target_player ?
@@ -1499,7 +1848,8 @@ static boolean bots_command_order_give(long bot_index, short kind, char const *w
 		if (!leader || order.target.player_index == player_index ||
 			(team != NONE && leader->team_index != team))
 		{
-			snprintf(error, (size_t)error_size, "follow takes a teammate");
+			snprintf(error, (size_t)error_size, "%s takes a teammate%s", bots_command_order_names[kind],
+				kind == _bots_command_escort ? ", a flag or the ball (flag carrier, ball carrier)" : "");
 			return FALSE;
 		}
 		break;
@@ -1591,10 +1941,32 @@ boolean bots_command_objective(long bot_index, long player_index, real_point3d c
 			objective->player_index = carrier_player;
 			return TRUE;
 		}
+		/* (its own flag at home: nothing to return) */
+		if (order->kind == _bots_command_return)
+		{
+			long flag_object, carrier;
+			real_point3d flag_position;
+			boolean at_home = FALSE;
+
+			if (bots_command_flag_state((short)player->team_index, &flag_object, &flag_position, &carrier, &at_home) &&
+				flag_object == order->target.object_index && at_home)
+			{
+				order->state = _bots_order_state_done;
+				bots_command_order_event(bot_index, "order_done", "home");
+				order->kind = _bots_command_free;
+				return FALSE;
+			}
+		}
+		/* (an escort of a flag or ball lying: by it, until one has it) */
+		if (order->kind == _bots_command_escort)
+		{
+			bots_command_set_objective(objective, _bots_objective_guard, &point, BOTS_COMMAND_DEFEND_RADIUS, TRUE);
+			return TRUE;
+		}
 		/* (a flag lying: taken, or touched to return it) */
 		if (TEST_FLAG(_object_mask_weapon, object->object.type) && weapon_is_flag(order->target.object_index) &&
 			(order->kind == _bots_command_attack || order->kind == _bots_command_push ||
-				order->kind == _bots_command_goto))
+				order->kind == _bots_command_goto || order->kind == _bots_command_return))
 		{
 			bots_command_set_objective(objective, _bots_objective_take, &point, 1.0f, TRUE);
 			objective->object_index = order->target.object_index;
@@ -1639,8 +2011,31 @@ boolean bots_command_objective(long bot_index, long player_index, real_point3d c
 	}
 	case _bots_target_point:
 		break;
+	case _bots_target_hill:
+	{
+		real_point3d centers[1];
+
+		/* (where it is now: it moves) */
+		if (!bots_objectives_hills(centers, 1))
+			return FALSE;
+		point = centers[0];
+		order->target.point = point;
+		break;
+	}
 	default:
 		return FALSE;
+	}
+	/* (the hill: into it, then kept in it, fighting from there) */
+	if (order->target.kind == _bots_target_hill)
+	{
+		bots_command_set_objective(objective, _bots_objective_hill, &point, 3.0f, TRUE);
+		if (order->state == _bots_order_state_active && order->kind != _bots_command_hold &&
+			bots_objectives_in_hill(position))
+		{
+			order->state = _bots_order_state_done;
+			bots_command_order_event(bot_index, "order_done", "there");
+		}
+		return TRUE;
 	}
 	moving = order->kind == _bots_command_attack || order->kind == _bots_command_push ||
 		order->kind == _bots_command_goto || order->kind == _bots_command_retreat || order->kind == _bots_command_regroup;
@@ -1698,18 +2093,26 @@ static void bots_command_apply(char const *line)
 	char error[160];
 	struct server_json json;
 	long index, applied = 0;
+	unsigned long teams = 0;
 
 	/* (the demo's, as it was applied: demo.c) */
 	demo_record_bot_command(line);
 	if (!bots_command_parse(line, &request, error, sizeof(error)) ||
-		!bots_command_select(request.who, selected, error, sizeof(error)))
+		!bots_command_select_for(request.who, request.view_team, selected, error, sizeof(error)))
 	{
 		bots_command_event_begin(&json, "command_failed");
 		server_json_string(&json, "line", line);
 		server_json_string(&json, "reason", error);
-		bots_command_event_end(&json);
+		bots_command_event_end_for(&json, request.view_team != NONE ? 1UL << request.view_team : 0, NULL);
 		return;
 	}
+	for (index = 0; index < BOTS_MAXIMUM; index++)
+	{
+		if (selected[index])
+			teams |= bots_command_player_teams(bots_player_of_bot(index));
+	}
+	/* (the match's results' orders: bots_match.c) */
+	bots_match_note_line(game_time_get(), line, teams);
 	error[0] = 0;
 	for (index = 0; index < BOTS_MAXIMUM; index++)
 	{
@@ -1764,7 +2167,7 @@ static void bots_command_apply(char const *line)
 	server_json_integer(&json, "bots", applied);
 	if (error[0])
 		server_json_string(&json, "reason", error);
-	bots_command_event_end(&json);
+	bots_command_event_end_for(&json, teams, NULL);
 }
 
 /* a line kept for the next tick (bots_command_tick_begin), after those
@@ -1781,7 +2184,13 @@ static boolean bots_command_enqueue(char const *line)
 
 void bots_command_tick_begin(void)
 {
+	char due[BOTS_COMMAND_LINE_SIZE];
+
 	bots_command_traits_ready();
+	bots_match_note_tick(game_time_get(), game_engine_can_score());
+	/* (match at's lines of this tick first, in their order: bots_match.c) */
+	while (bots_match_due(game_time_get(), due, sizeof(due)))
+		bots_command_apply(due);
 	while (bots_command.queue_count > 0)
 	{
 		char line[BOTS_COMMAND_LINE_SIZE];
@@ -1792,6 +2201,7 @@ void bots_command_tick_begin(void)
 		bots_command_apply(line);
 	}
 	bots_command_flag_events();
+	bots_command_objective_events();
 }
 
 void bots_command_reset(void)
@@ -1804,6 +2214,8 @@ void bots_command_reset(void)
 		bots_command.orders[index].kind = _bots_command_free;
 	}
 	bots_command.flags_known = FALSE;
+	bots_command.objectives_known = FALSE;
+	bots_command.hill_known = FALSE;
 }
 
 /* ---------- answers */
@@ -1955,7 +2367,45 @@ static void bots_command_status(struct bots_command_reply *reply, boolean json)
 	bots_command_say(reply, "%ld players, %ld of them bots", players, bots);
 }
 
-static void bots_command_bots(struct bots_command_reply *reply, boolean json)
+/* a unit's weapons' ammunition (each weapon it holds: its rounds loaded and
+carried, or an energy weapon's battery) and its grenades */
+static void bots_command_json_ammo(struct server_json *out, long unit_index)
+{
+	struct unit_datum *unit = unit_get(unit_index);
+	short index;
+
+	server_json_array_begin(out, "weapons");
+	for (index = 0; index < 4; index++)
+	{
+		long weapon_index = unit_inventory_get_weapon(unit_index, index);
+		struct object_datum *held = weapon_index != NONE ? object_try_and_get(weapon_index) : NULL;
+		struct weapon_datum *weapon;
+		char const *part;
+
+		if (!held || !TEST_FLAG(_object_mask_weapon, held->object.type))
+			continue;
+		weapon = weapon_get(weapon_index);
+		part = bots_command_tag_part(held->definition_index);
+		server_json_object_begin(out, NULL);
+		server_json_string(out, "name", part ? part : "");
+		server_json_boolean(out, "in_hand", index == unit->unit.current_weapon_index);
+		if (weapon->weapon.magazines[0].rounds_loaded || weapon->weapon.magazines[0].rounds_total)
+		{
+			server_json_integer(out, "loaded", weapon->weapon.magazines[0].rounds_loaded);
+			server_json_integer(out, "carried", weapon->weapon.magazines[0].rounds_total);
+		}
+		else
+			server_json_real(out, "battery", floor((1.0 - weapon->weapon.age) * 100.0 + 0.5) / 100.0);
+		server_json_object_end(out);
+	}
+	server_json_array_end(out);
+	server_json_object_begin(out, "grenades");
+	server_json_integer(out, "frag", unit->unit.grenade_counts[0]);
+	server_json_integer(out, "plasma", unit->unit.grenade_counts[1]);
+	server_json_object_end(out);
+}
+
+static void bots_command_bots(struct bots_command_reply *reply, boolean json, short view_team)
 {
 	struct server_json out;
 	long index, shown = 0;
@@ -1981,7 +2431,7 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 		char name[16], target[16] = "", weapon[BOTS_COMMAND_NAME_SIZE] = "", doing[64];
 		char const *team = "";
 
-		if (!player)
+		if (!player || (view_team != NONE && !(bots_command_player_teams(player_index) & (1UL << view_team))))
 			continue;
 		bots_command_traits_ready();
 		bots_command_player_name(player, name, sizeof(name));
@@ -2023,6 +2473,7 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 				bots_command_json_point(&out, "position", &where);
 				server_json_real(&out, "health", floor(object->object.body_vitality * 100.0 + 0.5) / 100.0);
 				server_json_real(&out, "shield", floor(object->object.shield_vitality * 100.0 + 0.5) / 100.0);
+				bots_command_json_ammo(&out, player->unit_index);
 			}
 			server_json_string(&out, "weapon", weapon);
 			server_json_integer(&out, "kills", player->statistics.kills[0]);
@@ -2096,11 +2547,313 @@ static void bots_command_bots(struct bots_command_reply *reply, boolean json)
 		bots_command_say(reply, playing ? "No bots are in the game (bots add)." : "No game is being played.");
 }
 
-static void bots_command_places_answer(struct bots_command_reply *reply, boolean json)
+/* ---------- what a team knows */
+
+/* the game's objective as every player sees it (its HUD's markers, scores
+and timers) */
+static void bots_command_objective_json(struct server_json *out)
+{
+	struct game_variant *variant = game_engine_get_variant();
+	long engine = variant->game_engine_index;
+	long limit = game_variant_options_get()->time_limit * 60L * TICKS_PER_SECOND;
+	short team, index;
+
+	server_json_object_begin(out, "objective");
+	server_json_string(out, "mode", bots_command_engine_name(engine));
+	server_json_integer(out, "score_to_win", variant->universal_variant.score_to_win);
+	if (limit > 0)
+		server_json_real(out, "time_left", floor(MAX(limit - game_time_get(), 0) * 10.0 / TICKS_PER_SECOND) / 10.0);
+	else
+		server_json_null(out, "time_left");
+	if (game_engine_has_teams())
+	{
+		server_json_array_begin(out, "score");
+		server_json_integer(out, NULL, game_engine_get_team_score(0));
+		server_json_integer(out, NULL, game_engine_get_team_score(1));
+		server_json_array_end(out);
+		if (variant->universal_variant.score_to_win > 0)
+		{
+			server_json_array_begin(out, "to_win");
+			server_json_integer(out, NULL, MAX(variant->universal_variant.score_to_win - game_engine_get_team_score(0), 0));
+			server_json_integer(out, NULL, MAX(variant->universal_variant.score_to_win - game_engine_get_team_score(1), 0));
+			server_json_array_end(out);
+		}
+	}
+	switch (engine)
+	{
+	case game_engine_ctf:
+		server_json_array_begin(out, "flags");
+		for (team = 0; team < 2; team++)
+		{
+			long object_index, carrier, return_ticks = bots_objectives_flag_return_ticks(team);
+			real_point3d position;
+			boolean at_home;
+
+			if (!bots_command_flag_state(team, &object_index, &position, &carrier, &at_home))
+				continue;
+			server_json_object_begin(out, NULL);
+			server_json_string(out, "team", bots_command_team_names[team]);
+			server_json_string(out, "state", carrier != NONE ? "carried" : at_home ? "home" : "dropped");
+			bots_command_json_point(out, "position", &position);
+			bots_command_json_player(out, "carrier", carrier);
+			if (return_ticks != NONE)
+				server_json_real(out, "return_in", floor(return_ticks * 10.0 / TICKS_PER_SECOND) / 10.0);
+			server_json_object_end(out);
+		}
+		server_json_array_end(out);
+		break;
+	case game_engine_oddball:
+	{
+		struct bots_objectives_ball balls[8];
+		short count = bots_objectives_balls(balls, 8);
+
+		server_json_array_begin(out, "balls");
+		for (index = 0; index < count; index++)
+		{
+			server_json_object_begin(out, NULL);
+			bots_command_json_point(out, "position", &balls[index].position);
+			bots_command_json_player(out, "carrier", balls[index].carrier);
+			if (bots_command_player_teams(balls[index].carrier))
+				server_json_string(out, "carrier_team", bots_command_team_names[player_get(balls[index].carrier)->team_index]);
+			server_json_object_end(out);
+		}
+		server_json_array_end(out);
+		break;
+	}
+	case game_engine_king:
+	{
+		real_point3d centers[4];
+		short count = bots_objectives_hills(centers, 4);
+		long holder, move = game_engine_king_port_hill_move_ticks();
+		short control = bots_command_hill_control(&holder);
+
+		server_json_array_begin(out, "hills");
+		for (index = 0; index < count; index++)
+		{
+			server_json_object_begin(out, NULL);
+			bots_command_json_point(out, "position", &centers[index]);
+			if (!index)
+			{
+				server_json_string(out, "control", bots_command_hill_control_name(control));
+				server_json_boolean(out, "contested", control == 2);
+				if (control == 3)
+					bots_command_json_player(out, "holder", holder);
+				if (move != NONE)
+					server_json_real(out, "move_in", floor(move * 10.0 / TICKS_PER_SECOND) / 10.0);
+				else
+					server_json_null(out, "move_in");
+			}
+			server_json_object_end(out);
+		}
+		server_json_array_end(out);
+		break;
+	}
+	case game_engine_race:
+	{
+		struct data_iterator iterator;
+		struct player_datum *player;
+		short goal;
+
+		server_json_array_begin(out, "nav_points");
+		for (goal = 0; goal < 32; goal++)
+		{
+			if (game_engine_get_goal_in_use(goal))
+				{
+				real_point3d nav;
+
+				bots_command_json_point(out, NULL, game_engine_get_goal_position(&nav, goal));
+			}
+		}
+		server_json_array_end(out);
+		server_json_object_begin(out, "laps");
+		data_iterator_new(&iterator, player_data);
+		while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
+		{
+			char name[16];
+
+			if (player->quit_out_of_game)
+				continue;
+			bots_command_player_name(player, name, sizeof(name));
+			server_json_integer(out, name, player->statistics.multiplayer_statistics.race_statistics.laps);
+		}
+		server_json_object_end(out);
+		break;
+	}
+	default:
+		break;
+	}
+	server_json_object_end(out);
+}
+
+/* what the team knows: its players (where, health, weapons, ammunition and
+grenades), the enemies its bots saw (where and when they last saw each),
+the power items' spawns as its bots last saw them and when each comes back */
+static void bots_command_team_json(struct server_json *out, short team)
+{
+	struct bots_known_enemy known[32];
+	short count = bots_knowledge_team_known(team, known, 32), index;
+	struct data_iterator iterator;
+	struct player_datum *player;
+	long items = bots_knowledge_item_count(), item_index, now = game_time_get();
+
+	server_json_object_begin(out, NULL);
+	server_json_string(out, "team", bots_command_team_names[team]);
+	server_json_array_begin(out, "players");
+	data_iterator_new(&iterator, player_data);
+	while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
+	{
+		char name[16];
+		real_point3d where;
+
+		if (player->quit_out_of_game || player->team_index != team)
+			continue;
+		bots_command_player_name(player, name, sizeof(name));
+		server_json_object_begin(out, NULL);
+		server_json_string(out, "name", name);
+		server_json_boolean(out, "bot", bots_player_is_bot(iterator.datum_index));
+		for (index = 0; index < BOTS_MAXIMUM; index++)
+		{
+			if (bots_player_of_bot(index) == iterator.datum_index)
+				server_json_integer(out, "number", index + 1);
+		}
+		server_json_boolean(out, "alive", bots_command_live_player(iterator.datum_index, &where) != NULL);
+		if (bots_command_live_player(iterator.datum_index, &where))
+		{
+			struct object_datum *object = object_get(player->unit_index);
+
+			bots_command_json_point(out, "position", &where);
+			server_json_real(out, "health", floor(object->object.body_vitality * 100.0 + 0.5) / 100.0);
+			server_json_real(out, "shield", floor(object->object.shield_vitality * 100.0 + 0.5) / 100.0);
+			bots_command_json_ammo(out, player->unit_index);
+		}
+		server_json_object_end(out);
+	}
+	server_json_array_end(out);
+	server_json_array_begin(out, "enemies_seen");
+	for (index = 0; index < count; index++)
+	{
+		struct player_datum *enemy = player_try_and_get(known[index].player_index);
+		char name[16];
+
+		if (!enemy || enemy->quit_out_of_game)
+			continue;
+		bots_command_player_name(enemy, name, sizeof(name));
+		server_json_object_begin(out, NULL);
+		server_json_string(out, "name", name);
+		bots_command_json_point(out, "position", &known[index].position);
+		server_json_integer(out, "tick", known[index].tick);
+		server_json_real(out, "seconds_ago", floor((now - known[index].tick) * 10.0 / TICKS_PER_SECOND) / 10.0);
+		server_json_object_end(out);
+	}
+	server_json_array_end(out);
+	server_json_array_begin(out, "power_items");
+	for (item_index = 0; item_index < items; item_index++)
+	{
+		struct bots_item item;
+		long seen_tick, ticks_until;
+		boolean present;
+
+		if (!bots_knowledge_item(item_index, &item, NULL) || !item.power)
+			continue;
+		server_json_object_begin(out, NULL);
+		server_json_string(out, "name", item.name);
+		bots_command_json_point(out, "position", &item.position);
+		server_json_real(out, "period", floor(item.period_ticks * 10.0 / TICKS_PER_SECOND) / 10.0);
+		if (bots_knowledge_team_item(team, item_index, &seen_tick, &present, &ticks_until))
+		{
+			server_json_integer(out, "seen_tick", seen_tick);
+			server_json_boolean(out, "present", present);
+			if (ticks_until != NONE)
+				server_json_real(out, "back_in", floor(ticks_until * 10.0 / TICKS_PER_SECOND) / 10.0);
+			else
+				server_json_null(out, "back_in");
+		}
+		else
+		{
+			/* (never seen by the team: as the game started it, and its turns
+			by the game's clock, which every player can time) */
+			server_json_null(out, "seen_tick");
+			server_json_null(out, "present");
+			server_json_real(out, "next_turn_in", floor((item.period_ticks - now % MAX(item.period_ticks, 1)) * 10.0 /
+				TICKS_PER_SECOND) / 10.0);
+		}
+		server_json_object_end(out);
+	}
+	server_json_array_end(out);
+	server_json_object_end(out);
+}
+
+static void bots_command_knowledge(struct bots_command_reply *reply, short view_team, char *error, long error_size,
+	boolean *succeeded)
+{
+	struct server_json out;
+	short team;
+
+	if (!bots_command_game())
+	{
+		snprintf(error, (size_t)error_size, "no game is being played");
+		*succeeded = FALSE;
+		return;
+	}
+	if (view_team != NONE && !game_engine_has_teams())
+	{
+		snprintf(error, (size_t)error_size, "--team needs a team game");
+		*succeeded = FALSE;
+		return;
+	}
+	server_json_begin(&out);
+	server_json_object_begin(&out, NULL);
+	server_json_boolean(&out, "ok", TRUE);
+	server_json_integer(&out, "tick", game_time_get());
+	if (view_team != NONE)
+		server_json_string(&out, "view", bots_command_team_names[view_team]);
+	else
+		server_json_string(&out, "view", "host");
+	bots_command_objective_json(&out);
+	server_json_array_begin(&out, "teams");
+	for (team = 0; game_engine_has_teams() && team < 2; team++)
+	{
+		if (view_team == NONE || view_team == team)
+			bots_command_team_json(&out, team);
+	}
+	server_json_array_end(&out);
+	bots_match_kills_json(&out, "kills");
+	server_json_object_end(&out);
+	bots_command_say_json(reply, &out);
+}
+
+/* whether a coach of the team may see the place: a vehicle another team's
+player is in is where that player is, which the team may not know */
+static boolean bots_command_place_visible(struct bots_command_place const *place, short view_team)
+{
+	short part;
+
+	if (view_team == NONE || strcmp(place->kind, "vehicle") || place->object_index == NONE)
+		return TRUE;
+	for (part = _bots_seat_driver; part <= _bots_seat_passenger; part++)
+	{
+		long unit_index = bots_vehicle_occupant(place->object_index, part);
+		long player_index = unit_index != NONE && object_try_and_get(unit_index) ? unit_get(unit_index)->unit.player_index :
+			NONE;
+
+		if (player_index != NONE && !(bots_command_player_teams(player_index) & (1UL << view_team)))
+			return FALSE;
+	}
+	return TRUE;
+}
+
+static void bots_command_places_answer(struct bots_command_reply *reply, boolean json, short view_team)
 {
 	struct bots_command_place places[BOTS_COMMAND_PLACES];
-	long count = bots_command_game() ? bots_command_places(places, BOTS_COMMAND_PLACES) : 0, index;
+	long count = bots_command_game() ? bots_command_places(places, BOTS_COMMAND_PLACES) : 0, index, kept = 0;
 	struct server_json out;
+
+	for (index = 0; index < count; index++)
+	{
+		if (bots_command_place_visible(&places[index], view_team))
+			places[kept++] = places[index];
+	}
+	count = kept;
 
 	if (json)
 	{
@@ -2132,7 +2885,7 @@ static void bots_command_places_answer(struct bots_command_reply *reply, boolean
 	}
 }
 
-static void bots_command_events_answer(struct bots_command_reply *reply, long after, boolean json)
+static void bots_command_events_answer(struct bots_command_reply *reply, long after, boolean json, short view_team)
 {
 	long first = MAX(bots_command.next_event - BOTS_COMMAND_EVENTS, 0);
 	long start = MAX(after, first), number;
@@ -2144,8 +2897,16 @@ static void bots_command_events_answer(struct bots_command_reply *reply, long af
 	server_json_array_begin(&out, "events");
 	for (number = start; number < bots_command.next_event; number++)
 	{
-		char const *text = bots_command.events[number % BOTS_COMMAND_EVENTS];
+		long slot = number % BOTS_COMMAND_EVENTS;
+		char const *text = bots_command.events[slot];
 
+		/* (a coach's: what its team sees of it, or nothing) */
+		if (text && view_team != NONE && !(bots_command.event_teams[slot] & (1UL << view_team)))
+		{
+			text = bots_command.event_public[slot];
+			if (!text)
+				continue;
+		}
 		/* (the reply's room kept for the rest: the next request reads on) */
 		if (!text || out.length + (long)strlen(text) + 64 >= reply->size - reply->length - 1)
 			break;
@@ -2178,6 +2939,11 @@ static void bots_command_help(struct bots_command_reply *reply)
 		"                                    teamwork 0-1, weapon <name>|any, vehicles all|none|ghost,...,",
 		"                                    style default|rusher|defender|lone; set <who> reset",
 		"bots add [n] [red|blue]  remove [n]  fill <n>  team <who> <red|blue>",
+		"bots knowledge                      what each team knows: its players, ammo, enemies seen, power items,",
+		"                                    the objective, the last kills (JSON)",
+		"bots match start <map> <gametype> [--bots N] [--seed S] [--score N] [--time M]",
+		"bots match restart | end | status | results | speed <x|max> | at <tick> <line>",
+		"--team red|blue: that team's view alone (a coach's), and its bots alone",
 		"<who>: all, red, blue, a bot's name or number, or several with commas (Johnson,Jenkins)",
 		"--json: one JSON object a line, for scripts and agents",
 		"Examples:",
@@ -2241,9 +3007,43 @@ static boolean bots_command_count(struct bots_command_request const *request, st
 
 boolean bots_command_run(char const *line, char *reply_text, long reply_size)
 {
+	return bots_command_run_as(line, NONE, reply_text, reply_size);
+}
+
+/* match's words (the line's, but --json and --team): bots_match.c's */
+static boolean bots_command_match(char const *line, boolean json, short team, struct bots_command_reply *reply,
+	char *error, long error_size)
+{
+	char copy[BOTS_COMMAND_LINE_SIZE];
+	char *words[BOTS_COMMAND_WORDS];
+	long count, index, kept = 0;
+	boolean done;
+
+	snprintf(copy, sizeof(copy), "%s", line);
+	count = bots_command_words(copy, words, BOTS_COMMAND_WORDS);
+	for (index = 0; index < count; index++)
+	{
+		if (!strcmp(words[index], "--json"))
+			continue;
+		if (!strcmp(words[index], "--team"))
+		{
+			index++;
+			continue;
+		}
+		words[kept++] = words[index];
+	}
+	done = bots_match_command(words + 1, kept - 1, json, team, reply->text + reply->length,
+		reply->size - reply->length, error, error_size);
+	reply->length += (long)strlen(reply->text + reply->length);
+	return done;
+}
+
+boolean bots_command_run_as(char const *line, short scope_team, char *reply_text, long reply_size)
+{
 	struct bots_command_request request;
 	struct bots_command_reply reply;
 	char error[200];
+	char scoped[BOTS_COMMAND_LINE_SIZE];
 	boolean succeeded = TRUE;
 
 	reply.text = reply_text;
@@ -2254,6 +3054,11 @@ boolean bots_command_run(char const *line, char *reply_text, long reply_size)
 	bots_command_traits_ready();
 	if (!bots_command_parse(line, &request, error, sizeof(error)))
 		succeeded = FALSE;
+	else if (scope_team != NONE && request.view_team != NONE && request.view_team != scope_team)
+	{
+		snprintf(error, sizeof(error), "this connection is %s's coach's", bots_command_team_names[scope_team]);
+		succeeded = FALSE;
+	}
 	else if (game_connection() == _game_connection_network_client)
 	{
 		snprintf(error, sizeof(error), "only the game's host directs its bots");
@@ -2261,8 +3066,23 @@ boolean bots_command_run(char const *line, char *reply_text, long reply_size)
 	}
 	else
 	{
-		switch (request.kind)
+		/* (a coach's connection: its team's view, its line's too, which the
+		tick reads again) */
+		if (scope_team != NONE && request.view_team == NONE)
 		{
+			request.view_team = scope_team;
+			snprintf(scoped, sizeof(scoped), "%s --team %s", line, bots_command_team_names[scope_team]);
+			if (strlen(scoped) >= BOTS_COMMAND_LINE_SIZE - 1)
+			{
+				snprintf(error, sizeof(error), "the line is longer than %d characters", BOTS_COMMAND_LINE_SIZE - 12);
+				succeeded = FALSE;
+			}
+			line = scoped;
+		}
+		switch (succeeded ? request.kind : NONE)
+		{
+		case NONE:
+			break;
 		case _bots_request_help:
 			bots_command_help(&reply);
 			break;
@@ -2270,18 +3090,30 @@ boolean bots_command_run(char const *line, char *reply_text, long reply_size)
 			bots_command_status(&reply, request.json);
 			break;
 		case _bots_request_bots:
-			bots_command_bots(&reply, request.json);
+			bots_command_bots(&reply, request.json, request.view_team);
 			break;
 		case _bots_request_places:
-			bots_command_places_answer(&reply, request.json);
+			bots_command_places_answer(&reply, request.json, request.view_team);
 			break;
 		case _bots_request_events:
-			bots_command_events_answer(&reply, request.after, request.json);
+			bots_command_events_answer(&reply, request.after, request.json, request.view_team);
+			break;
+		case _bots_request_knowledge:
+			bots_command_knowledge(&reply, request.view_team, error, sizeof(error), &succeeded);
+			break;
+		case _bots_request_match:
+			if (!bots_command_match(line, request.json, request.view_team, &reply, error, sizeof(error)))
+				succeeded = FALSE;
 			break;
 		case _bots_request_add:
 		case _bots_request_remove:
 		case _bots_request_fill:
-			if (!bots_command_count(&request, &reply, error, sizeof(error)))
+			if (request.view_team != NONE)
+			{
+				snprintf(error, sizeof(error), "a team's coach does not add or remove bots: the host does");
+				succeeded = FALSE;
+			}
+			else if (!bots_command_count(&request, &reply, error, sizeof(error)))
 				succeeded = FALSE;
 			break;
 		default:
@@ -2297,7 +3129,13 @@ boolean bots_command_run(char const *line, char *reply_text, long reply_size)
 				succeeded = FALSE;
 				break;
 			}
-			count = bots_command_select(request.who, selected, error, sizeof(error));
+			if (request.kind == _bots_request_team && request.view_team != NONE)
+			{
+				snprintf(error, sizeof(error), "a team's coach does not move bots between teams: the host does");
+				succeeded = FALSE;
+				break;
+			}
+			count = bots_command_select_for(request.who, request.view_team, selected, error, sizeof(error));
 			if (!count)
 			{
 				succeeded = FALSE;

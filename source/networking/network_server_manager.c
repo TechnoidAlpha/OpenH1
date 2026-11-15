@@ -1836,6 +1836,10 @@ static boolean network_game_server_port_bots_room(
 }
 
 /* how many bots the game wants, with its players as they are */
+/* port: port/linux/game/bots_match.c's: a match the bot control started
+plays with its bots alone, no player in it */
+boolean bots_match_bots_alone(void);
+
 static long network_game_server_port_bots_wanted(
 	struct network_game_server *server,
 	struct network_game_server_bots_census const *census)
@@ -1845,7 +1849,7 @@ static long network_game_server_port_bots_wanted(
 	/* (no bots before a player is in: the lobby's own first player; a
 	player of no team yet counts, as one between two games of other kinds,
 	whom the bots would otherwise leave and join again) */
-	if (!bots_play_game_engine(server->game.variant.game_engine_index) || !census->humans)
+	if (!bots_play_game_engine(server->game.variant.game_engine_index) || (!census->humans && !bots_match_bots_alone()))
 		return 0;
 	wanted = PIN(bots_wanted_count(), 0, BOTS_MAXIMUM);
 	/* (a local game's are filled to it too: the lobby's FILL TO) */

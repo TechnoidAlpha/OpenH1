@@ -106,6 +106,15 @@ spawn (one never seen: there, as the game started it), or back since by
 the spawn's turn; not, the ticks until its next turn there */
 boolean bots_knowledge_item_believed(long bot_index, long item_index, long *ticks_until);
 
+/* what a team (0 red, 1 blue) knows, for its coach (bots_command.c's
+knowledge, bots --team): the last sighting of each enemy its bots saw (at
+most maximum; tick 0 entries left out), how many; and an item's spawn as
+its bots last saw it: FALSE if none of them ever did, else when (seen_tick),
+whether the item lay there, and (gone) the ticks until the spawn's next
+turn, NONE if it is there or back already */
+short bots_knowledge_team_known(short team, struct bots_known_enemy *known, short maximum);
+boolean bots_knowledge_team_item(short team, long item_index, long *seen_tick, boolean *present, long *ticks_until);
+
 /* the minute line's part: the sightings and reports */
 void bots_knowledge_report(char *line, long size);
 
