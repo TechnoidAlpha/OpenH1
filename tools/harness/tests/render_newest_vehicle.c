@@ -1176,6 +1176,88 @@ static void as_before_case(boolean gun_view)
 	seat_gun_view = FALSE;
 }
 
+/* The player on foot turns an A-D strafe at 30 (a Legacy game's rate): each step changes its velocity by a strafe's
+acceleration (speeding up and slowing a tick at a time, as bipeds.c's physics does), its place moved by the new
+velocity. The view drawn from the newest step, carried on by the velocity, would meet each step past or short of
+where it puts the player: it moves on from where it was drawn, never stepping back while the player keeps going
+one way (a step back of more than a tenth of a tick's change), and between the turns never further from the
+player's path than one and a half ticks' change. A start from standing is drawn at once (case_start's rule, here at the second
+pass) */
+static void case_foot_strafe(void)
+{
+	real const top = 0.066f;
+	real const change = 0.011f;
+	real_point3d place = { 10.0f, 20.0f, 1.0f };
+	real velocity_now = 0.0f;
+	real direction = 1.0f;
+	real last_x = 0.0f;
+	real last_move = 0.0f;
+	real worst_back = 0.0f;
+	long frame;
+	long steps = 0;
+	boolean has_last = FALSE;
+
+	world_new(1, TRUE, _director_perspective_first_person);
+	object_get(RIDER)->object.parent_object_index = NONE;
+	object_get(VEHICLE)->object.first_child_object_index = NONE;
+	for (frame = 0; frame < 5 * 160; frame++)
+	{
+		struct observer_result observer;
+		struct observer_result const *drawn;
+		real move;
+
+		if (frame % 5 == 0)
+		{
+			/* (the step: the strafe sped up toward its way, turned at the top) */
+			velocity_now += direction * change;
+			if (velocity_now > top || velocity_now < -top)
+			{
+				velocity_now = direction * top;
+				direction = -direction;
+			}
+			place.x += velocity_now;
+			object_get(RIDER)->object.position = place;
+			object_get(RIDER)->object.translational_velocity.i = velocity_now;
+			object_get(RIDER)->object.translational_velocity.j = 0.0f;
+			object_get(RIDER)->object.translational_velocity.k = 0.0f;
+			world_nodes[absolute(RIDER)][0].position = place;
+			world_nodes[absolute(RIDER)][1].position = place;
+			render_interpolation_register();
+			slot_procedure(0, 1, 1.0f / 30.0f);
+			ticks_ended++;
+			render_interpolation_tick();
+			steps++;
+		}
+		if (ticks_ended < 3)
+			continue;
+		frame_begin((real)(frame % 5) / 5.0f + 0.05f);
+		memset(&observer, 0, sizeof(observer));
+		observer.position = place;
+		vector3d_from_euler_angles2d(&observer.forward, &facing);
+		observer_up_from_forward(&observer.forward, &observer.up);
+		observer.field_of_view = 1.2f;
+		drawn = render_interpolation_camera(0, &observer);
+		CHECK(drawn, "no view drawn");
+		move = drawn->position.x - last_x;
+		/* (a step back: a move against the one before, the player's velocity well off standing still) */
+		if (has_last && move * last_move < 0.0f && fabs(velocity_now) > 2.0f * change && fabs(move) > worst_back)
+			worst_back = (real)fabs(move);
+		CHECK(fabs(drawn->position.x - (place.x + velocity_now * fake_fraction)) <= 1.5f * change,
+			"frame %ld: the view %f from the player's path carried on (a tick's change %f)", frame,
+			drawn->position.x - (place.x + velocity_now * fake_fraction), change);
+		if (has_last && fabs(move) > 1e-6f)
+			last_move = move;
+		else if (!has_last)
+			last_move = 0.0f;
+		last_x = drawn->position.x;
+		has_last = TRUE;
+		render_interpolation_frame_end();
+	}
+	CHECK(steps > 100, "too few steps");
+	CHECK(worst_back <= 0.1f * change, "the view stepped back %f while the player kept going one way (a tick's "
+		"change %f)", worst_back, change);
+}
+
 int main(int argc, char **argv)
 {
 	CHECK(argc == 2, "usage: %s <case>", argv[0]);
@@ -1247,6 +1329,8 @@ int main(int argc, char **argv)
 		as_before_case(FALSE);
 	else if (!strcmp(argv[1], "gun_view"))
 		as_before_case(TRUE);
+	else if (!strcmp(argv[1], "foot_strafe_30"))
+		case_foot_strafe();
 	else
 		CHECK(0, "no case %s", argv[1]);
 	return 0;
