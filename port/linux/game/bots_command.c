@@ -83,7 +83,7 @@ enum
 /* an order this near its point (across, and up or down) is there */
 #define BOTS_COMMAND_ARRIVE_REACH 4.0f
 #define BOTS_COMMAND_ARRIVE_HEIGHT 4.0f
-/* the ground about a point a defence keeps to, a hold, a follower's
+/* the ground about a point a defense keeps to, a hold, a follower's
 distance, and the ground kept about the point an order went to */
 #define BOTS_COMMAND_DEFEND_RADIUS 10.0f
 #define BOTS_COMMAND_HOLD_RADIUS 2.5f
@@ -968,7 +968,7 @@ static long bots_command_host_player(void)
 
 /* an order's target for a bot of that team: coordinates; a place ("red
 base"; "our flag", "enemy base" by the bot's team; "flag" and "base" alone
-its own for a defence, the enemy's otherwise); "me" (the host's player); a
+its own for a defense, the enemy's otherwise); "me" (the host's player); a
 player. FALSE, why in error, for none */
 static boolean bots_command_resolve(short order, short team, char const *text, struct bots_command_target *target,
 	char *error, long error_size)
@@ -1670,7 +1670,7 @@ boolean bots_command_objective(long bot_index, long player_index, real_point3d c
 		bots_command_set_objective(objective, _bots_objective_guard, &point, BOTS_COMMAND_STAY_RADIUS, FALSE);
 		break;
 	default:
-		/* (a defence; an attack, a push, a retreat there: holding the
+		/* (a defense; an attack, a push, a retreat there: holding the
 		ground about it) */
 		bots_command_set_objective(objective, _bots_objective_guard, &point, BOTS_COMMAND_DEFEND_RADIUS, FALSE);
 		break;

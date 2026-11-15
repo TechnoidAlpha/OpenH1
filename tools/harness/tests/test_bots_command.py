@@ -1,6 +1,6 @@
 """The host's commands to its bots (port/linux/game/bots_command.c): a line parsed as the game takes it, its orders,
 traits, counts and the errors it says; the traits a style or a value sets; the goal each order gives a bot (to a point,
-pressing on, about it once there; a hold; a defence; a teammate followed; the enemy flag taken, its carrier hunted),
+pressing on, about it once there; a hold; a defense; a teammate followed; the enemy flag taken, its carrier hunted),
 and that an attack on an enemy goes where the bot's team saw them, never where they are; the lines that come between
 frames applied at the next tick in their order, none before it; the traits' effect on a bot's own play (bots.c). And
 that nothing the tick runs of it takes a random number or a clock, so a game and its replay play the same."""

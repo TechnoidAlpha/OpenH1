@@ -138,7 +138,7 @@ answer's `next` is the number to ask for next time.
 
 ## An agent's loop
 
-Watch, decide, order. A script or an agent such as Claude Code runs the
+Watch, decide, order. A script or an AI agent runs the
 same commands a person does:
 
 ```sh

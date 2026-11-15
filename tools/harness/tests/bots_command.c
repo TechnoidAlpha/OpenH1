@@ -5,7 +5,7 @@ The host's commands to its bots (port/linux/game/bots_command.c): a line
 parsed as the game takes it (its orders, traits, counts and errors); the
 traits an order of style or value sets; the goal each order gives a bot
 (bots_command_objective: to a point pressing on, about it once there, a
-hold, a defence, a teammate followed, the enemy flag's carrier hunted) and
+hold, a defense, a teammate followed, the enemy flag's carrier hunted) and
 that an attack on an enemy goes only where the bot's team saw them, never
 where they are; the lines queued between frames applied at the tick in the
 order they came, none before it; and the traits' effect on a bot's play
