@@ -4237,7 +4237,20 @@ def _server_settings() -> list:
     lines = [line.replace(f'<child widget="{base}/button_defaults" y="1"/>', "") for line in lines]
     lines = [line.replace('<on event="b" back="true"/>', SCREEN_BACK[0])
              .replace('<on event="back" back="true"/>', SCREEN_BACK[1]) for line in lines]
-    return lines
+    # (Start is START GAME on the whole screen: the screen's own handler, which takes it before the focused row
+    # does, never a row's A (GAME NAME's rename, a setting's screen); A still edits the row)
+    start = f'<on event="start" run="ss start game" open="{MT}/lobby/lobby_screen"/>'
+    started, widget = [], None
+    for line in lines:
+        named = re.match(r'\t<widget name="([^"]+)"', line)
+        if named:
+            widget = named.group(1)
+        if widget and widget.startswith(f"{base}/op_") and line.strip().startswith('<on event="start"'):
+            continue
+        started.append(line)
+        if named and widget == f"{base}/server_settings_screen":
+            started.append(f"\t\t{start}")
+    return started
 
 
 MAXIMUM_PLAYERS = [2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]

@@ -2,6 +2,7 @@
 <!-- The behaviour of ce/main_menu.multiplayer_type_select.server_settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
 <model>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/server_settings_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="start" run="ss start game" open="main_menu/multiplayer_type_select/lobby/lobby_screen"/>
 		<on event="b" run="gamespy back handler"/>
 		<on event="back" run="gamespy back handler"/>
 	</behaviour>
@@ -11,7 +12,6 @@
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_server_name" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="ss edit server name"/>
-		<on event="start" run="ss edit server name"/>
 		<on event="b"/>
 		<on event="back"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -24,7 +24,6 @@
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_invite" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="ss copy invite"/>
-		<on event="start" run="ss copy invite"/>
 		<on event="b"/>
 		<on event="back"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -35,54 +34,44 @@
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_password" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="ss edit server password"/>
-		<on event="start" run="ss edit server password"/>
 		<on event="b"/>
 		<on event="back"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_map_share_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" open="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen"/>
-		<on event="start" open="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_coop_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" open="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen"/>
-		<on event="start" open="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_voice_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" open="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen"/>
-		<on event="start" open="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_game_type" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen"/>
-		<on event="start" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_player_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen"/>
-		<on event="start" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_item_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen"/>
-		<on event="start" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_vehicle_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen"/>
-		<on event="start" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_indicator_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen"/>
-		<on event="start" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/op_team_options" flags="pass_unhandled_to_focused_child">
 		<on event="a" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen"/>
-		<on event="start" run="port setup edit" open="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/button_defaults">

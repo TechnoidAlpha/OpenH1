@@ -6365,6 +6365,9 @@ static struct
 	/* the game on the first row (the local network's and Join by Link's
 	list, scrolled on at its ends as the server browser's is) */
 	short game_first;
+	/* (the first game found shown: it took the focus, as the server
+	browser's does) */
+	boolean game_shown;
 	/* the game under way whose lobby is shown before joining it: its key
 	(the client's slot it is in may come to hold another game) */
 	byte preview_key_id[8];
@@ -8808,6 +8811,7 @@ static boolean browser_initialize(struct widget_instance *screen, struct event_r
 		visible_set(named(screen, "header_sort_arrows", index), FALSE);
 	multiplayer.game_chosen = 0;
 	multiplayer.game_first = 0;
+	multiplayer.game_shown = FALSE;
 	/* (the server browser's games are internet play's listings; joining
 	one reaches its host, whose game the client then finds as Direct Link's) */
 	if (multiplayer.mode == _multiplayer_mode_server_browser)
@@ -12011,6 +12015,19 @@ static void local_browser_model(struct menu_table_view *view)
 		view->focus = ++focused;
 	}
 	multiplayer.game_first = (short)PIN(multiplayer.game_first, 0, MAX(0, rows - shown_rows));
+	/* (the first game found takes the focus from the tabs or the buttons,
+	which had it while there were none, as the server browser's does
+	(lobby_browser_model): A joins it at once) */
+	if (rows && !multiplayer.game_shown)
+	{
+		multiplayer.game_shown = TRUE;
+		if (shown_rows && !view->hover)
+		{
+			view->focus = 0;
+			view->focus_titles = FALSE;
+			focused = 0;
+		}
+	}
 	if (focused != NONE && multiplayer.game_first + focused < rows && !view->hover)
 		multiplayer.game_chosen = (short)(multiplayer.game_first + focused);
 	chosen = multiplayer.game_chosen;

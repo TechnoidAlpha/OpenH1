@@ -422,6 +422,9 @@ struct screen_tall
 	/* (the focus put on the bar for want of a row: back on the first row
 	that comes, unless it has been moved since) */
 	boolean focus_waiting;
+	/* (the body's focus last frame: which way the d-pad moved it onto the
+	column titles, tall_titles_passed) */
+	struct widget_instance *focus_last;
 	/* its chat: its block and source, its height (the table's foot over it),
 	its panel, each line's name and words, the line typed's place, and the
 	layer its on-screen keyboard is drawn on, over the rest */
@@ -3125,6 +3128,8 @@ static void tall_lineup_names_frame(struct screen_tall *tall, struct screen_open
 	}
 }
 
+static void tall_titles_passed(struct screen_tall *tall);
+
 static void tall_frame(struct screen_open *open)
 {
 	struct screen_tall *tall = tall_of(open);
@@ -3191,6 +3196,7 @@ static void tall_frame(struct screen_open *open)
 	part it: the d-pad steps the body, the band's button among its blocks) */
 	if (screen->focused_child != tall->body && !ui_widget_port_pointer_focused())
 		screen->focused_child = tall->body;
+	tall_titles_passed(tall);
 	/* (the focus off what cannot have it: the first row, else the bar) */
 	focused = tall->body->focused_child;
 	if (tall->focus_waiting && focused != tall->bar)
@@ -3300,6 +3306,44 @@ static void tall_chat_keyboard_draw(struct screen_tall *tall, point2d offset)
 			(short)(offset.y + y1), screen_width, (short)SCREEN_HEIGHT);
 	}
 	(void)ui_offset;
+}
+
+/* the column titles passed over by the d-pad and the stick with a
+controller's prompts (the pointer's alone then: X sorts, R3 searches, and
+their row lit nothing, so a press of A there sorted the list in place of
+joining the game the row and the panel showed): the focus moved onto them
+goes on the way it came, down from the tabs to the first row (or the next
+block below), up from the rows to the tabs (or the next block above). With
+the keyboard's prompts they stay a stop of the arrows, as they were (Enter
+sorts); the pointer still focuses and clicks them */
+static void tall_titles_passed(struct screen_tall *tall)
+{
+	struct widget_instance *focused = tall->body->focused_child;
+	struct widget_instance *each, *tail;
+	boolean down = FALSE;
+
+	if (focused && focused == tall->titles && focused != tall->focus_last && !ui_widget_port_pointer_focused() &&
+		!halo_keyboard_prompts() && !tall_search_editing(tall))
+	{
+		/* (down: it came from a block before the titles in the body) */
+		for (each = tall->titles->previous; each; each = each->previous)
+			down |= each == tall->focus_last;
+		for (tail = tall->body->child; tail && tail->next; tail = tail->next)
+			;
+		each = down ? tall->titles->next : tall->titles->previous;
+		while (each != tall->titles)
+		{
+			if (!each)
+				each = down ? tall->body->child : tail;
+			else if (each->visible && !each->disabled)
+				break;
+			else
+				each = down ? each->next : each->previous;
+		}
+		if (each && each != tall->titles)
+			tall_focus(tall->body, each);
+	}
+	tall->focus_last = tall->body->focused_child;
 }
 
 /* ---------- events */

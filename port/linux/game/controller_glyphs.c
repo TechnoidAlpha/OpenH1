@@ -66,13 +66,23 @@ void controller_glyphs_dispose(void)
     memset(controller_glyph_cache, 0, sizeof(controller_glyph_cache));
 }
 
+/* The menus are drawn outside a player's view (the screen's): their LB and
+ * RB (the tabs' keys, Host Controls', chat's) name the shoulder buttons every
+ * pad has, never the original Xbox's white and black, which only its own
+ * controller had. In a view (the HUD) display.hud_bumper_style decides. */
+static boolean controller_glyph_in_menus(void)
+{
+    return render.local_player_index < 0 || render.local_player_index >= 4;
+}
+
 static short controller_glyph_asset_index(short style, short slot)
 {
     short family;
     /* Older Xbox styles can use the supplied modern bumpers independently of
-     * their face buttons. The caller has already resolved automatic detection. */
+     * their face buttons (and always in the menus). The caller has already
+     * resolved automatic detection. */
     if (style >= 0 && style < 3 && (slot == 4 || slot == 5) &&
-        !strcmp(config_string("display.hud_bumper_style"), "modern"))
+        (controller_glyph_in_menus() || !strcmp(config_string("display.hud_bumper_style"), "modern")))
         return (short)(32 + slot - 4);
     if (style < 3 || style >= 11 || slot < 0 || slot >= 14) return NONE;
     if (slot < 4) return (short)((style - 3) * 4 + slot);

@@ -3555,6 +3555,65 @@ static boolean widget_instance_can_receive_events(
 	return TRUE;
 }
 
+/* port: a list that steps the focus through its children (the map and
+gametype lists' up_down_tabs_children, and any other such list), given the
+focus as its screen opens again from the history, focused on a child of its
+own: the one it had as it was made (its "created" handler's, the map or
+gametype chosen last), else its first that takes events. Giving the focus
+clears focused_child all along the old focus's path, and
+widget_instance_refocus_passthrough leaves alone a widget with handlers of
+its own, as these lists are (they open the next screen), so the focus stayed
+on the list itself: no row lit, and A and Start did nothing until the d-pad
+moved */
+static void widget_instance_port_refocus_list(
+	struct widget_instance *list,
+	struct widget_instance *kept)
+{
+	struct ui_widget_definition *definition;
+	struct widget_instance *child;
+	short index;
+
+	if (!list || list->focused_child || !list->child)
+		return;
+	definition = ui_widget_definition_get(list->definition_tag_index);
+	if (!TEST_FLAG(definition->flags, _widget_dpad_updown_tabs_thru_children_bit) &&
+		!TEST_FLAG(definition->flags, _widget_dpad_leftright_tabs_thru_children_bit))
+	{
+		return;
+	}
+	for (child = list->child, index = 0; child && child != kept; child = child->next, index++)
+		;
+	if (!child || child->disabled || !child->visible ||
+		(list->type == _ui_widget_type_column_list && pc_menu_tag(list->definition_tag_index) &&
+			widget_instance_port_is_label(child)))
+	{
+		for (child = list->child, index = 0; child; child = child->next, index++)
+		{
+			struct ui_widget_definition *child_definition = ui_widget_definition_get(child->definition_tag_index);
+
+			if (child->disabled || !child->visible)
+				continue;
+			if (list->type == _ui_widget_type_column_list && pc_menu_tag(list->definition_tag_index) &&
+				widget_instance_port_is_label(child))
+			{
+				continue;
+			}
+			if (child_definition->event_handlers.count > 0 ||
+				TEST_FLAG(child_definition->flags, _widget_pass_unhandled_events_to_children_bit) ||
+				list->type == _ui_widget_type_spinner_list || list->type == _ui_widget_type_column_list)
+			{
+				break;
+			}
+		}
+	}
+	if (!child)
+		return;
+	list->focused_child = child;
+	if (list->type == _ui_widget_type_spinner_list || list->type == _ui_widget_type_column_list)
+		list->parameters.list.selected_index = index;
+	widget_instance_refocus_passthrough(child);
+}
+
 static void widget_instance_set_focused_child_by_index(
 	long tag_index,
 	struct widget_instance *widget,
@@ -3581,7 +3640,10 @@ static void widget_instance_set_focused_child_by_index(
 			}
 			if (index == child_index)
 			{
+				struct widget_instance *kept = child->focused_child; /* port */
+
 				widget_instance_give_focus_directly(widget, child);
+				widget_instance_port_refocus_list(child, kept); /* port */
 				if (child->parent &&
 					(child->parent->type == _ui_widget_type_spinner_list ||
 					child->parent->type == _ui_widget_type_column_list))
@@ -3601,7 +3663,10 @@ static void widget_instance_set_focused_child_by_index(
 			!(parent->type == _ui_widget_type_spinner_list &&
 			ui_widget_definition_get(parent->definition_tag_index)->child_widgets.count > 1))
 		{
+			struct widget_instance *kept = parent->focused_child; /* port */
+
 			widget_instance_give_focus_directly(widget, parent);
+			widget_instance_port_refocus_list(parent, kept); /* port */
 		}
 	}
 
