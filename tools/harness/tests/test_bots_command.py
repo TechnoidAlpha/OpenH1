@@ -26,7 +26,8 @@ BOTS_FUNCTIONS = ("bots_bot_recharge_shield", "bots_bot_team_minded")
 # what the tick runs of it (bots_command_tick_begin's lines, the goals each bot asks for each tick)
 TICK_FUNCTIONS = ("bots_command_tick_begin", "bots_command_apply", "bots_command_order_give", "bots_command_resolve",
                   "bots_command_places", "bots_command_select", "bots_command_objective", "bots_command_flag_events",
-                  "bots_command_note_kill", "bots_command_team_middle", "bots_command_trait_set")
+                  "bots_command_note_kill", "bots_command_team_middle", "bots_command_trait_set",
+                  "bots_command_select_for", "bots_command_objective_events", "bots_command_hill_control")
 # a random number, a clock: what would make a replay part from its game
 NONDETERMINISTIC = re.compile(r"\b(rand|random|srand|time|clock|system_milliseconds|SDL_GetTicks\w*|"
                               r"posix_random_bytes|bots_random\w*)\s*\(")
