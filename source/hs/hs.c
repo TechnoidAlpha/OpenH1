@@ -2810,6 +2810,7 @@ symbols in this file:
 #include "network_host_controls.h" /* port: port/linux/game/network_host_controls.c */
 #include "network_host_game.h" /* port: port/linux/game/network_host_game.c */
 #include "server_director.h" /* port: port/linux/game/server_director.c */
+#include "bots_command.h" /* port: port/linux/game/bots_command.c */
 #include "objects/damage.h"
 #include "objects/object_lights.h"
 #include "objects/scenery.h"
@@ -15793,6 +15794,14 @@ static boolean hs_compile_and_evaluate_command(
 
 		if (server_command_try(expression, &server_result))
 			return server_result;
+	}
+	/* port: the host's words to its bots ("bots order red defend red flag":
+	port/linux/game/bots_command.c), on the machine that hosts the game */
+	{
+		boolean bots_result;
+
+		if (bots_command_console(expression, &bots_result))
+			return bots_result;
 	}
 	/* port: the co-op host's bringto, which brings every player to the host
 	(players.c; a client is told it is the host's) */

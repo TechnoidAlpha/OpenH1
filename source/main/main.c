@@ -704,6 +704,8 @@ typedef char screenshot_and_framerate_globals_size_assert[
 	sizeof(struct _screenshot_and_framerate_globals) == 0x38B ? 1 : -1];
 
 void network_test_update(boolean main_menu_loaded, real seconds);
+/* port: the host's control connection to its bots (port/linux/src/bot_control.c) */
+void bot_control_frame(void);
 #include "demo.h" /* port: port/linux/game/demo.c */
 /* port: port/linux/game/basic_training.c */
 void basic_training_update(boolean main_menu_loaded, real seconds);
@@ -4027,6 +4029,9 @@ void main_loop(
 			/* port: Basic Training's game started, its skip buttons
 			(port/linux/game/basic_training.c) */
 			basic_training_update(main_globals.main_menu_scenario_loaded, main_globals.seconds_elapsed);
+			/* port: the host's control connection to its bots, its requests
+			answered between frames (port/linux/src/bot_control.c) */
+			bot_control_frame();
 			/* port: the game's start's phases, and the menus' pictures in
 			theirs (port/linux/game/menu_pictures_render.c) */
 			main_startup_update();

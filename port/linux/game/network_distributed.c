@@ -108,6 +108,7 @@ machine (their datum identifiers need not be).
 #include "profile_sections.h"
 #include "server_director.h"
 #include "demo.h"
+#include "bots_command.h"
 
 #include <limits.h>
 #include <stdio.h>
@@ -6376,6 +6377,8 @@ void network_distributed_player_killed(
 			killing_object->object.type == _object_type_vehicle;
 		distributed_statistics_due = TRUE;
 		server_event_player_killed(*killing_player_index, *killing_object_index, dead_player_index, *friendly_fire);
+		/* port: the bots' watch (bots_command.c) */
+		bots_command_note_kill(*killing_player_index, *killing_object_index, dead_player_index);
 	}
 	else if (game_connection() == _game_connection_network_client && death->valid)
 	{

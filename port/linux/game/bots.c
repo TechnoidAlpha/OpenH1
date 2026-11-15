@@ -145,6 +145,7 @@ and each bot's kills and deaths; debug.bot_trace logs each bot's state.
 #include "bots_profile.h"
 #include "bots_vehicles.h"
 #include "bots_objectives.h"
+#include "bots_command.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -1032,7 +1033,12 @@ int bots_training_on(void)
 long bots_team(long bot_index, long players_team, long chosen_team)
 {
 	if (!bots_training.on)
-		return chosen_team;
+	{
+		/* (its host's "bots add <n> <team>": bots_command.h) */
+		short wanted = bots_command_join_team(bot_index);
+
+		return wanted == 0 || wanted == 1 ? wanted : chosen_team;
+	}
 	if (players_team != 0 && players_team != 1)
 		players_team = 0;
 	return bot_index == BOTS_TRAINING_TEAMMATE ? players_team : 1 - players_team;
@@ -1535,7 +1541,8 @@ static long bots_find_item(struct bots_bot *bot, struct unit_datum *unit, real_p
 		bots_weapon_value(weapon_get(current)->definition_index) : 0;
 	/* (debug.bot_player_weapon: the first player's bot goes for that weapon
 	wherever it lies, and keeps it; debug.bots_weapon every bot) */
-	char const *preferred = bots_weapon_wanted(bot);
+	char const *preferred = *bots_weapon_wanted(bot) || bot->smooth ? bots_weapon_wanted(bot) :
+		bots_command_weapon(bot->index);
 	char const *current_name = current != NONE ? tag_get_name(weapon_get(current)->definition_index) : NULL;
 
 	short slot;
@@ -2247,6 +2254,7 @@ void bots_initialize_for_new_map(void)
 	bots_knowledge_reset();
 	bots_tactics_reset();
 	bots_objectives_reset();
+	bots_command_reset();
 	/* (the first line a minute into the game) */
 	bots_globals.last_report_tick = 0;
 	/* (the weapon definitions are the new map's) */
@@ -2258,6 +2266,7 @@ void bots_dispose_from_old_map(void)
 	bots_knowledge_reset();
 	bots_tactics_reset();
 	bots_objectives_reset();
+	bots_command_reset();
 	bots_paths_release();
 	bots_globals.map_ready = FALSE;
 }
@@ -2888,6 +2897,8 @@ static boolean bots_target_score(struct bots_bot *bot, struct player_datum *play
 		candidate->score -= bots_tactics_target_bonus(bot->index, player_index);
 		/* (its game's: the carrier of its flag, of a ball; one in a hill) */
 		candidate->score -= bots_objectives_target_bonus(bot->player_index, player_index);
+		/* (its host's: the player it was told to attack) */
+		candidate->score -= bots_command_target_bonus(bot->index, player_index);
 	}
 	/* (debug.bot_player's rocket launcher: the enemy with the most others
 	about them, a group for one rocket) */
@@ -3356,6 +3367,10 @@ static boolean bots_choose_vehicle(struct bots_bot *bot, long player_index, real
 	{
 		long vehicle_index = iterator.index;
 		short kind = bots_vehicle_kind(vehicle_index);
+
+		/* (the kinds its host lets it take: bots_command.h) */
+		if (!bot->smooth && !bots_command_vehicle_allowed(bot->index, kind))
+			continue;
 		real distance = bots_distance3d(&vehicle->object.position, position);
 		long driver = unit_get(vehicle_index)->unit.driver_object_index;
 		real_point3d entrance;
@@ -3654,6 +3669,31 @@ static long bots_point_ground(real_point3d const *point, real_point3d *ground)
 	return surface_index;
 }
 
+boolean bots_point_on_ground(real_point3d const *point)
+{
+	real_point3d ground;
+
+	return bots_point_ground(point, &ground) != NONE;
+}
+
+boolean bots_bot_view(long bot_index, struct bots_bot_view *view)
+{
+	struct bots_bot const *bot;
+
+	csmemset(view, 0, sizeof(*view));
+	view->target_player_index = NONE;
+	if (bot_index < 0 || bot_index >= BOTS_MAXIMUM || bots_player_of_bot(bot_index) == NONE)
+		return FALSE;
+	bot = &bots_globals.bots[bot_index];
+	if (bot->player_index != bots_player_of_bot(bot_index))
+		return TRUE;
+	view->goal = bot->goal_kind;
+	view->fighting = bot->fighting;
+	view->target_player_index = bot->fighting ? bot->target_player_index : NONE;
+	view->in_vehicle = bot->in_vehicle;
+	return TRUE;
+}
+
 static boolean bots_set_tactic_goal(struct bots_bot *bot, real_point3d const *point)
 {
 	real_point3d ground;
@@ -3843,6 +3883,29 @@ static boolean bots_choose_objective(struct bots_bot *bot, real_point3d const *p
 	return TRUE;
 }
 
+/* what the bot does for its host's order (bots_command.h), else for its
+game's objective: FALSE for neither */
+static boolean bots_bot_objective(struct bots_bot const *bot, long player_index, real_point3d const *position,
+	struct bots_objective *objective)
+{
+	if (bot->smooth)
+		return FALSE;
+	return bots_command_objective(bot->index, player_index, position, objective) ||
+		bots_objectives_goal(bot->index, player_index, position, objective);
+}
+
+/* the bot takes its team's ask (bots_tactics.h) now, by its teamwork
+(bots_command.h: 1, always, as the bots always did; 0, never; between, for
+that share of three-second turns, by its number and the game's clock) */
+static boolean bots_bot_team_minded(struct bots_bot const *bot, long now)
+{
+	real teamwork = bots_command_teamwork(bot->index);
+
+	if (teamwork >= 1.0f)
+		return TRUE;
+	return (real)((bot->index * 37 + now / (TICKS_PER_SECOND * 3)) % 100) < teamwork * 100.0f;
+}
+
 static void bots_choose_goal(struct bots_bot *bot, long player_index, real_point3d const *position, boolean fighting)
 {
 	struct unit_datum *own_unit = unit_get(player_get(player_index)->unit_index);
@@ -3850,7 +3913,7 @@ static void bots_choose_goal(struct bots_bot *bot, long player_index, real_point
 	short tactic;
 	real_point3d tactic_point;
 	struct bots_objective objective;
-	boolean has_objective = !bot->smooth && bots_objectives_goal(bot->index, player_index, position, &objective);
+	boolean has_objective = bots_bot_objective(bot, player_index, position, &objective);
 
 	if (!has_objective)
 	{
@@ -3893,7 +3956,8 @@ static void bots_choose_goal(struct bots_bot *bot, long player_index, real_point
 			return;
 	}
 	/* (its team's ask, bots_tactics.h: none, a goal of it left) */
-	tactic = bot->smooth ? (short)_bots_tactic_none : bots_tactics_goal(bot->index, position, &tactic_point);
+	tactic = bot->smooth || !bots_bot_team_minded(bot, now) ? (short)_bots_tactic_none :
+		bots_tactics_goal(bot->index, position, &tactic_point);
 	if (tactic == _bots_tactic_none && bot->goal_kind == _bots_goal_tactic)
 		bot->goal_kind = _bots_goal_none;
 	/* (carrying a flag home, running with a ball: before all else) */
@@ -3929,8 +3993,10 @@ static void bots_choose_goal(struct bots_bot *bot, long player_index, real_point
 	own chase) */
 	if ((tactic == _bots_tactic_trade || tactic == _bots_tactic_fall_back) && bots_set_tactic_goal(bot, &tactic_point))
 		return;
+	/* (after an enemy lost from sight: 8 seconds, longer the more aggressive
+	the bot (bots_command.h: 3 at 0, 13 at 1)) */
 	if (!fighting && bot->target_player_index != NONE && bot->target_last_surface_index != NONE &&
-		now - bot->target_seen_tick < TICKS_PER_SECOND * 8)
+		now - bot->target_seen_tick < (long)(TICKS_PER_SECOND * (3.0f + 10.0f * bots_command_aggression(bot->index))))
 	{
 		bots_set_goal(bot, _bots_goal_enemy, &bot->target_last_position, bot->target_last_surface_index);
 		return;
@@ -5833,7 +5899,7 @@ static boolean bots_bot_press_on(struct bots_bot *bot, struct bots_tick *tick)
 {
 	struct bots_objective objective;
 
-	if (bot->smooth || !bots_objectives_goal(bot->index, bot->player_index, &tick->position, &objective) ||
+	if (bot->smooth || !bots_bot_objective(bot, bot->player_index, &tick->position, &objective) ||
 		!objective.press_on)
 	{
 		return FALSE;
@@ -5849,7 +5915,8 @@ static boolean bots_bot_press_on(struct bots_bot *bot, struct bots_tick *tick)
 static void bots_bot_fall_back(struct bots_bot *bot, struct bots_tick *tick)
 {
 	real_point3d point;
-	short tactic = bot->smooth ? (short)_bots_tactic_none : bots_tactics_goal(bot->index, &tick->position, &point);
+	short tactic = bot->smooth || !bots_bot_team_minded(bot, tick->now) ? (short)_bots_tactic_none :
+		bots_tactics_goal(bot->index, &tick->position, &point);
 
 	if (tactic == _bots_tactic_fall_back && bots_set_tactic_goal(bot, &point))
 		tick->goal_in_fight = TRUE;
@@ -5860,6 +5927,17 @@ static void bots_bot_fall_back(struct bots_bot *bot, struct bots_tick *tick)
 /* its shield down in a fight with no kill near (the enemy not low itself):
 back to cover to let it come back, four seconds at most and not again for
 ten; TRUE while it does (its goal the cover) */
+/* the shield below which a fighting bot falls back to cover: 0.15, or by
+its aggression (bots_command.h: 0.4 at 0, never at 0.8 and more) */
+static real bots_bot_recharge_shield(struct bots_bot const *bot)
+{
+	real aggression = bots_command_aggression(bot->index);
+
+	if (aggression >= 0.8f)
+		return -1.0f;
+	return aggression == 0.5f ? 0.15f : PIN(0.4f - aggression * 0.5f, 0.0f, 0.4f);
+}
+
 static boolean bots_bot_recharge(struct bots_bot *bot, struct bots_tick *tick)
 {
 	struct player_datum *target_player;
@@ -5885,7 +5963,8 @@ static boolean bots_bot_recharge(struct bots_bot *bot, struct bots_tick *tick)
 		}
 	}
 	if (bot->smooth || now < bot->recharge_next_tick || bot->target_player_index == NONE ||
-		now - bot->target_seen_tick > TICKS_PER_SECOND / 2 || tick->object->object.shield_vitality > 0.15f ||
+		now - bot->target_seen_tick > TICKS_PER_SECOND / 2 ||
+		tick->object->object.shield_vitality > bots_bot_recharge_shield(bot) ||
 		tick->object->object.parent_object_index != NONE || !game_engine_has_shield(bot->player_index) ||
 		bots_objectives_carrying(bot->player_index))
 	{
@@ -6030,7 +6109,7 @@ static void bots_pick_drive_goal(struct bots_bot *bot, real_point3d const *posit
 
 	/* (its game's objective: a flag to take or carry home, its carrier to
 	run down, a hill) */
-	if (bots_objectives_goal(bot->index, bot->player_index, position, &objective) &&
+	if (bots_bot_objective(bot, bot->player_index, position, &objective) &&
 		(objective.kind == _bots_objective_take || objective.kind == _bots_objective_carry ||
 			objective.kind == _bots_objective_hunt || objective.kind == _bots_objective_hill) &&
 		bots_choose_objective(bot, position, &objective))
@@ -6789,6 +6868,12 @@ static void bots_bot_update(struct bots_bot *bot, long bot_index, struct player_
 	{
 		tick.skill = &bots_skills[bots_training.orders[bot_index].skill];
 	}
+	/* (and its host's trait: bots_command.h) */
+	else if (bot_index < BOTS_MAXIMUM && bots_command_skill(bot_index) >= 0 &&
+		bots_command_skill(bot_index) < NUMBER_OF_BOTS_SKILLS)
+	{
+		tick.skill = &bots_skills[bots_command_skill(bot_index)];
+	}
 	tick.player = player_get(bot->player_index);
 	tick.now = game_time_get();
 	tick.throttle_scale = 1.0f;
@@ -7255,6 +7340,9 @@ void bots_update_actions(struct player_action *actions)
 		return;
 	}
 	bots_settings_read();
+	/* (the host's lines since the last tick: its orders and traits, at the
+	tick's start, before any bot: bots_command.h) */
+	bots_command_tick_begin();
 	data_iterator_new(&iterator, player_data);
 	while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
 	{

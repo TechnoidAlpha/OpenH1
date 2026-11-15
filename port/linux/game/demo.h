@@ -114,5 +114,8 @@ void demo_frame(boolean main_menu_loaded, real seconds);
 /* the clip key: the demo being recorded or played marked here (its last
 demo.clip_seconds) */
 void demo_bookmark(void);
+/* a line of the host's to its bots, applied in the tick (bots_command.c):
+recorded where it was, for demo_info.py and the playback's log */
+void demo_record_bot_command(char const *line);
 
 #endif

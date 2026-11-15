@@ -1242,6 +1242,14 @@ for a bot, and the carnage report names it "(Bot)". The bots stay from game
 to game, and go with the host's game; the welcome to OpenCE players goes to
 real machines alone.
 
+### Directing the bots
+
+The host can command its bots from outside the game, by hand or from a
+script or an AI agent: `halo --bot-control` (or `bots.control`), then
+`halo bots order red defend red flag`, `halo bots set blue aggression 0.9`,
+`halo bots watch --json`. The bots keep their own aim and movement; orders
+are goals. `docs/bot_control.md` has the commands and an agent's loop.
+
 ## OpenCE gametypes
 
 Create Game's Select Gametype screen has a bank between STANDARD and
@@ -1495,6 +1503,8 @@ the setting for one start of the game. It has priority over the file.
 | `bots.share_sightings` | `true` | `HALO_BOTS_SHARE_SIGHTINGS` | A team's bots share the enemies they see, each sighting reaching the team's other bots `bots.share_delay` after it, as a callout would; it counts for where they go and look, never for their aim (a bot fires only at what it sees). `false`: a bot knows only what it saw itself. |
 | `bots.share_delay` | `1.0` | `HALO_BOTS_SHARE_DELAY` | With `bots.share_sightings`: the seconds from a bot's sighting of an enemy to its teammates' knowing of it (0 to 5). |
 | `bots.vehicles` | `true` | `HALO_BOTS_VEHICLES` | On maps with open ground, the bots use the vehicles as people do: they ride a teammate's Warthog (the gun first), drive a Warthog, a Ghost or a Scorpion and fly a Banshee they find near, run players down, circle a fight for their gunner, make strafing runs in a Banshee, put an overturned vehicle back on its wheels, and get out of one stuck or overturned (refer to "Bots"). `false`: the bots stay on foot. |
+| `bots.control` | `false` | `HALO_BOT_CONTROL` | `true`: scripts and agents on this computer direct the bots of the games it hosts (`halo bots <command>`): orders, traits, adding and removing bots. The game listens on 127.0.0.1 alone, with a token it writes to `bot_control.txt` next to `config.toml`, new each time. Also `halo --bot-control`. A dedicated server takes the same commands from its admins (RCON, HTTP: `bots <command>`) whatever this says. Refer to `docs/bot_control.md`. |
+| `bots.control_port` | `25190` | `HALO_BOT_CONTROL_PORT` | With `bots.control`: the TCP port of 127.0.0.1 it listens on (the next nine if that one is taken). |
 | `demo.record` | `false` | `HALO_DEMO_RECORD` | `true`: every game this computer plays or hosts (the campaign, split screen, games with bots, a network game it hosts, a dedicated server's) is recorded as a demo in the data root's `demos/` folder: each tick's input and whatever reached the game from elsewhere, which plays back exactly (`docs/demos.md`). A game joined on another machine is not recorded yet. Off by default. |
 | `demo.keep_count`, `demo.keep_megabytes` | `20`, `2048` | `HALO_DEMO_KEEP_COUNT`, `HALO_DEMO_KEEP_MEGABYTES` | The most demos kept, and the most they may take of the disk in MB, whichever is less: the oldest are deleted as a new one begins. A pinned demo (moved to `demos/kept/`) is never deleted nor counted. |
 | `demo.snapshot_seconds` | `10.0` | `HALO_DEMO_SNAPSHOT_SECONDS` | How often a demo keeps the whole game state, in seconds, for its playback to seek to. |

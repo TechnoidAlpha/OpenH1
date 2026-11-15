@@ -1374,6 +1374,17 @@ static const struct config_setting config_settings[] =
 	{ "bots.share_delay", _config_real, "1.0", "HALO_BOTS_SHARE_DELAY", _environment_value, _platform_all,
 		"With bots.share_sightings: the seconds from a bot's sighting of an\n"
 		"enemy to its teammates' knowing of it (0 to 5)." },
+	{ "bots.control", _config_boolean, "false", "HALO_BOT_CONTROL", _environment_value, _platform_all,
+		"The host's control of its bots from outside the game (scripts, agents,\n"
+		"`halo bots <command>`): orders, traits, adding and removing bots. true:\n"
+		"a game this computer runs listens on 127.0.0.1 alone, with a token it\n"
+		"writes to bot_control.txt next to config.toml, new each time. Also\n"
+		"`halo --bot-control`. A dedicated server takes the same commands from its\n"
+		"admins (RCON, HTTP: \"bots <command>\") whatever this says\n"
+		"(docs/bot_control.md)." },
+	{ "bots.control_port", _config_integer, "25190", "HALO_BOT_CONTROL_PORT", _environment_value, _platform_all,
+		"With bots.control: the TCP port of 127.0.0.1 it listens on (the next\n"
+		"nine if that one is taken)." },
 	{ "bots.vehicles", _config_boolean, "true", "HALO_BOTS_VEHICLES", _environment_value, _platform_all,
 		"On maps with open ground, the bots use the vehicles as people do: they\n"
 		"ride a teammate's Warthog (the gun first), drive a Warthog, a Ghost or\n"
@@ -3047,6 +3058,18 @@ int config_command_line_value(const char *name, char *value, unsigned long size)
 	(void)name;
 	if (size)
 		value[0] = 0;
+	return 0;
+#endif
+}
+
+/* whether the command line has the argument (halo --bot-control), for the
+game's port code */
+int config_command_line_flag(const char *name)
+{
+#ifndef HALO_ANDROID
+	return config_argument(name, NULL, 0);
+#else
+	(void)name;
 	return 0;
 #endif
 }

@@ -2048,7 +2048,9 @@ static void network_game_server_port_bots_ingame(
 
 		if (census.slot_of_bot[bot_index] != NONE)
 			continue;
-		team_index = network_game_server_port_bots_team(&census, census.team_counts);
+		/* port: (the team its host chose for it: bots.c's bots_team) */
+		team_index = bots_team(bot_index, census.human_team,
+			network_game_server_port_bots_team(&census, census.team_counts));
 		network_game_server_port_bots_room(server, census.bots + 1);
 		bots_network_player(bot_index, &joining);
 		joining.team_index = (char)team_index;

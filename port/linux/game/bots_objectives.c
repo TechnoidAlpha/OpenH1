@@ -807,6 +807,21 @@ boolean bots_objectives_in_hill(real_point3d const *point)
 	return FALSE;
 }
 
+boolean bots_objectives_flag(short team, long *object_index, real_point3d *position, long *carrier,
+	boolean *at_home)
+{
+	if (bots_objectives.engine != game_engine_ctf || team < 0 || team >= OBJECTIVES_TEAMS ||
+		bots_objectives.flags[team] == NONE)
+	{
+		return FALSE;
+	}
+	*object_index = bots_objectives.flags[team];
+	*position = bots_objectives.flag_positions[team];
+	*carrier = bots_objectives.flag_carriers[team];
+	*at_home = bots_objectives.flag_at_home[team];
+	return TRUE;
+}
+
 void bots_objectives_report(char *line, long size)
 {
 	struct data_iterator iterator;
