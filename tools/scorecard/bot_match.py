@@ -110,7 +110,13 @@ def play(game, maps, folder, seed, speed, replay=None, minutes=4, score=3):
                  "--time", str(minutes)]
         if replay:
             start += ["--replay", str(replay)]
-        server.bots(*start)
+        # (the server hosts its lobby a few seconds after its HTTP answers)
+        for _ in range(60):
+            if server.bots(*start, check=False).get("ok"):
+                break
+            time.sleep(1)
+        else:
+            server.bots(*start)
         server.bots("match", "speed", str(speed))
         began = time.monotonic()
         ordered = bool(replay)
