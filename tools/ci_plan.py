@@ -47,7 +47,7 @@ NO_BUILD_TESTS = [
     "tools/test_guest_image_check.py", "tools/test_check_host_imports.py", "tools/test_host_syscall.py",
     "tools/test_guest_layout.py", "tools/test_linux_guest_build.py", "tools/test_build_errors.py",
     "tools/test_guest_toolchain.py", "tools/test_linux_port.py", "tools/test_join_page.py",
-    "tools/test_linux_package.py", "tools/test_install_layout.py", "tools/test_android_asm_convert.py",
+    "tools/test_linux_package.py", "tools/test_goath1_command.py", "tools/test_install_layout.py", "tools/test_android_asm_convert.py",
     "tools/test_guest_asm_cache.py", "tools/test_guest_branch_relax.py", "tools/test_host_watch_hash.py",
     "tools/test_touch_menu.py", "tools/harness", "tools/test_controller_remap.py",
     "tools/test_controller_remap_context.py", "tools/test_net_compare.py", "tools/test_loading_ring.py",

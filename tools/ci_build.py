@@ -79,6 +79,9 @@ import linux_package
 
 ROOT = Path(__file__).resolve().parent.parent
 
+# the Windows release's goath1 (runs the halo.exe beside it)
+WINDOWS_COMMAND = ROOT / "port/assets/windows/goath1.cmd"
+
 # what each port's build leaves, and what goes into dist/
 OUTPUTS = {
     # (and the SDL3 the Linux builds bring, tools/linux_guest_build.py, with
@@ -341,6 +344,11 @@ def main() -> int:
     for output in outputs:
         shutil.copy2(ROOT / output, dist)
         print(f"{output} -> {dist.relative_to(ROOT)}", flush=True)
+    if args.platform == "windows":
+        # goath1, the command players type (goath1 bots status), beside
+        # halo.exe (port/linux/src/cli_install.c)
+        shutil.copy2(WINDOWS_COMMAND, dist)
+        print(f"{WINDOWS_COMMAND.relative_to(ROOT)} -> {dist.relative_to(ROOT)}", flush=True)
     if args.platform == "windows":
         # the symbols of halo.exe and SDL3.dll, and the guest image, apart
         # (players do not need them): the workflow uploads them to Sentry,

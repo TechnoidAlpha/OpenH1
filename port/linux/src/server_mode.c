@@ -29,6 +29,7 @@ without a display to wait for, and its exits.
 #include "server_rotation.h"
 #include "map_import.h"
 #include "bot_control.h"
+#include "cli_install.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -179,7 +180,8 @@ static void print_help(void)
 		"                   to the custom_maps folder\n"
 		"  --demo <file>    plays a demo (docs/demos.md)\n"
 		"  --bot-control    lets scripts and agents direct this game's bots (docs/bot_control.md)\n"
-		"halo bots <command> [--json]  directs the bots of the game this computer hosts (halo bots help)\n"
+		"  --install-cli [<folder>]  puts goath1 on the PATH (/usr/local/bin or ~/.local/bin): goath1 runs this game\n"
+		"goath1 bots <command> [--json]  directs the bots of the game this computer hosts (goath1 bots help)\n"
 		"  --version        prints the build and its network version\n");
 }
 
@@ -231,6 +233,8 @@ static void answer_command_line(void)
 			print_help();
 			exit(EXIT_SUCCESS);
 		}
+		if (!strcmp(argument, "--install-cli"))
+			cli_install_command_line(index + 1);
 		if (!strcmp(argument, "--relay"))
 			run_relay();
 		if (!strcmp(argument, "--keygen"))
