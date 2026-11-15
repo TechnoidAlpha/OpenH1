@@ -6107,9 +6107,17 @@ static void bots_pick_drive_goal(struct bots_bot *bot, real_point3d const *posit
 	long tries;
 	struct bots_objective objective;
 
-	/* (its game's objective: a flag to take or carry home, its carrier to
-	run down, a hill) */
-	if (bots_bot_objective(bot, bot->player_index, position, &objective) &&
+	/* (its host's order, bots_command.h: to its point, and about it, the
+	vehicle and all; else its game's objective: a flag to take or carry
+	home, its carrier to run down, a hill) */
+	if (bots_command_objective(bot->index, bot->player_index, position, &objective))
+	{
+		if (objective.kind == _bots_objective_guard || objective.kind == _bots_objective_escort)
+			objective.kind = _bots_objective_hill;
+		if (bots_choose_objective(bot, position, &objective))
+			return;
+	}
+	else if (bots_bot_objective(bot, bot->player_index, position, &objective) &&
 		(objective.kind == _bots_objective_take || objective.kind == _bots_objective_carry ||
 			objective.kind == _bots_objective_hunt || objective.kind == _bots_objective_hill) &&
 		bots_choose_objective(bot, position, &objective))

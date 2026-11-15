@@ -1220,7 +1220,9 @@ static void bots_command_flag_events(void)
 				bots_command_event_begin(&json, name);
 				server_json_string(&json, "flag", bots_command_team_names[team]);
 				bots_command_json_player(&json, "player", carrier != NONE ? carrier : before);
-				bots_command_json_point(&json, "position", &position);
+				/* (none the tick it was dropped, out of its carrier's hands) */
+				if (position.x != 0.0f || position.y != 0.0f || position.z != 0.0f)
+					bots_command_json_point(&json, "position", &position);
 				bots_command_event_end(&json);
 			}
 		}
