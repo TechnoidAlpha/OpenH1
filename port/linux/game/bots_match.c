@@ -278,8 +278,7 @@ static boolean bots_match_in_lobby(void)
 {
 	struct network_game_server *server = global_network_game_server_get();
 
-	return server && !game_in_progress() && !network_game_server_playing(server) &&
-		!network_game_server_port_start_sent(server);
+	return server && !network_game_server_playing(server) && !network_game_server_port_start_sent(server);
 }
 
 static long bots_match_remote_machines(void)
@@ -523,6 +522,7 @@ boolean bots_match_due(long tick, char *line, long size)
 void bots_match_note_line(long tick, char const *line, unsigned long teams)
 {
 	struct bots_match_line *kept;
+	long length;
 
 	if (bots_match.line_count >= BOTS_MATCH_LINES)
 	{
@@ -532,7 +532,19 @@ void bots_match_note_line(long tick, char const *line, unsigned long teams)
 	kept = &bots_match.lines[bots_match.line_count++];
 	kept->tick = tick;
 	kept->teams = teams;
+	/* (the line as it plays again: its spaces and --json off) */
+	while (*line == ' ')
+		line++;
 	snprintf(kept->line, sizeof(kept->line), "%s", line);
+	{
+		char *json = strstr(kept->line, " --json");
+
+		if (json)
+			memmove(json, json + 7, strlen(json + 7) + 1);
+		length = (long)strlen(kept->line);
+		while (length > 0 && kept->line[length - 1] == ' ')
+			kept->line[--length] = 0;
+	}
 }
 
 void bots_match_note_kill(long tick, long killer, long victim, char const *weapon)
