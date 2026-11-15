@@ -553,6 +553,23 @@ static struct interpolated_camera interpolated_cameras[MAXIMUM_LOCAL_PLAYERS];
 static struct newest_vehicle newest_vehicles[MAXIMUM_LOCAL_PLAYERS];
 /* ... and its last steps */
 static struct newest_history newest_histories[MAXIMUM_LOCAL_PLAYERS];
+/* each local player's view on foot drawn from its newest step
+(render_interpolation_newest_camera): that step's place and motion, carried
+on until the next, and the difference blended away where the next met it */
+static struct newest_camera_blend
+{
+	boolean valid;
+	long unit_index;
+	long step;
+	double frame_time;
+	real_point3d position;
+	real_vector3d velocity;
+	/* (and how fast the step before it went: a turn through standing still
+	is not a start from it) */
+	real speed_earlier;
+	real_vector3d blend;
+	real blend_age;
+} newest_camera_blends[MAXIMUM_LOCAL_PLAYERS];
 static struct interpolated_first_person interpolated_first_person[MAXIMUM_LOCAL_PLAYERS];
 /* an object to be drawn from a place of this tick's choosing rather than
 from where it was the tick before (render_interpolation_object_from) */
@@ -1259,6 +1276,7 @@ void render_interpolation_reset(void)
 	/* (and nothing of the last map's to glide from, or carry on) */
 	memset(newest_vehicles, 0, sizeof(newest_vehicles));
 	memset(newest_histories, 0, sizeof(newest_histories));
+	memset(newest_camera_blends, 0, sizeof(newest_camera_blends));
 	/* (the particles held back and the ghosts are the last map's) */
 	later_particle_count = 0;
 	for (index = 0; index < MAXIMUM_GHOSTS; index++)
@@ -3166,7 +3184,89 @@ step, and its eye by its crouch's change
 (bipeds.c's biped_eye_rise_ahead), so that it moves every frame at 30 as at
 60. The first-person weapon, posed from it, goes with it (render_interpolation_
 first_person). What the netcode glides (correction) is kept. Everything else
-is drawn as before. */
+is drawn as before.
+
+Carried on by its velocity, the view meets the next step short of or past
+where that step leaves it whenever the step changed the velocity: at 30 (a
+Legacy game) a strafe's turn, the player speeding up or slowing a tick at a
+time, put the view past the next step and back every tick, the view stepping
+back and on about a hundredth of a world unit at 30 Hz while the player
+turned (an A-D strafe stuttered). As the local player's vehicle is
+(render_interpolation_newest_blend), the difference is blended away over a
+tick from where the view was drawn (newest_camera_blend), but not from
+standing (a start is drawn at once; a strafe's turn passes through it) nor
+one larger than the steps' acceleration could misjudge (a teleport, a respawn, a correction, which glides
+as before); across only, so that a jump, a landing and a fall show at once. */
+static real newest_blend_left(real age);
+
+static void newest_camera_blend(
+	short local_player_index,
+	long unit_index,
+	real_point3d const *position,
+	real_vector3d const *velocity,
+	real since,
+	real_vector3d *left)
+{
+	struct newest_camera_blend *blend = &newest_camera_blends[local_player_index];
+	double frame_time = (double)interpolation_tick + (double)interpolation_fraction;
+	long step = interpolation_tick * interpolation_substep_count + sim_substep_next();
+	real remaining;
+
+	if (!blend->valid || blend->unit_index != unit_index || !(frame_time >= blend->frame_time) ||
+		frame_time - blend->frame_time > NEWEST_HISTORY_GAP || step < blend->step)
+	{
+		blend->blend = *global_zero_vector3d;
+		blend->blend_age = NEWEST_BLEND_TIME;
+	}
+	else
+	{
+		blend->blend_age += (real)(frame_time - blend->frame_time);
+		if (step != blend->step)
+		{
+			/* (the step before carried on to now, with what was left of its blend, against the new step) */
+			real since_before = since + (real)(step - blend->step) / (real)interpolation_substep_count;
+			real before_left = newest_blend_left(blend->blend_age);
+			real_vector3d difference;
+			real speed_before = (real)sqrt(blend->velocity.i * blend->velocity.i +
+				blend->velocity.j * blend->velocity.j);
+			real most = NEWEST_ACCELERATION_MAXIMUM * since_before;
+
+			difference.i = blend->position.x + blend->velocity.i * since_before + blend->blend.i * before_left -
+				(position->x + velocity->i * since);
+			difference.j = blend->position.y + blend->velocity.j * since_before + blend->blend.j * before_left -
+				(position->y + velocity->j * since);
+			/* (across only: a jump's start, a landing and a fall are drawn at once, as before) */
+			difference.k = 0.0f;
+			/* (so written that a difference not a number is none) */
+			if ((speed_before >= NEWEST_STANDING || blend->speed_earlier >= NEWEST_STANDING) &&
+				difference.i * difference.i + difference.j * difference.j <= most * most)
+			{
+				blend->blend = difference;
+			}
+			else
+			{
+				blend->blend = *global_zero_vector3d;
+			}
+			blend->blend_age = 0.0f;
+		}
+	}
+	remaining = newest_blend_left(blend->blend_age);
+	left->i = blend->blend.i * remaining;
+	left->j = blend->blend.j * remaining;
+	left->k = blend->blend.k * remaining;
+	if (!blend->valid || blend->step != step || blend->unit_index != unit_index)
+	{
+		blend->speed_earlier = blend->valid && blend->unit_index == unit_index ? (real)sqrt(
+			blend->velocity.i * blend->velocity.i + blend->velocity.j * blend->velocity.j) : 0.0f;
+		blend->position = *position;
+		blend->velocity = *velocity;
+	}
+	blend->valid = TRUE;
+	blend->unit_index = unit_index;
+	blend->step = step;
+	blend->frame_time = frame_time;
+}
+
 static void render_interpolation_newest_camera(
 	short local_player_index,
 	struct observer_result const *observer,
@@ -3193,9 +3293,20 @@ static void render_interpolation_newest_camera(
 	if (velocity.i * velocity.i + velocity.j * velocity.j + velocity.k * velocity.k <=
 		CAMERA_CUT_DISTANCE * CAMERA_CUT_DISTANCE)
 	{
+		real_vector3d left;
+
 		drawn->position.x += velocity.i * since;
 		drawn->position.y += velocity.j * since;
 		drawn->position.z += velocity.k * since;
+		/* (from where the view was drawn as the step came) */
+		newest_camera_blend(local_player_index, unit_index, &observer->position, &velocity, since, &left);
+		drawn->position.x += left.i;
+		drawn->position.y += left.j;
+		drawn->position.z += left.k;
+	}
+	else
+	{
+		newest_camera_blends[local_player_index].valid = FALSE;
 	}
 	/* (and its eye on with its crouch, which goes down or up a step at a
 	time as the unit's place does) */

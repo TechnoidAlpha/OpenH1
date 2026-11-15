@@ -2107,7 +2107,11 @@ simulated changes; the touch controls' not while the aim assist's
 magnetism slows them, which would turn the player otherwise). Thus the view
 turns in the frame that the mouse moves. The view also stands where the
 newest step left the player, carried on by the player's velocity for the
-time since that step, and the gun and hands are posed from it with their
+time since that step (where the next step changes that velocity, as the
+player speeds up, slows or turns an A-D strafe, the view moves on from
+where it was drawn, the difference blended away across over a tick, as a
+vehicle's is below: at 30, a Legacy game's rate, it stepped past and back
+every tick), and the gun and hands are posed from it with their
 animations sampled at the frame's time (each between its frame and the
 next, which the game advances a frame a tick, and the sway's springs where
 their velocity has them): the player's own movement, shots and
