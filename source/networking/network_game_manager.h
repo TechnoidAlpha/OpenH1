@@ -93,6 +93,11 @@ enum
 	(network.allow_hit_sounds false: network_standard_hit_sounds_allowed).
 	Only a Standard host sets it, and its OpenH1 machines alone read it */
 	_network_game_no_hit_sounds_bit = 4,
+	/* an OpenH1 game's players hijack vehicles (the host's
+	game.vehicle_hijack, or Host Controls' since:
+	network_standard_vehicle_hijack). Only a Standard host sets it, and its
+	OpenH1 machines alone read it */
+	_network_game_vehicle_hijack_bit = 5,
 };
 
 struct network_game
