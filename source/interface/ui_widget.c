@@ -699,6 +699,7 @@ boolean menu_studio_note_field(wchar_t *line, long size);
 #include "text/unicode.h"
 #include "ui_widget.h"
 #include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
+#include "controller_glyphs.h" /* port: port/linux/game/controller_glyphs.c */
 #include "mcc_pause_runtime.h" /* port: port/linux/game/mcc_pause_runtime.h */
 #include "mcc_pause.h" /* port: port/linux/game/mcc_pause.h */
 #include "mcc_ui_network.h" /* port: port/linux/game/mcc_ui_network.h */
@@ -1468,6 +1469,10 @@ boolean hud_key_prompt_draw(
 	pixel32 color);
 boolean hud_key_prompt_draw_key(
 	char const *name,
+	rectangle2d *bounds,
+	rectangle2d *cursor,
+	pixel32 color);
+boolean hud_key_prompt_draw_back_cap(
 	rectangle2d *bounds,
 	rectangle2d *cursor,
 	pixel32 color);
@@ -4612,6 +4617,11 @@ static void render_state_bitmap(
 			0,
 			struct game_globals_interface_tag_references)
 		: NULL;
+	/* port: the menus' LB and RB (the white and black buttons' icons) drawn
+	as the pad's shoulder buttons, its family's (controller_glyphs.c), not
+	the original Xbox's white and black discs */
+	if (controller_glyph_menu_bumper_draw(icon, cursor_bounds, color))
+		return;
 	bitmap_group_index = interface_tag_references->interface_tag_references[_interface_bitmap_iface_map2].index;
 	frame_index = 0;
 	bitmap = NULL;
@@ -4847,6 +4857,17 @@ void draw_string_and_hack_in_icons(
 					hud_key_prompt_draw_key(menu_key, bounds, &cursor_bounds, real_argb_color_to_pixel32(&key_color)))
 				{
 					menu_layout_glyph(TRUE, menu_key, glyph_x0, cursor_bounds.y0, cursor_bounds.x0, cursor_bounds.y1);
+					key_drawn = TRUE;
+					continue;
+				}
+				/* port: the menus' View (Back) with a controller, which no
+				button style has a picture of: a cap of its name (the
+				server browser's HOST & MORE) */
+				if (menus && key_icon_type == _icon_back_button &&
+					hud_key_prompt_draw_back_cap(bounds, &cursor_bounds, real_argb_color_to_pixel32(&key_color)))
+				{
+					menu_layout_glyph_wide(TRUE, icon_names[key_icon_type], glyph_x0, cursor_bounds.y0,
+						cursor_bounds.x0, cursor_bounds.y1);
 					key_drawn = TRUE;
 					continue;
 				}

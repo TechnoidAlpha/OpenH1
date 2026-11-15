@@ -4529,13 +4529,14 @@ def settings_look_roles() -> dict:
 
 
 # Server Setup's help, in its help_strings' order: each row's (its key, op_<key>), or each of its choices' (LISTING's
-# and GAME's), the first none's; the setup screens' nodes have each row's place in it (tools/menu_nodes.py's help,
+# and GAME's), the first none's; a row's button as its icon ("%a-button"), drawn as the controller's button or, while
+# the keyboard plays, its key (Enter); the setup screens' nodes have each row's place in it (tools/menu_nodes.py's help,
 # help_choices), which menu_functions.c's setup_help shows
 SERVER_SETTINGS_HELP = [
     (None, [""]),
-    ("server_name", ["The name the game shows in the lists of games.\\nEnter changes it."]),
+    ("server_name", ["The name the game shows in the lists of games.\\nPress %a-button to change it."]),
     ("max_players", ["The most players the game takes (up to 128)."]),
-    ("invite", ["Players join this game by its invite link, or your\\nDiscord invite. Enter copies the link again."]),
+    ("invite", ["Players join this game by its invite link, or your\\nDiscord invite. Press %a-button to copy it again."]),
     ("game_type", ["The gametype and its rules, for this game."]),
     ("player_options", ["Lives, health, shields and respawning, for this game."]),
     ("item_options", ["Weapons, grenades and starting equipment, for\\nthis game."]),
@@ -4545,7 +4546,7 @@ SERVER_SETTINGS_HELP = [
     ("listing", ["Anyone can see and join your game: it is listed\\nin everyone's Server Browser.",
                  "Only players with your invite link can join."]),
     *((key, [help_text]) for key, _, help_text, _ in COOP_SETUP_SCREENS),
-    ("password", ["Players from the Server Browser must type it to\\njoin (an invite link needs none). Enter sets it."]),
+    ("password", ["Players from the Server Browser must type it to\\njoin (an invite link needs none). Press %a-button\\nto set it."]),
     (MAP_SHARE_SETUP[0], [MAP_SHARE_SETUP[2]]),
     ("game_mode", [help_text for _, help_text in GAME_MODES]),
 ]
@@ -7274,7 +7275,8 @@ def _host_controls() -> list:
     lines += _widget(f"{base}/header_host_controls", [("controller", 1), ("left", 35), ("top", 11), ("width", 363),
                                                       ("height", 59), ("bitmap", f"{base}/header_host_controls"),
                                                       ("wide", WIDE_LEFT)], [])
-    lines += _part_text(f"{base}/host_counts", [("left", 420), ("top", 46), ("width", 192), ("height", 18),
+    # (wide enough for "12 PLAYERS   120 TICK   LOBBY" past the title's art, which ends at 398)
+    lines += _part_text(f"{base}/host_counts", [("left", 404), ("top", 46), ("width", 208), ("height", 18),
                                                ("font", "ui\\small_ui"), ("color", PART_DIM), ("align", "right"),
                                                ("wide", WIDE_RIGHT)])
     # (the column titles, each tab's: menu_functions.c's host_controls_headers)

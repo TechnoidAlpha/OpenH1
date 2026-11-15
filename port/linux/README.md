@@ -872,7 +872,7 @@ with six tabs (BOTS, the last, not in co-op, whose tabs are below):
   scores, and every machine goes through the lobby to the new one), AFTER
   THIS GAME (its scores, then the lobby with it, which starts by itself)
   and ADD TO PLAYLIST (with CURRENT, the gametype of the list the game's
-  is, at its own settings). In the lobby PLAY IN THIS LOBBY sets the lobby's game.
+  is, at its own settings). In the lobby PLAY IN LOBBY sets the lobby's game.
 - PLAYLIST: the games `network.host_playlist` holds, the next marked, and
   first a change asked for (NEXT, with CANCEL CHANGE). After each game's
   scores the next one is set in the lobby and its countdown starts; a change
@@ -933,7 +933,7 @@ PLAYLIST and BANS; no BOTS, which play no campaign, and no RULES:
   everyone, as a won level ends, every machine goes to the lobby, and the
   new level starts from there by itself, at the difficulty chosen) and
   AFTER THIS LEVEL (when the level is won, that one is set up in the lobby
-  in place of the campaign's next). In the lobby PLAY IN THIS LOBBY sets the
+  in place of the campaign's next). In the lobby PLAY IN LOBBY sets the
   lobby's level and difficulty.
 - PLAYLIST: co-op has none; a level asked for after this one (NEXT, with
   CANCEL CHANGE), else the campaign's next level plays.

@@ -7962,6 +7962,8 @@ static void wide_to_text(wchar_t const *wide, char *text, short size)
 }
 
 /* "server settings update" */
+static void server_name_keyboard_closed(void);
+
 static void server_settings_update(struct widget_instance *list)
 {
 	struct widget_instance *spinner = named(list, "max_players_spinner", 0);
@@ -7971,6 +7973,7 @@ static void server_settings_update(struct widget_instance *list)
 	if (spinner)
 		*server_settings_maximum_players_index() = (short)PIN(spinner->parameters.list.selected_index, 0,
 			NUMBEROF(maximum_players) - 1);
+	server_name_keyboard_closed();
 	wide_to_text(multiplayer.game_name, text, sizeof(text));
 	text_field_show(named(list, "server_name_value", 0), text, text_field_editing(row));
 	if (multiplayer.mode != _multiplayer_mode_host_internet)
@@ -8047,7 +8050,25 @@ static boolean server_password_edit(struct widget_instance *row)
 	return TRUE;
 }
 
-/* "ss edit server name" (its row's A: begins, or ends) */
+/* (virtual_keyboard.c's: the on-screen keyboard, with a title and caption
+of the caller's) */
+boolean virtual_keyboard_port_launch(wchar_t *text_buffer, word buffer_size, wchar_t const *title,
+	wchar_t const *caption);
+boolean virtual_keyboard_active(void);
+boolean virtual_keyboard_last_exit_saved_text(void);
+
+/* GAME NAME's on-screen keyboard (a controller's): up, and the name typed
+on it, taken as it closes with its text kept (server_name_keyboard_closed) */
+static struct
+{
+	boolean up;
+	wchar_t text[NUMBEROF(multiplayer.game_name)];
+} server_name_keyboard;
+
+/* "ss edit server name" (its row's A: begins, or ends): with a
+controller's prompts, the on-screen keyboard, as the lobby's chat has one
+(a controller types nothing into the field); with the keyboard's, or on a
+touchscreen (its system's keyboard), the field typed into */
 static boolean server_name_edit(struct widget_instance *row)
 {
 	char text[TEXT_FIELD_LENGTH];
@@ -8057,9 +8078,33 @@ static boolean server_name_edit(struct widget_instance *row)
 		text_field_end(TRUE);
 		return TRUE;
 	}
+	if (!halo_keyboard_prompts() && !ui_widget_port_touch_menus() && !virtual_keyboard_active())
+	{
+		csmemcpy(server_name_keyboard.text, multiplayer.game_name, sizeof(server_name_keyboard.text));
+		server_name_keyboard.text[NUMBEROF(server_name_keyboard.text) - 1] = 0;
+		server_name_keyboard.up = virtual_keyboard_port_launch(server_name_keyboard.text,
+			(word)sizeof(server_name_keyboard.text), L"GAME NAME", L"The name the game shows in the lists of games");
+		if (server_name_keyboard.up)
+			return TRUE;
+	}
 	wide_to_text(multiplayer.game_name, text, sizeof(text));
 	text_field_begin(row, text, NUMBEROF(multiplayer.game_name) - 1, game_name_done);
 	return TRUE;
+}
+
+/* GAME NAME's on-screen keyboard closed: the name typed on it the game's,
+unless it was cancelled or left empty */
+static void server_name_keyboard_closed(void)
+{
+	char text[TEXT_FIELD_LENGTH];
+
+	if (!server_name_keyboard.up || virtual_keyboard_active())
+		return;
+	server_name_keyboard.up = FALSE;
+	if (!virtual_keyboard_last_exit_saved_text() || !server_name_keyboard.text[0])
+		return;
+	wide_to_text(server_name_keyboard.text, text, sizeof(text));
+	game_name_done(text);
 }
 
 /* "ss copy invite" */

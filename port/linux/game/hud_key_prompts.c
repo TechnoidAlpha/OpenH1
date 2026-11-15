@@ -47,6 +47,7 @@ machines of a network game agree on.
 #include "text/draw_string.h"
 #include "halo_keyboard.h"
 #include "player_settings.h"
+#include "controller_buttons.h"
 
 #include <math.h>
 
@@ -659,6 +660,45 @@ boolean hud_key_prompt_draw(
 
 	if (!prompt_key_text(local_player_index, game_control, gamepad_button, text, NUMBEROF(text)))
 		return FALSE;
+	return key_cap_draw(text, bounds, cursor, color);
+}
+
+/* the name of a pad's Back button, its family's (an Xbox pad's View, a
+PlayStation's Share, a Switch's minus), for its cap in the menus
+(hud_key_prompt_draw_back_cap); NULL for no family's */
+char const *hud_key_prompt_back_name(int family)
+{
+	switch (family)
+	{
+	case CONTROLLER_PLAYSTATION:
+		return "Share";
+	case CONTROLLER_SWITCH:
+		return "-";
+	default:
+		return "View";
+	}
+}
+
+/* the menus' Back (View) button while a controller plays (the server
+browser's HOST & MORE): no button style has a picture of it (the Xbox's and
+Halo PC's message icons have none: hud_key_prompt_score_hint), so a cap of
+its name, the menus' player's pad's (player 1's), as the keyboard's keys are
+drawn; FALSE while the keyboard and mouse play (their key's cap then) */
+boolean hud_key_prompt_draw_back_cap(
+	rectangle2d *bounds,
+	rectangle2d *cursor,
+	pixel32 color)
+{
+	wchar_t text[16];
+
+#ifdef HALO_VR
+	if (halo_vr_running())
+		return FALSE;
+#endif
+	if (halo_keyboard_prompts())
+		return FALSE;
+	latin1_to_wide(hud_key_prompt_back_name(controller_button_style_family(controller_button_style_for_port(0))),
+		text, NUMBEROF(text));
 	return key_cap_draw(text, bounds, cursor, color);
 }
 

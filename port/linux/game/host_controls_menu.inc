@@ -2024,7 +2024,7 @@ static void host_button_text(short action, struct host_controls_player const *pl
 		break;
 	case _host_button_map_now:
 	case _host_button_entry_now:
-		usnprintf(text, size - 1, lobby ? L"PLAY IN THIS LOBBY" : confirming ? L"PRESS AGAIN" : L"PLAY NOW");
+		usnprintf(text, size - 1, lobby ? L"PLAY IN LOBBY" : confirming ? L"PRESS AGAIN" : L"PLAY NOW");
 		break;
 	case _host_button_map_after:
 	case _host_button_entry_next:
@@ -2530,14 +2530,14 @@ static void host_controls_update(struct widget_instance *list)
 		struct network_admin_state state;
 		long rate = network_admin_remote_state(&state) ? state.rate : network_standard_server_rate(FALSE);
 
-		usnprintf(text, NUMBEROF(text) - 1, L"%d %s    %ld TICK%s", host_menu.player_count,
+		usnprintf(text, NUMBEROF(text) - 1, L"%d %s   %ld TICK%s", host_menu.player_count,
 			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", rate,
-			host_lobby() ? L"    LOBBY" : L"");
+			host_lobby() ? L"   LOBBY" : L"");
 	}
 	else
 	{
-		usnprintf(text, NUMBEROF(text) - 1, L"%d %s    LEGACY%s", host_menu.player_count,
-			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", host_lobby() ? L"    LOBBY" : L"");
+		usnprintf(text, NUMBEROF(text) - 1, L"%d %s   LEGACY%s", host_menu.player_count,
+			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", host_lobby() ? L"   LOBBY" : L"");
 	}
 	text[NUMBEROF(text) - 1] = 0;
 	menu_text_box_fit(named(screen, "host_counts", 0), text, 0);

@@ -358,6 +358,10 @@ struct screen_prompt
 	char key[8];
 	/* (the bar's: its width, and with the controller's pictures) */
 	short width, grown;
+	/* (a panel's last: filled, with its key, always, as the action A on
+	the table's rows does too; else outlined, filled with its key only
+	while it has the focus: tall_build_panel) */
+	boolean filled;
 };
 
 /* a <panel> (one of a screen's, the first whose if has a value shown): its
@@ -1353,9 +1357,22 @@ static void tall_build_panel(struct screen_tall *tall, struct screen_open *open,
 		if (block->kind == MENU_SCREEN_BUTTON)
 		{
 			/* (its buttons one over another up from its foot, the last at
-			the foot: the panel's action, filled; those over it outlined) */
+			the foot: the panel's action, filled with its key while it is
+			not other than what A on the table's rows does (the browser's
+			JOIN GAME); else (the lobby's START GAME, whose rows' A opens a
+			player's card), and those over it, outlined, filled only while it
+			has the focus, so that one thing looks focused) */
 			long made = made_panel->button_count;
 			boolean last = made == buttons - 1;
+			char const *rows_action = NULL;
+			long table;
+
+			for (table = 0; table < file->block_count; table++)
+			{
+				if (file->blocks[table].kind == MENU_SCREEN_TABLE && menu_screen_when(file->blocks[table].when))
+					rows_action = file->blocks[table].action;
+			}
+			last = last && !(rows_action && block->action && strcmp(rows_action, block->action));
 			short button_y = (short)(top + height - TALL_PANEL_BUTTON_FOOT - (buttons - made) * button_height -
 				(buttons - made - 1) * PANEL_BUTTON_GAP);
 			struct screen_prompt *button = &made_panel->buttons[made];
@@ -1371,6 +1388,7 @@ static void tall_build_panel(struct screen_tall *tall, struct screen_open *open,
 			tall_box_picture(tall, button->widget, touch ? "main_menu/parts/touch_button_%dx%d" : last ?
 				"main_menu/parts/button_%dx%d" : "main_menu/parts/outline_%dx%d", inner_width, button_height);
 			button->block = block;
+			button->filled = last;
 			snprintf(button->key, sizeof(button->key), "%s", block->key);
 			tall_text(tall, block->label, label, sizeof(label));
 			/* (an outlined one its words alone) */
@@ -2142,8 +2160,12 @@ static void tall_tabs_frame(struct screen_tall *tall)
 	{
 		struct widget_instance *tab = tall->tab_widgets[index];
 
-		tab->animation.current_frame_index = (short)((index == shown ? 2 : 0) +
-			(strip_focused && tab == tall->strip->focused_child ? 1 : 0));
+		/* (the tab shown outlined while the tabs have the focus; else, with
+		a controller's prompts, its words white alone, as the column sorted
+		by, so that its outline is not taken for the focus on another
+		block) */
+		tab->animation.current_frame_index = (short)((index == shown && (strip_focused || halo_keyboard_prompts() ||
+			ui_widget_port_pointer_focused()) ? 2 : 0) + (strip_focused && tab == tall->strip->focused_child ? 1 : 0));
 		tall_color(tall, tab, index == shown ? 0xFFFFFFFFUL : 0);
 	}
 }
@@ -2369,7 +2391,11 @@ static void tall_rows_frame(struct screen_tall *tall, struct widget_instance *sc
 			continue;
 		heading = tall->lanes < 2 && tall->source && tall->source->heading(row_index, words, MENU_TABLE_TEXT_LENGTH);
 		visible_set_safe(row->heading, heading);
-		row->row->animation.current_frame_index = (short)(heading ? 0 : row_index == view->chosen ? 2 :
+		/* (the game chosen marked while the focus is on the rows, the
+		pointer's or the keyboard's; with a controller's prompts not while
+		it is on another block, which alone looks focused then) */
+		row->row->animation.current_frame_index = (short)(heading ? 0 : row_index == view->chosen &&
+			(focused != NONE || view->hover || halo_keyboard_prompts() || ui_widget_port_pointer_focused()) ? 2 :
 			row_focused ? 1 : 0);
 		if (tall->lanes > 1)
 			row->row->animation.current_frame_index = (short)((state == MENU_TABLE_ROW_MARKED ? 2 : 0) + row_focused);
@@ -2960,7 +2986,10 @@ static void tall_panel_frame(struct screen_tall *tall, struct screen_open *open)
 			{
 				char label[MENU_SCREEN_MAXIMUM_TEXT];
 				char text[MENU_SCREEN_MAXIMUM_TEXT];
-				boolean plain = touch || button < panel->button_count - 1;
+				/* (the panel's last outlined (tall_build_panel): its key while
+				it has the focus) */
+				boolean plain = touch || button < panel->button_count - 1 ||
+					!(prompt->filled || tall->body->focused_child == panel->bars[button]);
 
 				tall_text(tall, prompt->block->label, label, sizeof(label));
 				snprintf(text, sizeof(text), plain ? "%s%s" : "%s %s", plain ? "" : tall_key_picture(prompt->key), label);
