@@ -51,6 +51,7 @@ def test_tree(build, tmp_path):
     linux_package.stage_tree(tree, build / "halo", build / "libSDL3.so.0", notices(build))
     names = files(tree)
     assert (tree / "bin/openh1").read_bytes() == b"halo"
+    assert (tree / "bin/goath1").read_bytes() == linux_package.COMMAND.read_bytes()
     assert "lib/openh1/libSDL3.so.0" in names
     assert "share/openh1/brokers.txt" in names
     assert "share/openh1/prepared.records" in names
@@ -85,7 +86,7 @@ def test_package_tree_has_no_installer(build, tmp_path):
 
 
 def test_zip_modes(build, tmp_path):
-    executables = {"install.sh", "bin/openh1", "lib/openh1/libSDL3.so.0"}
+    executables = {"install.sh", "bin/openh1", "bin/goath1", "lib/openh1/libSDL3.so.0"}
     folder = tmp_path / "tree"
     # (as GitHub's artifacts give them: no file executable)
     linux_package.stage_tree(folder, build / "halo", build / "libSDL3.so.0", notices(build))
@@ -682,7 +683,7 @@ def test_install_sh_installs_the_tree(release, tmp_path):
     assert tree_files(installed) == tree_files(release)
     for name in tree_files(release):
         assert (installed / name).read_bytes() == (release / name).read_bytes(), name
-        expected = 0o755 if name in ("install.sh", "bin/openh1", "lib/openh1/libSDL3.so.0") else 0o644
+        expected = 0o755 if name in ("install.sh", "bin/openh1", "bin/goath1", "lib/openh1/libSDL3.so.0") else 0o644
         assert stat.S_IMODE((installed / name).stat().st_mode) == expected, name
     assert (installed / "share/openh1").is_dir()
     assert not list(installed.rglob("*.new"))

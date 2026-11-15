@@ -10,6 +10,7 @@ anywhere and starts with bin/openh1:
 
     install.sh                                 its installer (tools/linux_install.sh: the Steam Deck's)
     bin/openh1                                 the game
+    bin/goath1                                 its command line's name (port/assets/linux/goath1: runs bin/openh1)
     lib/openh1/libSDL3.so.0                    its SDL (the rpath is $ORIGIN:$ORIGIN/../lib/openh1)
     share/openh1/brokers.txt                   internet play's brokers (network.brokers_file)
     share/openh1/masters.txt                   the master servers (network.masters_file)
@@ -57,6 +58,9 @@ MASTERS = ROOT / "port/assets/network/masters.txt"
 RELAYS = ROOT / "port/assets/network/relays.txt"
 # the stock maps' preparations' records (port/linux/src/prepared_shipped.h)
 PREPARED_RECORDS = ROOT / "port/assets/prepared/prepared.records"
+# goath1, the command players type (goath1 bots status): a script that runs
+# the bin/openh1 beside it (port/linux/src/cli_install.c)
+COMMAND = ROOT / "port/assets/linux/goath1"
 ASSETS = "openh1.assets"
 INSTALLER = ROOT / "tools/linux_install.sh"  # the tree's install.sh (and the Steam Frame package's)
 STEAM_ART = ROOT / "port/assets/steam"  # <variant>/<kind>.png (tools/steam_art.py)
@@ -143,6 +147,7 @@ def stage_tree(dist: Path, executable: Path, library: Optional[Path], notices: I
         for art in sorted((STEAM_ART / ("openh1-vr" if vr else "openh1")).glob("*.png")):
             _copy(art, dist / "share" / NAME / "steam" / art.name)
     _copy(executable, dist / "bin" / NAME)
+    _copy(COMMAND, dist / "bin" / COMMAND.name)
     if library:
         _copy(library, dist / "lib" / NAME / library.name)
     _copy(BROKERS, dist / "share" / NAME / BROKERS.name)
