@@ -283,6 +283,9 @@
 			<choice shown="8 MB/S" value="8192"/>
 			<choice shown="16 MB/S" value="16384"/>
 			<choice shown="20 MB/S" value="20480"/>
+			<choice shown="50 MB/S" value="51200"/>
+			<choice shown="100 MB/S" value="102400"/>
+			<choice shown="250 MB/S" value="256000"/>
 		</node>
 		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_bar" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_menu" focusable="true"/>
 		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_ok" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_bar" run="port setup options save" focusable="true"/>
