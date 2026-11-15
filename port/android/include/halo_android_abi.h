@@ -43,13 +43,13 @@ registers. */
 /* the room the host reserves for the image there (port/android/host/host_memory.c).
 An instrumented build's (configure.py --pgo=generate, which defines
 HALO_PGO_GENERATE for the guest and its host) has twice as much, for the
-profile's counters and records, which do not fit beside the game's 64 MB;
-every other build's image, and the guest memory above it, stay where they
-are. */
+profile's counters and records, which do not fit beside the game's 96 MB
+(64 MB until the MCC maps and OpenCE's Build 359 came in, whose tables
+took the image past it). */
 #ifdef HALO_PGO_GENERATE
-#define HALO_GUEST_IMAGE_RESERVE 0x08000000u
+#define HALO_GUEST_IMAGE_RESERVE 0x0C000000u
 #else
-#define HALO_GUEST_IMAGE_RESERVE 0x04000000u
+#define HALO_GUEST_IMAGE_RESERVE 0x06000000u
 #endif
 
 /* the Xbox contiguous memory window (port/linux/src/platform.h's

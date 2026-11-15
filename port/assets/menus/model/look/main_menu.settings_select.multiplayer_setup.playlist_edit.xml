@@ -29,7 +29,7 @@
 	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
 		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
 	</look>
-	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_pic" box="290 80 574 288" picture="main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options"/>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_pic" box="307 82 563 272" picture="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_options"/>
 	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_text" type="text" box="294 276 615 400">
 		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text"/>
 	</look>

@@ -229,12 +229,6 @@ static uint64_t prepared_key(uint64_t hash, boolean mirrors, long structure_bsp_
 	return xgpu_manifest_hash(words, sizeof(words), hash);
 }
 
-unsigned long long render_prepared_key(char const *scenario, unsigned long journal_form, boolean mirrors,
-	long structure_bsp_index)
-{
-	return prepared_key(prepared_key_of(scenario, journal_form), mirrors, structure_bsp_index);
-}
-
 /* the settings, backend and GPU a record's draws are derived under now */
 static uint64_t prepared_derivation(void);
 

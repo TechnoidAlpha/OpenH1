@@ -5,7 +5,7 @@
 		<child widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence" controller="1" left="35" top="11" width="363" height="59" type="text" text="OPENCE OPTIONS" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="16" source="tools/port_settings.py _opence_options/_setup_option_screen/_header">
+	<widget name="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence" controller="1" left="35" top="11" width="363" height="59" type="text" text="GOAT H1 OPTIONS" font="ui\large_ui" color="#FFFFFFFF" text_x="13" text_y="16" source="tools/port_settings.py _opence_options/_setup_option_screen/_header">
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_help" type="text" controller="1" left="68" top="341" width="482" height="79" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/cap_opence" font="ui\large_ui" color="#FFFFFFFF" source="tools/port_settings.py multiplayer_files/_opence_options/_setup_option_screen">
 	</widget>
@@ -238,7 +238,7 @@
 		<string text="A melee kill takes nothing from the victim."/>
 		<string text="A melee kill takes the victim back a weapon."/>
 	</strings>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_opence_item" type="text" left="51" top="309" width="232" height="32" bitmap="bitmaps/list_item_bkd" text="OPENCE OPTIONS" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/port_settings.py multiplayer_files/_opence_options">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_opence_item" type="text" left="51" top="309" width="232" height="32" bitmap="bitmaps/list_item_bkd" text="GOAT H1 OPTIONS" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/port_settings.py multiplayer_files/_opence_options">
 		<on event="a" open="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen"/>
 		<on event="start" open="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

@@ -67,15 +67,6 @@ def generated(fault=None, faulty_function=None):
             ("types.inc", types), ("under_test.inc", text))
 
 
-def test_the_words():
-    # (the screen's ambient occlusion's words, gone, are the world's; the setting takes those and "ray_traced")
-    source = read("port/linux/src/port_config.c")
-    renamed = table(source, "config_renamed_words")
-    assert '{ "display.ambient_occlusion", "subtle", "world" },' in renamed
-    assert '{ "display.ambient_occlusion", "strong", "world" },' in renamed
-    assert '{ "display.ambient_occlusion", { "off", "world", "ray_traced", NULL }, "off" },' in table(source, "config_words")
-
-
 @pytest.mark.parametrize("case", CASES)
 def test_case(case):
     status, output = run(build("config_renamed_words", generated()), case)

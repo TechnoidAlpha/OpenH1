@@ -76,11 +76,18 @@ def player_settings_slots():
     return "".join(re.findall(r"^#define PLAYER_SETTINGS_SLOTS?\b(?:[^\n]*\\\n)*[^\n]*\n", header, re.M))
 
 
+# the latest texts mutated() made, which mark a build that includes one as a negative control's (build)
+_faulty = []
+
+
 def mutated(text, before, after):
     """The code with one deliberate fault (a negative control); LookupError once the code no longer has it."""
     if text.count(before) != 1:
         raise LookupError(f"negative control no longer applies (found {text.count(before)} times): {before!r}")
-    return text.replace(before, after, 1)
+    faulty = text.replace(before, after, 1)
+    _faulty.append(faulty)
+    del _faulty[:-64]
+    return faulty
 
 
 _directory = tempfile.TemporaryDirectory(prefix="halo-harness-")
@@ -115,18 +122,38 @@ def skip_without_32_bit_abi(dependent, *names):
 CHECK_FAILED = 1  # a case's exit status when a CHECK fails (harness.h)
 
 
-@functools.lru_cache(maxsize=None)
+# A negative control's build, whose generated includes hold a fault mutated() made, is compiled without optimisation:
+# most of the tests' time was the controls' -O2 compiles, and a control asks only that its case fail. The tests'
+# own builds keep -O2. (HARNESS_OPTIMISE=-O0 compiles every build so, to check that each case passes there too.)
+TEST_OPTIMISATION = os.environ.get("HARNESS_OPTIMISE", "-O2")
+CONTROL_OPTIMISATION = "-O0"
+
+_controls = set()  # the generated includes found to be a control's
+
+
 def build(test, generated):
     """tests/<test>.c compiled with the generated includes ((name, text), ...) for the game's 32-bit ABI (or, where
-    it cannot run, the machine's own: NATIVE_64_BIT)."""
-    work = Path(_directory.name) / f"{test}-{abs(hash(generated)):x}"
+    it cannot run, the machine's own: NATIVE_64_BIT); without optimisation when it is a negative control's."""
+    if generated not in _controls and any(faulty in text for _, text in generated for faulty in _faulty):
+        _controls.add(generated)
+    return _compile(test, generated, CONTROL_OPTIMISATION if generated in _controls else TEST_OPTIMISATION)
+
+
+@functools.lru_cache(maxsize=None)
+def _compile(test, generated, optimisation):
+    work = Path(_directory.name) / f"{test}-{optimisation[1:]}-{abs(hash(generated)):x}"
     work.mkdir(parents=True, exist_ok=True)
     for name, text in generated:
         (work / name).write_text(text)
-    executable = work / test
-    command = [os.environ.get("CC", "clang"), *ABI_FLAGS, "-std=gnu99", "-O2", "-Wall", "-Werror",
+    executable = work / (test + (".exe" if os.name == "nt" else ""))
+    command = [os.environ.get("CC", "clang"), *ABI_FLAGS, "-std=gnu99", optimisation, "-Wall", "-Werror",
                "-Wno-unused-function", "-Wno-unused-variable", "-I", str(HARNESS / "include"), "-I", str(work),
-               str(HARNESS / "tests" / f"{test}.c"), "-o", str(executable), "-lm"]
+               str(HARNESS / "tests" / f"{test}.c"), "-o", str(executable)]
+    # MSVC's runtime includes maths; there is no separate m.lib on Windows.
+    if os.name == "nt":
+        command.append("-D_CRT_SECURE_NO_WARNINGS=")
+    else:
+        command.append("-lm")
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(f"{test}.c does not compile:\n{result.stderr}")

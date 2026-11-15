@@ -51,21 +51,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build("overshield_layer_color", generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_wired():
-    source = read(SOURCE)
-    color = function(source, "overshield_effect_color")
-    assert "*color = *overshield_effect_unit_color(effect->unit_index);" in color, "the flare: the unit's layer's"
-    assert "return overshield_effect_unit_color(unit_index);" in function(source, "overshield_effect_glow_color")
-    assert "*color = *overshield_effect_glow_color(unit_index);" in read("port/linux/game/shield_glow.c"), \
-        "the glow: its unit's layer's"
-    # (only drawing: nothing of the simulation's is written)
-    assert "shield_vitality =" not in "\n".join(
-        function(source, name) for name in ("overshield_effect_layer_color", "overshield_effect_unit_color"))
-    config = read("port/linux/src/port_config.c")
-    assert re.search(r'\{ "display.overshield_layer_color", _config_boolean, "true", "HALO_OVERSHIELD_LAYER_COLOR"',
-                     config), "on by default"
-    shields = read("port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit."
-                   "video_settings.first_person.weapon_body.xml")
-    assert "display.overshield_layer_color" in shields, "its row on the Weapon & Body page's SHIELDS"

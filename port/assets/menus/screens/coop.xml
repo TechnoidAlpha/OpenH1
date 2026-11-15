@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Co-op (docs/menu_screens.md, "Co-op"): the one place every way in
+lands on, Campaign's CO-OP, the server browser's CO-OP tab and Multiplayer's
+CO-OP CAMPAIGN (it takes the hub's co-op page's place). Laid out as the
+Campaign screen: its title in the band, three cards in the room under it,
+each a level's still, and the button bar at the foot. HOST chooses the
+mission, its difficulty and who can join, then hosts into the lobby; JOIN
+lists the friends' co-op games, then the public ones; SPLIT SCREEN is the
+hub's split-screen co-op. -->
+<screen name="coop">
+	<header title="CO-OP"/>
+	<space/>
+	<cards focus="host">
+		<card id="host" title="HOST" subtitle="Start a game your friends can join" picture="main_menu/campaign/art_146x119" frame="2" do="coop host"/>
+		<card id="join" title="JOIN" subtitle="Find a game to join" picture="main_menu/campaign/art_146x119" frame="5" do="coop join"/>
+		<card id="split" title="SPLIT SCREEN" subtitle="Two players on this computer" picture="main_menu/campaign/art_146x119" frame="7" do="coop split"/>
+	</cards>
+	<space/>
+	<buttons>
+		<button key="accept" label="SELECT"/>
+		<button key="back" label="BACK"/>
+	</buttons>
+</screen>

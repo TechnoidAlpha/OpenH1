@@ -175,6 +175,7 @@ static const char *crash_record_log;
 static uint32_t crash_record_log_size;
 static const uint64_t *crash_record_log_written;
 static volatile int crash_record_taken;
+const char *volatile host_crash_cause;
 #ifdef _WIN32
 /* (host_crash_win.c's: the record's file by Windows's functions) */
 void host_crash_file_name(const char *path);
@@ -237,6 +238,11 @@ int host_crash_record_begin(const char *reason)
 	if (!crash_record_is_open())
 		return 0;
 	host_crash_record_line(reason);
+	if (host_crash_cause)
+	{
+		crash_record_write("  ", 2);
+		host_crash_record_line(host_crash_cause);
+	}
 	return 1;
 }
 
@@ -299,14 +305,13 @@ void host_fatal(const char *format, ...)
 	_exit(1);
 }
 
+/* (the record is the SIGABRT's, written by its handler with the stack:
+host_memory_watch.c's, on Windows host_crash_win.c's; the reason a line of
+it) */
 void host_abort(const char *reason)
 {
 	host_logf(HOST_LOG_FATAL, "guest abort: %s", reason ? reason : "");
-	if (host_crash_record_begin("abort"))
-	{
-		host_crash_record_line(reason);
-		host_crash_record_end();
-	}
+	host_crash_cause = reason;
 	abort();
 }
 

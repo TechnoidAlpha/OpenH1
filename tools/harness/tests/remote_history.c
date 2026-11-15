@@ -37,8 +37,8 @@ static struct { long remote_corrections, remote_history_corrections, remote_hist
 static int applied;
 static real_vector3d applied_velocity;
 static boolean distributed_apply_state(long i, struct distributed_unit_state const *s, real_point3d const *p,
-    real tolerance, real blend, real speed, real fall) {
-    (void)tolerance; (void)blend; (void)speed; (void)fall;
+    real_vector3d const *v, real tolerance, real blend, real speed, real fall) {
+    (void)v; (void)tolerance; (void)blend; (void)speed; (void)fall;
     objects[i].object.position = *p;
     applied_velocity = s->fine_velocity;
     applied++;

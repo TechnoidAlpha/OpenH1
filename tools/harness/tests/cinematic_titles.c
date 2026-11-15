@@ -4,8 +4,10 @@ CINEMATIC_TITLES.C (test)
 The real cinematic_render (cinematics.c) over a fake scenario with one title, as
 some Custom Edition maps show their name for the whole game: drawn in the game,
 not over a menu (the screen's overlays are drawn after the players' menus), and
-its time going on under one. test_cinematic_titles.py takes the structures, the
-slots' count (config.inc) and the code (under_test.inc).
+its time going on under one. On a screen wider than 640 columns, the edge the
+title is justified to (its middle, if centered) keeps its place relative to the
+screen's sides, as on the Xbox's 4:3 screen. test_cinematic_titles.py takes the
+structures, the slots' count (config.inc) and the code (under_test.inc).
 */
 
 #include <math.h>
@@ -91,6 +93,9 @@ static rectangle2d drawn_bounds;
 #define rasterizer_draw_unicode_string(bounds, style, color, flags, string) \
 	(draws++, drawn_shadow = shadow, drawn_bounds = *(bounds))
 
+/* MCC title adaptation is inactive for these Xbox/CE cases. */
+static boolean mcc_cache_tags_loaded(void) { return FALSE; }
+static void mcc_hud_title_bounds(rectangle2d *bounds, short justification, unsigned long flags) { }
 #include "under_test.inc"
 
 /* the title in its slot, at its start: up for up_time ticks, then fading out for fade_out_time */

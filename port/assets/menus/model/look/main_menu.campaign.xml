@@ -470,4 +470,5 @@
 		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button PLAY"/>
 	</look>
 	<look name="main_menu/campaign/solo_creating_profile"/>
+	<look name="main_menu/campaign/coop_join_creating_profile"/>
 </model>

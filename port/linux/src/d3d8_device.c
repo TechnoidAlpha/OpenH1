@@ -44,6 +44,7 @@ Conventions carried over from the Xbox:
 #include "panini_projection.h"
 #include "world_ao.h"
 #include "world_cascades.h"
+#include "world_proxies.h"
 #include "world_rt.h"
 #include "world_sdf.h"
 #include "main/console.h"
@@ -343,6 +344,10 @@ _Static_assert(XGPU_WORLD_AO_SHAPES == XGPU_WORLD_AO_PROXIES_MAXIMUM &&
 	XGPU_WORLD_AO_SPHERE == XGPU_WORLD_AO_PROXY_SPHERE && XGPU_WORLD_AO_CAPSULE == XGPU_WORLD_AO_PROXY_CAPSULE &&
 	XGPU_WORLD_AO_BOX == XGPU_WORLD_AO_PROXY_BOX && XGPU_WORLD_AO_FIELD == XGPU_WORLD_AO_PROXY_FIELD,
 	"the world's proxies as the emitters take them (xgpu.h)");
+_Static_assert(WORLD_PROXY_MAXIMUM_PER_WINDOW == XGPU_WORLD_AO_PROXIES_MAXIMUM &&
+	_world_proxy_sphere == XGPU_WORLD_AO_PROXY_SPHERE && _world_proxy_capsule == XGPU_WORLD_AO_PROXY_CAPSULE &&
+	_world_proxy_box == XGPU_WORLD_AO_PROXY_BOX && _world_proxy_field == XGPU_WORLD_AO_PROXY_FIELD,
+	"a window's proxies as the game gives them (world_proxies.h)");
 _Static_assert(offsetof(struct xgpu_world_ao_block, field) == XGPU_WORLD_AO_BLOCK_FIELD &&
 	offsetof(struct xgpu_world_ao_block, parameters) == XGPU_WORLD_AO_BLOCK_PARAMETERS &&
 	offsetof(struct xgpu_world_ao_block, proxies) == XGPU_WORLD_AO_BLOCK_PROXIES &&
@@ -2955,6 +2960,16 @@ void WINAPI D3DDevice_SetTexture(DWORD stage, D3DBaseTexture *texture)
 {
 	if (stage < D3DTSS_MAXSTAGES)
 		device.textures[stage] = texture;
+}
+
+/* (xgpu.h) an MCC texture's header about to be freed: no stage keeps it */
+void xgpu_mcc_texture_unbind(const DWORD *resource)
+{
+	unsigned long stage;
+
+	for (stage = 0; stage < D3DTSS_MAXSTAGES; stage++)
+		if ((const DWORD *)device.textures[stage] == resource)
+			device.textures[stage] = NULL;
 }
 
 void WINAPI D3DDevice_SetPalette(DWORD stage, D3DPalette *palette)

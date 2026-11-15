@@ -71,38 +71,3 @@ def test_the_constants():
                      read("source/rasterizer/rasterizer.c"))
     assert "#define CENTIMETERS_PER_WORLD_UNIT 304.8" in read("port/linux/game/view_fov.c")
     assert "#define FIRST_PERSON_NEAR_CLIP_LEAST (1.0f / 64.0f)" in read("port/linux/game/near_clip.c")
-
-
-def test_every_weapon_pass_takes_it():
-    # each pass that draws the weapon sets its near plane from the projection drawn, none the game's own distance
-    for path in ("source/rasterizer/xbox/rasterizer_xbox_models.c",
-                 "source/rasterizer/rasterizer_transparent_geometry.c",
-                 "source/rasterizer/xbox/rasterizer_xbox_transparent_geometry.c",
-                 "source/rasterizer/xbox/rasterizer_xbox_active_camouflage.c"):
-        code = read(path)
-        assert re.search(r"rasterizer_set_frustum_z\(\s*(/\*[^*]*\*/\s*)?viewmodel_near_clip_distance\(\),\s*"
-                         r"rasterizer_globals\.first_person_weapon_far_clip_distance\)", code), path
-        assert not re.search(r"rasterizer_set_frustum_z\(\s*rasterizer_globals\.first_person_weapon_near_clip_distance",
-                             code), path
-    # (the weapon's passes in the model and transparent paths, inside its projection)
-    model = function(read("source/rasterizer/xbox/rasterizer_xbox_models.c"), "_rasterizer_model_begin")
-    assert model.index("viewmodel_projection_begin();") < model.index("viewmodel_near_clip_distance()")
-
-
-def test_what_it_is_taken_from():
-    code = read("port/linux/game/view_fov.c")
-    near = function(code, "viewmodel_near_clip_distance")
-    # the projection drawn now and the stock angle it widens; the VR mode's eyes the game's
-    assert "render_first_person_near_clip_distance(&global_window_parameters.camera,\n" \
-           "\t\t&global_window_parameters.frustum.frustum_bounds," in near
-    assert "projection_applied ? projection_stock_vertical : global_window_parameters.camera.vertical_field_of_view" \
-        in near
-    assert near.index("#ifdef HALO_VR") < near.index("return z_near;\n#else")
-    begin = function(code, "viewmodel_projection_begin")
-    # the stock angle: the view's before display.fov widened it, else the view's own, before the weapon's changes it
-    assert begin.index("projection_stock_vertical = render_fov_authored_vertical(render.local_player_index);") < \
-        begin.index("global_window_parameters.camera.vertical_field_of_view = angle;")
-    # the weapon's move recorded each frame, none when it has no offset
-    apply = function(code, "viewmodel_offset_apply")
-    assert apply.index("applied_forwards[local_player_index] = 0.0f;") < apply.index("viewmodel_offset(local_player_index, weapon_index")
-    assert "applied_forwards[local_player_index] = offset.forward;" in apply

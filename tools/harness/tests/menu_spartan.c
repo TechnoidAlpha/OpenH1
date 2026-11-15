@@ -88,10 +88,11 @@ static boolean menu_spartan_available(void)
 	return available;
 }
 
-static void menu_spartan_place(short index, short color_index, real x, real bottom, real height)
+static void menu_spartan_place(short index, short color_index, real x, real bottom, real height, boolean lineup)
 {
 	(void)bottom;
 	(void)height;
+	(void)lineup;
 	placed[index] = color_index;
 	placed_x[index] = x;
 }

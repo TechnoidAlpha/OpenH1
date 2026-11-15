@@ -53,6 +53,9 @@ void host_crash_record(const char *path, const char *log, uint32_t log_size, con
 begun with its reason's line (0 if there is none to write, or a crash on
 another thread wrote it), each line of the crash, and the log after them */
 int host_crash_record_begin(const char *reason);
+/* what brought the crash about, if the host knows (host_abort's reason): a
+line of the record after the first */
+extern const char *volatile host_crash_cause;
 void host_crash_record_line(const char *line);
 void host_crash_record_end(void);
 
@@ -185,8 +188,10 @@ long host_guest_madvise(uint64_t address, uint64_t size, int advice);
 reprotected */
 void host_memory_watch_forget(uint32_t address, uint32_t size);
 
-/* the SIGSEGV, SIGBUS and SIGILL handlers: the write tracking's faults, and
-a report of any other (host_memory.c); the main thread calls it first */
+/* the handlers of every signal that ends the process with a core (SIGSEGV,
+SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP, SIGSYS): the write tracking's
+faults, and a report of any other, the crash record written
+(host_memory_watch.c); the main thread calls it first */
 void host_install_signal_handlers(void);
 /* gives the calling thread a stack of its own for those handlers, so that a
 stack overflow can be reported (host_thread.c does it for its threads); 0

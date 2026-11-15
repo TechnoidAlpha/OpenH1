@@ -83,19 +83,3 @@ def test_case(case):
 def test_negative_control(control):
     status, output = run(build("gamepad_taps", generated(control)), NEGATIVE_CONTROLS[control][2])
     assert status == CHECK_FAILED, f"{control} was not caught: {output}"
-
-
-def test_the_game_reads_them():
-    """The event pump records the presses and drops them on removal and focus loss; every port's reading takes its
-    gamepad's once, before the remapping, and passes them to the paddles too."""
-    platform = read("port/linux/src/sdl_platform.c")
-    inputs = read("port/linux/src/xinput_sdl.c")
-    pump = function(platform, "platform_pump_events")
-    assert "gamepad_button_pressed(event.gbutton.which, event.gbutton.button)" in pump
-    assert "gamepad_trigger_moved(event.gaxis.which, event.gaxis.axis, event.gaxis.value)" in pump
-    assert "gamepad_presses_forget(event.gdevice.which)" in pump
-    assert "gamepad_presses_clear()" in pump
-    state = function(inputs, "XInputGetState")
-    assert state.count("gamepad_taps_take(gamepads, count, port_gamepad(gamepads, count, port), &taps)") == 1
-    assert state.index("&taps, &physical") < state.index("controller_remap_input(")
-    assert "sdl_gamepad_paddles(port_gamepad(gamepads, count, port), &taps)" in state

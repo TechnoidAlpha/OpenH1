@@ -7,6 +7,7 @@ macOS one.
 """
 
 import ctypes
+import errno
 import os
 import platform
 import re
@@ -48,6 +49,12 @@ LOADING_SECONDS = 10
 # a map file's first words: 'head' and the version, the Xbox's 5 (xbox_files.c's map_file_version)
 MAP_HEADER_SIGNATURE = 0x68656164
 XBOX_MAP_VERSION = 5
+# launch's copies of the game and its starts, one at a time (conftest.py's sessions play side by side): a copy open
+# for writing when another thread forks stays open in that child until it runs its program, and the game's start
+# fails while it is (ETXTBSY, "Text file busy")
+LAUNCHING = threading.Lock()
+# the tries at starting the game, a tenth of a second apart, for the other threads' forks (generate's tools)
+LAUNCH_TRIES = 5
 # what the runtime of a guest image is, of the game's guest's objects (port/android/guest/runtime), and the host's
 # imports (gen/imports.o); the tag schemas (port/linux/game/tag_schema_*.c), which set what the generator leaves
 # unset to none
@@ -250,13 +257,6 @@ def launch(machine, input, address, broadcast, test, init="", game=None, **envir
     for name in ("debug.txt", "game.log"):
         (machine / name).unlink(missing_ok=True)
     (machine / "runtime").mkdir(mode=0o700, exist_ok=True)
-    # (the game, and the libraries it finds beside it, in machine's own folder: a desktop build keeps its
-    # config.toml beside the executable, so each machine has its own settings)
-    # (and the files the game reads beside it: its assets' file, embedded_assets.h, and the shipped records)
-    for source in [game, *game.parent.glob("lib*.so*"), *game.parent.glob("lib*.dylib"),
-                   *(game.parent / name for name in ("openh1.assets", "prepared.records")
-                     if (game.parent / name).is_file())]:
-        place(source, machine / ("halo" if source == game else source.name))
     # (none of the caller's own settings; system link on the loopback only, no internet play; a failed assertion
     # ends the run, with its place, which play_slice then shows, rather than a release build carrying on past it or
     # a debug build halting: debug.fatal_asserts)
@@ -266,9 +266,22 @@ def launch(machine, input, address, broadcast, test, init="", game=None, **envir
                        HALO_SAVE_ROOT=str(machine / "save"), XDG_RUNTIME_DIR=str(machine / "runtime"),
                        HALO_DATA_ROOT=str(machine), HOME=str(machine), HALO_NETWORK_TEST=test,
                        HALO_NET_ADDRESS=address, HALO_NET_BROADCAST=broadcast, **environment)
-    with open(machine / "game.log", "w") as log:
-        return subprocess.Popen([str(machine / "halo")], cwd=machine, env=environment, stdout=log,
-                                stderr=subprocess.STDOUT)
+    with LAUNCHING, open(machine / "game.log", "w") as log:
+        # (the game, and the libraries it finds beside it, in machine's own folder: a desktop build keeps its
+        # config.toml beside the executable, so each machine has its own settings)
+        # (and the files the game reads beside it: its assets' file, embedded_assets.h, and the shipped records)
+        for source in [game, *game.parent.glob("lib*.so*"), *game.parent.glob("lib*.dylib"),
+                       *(game.parent / name for name in ("openh1.assets", "prepared.records")
+                         if (game.parent / name).is_file())]:
+            place(source, machine / ("halo" if source == game else source.name))
+        for attempt in range(LAUNCH_TRIES):
+            try:
+                return subprocess.Popen([str(machine / "halo")], cwd=machine, env=environment, stdout=log,
+                                        stderr=subprocess.STDOUT)
+            except OSError as error:
+                if error.errno != errno.ETXTBSY or attempt == LAUNCH_TRIES - 1:
+                    raise
+                time.sleep(0.1)
 
 
 # the first tick every player has a unit, from which a scenario's seconds (and cues) count (network_test.c)

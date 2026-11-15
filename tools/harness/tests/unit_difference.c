@@ -26,9 +26,23 @@ static struct distributed_unit_state distributed_unit_bases[MAXIMUM_TRACKED_PLAY
 static long distributed_unit_base_times[MAXIMUM_TRACKED_PLAYERS][UNIT_BASE_TICKS];
 
 static long now_time;
+/* the first byte of the last entry tick() wrote */
+static byte last_form;
 static long game_time_get(void) { return now_time; }
 static boolean distributed_point_valid(real_point3d const *point, real bound) {
 	return fabsf(point->x) <= bound && fabsf(point->y) <= bound && fabsf(point->z) <= bound;
+}
+static boolean distributed_scripted_pose_valid(struct distributed_unit_state const *state) { (void)state; return TRUE; }
+/* (vehicle_riding.c's checks of a deck part: the vehicle of the test's one,
+its ticks a window's) */
+enum { DECK_VEHICLE = 0x00170005, DECK_NODES = 3 };
+static boolean vehicle_riding_deck_values_valid(struct vehicle_riding_deck const *deck) {
+	return deck->place.x == deck->place.x && deck->velocity.i == deck->velocity.i;
+}
+static boolean vehicle_riding_deck_vehicle_named(long vehicle_index) { return vehicle_index == DECK_VEHICLE; }
+static short biped_riding_vehicle_node_count(long vehicle_index) { return vehicle_index == DECK_VEHICLE ? DECK_NODES : NONE; }
+static boolean vehicle_riding_deck_valid(struct vehicle_riding_deck const *deck, short node_count) {
+	return deck->ticks >= 1 && deck->ticks <= 60 && deck->node_index >= NONE && deck->node_index < node_count;
 }
 #include "under_test.inc"
 
@@ -115,6 +129,7 @@ static word tick(struct distributed_unit_state const *host_state, long time, boo
 	}
 	sent[oldest] = time;
 	*difference = buffer[0] != 0;
+	last_form = buffer[0];
 	if (lose)
 	{
 		*known = FALSE;
@@ -281,6 +296,74 @@ int main(int argc, char **argv)
 		CHECK(buffer[0] != 0, "a difference");
 		for (cut = 0; cut < size; cut++)
 			CHECK(!distributed_unit_difference_read(buffer, buffer + cut, 301, &read, &known), "cut at %u: none", cut);
+		return 0;
+	}
+	if (!strcmp(which, "deck"))
+	{
+		/* (OpenH1 protocol 31: a player who steps onto a vehicle's deck, rides
+		it, jumps off into its window and lands away from it; each state read
+		back is the whole state's, its deck part with it) */
+		state = on_foot(1, 10.0f, 10.0f, 1.0f, 40);
+		tick(&state, 400, TRUE, FALSE, &difference, &known);
+		for (time = 401; time < 440; time++)
+		{
+			distributed_unit_acked_times[1] = time - 1;
+			state.position.x += 0.125f;
+			state.predicted_time = (short)(state.predicted_time + 1);
+			if (time == 405)
+			{
+				state.deck_present = TRUE;
+				state.deck.vehicle_index = DECK_VEHICLE;
+				state.deck.node_index = NONE;
+				state.deck.ticks = 60;
+				state.deck.place.x = 0.5f;
+				state.deck.place.y = -0.25f;
+				state.deck.place.z = 0.75f;
+				state.deck.velocity.i = 0.0625f;
+			}
+			if (time > 405 && time < 420)
+				state.deck.place.x += 0.03125f;
+			if (time == 420)
+				state.deck.node_index = 2;
+			if (time >= 425 && time < 430)
+			{
+				/* (in the air: the window runs down) */
+				state.deck.ticks = (char)(60 - (time - 424));
+				state.deck.flags = 1;
+				state.deck.peak = 1.5f;
+			}
+			if (time == 430)
+				state.deck_present = FALSE;
+			tick(&state, time, TRUE, FALSE, &difference, &known);
+			CHECK(known && difference, "tick %ld: a known difference", time);
+			/* (the deck part goes where it changed, and only there) */
+			if (time == 405 || (time > 405 && time <= 420) || (time >= 425 && time <= 430))
+				CHECK(last_form == _unit_difference_form_deck, "tick %ld: the deck part not sent (form %u)", time,
+					last_form);
+			else
+				CHECK(last_form == _unit_difference_form_difference,
+					"tick %ld: the deck part sent unchanged (form %u)", time, last_form);
+		}
+		/* (a presence byte not 0 or 1 from another machine: no state) */
+		{
+			byte buffer[1 + DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE];
+			struct distributed_unit_state read;
+
+			distributed_unit_acked_times[1] = 439;
+			state.deck_present = TRUE;
+			state.deck.ticks = 60;
+			now_time = 440;
+			distributed_tick_states[1][440 & (UNIT_BASE_TICKS - 1)] = state;
+			distributed_unit_state_snap(&distributed_tick_states[1][440 & (UNIT_BASE_TICKS - 1)]);
+			distributed_tick_state_times[1][440 & (UNIT_BASE_TICKS - 1)] = 440;
+			size = distributed_unit_difference_write(1, 1, &distributed_tick_states[1][440 & (UNIT_BASE_TICKS - 1)],
+				TRUE, buffer);
+			CHECK(buffer[0] == _unit_difference_form_deck && buffer[size - 1 - DISTRIBUTED_DECK_SIZE] == 1,
+				"a deck part written");
+			buffer[size - 1 - DISTRIBUTED_DECK_SIZE] = 2;
+			CHECK(!distributed_unit_difference_read(buffer, buffer + size, 440, &read, &known),
+				"a deck part's presence of 2 taken");
+		}
 		return 0;
 	}
 	fprintf(stderr, "no such case: %s\n", which);

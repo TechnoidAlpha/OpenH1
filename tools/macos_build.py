@@ -336,6 +336,8 @@ def generate_apple_build(n: Writer, sln: Any, target: ApplePlatform) -> Optional
                 if not source.name.startswith("guest_") and source.name not in SHARED_USERS
                 and source.name not in METAL_C_SOURCES),
         LINUX_DIR / "src" / "posix_files.c", LINUX_DIR / "src" / "posix_net.c",
+        # the MCC packages' previews and sharing (posix.h's posix_mcc_*)
+        LINUX_DIR / "src" / "posix_mcc_preview.c", LINUX_DIR / "src" / "posix_mcc_share.c",
         TOML_DIR / "tomlc17.c",
     ]
     host_objects: List[Path] = []

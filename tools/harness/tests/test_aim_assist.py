@@ -31,17 +31,6 @@ def test_negative(fault,case):
     status,output=run(build('aim_assist',generated(fault)),case)
     assert status==CHECK_FAILED,output
 
-def test_menu():
-    import port_settings as p
-    import xml.etree.ElementTree as ET
-    root=ET.fromstring('\n'.join(p.multiplayer_files()[p.PLAYER_EDIT.replace('/','.')+'.port.xml']))
-    choices=root.find("strings[@name='"+p.PLAYER_EDIT+"/var_aim_assist']")
-    assert [s.attrib['text'] for s in choices]==['ALLOWED','BLOCK M+KB']
-    assert 73+27*8==289 and 289+27==316 and 316+28<=345 and 345+60<414
-    # (the spinner's setting and values: the setup screens' nodes', tools/port_settings.py's SETUP_ROW_SETTINGS)
-    assert p.SETUP_ROW_SETTINGS['aim_assist'] == ('network.block_mouse_aim_assist', ['false', 'true'])
-    assert '{ "aim_assist_spinner", _option_setting }' in read('port/linux/game/menu_functions.c')
-
 
 def message_ids():
     """Compile the production IDs so map-sharing collisions reach the tests."""

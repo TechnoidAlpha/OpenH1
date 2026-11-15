@@ -4,6 +4,7 @@
 	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/edit_playlist_select_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
 	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen" flags="pass_unhandled_to_focused_child">
 		<on event="created" run="close if not editing profile"/>
+		<on event="b back" run="port edit leave" open="screens/save_changes"/>
 	</behaviour>
 	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
 	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_button_ok">

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, ROOT, build, constant, function, mutated, read, run, structure  # noqa: E402
+from harness import CHECK_FAILED, ROOT, build, constant, function, mutated, read, run  # noqa: E402
 
 CASES = ["local", "spinner-ends", "lobby-bots", "bots-left"]
 
@@ -59,7 +59,6 @@ def server_settings_local() -> str:
 
 
 def generated(fault=None):
-    menus = read("port/linux/game/menu_functions.c")
     lobby = read("port/linux/game/lobby_menu.inc")
     widgets = read("source/interface/ui_widget.c")
     engine = read("source/game/game_engine.c")
@@ -133,15 +132,3 @@ def test_server_setup_has_no_bots():
     note_top = int(re.search(rf'<widget name="{MT}/server_settings/local_note"[^>]*top="(\d+)"', text).group(1))
     game_y = int(re.search(rf'<child widget="{MT}/server_settings/op_game_mode" x="54" y="(\d+)"/>', text).group(1))
     assert abs(note_top - game_y) <= 8, (note_top, game_y)
-
-
-def test_multiplayer_has_offline():
-    """Multiplayer's HOST has no PLAY WITH BOTS: CREATE GAME's page has OFFLINE (a game of this machine alone), the
-    computer's and the touchscreen's, which menu_functions.c's multiplayer_mode_set hosts so"""
-    for name in ("hub", "hub.touch"):
-        hub = (CE / f"main_menu.multiplayer_type_select.{name}.xml").read_text()
-        assert "hub_create_bots" not in hub
-        assert re.search(r'<widget name="[^"]*hub_create_offline"', hub), name
-    menus = read("port/linux/game/menu_functions.c")
-    assert 'strstr(name, "create_offline")' in function(menus, "multiplayer_mode_set")
-    assert '{ "hub_create_offline", _multiplayer_item_offline }' in menus

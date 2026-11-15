@@ -286,6 +286,9 @@ int main(int argc, char **argv)
 		CHECK(result.type == _collision_result_object && result.object_index == enemy, "stopped at %ld",
 			result.object_index);
 		CHECK(NEAR(result.point.x, 19.5f, 0.05f), "the enemy met at %f", result.point.x);
+		/* (two tests: the first met their own body's far side, the second
+		went on past it to the enemy) */
+		CHECK(tests == 2, "%d collision tests", tests);
 		CHECK(global_current_collision_user_depth == 0, "the collision users left at %d",
 			(int)global_current_collision_user_depth);
 		CHECK(TEST_FLAG(tested_flags, _collision_test_objects_bipeds_bit) &&

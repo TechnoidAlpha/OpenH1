@@ -46,6 +46,7 @@ NEGATIVE_CONTROLS = {
 }
 
 FUNCTIONS = ("distributed_put", "distributed_take", "distributed_real_valid", "legacy_put", "legacy_take",
+             "distributed_vector_pack", "distributed_vector_unpack", "distributed_deck_put", "distributed_deck_take",
              "distributed_unit_state_write",
              "distributed_unit_state_read", "distributed_substep_base_from_state", "distributed_vector_difference",
              "distributed_substep_state_write", "distributed_substep_state_read")
@@ -61,12 +62,14 @@ def generated(fault=None):
     config = "enum { NUMBER_OF_PLAYER_POWERUPS = 2, NO_PLAYER = 0xFF };\n"
     config += "#define DISTRIBUTED_UNIT_SCALE " + re.search(r"#define DISTRIBUTED_UNIT_SCALE\s+(\S+)", header)[1] + "\n"
     config += "#define SUBSTEP_POSITION_SCALE " + re.search(r"#define SUBSTEP_POSITION_SCALE\s+(\S+)", source)[1] + "\n"
+    config += "#define DISTRIBUTED_VELOCITY_SCALE " + re.search(r"#define DISTRIBUTED_VELOCITY_SCALE\s+(\S+)", header)[1] + "\n"
     for member in ("_distributed_unit_alive_bit", "_distributed_unit_camouflaged_bit",
-                   "_distributed_unit_part_riding_bit"):
+                   "_distributed_unit_part_riding_bit", "_distributed_pose_facing"):
         config += enum_with(legacy_header, member) + "\n"
     for member in ("SUBSTEP_BASE_TICKS", "_substep_state_difference_bit"):
         config += enum_with(source, member) + "\n"
     config += enum_with(legacy_header, "DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE") + "\n"
+    config += structure(read("port/linux/game/vehicle_riding.h"), "vehicle_riding_deck") + "\n"
     config += structure(legacy_header, "distributed_unit_state") + "\n"
     config += structure(source, "distributed_substep_base") + "\n"
     return (("config.inc", config), ("under_test.inc", code))

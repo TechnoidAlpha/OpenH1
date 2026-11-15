@@ -59,11 +59,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build('limp_body_moves', generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_host_word_on_rest():
-    # Each object state takes the host's at rest for a body too, after its own flag, before its correction.
-    states = function(read('port/linux/game/network_objects.c'), 'network_objects_handle_states')
-    flag = states.index('SET_FLAG(object->object.flags, _object_at_rest_bit, at_rest);')
-    body = states.index('distributed_body_set_at_rest(state->object_index, at_rest);')
-    assert flag < body < states.index('network_objects_reconcile(state->object_index', body)

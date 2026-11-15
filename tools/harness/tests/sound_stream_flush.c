@@ -17,6 +17,8 @@ static unsigned long status[8],completed[8];
 #define interrupt_time_error(...) CHECK(FALSE,"invalid completion")
 #define SetEvent(...) ((void)events++)
 #define resampler_reset(...) ((void)resets++)
+/* (the fade of what the voice was playing when it is cut off: the mixer's, test_mixer.py) */
+#define voice_cut(...) ((void)0)
 static void counted_free(void *memory) { if (memory) freed++; free(memory); }
 #define free(memory) counted_free(memory)
 static void dsound_channel_fill(short i) {

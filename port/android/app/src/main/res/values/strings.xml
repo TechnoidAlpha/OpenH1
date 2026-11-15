@@ -3,4 +3,5 @@
     <string name="app_name">GOAT H1</string>
     <string name="shortcut_backup_short">Back up saves</string>
     <string name="shortcut_backup_long">Back up saves and settings</string>
+    <string name="mcc_import_label">Import MCC maps</string>
 </resources>

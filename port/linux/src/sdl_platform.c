@@ -1544,6 +1544,13 @@ int platform_audio_devices(int recording, char (*names)[PLATFORM_AUDIO_DEVICE_NA
 
 	if (maximum < 1 || !platform_sdl_initialize())
 		return 0;
+	/* (debug.audio_device_name's, first: a long name's menus tested) */
+	{
+		const char *fake = config_string("debug.audio_device_name");
+
+		if (fake && fake[0] && !strchr(fake, '|') && strlen(fake) < PLATFORM_AUDIO_DEVICE_NAME_SIZE)
+			snprintf(names[count++], PLATFORM_AUDIO_DEVICE_NAME_SIZE, "%s", fake);
+	}
 	devices = recording ? SDL_GetAudioRecordingDevices(&device_count) : SDL_GetAudioPlaybackDevices(&device_count);
 	for (index = 0; devices && index < device_count && count < maximum; index++)
 	{

@@ -103,4 +103,9 @@
 		<on event="stick_left" run="port controller left"/>
 		<on event="stick_right" run="port controller right"/>
 	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_controller_buttons" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/controller_buttons_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/controller_buttons_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
 </model>

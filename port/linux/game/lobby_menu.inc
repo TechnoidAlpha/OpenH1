@@ -61,6 +61,7 @@ enum
 	_lobby_tag_party,
 	_lobby_tag_openh1,
 	_lobby_tag_opence,
+	_lobby_tag_split,
 	NUMBER_OF_LOBBY_TAGS
 };
 
@@ -82,6 +83,9 @@ struct lobby_board_entry
 	boolean host;
 	boolean bot;
 	boolean party;
+	/* a machine's player past its first (split screen's: P2 to P4), the host's
+	machine's too, whose first alone is the host */
+	boolean split;
 	/* _lobby_kind_* */
 	short kind;
 };
@@ -119,7 +123,7 @@ struct lobby_board_controls
 
 static wchar_t const *const lobby_tag_words[NUMBER_OF_LOBBY_TAGS] =
 {
-	L"", L"HOST", L"BOT", L"PARTY", L"GOAT H1", L"OPENCE",
+	L"", L"HOST", L"BOT", L"PARTY", L"GOAT H1", L"OPENCE", L"SPLIT SCREEN",
 };
 
 static struct
@@ -158,6 +162,8 @@ static short lobby_board_tag(struct lobby_board_entry const *entry)
 		return _lobby_tag_bot;
 	if (entry->host)
 		return _lobby_tag_host;
+	if (entry->split)
+		return _lobby_tag_split;
 	if (entry->kind == _lobby_kind_opence)
 		return _lobby_tag_opence;
 	if (entry->party)
@@ -165,6 +171,30 @@ static short lobby_board_tag(struct lobby_board_entry const *entry)
 	if (entry->kind == _lobby_kind_openh1)
 		return _lobby_tag_openh1;
 	return _lobby_tag_none;
+}
+
+/* each machine's players past its first (by their controllers: split
+screen's P2 to P4) marked, and none of them the host: the host is its
+machine's first player alone, on the host's machine and on a player's */
+static void lobby_board_mark_split(struct lobby_board_entry *entries, long const *machines, short const *controllers,
+	short count)
+{
+	short index, other;
+
+	for (index = 0; index < count; index++)
+	{
+		entries[index].split = FALSE;
+		for (other = 0; other < count && !entries[index].bot; other++)
+		{
+			if (other != index && !entries[other].bot && machines[other] == machines[index] &&
+				(controllers[other] < controllers[index] || (controllers[other] == controllers[index] && other < index)))
+			{
+				entries[index].split = TRUE;
+			}
+		}
+		if (entries[index].split)
+			entries[index].host = FALSE;
+	}
 }
 
 /* a player's place in its column: the host first, the party's members
@@ -643,6 +673,17 @@ static void lobby_board_model_make(struct lobby_board_model *model, short rows)
 			entry->kind = _lobby_kind_openh1;
 		model->own_player |= entry->own;
 	}
+	{
+		long machines[HALO_PORT_MAXIMUM_NETWORK_PLAYERS];
+		short controllers[HALO_PORT_MAXIMUM_NETWORK_PLAYERS];
+
+		for (index = 0; index < count; index++)
+		{
+			machines[index] = model->players[index]->machine_index;
+			controllers[index] = (short)model->players[index]->controller_index;
+		}
+		lobby_board_mark_split(model->entries, machines, controllers, count);
+	}
 	model->count = count;
 	lobby_player_count = count;
 	if (game)
@@ -849,6 +890,10 @@ static void lobby_board_update(struct widget_instance *list)
 		if (teams)
 			usnprintf(text, NUMBEROF(text) - 1, layout.counts[column] == 1 ? L"1 PLAYER" : L"%d PLAYERS",
 				layout.counts[column]);
+		/* (an offline game's: its players alone, as its band says; the
+		server's most is the bots' room, no limit of its people) */
+		else if (game && global_network_game_server_get() && network_game_is_splitscreen_local())
+			usnprintf(text, NUMBEROF(text) - 1, count == 1 ? L"1 PLAYER" : L"%d PLAYERS", count);
 		else
 			usnprintf(text, NUMBEROF(text) - 1, game ? L"%d OF %d" : L"", count, game ? game->maximum_players : 0);
 		text[NUMBEROF(text) - 1] = 0;
@@ -1044,12 +1089,14 @@ static boolean lobby_board_team(struct widget_instance *widget, short controller
 /* "port lobby start" (START GAME, A or Start on the players, Start on the
 panel's controls): the host's game starts, at once (the host's own faster:
 network_game_server_game_start_request_event) once every machine has the
-map */
-static boolean lobby_board_start(void)
+map; by one of this machine's players alone (FALSE for another controller,
+which its START joins: "port lobby join", pc_menu_lobby_start) */
+static boolean lobby_board_start(short controller)
 {
 	void *client = global_network_game_client_get();
 
-	if (!global_network_game_server_get() || !client || !lobby_local_player_count())
+	if (!global_network_game_server_get() || !client || !lobby_local_player_count() ||
+		!lobby_controller_playing(controller))
 		return FALSE;
 	if (!network_game_client_request_start_time_change(client, TRUE))
 		return campaign_fail();
@@ -1063,7 +1110,7 @@ static boolean lobby_board_click(struct widget_instance *widget, short controlle
 	short x, y;
 
 	if (!ui_widget_port_take_click(&x, &y))
-		return lobby_board_start();
+		return lobby_board_start(controller);
 	if (!blue || !blue->visible)
 		return TRUE;
 	return lobby_board_team(widget, controller,
@@ -1242,11 +1289,14 @@ static void lobby_color_word(struct lobby_board_model const *model, struct netwo
 
 /* the lineup over the players (lobby.lineup): a team game's four of each
 team, red's places then blue's (an empty place "-"), else the first eight;
-each the host first, then as they joined (the game's record's order) */
-static void lobby_lineup(struct lobby_board_model const *model, char *value, unsigned long size)
+each the host first, then as they joined (the game's record's order). With
+names (lobby.lineup.names), each place's player's name in its place, a line
+each (an empty place's empty) */
+static void lobby_lineup(struct lobby_board_model const *model, boolean names, char *value, unsigned long size)
 {
-	short team, teams = model->teams ? 2 : 1;
+	short team, teams = model->teams ? 2 : 1, written = 0;
 	unsigned long used = 0;
+	char const *between = names ? "\n" : " ";
 
 	value[0] = 0;
 	for (team = 0; team < teams; team++)
@@ -1259,18 +1309,30 @@ static void lobby_lineup(struct lobby_board_model const *model, char *value, uns
 			for (index = 0; index < model->count && taken < places; index++)
 			{
 				struct lobby_board_entry const *entry = &model->entries[index];
-				char word[16];
+				char word[64];
 
 				if ((pass == 0) != (entry->host != FALSE) || (model->teams && (entry->team == 1 ? 1 : 0) != team))
 					continue;
-				lobby_color_word(model, model->players[index], word, sizeof(word));
-				used += (unsigned long)snprintf(value + used, used < size ? size - used : 0, "%s%s", used ? " " : "",
-					word);
+				if (names)
+				{
+					wchar_t name[NUMBEROF(model->players[index]->name) + 1];
+
+					ustrncpy(name, model->players[index]->name, NUMBEROF(model->players[index]->name));
+					name[NUMBEROF(model->players[index]->name)] = 0;
+					lobby_utf8(name, word, (short)sizeof(word));
+				}
+				else
+					lobby_color_word(model, model->players[index], word, sizeof(word));
+				used += (unsigned long)snprintf(value + used, used < size ? size - used : 0, "%s%s",
+					written++ ? between : "", word);
 				taken++;
 			}
 		}
 		for (; model->teams && taken < places; taken++)
-			used += (unsigned long)snprintf(value + used, used < size ? size - used : 0, "%s-", used ? " " : "");
+		{
+			used += (unsigned long)snprintf(value + used, used < size ? size - used : 0, "%s%s",
+				written++ ? between : "", names ? "" : "-");
+		}
 	}
 	if (used >= size && size)
 		value[size - 1] = 0;
@@ -1757,6 +1819,15 @@ static void lobby_screen_cell(short index, char const *column, int focused, stru
 		short letter;
 
 		ustrncpy(text, lobby_tag_words[lobby_board_tag(entry)], NUMBEROF(text) - 1);
+		/* (SPLIT where SPLIT SCREEN would be cut short) */
+		if (lobby_board_tag(entry) == _lobby_tag_split)
+		{
+			static char const split[] = "SPLIT";
+
+			for (letter = 0; split[letter]; letter++)
+				cell->fallback[letter] = (unsigned short)split[letter];
+			cell->fallback[letter] = 0;
+		}
 		if (entry->bot)
 		{
 			/* (BOT alone where BOT and the skill would be cut short) */
@@ -1838,6 +1909,8 @@ int pc_menu_lobby_value(char const *name, char *value, unsigned long size)
 
 		usnprintf(text, NUMBEROF(text) - 1, count == 1 ? L"1 PLAYER" : L"%d PLAYERS", count);
 	}
+	else if (!strcmp(name, "lobby.blue.count") && model->game && model->local)
+		usnprintf(text, NUMBEROF(text) - 1, model->count == 1 ? L"1 PLAYER" : L"%d PLAYERS", model->count);
 	else if (!strcmp(name, "lobby.blue.count") && model->game)
 		usnprintf(text, NUMBEROF(text) - 1, L"%d OF %d", model->count, model->game->maximum_players);
 	else if (!strcmp(name, "lobby.red.tone"))
@@ -1887,9 +1960,9 @@ int pc_menu_lobby_value(char const *name, char *value, unsigned long size)
 		else
 			ustrncpy(text, model->map, NUMBEROF(text) - 1);
 	}
-	else if (!strcmp(name, "lobby.lineup"))
+	else if (!strcmp(name, "lobby.lineup") || !strcmp(name, "lobby.lineup.names"))
 	{
-		lobby_lineup(model, value, size);
+		lobby_lineup(model, !strcmp(name, "lobby.lineup.names"), value, size);
 		return value[0] != 0;
 	}
 	else if (!strcmp(name, "lobby.gametype"))
@@ -2001,7 +2074,7 @@ int pc_menu_lobby_action(struct widget_instance *widget, struct event_record *ev
 		short rows = MAX(model->layout.row_count, 1);
 
 		if (!ui_widget_port_take_click(&x, &y))
-			return lobby_board_start();
+			return lobby_board_start(controller);
 		if (!model->teams || row == NONE)
 			return TRUE;
 		return lobby_board_team(widget, controller, (short)(row / rows == 1 ? 1 : 0));
@@ -2038,6 +2111,10 @@ void pc_menu_lobby_frame(struct widget_instance *screen)
 	lobby_screen_model();
 	/* (its chat's keys, T and Y, while it is shown) */
 	network_chat_lobby_frame();
+	/* (the keyboard's keys the tall screens draw, the browsers': X as Tab
+	(ADD PLAYER), Y as F (COPY LINK), RB as E (INVITE FRIENDS), each its own
+	key; elsewhere E is both X and RB: xinput_sdl.c's keyboard_gamepad) */
+	halo_keyboard_browser_keys();
 }
 
 /* ---- the lobby's chat (<chat source="lobby.chat">: network_chat.c's lobby
@@ -2151,19 +2228,32 @@ static void lobby_presence_tell(void)
 	if (game && state >= _client_state_pregame)
 	{
 		wchar_t const *kind = game_modes_variant_kind_name(&game->variant, &game->variant_options);
-		wchar_t gametype[NUMBEROF(game->variant.human_readable_game_description) + 1];
+		/* (the gametype's own name, or co-op's with its difficulty: "Co-op
+		Legendary", longer than a gametype's name) */
+		wchar_t gametype[MAX(NUMBEROF(game->variant.human_readable_game_description) + 1, 24)];
 		boolean standard = host ? network_standard_hosting() : network_standard_agreed_rate() > 0;
 		long rate = network_standard_agreed_rate();
 		size_t length = 0;
 
-		ustrncpy(gametype, game->variant.human_readable_game_description, NUMBEROF(gametype) - 1);
-		gametype[NUMBEROF(gametype) - 1] = 0;
+		ustrncpy(gametype, game->variant.human_readable_game_description,
+			NUMBEROF(game->variant.human_readable_game_description));
+		gametype[NUMBEROF(game->variant.human_readable_game_description)] = 0;
 		if (!gametype[0])
 			ustrncpy(gametype, kind ? kind : game->variant.game_engine_index ?
 				engine_names[PIN(game->variant.game_engine_index, 0, 5)] : L"Co-op", NUMBEROF(gametype) - 1);
 		lobby_board_map_text(game->map.name, map, NUMBEROF(map));
 		text[0] = 0;
-		if (!local)
+		/* (network co-op: "Co-op Heroic on The Silent Cartographer", which a
+		friend's co-op list reads its mission and difficulty from:
+		coop_menu.inc's coop_friend_game) */
+		if (!local && !game->variant.game_engine_index && game->difficulty >= 0 && game->difficulty < 4)
+		{
+			static wchar_t const *const difficulties[] = { L"Easy", L"Normal", L"Heroic", L"Legendary" };
+
+			usnprintf(gametype, NUMBEROF(gametype) - 1, L"Co-op %s", difficulties[game->difficulty]);
+			gametype[NUMBEROF(gametype) - 1] = 0;
+		}
+		else if (!local)
 		{
 			/* (a Pro 2v2 Classic game's said so, its record's Instant Aim
 			off for everyone: the 2V2 browser tells a friend's kind by it,

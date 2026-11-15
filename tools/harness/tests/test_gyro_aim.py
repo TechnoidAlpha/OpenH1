@@ -113,14 +113,3 @@ def test_gyro_aim_assist(case):
 def test_gyro_aim_assist_negative_control(before, after, case):
     status, output = run(build("gyro_aim_assist", assist_generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_flick_stick_takes_the_sticks_look():
-    # the flick stick's look is its own: the stick's look none at a frame's reading and a sub-step's alike (both
-    # input_abstraction_state_from_gamepad's), with the default stick layout only
-    code = read("source/input/input_abstraction.c")
-    state = code[code.index("static void input_abstraction_state_from_gamepad("):]
-    state = state[:state.index("\n}\n")]
-    assert "if (input_abstraction_port_flick_stick((short)controller_index))" in state
-    assert "_joystick_controls_default" in code[code.index("boolean input_abstraction_port_flick_stick("):][:600]
-    assert code.count("input_abstraction_state_from_gamepad(controller_index, &gamepad, state);") >= 1

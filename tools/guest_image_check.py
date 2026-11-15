@@ -52,8 +52,8 @@ from guest_arch import GUEST_ARCHES, GuestArch  # noqa: E402
 # port/android/include/halo_android_abi.h: tools/test_guest_layout.py), and
 # an instrumented build's (configure.py --pgo=generate: HALO_PGO_GENERATE),
 # whose profile counters and records do not fit beside the game
-IMAGE_RESERVE = 0x04000000
-PGO_GENERATE_IMAGE_RESERVE = 0x08000000
+IMAGE_RESERVE = 0x06000000
+PGO_GENERATE_IMAGE_RESERVE = 0x0C000000
 PT_LOAD, PT_DYNAMIC, PT_INTERP, PT_TLS = 1, 2, 3, 7
 PF_X = 1
 MACHINES = {"aarch64": 183, "x86_64": 62}

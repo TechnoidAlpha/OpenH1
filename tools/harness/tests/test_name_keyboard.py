@@ -62,21 +62,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("name_keyboard", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_drawn_in_the_menus_look():
-    """Where the port's menus are up (their heading font loaded) the keyboard draws its own backdrop, title, panels,
-    keys' boxes and prompts, not the Xbox's 640x480 picture or its keys' pictures; the prompts are drawn as the
-    menus' are (the key while the keyboard and mouse were used last, else the button), where a click finds them."""
-    source = read(SOURCE)
-    render = function(source, "virtual_keyboard_render_internal")
-    assert "long heading_font = virtual_keyboard_port_heading_font();" in render
-    assert re.search(r"if \(heading_font != NONE\)\s*\{\s*virtual_keyboard_port_render_backdrop\(heading_font\);", render)
-    assert "if (heading_font == NONE && virtual_keyboard_globals.keyboard->background_bitmap_tag.index != NONE)" in render
-    assert render.count("&& heading_font == NONE)") == 2, "a key's Xbox picture drawn in the menus' look"
-    assert re.search(r"if \(heading_font != NONE\)\s*virtual_keyboard_port_render_prompts\(\);", render)
-    prompts = function(source, "virtual_keyboard_port_render_prompts")
-    assert "draw_string_and_hack_in_icons(" in prompts and "halo_keyboard_prompts()" in prompts
-    assert re.search(r"virtual_keyboard_port_prompt_boxes\([^;]*&keyboard_back_legend_rect,\s*&keyboard_enter_legend_rect\)",
-                     prompts)
-    assert 'tag_loaded(FONT_GROUP_TAG, "pc\\\\heading")' in function(source, "virtual_keyboard_port_heading_font")

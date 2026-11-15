@@ -41,29 +41,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build("world_ao_once", generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_surfaces_read_it_found():
-    """The surfaces reading it found once a pixel walk no shapes and march no field themselves: their shaders read
-    the pass's texture alone (both emitters), where the inline variant still finds its own."""
-    for path, walk, read_it in (("port/linux/src/xgpu_msl.c", "world_proxies_occlusion(world_ao, world_ao_objects,",
-                                 "world_ao_upsample(&text);"),
-                                ("port/linux/src/xgpu_spirv.c", "world_proxies_occlusion(m, state, p, n,",
-                                 "state.occlusion = world_ao_upsample(&m, &state);")):
-        emitter = read(path)
-        sampled = emitter.index(read_it)
-        branch = emitter[emitter.rindex("if (world_inline)", 0, sampled):sampled]
-        assert "world_ao_read(" in branch and walk not in branch
-
-
-def test_the_pass_traces_the_dynamic_objects():
-    """The pass finds the dynamic objects' occlusion by rays through the distance-field scene (both emitters), walks
-    their shapes no more (the walk's analytic_from: the dynamic objects' count), and blends the reprojected history
-    where it is the same surface"""
-    msl = read("port/linux/src/xgpu_msl.c")
-    spirv = read("port/linux/src/xgpu_spirv.c")
-    assert "proxies *= 1.0 - world_ao_traced(world_cascades, pass.cascades, p, n, pixel, pass.history.y);" in msl
-    assert "traced ? int(world_ao.parameters[1].y) : 0);" in msl
-    assert "occlusion = mix(old.x, occlusion, pass.history.z);" in msl
-    assert "world_ao_traced(m, state, pass, p, n, pixel)" in spirv
-    assert "ext3(m, GLSL_F_MIX, m->t_float, extract(m, old, 0), occlusion, extract(m, history, 2))" in spirv

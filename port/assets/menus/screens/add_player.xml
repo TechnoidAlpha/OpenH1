@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Add Player (docs/menu_screens.md), the new menus' in place of the
+lobby's ADD PLAYER and another controller's START, in a game's lobby and
+in a game under way's: what the Xbox's Select Profile of four (Press A to
+Join) did, in the tall layout, as Select Profile's. ADD PLAYER in the band;
+a row for each of this computer's four controllers, each its profile's
+color, its controller (P1 to P4), its profile (or Press A to join) and
+where it is (IN THE GAME, CHOOSING, READY); in the panel the row chosen
+(the controller that pressed last): its player, its Spartan in its
+profile's color, its profile and what its controller does next, and DONE
+once every one joining is ready. A controller not in the game joins with
+A or START, chooses its own profile with left and right, and is ready with
+A; B goes back a step. Once all are ready, A or START of one of them, DONE
+or a player's START brings them into the game and goes back. The rows and
+what the keys do are menu_functions.c's (the row source add.players, the
+add.* bindings and actions, the keys by controller: menu_screen.c's
+screen_places). -->
+<screen name="add_player" back="add player back" start="add player done">
+	<header title="ADD PLAYER" detail="{add.count}"/>
+	<table source="add.players">
+		<column id="color" kind="swatch" width="16" gap="2" touch="12 18 16 0 0"/>
+		<column id="controller" width="60" touch="40 7 60 0 0"/>
+		<column id="profile" label="PLAYER" kind="strong" width="202" grow="104" touch="40 30 200 0 104"/>
+		<column id="state" label="STATUS" width="104" grow="40" align="right" touch="232 7 120 104 40"/>
+	</table>
+	<panel>
+		<heading text="{add.title}"/>
+		<text text="{add.profile}"/>
+		<spartan height="184" touch-height="120" color="add.color"/>
+		<text text="{add.help}" lines="3" touch-lines="3"/>
+		<button key="accept" label="DONE" if="add.done" do="add player done"/>
+	</panel>
+	<buttons>
+		<button key="back" label="BACK"/>
+	</buttons>
+</screen>

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The server browser (docs/menu_screens.md): the public games on the
-Internet, OpenH1's and Legacy ones, as the main menu's MULTIPLAYER opens it
-(Campaign's CO-OP: on its CO-OP tab). It takes the place of Join Game's
+Internet, OpenH1's and Legacy ones, as the main menu's MULTIPLAYER opens it.
+Its CO-OP tab opens co-op's own screen (screens/coop.xml), the one place
+co-op is hosted and joined, whichever way in. It takes the place of Join Game's
 screen while it is the server browser's; the games, their order, the
 filters, the searches, the favorites and joining are menu_functions.c's
 (the row source browser.games and the browser.* bindings and actions). The
@@ -20,7 +21,7 @@ rows of two lines, one search at the top and the footer's buttons. -->
 		<tab id="dedicated" label="DEDICATED" do="browser tab dedicated"/>
 		<tab id="openh1" label="GOAT H1" do="browser tab openh1"/>
 		<tab id="legacy" label="LEGACY" do="browser tab legacy"/>
-		<tab id="coop" label="CO-OP" do="browser tab coop"/>
+		<tab id="coop" label="CO-OP" do="open coop"/>
 		<tab id="favorites" label="FAVORITES" do="browser tab favorites"/>
 	</tabs>
 	<table source="browser.games" sorted="browser.sort" do="browser join" empty="{browser.empty}">

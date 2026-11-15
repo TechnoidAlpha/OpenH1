@@ -69,8 +69,10 @@ being hit looks and feels like on the clients).
 #include "network_coop.h"
 #include "network_distributed.h"
 #include "network_standard.h"
+#include "hit_sounds.h"
 #include <stdio.h>
 #include "demo.h"
+#include "mcc_grenades.h"
 
 #include <math.h>
 
@@ -191,10 +193,6 @@ around it unseen */
 #define FIRE_ORIGIN_BEHIND 0.05f
 #define FIRE_ORIGIN_SIDEWAYS 0.2f
 #define FIRE_ORIGIN_ABOVE 0.1f
-/* how often a client sends an unchanged fire origin (ticks): well within
-FIRE_ORIGIN_FRESH_TICKS, over a lost one or two */
-#define FIRE_ORIGIN_RESEND_TICKS 8
-
 int config_boolean(char const *name);
 unsigned long config_changes(void);
 
@@ -392,6 +390,8 @@ struct distributed_fire_origin
 
 typedef char distributed_fire_origin_size_assert[sizeof(struct distributed_fire_origin) == 8 ? 1 : -1];
 
+/* (the message as a client that sends it does: this build takes it, and
+sends none) */
 struct distributed_fire_origin_message
 {
 	struct distributed_message_header header;
@@ -514,14 +514,6 @@ static struct damage_fire_origin
 	long time;
 	real_vector3d offset;
 } damage_fire_origins[MAXIMUM_TRACKED_PLAYERS];
-/* a client: where its players' shots leave from (NULL: their cameras), and
-what it last sent of each local player's, when */
-static network_damage_fire_origin_source damage_fire_origin_source;
-static struct
-{
-	long time;
-	struct distributed_vector offset;
-} damage_fire_origins_sent[MAXIMUM_LOCAL_PLAYERS];
 /* the host: the clients' hits only a hand's line of sight let through */
 static long damage_hand_reports;
 /* ... what each weapon or grenade deals, as the tags have it (their walk
@@ -1382,6 +1374,13 @@ void network_damage_aftermath(
 	struct unit_datum *unit;
 	boolean kill;
 
+	/* (the hit sound of damage this machine decides: the host's, or a game
+	of its own; a client's comes with the host's word on it) */
+	if (game_connection() != _game_connection_network_client)
+	{
+		hit_sounds_note_damage(damage->owner_player_index, victim_player_index, shield_damage, body_damage,
+			being_damaged_flags);
+	}
 	if (game_connection() != _game_connection_network_server)
 		return;
 	if (static_target(object_index))
@@ -1800,6 +1799,8 @@ than one damage), the vehicle they drove lately; 0 when none of them deals
 it; how they deal it (the _damage_source flags); how far from them what
 they fire deals it; and the type of grenade when nothing but a grenade of
 theirs deals it, else NONE */
+#include "mcc_network_damage.inc"
+
 static real distributed_player_deals(
 	short player_index,
 	long damage_index,
@@ -1881,6 +1882,7 @@ static real distributed_player_deals(
 			*kinds |= this_kinds;
 		}
 	}
+	mcc_network_extra_grenade_damage(player_index, damage_index, kinds, reach, grenade_type, &grenade_rate);
 	if (rate > 0.0f)
 		*grenade_type = NONE;
 	rate = MAX(rate, grenade_rate);
@@ -2864,6 +2866,14 @@ static boolean distributed_report_valid(
 	{
 		REFUSE(_report_refused_zombie);
 	}
+	/* an Infection zombie's blow at a rider (not the vehicle, as the game's
+	melee has it) only past the host's own line to them (infection.c) */
+	if (melee && infection_unit_is_zombie(distributed_living_unit(player)) && target->object.type == _object_type_biped &&
+		target->object.parent_object_index != NONE &&
+		!infection_melee_rider_visible(distributed_living_unit(player), report->object_index, &report->damage.direction))
+	{
+		return FALSE;
+	}
 	if (collision && !distributed_player_drove_into(player_index, &report->damage.epicenter, &report->target_position,
 		target->object.bounding_sphere_radius, ticks))
 	{
@@ -3326,6 +3336,34 @@ static boolean distributed_predicted_kill_answered(
 	return TRUE;
 }
 
+/* a client: the hit sound of the host's damage of a unit (an aftermath or a
+killing blow, which the host sends the machine of the damage's owner), the
+victim the unit's player, or, its death shown at once (the player taken from
+it), the player it was */
+static void distributed_hit_sound(
+	struct distributed_damage_event const *event,
+	struct damage_data const *damage)
+{
+	struct unit_datum *unit;
+	long victim_player_index;
+
+	if (!network_objects_client_has(event->object_index))
+		return;
+	unit = (struct unit_datum *)object_try_and_get_and_verify_type(event->object_index, _object_mask_unit);
+	if (!unit)
+		return;
+	victim_player_index = unit->unit.player_index;
+	if (victim_player_index == NONE && event->kind == _damage_event_kill)
+	{
+		struct damage_predicted_hit *predicted = distributed_predicted_kill(event->object_index);
+
+		if (predicted)
+			victim_player_index = predicted->victim_player_index;
+	}
+	hit_sounds_note_damage(damage->owner_player_index, victim_player_index, event->shield_damage, event->body_damage,
+		event->being_damaged_flags);
+}
+
 void network_damage_handle_events(
 	void const *entries,
 	short count)
@@ -3356,6 +3394,7 @@ void network_damage_handle_events(
 			break;
 		}
 		case _damage_event_aftermath:
+			distributed_hit_sound(event, &damage);
 			/* (of a hit of this machine's own player it showed: shown) */
 			if (distributed_predicted_hit_answered(event->object_index, &damage))
 				break;
@@ -3371,6 +3410,7 @@ void network_damage_handle_events(
 			}
 			break;
 		case _damage_event_kill:
+			distributed_hit_sound(event, &damage);
 			/* (of a unit this machine killed ahead of it: the kill announced) */
 			if (distributed_predicted_kill_answered(event))
 				break;
@@ -3468,58 +3508,6 @@ void network_damage_handle_fire_origins(
 	}
 }
 
-void network_damage_set_fire_origin_source(
-	network_damage_fire_origin_source source)
-{
-	damage_fire_origin_source = source;
-}
-
-/* a client: where its players' shots leave from, when not from their
-cameras, to the host every tick (unreliably: a lost one is followed by the
-next) */
-static void distributed_send_fire_origins(
-	void)
-{
-	struct distributed_fire_origin_message message;
-	short local_player_index;
-	short count = 0;
-
-	if (!damage_fire_origin_source)
-		return;
-	for (local_player_index = 0; local_player_index < MAXIMUM_LOCAL_PLAYERS; local_player_index++)
-	{
-		long player_index = local_player_get_player_index(local_player_index);
-		real_vector3d offset;
-
-		if (player_index == NONE || !damage_fire_origin_source(local_player_index, &offset) ||
-			!distributed_fire_origin_within_reach(&offset))
-		{
-			damage_fire_origins_sent[local_player_index].time = NONE;
-			continue;
-		}
-		csmemset(&message.origins[count], 0, sizeof(message.origins[count]));
-		message.origins[count].player_index = distributed_player_to_byte(player_index);
-		distributed_vector_pack(&offset, FIRE_ORIGIN_SCALE, &message.origins[count].offset);
-		/* (when it changes, else every few ticks) */
-		if (damage_fire_origins_sent[local_player_index].time != NONE &&
-			game_time_get() >= damage_fire_origins_sent[local_player_index].time &&
-			game_time_get() - damage_fire_origins_sent[local_player_index].time < FIRE_ORIGIN_RESEND_TICKS &&
-			!csmemcmp(&damage_fire_origins_sent[local_player_index].offset, &message.origins[count].offset,
-				sizeof(struct distributed_vector)))
-		{
-			continue;
-		}
-		damage_fire_origins_sent[local_player_index].time = game_time_get();
-		damage_fire_origins_sent[local_player_index].offset = message.origins[count].offset;
-		count++;
-	}
-	if (count)
-	{
-		distributed_send(&message, _distributed_message_fire_origins, count,
-			(word)(sizeof(message.header) + count * sizeof(struct distributed_fire_origin)), _distributed_to_host);
-	}
-}
-
 void network_damage_client_tick(
 	void)
 {
@@ -3528,7 +3516,6 @@ void network_damage_client_tick(
 	short index;
 	short count = 0;
 
-	distributed_send_fire_origins();
 	distributed_predicted_hits_update();
 
 	damage_sent_reports += damage_report_count;
@@ -3576,6 +3563,11 @@ void network_damage_note_grenade(
 	short index;
 	short slot = 0;
 
+	if (mcc_grenades_active() && grenade_type >= 2)
+	{
+		mcc_network_note_extra_grenade(unit_index, grenade_type);
+		return;
+	}
 	if (game_connection() != _game_connection_network_server || unit->unit.player_index == NONE ||
 		grenade_type < 0 || grenade_type >= NUMBER_OF_UNIT_GRENADE_TYPES)
 	{
@@ -3631,8 +3623,6 @@ void network_damage_new_game(
 			damage_trails[player_index][index].time = NONE;
 		damage_fire_origins[player_index].time = NONE;
 	}
-	for (player_index = 0; player_index < MAXIMUM_LOCAL_PLAYERS; player_index++)
-		damage_fire_origins_sent[player_index].time = NONE;
 	for (player_index = 0; player_index < DAMAGE_RATE_CACHE_SIZE; player_index++)
 		damage_rate_cache[player_index].source_index = NONE;
 }

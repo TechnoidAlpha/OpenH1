@@ -103,6 +103,8 @@ symbols in this file:
 
 #include "cache/predicted_resources.h"
 #include "camera/director.h"
+#include "camera/first_person_camera.h" /* port: (a feed's aim, first_person_weapon_feeds_update) */
+#include "camera/static_camera.h"
 #include "cseries/cseries.h"
 #include "cseries/errors.h"
 #include "effects/effects.h"
@@ -402,6 +404,26 @@ static short first_person_weapon_index_from_weapon_index(
 	long weapon_index);
 static short first_person_weapon_index_from_unit_index(
 	long unit_index);
+/* port: the Spartan link's feeds (first_person_weapon_feeds) */
+static void first_person_weapon_feeds_update(
+	void);
+static void first_person_weapon_feeds_message(
+	long unit_index,
+	long weapon_index,
+	short message_type);
+static short first_person_weapon_feed_from_unit_index(
+	long unit_index);
+static void first_person_weapon_build_feed_node_matrices(
+	short local_player_index);
+static void first_person_weapon_draw_slot(
+	short local_player_index,
+	long unit_index);
+static real first_person_weapon_random(
+	short local_player_index);
+static real first_person_weapon_random_range(
+	short local_player_index,
+	real lower_bound,
+	real upper_bound);
 
 /* port: a dead player looking out of a teammate's eyes shows their
 first-person weapon (port/linux/game/dead_spectate.c) */
@@ -461,18 +483,32 @@ void vr_trigger_draw(long model_index, struct real_matrix4x3 const *node_matrice
 /* ---------- globals */
 
 static struct first_person_weapon *first_person_weapons;
+/* port: the Spartan link's feeds' slots (FIRST_PERSON_WEAPON_FEEDS), after
+the local players' (first_person_weapon_get): a teammate's weapon and arms in
+their feed animated as on their own screen, from the same messages of their
+weapon and unit (first_person_weapon_message_from_weapon and _unit) and
+their unit's state each tick (first_person_weapon_feeds_update). Drawing
+only, beside the game state: no effect, particle or sound of theirs is made,
+nothing of the game is changed, and no seed is taken (the idle poses' times
+are this generator's) */
+static struct first_person_weapon first_person_weapon_feeds[FIRST_PERSON_WEAPON_FEEDS];
+static unsigned long first_person_weapon_feed_seed= 1;
+typedef char verify_first_person_weapon_slots[
+	FIRST_PERSON_WEAPON_SLOTS==MAXIMUM_NUMBER_OF_LOCAL_PLAYERS+FIRST_PERSON_WEAPON_FEEDS ? 1 : -1];
+/* (a slot is a feed's) */
+#define FIRST_PERSON_WEAPON_FEED_SLOT(slot) ((slot)>=MAXIMUM_NUMBER_OF_LOCAL_PLAYERS)
 /* port: the sound manager's index of each first-person weapon's sound, kept
 beside the game state: it is the mixer's (none when the sound cannot be
 heard or has no channel, by the clock), and the weapon's state went on
 differently with none. The state's current_sound_index holds the sound's
 definition, that the sound was begun. (A stale index, after a saved game is
 loaded, stops nothing: an index names its sound only.) */
-static long first_person_weapon_sound_indices[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+static long first_person_weapon_sound_indices[FIRST_PERSON_WEAPON_SLOTS];
 /* port: the position's and the turning's sway as they were before their last
 step (first_person_weapon_update), which the frames drawn from the newest
 step blend from (first_person_weapon_springs_at): drawing only, beside the
 game state */
-static struct first_person_weapon_sways first_person_weapon_sways_before[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+static struct first_person_weapon_sways first_person_weapon_sways_before[FIRST_PERSON_WEAPON_SLOTS];
 /* port: a state's blend (interpolation_frame_index of interpolation_frame_count)
 as the frames drawn from the newest step draw it, drawing only, beside the
 game state. Its clock is the index and the phase of the frame
@@ -503,7 +539,7 @@ static struct first_person_weapon_blend
 	it was posed for (NONE: none) */
 	long update_pose_weapon_index;
 	real_orientation update_pose[MAXIMUM_NODES_PER_ANIMATION];
-} first_person_weapon_blends[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+} first_person_weapon_blends[FIRST_PERSON_WEAPON_SLOTS];
 
 /* ---------- public code */
 
@@ -545,15 +581,18 @@ void first_person_weapons_initialize_for_new_map(
 {
 	short local_player_index;
 
-	for (local_player_index=0; local_player_index<MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+	/* port: (and the feeds' slots) */
+	for (local_player_index=0; local_player_index<FIRST_PERSON_WEAPON_SLOTS; local_player_index++)
 	{
+		struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
+
 		csmemset(
-			&first_person_weapons[local_player_index],
+			first_person_weapon,
 			0,
-			sizeof(first_person_weapons[local_player_index]));
-		first_person_weapons[local_player_index].unit_index= NONE;
-		first_person_weapons[local_player_index].current_sound_index= NONE;
-		first_person_weapons[local_player_index].current_sound_state= NONE;
+			sizeof(*first_person_weapon));
+		first_person_weapon->unit_index= NONE;
+		first_person_weapon->current_sound_index= NONE;
+		first_person_weapon->current_sound_state= NONE;
 		first_person_weapon_sound_indices[local_player_index]= NONE;
 		first_person_weapon_blends[local_player_index].frame_count= 0;
 		first_person_weapon_blends[local_player_index].update_phase= -1.0f;
@@ -572,9 +611,20 @@ void first_person_weapons_dispose_from_old_map(
 
 /* port: a teammate's weapon and arms drawn in their feed (the HUD's Spartan
 link, port/linux/game/spartan_link.c): the unit the feed being drawn looks
-out of where no local player's slot animates it, else NONE */
+out of, else NONE; and the units its feeds show, each animated in a feed's
+slot (first_person_weapon_feeds) */
 long spartan_link_posed_unit(void);
-static void first_person_weapon_draw_posed(long unit_index);
+short spartan_link_linked_units(long *unit_indices, short maximum_count);
+void spartan_link_feed_state_log(long unit_index, char const *state, real firing_push_back_velocity);
+/* (the states' names, for that log) */
+static char const *const first_person_weapon_state_names[NUMBER_OF_FIRST_PERSON_WEAPON_STATES]=
+{
+	"idle", "overheating", "overheating_again", "overheated", "charged", "posing", "primary_fire",
+	"secondary_fire", "primary_misfire", "secondary_misfire", "melee", "light_on", "light_off",
+	"reload_while_empty", "reload_while_full", "shotgun_enter_reload", "shotgun_exit_reload_empty",
+	"shotgun_exit_reload_full", "put_away", "ready", "throw_grenade", "throw_grenade_overheated",
+	"overheated_exit", "overheating_super_recoil",
+};
 
 long first_person_weapon_get_local_index(
 	long weapon_index)
@@ -608,184 +658,27 @@ void first_person_weapon_draw(
 	if (vr_render_scope_pass())
 		return;
 #endif
-	/* port: (spartan_link_posed_unit) */
+	/* port: a feed's: its teammate's slot (spartan_link_posed_unit) */
 	if (render.local_player_index==NONE)
 	{
 		long posed_unit_index= spartan_link_posed_unit();
+		short feed_index= first_person_weapon_feed_from_unit_index(posed_unit_index);
 
-		if (posed_unit_index!=NONE)
+		if (posed_unit_index!=NONE && feed_index!=NONE)
 		{
-			first_person_weapon_draw_posed(posed_unit_index);
+			first_person_weapon_draw_slot(feed_index, posed_unit_index);
 		}
 		return;
 	}
 	if (render.local_player_index!=NONE)
 	{
-		struct first_person_weapon *first_person_weapon= first_person_weapon_get(render.local_player_index);
-
 		if (local_player_get_player_index(render.local_player_index)!=NONE)
 		{
 			/* port: (dead_spectate_first_person_weapon_unit) */
 			long unit_index= dead_spectate_first_person_weapon_unit(render.local_player_index, player_get(
 				local_player_get_player_index(render.local_player_index))->unit_index);
 
-			if (unit_index!=NONE &&
-				first_person_weapon->visible &&
-				first_person_weapon->unit_index!=NONE &&
-				first_person_weapon->weapon_index!=NONE)
-			{
-				struct unit_datum *unit= unit_get(unit_index);
-				struct weapon_datum *weapon= weapon_get(first_person_weapon->weapon_index);
-				struct weapon_definition *weapon_definition= weapon_definition_get(weapon->definition_index);
-
-				if (weapon_definition->weapon.interface_definition.first_person_animations.index!=NONE)
-				{
-					struct real_matrix4x3 model_node_matrices[MAXIMUM_NODES_PER_ANIMATION];
-					struct render_model_effect model_effect;
-					struct game_globals_first_person_interface *first_person_interface=
-						TAG_BLOCK_GET_ELEMENT(
-							&scenario_get_game_globals()->first_person_interface,
-							0,
-							struct game_globals_first_person_interface);
-					struct animation_graph *animation_graph= animation_graph_definition_get(
-						weapon_definition->weapon.interface_definition.first_person_animations.index);
-					struct render_lighting *lighting= object_get_cached_render_lighting(unit_index, FLT_MAX);
-					/* port: the weapon's and the arms' function values and
-					change colors, and the camouflage, between the last two
-					ticks', as the world's objects are drawn
-					(port/linux/game/render_interpolation.c) */
-					real const *weapon_function_values= render_interpolation_object_function_values(first_person_weapon->weapon_index);
-					real_rgb_color const *weapon_change_colors= render_interpolation_object_change_colors(first_person_weapon->weapon_index);
-					real const *unit_function_values= render_interpolation_object_function_values(unit_index);
-					real_rgb_color const *unit_change_colors= render_interpolation_object_change_colors(unit_index);
-					real camouflage_super_amount;
-					real active_camouflage= render_interpolation_unit_camouflage(unit_index, &camouflage_super_amount);
-
-					model_effect.modifier_shader= NULL;
-					if (TEST_FLAG(unit->unit.flags, _unit_active_camouflaged_bit) ||
-						active_camouflage>0.0f)
-					{
-						model_effect.type= _render_model_effect_type_active_camouflage;
-						model_effect.intensity= active_camouflage;
-						model_effect.parameter= camouflage_super_amount;
-						model_effect.source_object_index= unit_index;
-						model_effect.source_object_centroid= render.camera.position;
-					}
-					else
-					{
-						model_effect.type= _render_model_effect_type_none;
-					}
-
-					if (first_person_weapon->weapon_node_remapping_table_valid &&
-#ifdef HALO_VR
-						/* port: on a vehicle's handlebars, the hands alone; and
-						climbing a vehicle by its holds */
-						!(render.local_player_index==0 && vr_render_handlebar_hands()) &&
-						!(render.local_player_index==0 && vr_climb_hands_hold()) &&
-#endif
-						weapon_definition->weapon.interface_definition.first_person_model.index!=NONE)
-					{
-						model_remap_node_matrices_to_match_animation_graph(
-							weapon_definition->weapon.interface_definition.first_person_model.index,
-							model_node_matrices,
-							weapon_definition->weapon.interface_definition.first_person_animations.index,
-							first_person_weapon->node_matrices,
-							first_person_weapon->weapon_node_remapping_table);
-#ifdef HALO_VR
-						/* port: the VR mode's reload by hand: where the magazine
-						goes, and not drawn in it while it is out
-						(port/linux/game/vr_reload.c) */
-						if (render.local_player_index==0)
-						{
-							vr_reload_weapon_nodes(
-								weapon_definition->weapon.interface_definition.first_person_model.index,
-								first_person_weapon->weapon_index,
-								model_node_matrices);
-						}
-#endif
-						render_model(
-							weapon_definition->weapon.interface_definition.first_person_model.index,
-							0.0f,
-							model_node_matrices,
-							NULL,
-							weapon_change_colors,
-							weapon_function_values,
-							lighting,
-							&render.camera.position,
-							0.0f,
-							&model_effect,
-							first_person_weapon->weapon_index,
-							0,
-							FLAG(_render_model_first_person_bit));
-#ifdef HALO_VR
-						/* port: the VR mode's trigger on a first-person model
-						that has none, the assault rifle's, drawn as the model
-						was (port/linux/game/vr_trigger.c) */
-						if (render.local_player_index==0)
-						{
-							vr_trigger_draw(
-								weapon_definition->weapon.interface_definition.first_person_model.index,
-								model_node_matrices,
-								weapon_change_colors,
-								weapon_function_values,
-								lighting,
-								&model_effect,
-								first_person_weapon->weapon_index,
-								FLAG(_render_model_first_person_bit));
-						}
-#endif
-					}
-
-					/* port: the shield's flare on the arms as on the body, the
-					unit's own modifier shader (display.viewmodel_shield,
-					view_fov.c), in the color chosen for it as on the body
-					(display.shield_color, shield_color.c); the weapon above is
-					drawn without it */
-					if (viewmodel_shield_is_visible())
-					{
-						struct object_definition *unit_definition= object_definition_get(object_get(unit_index)->definition_index);
-
-						if (unit_definition->object.modifier_shader.index!=NONE)
-						{
-							struct shader *modifier_shader= shader_definition_get(unit_definition->object.modifier_shader.index);
-
-							if (shader_type_is_valid_for_modifier(modifier_shader->base.type))
-							{
-								model_effect.modifier_shader= modifier_shader;
-								model_effect.modifier_animation.colors= shield_color_colors(unit_index,
-									unit_change_colors);
-								model_effect.modifier_animation.values= overshield_effect_values(unit_index,
-									unit_function_values, TRUE);
-							}
-						}
-					}
-
-					if (first_person_weapon->hands_node_remapping_table_valid &&
-						first_person_interface->hands.index!=NONE)
-					{
-						model_remap_node_matrices_to_match_animation_graph(
-							first_person_interface->hands.index,
-							model_node_matrices,
-							weapon_definition->weapon.interface_definition.first_person_animations.index,
-							first_person_weapon->node_matrices,
-							first_person_weapon->hands_node_remapping_table);
-						render_model(
-							first_person_interface->hands.index,
-							0.0f,
-							model_node_matrices,
-							NULL,
-							unit_change_colors,
-							unit_function_values,
-							lighting,
-							&render.camera.position,
-							0.0f,
-							&model_effect,
-							first_person_weapon->weapon_index,
-							0,
-							FLAG(_render_model_first_person_bit));
-					}
-				}
-			}
+			first_person_weapon_draw_slot(render.local_player_index, unit_index);
 		}
 #ifdef HALO_VR
 		/* port: the grenade the VR mode's left hand holds, to throw it
@@ -800,6 +693,175 @@ void first_person_weapon_draw(
 			vr_reload_draw(FLAG(_render_model_first_person_bit));
 		}
 #endif
+	}
+
+	return;
+}
+
+/* port: a slot's weapon and arms (first_person_weapon_draw's own, a local
+player's or a feed's), of the unit it animates */
+static void first_person_weapon_draw_slot(
+	short local_player_index,
+	long unit_index)
+{
+	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
+
+	if (unit_index!=NONE &&
+		first_person_weapon->visible &&
+		first_person_weapon->unit_index!=NONE &&
+		first_person_weapon->weapon_index!=NONE)
+	{
+		struct unit_datum *unit= unit_get(unit_index);
+		struct weapon_datum *weapon= weapon_get(first_person_weapon->weapon_index);
+		struct weapon_definition *weapon_definition= weapon_definition_get(weapon->definition_index);
+
+		if (weapon_definition->weapon.interface_definition.first_person_animations.index!=NONE)
+		{
+			struct real_matrix4x3 model_node_matrices[MAXIMUM_NODES_PER_ANIMATION];
+			struct render_model_effect model_effect;
+			struct game_globals_first_person_interface *first_person_interface=
+				TAG_BLOCK_GET_ELEMENT(
+					&scenario_get_game_globals()->first_person_interface,
+					0,
+					struct game_globals_first_person_interface);
+			struct animation_graph *animation_graph= animation_graph_definition_get(
+				weapon_definition->weapon.interface_definition.first_person_animations.index);
+			struct render_lighting *lighting= object_get_cached_render_lighting(unit_index, FLT_MAX);
+			/* port: the weapon's and the arms' function values and
+			change colors, and the camouflage, between the last two
+			ticks', as the world's objects are drawn
+			(port/linux/game/render_interpolation.c) */
+			real const *weapon_function_values= render_interpolation_object_function_values(first_person_weapon->weapon_index);
+			real_rgb_color const *weapon_change_colors= render_interpolation_object_change_colors(first_person_weapon->weapon_index);
+			real const *unit_function_values= render_interpolation_object_function_values(unit_index);
+			real_rgb_color const *unit_change_colors= render_interpolation_object_change_colors(unit_index);
+			real camouflage_super_amount;
+			real active_camouflage= render_interpolation_unit_camouflage(unit_index, &camouflage_super_amount);
+
+			model_effect.modifier_shader= NULL;
+			if (TEST_FLAG(unit->unit.flags, _unit_active_camouflaged_bit) ||
+				active_camouflage>0.0f)
+			{
+				model_effect.type= _render_model_effect_type_active_camouflage;
+				model_effect.intensity= active_camouflage;
+				model_effect.parameter= camouflage_super_amount;
+				model_effect.source_object_index= unit_index;
+				model_effect.source_object_centroid= render.camera.position;
+			}
+			else
+			{
+				model_effect.type= _render_model_effect_type_none;
+			}
+
+			if (first_person_weapon->weapon_node_remapping_table_valid &&
+#ifdef HALO_VR
+				/* port: on a vehicle's handlebars, the hands alone; and
+				climbing a vehicle by its holds */
+				!(render.local_player_index==0 && vr_render_handlebar_hands()) &&
+				!(render.local_player_index==0 && vr_climb_hands_hold()) &&
+#endif
+				weapon_definition->weapon.interface_definition.first_person_model.index!=NONE)
+			{
+				model_remap_node_matrices_to_match_animation_graph(
+					weapon_definition->weapon.interface_definition.first_person_model.index,
+					model_node_matrices,
+					weapon_definition->weapon.interface_definition.first_person_animations.index,
+					first_person_weapon->node_matrices,
+					first_person_weapon->weapon_node_remapping_table);
+#ifdef HALO_VR
+				/* port: the VR mode's reload by hand: where the magazine
+				goes, and not drawn in it while it is out
+				(port/linux/game/vr_reload.c) */
+				if (render.local_player_index==0)
+				{
+					vr_reload_weapon_nodes(
+						weapon_definition->weapon.interface_definition.first_person_model.index,
+						first_person_weapon->weapon_index,
+						model_node_matrices);
+				}
+#endif
+				render_model(
+					weapon_definition->weapon.interface_definition.first_person_model.index,
+					0.0f,
+					model_node_matrices,
+					NULL,
+					weapon_change_colors,
+					weapon_function_values,
+					lighting,
+					&render.camera.position,
+					0.0f,
+					&model_effect,
+					first_person_weapon->weapon_index,
+					0,
+					FLAG(_render_model_first_person_bit));
+#ifdef HALO_VR
+				/* port: the VR mode's trigger on a first-person model
+				that has none, the assault rifle's, drawn as the model
+				was (port/linux/game/vr_trigger.c) */
+				if (render.local_player_index==0)
+				{
+					vr_trigger_draw(
+						weapon_definition->weapon.interface_definition.first_person_model.index,
+						model_node_matrices,
+						weapon_change_colors,
+						weapon_function_values,
+						lighting,
+						&model_effect,
+						first_person_weapon->weapon_index,
+						FLAG(_render_model_first_person_bit));
+				}
+#endif
+			}
+
+			/* port: the shield's flare on the arms as on the body, the
+			unit's own modifier shader (display.viewmodel_shield,
+			view_fov.c), in the color chosen for it as on the body
+			(display.shield_color, shield_color.c); the weapon above is
+			drawn without it */
+			if (viewmodel_shield_is_visible())
+			{
+				struct object_definition *unit_definition= object_definition_get(object_get(unit_index)->definition_index);
+
+				if (unit_definition->object.modifier_shader.index!=NONE)
+				{
+					struct shader *modifier_shader= shader_definition_get(unit_definition->object.modifier_shader.index);
+
+					if (shader_type_is_valid_for_modifier(modifier_shader->base.type))
+					{
+						model_effect.modifier_shader= modifier_shader;
+						model_effect.modifier_animation.colors= shield_color_colors(unit_index,
+							unit_change_colors);
+						model_effect.modifier_animation.values= overshield_effect_values(unit_index,
+							unit_function_values, TRUE);
+					}
+				}
+			}
+
+			if (first_person_weapon->hands_node_remapping_table_valid &&
+				first_person_interface->hands.index!=NONE)
+			{
+				model_remap_node_matrices_to_match_animation_graph(
+					first_person_interface->hands.index,
+					model_node_matrices,
+					weapon_definition->weapon.interface_definition.first_person_animations.index,
+					first_person_weapon->node_matrices,
+					first_person_weapon->hands_node_remapping_table);
+				render_model(
+					first_person_interface->hands.index,
+					0.0f,
+					model_node_matrices,
+					NULL,
+					unit_change_colors,
+					unit_function_values,
+					lighting,
+					&render.camera.position,
+					0.0f,
+					&model_effect,
+					first_person_weapon->weapon_index,
+					0,
+					FLAG(_render_model_first_person_bit));
+			}
+		}
 	}
 
 	return;
@@ -885,6 +947,25 @@ static void first_person_weapon_interpolate_continuous(
 void first_person_weapon_render_update(
 	void)
 {
+	/* port: a feed's (spartan_link_posed_unit): its teammate's slot, posed
+	at the feed's camera, not through a zoom, as its player sees none then */
+	if (render.local_player_index==NONE)
+	{
+		long posed_unit_index= spartan_link_posed_unit();
+		short feed_index= first_person_weapon_feed_from_unit_index(posed_unit_index);
+
+		if (posed_unit_index!=NONE && feed_index!=NONE)
+		{
+			struct first_person_weapon *first_person_weapon= first_person_weapon_get(feed_index);
+
+			first_person_weapon_set_visibility(feed_index, first_person_weapon->weapon_index!=NONE &&
+				unit_get(posed_unit_index)->unit.current_zoom_level==NONE);
+			if (first_person_weapon->visible)
+			{
+				first_person_weapon_build_feed_node_matrices(feed_index);
+			}
+		}
+	}
 	if (render.local_player_index!=NONE)
 	{
 		struct first_person_weapon *first_person_weapon= first_person_weapon_get(render.local_player_index);
@@ -938,13 +1019,14 @@ short first_person_weapon_get_marker_by_name_render(
 	return 0;
 }
 
-void first_person_weapon_center_flashlight(
+boolean first_person_weapon_center_flashlight(
 	long unit_index,
 	real_point3d *position,
 	real_vector3d *forward,
 	real_vector3d *up)
 {
 	short local_player_index= first_person_weapon_index_from_unit_index(unit_index);
+	boolean centered= FALSE; /* port: returned */
 
 	if (local_player_index!=NONE)
 	{
@@ -965,11 +1047,12 @@ void first_person_weapon_center_flashlight(
 				position->z= marker.matrix.position.z - marker.matrix.forward.k*0.5f;
 				*forward= marker.matrix.forward;
 				*up= marker.matrix.up;
+				centered= TRUE;
 			}
 		}
 	}
 
-	return;
+	return centered;
 }
 
 boolean first_person_weapon_adjust_light(
@@ -1012,6 +1095,8 @@ void first_person_weapon_message_from_unit(
 	short local_player_index= first_person_weapon_index_from_unit_index(unit_index);
 
 	first_person_weapon_message(local_player_index, message_type);
+	/* port: and the feeds' slots of the unit (first_person_weapon_feeds) */
+	first_person_weapon_feeds_message(unit_index, NONE, message_type);
 	if (local_player_index==NONE)
 	{
 		struct unit_datum *unit= unit_get(unit_index);
@@ -1037,6 +1122,8 @@ void first_person_weapon_message_from_weapon(
 	short local_player_index= first_person_weapon_index_from_weapon_index(weapon_index);
 
 	first_person_weapon_message(local_player_index, message_type);
+	/* port: and the feeds' slots of the unit holding it (first_person_weapon_feeds) */
+	first_person_weapon_feeds_message(NONE, weapon_index, message_type);
 	if (local_player_index==NONE)
 	{
 		weapon_play_first_person_weapon_sound(weapon_index, message_type);
@@ -1132,6 +1219,8 @@ void first_person_weapons_update(
 			first_person_weapon_blends[local_player_index].update_phase= -1.0f;
 		}
 	}
+	/* port: and the Spartan link's feeds' (first_person_weapon_feeds) */
+	first_person_weapon_feeds_update();
 	/* port: when the animations advanced: a frame drawn from the newest step
 	samples them where they are at its time (port/linux/game/render_interpolation.c) */
 	render_interpolation_first_person_updated();
@@ -1258,204 +1347,24 @@ short first_person_weapon_vr_idle_pose(
 
 /* ---------- private code */
 
-/* port: (spartan_link_posed_unit) a unit's weapon in hand and the arms, as
-its own player sees them but drawn from nothing of the game state's: the
-weapon's idle animation at the game's time and its ammunition's overlay,
-posed at the view's camera (render.camera), lit and coloured as
-first_person_weapon_draw lights and colours a slot's. Not through a zoom,
-as its player sees none then. */
-static void first_person_weapon_draw_posed(
-	long unit_index)
-{
-	struct unit_datum *unit;
-	long weapon_index;
-	struct weapon_datum *weapon;
-	struct weapon_definition *weapon_definition;
-	struct animation_graph *animation_graph;
-	struct animation_graph_first_person_weapon_animations *first_person_weapon_animations;
-	struct game_globals_first_person_interface *first_person_interface;
-	long animation_graph_index;
-	long weapon_model_index;
-	short weapon_node_remapping_table[MAXIMUM_NODES_PER_ANIMATION];
-	short hands_node_remapping_table[MAXIMUM_NODES_PER_ANIMATION];
-	real_orientation node_orientations[MAXIMUM_NODES_PER_ANIMATION];
-	struct real_matrix4x3 node_matrices[MAXIMUM_NODES_PER_ANIMATION];
-	struct real_matrix4x3 model_node_matrices[MAXIMUM_NODES_PER_ANIMATION];
-	struct render_model_effect model_effect;
-	struct render_lighting *lighting;
-	struct animation *idle_animation;
-	short idle_animation_index;
-	short firing_animation_index;
-	real camouflage_super_amount;
-	real active_camouflage;
-
-	if (!object_try_and_get_and_verify_type(unit_index, _object_mask_unit))
-	{
-		return;
-	}
-	unit= unit_get(unit_index);
-	if (unit->unit.current_zoom_level!=NONE)
-	{
-		return;
-	}
-	weapon_index= unit_inventory_get_weapon(unit_index, unit->unit.current_weapon_index);
-	if (weapon_index==NONE || !weapon_try_and_get(weapon_index))
-	{
-		return;
-	}
-	weapon= weapon_get(weapon_index);
-	weapon_definition= weapon_definition_get(weapon->definition_index);
-	animation_graph_index= weapon_definition->weapon.interface_definition.first_person_animations.index;
-	weapon_model_index= weapon_definition->weapon.interface_definition.first_person_model.index;
-	first_person_interface= TAG_BLOCK_GET_ELEMENT(
-		&scenario_get_game_globals()->first_person_interface,
-		0,
-		struct game_globals_first_person_interface);
-	if (animation_graph_index==NONE || weapon_model_index==NONE || !first_person_interface)
-	{
-		return;
-	}
-	animation_graph= animation_graph_definition_get(animation_graph_index);
-	if (!animation_graph->first_person_weapon_animations.count ||
-		animation_graph->nodes.count<=0 ||
-		animation_graph->nodes.count>MAXIMUM_NODES_PER_ANIMATION ||
-		!model_build_remapping_table_for_animation_graph(weapon_model_index, animation_graph_index,
-			weapon_node_remapping_table))
-	{
-		return;
-	}
-	first_person_weapon_animations= TAG_BLOCK_GET_ELEMENT(
-		&animation_graph->first_person_weapon_animations,
-		0,
-		struct animation_graph_first_person_weapon_animations);
-	idle_animation_index= VALID_INDEX(
-		_first_person_weapon_animation_idle,
-		first_person_weapon_animations->animations.count) ?
-		animation_graph_animation_index_get(
-			&first_person_weapon_animations->animations)
-				[_first_person_weapon_animation_idle].animation_index :
-		(short)NONE;
-	if (idle_animation_index==NONE)
-	{
-		return;
-	}
-	idle_animation= TAG_BLOCK_GET_ELEMENT(&animation_graph->animations, idle_animation_index, struct animation);
-	if (!first_person_weapon_animation_fits(animation_graph, idle_animation) || idle_animation->frame_count<=0)
-	{
-		return;
-	}
-	animation_get_node_orientations(
-		NULL,
-		idle_animation,
-		(short)(game_time_get()%idle_animation->frame_count),
-		node_orientations);
-	firing_animation_index= VALID_INDEX(
-		_first_person_weapon_animation_ammunition,
-		first_person_weapon_animations->animations.count) ?
-		animation_graph_animation_index_get(
-			&first_person_weapon_animations->animations)
-				[_first_person_weapon_animation_ammunition].animation_index :
-		(short)NONE;
-	if (firing_animation_index!=NONE)
-	{
-		struct animation *firing_animation= TAG_BLOCK_GET_ELEMENT(
-			&animation_graph->animations,
-			firing_animation_index,
-			struct animation);
-
-		if (first_person_weapon_animation_fits(animation_graph, firing_animation) &&
-			weapon->weapon.magazines[0].rounds_loaded>=0 &&
-			weapon->weapon.magazines[0].rounds_loaded<firing_animation->frame_count)
-		{
-			overlay_animation_apply(
-				firing_animation,
-				weapon->weapon.magazines[0].rounds_loaded,
-				node_orientations);
-		}
-	}
-	animation_graph_node_matrices_from_orientations(
-		animation_graph_index,
-		node_matrices,
-		node_orientations,
-		&render.camera.position,
-		&render.camera.forward,
-		&render.camera.up);
-
-	lighting= object_get_cached_render_lighting(unit_index, FLT_MAX);
-	active_camouflage= render_interpolation_unit_camouflage(unit_index, &camouflage_super_amount);
-	model_effect.modifier_shader= NULL;
-	if (TEST_FLAG(unit->unit.flags, _unit_active_camouflaged_bit) || active_camouflage>0.0f)
-	{
-		model_effect.type= _render_model_effect_type_active_camouflage;
-		model_effect.intensity= active_camouflage;
-		model_effect.parameter= camouflage_super_amount;
-		model_effect.source_object_index= unit_index;
-		model_effect.source_object_centroid= render.camera.position;
-	}
-	else
-	{
-		model_effect.type= _render_model_effect_type_none;
-	}
-	model_remap_node_matrices_to_match_animation_graph(
-		weapon_model_index,
-		model_node_matrices,
-		animation_graph_index,
-		node_matrices,
-		weapon_node_remapping_table);
-	render_model(
-		weapon_model_index,
-		0.0f,
-		model_node_matrices,
-		NULL,
-		render_interpolation_object_change_colors(weapon_index),
-		render_interpolation_object_function_values(weapon_index),
-		lighting,
-		&render.camera.position,
-		0.0f,
-		&model_effect,
-		weapon_index,
-		0,
-		FLAG(_render_model_first_person_bit));
-	if (first_person_interface->hands.index!=NONE &&
-		model_build_remapping_table_for_animation_graph(first_person_interface->hands.index, animation_graph_index,
-			hands_node_remapping_table))
-	{
-		model_remap_node_matrices_to_match_animation_graph(
-			first_person_interface->hands.index,
-			model_node_matrices,
-			animation_graph_index,
-			node_matrices,
-			hands_node_remapping_table);
-		render_model(
-			first_person_interface->hands.index,
-			0.0f,
-			model_node_matrices,
-			NULL,
-			render_interpolation_object_change_colors(unit_index),
-			render_interpolation_object_function_values(unit_index),
-			lighting,
-			&render.camera.position,
-			0.0f,
-			&model_effect,
-			weapon_index,
-			0,
-			FLAG(_render_model_first_person_bit));
-	}
-
-	return;
-}
-
 static void first_person_weapon_set_visibility(
 	short local_player_index,
 	boolean visible)
 {
 	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
 
-	/* port: a dead player's slot showing a teammate's weapon (dead_spectate.c)
-	moves none of the weapon's effects to it: they are the game state's, and
-	stay as they are without the spectating */
-	if (visible!=first_person_weapon->visible && dead_spectate_eyes_unit(local_player_index)!=NONE)
+	/* port: a dead player's slot showing a teammate's weapon (dead_spectate.c),
+	or a feed's, moves none of the weapon's effects to it: they are the game
+	state's, and stay as they are without the spectating */
+	if (visible!=first_person_weapon->visible &&
+		(FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) || dead_spectate_eyes_unit(local_player_index)!=NONE))
 	{
+		/* port: (a feed's, in debug.spartan_link_log: hidden as its teammate
+		zooms) */
+		if (FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index))
+		{
+			spartan_link_feed_state_log(first_person_weapon->unit_index, visible ? "shown" : "hidden", 0.0f);
+		}
 		first_person_weapon->visible= visible;
 	}
 	else if (visible!=first_person_weapon->visible)
@@ -1492,12 +1401,18 @@ static void first_person_weapon_forget_weapon(
 	return;
 }
 
+/* port: MCC equipment replacement invalidates the cached weapon before deletion. */
+#include "mcc_first_person.inl" /* port: port/linux/game/mcc_first_person.inl */
+
 static void first_person_weapon_predict(
 	short local_player_index)
 {
 	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
 
-	if (first_person_weapon->weapon_index!=NONE)
+	/* port: not a feed's: its loads (the texture cache's, reading the clock)
+	would be the tick's, which the link's being open must not change; the
+	feed's drawing loads what it draws, as every other object's does */
+	if (first_person_weapon->weapon_index!=NONE && !FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index))
 	{
 		struct weapon_datum *weapon= weapon_get(first_person_weapon->weapon_index);
 		struct weapon_definition *weapon_definition= weapon_definition_get(weapon->definition_index);
@@ -1698,8 +1613,8 @@ static void first_person_weapon_set_state(
 							first_person_weapon->current_sound_state!=_first_person_weapon_state_overheating)
 						{
 							/* port: the sound manager's index (above) */
-							sound_stop_impulse(first_person_weapon_sound_indices[first_person_weapon-first_person_weapons]);
-							first_person_weapon_sound_indices[first_person_weapon-first_person_weapons]= NONE;
+							sound_stop_impulse(first_person_weapon_sound_indices[local_player_index]);
+							first_person_weapon_sound_indices[local_player_index]= NONE;
 							first_person_weapon->current_sound_index= NONE;
 							first_person_weapon->current_sound_state= NONE;
 						}
@@ -1712,6 +1627,12 @@ static void first_person_weapon_set_state(
 						first_person_weapon->state= new_state;
 						first_person_weapon->state_animation.index= animation_index;
 						first_person_weapon->state_animation.frame_index= 0;
+						/* port: (a feed's, in debug.spartan_link_log) */
+						if (FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index))
+						{
+							spartan_link_feed_state_log(first_person_weapon->unit_index,
+								first_person_weapon_state_names[new_state], first_person_weapon->firing_push_back_velocity);
+						}
 					}
 				}
 			}
@@ -1965,9 +1886,13 @@ static void first_person_weapon_pose(
 				{
 					/* (not applied) */
 				}
+				/* port: (the original reads the first local player's state
+				here, whatever slot it poses; a feed's, its own) */
 				else if (weapon_definition->weapon.weapon_type==_weapon_type_needler &&
-					(first_person_weapons->state==_first_person_weapon_state_reload_while_empty ||
-					first_person_weapons->state==_first_person_weapon_state_reload_while_full))
+					((FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) ? first_person_weapon : first_person_weapons)->state==
+						_first_person_weapon_state_reload_while_empty ||
+					(FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) ? first_person_weapon : first_person_weapons)->state==
+						_first_person_weapon_state_reload_while_full))
 				{
 					short frame_index= weapon->weapon.magazines[0].rounds_loaded;
 					short settle_ticks= weapon->weapon.magazines[0].original_time-
@@ -2352,11 +2277,24 @@ static void first_person_weapon_message(
 			case _first_person_weapon_message_primary_fire:
 				first_person_weapon->firing_push_back_velocity+=
 					FIRST_PERSON_WEAPON_FIRING_PUSH_BACK_VELOCITY;
+				/* port: (a feed's shot's kick, in debug.spartan_link_log: a
+				weapon without a firing animation, the assault rifle's, kicks
+				with it alone) */
+				if (FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index))
+				{
+					spartan_link_feed_state_log(first_person_weapon->unit_index, "kick",
+						first_person_weapon->firing_push_back_velocity);
+				}
 				break;
 
 			case _first_person_weapon_message_reload_while_empty:
 			case _first_person_weapon_message_reload_while_full:
-				player_control_unzoom(first_person_weapon->unit_index);
+				/* port: (a feed's changes nothing of the game: its teammate's
+				own machine unzooms them) */
+				if (!FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index))
+				{
+					player_control_unzoom(first_person_weapon->unit_index);
+				}
 				break;
 		}
 
@@ -2754,12 +2692,15 @@ static void first_person_weapon_update(
 			first_person_weapon_next_state(local_player_index);
 		}
 
+		/* port: (none of a feed's: the teammate's weapon is heard as the
+		game's, first_person_weapon_message_from_weapon) */
 		if (sound_definition_index!=NONE &&
+			!FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) &&
 			director_get_perspective(local_player_index)==_director_perspective_first_person)
 		{
 			/* port: the sound manager's index beside the game state, the
 			sound's definition in it (above) */
-			first_person_weapon_sound_indices[first_person_weapon-first_person_weapons]= object_impulse_sound_new(
+			first_person_weapon_sound_indices[local_player_index]= object_impulse_sound_new(
 				first_person_weapon->weapon_index,
 				sound_definition_index,
 				NONE,
@@ -2944,8 +2885,12 @@ static void first_person_weapon_update(
 		just advanced: first_person_weapon_blends) */
 		first_person_weapon_blends[local_player_index].update_phase= 0.0f;
 
-		if (player_control_get_autoaim_level(local_player_index)!=0.0f ||
-			player_control_get_zoom_level(local_player_index)!=NONE ||
+		/* port: a feed's, its teammate's zoom (their autoaim is their
+		machine's alone) */
+		if ((FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) ?
+				unit->unit.current_zoom_level!=NONE :
+				(player_control_get_autoaim_level(local_player_index)!=0.0f ||
+				player_control_get_zoom_level(local_player_index)!=NONE)) ||
 			first_person_weapon->firing_push_back!=0.0f ||
 			first_person_weapon->position.i!=0.0f ||
 			first_person_weapon->position.j!=0.0f ||
@@ -2970,7 +2915,8 @@ static void first_person_weapon_update(
 
 			if (!first_person_weapon->ticks_until_pose)
 			{
-				first_person_weapon->ticks_until_pose= (short)(real_local_random_range(
+				first_person_weapon->ticks_until_pose= (short)(first_person_weapon_random_range(
+					local_player_index,
 					player_information->first_person_idle_time_lower_bound,
 					player_information->first_person_idle_time_upper_bound)*TICKS_PER_SECOND);
 			}
@@ -2978,7 +2924,7 @@ static void first_person_weapon_update(
 			if (first_person_weapon->ticks_idle>first_person_weapon->ticks_until_pose)
 			{
 				first_person_weapon->ticks_until_pose= 0;
-				if (real_local_random()>=player_information->first_person_idle_skip_fraction)
+				if (first_person_weapon_random(local_player_index)>=player_information->first_person_idle_skip_fraction)
 				{
 					first_person_weapon_set_state(
 						local_player_index,
@@ -3251,6 +3197,11 @@ static void model_remap_node_matrices_to_match_animation_graph(
 static struct first_person_weapon *first_person_weapon_get(
 	short local_player_index)
 {
+	/* port: (a feed's slot, after the local players') */
+	if (FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) && local_player_index<FIRST_PERSON_WEAPON_SLOTS)
+	{
+		return &first_person_weapon_feeds[local_player_index-MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+	}
 	match_assert(
 		"c:\\halo\\SOURCE\\interface\\first_person_weapons.c",
 		1433,
@@ -3320,4 +3271,254 @@ static short first_person_weapon_index_from_unit_index(
 	}
 
 	return NONE;
+}
+
+/* port: the idle poses' times (first_person_weapon_update): a local
+player's from the game's local seed, as the original; a feed's from its own
+generator, which no game state holds */
+static real first_person_weapon_random(
+	short local_player_index)
+{
+	return FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) ?
+		real_seed_random(&first_person_weapon_feed_seed) :
+		real_local_random();
+}
+
+static real first_person_weapon_random_range(
+	short local_player_index,
+	real lower_bound,
+	real upper_bound)
+{
+	return FIRST_PERSON_WEAPON_FEED_SLOT(local_player_index) ?
+		real_seed_random_range(&first_person_weapon_feed_seed, lower_bound, upper_bound) :
+		real_local_random_range(lower_bound, upper_bound);
+}
+
+/* port: the feed's slot animating a unit (first_person_weapon_feeds), or
+NONE */
+static short first_person_weapon_feed_from_unit_index(
+	long unit_index)
+{
+	short feed;
+
+	if (unit_index==NONE)
+	{
+		return NONE;
+	}
+	for (feed= 0; feed<FIRST_PERSON_WEAPON_FEEDS; feed++)
+	{
+		if (first_person_weapon_feeds[feed].unit_index==unit_index)
+		{
+			return (short)(MAXIMUM_NUMBER_OF_LOCAL_PLAYERS+feed);
+		}
+	}
+
+	return NONE;
+}
+
+/* port: a message of a unit's (unit_index) or of the weapon in a unit's
+hand (weapon_index) to the feeds' slots animating that unit, as
+first_person_weapon_message_from_unit and _from_weapon give a local
+player's (first_person_weapon_index_from_weapon_index: the unit's weapon in
+hand, which a weapon readied already is). Every machine plays its
+teammates' units from their inputs, so each shot, reload, melee, throw and
+switch comes here as on their own machine (port/linux/NETCODE.md) */
+static void first_person_weapon_feeds_message(
+	long unit_index,
+	long weapon_index,
+	short message_type)
+{
+	short feed;
+
+	for (feed= 0; feed<FIRST_PERSON_WEAPON_FEEDS; feed++)
+	{
+		short slot= (short)(MAXIMUM_NUMBER_OF_LOCAL_PLAYERS+feed);
+		struct first_person_weapon *first_person_weapon= first_person_weapon_get(slot);
+		struct unit_datum *unit;
+
+		if (first_person_weapon->unit_index==NONE ||
+			!object_try_and_get_and_verify_type(first_person_weapon->unit_index, _object_mask_unit))
+		{
+			continue;
+		}
+		unit= unit_get(first_person_weapon->unit_index);
+		if (unit_index!=NONE ?
+			first_person_weapon->unit_index!=unit_index :
+			(unit->unit.current_weapon_index<0 || unit->unit.current_weapon_index>=MAXIMUM_WEAPONS_PER_UNIT ||
+				unit->unit.weapon_object_indices[unit->unit.current_weapon_index]!=weapon_index))
+		{
+			continue;
+		}
+		/* (the weapon it had gone: a drop's or a deletion's) */
+		if (first_person_weapon->weapon_index!=NONE && !weapon_try_and_get(first_person_weapon->weapon_index))
+		{
+			first_person_weapon_forget_weapon(slot);
+		}
+		first_person_weapon_message(slot, message_type);
+	}
+
+	return;
+}
+
+/* port: the feeds' slots, a tick on (first_person_weapons_update, after the
+local players'): one for each teammate the Spartan link shows
+(spartan_link_linked_units), freed as its feed goes; its weapon the one in
+the unit's hand as the game has it (readied at once where no message said
+so: one put in their hand by the host's word of what they carry), the
+turning's sway from their aim's turn in the tick, and the moving overlay
+from their throttle, as first_person_weapon_update has a local player's */
+static void first_person_weapon_feeds_update(
+	void)
+{
+	long unit_indices[FIRST_PERSON_WEAPON_FEEDS];
+	short count= spartan_link_linked_units(unit_indices, FIRST_PERSON_WEAPON_FEEDS);
+	short feed;
+	short index;
+
+	for (feed= 0; feed<FIRST_PERSON_WEAPON_FEEDS; feed++)
+	{
+		struct first_person_weapon *first_person_weapon= &first_person_weapon_feeds[feed];
+		boolean linked= FALSE;
+
+		if (first_person_weapon->unit_index==NONE)
+		{
+			continue;
+		}
+		for (index= 0; index<count; index++)
+		{
+			if (unit_indices[index]==first_person_weapon->unit_index)
+			{
+				linked= TRUE;
+			}
+		}
+		if (!linked || !object_try_and_get_and_verify_type(first_person_weapon->unit_index, _object_mask_unit))
+		{
+			first_person_weapon->visible= FALSE;
+			first_person_weapon->unit_index= NONE;
+			first_person_weapon->weapon_index= NONE;
+		}
+	}
+	for (index= 0; index<count; index++)
+	{
+		if (first_person_weapon_feed_from_unit_index(unit_indices[index])!=NONE ||
+			!object_try_and_get_and_verify_type(unit_indices[index], _object_mask_unit))
+		{
+			continue;
+		}
+		for (feed= 0; feed<FIRST_PERSON_WEAPON_FEEDS; feed++)
+		{
+			if (first_person_weapon_feeds[feed].unit_index==NONE)
+			{
+				short slot= (short)(MAXIMUM_NUMBER_OF_LOCAL_PLAYERS+feed);
+				struct first_person_weapon *first_person_weapon= first_person_weapon_get(slot);
+				struct first_person_weapon_blend *blend= &first_person_weapon_blends[slot];
+
+				csmemset(first_person_weapon, 0, sizeof(*first_person_weapon));
+				first_person_weapon->unit_index= NONE;
+				first_person_weapon->weapon_index= NONE;
+				first_person_weapon->current_sound_index= NONE;
+				first_person_weapon->current_sound_state= NONE;
+				first_person_weapon_sound_indices[slot]= NONE;
+				csmemset(&first_person_weapon_sways_before[slot], 0, sizeof(first_person_weapon_sways_before[slot]));
+				blend->frame_count= 0;
+				blend->update_phase= -1.0f;
+				/* (drawn from its newest step, as every feed's frame is:
+				render_interpolation_first_person_feed_phase) */
+				blend->drawn_phase= 0.0f;
+				blend->update_pose_weapon_index= NONE;
+				first_person_weapon_new_unit(slot, unit_indices[index]);
+				break;
+			}
+		}
+	}
+
+	for (feed= 0; feed<FIRST_PERSON_WEAPON_FEEDS; feed++)
+	{
+		short slot= (short)(MAXIMUM_NUMBER_OF_LOCAL_PLAYERS+feed);
+		struct first_person_weapon *first_person_weapon= first_person_weapon_get(slot);
+		struct unit_datum *unit;
+		struct camera_command command;
+		long weapon_index;
+
+		if (first_person_weapon->unit_index==NONE)
+		{
+			continue;
+		}
+		unit= unit_get(first_person_weapon->unit_index);
+		first_person_weapon_blend_update_begin(slot);
+		/* (the facing a local player's frames take, a tick apart: its turn
+		in the tick is the turning's sway) */
+		first_person_camera_fake(first_person_weapon->unit_index, &command);
+		first_person_weapon->last_render_facing= first_person_weapon->render_facing;
+		euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &command.forward);
+		if (!first_person_weapon->rendered)
+		{
+			first_person_weapon->last_render_facing= first_person_weapon->render_facing;
+			first_person_weapon->rendered= TRUE;
+		}
+		if (first_person_weapon->weapon_index!=NONE && !weapon_try_and_get(first_person_weapon->weapon_index))
+		{
+			first_person_weapon_forget_weapon(slot);
+		}
+		weapon_index= unit_inventory_get_weapon(first_person_weapon->unit_index, unit->unit.current_weapon_index);
+		if (weapon_index!=first_person_weapon->weapon_index)
+		{
+			if (weapon_index!=NONE)
+			{
+				first_person_weapon_message(slot, _first_person_weapon_message_ready);
+			}
+			else
+			{
+				first_person_weapon_switch_weapons(slot);
+			}
+		}
+		first_person_weapon_update(slot);
+		first_person_weapon_blends[slot].update_phase= -1.0f;
+	}
+
+	return;
+}
+
+/* port: a feed's slot's weapon and arms posed at the feed's camera
+(render.camera), at the frame's time (render_interpolation_first_person_feed_phase),
+as first_person_weapon_build_node_matrices poses a local player's: the
+state's animation, the overlays (the ammunition's, moving, turning, the
+firing push back) and the blend from the state before. Not moved by this
+machine's display.viewmodel_offset, nor turned to a lowered reticle: the
+teammate's own are their machine's */
+static void first_person_weapon_build_feed_node_matrices(
+	short local_player_index)
+{
+	struct first_person_weapon *first_person_weapon= first_person_weapon_get(local_player_index);
+
+	first_person_weapon->render_position= render.camera.position;
+	first_person_weapon->render_forward= render.camera.forward;
+	if (first_person_weapon->weapon_index!=NONE &&
+		!weapon_try_and_get(first_person_weapon->weapon_index))
+	{
+		first_person_weapon_forget_weapon(local_player_index);
+	}
+	if (first_person_weapon->weapon_index!=NONE &&
+		first_person_weapon->state_animation.index!=NONE)
+	{
+		struct weapon_datum *weapon= weapon_get(first_person_weapon->weapon_index);
+		struct weapon_definition *weapon_definition= weapon_definition_get(weapon->definition_index);
+		real phase= render_interpolation_first_person_feed_phase();
+
+		first_person_weapon_pose(local_player_index, phase, first_person_weapon->node_orientations);
+		first_person_weapon_blends[local_player_index].drawn_phase= phase;
+		animation_graph_node_matrices_from_orientations(
+			weapon_definition->weapon.interface_definition.first_person_animations.index,
+			first_person_weapon->node_matrices,
+			first_person_weapon->node_orientations,
+			&render.camera.position,
+			&render.camera.forward,
+			&render.camera.up);
+	}
+	else
+	{
+		first_person_weapon->visible= FALSE;
+	}
+
+	return;
 }

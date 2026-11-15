@@ -81,10 +81,11 @@
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_help" type="text" controller="1" left="68" top="341" width="482" height="79" string_list="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cap_vehicle_options" font="ui\large_ui" color="#FFFFFFFF" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\vehicle_options_edit\vehicle_options_help">
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_help" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\vehicle_options_edit\vehicle_options_menu">
+	<widget name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_help" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\vehicle_options_edit\vehicle_options_menu + port_settings.WIDGET_PATCHES">
 		<data input="mp prof vehicles update"/>
 		<on event="created" run="mp prof init vehicle options"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicles_respawn" x="54" y="73"/>
+		<child widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_riding" x="54" y="100"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_team" x="54" y="126"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_presets" x="54" y="152"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_warthog" x="54" y="178"/>

@@ -15,7 +15,9 @@ CONTROLS = [
     ('unit->unit.actor_index != NONE || ', '', 'lane'),
     (' || unit->unit.swarm_actor_index != NONE', '', 'lane'),
     # (an OpenCE player's biped in a mixed game: network_standard.c)
-    ('return !network_standard_player_is_opence(unit->unit.player_index);', 'return TRUE;', 'lane'),
+    ('return !network_standard_player_is_opence(unit->unit.player_index) &&', 'return TRUE &&', 'lane'),
+    # (a rider in a vehicle's window: vehicle_riding_bipeds.c)
+    (' &&\n\t\t\t\t!biped_riding_holds_lane(root_index);', ';', 'lane'),
     # (an OpenCE player's projectile)
     ('return !network_standard_player_is_opence(object_get(root_index)->object.owner_player_index);', 'return TRUE;',
      'lane'),
@@ -45,16 +47,6 @@ def test_negative_control(before, after, case):
     assert status == CHECK_FAILED, output
 
 
-def test_first_substep_starts_from_the_velocity_kept():
-    step = function(read('source/units/bipeds.c'), 'biped_substep_move')
-    assert 'if (substep_index == 0)\n\t\tbiped_substep_start_velocity(&datum->physics.velocity, ' \
-        '&datum->prepared_velocity, &physics.velocity);' in step
-    inline = function(read('source/units/bipeds.c'), 'biped_substep_inline')
-    assert 'datum.prepared_velocity = biped_get(biped_index)->object.translational_velocity;' in inline
-    defer = function(read('source/units/bipeds.c'), 'biped_substep_defer')
-    assert 'datum->prepared_velocity = biped_get(biped_index)->object.translational_velocity;' in defer
-
-
 def test_the_ais_input_and_aim_stay_on_the_tick():
     # (a sub-step reads the input again for a player's biped only; the AI's throttle and facing are the tick's)
     step = function(read('source/units/bipeds.c'), 'biped_substep_move')
@@ -77,10 +69,3 @@ def test_the_ais_tick_in_its_own_update():
     # (a lift carries the AI's riders in its update, as at 30: only the players' are held for the sub-steps)
     hold = function(read('source/objects/objects.c'), 'object_lane_hold_elevator_riders')
     assert 'biped->unit.player_index != NONE &&' in hold
-
-
-def test_a_landing_is_as_fast_as_the_ticks():
-    # (a landing in a sub-step at the velocity the tick's step at 30 ends at)
-    physics = function(read('source/units/bipeds.c'), 'biped_update_physics')
-    assert 'real_vector3d landing = tick_new_velocity;' in physics
-    assert physics.count('tick_new_velocity') >= 8

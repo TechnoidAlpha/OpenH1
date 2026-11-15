@@ -167,6 +167,7 @@ symbols in this file:
 #include "units/unit_definitions.h"
 #include "units/vehicle_definitions.h"
 #include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
+#include "vehicle_riding_bipeds.h" /* port: port/linux/game/vehicle_riding_bipeds.c */
 #include "network_standard.h" /* port: port/linux/game/network_standard.c */
 
 /* ---------- constants */
@@ -2145,6 +2146,10 @@ static void update_human_boat_physics(
 		real *rotation;
 		real const *forward;
 
+		/* port: the original left inactive controls uninitialized. Both physics
+		paths can read them for valid powered-point flags. */
+		csmemset(state, 0, 3 * sizeof(*state));
+
 		speed = (real)fabs(magnitude3d(&vehicle->object.translational_velocity)*2.5f);
 		maximum_angle = vehicle->vehicle.turn*0.5f;
 		angle = 1.0f-CEILING(speed, 1.0f);
@@ -2643,6 +2648,11 @@ boolean vehicle_takes_substeps(
 	/* (an OpenCE player's in a mixed game, which moves once a tick, as on
 	their own machine: network_standard.c) */
 	if (network_standard_player_is_opence(unit_get(driver_index)->unit.player_index))
+		return FALSE;
+	/* (a deck a rider is in the window of, which moves once a tick with its
+	riders, as at 30: port/linux/game/vehicle_riding_bipeds.c's
+	vehicle_riding_holds_lane) */
+	if (vehicle_riding_holds_lane(vehicle_index))
 		return FALSE;
 	/* (physics.c's sub-steps are of mass points: not of a physics of a radius,
 	physics_update_old's, which no vehicle of the game has) */

@@ -35,6 +35,10 @@
   interface font, many of its glyphs derived from Overpass and the others
   drawn by them; under the SIL Open Font License 1.1
   (`CyborgInterfaceGothic-OFL.txt`). Taken from ChupathingyCE.
+- **The corrected rocket launcher and sniper rifle reticles, and the
+  sniper rifle's 2x and 10x** (`port/assets/hud/corrections`, packed by
+  `tools/hud_corrections.py`): artwork supplied by OpenCE's project owner,
+  its original artist unverified; fitted by chestahh and Erik (OpenCE).
 - **The menus' mouse cursor** (the blue arrow the menus show for the
   mouse): by pugzysixtyfour (`port/assets/cursor`).
 
@@ -67,3 +71,17 @@
   toolbar): outlines of glyphs of [Mobile Controls](https://kenney.nl/assets/mobile-controls)
   1.0 by Kenney (www.kenney.nl), CC0
   (`port/assets/touch/kenney-mobile-controls`).
+- **The additional controller button styles** (`port/assets/controller_buttons`,
+  the Gamepads menu's button styles): supplied by chestahh (OpenCE), their
+  original artist unverified.
+
+## Code from OpenCE
+
+GOAT H1 is built on OpenCE; the November 2026 sync brought in the work of
+these OpenCE contributors (MCC maps, riding on vehicles, the dedicated
+server, co-op, the server browser and many fixes): chestahh, MrBruh, Jonas
+Volman (bnunu), Guven, Erik, medic-code, Steve Rice, s3anyboy,
+PeterRichardsonGolf, justinfilip, hispanorum, Kenneth Mosquera, hkmodd,
+trevorm7, Mootjuh, Brenden Hyde, eltanschauung, Stefan Maier, John Cranston,
+Constantine Luke Matthew Bubar, Alastair, JoshRob297 and Antimomentum. Everyone who has contributed to OpenCE is on
+its [contributors page](https://github.com/OpenCommunityEdition/OpenCE/graphs/contributors).

@@ -106,6 +106,9 @@ static struct
 	so too, and changed during a game by Host Controls
 	(network_standard_set_vehicle_hijack) */
 	boolean hosting_vehicle_hijack;
+	/* ... and whether it forbids its players' hit sounds (network.allow_hit_sounds
+	false: hit_sounds.c), read so too */
+	boolean hosting_no_hit_sounds;
 	/* ... OpenCE players may join it (network.allow_opence as the server
 	was made, or as Host Controls' Allow OpenCE players has it since); and
 	OpenCE players may be in it, having been let join since the server was
@@ -226,6 +229,7 @@ void network_standard_server_created(
 	network_standard_globals.hosting_hold_to_pick_up = !config_boolean("game.auto_pickup");
 	network_standard_globals.hosting_classic_turning = !config_boolean("game.enhanced_animations");
 	network_standard_globals.hosting_vehicle_hijack = config_boolean("game.vehicle_hijack") != 0;
+	network_standard_globals.hosting_no_hit_sounds = !config_boolean("network.allow_hit_sounds");
 	/* (a matchmaking playlist's game: OpenH1's alone, every machine playing
 	by the host's word, Classic's views included) */
 	network_standard_globals.hosting_no_direct_camera = network_standard_globals.hosting && !halo_server_mode() &&
@@ -286,7 +290,7 @@ boolean network_standard_pro_game(
 		/* (the host's word, as its record brought it; a Legacy host's none) */
 		game = network_game_get_game();
 		return network_standard_globals.joined && game &&
-			TEST_FLAG(game->cooperative_flags, _network_game_pro_rules_bit);
+			TEST_FLAG(game->standard_flags, _network_game_pro_rules_bit);
 	}
 	return FALSE;
 }
@@ -316,7 +320,7 @@ boolean network_standard_direct_camera_allowed(
 		/* (the host's word, as its record brought it; a Legacy host's none) */
 		game = network_game_get_game();
 		return !(network_standard_globals.joined && game &&
-			TEST_FLAG(game->cooperative_flags, _network_game_no_direct_camera_bit));
+			TEST_FLAG(game->standard_flags, _network_game_no_direct_camera_bit));
 	}
 	return TRUE;
 }
@@ -459,11 +463,12 @@ struct network_game const *network_standard_game_for_machine(
 		return game;
 	csmemcpy(&legacy_game, game, sizeof(legacy_game));
 	legacy_game.standard_rate = 0;
-	SET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
-	SET_FLAG(legacy_game.cooperative_flags, _network_game_classic_turning_bit, FALSE);
-	SET_FLAG(legacy_game.cooperative_flags, _network_game_no_direct_camera_bit, FALSE);
-	SET_FLAG(legacy_game.cooperative_flags, _network_game_pro_rules_bit, FALSE);
-	SET_FLAG(legacy_game.cooperative_flags, _network_game_vehicle_hijack_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_classic_turning_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_no_direct_camera_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_pro_rules_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_no_hit_sounds_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_vehicle_hijack_bit, FALSE);
 	return &legacy_game;
 }
 
@@ -684,7 +689,7 @@ void network_standard_stamp_game(
 	dedicated server's switch from an OpenH1 game to a Legacy one, whose
 	record lasts, leaves no rate in it) */
 	if (game)
-		game->standard_rate = network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : 0;
+		game->standard_rate = network_standard_globals.hosting ? (byte)network_standard_server_rate(in_lobby) : 0;
 	/* (and how its players pick up a second weapon, read as the rate is) */
 	if (in_lobby)
 	{
@@ -692,18 +697,46 @@ void network_standard_stamp_game(
 			!config_boolean("game.auto_pickup");
 		network_standard_globals.hosting_classic_turning = !config_boolean("game.enhanced_animations");
 		network_standard_globals.hosting_vehicle_hijack = config_boolean("game.vehicle_hijack") != 0;
+		network_standard_globals.hosting_no_hit_sounds = !config_boolean("network.allow_hit_sounds");
 	}
 	if (game)
 	{
-		SET_FLAG(game->cooperative_flags, _network_game_vehicle_hijack_bit,
+		SET_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit,
 			network_standard_globals.hosting && network_standard_globals.hosting_vehicle_hijack);
-		SET_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit,
+		SET_FLAG(game->standard_flags, _network_game_hold_to_pick_up_bit,
 			network_standard_globals.hosting && network_standard_globals.hosting_hold_to_pick_up);
-		SET_FLAG(game->cooperative_flags, _network_game_no_direct_camera_bit,
+		SET_FLAG(game->standard_flags, _network_game_no_direct_camera_bit,
 			network_standard_globals.hosting && network_standard_globals.hosting_no_direct_camera);
-		SET_FLAG(game->cooperative_flags, _network_game_pro_rules_bit, network_standard_pro_hosting());
-		SET_FLAG(game->cooperative_flags, _network_game_classic_turning_bit,
+		SET_FLAG(game->standard_flags, _network_game_pro_rules_bit, network_standard_pro_hosting());
+		SET_FLAG(game->standard_flags, _network_game_classic_turning_bit,
 			network_standard_globals.hosting && network_standard_globals.hosting_classic_turning);
+		SET_FLAG(game->standard_flags, _network_game_no_hit_sounds_bit,
+			network_standard_globals.hosting && network_standard_globals.hosting_no_hit_sounds);
+	}
+}
+
+boolean network_standard_hit_sounds_allowed(
+	void)
+{
+	struct network_game *game;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		/* (an OpenH1 game's, as read in the lobby; a Legacy game's host
+		reads its own setting, for its own players) */
+		if (network_standard_globals.hosting)
+			return !network_standard_globals.hosting_no_hit_sounds;
+		return config_boolean("network.allow_hit_sounds") != 0;
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it; a Legacy host, which
+		cannot say, has no rule against them, as OpenCE has none) */
+		game = network_game_get_game();
+		if (!network_standard_globals.joined || !game)
+			return TRUE;
+		return !TEST_FLAG(game->standard_flags, _network_game_no_hit_sounds_bit);
+	default:
+		return TRUE;
 	}
 }
 
@@ -727,7 +760,7 @@ boolean network_standard_turns_with_aim(
 		game = network_game_get_game();
 		if (!network_standard_globals.joined || !game || network_standard_player_is_opence(player_index))
 			return TRUE;
-		return !TEST_FLAG(game->cooperative_flags, _network_game_classic_turning_bit);
+		return !TEST_FLAG(game->standard_flags, _network_game_classic_turning_bit);
 	default:
 		/* (a demo's playback: its recording's game's, demo.c) */
 		if (demo_playback_rules(&rules))
@@ -752,7 +785,7 @@ boolean network_standard_enhanced_animations(
 		/* (the host's word, as its record brought it) */
 		game = network_game_get_game();
 		if (network_standard_globals.joined && game)
-			return !TEST_FLAG(game->cooperative_flags, _network_game_classic_turning_bit);
+			return !TEST_FLAG(game->standard_flags, _network_game_classic_turning_bit);
 		break;
 	default:
 		/* (a demo's playback: its recording's game's, demo.c) */
@@ -788,7 +821,7 @@ boolean network_standard_vehicle_hijack(
 	{
 		game = demo_playback_recorded_game();
 		if (game)
-			return TEST_FLAG(game->cooperative_flags, _network_game_vehicle_hijack_bit);
+			return TEST_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit);
 		return TEST_FLAG(rules, _demo_rule_vehicle_hijack_bit);
 	}
 	switch (game_connection())
@@ -804,7 +837,7 @@ boolean network_standard_vehicle_hijack(
 			return FALSE;
 		if (network_standard_globals.vehicle_hijack_heard != NONE)
 			return network_standard_globals.vehicle_hijack_heard != 0;
-		return TEST_FLAG(game->cooperative_flags, _network_game_vehicle_hijack_bit);
+		return TEST_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit);
 	default:
 		return network_standard_globals.local_vehicle_hijack;
 	}
@@ -830,7 +863,7 @@ boolean network_standard_set_vehicle_hijack(
 		/* (the record, which a machine that joins takes, and a demo's
 		recording has each tick; the clients of a game under way told at
 		once) */
-		SET_FLAG(network_game_server_get_game(server)->cooperative_flags, _network_game_vehicle_hijack_bit, on);
+		SET_FLAG(network_game_server_get_game(server)->standard_flags, _network_game_vehicle_hijack_bit, on);
 		network_hijack_send_rule(on);
 		return TRUE;
 	}
@@ -890,7 +923,7 @@ boolean network_standard_walk_over_pickup(
 		game = network_game_get_game();
 		if (!network_standard_globals.joined || !game || network_standard_player_is_opence(player_index))
 			return TRUE;
-		return !TEST_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit);
+		return !TEST_FLAG(game->standard_flags, _network_game_hold_to_pick_up_bit);
 	default:
 		if (demo_playback_rules(&rules))
 			return TEST_FLAG(rules, _demo_rule_walk_over_pickup_bit);

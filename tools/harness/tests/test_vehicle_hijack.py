@@ -36,7 +36,7 @@ NEGATIVE_CONTROLS = {
     "legacy-client": (("if (!network_standard_globals.joined || !game)\n\t\t\treturn FALSE;\n\t\tif (network_standard_globals.vehicle_hijack_heard",
                        "if (!game)\n\t\t\treturn FALSE;\n\t\tif (network_standard_globals.vehicle_hijack_heard"), "client"),
     # (a client's own setting, not its host's)
-    "client-own-setting": (("return TEST_FLAG(game->cooperative_flags, _network_game_vehicle_hijack_bit);\n\tdefault:",
+    "client-own-setting": (("return TEST_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit);\n\tdefault:",
                             "return network_standard_globals.local_vehicle_hijack;\n\tdefault:"), "client"),
     # (a demo played by this machine's setting)
     "demo-own-setting": (("if (demo_playback_rules(&rules))\n\t{\n\t\tgame = demo_playback_recorded_game();",

@@ -146,6 +146,9 @@ drawn view may then take what has come since (halo_linux_mouse_look_late) */
 static BOOL mouse_look_taken;
 static unsigned long mouse_polls_unconsumed = 0;
 static float mouse_wheel_accumulated = 0.0f;
+/* the wheel's notches turned while a chat line is typed, not yet taken
+(halo_chat_wheel_steps) */
+static int chat_wheel_steps = 0;
 /* the wheel's switch (wheel_update): when the wheel last moved, until when
 Y is held, and whether a scroll is under way */
 static Uint64 wheel_moved_ms = 0;
@@ -349,7 +352,8 @@ static void touch_used(void)
 /* Each controller's buttons, before the on-screen keyboard consumes them. */
 static unsigned long chat_pad[PORT_COUNT], chat_physical_pad[PORT_COUNT];
 
-static void chat_pad_record(short port, const XINPUT_GAMEPAD *pad)
+/* a controller's buttons as the chat's (HALO_CHAT_PAD_*) */
+static unsigned long chat_pad_bits(const XINPUT_GAMEPAD *pad)
 {
 	/* (an analog button pressed half way; the stick most of the way) */
 	enum { PRESSED = 0x80, PUSHED = 22000 };
@@ -368,7 +372,12 @@ static void chat_pad_record(short port, const XINPUT_GAMEPAD *pad)
 	if (pad->sThumbLY < -PUSHED) buttons |= 1UL << HALO_CHAT_PAD_STICK_DOWN;
 	if (pad->sThumbLX < -PUSHED) buttons |= 1UL << HALO_CHAT_PAD_STICK_LEFT;
 	if (pad->sThumbLX > PUSHED) buttons |= 1UL << HALO_CHAT_PAD_STICK_RIGHT;
-	chat_pad[port] = buttons;
+	return buttons;
+}
+
+static void chat_pad_record(short port, const XINPUT_GAMEPAD *pad)
+{
+	chat_pad[port] = chat_pad_bits(pad);
 }
 
 extern short network_chat_controller(void);
@@ -386,6 +395,17 @@ unsigned long halo_chat_pad_buttons(void)
 int halo_chat_taps(float *x, float *y)
 {
 	return touch_input_chat_taps(x, y);
+}
+
+int halo_chat_wheel_steps(void)
+{
+	int steps;
+
+	pthread_mutex_lock(&mouse_lock);
+	steps = chat_wheel_steps;
+	chat_wheel_steps = 0;
+	pthread_mutex_unlock(&mouse_lock);
+	return steps;
 }
 
 int halo_chat_touch_layout(void)
@@ -889,6 +909,10 @@ void platform_text_typing(int typing)
 {
 	text_typing_keyboard = typing != 0;
 	text_typing_update();
+#ifdef HALO_ANDROID
+	/* (on a touchscreen: Android's on-screen keyboard as well, sdl_platform.c) */
+	platform_screen_keyboard(text_typing_keyboard, FALSE);
+#endif
 }
 
 void platform_text_field(int typing, int password)
@@ -1228,6 +1252,22 @@ static void bindings_read(void)
 			text += length;
 		}
 	}
+}
+
+/* Prompt readers use the same parsed bindings and refresh generation as play.
+ * No parallel setting table: a rebind is visible on the next lookup. */
+int halo_keyboard_binding_label(int action, int slot, char *shown, unsigned int size)
+{
+	char name[64];
+	if (!shown || !size) return 0;
+	shown[0] = 0;
+	if (action < 0 || action >= NUMBER_OF_HALO_KEYBOARD_ACTIONS || slot < 0 || slot >= MAXIMUM_BINDINGS)
+		return 0;
+	bindings_read();
+	if (bindings[action][slot] < 0) return 0;
+	halo_input_name(bindings[action][slot], name, sizeof(name));
+	halo_input_shown_name(name, shown, size);
+	return shown[0] != 0;
 }
 
 static BOOL input_held(const struct platform_input_state *input, int code)
@@ -1722,7 +1762,9 @@ and stick_right (the left stick pushed sideways), screenshot
 (the Screenshot key's capture, once), or wait (none), separated by spaces
 or commas; two or more joined by + ("back+x") hold the first through the
 second and press the others half way through it; "hold:<button>" holds it
-the whole second (one after another, held on: the menus' repeat). A script
+the whole second (one after another, held on: the menus' repeat); one
+after "p<n>:" ("p2:start") is played on controller n (2 to 4: another
+player's, connected for the script) rather than the first. A script
 that starts with "ready" waits for the menus' screen to be up
 (platform_test_menu_start, menu_tour.c's) and counts its seconds from then:
 tools/menu_parity.py's, whose runs share the computer */
@@ -1794,7 +1836,35 @@ int platform_test_menu_done(void)
 	return platform_test_menu_step() >= count;
 }
 
-static void test_input_menu_gamepad(XINPUT_GAMEPAD *pad)
+/* the ports past the first that the menu script plays (p<n>:), a bit each */
+static unsigned int test_input_menu_ports;
+
+/* whether a token of the menu script is another controller's, "p<n>:" */
+static int test_input_menu_port_token(const char *token, size_t length)
+{
+	return length > 3 && token[0] == 'p' && token[1] >= '2' && token[1] <= '0' + PORT_COUNT && token[2] == ':';
+}
+
+/* (the menu script's controllers: each "p<n>:" token's port) */
+static void test_input_menu_ports_read(void)
+{
+	const char *token = test_input_menu;
+
+	for (;;)
+	{
+		size_t length;
+
+		token += strspn(token, " ,");
+		length = strcspn(token, " ,");
+		if (!length)
+			break;
+		if (test_input_menu_port_token(token, length))
+			test_input_menu_ports |= 1U << (token[1] - '1');
+		token += length;
+	}
+}
+
+static void test_input_menu_gamepad(XINPUT_GAMEPAD *pad, int port)
 {
 	static const struct
 	{
@@ -1842,6 +1912,16 @@ static void test_input_menu_gamepad(XINPUT_GAMEPAD *pad)
 		step--;
 		token += length;
 	}
+	/* (another controller's, "p<n>:": played on that port alone) */
+	if (test_input_menu_port_token(token, length))
+	{
+		if (token[1] - '1' != port)
+			return;
+		token += 3;
+		length -= 3;
+	}
+	else if (port)
+		return;
 	/* (Save Report's, as its key asks: one in its second) */
 	if (length == 6 && !strncmp(token, "report", 6))
 	{
@@ -2077,6 +2157,9 @@ second (tools/scorecard). An event is "<start>[-<end>] <action>":
 An action after "p<n> " is played on controller n (2 to 4: a split screen
 player's, connected for the script while it has any) rather than the
 first: its buttons, D-pad and sticks ("4 p2 start; 5 p2 down; 6 p2 jump").
+A script's controller is read as a connected one is (the first's too): its
+presses its own (test_script_pressed), which the D-pad's pings and Spartan
+link take as a real controller's.
 
 A time on the 30 Hz grid (a multiple of 1/30) falls on a step at every
 rate. */
@@ -2108,6 +2191,10 @@ static int test_script_count;
 static int test_script_on;
 /* the ports past the first that the script plays (p<n>), a bit each */
 static unsigned int test_script_ports;
+/* the buttons and D-pad the script presses on each controller at this
+reading: a controller's own presses (chat_physical_pad), as a connected
+one's are, for the D-pad's pings and Spartan link */
+static XINPUT_GAMEPAD test_script_pressed[PORT_COUNT];
 /* the script plays a controller's gyroscope (gyro_test_feed) */
 static int test_script_gyro;
 
@@ -2232,8 +2319,10 @@ static void test_script_port_gamepad(int port, XINPUT_GAMEPAD *pad)
 	/* (a hair before a step's time is that step's: 1/30 in a double is not
 	exact) */
 	double t = sim_trace_scenario_seconds() + 1e-6;
+	XINPUT_GAMEPAD *pressed = &test_script_pressed[port];
 	int index;
 
+	memset(pressed, 0, sizeof(*pressed));
 	if (t < 0.0)
 		return;
 	for (index = 0; index < test_script_count; index++)
@@ -2268,8 +2357,9 @@ static void test_script_port_gamepad(int port, XINPUT_GAMEPAD *pad)
 			continue;
 		}
 		if (event->analog >= 0)
-			pad->bAnalogButtons[event->analog] = 255;
+			pad->bAnalogButtons[event->analog] = pressed->bAnalogButtons[event->analog] = 255;
 		pad->wButtons |= (WORD)event->digital;
+		pressed->wButtons |= (WORD)event->digital;
 		if (event->stick == 1)
 		{
 			pad->sThumbLX = test_script_axis(event->x);
@@ -2515,6 +2605,7 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 				memmove(test_input_menu, test_input_menu + 5, strlen(test_input_menu + 5) + 1);
 				test_input_menu_waiting = 1;
 			}
+			test_input_menu_ports_read();
 		}
 		else if (!strncmp(setting, "bot:", 4))
 			seed = atoi(setting + 4);
@@ -2547,7 +2638,7 @@ static void test_input_gamepad(XINPUT_GAMEPAD *pad)
 	}
 	if (test_input_menu[0])
 	{
-		test_input_menu_gamepad(pad);
+		test_input_menu_gamepad(pad, 0);
 		return;
 	}
 	if (seed < 0)
@@ -2632,6 +2723,23 @@ static void wheel_update(void)
 	Uint64 now = SDL_GetTicks();
 
 	pthread_mutex_lock(&mouse_lock);
+	/* (a chat line typed: the wheel scrolls its lines, network_chat.c) */
+	if (network_chat_typing())
+	{
+		while (mouse_wheel_accumulated >= WHEEL_NOTCH)
+		{
+			chat_wheel_steps++;
+			mouse_wheel_accumulated -= WHEEL_NOTCH;
+		}
+		while (mouse_wheel_accumulated <= -WHEEL_NOTCH)
+		{
+			chat_wheel_steps--;
+			mouse_wheel_accumulated += WHEEL_NOTCH;
+		}
+		wheel_scrolling = FALSE;
+		pthread_mutex_unlock(&mouse_lock);
+		return;
+	}
 	if (!wheel_scrolling)
 	{
 		if (fabsf(mouse_wheel_accumulated) >= WHEEL_NOTCH)
@@ -2710,6 +2818,10 @@ int sdl_gamepads(SDL_Gamepad **gamepads)
 
 /* whether one gamepad is port 1's (port_gamepad) */
 static BOOL lone_gamepad_split;
+/* pc_menu_split_players, as the game's thread last read it (XInputGetState):
+port_gamepad also runs on the input thread's rumble (XInputSetState), which
+must not read the game's state while the game's thread has it */
+static BOOL split_players;
 
 /* no button of the gamepad held, its sticks and triggers at rest */
 static BOOL gamepad_idle(SDL_Gamepad *gamepad)
@@ -2738,7 +2850,7 @@ static SDL_Gamepad *port_gamepad(SDL_Gamepad *gamepads[PORT_COUNT], int count, i
 {
 	if (count == 1)
 	{
-		BOOL split = pc_menu_split_players() != 0;
+		BOOL split = split_players;
 
 		if (split != lone_gamepad_split && gamepad_idle(gamepads[0]))
 			lone_gamepad_split = split;
@@ -2746,6 +2858,26 @@ static SDL_Gamepad *port_gamepad(SDL_Gamepad *gamepads[PORT_COUNT], int count, i
 			return port == 1 ? gamepads[0] : NULL;
 	}
 	return port < count ? gamepads[port] : NULL;
+}
+
+
+
+
+
+/* whether port 0 (player 1) is the keyboard's and a gamepad's */
+unsigned char halo_keyboard_shares_gamepad(void)
+{
+	SDL_Gamepad *gamepads[PORT_COUNT];
+	int count = sdl_gamepads(gamepads);
+
+	return port_gamepad(gamepads, count, 0) != NULL;
+}
+
+int halo_gamepad_count(void)
+{
+	SDL_Gamepad *gamepads[PORT_COUNT];
+
+	return sdl_gamepads(gamepads);
 }
 
 static SHORT stick(Sint16 value, BOOL flip)
@@ -3503,7 +3635,7 @@ static DWORD connected_gamepads(void)
 	for (port = 1; port < PORT_COUNT; port++)
 	{
 		/* (and the controllers the test script plays: p<n>) */
-		if (port_gamepad(gamepads, count, port) || (test_script_ports & (1U << port)))
+		if (port_gamepad(gamepads, count, port) || ((test_script_ports | test_input_menu_ports) & (1U << port)))
 			mask |= 1UL << port;
 	}
 	return mask;
@@ -3600,6 +3732,68 @@ static unsigned int remap_reserved(int port)
 	return reserved;
 }
 
+/* debug camera (director.c): the middle button, R and F, and the wheel's
+notches since the director last asked */
+static BOOL debug_cam_middle = FALSE;
+static BOOL debug_cam_up = FALSE;
+static BOOL debug_cam_down = FALSE;
+static float debug_cam_wheel = 0.0f;
+
+static void debug_camera_update(const struct platform_input_state *input, BOOL blocked)
+{
+	pthread_mutex_lock(&mouse_lock);
+	debug_cam_middle = !blocked && !input->mouse_released &&
+		input->mouse_buttons[SDL_BUTTON_MIDDLE] != 0;
+	debug_cam_up = !blocked && input->keys[SDL_SCANCODE_R] != 0;
+	debug_cam_down = !blocked && input->keys[SDL_SCANCODE_F] != 0;
+	if (debug_cam_middle)
+		debug_cam_wheel += input->mouse_wheel;
+	else
+		debug_cam_wheel = 0.0f;
+	pthread_mutex_unlock(&mouse_lock);
+}
+
+/* read by director.c (halo_linux_source_fixups.h); the wheel's notches are
+returned once, then cleared */
+int halo_linux_debug_camera_input(int *middle, int *up, int *down, float *wheel)
+{
+	pthread_mutex_lock(&mouse_lock);
+	*middle = debug_cam_middle;
+	*up = debug_cam_up;
+	*down = debug_cam_down;
+	*wheel = debug_cam_wheel;
+	debug_cam_wheel = 0.0f;
+	pthread_mutex_unlock(&mouse_lock);
+	return TRUE;
+}
+
+/* a split screen player's controller (a port past the first): physical, a
+connected one's reading, or with none the test script's (p<n>), read the
+same way, its presses the controller's own; and what reads it on the way,
+as the first's: the scoreboard, the chat's on-screen keyboard, the D-pad's
+pings and Spartan link */
+static void split_screen_pad_read(int port, XINPUT_GAMEPAD *pad, const XINPUT_GAMEPAD *physical,
+	unsigned int reserved)
+{
+	struct platform_input_state input;
+
+	if (physical)
+		*pad = *physical;
+	else
+	{
+		test_script_port_gamepad(port, pad);
+		chat_physical_pad[port] = chat_pad_bits(&test_script_pressed[port]);
+	}
+	/* (a split screen player's scoreboard, as port 0's) */
+	platform_input_read(&input, FALSE);
+	scoreboard_pad_read(port, pad, 0, scoreboard_pad_port_hold(port, input.menus));
+	/* (the chat's on-screen keyboard, when this player opened it) */
+	chat_pad_record((short)port, pad);
+	chat_pad_hold_over((short)port, pad);
+	ping_pad_read(port, pad, reserved);
+	spartan_link_pad_read(port, pad, reserved);
+}
+
 /* reads a controller's state; for port 0 the keyboard, mouse, debug input
 and touchscreen are merged into the first gamepad's; runs on the game's main
 thread (touch_input_gamepad relies on it); returns ERROR_SUCCESS or
@@ -3615,12 +3809,14 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	XINPUT_GAMEPAD physical;
 	struct gamepad_taps taps;
 	int captured;
+	int connected;
 	unsigned int reserved;
 
 	memset(state, 0, sizeof(*state));
 	if (port < 0)
 		return ERROR_DEVICE_NOT_CONNECTED;
 	platform_pump_events();
+	split_players = pc_menu_split_players() != 0;
 	count = sdl_gamepads(gamepads);
 	controller_device_update((short)port, port_gamepad(gamepads, count, port));
 	/* Keep physical remapping separate from the keyboard and touch controls. */
@@ -3637,6 +3833,13 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 	controller_remap_reserve((short)port, reserved);
 	controller_remap_paddles((short)port, sdl_gamepad_paddles(port_gamepad(gamepads, count, port), &taps));
 	captured = controller_remap_input((short)port, &physical, port_gamepad(gamepads, count, port) != NULL);
+	/* (a split screen player's controller: in the headset every gamepad is
+	the first player's) */
+#ifdef HALO_VR
+	connected = !halo_vr_running() && port_gamepad(gamepads, count, port) != NULL;
+#else
+	connected = port_gamepad(gamepads, count, port) != NULL;
+#endif
 	if (port == 0)
 	{
 		struct platform_input_state input;
@@ -3661,6 +3864,7 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		discord_ask_keys(&input, discord_ask);
 		/* (a chat line typed takes the keyboard as the console does) */
 		console_active = console_is_active() || network_chat_typing();
+		debug_camera_update(&input, console_active);
 		held = console_active ? 0 : keyboard_bound_actions(&input);
 		keyboard_screenshot(held);
 		if (!console_active)
@@ -3712,7 +3916,11 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 		halo_vr_gamepad(&state->Gamepad);
 #endif
 		substep_frame_devices = state->Gamepad;
+		memset(&test_script_pressed[0], 0, sizeof(test_script_pressed[0]));
 		test_input_gamepad(&state->Gamepad);
+		/* (the script's presses on the first controller are a controller's
+		own, as a connected one's: its D-pad's pings and Spartan link) */
+		chat_physical_pad[0] |= chat_pad_bits(&test_script_pressed[0]);
 		substep_frame_reading = state->Gamepad;
 		touch_input_gamepad(&state->Gamepad);
 		/* (debug.latency_log: when the input was read) */
@@ -3768,27 +3976,11 @@ DWORD WINAPI XInputGetState(HANDLE device, PXINPUT_STATE state)
 			pthread_mutex_unlock(&mouse_lock);
 		}
 	}
-#ifdef HALO_VR
-	else if (!halo_vr_running() && port_gamepad(gamepads, count, port))
-#else
-	else if (port_gamepad(gamepads, count, port))
-#endif
-	{
-		struct platform_input_state input;
-
-		state->Gamepad = physical;
-		/* (a split screen player's scoreboard, as port 0's) */
-		platform_input_read(&input, FALSE);
-		scoreboard_pad_read(port, &state->Gamepad, 0, scoreboard_pad_port_hold(port, input.menus));
-		/* (the chat's on-screen keyboard, when this player opened it) */
-		chat_pad_record((short)port, &state->Gamepad);
-		chat_pad_hold_over((short)port, &state->Gamepad);
-		ping_pad_read(port, &state->Gamepad, reserved);
-		spartan_link_pad_read(port, &state->Gamepad, reserved);
-	}
-	/* (a controller the test script plays: p<n>) */
-	else if (test_script_ports & (1U << port))
-		test_script_port_gamepad(port, &state->Gamepad);
+	else if (connected || (test_script_ports & (1U << port)))
+		split_screen_pad_read(port, &state->Gamepad, connected ? &physical : NULL, reserved);
+	/* (or the menu script: p<n>:) */
+	else if (test_input_menu_ports & (1U << port))
+		test_input_menu_gamepad(&state->Gamepad, port);
 	if (captured) memset(&state->Gamepad, 0, sizeof(state->Gamepad));
 	/* (the port's gyroscope, and its right stick as the flick stick) */
 	{

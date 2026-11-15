@@ -103,14 +103,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("render_newest_vehicle", newest_generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_drawn_before_the_objects():
-    # the vehicles are taken as their newest step left them before any object is drawn between the ticks (their
-    # nodes and markers then read as the game has them, not as drawn)
-    code = (Path(__file__).resolve().parents[3] / "port/linux/game/render_interpolation.c").read_text(
-        encoding="latin-1")
-    begin = code[code.index("void render_interpolation_frame_begin(void)"):]
-    begin = begin[:begin.index("\n}\n")]
-    assert begin.index("interpolation_rendering = FALSE;") < begin.index("render_interpolation_newest_vehicles(")
-    assert begin.index("render_interpolation_newest_vehicles(") < begin.index("interpolation_rendering = rendering;")

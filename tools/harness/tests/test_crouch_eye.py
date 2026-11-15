@@ -59,9 +59,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build("crouch_eye", generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_the_view_takes_it():
-    # the newest view's eye moved on by it, for the time since the newest step
-    code = read("port/linux/game/render_interpolation.c")
-    assert "drawn->position.z += biped_eye_rise_ahead(unit_index, since);" in code

@@ -351,7 +351,7 @@
 		<string text="Multiplayer, with a weapon slot empty: Hold picks up a weapon as you hold the action button, as on the Xbox; Walk Over as you walk over it, as in Custom Edition. Online: the host's choice."/>
 		<string text="Hold the action button beside an enemy's Ghost, Warthog or landed Banshee to throw the rider out and take it. Online: the host's choice."/>
 		<string text=""/>
-		<string text="Joining a game on a Custom Edition map you do not have downloads it from the players, if they share it."/>
+		<string text="Joining a game on a map you do not have downloads it, if it is shared: a Custom Edition map from the players, an MCC map from the host, after asking."/>
 		<string text="In another player's game, sends its map to the players who join without it, as a torrent's peers do."/>
 		<string text="The most of your upload that sending maps takes, so that the game keeps the rest."/>
 		<string text=""/>

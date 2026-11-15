@@ -159,6 +159,10 @@ struct host_controls_pause_view
 	/* the menus have Host Controls' and Basic Training's screens */
 	boolean host_controls_screen;
 	boolean training_screen;
+	/* the pause is this machine's first local player's (split screen's
+	player 1: network_host_controls_local_player), whose alone the host's
+	rows are */
+	boolean first_player;
 };
 
 /* what a game is, for moving its players between teams */
@@ -224,6 +228,11 @@ short network_host_controls_maximum_step(short const *values, short count, short
 boolean network_host_controls_ban_parse(char const *line, struct host_controls_ban *ban);
 /* the rows the pause menu gets (_host_controls_pause_*: a bit each) */
 unsigned long network_host_controls_pause_rows_for(struct host_controls_pause_view const *view);
+/* whether a screen's local player (NONE: a screen of no one player's, as
+the lobby's) has this machine's host's controls, the first of its local
+players (NONE: none, as in the menus) being the host's: in split screen,
+player 1 alone */
+boolean network_host_controls_local_player_for(short local_player_index, short first_local_player_index);
 /* BOTS stepped (no wrapping round): no fewer than none, no more than
 BOTS_MAXIMUM or than the game holds (most_players) beside its players; the
 count left once the host takes out a bot of those playing (one fewer than
@@ -255,6 +264,10 @@ boolean network_host_controls_same_player(struct host_controls_player const *pla
 /* whether this machine hosts a network game under way, or is in its lobby
 (Host Controls is its, its pause menu's, the lobby's and the scoreboard's) */
 boolean network_host_controls_available(void);
+/* ... whether the local player's screens (its pause menu, its scoreboard)
+offer the host's controls, this machine's or its admin's: its first local
+player's alone (network_host_controls_local_player_for) */
+boolean network_host_controls_local_player(short local_player_index);
 /* ... in the lobby (its players those of the game's record) */
 boolean network_host_controls_in_lobby(void);
 /* the game's players (but those who quit), their count */

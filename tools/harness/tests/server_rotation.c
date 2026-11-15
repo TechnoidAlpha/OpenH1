@@ -68,6 +68,28 @@ void posix_directory_close(void *directory)
 	closedir(directory);
 }
 
+/* the entry of a folder named as name is, in any letters' case */
+int posix_find_entry_case_insensitive(const char *directory, const char *name, char *result,
+	unsigned long result_size)
+{
+	DIR *handle = opendir(directory);
+	struct dirent *found;
+	int matched = 0;
+
+	if (!handle)
+		return 0;
+	while (!matched && (found = readdir(handle)))
+	{
+		if (!strcasecmp(found->d_name, name) && strlen(found->d_name) < result_size)
+		{
+			snprintf(result, (size_t)result_size, "%s", found->d_name);
+			matched = 1;
+		}
+	}
+	closedir(handle);
+	return matched;
+}
+
 #include "under_test.inc"
 
 static struct server_entry entry;
@@ -522,7 +544,7 @@ int main(int argc, char **argv)
 		{
 			{ "score", "score_to_win" }, { "respawn", "respawn_time" }, { "weapons", "weapon_set" },
 			{ "vehicles", "vehicle_set" }, { "time", "time_limit" }, { "ff", "friendly_fire" },
-			{ "balance", "auto_team_balance" },
+			{ "balance", "auto_team_balance" }, { "riding", "vehicle_riding" },
 		};
 		static char const *const tables[] = { "universal", "options", "ctf", "slayer", "king", "oddball", "race" };
 		int index, other;
@@ -575,6 +597,28 @@ int main(int argc, char **argv)
 		CHECK(!strcmp(server_rule_find("assault")->table, "ctf") && server_rule_find("assault")->engines == _server_engine_ctf,
 			"assault is not ctf's");
 		CHECK(!strcmp(server_rule_find("moving_hill")->table, "king"), "moving_hill is not king's");
+		return 0;
+	}
+	CASE("riding-rule")
+	{
+		CHECK(playable("bloodgulch:ctf+riding=true"), "riding was rejected: %s", entry.rejected);
+		CHECK(entry.rule_count == 1 && !strcmp(entry.rules[0].key, "vehicle_riding") && entry.rules[0].value == 1,
+			"%d rules, the first %s = %ld", entry.rule_count, entry.rules[0].key, entry.rules[0].value);
+		CHECK(playable("bloodgulch:ctf+vehicle_riding=off") && rule_of("vehicle_riding") == 0, "vehicle_riding=off: %ld",
+			rule_of("vehicle_riding"));
+		CHECK(rejected_with("bloodgulch:ctf+riding=maybe", "vehicle_riding takes true or false, not \"maybe\""),
+			"riding=maybe: %s", entry.rejected);
+		CHECK(rejected_with("bloodgulch:ctf+radar=maybe", "radar takes true or false, not \"maybe\""),
+			"radar=maybe: %s", entry.rejected);
+		CHECK(playable("bloodgulch:ctf+RIDING=true") && rule_of("vehicle_riding") == 1, "RIDING=true: %s", entry.rejected);
+		return 0;
+	}
+	CASE("riding-coop-entry")
+	{
+		CHECK(playable("a10:coop+riding=false"), "a co-op entry's riding was rejected: %s", entry.rejected);
+		CHECK(!strcmp(entry.gametype, "coop") && entry.rule_count == 1 && rule_of("vehicle_riding") == 0,
+			"%s, %d rules, riding %ld", entry.gametype, entry.rule_count, rule_of("vehicle_riding"));
+		CHECK(playable("a10:coop+riding=true") && rule_of("vehicle_riding") == 1, "a10:coop+riding=true: %s", entry.rejected);
 		return 0;
 	}
 	/* numbers in range, booleans' words, choices' words and indices; why not */
@@ -753,6 +797,37 @@ int main(int argc, char **argv)
 		CHECK(resolved("custom_maps\\ceonly"), "custom_maps\\ceonly: %s", entry.rejected);
 		snprintf(path, sizeof(path), "%s/maps/bloodgulch.map", data_root);
 		CHECK(!access(path, R_OK), "the maps were not written");
+		return 0;
+	}
+	/* a Custom Edition map whose file has capitals (cmt_Snow_Grove.map) is
+	found by the name the maps' list gives it, in lower case, in each of
+	custom_maps, paths.custom_maps and Custom Edition's own folder */
+	CASE("resolve-case")
+	{
+		int told = 0;
+
+		make_root(argv[0], case_name);
+		write_maps();
+		write_map("custom_maps/Mixed_Case.map", 609, 1, 0x800, "daeh", "toof");
+		server_maps_each(tell_map, &told);
+		CHECK(strstr(maps_told, "mixed_case custom_maps\\mixed_case custom;"), "%s", maps_told);
+		CHECK(resolved("mixed_case:ctf"), "mixed_case: %s", entry.rejected);
+		CHECK(entry.map_kind == _server_map_custom && !strcmp(entry.level, "custom_maps\\mixed_case"),
+			"kind %d, level %s", entry.map_kind, entry.level);
+		CHECK(resolved("custom_maps\\mixed_case:ctf+ff=off"), "custom_maps\\mixed_case: %s", entry.rejected);
+		CHECK(resolved("custom_maps\\MIXED_CASE"), "custom_maps\\MIXED_CASE: %s", entry.rejected);
+		CHECK(!resolved("custom_maps\\mixed_cases") && entry.map_missing, "a name of no file was found");
+		make_folder("elsewhere");
+		write_map("elsewhere/Other_Case.map", 609, 1, 0x800, "daeh", "toof");
+		snprintf(custom_maps_setting, sizeof(custom_maps_setting), "%s/elsewhere", data_root);
+		CHECK(resolved("custom_maps\\other_case"), "a map in paths.custom_maps: %s", entry.rejected);
+		custom_maps_setting[0] = 0;
+		make_folder("ce");
+		make_folder("ce/maps");
+		write_map("ce/maps/CE_Case.map", 609, 1, 0x800, "daeh", "toof");
+		snprintf(custom_edition_root, sizeof(custom_edition_root), "%s/ce", data_root);
+		CHECK(resolved("ce_case"), "a map in Custom Edition's folder: %s", entry.rejected);
+		custom_edition_root[0] = 0;
 		return 0;
 	}
 	/* a map file of another game's version is not played as the Xbox's or

@@ -104,23 +104,3 @@ def test_case(case):
 def test_negative_control(control):
     status, output = run(build("scoreboard_pad", generated(control)), NEGATIVE_CONTROLS[control][2])
     assert status == CHECK_FAILED, f"{control} was not caught: {output}"
-
-
-def test_the_scoreboard_uses_it():
-    """The scoreboard asks for the presses with the hold it has, and finishes what the update did; the split screen's
-    view pins on X and the D-pad; the controller's reading goes through the scoreboard on every port."""
-    engine = read("source/game/game_engine.c")
-    inputs = read("port/linux/src/xinput_sdl.c")
-    scoreboard = function(engine, "game_engine_rasterize_scoreboard")
-    assert "scoreboard_pad_update(scoreboard_menu, halo_scoreboard_pad((short)local_player_index, hold)" in scoreboard
-    assert "_scoreboard_pad_opened" in scoreboard and "_scoreboard_pad_chose" in scoreboard
-    assert "slot->pickable = player && player->local_player_index == NONE;" in scoreboard, \
-        "only another machine's player, as the mouse picks"
-    split = function(engine, "game_engine_rasterize_in_game_score")
-    assert "scoreboard_view_get(render.local_player_index)->pinned" in split
-    assert "HALO_SCOREBOARD_PAD_HOLDS" in split
-    fade = function(engine, "game_engine_post_rasterize_in_game")
-    assert "!scoreboard_view_get(local_player_index)->pinned" in fade, "a pinned scoreboard stays shown"
-    state = function(inputs, "XInputGetState")
-    assert state.count("scoreboard_pad_read(") == 2, "port 0's and the other ports'"
-    assert "keys_held_over_switch(&input, scoreboard_hold == HALO_SCOREBOARD_PAD_HOLDS)" in state

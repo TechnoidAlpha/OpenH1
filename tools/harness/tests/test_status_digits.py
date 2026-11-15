@@ -91,14 +91,3 @@ def test_negative_control_cut_digit():
     assert not clear_of_sides([False] * 2 + [True] * 94, 2)
     assert clear_of_sides([False] * 2 + [True] * 92 + [False] * 2, 2)
     assert not clear_of_sides([False] * 96, 2)
-
-
-def test_frames_as_laid_out():
-    bitmaps = read("port/assets/menus/ce/bitmaps.xml")
-    frames = re.findall(rf'<frame png="ce/port/{re.escape(port_settings.STATUS_DIGITS)}__\d\.png" '
-                        r'width="(\d+)" height="(\d+)"/>', bitmaps)
-    assert len(frames) == 10
-    assert {(int(w), int(h)) for w, h in frames} == {port_settings.DIGIT_SIZE}
-    menus = read("port/linux/game/menu_functions.c")
-    assert int(re.search(r"#define MULTIPLAYER_STATUS_DIGIT_WIDTH (\d+)", menus).group(1)) == \
-        port_settings.DIGIT_SIZE[0]

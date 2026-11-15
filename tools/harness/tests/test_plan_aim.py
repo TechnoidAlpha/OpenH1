@@ -31,6 +31,8 @@ NEGATIVE_CONTROLS = {
     "substep-far": (("period <= 2 && player_machine", "period <= 3 && player_machine"), "substep-due"),
     # riding players' states at the sub-steps
     "substep-riding": (("TEST_FLAG(state->flags, _distributed_unit_placed_bit) &&\n", ""), "substep-due"),
+    # a rider on a vehicle's deck's (it moves in its tick: vehicle_riding_bipeds.c)
+    "substep-deck": (("!state->deck_present &&\n", ""), "substep-due"),
     # an OpenCE player's (the host runs no sub-steps of theirs as they come)
     "substep-opence": (("(player_machine == NONE || distributed_prediction_at_tick_start(player_index))", "TRUE"),
                        "substep-due"),

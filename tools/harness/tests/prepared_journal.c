@@ -485,18 +485,27 @@ static void case_settings(void)
 	}
 }
 
+/* a record's key as render_prepared.c makes it (prepared_choose): its form,
+the journal's, the map's scenario, whether the frame draws mirrors and the
+structure it starts in */
+static unsigned long long record_key(char const *scenario, unsigned long journal_form, boolean mirrors,
+	long structure_bsp_index)
+{
+	return prepared_key(prepared_key_of(scenario, journal_form), mirrors, structure_bsp_index);
+}
+
 /* the key: no setting in it, every part of it telling records apart, and
 a record played back judged under its own derivation alone */
 static void case_key(void)
 {
-	unsigned long long key = render_prepared_key("levels\\a10\\a10", 0x40000 | 400, TRUE, 0);
+	unsigned long long key = record_key("levels\\a10\\a10", 0x40000 | 400, TRUE, 0);
 	struct prepared_header header;
 
-	CHECK(key == render_prepared_key("levels\\a10\\a10", 0x40000 | 400, TRUE, 0), "the same map's the same");
-	CHECK(key != render_prepared_key("levels\\b30\\b30", 0x40000 | 400, TRUE, 0), "another scenario's");
-	CHECK(key != render_prepared_key("levels\\a10\\a10", 0x50000 | 400, TRUE, 0), "another journal form's");
-	CHECK(key != render_prepared_key("levels\\a10\\a10", 0x40000 | 400, FALSE, 0), "without mirrors");
-	CHECK(key != render_prepared_key("levels\\a10\\a10", 0x40000 | 400, TRUE, 1), "another structure's");
+	CHECK(key == record_key("levels\\a10\\a10", 0x40000 | 400, TRUE, 0), "the same map's the same");
+	CHECK(key != record_key("levels\\b30\\b30", 0x40000 | 400, TRUE, 0), "another scenario's");
+	CHECK(key != record_key("levels\\a10\\a10", 0x50000 | 400, TRUE, 0), "another journal form's");
+	CHECK(key != record_key("levels\\a10\\a10", 0x40000 | 400, FALSE, 0), "without mirrors");
+	CHECK(key != record_key("levels\\a10\\a10", 0x40000 | 400, TRUE, 1), "another structure's");
 	memset(&header, 0, sizeof(header));
 	header.magic = PREPARED_MAGIC;
 	header.version = PREPARED_VERSION;
@@ -506,7 +515,7 @@ static void case_key(void)
 	header.word_count = 100;
 	header.derivation = 0x99;
 	CHECK(prepared_header_fits(&header, 0x12345678, key), "a record under any derivation fits");
-	CHECK(!prepared_header_fits(&header, 0x12345678, render_prepared_key("levels\\a10\\a10", 0x50000 | 400, TRUE,
+	CHECK(!prepared_header_fits(&header, 0x12345678, record_key("levels\\a10\\a10", 0x50000 | 400, TRUE,
 		0)), "a stale form's key is refused");
 	CHECK(render_prepared_played(1, 0, 0, TRUE), "its own derivation's, every draw made");
 	CHECK(!render_prepared_played(1, 0, 3, TRUE), "its own derivation's, draws not made");

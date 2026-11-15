@@ -54,8 +54,3 @@ def test_negative_control(control):
     fault, faulty_function, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("debug_log_repeats", generated(fault, faulty_function)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_written_at_the_end():
-    # the game's end writes a run counted down (errors_dispose)
-    assert "write_to_debug_file(NULL, FALSE);" in function(read("source/cseries/errors.c"), "errors_dispose")

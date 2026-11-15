@@ -43,6 +43,8 @@ static real arctangent(real y, real x) { return atan2f(y, x); }
 static real sine(real x) { return sinf(x); }
 static real cosine(real x) { return cosf(x); }
 static real power(real x, real y) { return powf(x, y); }
+/* mcc_hud_draw.c's: a stock map's bitmaps are at their own scale */
+static real mcc_hud_bitmap_scale(long bitmap_group_index) { (void)bitmap_group_index; return 1.0f; }
 static long fast_ftol(real value) { return lrintf(value); }
 static long fast_ftol_C(real value) { return lrintf(value); }
 static real distance3d(real_point3d const *a, real_point3d const *b)

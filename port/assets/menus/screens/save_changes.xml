@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The question as the gametype editor is left with changes not saved (docs/menu_screens.md): B, Back or
+CANCEL there open it (menu_functions.c's "port edit leave"; with nothing changed they go back as before). SAVE
+saves the gametype as the editor's OK does (a built-in one asks for a new name first), DON'T SAVE leaves it as
+it was, and CANCEL (or B) goes back to the editor, the changes kept. -->
+<screen name="save_changes">
+	<dialog title="SAVE CHANGES?" text="You have unsaved changes. Would you like to save your new rules?">
+		<list focus="save">
+			<item id="save" label="SAVE" do="edit save"/>
+			<item id="discard" label="DON'T SAVE" do="edit discard"/>
+			<item id="cancel" label="CANCEL" do="back"/>
+		</list>
+	</dialog>
+</screen>

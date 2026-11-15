@@ -8,8 +8,11 @@
 # of your own under another name.)
 #
 # A file that names no master leaves the game the masters built in, the
-# same two as below; a file that names one or more is asked instead of them,
-# so OpenCE's official master is named here too (its dedicated servers stay
-# in the browser). The project's own first (deploy/net), then OpenCE's.
+# same four as below; a file that names one or more is asked instead of them,
+# so OpenCE's official masters are named here too (their dedicated servers
+# stay in the browser). The project's own first (deploy/net), then OpenCE's
+# official master, then the HaloBase and Unicade masters.
 https://master.goath1.com ed25519:120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399684
 https://master.opencommunityedition.com ed25519:89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225aa
+https://ocemaster.halobase.net ed25519:1d018c4d1e182585948cd807f19133122c1a1484a74dcffa7792d18012573459
+https://masterce.unicade.io ed25519:22aa04b7cf041af39c2e9765b5da10989254ed49fa23b730cd90e6d36a0a411a

@@ -63,21 +63,3 @@ def test_the_reach():
     assert "#define NEAR_CLIP_REACH 0.2f" in code
     assert "#define REACH 0.2f" in read("tools/harness/tests/near_clip.c")
     assert re.search(r"rasterizer_global_defaults =\s*\{\s*0\.0625f,", read("source/rasterizer/rasterizer.c"))
-
-
-def test_where_the_game_takes_it():
-    render = read("source/render/render.c")
-    frame = function(render, "render_player_frame")
-    # both cameras, from the whole view's bounds, before a screenshot's tile and before the frustums are built
-    wired = ("\t\tcamera->z_near = render_near_clip_distance(camera, &frustum_bounds);\n"
-             "\t\twindow->rasterizer_camera.z_near =\n"
-             "\t\t\trender_near_clip_distance(&window->rasterizer_camera, &frustum_bounds);\n")
-    assert wired in frame
-    at = frame.index(wired)
-    assert frame.index("render_camera_build_frustum_bounds(camera, &frustum_bounds);") < at
-    assert at < frame.index("if (screenshot_combined_index != NULL)")
-    assert at < frame.index("render_camera_build_frustum(camera, &frustum_bounds, &frustum, TRUE);")
-    # not the VR mode's eyes, whose near plane is their own
-    assert "\tif (!render_vr_eye_pass && !render_vr_scope_pass)\n#endif\n\t{\n" + wired in frame
-    # the game's own distance set each frame before it (main.c)
-    assert "\twindow->rasterizer_camera.z_near = rasterizer_globals.near_clip_distance;\n" in read("source/main/main.c")

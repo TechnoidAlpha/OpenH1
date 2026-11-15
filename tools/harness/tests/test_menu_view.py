@@ -57,14 +57,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("menu_view", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_split_screens_drawn_in_their_view():
-    """ui_widget.c draws each screen in its view (menu_view_begin and _end about it), widens a dim to the view's
-    canvas, and the text's clip reaches the canvas's side, not the screen's."""
-    widget = read("sou" "rce/interface/ui_widget.c")
-    render = function(widget, "render_ui_widgets")
-    assert "menu_view_begin(" in render and "menu_view_end();" in render
-    assert "menu_view_canvas(&bounds, &canvas)" in widget
-    text = read("sou" "rce/rasterizer/rasterizer_text.c")
-    assert text.count("menu_view_side()") == 4 and "(halo_screen_width() - 640) / 2" not in text

@@ -181,8 +181,11 @@ enum
 	UPNP_JOIN_DELAY = 2000,
 	UPNP_RENEW_INTERVAL = 30 * 60 * 1000,
 	UPNP_RETRY_INTERVAL = 5 * 60 * 1000,
-	/* how long the game's exit waits for a request under way */
+	/* how long the game's exit waits for a request under way (a router's
+	request has no deadline of its own), and for the thread's last pass (it
+	may be waiting for a program at its start, p2p_register_url_scheme) */
 	UPNP_RELEASE_WAIT = 3000,
+	P2P_STOP_WAIT = 3000,
 
 	/* where a running copy of the game takes invites from another one
 	started to open a link (127.0.0.1), sealed with a key of the user's */
@@ -436,6 +439,10 @@ void p2p_profile_unlock(void)
 static struct
 {
 	int running;
+	int stopping;
+	int exit_registered;
+	HANDLE thread;
+	HANDLE upnp_thread;
 	unsigned long local_address;
 	int tunnel_socket;
 	unsigned short tunnel_port;
@@ -473,9 +480,6 @@ static struct
 	int hosting_lan_only;
 	int has_token;
 	unsigned char token[P2P_TOKEN_SIZE];
-	/* whether the exit hook of the server browser and the party is set
-	(lobby_quit) */
-	int lobby_quit_registered;
 	/* whether the server browser listed this token (p2p_lobby.c): going
 	private makes a new one */
 	int token_listed;
@@ -555,8 +559,6 @@ static struct
 	int upnp_working;
 	int upnp_asked;
 	int upnp_forwarded;
-	int upnp_release_registered;
-	int upnp_released;
 	struct p2p_candidate upnp_candidate;
 	unsigned long upnp_time;
 	/* network.public_address, looked up (an address and port joiners reach
@@ -591,7 +593,7 @@ static struct
 	int front_sockets[P2P_FRONT_MAXIMUM_PORTS];
 	int front_socket_count;
 	unsigned long front_operators_time;
-} p2p = { 0, 0, -1, 0, -1, .hosting_socket = -1 };
+} p2p = { .tunnel_socket = -1, .handoff_socket = -1, .hosting_socket = -1 };
 
 /* the proxy (its index + 1) with each local port (all of theirs are on
 p2p.local_address) */
@@ -2349,7 +2351,9 @@ void p2p_socket_port(int socket, int stream, int listening, unsigned short port)
 	struct game_port *entry = NULL;
 	int index;
 
-	if (!p2p.running || !port)
+	/* (kept while internet play is off too: turned on later, the menus'
+	TURN ON INTERNET PLAY, it knows the ports the game has already) */
+	if (!port)
 		return;
 	pthread_mutex_lock(&p2p_lock);
 	for (index = 0; index < MAXIMUM_GAME_PORTS; index++)
@@ -2393,8 +2397,20 @@ void p2p_socket_closed(int socket, unsigned short datagram_port)
 {
 	int index;
 
+	/* (the game's ports kept while internet play is off: p2p_socket_port) */
 	if (!p2p.running)
+	{
+		pthread_mutex_lock(&p2p_lock);
+		for (index = 0; index < MAXIMUM_GAME_PORTS; index++)
+		{
+			if (p2p.game_ports[index].port && p2p.game_ports[index].socket == socket)
+				memset(&p2p.game_ports[index], 0, sizeof(p2p.game_ports[index]));
+		}
+		if (p2p.hosting_socket == socket)
+			p2p.hosting_socket = -1;
+		pthread_mutex_unlock(&p2p_lock);
 		return;
+	}
 	pthread_mutex_lock(&p2p_lock);
 	/* (a port it sent peers datagrams from, which the system gives again) */
 	for (index = 0; index < MAXIMUM_SENT_PORTS && datagram_port; index++)
@@ -3273,14 +3289,17 @@ int p2p_join_invite(const char *text)
 	/* (a party's link joins the party: p2p_party.c) */
 	if (p2p_party_join_link(text))
 	{
-		if (!p2p.running)
+		if (!p2p.running && !config_boolean("network.online"))
 			p2p_log("Internet play is off (network.online in config.toml): the party's link is ignored");
 		return 1;
 	}
 	pthread_mutex_lock(&p2p_lock);
 	result = join_invite(text);
 	pthread_mutex_unlock(&p2p_lock);
-	if (result > 0 && !p2p.running)
+	/* (an invite taken before internet play starts, the link the game was
+	opened with, waits for it, and is joined as it starts: p2p_initialize.
+	Only internet play turned off ignores it) */
+	if (result > 0 && !p2p.running && !config_boolean("network.online"))
 		p2p_log("Internet play is off (network.online in config.toml): the invite is ignored");
 	return result > 0;
 }
@@ -4781,7 +4800,7 @@ static int front_ports_open(unsigned short *first_port)
 /* ---------- UPnP (posix_upnp.c): the router forwards a port here */
 
 /* the router asked, on a thread of its own (it takes seconds) */
-static void *upnp_thread(void *unused)
+static DWORD WINAPI upnp_thread(void *unused)
 {
 	unsigned short port, previous_port = 0;
 	posix_ulong address = 0;
@@ -4823,36 +4842,39 @@ static void *upnp_thread(void *unused)
 		p2p_log("Internet play: UPnP: %s", error);
 	}
 	pthread_mutex_unlock(&p2p_lock);
-	return NULL;
+	return 0;
 }
 
-/* quitting: the party is left at once (its leader's passes on, not after
-its silence), and a game listed in the server browser is taken out of it
-at once (not when its listing lapses), as when it stops being hosted */
-static void lobby_quit(void)
+/* Both workers should finish before exit closes stdio and the platform's
+services, but the exit waits for each a few seconds at most. Waiting with
+p2p_lock held would prevent their final pass. Then the party is left at once
+(its leader's passes on, not after its silence), the friends told this
+machine is offline, and a game listed in the server browser is taken out of
+it at once (not when its listing lapses), as when it stops being hosted */
+static void p2p_shutdown(void)
 {
+	unsigned short external_port = 0;
+
+	pthread_mutex_lock(&p2p_lock);
+	p2p.stopping = 1;
+	pthread_mutex_unlock(&p2p_lock);
+	posix_upnp_cancel();
+	if (p2p.thread)
+	{
+		WaitForSingleObject(p2p.thread, P2P_STOP_WAIT);
+		CloseHandle(p2p.thread);
+		p2p.thread = NULL;
+	}
+	if (p2p.upnp_thread)
+	{
+		WaitForSingleObject(p2p.upnp_thread, UPNP_RELEASE_WAIT);
+		CloseHandle(p2p.upnp_thread);
+		p2p.upnp_thread = NULL;
+	}
 	pthread_mutex_lock(&p2p_lock);
 	p2p_party_quit();
 	p2p_friends_quit();
 	p2p_lobby_quit();
-	pthread_mutex_unlock(&p2p_lock);
-}
-
-/* the game exits: the router forwards the port no longer (after a request
-under way, which may forward one, if it ends soon) */
-static void upnp_release(void)
-{
-	unsigned short external_port = 0;
-	unsigned long start = p2p_now();
-
-	pthread_mutex_lock(&p2p_lock);
-	p2p.upnp_released = 1;
-	while (p2p.upnp_working && !elapsed(start, UPNP_RELEASE_WAIT))
-	{
-		pthread_mutex_unlock(&p2p_lock);
-		Sleep(50);
-		pthread_mutex_lock(&p2p_lock);
-	}
 	/* (still under way: posix_upnp.c takes one caller at a time) */
 	if (p2p.upnp_forwarded && !p2p.upnp_working)
 	{
@@ -4895,11 +4917,10 @@ static void update_upnp(void)
 {
 	static int allowed = -1;
 	int ask;
-	pthread_t thread;
 
 	if (allowed < 0)
 		allowed = config_boolean("network.allow_upnp") ? 1 : 0;
-	if (!allowed || p2p.upnp_working || p2p.upnp_released)
+	if (!allowed || p2p.upnp_working || p2p.stopping)
 		return;
 	if (p2p.upnp_forwarded)
 		ask = elapsed(p2p.upnp_time, UPNP_RENEW_INTERVAL);
@@ -4907,20 +4928,29 @@ static void update_upnp(void)
 		ask = upnp_needed() && (!p2p.upnp_asked || elapsed(p2p.upnp_time, UPNP_RETRY_INTERVAL));
 	if (!ask)
 		return;
+	if (p2p.upnp_thread)
+	{
+		/* working was cleared under this lock; the callback has no more
+		work. Release the lock while waiting for its thread wrapper. */
+		HANDLE finished = p2p.upnp_thread;
+
+		p2p.upnp_thread = NULL;
+		pthread_mutex_unlock(&p2p_lock);
+		WaitForSingleObject(finished, INFINITE);
+		CloseHandle(finished);
+		pthread_mutex_lock(&p2p_lock);
+		if (p2p.stopping)
+			return;
+	}
 	p2p.upnp_working = 1;
 	p2p.upnp_asked = 1;
-	if (!p2p.upnp_release_registered)
-	{
-		p2p.upnp_release_registered = 1;
-		atexit(upnp_release);
-	}
-	if (pthread_create(&thread, NULL, upnp_thread, NULL) != 0)
+	p2p.upnp_thread = CreateThread(NULL, 0, upnp_thread, NULL, 0, NULL);
+	if (!p2p.upnp_thread)
 	{
 		p2p.upnp_working = 0;
 		p2p.upnp_time = p2p_now();
 		return;
 	}
-	pthread_detach(thread);
 }
 
 const char *p2p_take_clipboard_text(void)
@@ -5118,7 +5148,7 @@ static void register_link_schemes(void)
 }
 #endif
 
-static void *p2p_thread(void *unused)
+static DWORD WINAPI p2p_thread(void *unused)
 {
 	enum
 	{
@@ -5151,7 +5181,7 @@ static void *p2p_thread(void *unused)
 	/* (here: it may wait for a program) */
 	register_link_schemes();
 #endif
-	for (;;)
+	while (!p2p.stopping)
 	{
 		int read_count = 0, write_count = 0, error_count = 0;
 		int asked_read_count, asked_write_count;
@@ -5227,6 +5257,8 @@ static void *p2p_thread(void *unused)
 			read_count = write_count = 0;
 		}
 		pthread_mutex_lock(&p2p_lock);
+		if (p2p.stopping)
+			break;
 #ifdef HALO_PROFILE
 		profile_trace_begin(p2p_profile_names.pass);
 #endif
@@ -5349,13 +5381,8 @@ static void *p2p_thread(void *unused)
 		/* a party (p2p_party.c): signalling while in one */
 		p2p_party_update();
 		/* friends (p2p_friends.c): signalling while a profile has an
-		identity */
+		identity (their quitting's word: p2p_shutdown) */
 		p2p_friends_update();
-		if ((p2p_lobby_listed() || p2p_party_active() || p2p_friends_publishing()) && !p2p.lobby_quit_registered)
-		{
-			p2p.lobby_quit_registered = 1;
-			atexit(lobby_quit);
-		}
 		update_joining();
 		update_answering();
 		update_reaching();
@@ -5373,18 +5400,18 @@ static void *p2p_thread(void *unused)
 		profile_trace_end(p2p_profile_names.pass);
 #endif
 	}
-	return NULL;
+	pthread_mutex_unlock(&p2p_lock);
+	return 0;
 }
 
 void p2p_initialize(unsigned long local_address)
 {
 	char invite[256];
-	pthread_t thread;
 	long tunnel_port = config_integer("network.tunnel_port");
 	int index;
 
 	p2p_identifier();
-	if (p2p.running || !config_boolean("network.online"))
+	if (p2p.running || p2p.stopping || !config_boolean("network.online"))
 		return;
 	if (tunnel_port < 0 || tunnel_port > 65535)
 	{
@@ -5423,14 +5450,31 @@ void p2p_initialize(unsigned long local_address)
 		p2p.handoff_socket = open_socket(SOCK_DGRAM, network_long(0x7F000001), network_short(HANDOFF_PORT), NULL);
 #endif
 	stun_setup();
-	if (pthread_create(&thread, NULL, p2p_thread, NULL) != 0)
+	pthread_mutex_lock(&p2p_lock);
+	/* Install ownership before a worker can start, including an immediate
+	exit while it is still initializing. Failed starts retain the safe hook. */
+	if (!p2p.exit_registered)
+	{
+		if (atexit(p2p_shutdown) != 0)
+		{
+			platform_log("Internet play: cannot register shutdown; it is off");
+			close_socket(&p2p.tunnel_socket);
+			close_socket(&p2p.handoff_socket);
+			pthread_mutex_unlock(&p2p_lock);
+			return;
+		}
+		p2p.exit_registered = 1;
+	}
+	p2p.thread = CreateThread(NULL, 0, p2p_thread, NULL, 0, NULL);
+	if (!p2p.thread)
 	{
 		close_socket(&p2p.tunnel_socket);
 		close_socket(&p2p.handoff_socket);
+		pthread_mutex_unlock(&p2p_lock);
 		return;
 	}
-	pthread_detach(thread);
 	p2p.running = 1;
+	pthread_mutex_unlock(&p2p_lock);
 	if (command_line_invite(invite, sizeof(invite)))
 		p2p_join_invite(invite);
 }

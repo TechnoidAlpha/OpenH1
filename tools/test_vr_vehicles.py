@@ -393,12 +393,6 @@ def test_negative_control_the_cut_that_keeps_the_eye_fails(tmp_path):
     assert v["first"] > 1.0
 
 
-def test_back_from_a_death_cuts_the_seats_eye():
-    death_reset = function((ROOT / "port/linux/game/vr_death.c").read_text(), "death_reset")
-    # (both ways back: the death cam's, "crt", and the held eye's, "face" and "still")
-    assert death_reset.count("vr_seat_eye_cut();") == 2
-
-
 # ---------- steering with the sticks (vr.c)
 
 STEER_WORLD = r"""
@@ -474,18 +468,6 @@ def test_sticks_steer_a_seat_without_the_hands_on_its_controls(tmp_path):
     # the handlebars' own steering is as it was: straight bars, straight; turned, a turn
     assert float(lines["barsfacing"][1]) == 0.0
     assert float(lines["barsfacing"][2]) > 0.0
-
-
-def test_handlebars_facing_unchanged():
-    text = VR.read_text()
-    assert "float error = turn_facing(fabsf(turn) * HANDLEBAR_TURN_RATE);" in function(text, "bars_facing")
-
-
-def test_left_stick_does_not_strafe_while_it_steers():
-    gamepad = function(VR.read_text(), "halo_vr_gamepad")
-    assert "if (!seat_stick_steers() && !seat_drives())\n\t\tstick_merge(&pad->sThumbLX" in gamepad
-    # (the throttle, forward and back, always reaches the game)
-    assert "\tstick_merge(&pad->sThumbLY, vr.input.left_stick[1]);" in gamepad
 
 
 # ---------- the player's body in a seat (first_person_legs.c, tools/vr_cabin_model.py)

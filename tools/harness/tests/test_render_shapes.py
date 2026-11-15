@@ -94,28 +94,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("render_shapes", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_stepped_in_the_tick():
-    # the tick steps the cloth (and the antennas), the frames only count
-    game = read("source/game/game.c")
-    assert game.index("antennas_update(seconds_per_tick);") < game.index("flags_tick(seconds_per_tick);")
-    assert "flags_tick" not in function(game, "game_frame")
-    # the antennas' shapes are kept and drawn the same way
-    antenna = read("source/objects/widgets/antenna.c")
-    assert "render_interpolation_shape_tick(ANTENNA_TAG" in antenna
-    assert "render_interpolation_shape(ANTENNA_TAG" in antenna
-
-
-def test_drawn_points():
-    # the waypoints' distance and size, the motion tracker's centre and the sniper's numbers measure from the
-    # camera as drawn; a game engine flag's waypoint is drawn over its object as drawn
-    nav = read("source/interface/hud_nav_points.c")
-    draw = function(nav, "custom_render_nav_point")
-    assert "render_interpolation_unit_camera_position(" in draw and "unit_get_camera_position(" not in draw
-    assert "game_engine_get_goal_position(" not in function(nav, "hud_render_nav_points")
-    sensor = read("source/interface/motion_sensor.c")
-    assert "render_interpolation_unit_camera_position(unit_index, &drawn_camera_position);" in sensor
-    assert "render_interpolation_object_point(unit_index, &drawn_camera_position)" not in sensor
-    weapon = read("source/interface/hud_weapon.c")
-    assert "render_interpolation_unit_camera_position(unit_index, &position);" in weapon

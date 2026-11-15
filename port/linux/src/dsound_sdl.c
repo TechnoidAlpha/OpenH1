@@ -27,7 +27,9 @@ Xbox played it, silent under -57 dB (voice_level; a 3D voice's by its volume
 and rolloff together, and its direct path's with its direct level).
 Cones are not modelled (no sound of the maps has one). The mix plays at the
 Xbox's output level, half the voices' sum, and a look-ahead
-limiter keeps it under full scale (limit). On stereo and 5.1 (audio.spatial:
+limiter keeps it under full scale (limit). A voice the game cuts off while
+it plays fades out over 5 ms rather than stopping dead, which clicked
+(voice_cut). On stereo and 5.1 (audio.spatial:
 "auto", as the Xbox; spatial_hrtf), and in the VR mode with
 vr.hrtf, a mono 3D voice goes to each ear through a model of a head instead
 of the pan (hrtf), as the Xbox's DirectSound put its 3D voices through its
@@ -90,6 +92,8 @@ and gains (record, voices_log).
 #define MAXIMUM_OUTPUT_CHANNELS 6
 #define MAXIMUM_STREAM_PACKETS 64
 #define MIX_CHUNK_FRAMES 1024
+/* the frames a voice cut off fades out over (voice_cut): 5 ms */
+#define CUT_FADE_FRAMES 240
 
 /* the frames a voice's volume, pan, pitch, low passes and way through the
 HRTF take to move to new ones: 64 (1.3 ms), however many frames the mixes
@@ -333,6 +337,12 @@ struct sdl_stream
 	struct hrtf_parameters hrtf_current, hrtf_target;
 	float hrtf_frames[2][HRTF_FRAMES];
 	float hrtf_bands[HRTF_BANDS - 1][2];
+	/* what the voice was playing when the game cut it off, faded out
+	(voice_cut): frames of output_channels floats and their room send, and
+	how many of them have played */
+	float cut[CUT_FADE_FRAMES * MAXIMUM_OUTPUT_CHANNELS];
+	float cut_send[CUT_FADE_FRAMES];
+	unsigned long cut_played;
 };
 
 /* the game's side of the voices (the hand-off), which the mixer only tries,
@@ -3703,6 +3713,61 @@ static void voice_finished_publish(struct sdl_stream *stream)
 	}
 }
 
+/* (the mixer's thread, voices_lock) the game cuts a voice off (Flush) to
+play the next sound on its channel: each shot of a weapon fired faster than
+its sound lasts takes the last's channel (sound classes allow one
+weapon_fire sound an object). Stopped dead, a waveform drops from wherever
+it was to nothing, a click, and a rifle's shots crackled. So at the hand-off
+that takes the flush, what the voice would play next is mixed first,
+CUT_FADE_FRAMES of it at its gains, faded out along half a cosine, and
+played over the next mixes beside the new sound (mix_cut); what is left of a
+cut still playing is kept under it. Its packets' samples are still there:
+the game's side retires a flushed packet's, freed only once a hand-off has
+been taken since (retire). The HRTF's frames and bands, which hold what the
+voice played, are cleared after it, so that the new sound does not take
+them up unfaded: the cut has them. */
+static void voice_cut(struct sdl_stream *stream)
+{
+	static float output[CUT_FADE_FRAMES * MAXIMUM_OUTPUT_CHANNELS], send[CUT_FADE_FRAMES];
+	unsigned long frame, channel, left = CUT_FADE_FRAMES - stream->cut_played;
+
+	if (stream->paused || !stream->mixing_count || !stream->gains_valid || !stream->sample_rate)
+		return;
+	memset(output, 0, sizeof(output));
+	memset(send, 0, sizeof(send));
+	mix_voice(stream, output, send, CUT_FADE_FRAMES);
+	for (frame = 0; frame < CUT_FADE_FRAMES; frame++)
+	{
+		float fade = 0.5f + 0.5f * (float)cos(3.14159265358979 * (double)(frame + 1) / CUT_FADE_FRAMES);
+
+		/* (what is left of the earlier cut is read only where it is: past
+		it is whatever it was, a NaN perhaps, which no factor of 0 hides) */
+		for (channel = 0; channel < output_channels; channel++)
+		{
+			stream->cut[frame * output_channels + channel] = output[frame * output_channels + channel] * fade +
+				(frame < left ? stream->cut[(stream->cut_played + frame) * output_channels + channel] : 0.0f);
+		}
+		stream->cut_send[frame] = send[frame] * fade +
+			(frame < left ? stream->cut_send[stream->cut_played + frame] : 0.0f);
+	}
+	stream->cut_played = 0;
+	memset(stream->hrtf_frames, 0, sizeof(stream->hrtf_frames));
+	memset(stream->hrtf_bands, 0, sizeof(stream->hrtf_bands));
+}
+
+/* (the mixer's thread) a cut voice's fade out (voice_cut), into the mix */
+static void mix_cut(struct sdl_stream *stream, float *output, float *send, unsigned long frames)
+{
+	unsigned long frame, channel;
+
+	for (frame = 0; frame < frames && stream->cut_played < CUT_FADE_FRAMES; frame++, stream->cut_played++)
+	{
+		for (channel = 0; channel < output_channels; channel++)
+			output[frame * output_channels + channel] += stream->cut[stream->cut_played * output_channels + channel];
+		send[frame] += stream->cut_send[stream->cut_played];
+	}
+}
+
 /* (the mixer's thread, voices_lock) the game's side of a voice taken over:
 a flush, the packets it has completed let go of, those it has submitted
 since, and its settings */
@@ -3711,9 +3776,11 @@ static void voice_hand_off(struct sdl_stream *stream)
 	unsigned long first = stream->submitted - stream->packet_count;
 	unsigned long sequence;
 
-	/* flushed: the packets it held let go of, and the voice starts over */
+	/* flushed: what it was playing faded out (voice_cut), the packets it
+	held let go of, and the voice starts over */
 	if (stream->flush)
 	{
+		voice_cut(stream);
 		stream->mixing_count = 0;
 		stream->cursor = 0;
 		resampler_reset(stream);
@@ -4023,6 +4090,7 @@ static void mix(float *output, unsigned long frames, BOOL wait)
 	for (stream = mixing_streams; stream; stream = stream->mixing_link)
 	{
 		mix_voice(stream, output, reverb.send, frames);
+		mix_cut(stream, output, reverb.send, frames);
 		mix_profile.voices += mix_profile_on;
 	}
 	if (mix_profile_on)
@@ -5441,6 +5509,8 @@ HRESULT WINAPI IDirectSound_CreateSoundStream(LPDIRECTSOUND sound, LPCDSSTREAMDE
 	/* (the mixer's side the same, before the mixer can see it) */
 	voice_settings_take(stream);
 	resampler_reset(stream);
+	/* (no cut playing: voice_cut) */
+	stream->cut_played = CUT_FADE_FRAMES;
 	pthread_mutex_lock(&voices_lock);
 	stream->next = streams;
 	streams = stream;
@@ -5751,8 +5821,15 @@ HRESULT WINAPI IDirectSoundBuffer_Play(LPDIRECTSOUNDBUFFER buffer, DWORD reserve
 	(void)reserved2;
 	pthread_mutex_lock(&buffers_lock);
 	record->looping = (flags & DSBPLAY_LOOPING) != 0;
+	/* (from silence, rising to its gain over a twentieth of a second; but a
+	sound played from its start that begins in silence itself, at its gain:
+	there is no click to soften, and a short one, the hit sound, keeps its
+	attack) */
 	if (!record->playing)
-		record->current = 0.0f;
+	{
+		record->current = record->samples && record->position == 0.0 && !record->samples[0] &&
+			(record->channels != 2 || !record->samples[1]) ? record->gain * master_volume : 0.0f;
+	}
 	record->playing = TRUE;
 	record->stopping = FALSE;
 	pthread_mutex_unlock(&buffers_lock);

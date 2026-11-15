@@ -900,7 +900,7 @@ int main(int argc, char **argv)
 			"masters read from no file");
 		return 0;
 	}
-	/* the official master, built in: asked when masters.txt names none */
+	/* the official masters, built in: asked when masters.txt names none */
 	CASE("masters-default")
 	{
 		char urls[MASTER_LIST_MAXIMUM_MASTERS][MASTER_LIST_URL_SIZE];
@@ -917,10 +917,11 @@ int main(int argc, char **argv)
 		{
 			file_masters = none[index];
 			memset(urls, 0, sizeof(urls));
-			CHECK(master_list_read("masters.txt", urls, keys, MASTER_LIST_MAXIMUM_MASTERS) == 2 &&
+			CHECK(master_list_read("masters.txt", urls, keys, MASTER_LIST_MAXIMUM_MASTERS) == 4 &&
 				!strcmp(urls[0], "https://master.goath1.com") &&
-				!strcmp(urls[1], "https://master.opencommunityedition.com"),
-				"masters.txt %d naming none: %s, %s", index, urls[0], urls[1]);
+				!strcmp(urls[1], "https://master.opencommunityedition.com") &&
+				!strcmp(urls[2], "https://ocemaster.halobase.net") && !strcmp(urls[3], "https://masterce.unicade.io"),
+				"masters.txt %d naming none: %s %s %s %s", index, urls[0], urls[1], urls[2], urls[3]);
 			CHECK(!memcmp(keys[0], own, 32), "the project's master's key is %s", hex_of(keys[0], 32));
 			CHECK(!memcmp(keys[1], official, 32), "OpenCE's master's key is %s", hex_of(keys[1], 32));
 		}

@@ -2,7 +2,7 @@
 NETWORK_LEGACY.C
 
 The Legacy encodings of the host's per-tick streams (network_legacy.h,
-port/linux/NETCODE.md, "The Legacy encodings"): network version 41's, which
+port/linux/NETCODE.md, "The Legacy encodings"): network version 44's, which
 OpenCE reads. Nothing here may change a byte: the golden tests
 (tools/harness/tests/test_legacy_golden.py) hold each encoder to the bytes
 recorded for fixed states, and tools/network_format.py to the structures.
@@ -18,6 +18,7 @@ actor_state_compact_write).
 #include "network_distributed.h"
 #include "network_legacy.h"
 #include "network_standard.h"
+#include "vehicle_riding.h"
 
 #include <math.h>
 
@@ -124,6 +125,12 @@ word distributed_unit_state_write(
 				SET_FLAG(parts, _distributed_unit_part_up_bit, TRUE);
 				cursor = legacy_put(cursor, &state->up, sizeof(state->up));
 			}
+			/* (whole or not at all: never a value not finite) */
+			if (state->deck_present && vehicle_riding_deck_values_valid(&state->deck))
+			{
+				SET_FLAG(parts, _distributed_unit_part_deck_bit, TRUE);
+				cursor = distributed_deck_put(cursor, &state->deck);
+			}
 		}
 		if (TEST_FLAG(flags, _distributed_unit_predicted_bit))
 			cursor = legacy_put(cursor, &state->predicted_time, sizeof(state->predicted_time));
@@ -152,16 +159,24 @@ word distributed_unit_state_write(
 				cursor = legacy_put(cursor, state->powerup_durations, sizeof(state->powerup_durations));
 			}
 		}
-		if (state->unit_flags || state->active_camouflage)
 		{
-			SET_FLAG(parts, _distributed_unit_part_camouflage_bit, TRUE);
-			cursor = legacy_put(cursor, &state->unit_flags, sizeof(state->unit_flags));
-			cursor = legacy_put(cursor, &state->active_camouflage, sizeof(state->active_camouflage));
-		}
-		if (state->fine && TEST_FLAG(flags, _distributed_unit_placed_bit))
-		{
-			SET_FLAG(parts, _distributed_unit_part_fine_velocity_bit, TRUE);
-			cursor = legacy_put(cursor, &state->fine_velocity, sizeof(state->fine_velocity));
+			boolean fine = state->fine && TEST_FLAG(flags, _distributed_unit_placed_bit);
+			byte unit_flags = state->unit_flags;
+
+			SET_FLAG(unit_flags, _distributed_unit_fine_velocity_bit, fine);
+			if (unit_flags || state->active_camouflage)
+			{
+				SET_FLAG(parts, _distributed_unit_part_camouflage_bit, TRUE);
+				cursor = legacy_put(cursor, &unit_flags, sizeof(unit_flags));
+				cursor = legacy_put(cursor, &state->active_camouflage, sizeof(state->active_camouflage));
+			}
+			if (state->scripted_pose)
+			{
+				SET_FLAG(parts, _distributed_unit_part_scripted_pose_bit, TRUE);
+				cursor = legacy_put(cursor, state->pose, sizeof(state->pose));
+			}
+			if (fine)
+				cursor = legacy_put(cursor, &state->fine_velocity, sizeof(state->fine_velocity));
 		}
 	}
 	else if (state->killing_player_index != NO_PLAYER)
@@ -197,6 +212,16 @@ word distributed_unit_state_read(
 	{
 		return 0;
 	}
+	if (TEST_FLAG(parts, _distributed_unit_part_scripted_pose_bit) &&
+		!TEST_FLAG(state->flags, _distributed_unit_alive_bit))
+		return 0;
+	/* (a deck part where no place is: the bytes after it cannot be read, so
+	neither can the state) */
+	if (TEST_FLAG(parts, _distributed_unit_part_deck_bit) &&
+		!(TEST_FLAG(state->flags, _distributed_unit_alive_bit) && TEST_FLAG(state->flags, _distributed_unit_placed_bit)))
+	{
+		return 0;
+	}
 	if (TEST_FLAG(state->flags, _distributed_unit_alive_bit))
 	{
 		if (!legacy_take(&cursor, end, &state->unit_index, sizeof(state->unit_index)))
@@ -213,6 +238,11 @@ word distributed_unit_state_read(
 				!legacy_take(&cursor, end, &state->forward, sizeof(state->forward)) ||
 				(TEST_FLAG(parts, _distributed_unit_part_up_bit) &&
 					!legacy_take(&cursor, end, &state->up, sizeof(state->up)))))
+		{
+			return 0;
+		}
+		if (TEST_FLAG(parts, _distributed_unit_part_deck_bit) &&
+			!distributed_deck_take(&cursor, end, &state->deck_present, &state->deck))
 		{
 			return 0;
 		}
@@ -245,8 +275,18 @@ word distributed_unit_state_read(
 		{
 			return 0;
 		}
-		if (TEST_FLAG(parts, _distributed_unit_part_fine_velocity_bit))
+		if (TEST_FLAG(parts, _distributed_unit_part_scripted_pose_bit))
 		{
+			if (!legacy_take(&cursor, end, state->pose, sizeof(state->pose)))
+				return 0;
+			/* a pose that is not unit vectors (a unit's desired vectors are
+			not normalized, and may be zero) is left out: the unit's other
+			state, and the message's other units, are still taken */
+			state->scripted_pose = distributed_scripted_pose_valid(state);
+		}
+		if (TEST_FLAG(state->unit_flags, _distributed_unit_fine_velocity_bit))
+		{
+			SET_FLAG(state->unit_flags, _distributed_unit_fine_velocity_bit, FALSE);
 			if (!legacy_take(&cursor, end, &state->fine_velocity, sizeof(state->fine_velocity)))
 				return 0;
 			/* (finite, and no faster than the 16 bits' velocity can be) */

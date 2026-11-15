@@ -45,15 +45,16 @@ typedef word message_header;
 /* ---------- the fake world */
 
 /* the record's pickup bit (network_game_manager.h) */
-enum { _network_game_hold_to_pick_up_bit = 3, _network_game_classic_turning_bit = 4,
-	_network_game_no_direct_camera_bit = 5, _network_game_pro_rules_bit = 6,
-	_network_game_vehicle_hijack_bit = 7 };
+enum { _network_game_hold_to_pick_up_bit = 0, _network_game_classic_turning_bit = 1,
+	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4,
+	_network_game_vehicle_hijack_bit = 5 };
 #define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
 
 struct network_game
 {
 	short machine_count;
-	short standard_rate;
+	byte standard_rate;
+	byte standard_flags;
 	/* (the host's way of picking up a second weapon: network_standard.c's
 	_network_game_hold_to_pick_up_bit) */
 	byte cooperative_flags;
@@ -219,6 +220,8 @@ static void game_initial_pulse(void) {}
 static void game_state_try_and_load_from_persistent_storage(void) {}
 static void ui_widgets_disable_pause_game(short ticks) {}
 #define game_precache_new_map(map_name, blocking) ((void)0)
+/* (no MCC map: a failed load is not one to take back to the menus, mcc_main.c) */
+#define mcc_main_load_failed(map_name) FALSE
 /* (game.c's: the loading screen begins, the old map's clock goes) */
 static void game_dispose_from_old_map(void)
 {

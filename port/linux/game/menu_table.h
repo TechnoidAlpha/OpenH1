@@ -158,11 +158,55 @@ int pc_menu_lobby_action(struct widget_instance *widget, struct event_record *ev
 /* each frame the lobby's screen is drawn: what its generated screen's list
 did each frame (the split screen's players joining, the map vote's screen) */
 void pc_menu_lobby_frame(struct widget_instance *screen);
+/* "lobby start" (the lobby's Start, START GAME): a controller not in the
+game joins (Add Player's screen opened, *deleted the lobby gone), a
+player's starts the host's game; FALSE if it did nothing */
+int pc_menu_lobby_start(struct widget_instance *widget, struct event_record *event, int *deleted);
 /* the lobby's chat (network_chat.c's lobby lines) */
 extern struct menu_chat_source const pc_menu_lobby_chat;
 /* a text box drawn with a machine's speaker beside it (the voice chat's:
 menu_functions_text_box_drawn), this frame */
 void pc_menu_speaker_note(struct widget_instance *text, long machine);
+
+/* ---------- Add Player's (menu_functions.c): each of this machine's
+controllers a row, one not in the game joining with its own keys */
+
+/* a controller's key on a screen that takes them by controller (menu_screen.c
+tells them: a press, not a held one's repeat) */
+enum
+{
+	MENU_SCREEN_KEY_OTHER,
+	MENU_SCREEN_KEY_A,
+	MENU_SCREEN_KEY_B,
+	MENU_SCREEN_KEY_START,
+	MENU_SCREEN_KEY_LEFT,
+	MENU_SCREEN_KEY_RIGHT
+};
+
+/* what became of a controller's key: the screen's as ever (its focus, its
+B), taken, or taken and the screen done (back to the one before) */
+enum
+{
+	MENU_SCREEN_KEY_FREE,
+	MENU_SCREEN_KEY_TAKEN,
+	MENU_SCREEN_KEY_DONE
+};
+
+extern struct menu_table_source const pc_menu_add_player_source;
+/* a binding's value, UTF-8 ("add.<name>": nonzero if it has one) */
+int pc_menu_add_player_value(char const *name, char *value, unsigned long size);
+/* a controller's key (MENU_SCREEN_KEY_*): MENU_SCREEN_KEY_FREE for a player
+in the game's */
+int pc_menu_add_player_key(short controller, int key);
+/* "add player done" and "add player back": nonzero to go back */
+int pc_menu_add_player_action(char const *name);
+
+/* (menu_screen.c's) whether the hand-written screen of the name is ready
+to open (the new menus, its file read), and it opened from the widget as a
+handler's open opens a screen (zero if it is not) */
+int menu_screen_open_ready(char const *name);
+int menu_screen_open_named(struct widget_instance *widget, struct event_record *event, char const *name,
+	int *deleted);
 
 /* ---------- the menus' text fields and text (menu_functions.c), for the
 hand-written screens' searches */

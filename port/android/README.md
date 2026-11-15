@@ -48,6 +48,51 @@ also back up the saves and settings first (long-press the app's icon and
 choose Back up saves; refer to "Back up and restore"); the builds from
 before the key have no such screen.
 
+## Importing MCC packages
+
+Quit the game, then long-press its launcher icon and choose **Import MCC maps**.
+The first-run game-data screen also has an import button. Copy a complete Halo 1
+Workshop package from your computer to a selectable folder (for example Downloads)
+or a ZIP on the phone. Select **Workshop package**, then **Choose folder** or
+**Choose ZIP**. Keep `ModInfo.json`, `CampaignInfo.json`, the mission JSON files
+and maps together. Steam is not needed on Android.
+
+Keep the supplied PNG previews too, including `assets` when present. Folder
+and ZIP imports preserve these images and their relative metadata paths.
+MCC level panels automatically use `Images.Large`, falling back to
+`Images.Thumbnail` or the question-mark picture. The image fits inside the
+existing thumbnail box in each menu style. Supported PNGs are 8-bit RGB/RGBA,
+non-interlaced, at most 2048 by 2048 pixels and 8 MiB per file; other encodings
+keep the placeholder. See [MCC previews](../../docs/reading/mcc_level_previews.md).
+
+The importer defaults to the Workshop ID as its destination folder; an optional
+name can use letters, digits, spaces, underscores and hyphens. It checks package
+paths, metadata, campaign completeness and MCC cache headers before offering
+installation. It copies the package's maps into `mcc_maps/<package>`, retaining
+metadata subfolders and writing `workshop_id.txt`. Folder and ZIP inputs share
+the same importer. Android document URIs are read as streams through the system
+picker, with no broad storage permission.
+
+Use the shared-resource modes separately: singleplayer requires `bitmaps.map`;
+multiplayer requires `bitmaps.map` and `sounds.map`. Select one resource set at a
+time. These are installed under `mcc_maps/_shared/singleplayer` or `multiplayer`.
+The engine performs its normal full map/resource validation when loading; an
+importer's header check does not establish full gameplay compatibility.
+
+An existing destination requires explicit replacement confirmation. New files
+are staged outside `mcc_maps`; a failed publish restores the old package. An
+interrupted replacement is recovered at the next import. Cancellation removes
+staged files, and installed Xbox/CE maps and game saves are preserved. Imports
+are serialized and the activity refuses to import while the game process runs.
+Limits are 4,096 files, 16 GiB total, less than 2 GiB per map, 256 KiB per JSON
+file and 64 declared campaign missions. Hub/flashback mission kinds are refused.
+
+Start the game after importing. Enable **CAMPAIGN MISSIONS** in Settings >
+Network Setup > Map Sharing > MCC Packages for mission ordering and progression;
+it is off by default. **COLLECTION FOLDERS** can group identified imported
+packages without Steam. See [MCC packages](../../docs/mcc_maps.md) for desktop
+discovery, resource rules and compatibility limits.
+
 ## Requirements
 
 You do not need the Xbox SDK. You need the tools of the Linux build (Python,
@@ -56,7 +101,7 @@ ninja) and these items:
 - Nothing for the guest: it is compiled with LLVM 22.1.8, which
   `configure.py` downloads the first time (approximately 1.5 GB) to
   `~/.cache/openh1`. Refer to "The guests' compiler" in
-  [README.md](../../README.md#the-guests-compiler). The option
+  [docs/building.md](../../docs/building.md#the-guests-compiler). The option
   `--android-guest-cc` of `configure.py` selects a different compiler (a
   clang with the `arm64_32` target), with the NDK's linker and tools.
 - The Android NDK. `configure.py` looks for it in `ANDROID_NDK_HOME`, then
@@ -134,6 +179,19 @@ the background, since Android seldom lets an app exit cleanly. Refer to the
 renderer's [README](../linux/vulkan/README.md).
 
 ## Game data
+
+MCC maps need a fixed 64 MiB virtual address window for their linked tags.
+The Android host attempts to reserve the usual `0x50000000` window at app
+startup, before the guest and renderer allocate memory. This reserves address
+space, not 64 MiB of physical RAM. Unloading an MCC map discards its pages
+but retains the reservation for the next load; exiting the process releases it.
+Xbox and Custom Edition keep their existing memory paths.
+
+If another mapping already occupies the window, the app leaves it untouched
+and MCC loading fails safely. Logcat (`halo`) lists overlapping mappings;
+the load error in `debug.txt` identifies the requested address. This is an
+address-space conflict, not a duplicate map file. Early reservation cannot
+guarantee that every device makes this address available.
 
 The game needs the `maps/` folder from an Xbox disc image (`.xiso` or
 `.iso`) of any version of the game. The app extracts `maps/` from the disc
@@ -259,11 +317,28 @@ the chosen row's slider sets it there. Touches that start in the edge-gesture zo
 or scroll at the sides, and do not scroll at the top and bottom, because the
 first swipe from an edge in full screen only shows the system bars.
 
-A tap during a cinematic that can be skipped skips it, as A does. On the
-on-screen keyboard, tap a key to press it, "B =BACK" to cancel and
+During a cinematic that can be skipped, a SKIP button shows at the top
+right, in the black bar: tap it to skip the cinematic, as A does. Taps
+elsewhere do nothing, so a stray tap does not skip it. In network co-op,
+SKIP votes to skip, the line at the bottom counts the votes, and the button
+reads VOTED once you have voted; the cinematic is skipped once more than
+half the players have voted. The button follows the touch controls
+(`input.touch_controls`): while a controller is connected, or with `off`,
+there is no button and any tap skips, or votes to skip, as A does
+(`port/linux/game/touch_cinematic.c`).
+
+On the on-screen keyboard, tap a key to press it, "B =BACK" to cancel and
 "A =ENTER" to accept the name. A menu's text field (the server browser's
 search, a game's name, a password, a friend code) brings up Android's own
 keyboard while it is typed into; its Enter keeps what was typed.
+
+After a multiplayer game, the carnage report shows buttons in place of its
+prompt at the bottom: the host's CONTINUE goes on to the next game (PICK
+GAME), as A does, and LEAVE leaves the game, as B does (the host's LEAVE
+ends it for everyone). A client has LEAVE only. The buttons follow the touch
+controls (`input.touch_controls`): while a controller is connected, or with
+`off`, the report shows the prompt as on the Xbox, and A and B act as before
+(`port/linux/game/touch_postgame.c`).
 
 ### Touch controls
 
@@ -342,8 +417,10 @@ aim with one thumb. The controls are a finger wide (48 dp) or larger, but
 on a small screen of high density they stay apart rather than reach that
 size. A short tap reaches the game even when it is shorter than one frame.
 Swipes that start in the edge-gesture zones of Android do not turn the
-view. The swipe aims as the controller's stick does, not as a mouse: the
-aim slows over a target and follows a moving one, as with a controller,
+view or place the floating stick, but a control drawn in one still presses
+(Android keeps the zones while the system bars are hidden: with 3-button
+navigation, all of where the bar was). The swipe aims as the controller's
+stick does, not as a mouse: the aim slows over a target and follows a moving one, as with a controller,
 and it follows the profile's "invert look" (the gyroscope turns the view
 as the phone turns, never inverted). The setting `input.touch_aim_assist`
 turns the aim assist off. "Look sensitivity" sets how far a swipe turns;
@@ -430,10 +507,11 @@ These settings are only for Android:
 | `input.touch_captions` | (Android and iOS) `true` (the default): what each of the touch controls' controller buttons does in the profile (JUMP, MELEE, FIRE) is written under it, in the HUD's font and colour. `false`: the buttons alone. The buttons are drawn in `display.hud_button_style`. |
 | `input.touch_aim_assist` | (Android, iOS and the web) `true` (the default): the touch controls' swipe aiming gets the aim assist of a controller (the aim slows over a target and follows a moving one). `false`: none, as with a mouse; the bullets' own autoaim stays. |
 | `input.touch_crouch` | (Android and iOS) `"toggle"` (the default): a tap on the touch controls' Crouch crouches until Crouch is tapped again, Jump is pressed, a vehicle's seat is taken or the player dies. `"hold"`: you crouch while you hold it. |
-| `input.touch_controls` | (Android, iOS and the web) The touch controls in a game. `"auto"` (the default): shown on a touchscreen while no controller is connected. `"on"`: also shown with a controller. `"off"`: never shown. A device without a touchscreen never shows them. The menus take taps in any case. |
+| `input.touch_controls` | (Android, iOS and the web) The touch controls in a game. `"auto"` (the default): shown on a touchscreen while no controller is connected. `"on"`: also shown with a controller. `"off"`: never shown. A device without a touchscreen never shows them. The carnage report's CONTINUE and LEAVE buttons follow the same rule (otherwise it shows its A and B prompt), and so does a cinematic's SKIP button (otherwise any tap skips it). The menus take taps in any case. |
 | `debug.sample_seconds` | Refer to "Find problems". |
 | `debug.memory_watch` | `true` (the default): the app notices the game's writes to textures and vertices by page protection. `false`: it compares page contents once a frame instead, which is slower. Refer to "Limits". |
 | `display.render_scale` | (Android and iOS) The fraction of the screen's pixels the game draws, each way, from 0.25 to 1.0: the swapchain is that size and Android's compositor scales it up to the screen; the touch controls stay at the screen's pixels. `0` (the default) is the device's: 0.8 (a Pixel 11 Pro's 2410x1080 draws 1928x864), or about 1080 rows where 0.8 would draw more (0.75 on a 1440p phone). The log says which (`render scale`). Read at start (`HALO_RENDER_SCALE`). |
+| `display.stats_log` | `false` (the default): `true` writes a line a second to the log with the frame rate, the mode, the map, the renderer and the size of the 3D view, for a bug report or to compare two builds. |
 | `display.astc_textures` | `"auto"` (the default): on a GPU without BC's formats (Mali, PowerVR) that samples ASTC, the maps' DXT textures are transcoded to ASTC 4x4, a quarter of the memory and bandwidth of the decoded textures; their few blocks that need encoding are encoded on worker threads the first time and kept in the app's cache folder. `"off"`: decoded, as before. Checked on a Pixel 11 Pro (PowerVR); the emulator, whose ASTC is emulated, draws those textures black. The log says which (`vulkan: DXT textures as ...`). Refer to [port/linux/README.md](../linux/README.md#settings). |
 | `display.picture_position` | Where the picture sits on a screen taller than it, such as the inner screen of a folding phone, a tablet or a window in split screen. `"center"` (the default) leaves black above and below it. `"top"` puts all the black below it, where the touch controls under the thumbs are. `"bottom"` puts all the black above it. A window taller than it is wide (portrait) has the picture under the strip along the top, lowered into the space above the touch controls when there is room. |
 | `display.orientation` | `"landscape"` (the default), `"portrait"`, or `"auto"`, whichever way the device is held (as its own rotation lock allows); a change applies at once, the game turning in place. In portrait a strip along the top holds back, pause and the touch toolbar; the picture is under it, lowered into the middle of the space above the touch controls when there is room; when there is none (a folding phone's inner screen, half a phone in split screen) it moves up, as far as the top of the screen, to clear the controls, and pause and the toolbar's hide move to the middle of the strip, off the corners of the game's HUD. |

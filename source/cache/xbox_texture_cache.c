@@ -124,6 +124,9 @@ symbols in this file:
 #include <stddef.h>
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
 #include "render_enumerate.h" /* port: port/linux/game/render_enumerate.c */
+#include "mcc_cache.h" /* port: port/linux/game/mcc_cache.h */
+#include "mcc_texture_cache.h" /* port: port/linux/game/mcc_texture_cache.h */
+
 
 /* ---------- constants */
 
@@ -997,6 +1000,11 @@ static boolean texture_cache_bitmap_valid(
 		bitmap->mipmap_count<=floor_log2(MAX(bitmap->width, MAX(bitmap->height, bitmap->depth))) &&
 		bitmap->pixels_size>=0;
 
+	/* port: Only MCC-owned normalized resources take this admission path. Their
+	linear rows have already been padded by the MCC bitmap adapter. */
+	if (mcc_cache_tags_loaded() && mcc_cache_bitmap_valid(bitmap))
+		return TRUE;
+
 	if (valid)
 	{
 		boolean compressed_format =
@@ -1038,6 +1046,7 @@ static boolean texture_cache_bitmap_valid(
 
 	return valid;
 }
+
 
 static boolean texture_cache_start_loading_bitmap(
 	struct bitmap_data *bitmap,
@@ -1272,6 +1281,15 @@ void *_texture_cache_bitmap_get_hardware_format(
 	if ((render_enumerating || menu_pictures_textures_wait()) && load)
 	{
 		block = TRUE;
+	}
+
+	/* port: an MCC map's textures have hardware headers of their own
+	(port/linux/game/mcc_texture_cache.c) */
+	if (mcc_cache_tags_loaded())
+	{
+		hardware_format = mcc_texture_cache_get(bitmap, load);
+		if (hardware_format || mcc_cache_bitmap_valid(bitmap))
+			return hardware_format;
 	}
 
 	match_assert(

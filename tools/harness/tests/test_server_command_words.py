@@ -1,7 +1,8 @@
 """The words of a dedicated server's commands (port/linux/game/server_commands.c): the tokenizer (spaces, quotes, no
 escapes, at most MAXIMUM_WORDS), the text after some words, a reason kept printable, ban durations, numbers in range,
 bans.txt's fields, and a player found by slot or the start of their name, with the name as server_status.c reads it
-and checks it against the web page's; and how long each role may ban for (a moderator a day at most)."""
+and checks it against the web page's; how long each role may ban for (a moderator a day at most); and the settings sv_set may change (vehicle riding's two
+among them)."""
 
 import re
 import sys
@@ -13,14 +14,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run  # noqa: E402
 
 CASES = ["split-words", "rest-after-words", "printable-text", "durations", "integers", "ban-fields", "find-player",
-         "player-matches", "ban-limits"]
+         "player-matches", "ban-limits", "settable"]
 
 SOURCES = {
     "source/game/players.c": ["player_name_character_ascii"],
     "port/linux/game/server_status.c": ["server_status_player_name", "server_status_player_matches"],
     "port/linux/game/server_commands.c": ["split_words", "rest_after_words", "printable_text", "parse_duration",
                                           "parse_integer", "name_begins_with", "find_player", "ban_field",
-                                          "ban_duration_allowed"],
+                                          "ban_duration_allowed", "setting_settable"],
 }
 
 # a fault in the code, the function it is in, and the case that must catch it
@@ -62,7 +63,19 @@ NEGATIVE_CONTROLS = {
     "moderator-unlimited": (("(seconds > 0 && seconds <= MODERATOR_BAN_SECONDS)", "(seconds > 0)"),
                             "ban_duration_allowed", "ban-limits"),
     "admin-limited": (("role >= _server_role_admin || ", ""), "ban_duration_allowed", "ban-limits"),
+    "riding-not-settable": (('"network.vehicle_riding", ', ""), "settable_settings", "settable"),
+    "riding-override-not-settable": (('"server.vehicle_riding_override_gametype",', ""), "settable_settings",
+                                     "settable"),
+    "start-settable": (("if (!strcmp(name, settable_settings[index]))",
+                        "if (!strncmp(name, settable_settings[index], strlen(name)))"), "setting_settable", "settable"),
 }
+
+
+def settable_settings(commands):
+    """server_commands.c's settable_settings, the list sv_set may change"""
+    found = re.search(r"^static char const \*const settable_settings\[\] =\n\{\n.*?^\};\n", commands, re.M | re.S)
+    assert found, "settable_settings not found in port/linux/game/server_commands.c"
+    return found.group(0)
 
 
 def generated(fault=None, faulty_function=None):
@@ -74,7 +87,8 @@ def generated(fault=None, faulty_function=None):
     # (a product of numbers, which constant() does not take whole)
     config += f"#define MODERATOR_BAN_SECONDS ({re.search(r'MODERATOR_BAN_SECONDS = ([^,]+),', commands).group(1)})\n"
     config += enum_with(read("port/linux/src/server_console.h"), "_server_role_moderator") + "\n"
-    text = ""
+    settable = settable_settings(commands)
+    text = (mutated(settable, *fault) if fault and faulty_function == "settable_settings" else settable) + "\n"
     for path, names in SOURCES.items():
         source = read(path)
         for name in names:

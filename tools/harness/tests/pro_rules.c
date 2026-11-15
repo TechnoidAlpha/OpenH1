@@ -12,7 +12,7 @@ settings, and its game record's word to every OpenH1 machine. */
 #define csstrncmp strncmp
 #define csmemset memset
 #define SET_FLAG(flags, bit, value) ((value) ? ((flags) |= FLAG(bit)) : ((flags) &= ~FLAG(bit)))
-struct network_game { short standard_rate; unsigned long cooperative_flags; };
+struct network_game { byte standard_rate; byte standard_flags; unsigned long cooperative_flags; };
 static struct network_game record;
 static short connection;
 static char const *game_mode = "openh1";
@@ -28,6 +28,8 @@ static struct
 	boolean hosting_classic_turning;
 	/* (the hijacks' rule: test_vehicle_hijack.py's) */
 	boolean hosting_vehicle_hijack;
+	/* (hit sounds: hit_sounds.c's host rule) */
+	boolean hosting_no_hit_sounds;
 	boolean mixed;
 	boolean mixed_since;
 	boolean joined;
@@ -90,7 +92,7 @@ int main(int argc, char **argv)
 	CASE("pro_client")
 	{
 		host_with_rules(120, TRUE, TRUE);
-		CHECK(TEST_FLAG(record.cooperative_flags, _network_game_pro_rules_bit), "the record does not say Pro");
+		CHECK(TEST_FLAG(record.standard_flags, _network_game_pro_rules_bit), "the record does not say Pro");
 		memset(&network_standard_globals, 0, sizeof(network_standard_globals));
 		connection = _game_connection_network_client;
 		network_standard_globals.joined = TRUE;
@@ -102,7 +104,7 @@ int main(int argc, char **argv)
 	{
 		/* (the Pro rules both kinds', Instant Aim only Classic's) */
 		host_with_rules(120, FALSE, TRUE);
-		CHECK(network_standard_pro_game() && TEST_FLAG(record.cooperative_flags, _network_game_pro_rules_bit),
+		CHECK(network_standard_pro_game() && TEST_FLAG(record.standard_flags, _network_game_pro_rules_bit),
 			"Crispy not Pro");
 		CHECK(!network_standard_globals.hosting_no_direct_camera, "Crispy's Instant Aim off");
 	}
@@ -111,10 +113,10 @@ int main(int argc, char **argv)
 		host_with_rules(0, FALSE, FALSE);
 		CHECK(!network_standard_pro_game() && network_standard_enhanced_lights_allowed() &&
 			network_standard_teammate_feeds_allowed(), "a game of no rules Pro");
-		CHECK(!TEST_FLAG(record.cooperative_flags, _network_game_pro_rules_bit), "its record says Pro");
+		CHECK(!TEST_FLAG(record.standard_flags, _network_game_pro_rules_bit), "its record says Pro");
 		connection = _game_connection_network_client;
 		network_standard_globals.joined = FALSE;
-		record.cooperative_flags = FLAG(_network_game_pro_rules_bit);
+		record.standard_flags = FLAG(_network_game_pro_rules_bit);
 		CHECK(!network_standard_pro_game(), "a Legacy host's byte taken as OpenH1's");
 		connection = _game_connection_local;
 		CHECK(!network_standard_pro_game(), "a game of one machine Pro");

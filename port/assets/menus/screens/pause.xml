@@ -6,14 +6,15 @@ Xbox's box of rows, as the port has it (menu_tags.c's pause_patch), its
 legend under them. RESUME GAME closes it (B every screen, as the Xbox's), LEAVE GAME takes the player
 out of the game (the Xbox's "mp game player quit"); SETTINGS, and the host's
 HOST CONTROLS (a network game's), END GAME (a game of this machine alone)
-or CHAPTERS (Basic Training's), as menu_tags.c adds them. The box is as tall
+or CHAPTERS (Basic Training's), as menu_tags.c adds them, for the
+host machine's first local player alone (split screen's player 1). The box is as tall
 as its rows, about the middle of the Xbox's. -->
 <screen name="pause" back="close all">
 	<box x="206" y="243" width="226" align="middle">
 		<list focus="resume">
 			<item id="resume" label="RESUME GAME" do="close"/>
 			<item id="settings" label="SETTINGS" do="open settings"/>
-			<item id="chapters" label="CHAPTERS" if="pause.chapters" do="open training"/>
+			<item id="chapters" label="CHAPTERS" if="pause.chapters" do="pause chapters"/>
 			<item id="host" label="HOST CONTROLS" if="pause.host_controls" do="open host controls"/>
 			<item id="end" label="END GAME" if="pause.end_game" do="pause end game"/>
 			<item id="leave" label="LEAVE GAME" do="pause leave"/>

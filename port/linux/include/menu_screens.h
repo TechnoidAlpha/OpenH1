@@ -14,7 +14,8 @@ screen down: <title-art/>, <header> (title, picture, detail, a <button>),
 sorted, do, empty, lanes, left, right) holding <lane>s, <column>s (each a <search> in its title) and a
 <button>, <search>, <panel>s (each its if) holding <heading>, <text>, <pills> of <pill>s,
 <pair>, <choice>, <picture>, <spartan> and <button>s, <chat> (source, lines, do, if), <space/>, <box> (x, y, width, align) holding a
-<list> and a <legend> (x), <objectives> (title), and <buttons> holding
+<list> and a <legend> (x), <objectives> (title), <dialog> (title, text) holding a <list> of its
+choices, and <buttons> holding
 <button>s (key, label, do, width, if). Texts may hold bindings, {name}, filled from C; a do and the
 screen's back are actions, a table's source a row source, an if, a current,
 a sorted and a search's value bindings: names the game knows. All are
@@ -91,8 +92,15 @@ enum menu_screen_block_kind
 	/* (a panel's picture of one of the menus' sets: a map's, a mission's,
 	its frame a binding's; as tall as its height, or the room the panel's
 	other lines leave) */
-	MENU_SCREEN_PICTURE
+	MENU_SCREEN_PICTURE,
+	/* (a pop-up's box in the middle of the screen, the Quit question's: its
+	title (label) in its band, its words (text) under it, and its <list>'s
+	items its choices, side by side at its foot) */
+	MENU_SCREEN_DIALOG
 };
+
+/* a <dialog>'s choices, at most */
+#define MENU_SCREEN_MAXIMUM_CHOICES 4
 
 /* a <spartan>'s color: the focused <colors> item's, the profile's, or a
 binding's (its value, the block's value: a color's number, random, or none
@@ -154,6 +162,9 @@ struct menu_screen_block
 	/* (a binding named: a tabs' current, a table's sorted, a search's
 	value, a <spartan>'s color; NULL, none) */
 	char const *value;
+	/* (a lineup's <spartan>'s names: the binding giving its places' names,
+	a line each, under its Spartans; NULL, none) */
+	char const *names;
 	/* (the binding whose value must not be empty for the block to be
 	shown, checked each frame: its if; NULL, always) */
 	char const *condition;
@@ -187,6 +198,8 @@ struct menu_screen_block
 	char const *left_action;
 	char const *right_action;
 	char const *dim;
+	/* (a <dialog>'s words, under its title) */
+	char const *text;
 	long line;
 };
 

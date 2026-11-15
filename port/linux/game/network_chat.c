@@ -13,11 +13,15 @@ chosen last as T does (the team and vehicle chat buttons on their own),
 whose keys the stick moves through and A types, a tap types (the
 touchscreen), and the controller then drives nothing else (xinput_sdl.c's
 halo_chat_pad_buttons, halo_chat_taps). The lines are
-drawn above the motion sensor, each with its player's name in their team's
-colour, wrapped to a column a little over half the view wide, and fade after a
-while; where the touch controls hold the bottom left (Android, and a browser
-whose touch controls are used), they go at the top left under the weapon's
-panel, the newest highest. Each local player's view shows the lines that
+drawn above the motion sensor, at half the HUD font's size, each with its
+player's name in their team's colour, the host's name white, wrapped to a
+column a little over half the view wide, and fade after a while; where the
+motion sensor is not drawn
+(its player dead), where it was last drawn in a view of that size. While a
+line is typed, Page Up and Page Down (and the mouse wheel) scroll back through
+the last CHAT_MAXIMUM_LINES. Where the touch controls hold the bottom left
+(Android, and a browser whose touch controls are used), they go at the top
+left under the weapon's panel, the newest highest, at the font's own size. Each local player's view shows the lines that
 player hears; the first local player types, and their view shows the line
 being typed (its end, when it is wider than the column). No line is typed or
 shown in a menu, a cinematic, or while the HUD is hidden, and the lines of a
@@ -78,6 +82,10 @@ chat (_chat_line_notice_bit). The mute silences the player's voice too
 (network_voice.c) and their pings (network_markers.c). A client's /mute is
 not sent: only the host mutes. The host's welcome to OpenCE players is a notice too
 (network_welcome.c), which an OpenH1 machine does not show.
+
+A dedicated server takes a player's "!switch" or "!team" (the whole line)
+as their asking to change teams (server_team_switch.c): the line is sent on
+to no one, and the host's notices say what came of it.
 */
 
 #include "controller_remap.h"
@@ -87,6 +95,7 @@ not sent: only the host mutes. The host's welcome to OpenCE players is a notice 
 #include "game/game.h"
 #include "game/game_engine.h"
 #include "game/players.h"
+#include "bots.h"
 #include "input/input.h"
 #include "interface/hud.h"
 #include "interface/hud_draw.h"
@@ -114,6 +123,7 @@ not sent: only the host mutes. The host's welcome to OpenCE players is a notice 
 #include "networking/network_game_manager.h"
 #include "networking/network_client_manager.h"
 #include "../src/report.h" /* port: port/linux/src/report.c */
+#include "server_team_switch.h"
 
 #include <stdio.h>
 
@@ -140,8 +150,9 @@ enum
 	/* network.chat_channels's words, with its end: a channel's for each
 	local player ("vehicle," four times) */
 	CHAT_CHANNELS_TEXT_SIZE = 32,
-	/* the lines kept, and the rows of them shown at once (a line wraps) */
-	CHAT_MAXIMUM_LINES = 8,
+	/* the lines kept (Page Up scrolls back through them while a line is
+	typed), and the rows of them shown at once (a line wraps) */
+	CHAT_MAXIMUM_LINES = 64,
 	CHAT_LINES_SHOWN = 6,
 	/* ... in a view of split screen */
 	CHAT_LINES_SHOWN_SPLIT = 3,
@@ -149,9 +160,13 @@ enum
 	of the view's (clear of the on-screen keyboard at the bottom right) */
 	CHAT_LINE_ROWS = 3,
 	CHAT_COLUMN_PERCENT = 55,
-	/* a motion sensor drawn longer ago than this is not there (the HUD hidden,
-	or none) */
-	CHAT_MOTION_SENSOR_MILLISECONDS = 500,
+	/* the lines Page Up and Page Down scroll by (the mouse wheel, one a notch) */
+	CHAT_PAGE_LINES = 3,
+	/* a view whose HUD has drawn no motion sensor: about where it would be,
+	in the HUD's units (480 high, before its scale), from the view's bottom
+	left */
+	CHAT_FALLBACK_LEFT_UNITS = 24,
+	CHAT_FALLBACK_BOTTOM_UNITS = 110,
 	/* a line shown, then faded out */
 	CHAT_LINE_MILLISECONDS = 10000,
 	CHAT_FADE_MILLISECONDS = 1000,
@@ -197,6 +212,10 @@ enum
 	CHAT_KEYBOARD_WIDTH_PERCENT_ANDROID = 36,
 };
 
+/* the lines' size, of the HUD font's: laid out at its size, then drawn scaled
+about the column's corner (not with the touch controls, on a phone's screen) */
+#define CHAT_TEXT_SCALE 0.5f
+
 /* the on-screen keyboard's last row's wide keys */
 enum
 {
@@ -217,8 +236,12 @@ enum
 	_chat_line_vehicle_bit,
 	/* the host's notice (a mute's): its text alone, from no player */
 	_chat_line_notice_bit,
+	/* the sender is a person on the machine running the game. the host
+	sets it when it sends the line on. a name so marked is drawn white */
+	_chat_line_host_bit,
 	/* the lobby's (its player the network game record's slot), never a
-	game's */
+	game's: OpenH1's alone, sent to no OpenCE machine (after OpenCE's
+	_chat_line_host_bit, which keeps its place on the wire) */
 	_chat_line_lobby_bit,
 };
 
@@ -229,7 +252,11 @@ enum
 	_chat_config_allowed_bit,
 	/* their lines may have links */
 	_chat_config_links_bit,
-	/* the lobby has its chat (network.lobby_text_chat) */
+	/* pad[0] is the machine running the game. a build that does not set
+	this leaves that byte 0, which is that machine when it joined first */
+	_chat_config_host_machine_bit,
+	/* the lobby has its chat (network.lobby_text_chat): OpenH1's, after
+	OpenCE's _chat_config_host_machine_bit, which keeps its place */
 	_chat_config_lobby_bit,
 };
 
@@ -248,6 +275,8 @@ enum
 	_chat_color_red,
 	_chat_color_blue,
 	_chat_color_notice,
+	/* a person on the machine running the game */
+	_chat_color_host,
 };
 
 /* what a typed line asks (chat_command_parse) */
@@ -331,6 +360,9 @@ struct chat_line
 static struct chat_line chat_lines[CHAT_MAXIMUM_LINES];
 static short chat_line_count;
 static short chat_newest_line;
+/* while a line is typed: the newest lines scrolled past (Page Up), 0 for
+none */
+static short chat_scroll;
 
 /* the lobby's lines, the newest at chat_lobby_newest (let go as this
 machine leaves the network game), and (system_milliseconds) when the
@@ -408,16 +440,22 @@ static struct
 	byte flags;
 	/* (the host, system_milliseconds) */
 	unsigned long sent;
+	/* the machine running the game, once its settings have named it */
+	boolean host_named;
+	short host_machine;
 } chat_config;
 
 /* each local player's motion sensor as last drawn (the window's units),
-whether it has been, and (system_milliseconds) when */
+whether it has been, and the size of the view and the local players then: its
+place in the HUD while they stay, drawn or not (a dead player's is not) */
 static struct
 {
 	boolean valid;
 	short left;
 	short top;
-	unsigned long noted_at;
+	short view_width;
+	short view_height;
+	short players;
 } chat_motion_sensors[MAXIMUM_LOCAL_PLAYERS];
 
 /* whether this machine is in a network game (the lines of the last are let
@@ -684,6 +722,19 @@ static char const *chat_command_word(
 	while (text[index] == ' ')
 		index++;
 	return text + index;
+}
+
+/* whether a line (chat_text_clean's) is a dedicated server's player's team
+change, "!switch" or "!team" and nothing more, in either case (one with more
+is said: "!team push" is talk) */
+static boolean chat_team_switch_command(
+	char const *text)
+{
+	char const *rest = chat_command_word(text, "!switch");
+
+	if (!rest)
+		rest = chat_command_word(text, "!team");
+	return rest && !*rest;
 }
 
 /* what a typed line (chat_text_clean's) asks: "/mute <player> [minutes]" or
@@ -1143,19 +1194,30 @@ static void chat_host_update_config(
 {
 	byte flags = chat_host_config_flags();
 	unsigned long now = system_milliseconds();
+	short host_machine = network_game_client_get_local_machine_index();
 	struct
 	{
 		struct distributed_message_header header;
 		struct distributed_chat_config config;
 	} message;
 
-	if (chat_config.known && flags == chat_config.flags && now - chat_config.sent < CHAT_CONFIG_MILLISECONDS)
+	if (chat_config.known && flags == chat_config.flags &&
+		chat_config.host_named == (host_machine != NONE) &&
+		(!chat_config.host_named || chat_config.host_machine == host_machine) &&
+		now - chat_config.sent < CHAT_CONFIG_MILLISECONDS)
 		return;
 	chat_config.known = TRUE;
 	chat_config.flags = flags;
+	chat_config.host_named = host_machine != NONE;
+	chat_config.host_machine = host_machine;
 	chat_config.sent = now;
 	csmemset(&message, 0, sizeof(message));
 	message.config.flags = flags;
+	if (host_machine != NONE)
+	{
+		message.config.flags |= (byte)FLAG(_chat_config_host_machine_bit);
+		message.config.pad[0] = (byte)host_machine;
+	}
 	chat_send_to_clients(&message, _distributed_message_chat_config, (word)sizeof(message));
 }
 
@@ -1169,7 +1231,9 @@ void network_chat_handle_config(
 		return;
 	csmemcpy(&config, entries, sizeof(config));
 	chat_config.known = TRUE;
-	chat_config.flags = config.flags;
+	chat_config.host_named = TEST_FLAG(config.flags, _chat_config_host_machine_bit) != 0;
+	chat_config.host_machine = chat_config.host_named ? (short)config.pad[0] : 0;
+	chat_config.flags = (byte)(config.flags & (byte)~(byte)FLAG(_chat_config_host_machine_bit));
 }
 
 word network_chat_config_entry_size(
@@ -1352,11 +1416,43 @@ static short chat_local_players(
 
 static short chat_local_hearers(struct player_datum const *sender, short player_index, short channel);
 
-/* a line shown, from a player (absolute index) */
+/* the machine running the game: this one, when it is the host; the machine
+its settings named; or the first machine, which a host that does not say
+still is */
+static short chat_host_machine(
+	void)
+{
+	if (chat_host())
+		return network_game_client_get_local_machine_index();
+	if (chat_config.host_named)
+		return chat_config.host_machine;
+	return 0;
+}
+
+/* a person on the machine running the game. a client says so from that
+machine, including when the host did not mark the line. a bot's machine is
+not this one */
+static boolean chat_player_is_host(
+	struct player_datum const *player)
+{
+	short host_machine;
+	short machine;
+
+	if (!player)
+		return FALSE;
+	host_machine = chat_host_machine();
+	machine = (short)player->network_player_data.machine_index;
+	if (host_machine == NONE || machine != host_machine)
+		return FALSE;
+	return !bots_machine_is_bot(machine);
+}
+
+/* a line shown, from a player (absolute index). host_name: their name is white */
 static void chat_add_line(
 	short player_index,
 	short channel,
-	char const *text)
+	char const *text,
+	boolean host_name)
 {
 	struct player_datum *player = distributed_player(player_index);
 	struct chat_line *line;
@@ -1366,9 +1462,12 @@ static void chat_add_line(
 	and its lines, here alone) */
 	if (!player || network_voice_machine_muted(player->network_player_data.machine_index))
 		return;
+	if (!host_name)
+		host_name = chat_player_is_host(player);
 	line = chat_new_line(text);
 	csmemcpy(line->name, player->name, chat_player_name_length(player) * sizeof(line->name[0]));
-	line->color = game_engine_has_teams() && player->team_index == 0 ? _chat_color_red : _chat_color_blue;
+	line->color = host_name ? _chat_color_host :
+		game_engine_has_teams() && player->team_index == 0 ? _chat_color_red : _chat_color_blue;
 	line->channel = channel;
 	line->hearers = chat_local_hearers(player, player_index, channel);
 	/* (debug.txt has the lines, in ASCII) */
@@ -1487,12 +1586,18 @@ static void chat_host_send(
 	struct chat_message message;
 	short index;
 	short local_player_index;
+	byte flags;
+	boolean host_name;
 
 	if (!sender || sender->quit_out_of_game)
 		return;
 	sender_vehicle = chat_player_vehicle(sender);
+	host_name = chat_player_is_host(sender);
+	flags = chat_channel_flags(channel);
+	if (host_name)
+		flags |= (byte)FLAG(_chat_line_host_bit);
 	server_event_chat(player_index, channel, text);
-	chat_message_new(&message, player_index, chat_channel_flags(channel), text);
+	chat_message_new(&message, player_index, flags, text);
 	for (index = 0; index < count; index++)
 	{
 		struct data_iterator iterator;
@@ -1524,7 +1629,7 @@ static void chat_host_send(
 				chat_hears(channel, has_teams, sender->team_index, player_get(local_index)->team_index,
 					sender_vehicle, chat_player_vehicle(player_get(local_index)))))
 		{
-			chat_add_line(player_index, channel, text);
+			chat_add_line(player_index, channel, text, host_name);
 			break;
 		}
 	}
@@ -1743,6 +1848,24 @@ void network_chat_handle_up(
 	}
 	/* (a muted player's line goes no further: they are told for how long) */
 	chat_player_name_ascii(sender, name);
+	/* (a dedicated server's player's "!switch" or "!team", the whole line,
+	muted or not: said to no one, they are moved to the other team and
+	everyone told, or told why not: server_team_switch.c) */
+	if (halo_server_mode() && chat_team_switch_command(text))
+	{
+		char notice[CHAT_TEXT_SIZE];
+
+		if (server_team_switch(DATUM_INDEX_NEW(line.player_index, sender->identifier), name, notice,
+				(long)sizeof(notice)))
+		{
+			chat_host_notice(NONE, notice);
+		}
+		else
+		{
+			chat_host_notice(machine_index, notice);
+		}
+		return;
+	}
 	if ((mute = chat_mute_find(chat_mutes, NUMBEROF(chat_mutes), name, now)) != NULL)
 	{
 		short minutes = chat_mute_minutes_left(mute, now);
@@ -1814,7 +1937,8 @@ void network_chat_handle_down(
 	}
 	if (distributed_player_from_byte(line.player_index) == NONE)
 		return;
-	chat_add_line(line.player_index, chat_channel_from_flags(line.flags), text);
+	chat_add_line(line.player_index, chat_channel_from_flags(line.flags), text,
+		TEST_FLAG(line.flags, _chat_line_host_bit));
 }
 
 /* ---------- the lobby's chat */
@@ -2477,6 +2601,7 @@ static void chat_input_begin(
 	chat_input.channel = channel != NONE ? channel :
 		chat_channel_opened(chat_channel_remembered(config_string("network.chat_channels"), chat_input.controller),
 			game_engine_has_teams(), chat_player_vehicle(player_get(player)) != NONE);
+	chat_scroll = 0;
 	chat_input.player = player;
 	chat_input.physical = physical;
 	/* (the keys pressed before) */
@@ -2498,6 +2623,7 @@ static void chat_input_end(
 	chat_keyboard.open = FALSE;
 	chat_keyboard.opening_buttons = 0;
 	chat_keyboard.drawn = FALSE;
+	chat_scroll = 0;
 }
 
 /* the line's last character gone */
@@ -2782,7 +2908,11 @@ void network_chat_update(
 	{
 		/* (the lobby's: as the host sends them there too) */
 		if (!chat_lobby())
+		{
 			chat_config.known = FALSE;
+			chat_config.host_named = FALSE;
+			chat_config.host_machine = 0;
+		}
 		chat_in_game = FALSE;
 	}
 	else
@@ -2791,6 +2921,8 @@ void network_chat_update(
 		{
 			chat_in_game = TRUE;
 			chat_line_count = 0;
+			chat_scroll = 0;
+			csmemset(chat_motion_sensors, 0, sizeof(chat_motion_sensors));
 			chat_off_noticed = FALSE;
 			csmemset(chat_rates, 0, sizeof(chat_rates));
 		}
@@ -2814,7 +2946,7 @@ void network_chat_update(
 		{
 			vote_keys = halo_keyboard_actions(0) & (FLAG(HALO_KEYBOARD_VOTE_YES) | FLAG(HALO_KEYBOARD_VOTE_NO));
 			if (network_vote_pad_open())
-				vote_pad = halo_chat_pad_buttons() & (FLAG(HALO_CHAT_PAD_LEFT) | FLAG(HALO_CHAT_PAD_RIGHT));
+				vote_pad = halo_chat_pad_buttons_for_port(0) & (FLAG(HALO_CHAT_PAD_LEFT) | FLAG(HALO_CHAT_PAD_RIGHT));
 		}
 		if (vote_keys & ~vote_keys_held)
 			network_vote_choose(TEST_FLAG(vote_keys & ~vote_keys_held, HALO_KEYBOARD_VOTE_YES));
@@ -2931,6 +3063,13 @@ void network_chat_update(
 		case _key_backspace:
 			chat_input_delete();
 			break;
+		/* (back through the lines kept, and forward again) */
+		case _key_page_up:
+			chat_scroll = (short)(chat_scroll + CHAT_PAGE_LINES);
+			break;
+		case _key_page_down:
+			chat_scroll = (short)(chat_scroll - CHAT_PAGE_LINES);
+			break;
 		/* (it opens the console, over the line: console.c) */
 		case _key_backquote:
 			break;
@@ -2954,6 +3093,10 @@ void network_chat_update(
 			break;
 		}
 	}
+	/* (the mouse wheel's notches, up older; then within the lines kept) */
+	if (chat_input.active)
+		chat_scroll = (short)(chat_scroll + halo_chat_wheel_steps());
+	chat_scroll = (short)PIN(chat_scroll, 0, MAX(chat_line_count - 1, 0));
 }
 
 short network_chat_controller(void)
@@ -2979,7 +3122,11 @@ void network_chat_note_motion_sensor(
 	chat_motion_sensors[local_player_index].valid = TRUE;
 	chat_motion_sensors[local_player_index].left = left;
 	chat_motion_sensors[local_player_index].top = top;
-	chat_motion_sensors[local_player_index].noted_at = system_milliseconds();
+	chat_motion_sensors[local_player_index].view_width =
+		(short)(render.camera.window_bounds.x1 - render.camera.window_bounds.x0);
+	chat_motion_sensors[local_player_index].view_height =
+		(short)(render.camera.window_bounds.y1 - render.camera.window_bounds.y0);
+	chat_motion_sensors[local_player_index].players = local_player_count();
 }
 
 /* where the lines go (and the on-screen keyboard): at the top left, the
@@ -3011,14 +3158,15 @@ static boolean chat_style_white(
 	return white;
 }
 
-/* a name's colour: its team's (a notice's a pale gold), or white */
+/* a name's colour: its team's (a notice's a pale gold), the host's white,
+or every name white */
 static void chat_color(
 	short color,
 	real alpha,
 	real_argb_color *result)
 {
 	result->alpha = alpha;
-	if (chat_style_white())
+	if (chat_style_white() || color == _chat_color_host)
 	{
 		result->red = result->green = result->blue = 1.0f;
 	}
@@ -3464,6 +3612,10 @@ void network_chat_draw(
 	short edge;
 	short rows;
 	short index;
+	short skipped = 0;
+	real scale;
+	/* the point the lines are scaled about */
+	short anchor;
 
 	/* (a report's note is drawn in any game, the chat shown or not) */
 	if ((!chat_input.report && (!chat_network_game() || !chat_shown())) || chat_hidden() || font_index == NONE ||
@@ -3477,18 +3629,24 @@ void network_chat_draw(
 	line_height = font->ascending_height + font->descending_height + font->leading_height;
 	if (line_height <= 0 || window_width <= 0)
 		return;
+	scale = touch ? 1.0f : CHAT_TEXT_SCALE;
 	/* (above the motion sensor, a little in from its left, the newest
-	lowest; where it has not been drawn of late, where it would be) */
+	lowest: where it was last drawn in a view of this size, drawn now or not
+	(a dead player's is not); where it has not been, about where it would be) */
 	if (chat_motion_sensors[local_player_index].valid &&
-		now - chat_motion_sensors[local_player_index].noted_at < CHAT_MOTION_SENSOR_MILLISECONDS)
+		chat_motion_sensors[local_player_index].view_width == window_width &&
+		chat_motion_sensors[local_player_index].view_height == (short)(window.y1 - window.y0) &&
+		chat_motion_sensors[local_player_index].players == local_player_count())
 	{
-		left = chat_motion_sensors[local_player_index].left + line_height / 2;
-		edge = chat_motion_sensors[local_player_index].top - line_height / 2;
+		left = (short)(chat_motion_sensors[local_player_index].left + line_height * scale / 2);
+		edge = (short)(chat_motion_sensors[local_player_index].top - line_height * scale / 2);
 	}
 	else
 	{
-		left = window.x0 + 2 * line_height;
-		edge = window.y1 - 9 * line_height;
+		real hud_scale = hud_globals_get_scale(local_player_count() > 1);
+
+		left = (short)(window.x0 + CHAT_FALLBACK_LEFT_UNITS * hud_scale);
+		edge = (short)(window.y1 - CHAT_FALLBACK_BOTTOM_UNITS * hud_scale);
 	}
 	right = (short)MAX(window.x0 + window_width * CHAT_COLUMN_PERCENT / 100, left + 8 * line_height);
 	rows = local_player_count() > 1 ? CHAT_LINES_SHOWN_SPLIT : CHAT_LINES_SHOWN;
@@ -3502,6 +3660,12 @@ void network_chat_draw(
 		rows = CHAT_LINES_SHOWN_ANDROID;
 	}
 	right = (short)MIN(right, window.x1);
+	/* (laid out at the font's size, the column as much wider; drawn scaled
+	about its corner where the lines start, the bottom left, or the top left
+	with the touch controls) */
+	right = (short)(left + (right - left) / scale);
+	anchor = edge;
+	rasterizer_text_set_scale(scale, (real)left, (real)anchor);
 	if (typing)
 	{
 		real_argb_color color;
@@ -3551,7 +3715,27 @@ void network_chat_draw(
 		edge = (short)(edge + (touch ? line_height : -line_height));
 		rows--;
 		if (chat_keyboard.open)
+		{
+			/* (the on-screen keyboard at its own size) */
+			rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
 			chat_keyboard_draw(font_index, &window, line_height);
+			rasterizer_text_set_scale(scale, (real)left, (real)anchor);
+		}
+		/* (scrolled back: a row saying newer lines are below) */
+		if (chat_scroll > 0 && rows > 0)
+		{
+			wchar_t const *hint = L"(Page Down: newer lines)";
+			wchar_t empty[1] = { 0 };
+
+			chat_text_color(0.6f, &text_color);
+			draw_string_set_draw_mode(font_index, NONE, 0 /* left */, 0, &text_color);
+			chat_line_layout(left, right, line_height, empty, hint, &layout);
+			layout.rows = 1;
+			chat_draw_layout(font_index, &layout, left, right, touch ? edge : (short)(edge - line_height), line_height,
+				empty, &text_color, hint, &text_color, 0.6f);
+			edge = (short)(edge + (touch ? line_height : -line_height));
+			rows--;
+		}
 	}
 	for (index = 0; index < chat_line_count && rows > 0; index++)
 	{
@@ -3570,6 +3754,12 @@ void network_chat_draw(
 		/* (this view's player hears it) */
 		if (!TEST_FLAG(line->hearers, local_player_index))
 			continue;
+		/* (scrolled past while typing: Page Up) */
+		if (typing && skipped < chat_scroll)
+		{
+			skipped++;
+			continue;
+		}
 		/* (a notice's text alone, in its colour) */
 		chat_color(line->color, alpha, &color);
 		chat_line_text(line->text, text, NUMBEROF(text));
@@ -3602,4 +3792,5 @@ void network_chat_draw(
 		edge = (short)(edge + (touch ? 1 : -1) * layout.rows * line_height);
 		rows = (short)(rows - layout.rows);
 	}
+	rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
 }

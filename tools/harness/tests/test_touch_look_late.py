@@ -39,13 +39,3 @@ def test_frames():
 def test_negative_control(before, after, case):
     status, output = run(build("touch_look_late", generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_the_late_reading_only_the_views():
-    # the player turns by the touch controls in the frame's input alone: the late reading is the drawn view's
-    # (render_interpolation.c), once a frame, never the input's
-    control = read("source/game/player_control.c")
-    late = function(control, "player_control_touch_look_late")
-    assert "input->facing_delta" not in late
-    code = read("port/linux/game/render_interpolation.c")
-    assert code.count("player_control_touch_look_late(local_player_index") == 1

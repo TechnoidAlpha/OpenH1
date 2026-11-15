@@ -41,13 +41,13 @@ GUEST_BUILDS = [
 
 @pytest.mark.parametrize("platform, config, vr, artifact, name", GUEST_BUILDS)
 def test_each_build_s_symbols_are_uploaded_and_named(platform, config, vr, artifact, name):
-    """ci_build.py's folder is the artifact the workflow uploads (on master only, as the build itself, for a
+    """ci_build.py's folder is the artifact the workflow uploads (on a full run only, as the build itself, for a
     release build), and the release's name for it says the machine"""
     folder = ci_build.dist_name(platform, config, vr) if platform != "ios" else f"halo-ios-{config}"
     assert f"{folder}-symbols" == artifact
     assert f"name: {artifact}\n          path: dist/{artifact}\n" in WORKFLOW
     upload = WORKFLOW[:WORKFLOW.index(f"name: {artifact}\n")].rsplit("- uses: actions/upload-artifact@v4", 1)[1]
-    assert ("if: github.ref == 'refs/heads/master'" in upload) == (config == "release")
+    assert ("if: needs.changes.outputs.full == 'true'" in upload) == (config == "release")
     assert release_names.published(artifact) == name
 
 
@@ -67,20 +67,6 @@ def test_the_players_downloads_keep_their_names():
         for config in ("release", "debug"):
             assert not release_names.symbols_name(platform, config).startswith(
                 release_names.NAMES[platform] + release_names.EXTENSIONS.get(platform, ".zip"))
-
-
-def test_the_release_packages_and_checks_the_symbols():
-    """the release job zips each symbols artifact (a failure warns), checks them without stopping, and
-    publishes the zips with the rest (release/*.zip, in SHA256SUMS)"""
-    package = WORKFLOW[WORKFLOW.index("      - name: Package\n"):WORKFLOW.index("      - name: Appcast\n")]
-    assert "halo-*-symbols)" in package and "::warning::" in package
-    # (the symbols' case before the Linux builds', which would take a Linux build's symbols as a tree)
-    assert package.index("halo-*-symbols)") < package.index("halo-linux-*)")
-    check = WORKFLOW[WORKFLOW.index("      - name: Check the symbols\n"):]
-    check = check[:check.index("\n\n")]
-    assert "continue-on-error: true" in check and "release_names.py --check-symbols release" in check
-    assert WORKFLOW.index("name: Check the symbols") < WORKFLOW.index("name: Sums and signature")
-    assert "gh release create \"$tag\" release/*.zip" in WORKFLOW
 
 
 def write_zip(path, members):

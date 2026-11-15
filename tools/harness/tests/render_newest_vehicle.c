@@ -38,6 +38,7 @@ enum { _object_type_biped, _object_type_vehicle, _object_type_weapon, _object_ty
 #define _object_mask_projectile FLAG(_object_type_projectile)
 #define _object_mask_all 0xFF
 enum { _object_lane_macro, _object_lane_micro };
+enum { _object_dead_bit = 1 };
 enum { _director_perspective_first_person, _director_perspective_third_person, _director_perspective_scripted };
 
 struct _object
@@ -53,6 +54,7 @@ struct _object
 	real outgoing_function_values[NUMBER_OF_OUTGOING_OBJECT_FUNCTIONS];
 	real_rgb_color outgoing_change_colors[NUMBER_OF_OBJECT_CHANGE_COLORS];
 	short type;
+	unsigned long damage_flags;
 };
 struct object_datum { long definition_index; struct _object object; };
 struct unit_datum { long definition_index; struct _object object; struct { real active_camouflage, active_camouflage_super_amount; } unit; };
@@ -167,6 +169,10 @@ static unsigned long config_changes(void) { return config_changes_count; }
 /* the player's unit (NONE while dead) */
 static long fake_player_unit = RIDER;
 static long player_control_get_unit_index(short local_player_index) { return fake_player_unit; }
+/* vehicle_riding.c's: no player rides a deck here, so no turn is kept */
+static real vehicle_riding_kept_dyaw(short local_player_index) { (void)local_player_index; return 0.0f; }
+static void vehicle_riding_turn_vector(real_vector3d *vector, real angle) { (void)vector; (void)angle; }
+static real render_interpolation_fraction(void) { return fake_fraction; }
 static long local_player_get_player_index(short local_player_index) { return 0; }
 static struct player_control *player_control_get(short local_player_index) { return &control; }
 static real_euler_angles2d const *player_control_get_facing_angles(short local_player_index) { return &facing; }

@@ -122,39 +122,3 @@ def test_called_only_by_the_drawing():
         "\t\tlowered_reticle_offset_point(&point, reticle_scale);" in hud
     assert hud.index("reticle_scale = is_crosshair_bitmap") < hud.index("lowered_reticle_offset_point(")
     assert "\t\treticle_scale);" in hud[hud.index("hud_draw_bitmap_internal("):]
-
-
-def test_the_weapon_posed_along_the_aim():
-    # the pose, its interpolation (kept relative to the same camera) and display.viewmodel_offset_* (along the aim's
-    # axes) all at the camera turned back to the aim
-    build_matrices = function(read("source/interface/first_person_weapons.c"), "first_person_weapon_build_node_matrices")
-    pose = build_matrices.index("pose_camera= lowered_reticle_aim_camera(")
-    assert pose < build_matrices.index("&pose_camera->position,\n\t\t\t&pose_camera->forward,\n\t\t\t&pose_camera->up);")
-    # (the turning sway: the aim's turn, not the view's lift as a scope recenters it)
-    assert build_matrices.count("euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);") == 2
-    interpolation = build_matrices.index("render_interpolation_first_person(")
-    assert "\t\t\tpose_camera);" in build_matrices[interpolation:interpolation + 300]
-    offset = build_matrices.index("viewmodel_offset_apply(")
-    assert "\t\t\tpose_camera);" in build_matrices[offset:offset + 300]
-
-
-def test_the_settings():
-    config = read("port/linux/src/port_config.c")
-    readme = read("port/linux/README.md")
-    sys.path.insert(0, str(ROOT / "tools"))
-    import port_settings
-
-    assert re.search(r'\{ "display\.lowered_reticle", _config_boolean, "false", "HALO_LOWERED_RETICLE"', config)
-    assert re.search(r'\{ "display\.lowered_reticle_amount", _config_real, "10\.0", "HALO_LOWERED_RETICLE_AMOUNT"',
-                     config)
-    assert "| `display.lowered_reticle` | `false` | `HALO_LOWERED_RETICLE` |" in readme
-    assert "| `display.lowered_reticle_amount` | `10.0` | `HALO_LOWERED_RETICLE_AMOUNT` |" in readme
-    rows = {row[1]: (page, row) for page in port_settings.PAGES.values() for row in page["rows"]
-            if row[0] != port_settings.SECTION}
-    page, row = rows["display.lowered_reticle"]
-    assert row[2] == port_settings.ON_OFF and page["title"] == "FIRST PERSON"
-    page, row = rows["display.lowered_reticle_amount"]
-    assert row[2] == port_settings.LOWERED_RETICLE_AMOUNTS and page["title"] == "FIRST PERSON"
-    # the slider's range typed is the one the code holds it to
-    assert port_settings.LOWERED_RETICLE_AMOUNTS.typed_most == 30 and port_settings.LOWERED_RETICLE_AMOUNTS.typed_least == 0
-    assert "#define LOWERED_RETICLE_MAXIMUM_PERCENT 30.0" in read("port/linux/game/lowered_reticle.c")

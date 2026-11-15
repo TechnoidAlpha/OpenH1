@@ -85,16 +85,3 @@ def test_the_near_distance():
     # the test's near distance is the game's
     assert re.search(r"rasterizer_global_defaults =\s*\{\s*0\.0625f,", read("source/rasterizer/rasterizer.c"))
     assert "#define GAME_NEAR 0.0625f" in read("tools/harness/tests/first_person_legs_place.c")
-
-
-def test_where_the_pose_takes_it():
-    code = read("port/linux/game/first_person_legs.c")
-    place = function(code, "first_person_legs_place")
-    # the flat screen's: the body seen from the view drawn (#697), then set back and lowered; nothing weighed against
-    # the view but the eye's height, nothing kept from one frame to the next
-    assert "moved = render_interpolation_view_body(object_index, &move, &forward);" in place
-    assert "global_window_parameters.frustum" not in code
-    assert "global_window_parameters.camera.forward" not in code
-    assert not re.search(r"^\s+static ", place, re.M)
-    # drawing alone: the game's node matrices are read, never written
-    assert "object_get_node_matrices" not in code

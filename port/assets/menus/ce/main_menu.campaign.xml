@@ -678,4 +678,7 @@
 	<widget name="main_menu/campaign/solo_creating_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1" source="tools/port_settings.py campaign_files/_solo_new_profile">
 		<on event="deleted" run="new campaign decision" open="main_menu/campaign/mission_screen"/>
 	</widget>
+	<widget name="main_menu/campaign/coop_join_creating_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1" source="tools/port_settings.py campaign_files/_coop_join_new_profile">
+		<on event="deleted" run="new campaign decision" open="screens/coop_join"/>
+	</widget>
 </menus>

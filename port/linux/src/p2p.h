@@ -216,6 +216,9 @@ struct p2p_listing
 	unsigned char failed;
 	/* milliseconds, -1 if not known */
 	short ping;
+	/* its host is being probed for the ping now (a ping known stays), and
+	whether Refresh asked for it (until that probe ends) */
+	unsigned char probing, refreshing;
 	/* it has a password: its invite is sealed with it (p2p_listing_unlock) */
 	unsigned char locked;
 	unsigned char key_hash[P2P_LISTING_KEY_HASH_SIZE];
@@ -263,6 +266,10 @@ int p2p_joined_listing_masters(unsigned char (*key_ids)[P2P_LISTING_MASTER_KEY_I
 /* a copy of the public games found, in the order shown (the most players
 first; then those not failed, the open ones, by name); returns their count */
 int p2p_lobby_games(struct p2p_listing *games, int maximum_count);
+/* the games the server browser shows, in its order (its sort, after its
+tab and Filters): their hosts are probed in that order, those not shown
+last */
+void p2p_lobby_shown(const struct p2p_listing *games, int count);
 /* the master servers' (port/linux/src/master_list.c, server_master.c): a
 fresh signed listing of the game this machine hosts for the internet, as
 the brokers get it (0 if it hosts none, or none public); a master's entry's
@@ -288,70 +295,6 @@ void p2p_lobby_mark_failed(const unsigned char *identifier);
 /* whether a signalling broker answers (the player-hosted games' lists come
 through them) */
 int p2p_lobby_brokers_reached(void);
-
-/* ---- what the server browser shows of the games found, and in what order:
-its source (its top-left tab), Filters and the column titles (the menus'
-network.browser_* settings). Pure, over a copy of the games (the harness
-tests them) */
-
-/* network.browser_source */
-enum
-{
-	P2P_LOBBY_SOURCE_ALL,
-	P2P_LOBBY_SOURCE_DEDICATED,
-	P2P_LOBBY_SOURCE_PLAYERS,
-};
-/* network.browser_maps: games on maps this machine lacks shown, not, or
-those it could download as it joins */
-enum
-{
-	P2P_LOBBY_MAPS_YES,
-	P2P_LOBBY_MAPS_NO,
-	P2P_LOBBY_MAPS_DOWNLOADABLE,
-};
-/* what a game's map is to this machine */
-enum
-{
-	P2P_LOBBY_MAP_INSTALLED,
-	P2P_LOBBY_MAP_DOWNLOADABLE,
-	P2P_LOBBY_MAP_MISSING,
-};
-/* network.browser_sort's orders (a column title's), each in its own first
-direction: dedicated servers first, then the most players, then by name
-(servers); the most players; by name, map or type (A to Z); those with a
-password first */
-enum
-{
-	P2P_LOBBY_SORT_SERVERS,
-	P2P_LOBBY_SORT_PLAYERS,
-	P2P_LOBBY_SORT_NAME,
-	P2P_LOBBY_SORT_MAP,
-	P2P_LOBBY_SORT_TYPE,
-	P2P_LOBBY_SORT_LOCKED,
-	NUMBER_OF_P2P_LOBBY_SORTS,
-};
-struct p2p_lobby_choices
-{
-	int source;
-	int show_empty, show_full;
-	/* one game engine's only (1 CTF, 2 Slayer, 3 Oddball, 4 King, 5 Race),
-	0 any */
-	int engine_type;
-	int maps;
-};
-/* the games the choices show, kept at the front in their order; returns
-how many. map_state tells what a game's map is to this machine (NULL: every
-map installed). A game of another network version is kept: shown, greyed,
-not joinable */
-int p2p_lobby_filter(struct p2p_listing *games, int count, const struct p2p_lobby_choices *choices,
-	int (*map_state)(const char *map));
-/* the games in the order's (reverse: the other way), those of another
-network version last; equal ones keep their order */
-void p2p_lobby_sort(struct p2p_listing *games, int count, int order, int reverse);
-/* network.browser_sort's text: an order's name, "-" before it reversed
-("-players"); an unknown one is servers' */
-int p2p_lobby_sort_parse(const char *text, int *reverse);
-void p2p_lobby_sort_text(int order, int reverse, char *text, int size);
 
 /* the join of an invite (or a listing) under way: its stage, and once it
 failed why, as a word ("" while it goes on): "no_answer" (the host never
@@ -836,6 +779,11 @@ its own, or the one made for it as the friend joins): 0 if none; invites a
 friend to this machine's party (one made if none): 0 if not sent */
 int p2p_friends_join(const unsigned char *code);
 int p2p_friends_invite(const unsigned char *code);
+/* whether the game this machine hosts is its invite's alone (a co-op game's
+INVITE ONLY): while it hosts, its presence offers its friends no JOIN (the
+Friends screen's, the co-op list's); its friends still see it playing */
+void p2p_friends_set_game_closed(int closed);
+int p2p_friends_game_closed(void);
 /* a player of a network game this machine is in (its code, NULL if it has
 none; an OpenCE player's), and the game's words (NULL: as Discord's
 activity has them), for the recent players */

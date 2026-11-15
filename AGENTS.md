@@ -23,7 +23,7 @@ end.
 | --- | --- |
 | `source/` | The game: 466 C files of the decompilation, compiled as they are with few changes (each marked, below) |
 | `port/linux/src/` | The platform layer the ports share: Direct3D 8's front end (`d3d8_device.c`), behind `xgpu_backend.h` the renderer's command stream to the host's backend (`xgpu_stream_encode.c`), DirectSound and XInput on SDL3, files, threads, memory, sockets, settings (`port_config.c`), the mods folder (`port_mods.c`), internet play (`p2p*.c`), the Linux release's layout (`install_layout.c`) and self-updater (`updater.c`), the dedicated server's platform side (`server_*.c`: the mode, the log, the rotation's grammar, HTTP, RCON, the master servers' publisher; `posix_server.c`, in the guest), the master servers' list (`master_list.c`) and the demos' files (`demo_files.c`: their writer, retention; `demo_unpack.c`) |
-| `port/linux/game/` | The port's game-side code, compiled as the game's sources are: the distributed netcode (`network_*.c`), co-op, OpenCE's gametypes (`game_modes.c`, `infection.c`, `gun_game.c`), map sharing (`map_share*.c`), the menus (`menu_tags.c`, `menu_functions.c`), Custom Edition maps (`custom_edition_*.c`, `cache_file_formats.c`), the tag validator (`tag_validate.c`, `tag_schema_*.c`), mods (`mods.c`, `mod_*.c`), streamer mode's word filter (`text_filter*.c`), the dedicated server's director, commands, gametypes and status (`server_*.c`), a player host's Host Controls and next game and playlist (`network_host_controls.c`, `network_host_game.c`), the demos (`demo.c`: every game recorded tick by tick and played back exactly, `docs/demos.md`), touch, FOV and more |
+| `port/linux/game/` | The port's game-side code, compiled as the game's sources are: the distributed netcode (`network_*.c`), co-op, OpenCE's gametypes (`game_modes.c`, `infection.c`, `gun_game.c`), map sharing (`map_share*.c`), the menus (`menu_tags.c`, `menu_functions.c`), Custom Edition maps (`custom_edition_*.c`, `cache_file_formats.c`), MCC maps (`mcc_*.c`: `docs/mcc_maps.md`), the tag validator (`tag_validate.c`, `tag_schema_*.c`), mods (`mods.c`, `mod_*.c`), streamer mode's word filter (`text_filter*.c`), the dedicated server's director, commands, gametypes and status (`server_*.c`), a player host's Host Controls and next game and playlist (`network_host_controls.c`, `network_host_game.c`), the demos (`demo.c`: every game recorded tick by tick and played back exactly, `docs/demos.md`), touch, FOV and more |
 | `port/linux/include/` | The port's headers: the limits (`halo_port_limits.h`, with `HALO_PORT_NETWORK_VERSION`), capacities (`halo_port_capacity.h`), the prefix header, `halo_linux_source_fixups.h` (port functions the game's sources call) |
 | `port/include/xdk/` | Stand-ins for the Xbox SDK's headers (declarations only) |
 | `port/windows/` | The Windows build's host (`host/`: the x32 guest in a 64-bit Windows process, drawn with Vulkan, `tools/windows_build.py`) and the `posix.h` and `update.h` functions it shares (`src/win32_*.c`) |
@@ -33,15 +33,15 @@ end.
 | `port/android/` | The Android app: the guest runtime, the host library (`host/`, which the Linux and macOS hosts share; its renderer is Vulkan's, `port/linux/vulkan`), the Java app (`app/`), host imports (`host_imports.list`, every guest's; `android_imports.list`, the app's own) |
 | `port/macos/` | The macOS host's own files: Darwin's system calls for the guest (`host_syscall.c`), the Metal renderer's backend (`xgpu_metal.m`, its bindings `xgpu_metal_bindings.h`, the command stream's table `xgpu_metal_stream.m`, the MSL emitter's shaders `xgpu_metal_shaders.c`, the textures `xgpu_metal_textures.c`, the NV2A combiner as one function of function constants `xgpu_metal_combiner.c`, the pipelines' description `xgpu_metal_pipeline.m`, the shader library's build tool `tools/xgpu_metal_prebuild.c`), the window and its presentation (`host_metal.m`), their tests (`tests/`), the app (`host_app.m`: its folders, the maps panel, the window kept; `halo.entitlements`, `openh1-icon.icns`); the rest is `port/android/host` and `port/linux/host` |
 | `port/ios/` | The iOS and iPadOS app's own files: its start (`host_app.m`: the Documents folder, the log, the background), the touch controls (`touch_controls.m`, Android's overlay in UIKit, through `port/android/host/host_touch.c`; `host_imports.list`), the guest image in the executable's `__TEXT` (`guest_image.S`), the entitlements, the icon; the rest is the macOS build's (`port/macos`, `port/android/host`, `port/linux/host`) |
-| `port/assets/` | What the builds embed or ship: high-res HUD (`hud/`), fonts, titles, menus (`menus/`), the Android touch controls' art (`touch/`), icons, network brokers, the bots' map profiles (`bots/`, made from play logs by `tools/play_log/profile.py`), the Linux desktop entry (`linux/`), Steam's library artwork for the shortcut the Linux and Steam Frame installs add (`steam/`) |
+| `port/assets/` | What the builds embed or ship: high-res HUD (`hud/`), fonts, titles, menus (`menus/`), the Android touch controls' art (`touch/`), icons, network brokers and master servers, the dedicated server's web page (`server_ui/`), the bots' map profiles (`bots/`, made from play logs by `tools/play_log/profile.py`), the Linux desktop entry (`linux/`), Steam's library artwork for the shortcut the Linux and Steam Frame installs add (`steam/`) |
 | `port/third_party/` | Vendored libraries, each with a README naming its upstream, version and checksum |
 | `port/tools/` | Stand-alone tools (`cache_file_report.c`); the render stream's replay that Metal's and Vulkan's share (`replay/host_render_replay.c`: the recording, the play, `--serve`, the replay service: `docs/replay_protocol.md`) |
-| `tools/` | Build scripts (`build_common.py`, what the others share; `linux_guest_build.py`, `vulkan_build.py`, `windows_build.py`, `android_build.py` (also the guest image of every guest build), `macos_build.py`, `macos_app.py` (the macOS app, its disk image, signing and notarization), `macos_shaders.py` (the macOS and iOS apps' shader libraries), `ios_build.py`, `ios_app.py` (the iOS app, its signature, devicectl's and simctl's install, launch and log), `ios_provision.py` (its development profile, by Xcode's automatic signing), `render_manifest.py` (the renderer's manifest, the game's vertex shaders from its code), `ci_build.py`, `release_names.py` (the names releases publish the builds under), `release_sign.py` (a release's SHA256SUMS and its signature by the release key, `port/assets/release-key.pub`, which the self-updaters check: `port/linux/src/release_signature.c`), `linux_package.py`, `linux_install.sh` (the one installer: the Linux release's `install.sh`, the Steam Deck's install, and the Steam Frame package's), `frame_install.sh` (it, run on a Frame over ssh), `frame_package.py` (the Steam Frame's)), the game's 32-bit x86 ABI for test tools (`x86_game_abi.py`: `map_validate`), the guest's base register (`guest_base_register.py`, measured by `base_register_bench/`), generators (`ce_menus.py`, `port_settings.py`, `hud_assets.py`, `title_assets.py`, `embed_assets.py`, `xdk_headers.py`, `touch_assets.py`: the Android touch controls' pictures, whose layout `touch_preview.py` draws; `steam_art.py`: Steam's library artwork, `port/assets/steam`), tests, OpenCE's `stagekit/` (scenarios staged and instrumented on the real engine, no retail assets; its map writer runs as a guest image of the 64-bit builds' host), and `scorecard/` (the 60/120 Hz simulation's check: scenarios at each rate compared, the 30 Hz gate against master) |
+| `tools/` | Build scripts (`build_common.py`, what the others share; `linux_guest_build.py`, `vulkan_build.py`, `windows_build.py`, `android_build.py` (also the guest image of every guest build), `macos_build.py`, `macos_app.py` (the macOS app, its disk image, signing and notarization), `macos_shaders.py` (the macOS and iOS apps' shader libraries), `ios_build.py`, `ios_app.py` (the iOS app, its signature, devicectl's and simctl's install, launch and log), `ios_provision.py` (its development profile, by Xcode's automatic signing), `render_manifest.py` (the renderer's manifest, the game's vertex shaders from its code), `ci_build.py`, `release_names.py` (the names releases publish the builds under), `release_sign.py` (a release's SHA256SUMS and its signature by the release key, `port/assets/release-key.pub`, which the self-updaters check: `port/linux/src/release_signature.c`), `linux_package.py`, `linux_install.sh` (the one installer: the Linux release's `install.sh`, the Steam Deck's install, and the Steam Frame package's), `frame_install.sh` (it, run on a Frame over ssh), `frame_package.py` (the Steam Frame's)), the game's 32-bit x86 ABI for test tools (`x86_game_abi.py`: `map_validate`), the guest's base register (`guest_base_register.py`, measured by `base_register_bench/`), generators (`ce_menus.py`, `port_settings.py`, `hud_assets.py`, `title_assets.py`, `embed_assets.py`, `server_ui_embed.py`, `xdk_headers.py`, `touch_assets.py`: the Android touch controls' pictures, whose layout `touch_preview.py` draws; `steam_art.py`: Steam's library artwork, `port/assets/steam`), the dedicated server's protocol simulator and remote console (`server_sim.py`, `opence_rcon.py`), tests, OpenCE's `stagekit/` (scenarios staged and instrumented on the real engine, no retail assets; its map writer runs as a guest image of the 64-bit builds' host), and `scorecard/` (the 60/120 Hz simulation's check: scenarios at each rate compared, the 30 Hz gate against master) |
 | `docs/` | Longer design notes (`custom_edition_caches.md`, `mods.md`, `dedicated_server.md`, `master_protocol.md`, `replay_protocol.md`, `world-ao.md`) |
 | `pgo/` | Profile-guided optimisation profiles |
 | `deploy/` | Running a dedicated server: systemd, Docker, Pterodactyl, Helm, PufferPanel, MCSManager, example gametypes |
 | `assets/` | Game data for local runs (gitignored: `maps/`, `custom_maps/`) |
-| `.github/workflows/` | CI: builds every platform on each push, publishes releases from `main` |
+| `.github/workflows/` | CI: builds every platform on each push; a tag `build-<N>` publishes a release (docs/releasing.md) |
 
 ## Building
 
@@ -259,6 +259,8 @@ python -m pytest -q tools/test_menu_notes.py                # menu_notes.py's no
 python -m pytest -q tools/test_notes.py                     # notes.py: the recorded frames' notes and the menus' in one tool
 python -m pytest -q tools/test_menu_gallery.py              # menu_gallery.py's screens, picture difference, layout checks, page
 python -m pytest -q tools/test_join_page.py                 # the website's join page: the links it reads (Node), nothing loaded from elsewhere
+python -m pytest -q tools/test_dedicated_server.py          # the dedicated server with clients (needs assets/maps)
+python -m pytest -q tools/test_server_sim.py                # the server's web page and protocol simulator
 python -m pytest -q tools/test_net_compare.py               # net_compare.py's judging of logs, its copies and their processes
 python -m pytest -q tools/test_determinism_compare.py       # determinism_compare.py's reading of the determinism logs
 python -m pytest -q tools/test_symbolize_crash.py          # symbolize_crash.py: a crash's frames placed and named (made-up report and image)
@@ -334,6 +336,11 @@ Running the game without a person at it:
   `tools/determinism_compare.py`, part where something besides the input
   reached the simulation ("Determinism" in `port/linux/README.md`). Keep
   the simulation's randomness in the ticks and on the game's seeds.
+  `python tools/scorecard/identity.py --repeat` (CI's) plays StageKit's
+  scenarios twice and compares them so. A change that alters what the
+  simulation does in Classic (a fix of how something looks that writes the
+  game state) goes behind `game.enhanced_animations`, or the campaign gate
+  (`tools/scorecard/campaign_identity.py`, retail maps) parts.
 - Use a virtual display (Xvfb, with `SDL_VIDEO_DRIVER=x11`) for windowed
   runs, never the desktop of the person you work for, and stop only the
   processes you started.
@@ -473,10 +480,9 @@ The decompilation's upstream, punpckhdq/halo, is AGPL 3.0 from 17 October
 
 ### Commits and pull requests
 
-- Pull requests target `dev`, the default branch. `master` is what ships:
-  every push to it publishes a release that the self-updaters install, so
-  it changes only when `dev` is merged into it, a release, when the
-  maintainers choose.
+- Pull requests target the default branch (`master`; `dev` until the
+  switch). A push to master runs the full suite and publishes nothing;
+  a release is a tag `build-<N>` (`tools/ship.sh`, docs/releasing.md).
 
 - Commit subjects are plain sentences saying what changed; the body says
   why and what was checked.
@@ -507,7 +513,9 @@ The decompilation's upstream, punpckhdq/halo, is AGPL 3.0 from 17 October
 | [docs/dedicated_server.md](docs/dedicated_server.md) | The dedicated server: its command line, exit codes, commands, HTTP API, RCON, events and files |
 | [docs/replay_protocol.md](docs/replay_protocol.md) | The replay service (`halo_replay --serve`): its requests and replies, the ID buffer, the marks a client reads, the notes (`build/notes.jsonl`) |
 | [docs/master_protocol.md](docs/master_protocol.md) | The master servers' protocol: publishing, the probe, the signed list |
+| [docs/mcc_maps.md](docs/mcc_maps.md) | MCC maps: their format, installation, sharing, the implementation's layout and limits ([docs/reading](docs/reading/README.md) follows the sources) |
 | [docs/controller_remapping.md](docs/controller_remapping.md) | Controller button remapping (each player's layout, the overlays' buttons, VR), stick dead zones, the look's inversion |
+| [docs/releasing.md](docs/releasing.md) | How to ship a release, and what each kind of CI run does |
 | [docs/mods.md](docs/mods.md) | Mods: folders of Halo PC tag files whose sounds, bitmaps, text and models play over a map's on one machine |
 | [port/assets/text_filter/README.md](port/assets/text_filter/README.md) | Streamer mode's words: Surge AI's list, the review, the allowed words |
 | [port/assets/menus/README.md](port/assets/menus/README.md) | The menu files' format and how to write them again |

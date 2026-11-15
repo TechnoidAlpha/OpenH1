@@ -35,8 +35,8 @@ NEGATIVE_CONTROLS = {
                                  "\tcsmemcpy(game_state_globals.base_address, image, size);"),
                                 "game_state_image_accept", "taken-back"),
     "unchecked": (("\t\tif (!valid)\n", "\t\tif (!valid && 0)\n"), "game_state_image_valid", "checked"),
-    "any-size": (("\telse\n\t\treturn game_state_image_refuse(", "\telse if (0)\n\t\treturn game_state_image_refuse("),
-                 "game_state_image_accept", "other-size"),
+    "any-size": (("\telse if (size == game_state_image_size())", "\telse if (1)"), "game_state_image_accept",
+                 "other-size"),
 }
 
 
@@ -45,6 +45,7 @@ def generated(fault=None, faulty_function=None):
     size = constant(CAPACITY, "HALO_PORT_GAME_STATE_CPU_SIZE") + constant(CAPACITY, "HALO_PORT_GAME_STATE_GPU_SIZE")
     types = "\n\n".join([
         f"#define GAME_STATE_SIZE ({size}L)",
+        f"#define GAME_STATE_CPU_SIZE ({constant(CAPACITY, 'HALO_PORT_GAME_STATE_CPU_SIZE')}L)",
         enum_with(source, "_game_state_allocation_data,"),
     ]) + "\n"
     text = ""

@@ -36,10 +36,16 @@ are not those it was drawn for), the sprite is drawn from its bitmap.
 #include "rasterizer/rasterizer.h"
 #include "text/draw_string.h"
 #include "hud_button_layout.h"
+#include "controller_glyphs.h"
 #include "scenario/scenario_definitions.h"
 #include "cache/texture_cache.h"
 #include "render/render.h"
 #include "player_settings.h"
+
+static boolean hud_hires_bitmap_resident(struct bitmap_data const *bitmap)
+{
+	return bitmap->cache_block_index != NONE;
+}
 
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
@@ -198,6 +204,7 @@ static void hud_hires_sprite_bitmaps_forget(
 	}
 	hires_sprite_bitmap_count = 0;
 	hud_buttons_forget();
+	controller_glyphs_dispose(); /* port: MCC maps' controller art (mcc_hud_draw.c) */
 
 	return;
 }
@@ -353,7 +360,7 @@ struct bitmap_data const *hud_hires_sprite_bitmap(
 			continue;
 		}
 		/* (checked on its pixels in the texture cache, once they are loaded) */
-		if (sprite_bitmap->cache_block_index == NONE || !sprite_bitmap->base_address)
+		if (!hud_hires_bitmap_resident(sprite_bitmap) || !sprite_bitmap->base_address)
 			break;
 		if (hires_sprite_bitmaps[index].checked_address != sprite_bitmap->base_address ||
 			hires_sprite_bitmaps[index].checked_at != config_changes())
@@ -422,7 +429,7 @@ long hud_hires_asset_stock_custom_edition(
 	{
 		struct bitmap_data *bitmap = hires_bitmaps[index].bitmap;
 
-		if (hires_bitmaps[index].asset == asset && bitmap->cache_block_index != NONE &&
+		if (hires_bitmaps[index].asset == asset && hud_hires_bitmap_resident(bitmap) &&
 			(unsigned long)bitmap->base_address == address && bitmap->width == width && bitmap->height == height)
 		{
 			return hires_bitmaps[index].stock_custom_edition;
@@ -443,7 +450,7 @@ long hud_hires_asset_at(
 	{
 		struct bitmap_data *bitmap = hires_bitmaps[index].bitmap;
 
-		if (bitmap->cache_block_index != NONE &&
+		if (hud_hires_bitmap_resident(bitmap) &&
 			(unsigned long)bitmap->base_address == address &&
 			bitmap->width == width &&
 			bitmap->height == height)
@@ -465,7 +472,7 @@ long hud_hires_upscale_at(unsigned long address, long width, long height)
 	for (index = 0; index < ce_stock_bitmap_count; index++)
 	{
 		struct bitmap_data const *bitmap = ce_stock_bitmaps[index].bitmap;
-		if (bitmap->cache_block_index != NONE && (unsigned long)bitmap->base_address == address &&
+		if (hud_hires_bitmap_resident(bitmap) && (unsigned long)bitmap->base_address == address &&
 			bitmap->width == width && bitmap->height == height &&
 			hud_hires_ce_stock_matches(ce_stock_bitmaps[index].signature, address, width, height,
 				(unsigned long)bitmap_mipmap_get_pixel_data_size((struct bitmap_data *)bitmap, 0)))
@@ -476,7 +483,7 @@ long hud_hires_upscale_at(unsigned long address, long width, long height)
 	{
 		struct bitmap_data const *bitmap = upscale_bitmaps[index].bitmap;
 
-		if (bitmap->cache_block_index != NONE && (unsigned long)bitmap->base_address == address &&
+		if (hud_hires_bitmap_resident(bitmap) && (unsigned long)bitmap->base_address == address &&
 			bitmap->width == width && bitmap->height == height)
 			return upscale_bitmaps[index].kind;
 	}
@@ -556,21 +563,32 @@ boolean hud_hires_button_draw(struct icon_hud_element_definition const *icon,
 	if (!ce_hud_buttons_stock(icon, index)) return FALSE;
 	if (!hud_hires_enabled())
 		return ce_hud_button_draw(icon, cursor, color);
-	slot = index < 6 ? (short)index : hud_button_control_slot((short)index,
-		icon->frame_rate > 0 ? game_time_get() / icon->frame_rate : 0);
-	if (slot < 0) return FALSE;
 	/* (the view drawn now's player's, player 1's outside a view (the menus,
 	one for the screen); the controls' pictures are every style's) */
 	style = hud_button_style(render.local_player_index >= 0 && render.local_player_index < MAXIMUM_LOCAL_PLAYERS ?
 		render.local_player_index : 0);
+	/* port: the controller's own family's pictures (Xbox modern, PlayStation,
+	Switch: controller_glyphs.c), as the view's controller is detected
+	(input.auto_button_detection, display.hud_button_style_xbox, _ps and
+	_switch), and the modern LB and RB (display.hud_bumper_style) with the
+	classic styles; else the Xbox's faces below, in the profile's style */
+	{
+		short glyph_style = controller_glyph_style();
+
+		if (controller_glyph_draw(glyph_style >= 3 ? glyph_style : style, (short)index, icon, cursor, color))
+			return TRUE;
+	}
+	slot = index < 6 ? (short)index : hud_button_control_slot((short)index,
+		icon->frame_rate > 0 ? game_time_get() / icon->frame_rate : 0);
+	if (slot < 0) return FALSE;
 	cache = &hud_buttons[slot >= 6 ? 0 : style][slot];
 	if (!cache->attempted)
 	{
 		cache->attempted = TRUE;
 		for (asset = 0; asset < hud_hires_asset_count(); asset++)
 		{
-			if (strcmp(hud_hires_asset_tag(asset), slot >= 6 ? hud_button_control_name(slot) : style == 0 ? classic_names[index] :
-				style == 1 ? gem_names[index] : names[index])) continue;
+			if (strcmp(hud_hires_asset_tag(asset), slot >= 6 ? hud_button_control_name(slot) : style == 0 ? classic_names[slot] :
+				style == 1 ? gem_names[slot] : names[slot])) continue;
 			bitmap = bitmap_2d_new(slot >= 6 ? 64 : 32, slot >= 6 ? 64 : 32, 0, 11);
 			if (!bitmap) break;
 			if (!rasterizer_bitmap_new(bitmap))

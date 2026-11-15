@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.network_setup.mcc_downloads.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/screen" type="column_list" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/description" x="40" y="80"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/previous" x="60" y="300"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/next" x="330" y="300"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/remove" x="195" y="340"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/back" x="195" y="390"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/title" x="40" y="24"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/title" type="text" box="0 0 560 40">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test" text="MCC DOWNLOADS"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/description" type="text" box="0 0 560 200">
+		<text font="ui\small_ui" color="#FFFFFFFF"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/previous" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="PREVIOUS"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/next" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="NEXT"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/remove" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/back" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="BACK"/>
+	</look>
+</model>

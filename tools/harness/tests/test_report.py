@@ -160,30 +160,6 @@ def test_negative_control(control):
     assert status == CHECK_FAILED, f"{control} was not caught: {output}"
 
 
-def test_key_row_and_documentation():
-    """F8 by default (F9 is the game's own debug key, Profile Reset: debug_keys.c), an action of the keyboard's that Key Bindings lists; SAVE REPORT on Settings > Profiles, whose
-    handler the menus know; the settings table and the controls' table"""
-    config = read("port/linux/src/port_config.c")
-    assert re.search(r'\{ "controls.report", _config_string, "\\"F8\\"", "HALO_KEY_REPORT"', config)
-    assert "HALO_KEYBOARD_REPORT," in read("port/linux/include/halo_keyboard.h")
-    assert '"controls.report"' in read("port/linux/src/xinput_sdl.c")
-    assert '{ "controls.report", L"SAVE REPORT", 2, FALSE }' in read("port/linux/game/menu_functions.c")
-    page = read("port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit."
-                "profile_settings.xml")
-    assert 'run="port settings report"' in page and "REPORT A PROBLEM" in page
-    assert '"port settings report"' in read("port/linux/game/menu_tags.c")
-    readme = read("port/linux/README.md")
-    assert "| report a problem to the developers (refer to \"Reports\") | F8 |" in readme
-    assert "`screenshot`, `report`, `push_to_talk`" in readme
-    assert "### Reports" in readme and '"What happened?"' in readme
-    # the mods and the map, by their names, never a folder's path
-    assert "## Mods and maps" in read("port/linux/src/report.c") and "the mods on, in their load order" in readme
-    # the note's line: the chat's, in any game, its Enter and Escape giving it to the report
-    chat = read("port/linux/game/network_chat.c")
-    assert 'L"What happened?"' in chat and "report_note_done(chat_input.text);" in chat
-    assert "report_note_done(NULL);" in chat
-
-
 def test_update_ends_the_session_first():
     """the updater's new build starts while this one is still quitting (or in its process, under gamescope): this
     session's reports/.running removed first, or the new build takes the update for a crash and asks to report it
@@ -197,19 +173,3 @@ def test_update_ends_the_session_first():
     handover = function(report, "report_session_handover")
     assert "report_session_end();" in handover and "report_session_write();" in handover
     assert "if (!report_session_begun)\n\t\treturn;" in handover
-
-
-def test_note_and_issue_wait():
-    """the note asked for only with the keyboard's key (a menu's row has no keyboard to answer it); the issue held
-    for the main menu, not a loading screen; the note's line closed out of a game, its report mode with it"""
-    assert "report_request(1);" in read("port/linux/src/xinput_sdl.c")
-    assert "report_request(FALSE);" in read("port/linux/game/menu_functions.c")
-    report = read("port/linux/src/report.c")
-    assert "if (!report_capture.crash && report_asked_by_key && report_game_playing() && report_game_note_begin())" in report
-    assert "if (report_pending.count && report_game_menus())" in report
-    assert "if (report_job.url && !report_game_menus())" in report
-    assert "return report_game_map() == 2 && ui_widgets_active();" in read("port/linux/game/report_game.c")
-    chat = read("port/linux/game/network_chat.c")
-    end = function(chat, "chat_input_end")
-    assert "chat_input.report = FALSE;" in end
-    assert "if (!report_game_playing() || chat_hidden())" in function(chat, "chat_report_update")

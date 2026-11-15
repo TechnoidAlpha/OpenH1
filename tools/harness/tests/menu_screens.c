@@ -311,6 +311,21 @@ int main(int argc, char **argv)
 		refused("<screen name=\"main\"><panel><spartan height=\"400\"/></panel></screen>", "1 to 360");
 		refused("<screen name=\"main\"><spartan color=\"profile.color\" players=\"2\"/></screen>",
 			"one player's");
+		/* (a lineup's names, a binding's: none of a profile's Spartan, none
+		of no binding, none in a panel) */
+		CHECK(read_text("<screen name=\"main\"><spartan color=\"test.value\" names=\"test.flag\"/></screen>", &screen,
+			problem), "refused: %s", problem);
+		CHECK(screen.blocks[0].names && !strcmp(screen.blocks[0].names, "test.flag"), "a lineup's names");
+		menu_screen_free(&screen);
+		CHECK(read_text("<screen name=\"main\"><spartan color=\"test.value\"/></screen>", &screen, problem),
+			"refused: %s", problem);
+		CHECK(!screen.blocks[0].names, "names without a names attribute");
+		menu_screen_free(&screen);
+		refused("<screen name=\"main\"><spartan names=\"test.flag\"/></screen>", "names are a lineup's");
+		refused("<screen name=\"main\"><spartan color=\"test.value\" names=\"nothing.here\"/></screen>",
+			"no binding {nothing.here}");
+		refused("<screen name=\"main\"><panel><spartan color=\"test.value\" names=\"test.flag\"/></panel></screen>",
+			"has no attribute names");
 		/* (one of the screen's own and one in each panel: a player's card's
 		beside a lineup; a touchscreen's height) */
 		CHECK(read_text("<screen name=\"main\"><spartan color=\"test.value\" touch-height=\"60\"/><panel>"
@@ -778,8 +793,10 @@ int main(int argc, char **argv)
 			panel_buttons += block->kind == MENU_SCREEN_BUTTON && screen.blocks[block->parent].kind == MENU_SCREEN_PANEL;
 			rights += block->kind == MENU_SCREEN_BUTTON && block->side && !strcmp(block->side, "right");
 		}
-		CHECK(choices == 4 && panel_buttons == 8, "%d choices, %d panel buttons", choices, panel_buttons);
-		CHECK(rights == 6, "%d buttons at the bar's right", rights);
+		/* (the panels' buttons: a co-op host's fix too, coop.fix; the bar's
+		right: a co-op host's COPY LINK too) */
+		CHECK(choices == 4 && panel_buttons == 9, "%d choices, %d panel buttons", choices, panel_buttons);
+		CHECK(rights == 7, "%d buttons at the bar's right", rights);
 		CHECK(kind_first(&screen, MENU_SCREEN_CHAT) >= 0 &&
 			!strcmp(screen.blocks[kind_first(&screen, MENU_SCREEN_CHAT)].source, "lobby.chat"), "the lobby's chat");
 		/* (its panels: the next game's (its map's picture), a player's card
@@ -788,7 +805,9 @@ int main(int argc, char **argv)
 		CHECK(kind_total(&screen, MENU_SCREEN_PANEL, -2) == 3 && kind_total(&screen, MENU_SCREEN_PICTURE, -2) == 1,
 			"the panels and the picture");
 		CHECK(kind_total(&screen, MENU_SCREEN_SPARTAN, -1) == 1 && kind_total(&screen, MENU_SCREEN_SPARTAN, -2) == 2 &&
-			!strcmp(screen.blocks[kind_first(&screen, MENU_SCREEN_SPARTAN)].value, "lobby.lineup"),
+			!strcmp(screen.blocks[kind_first(&screen, MENU_SCREEN_SPARTAN)].value, "lobby.lineup") &&
+			screen.blocks[kind_first(&screen, MENU_SCREEN_SPARTAN)].names &&
+			!strcmp(screen.blocks[kind_first(&screen, MENU_SCREEN_SPARTAN)].names, "lobby.lineup.names"),
 			"the lineup and the card's Spartan");
 		menu_screen_free(&screen);
 	}
@@ -871,6 +890,136 @@ int main(int argc, char **argv)
 			"if=\"nothing.here\"/></list></box></screen>", "no binding {nothing.here}");
 		refused("<screen name=\"t\"><box x=\"1\" y=\"10\" width=\"200\"><list><item label=\"A\" do=\"quit\"/>"
 			"</list></box><box x=\"1\" y=\"10\" width=\"200\"/></screen>", "one <box>");
+	}
+	else if (!strcmp(name, "dialog"))
+	{
+		/* the pop-ups' files (#901): a <dialog>'s title and words, and its
+		list's items its choices; the question as the gametype editor is
+		left with changes (SAVE, DON'T SAVE, CANCEL) and Quit's */
+		struct menu_screen_block const *dialog;
+		int dialog_index, list_index;
+
+		CHECK(read_text(save_changes_xml, &screen, problem), "the save question's file is refused: %s", problem);
+		dialog_index = kind_first(&screen, MENU_SCREEN_DIALOG);
+		list_index = kind_first(&screen, MENU_SCREEN_LIST);
+		CHECK(dialog_index >= 0 && list_index >= 0, "no dialog, or no list");
+		dialog = &screen.blocks[dialog_index];
+		CHECK(dialog->label && !strcmp(dialog->label, "SAVE CHANGES?"), "its title");
+		CHECK(dialog->text && strstr(dialog->text, "unsaved changes"), "its words");
+		CHECK(screen.blocks[list_index].parent == dialog_index, "the list not in the dialog");
+		CHECK(kind_total(&screen, MENU_SCREEN_ITEM, list_index) == 3, "%d choices",
+			kind_total(&screen, MENU_SCREEN_ITEM, list_index));
+		CHECK(block_of(&screen, "save") && !strcmp(block_of(&screen, "save")->action, "edit save") &&
+			block_of(&screen, "discard") && !strcmp(block_of(&screen, "discard")->action, "edit discard") &&
+			block_of(&screen, "cancel") && !strcmp(block_of(&screen, "cancel")->action, "back"),
+			"its choices' actions");
+		CHECK(!strcmp(screen.blocks[list_index].focus, "save"), "its focus");
+		menu_screen_free(&screen);
+		CHECK(read_text(quit_xml, &screen, problem), "Quit's file is refused: %s", problem);
+		CHECK(kind_total(&screen, MENU_SCREEN_DIALOG, -1) == 1 &&
+			kind_total(&screen, MENU_SCREEN_ITEM, kind_first(&screen, MENU_SCREEN_LIST)) == 2, "Quit's two choices");
+		CHECK(block_of(&screen, "ok") && !strcmp(block_of(&screen, "ok")->action, "quit game"), "Quit's OK");
+		menu_screen_free(&screen);
+		/* (what a dialog must have and may not) */
+		refused("<screen name='t'><dialog title='T' text='W'/></screen>", "<list> of its choices");
+		refused("<screen name='t'><dialog text='W'><list><item label='A' do='back'/></list></dialog>"
+			"</screen>", "has its title");
+		refused("<screen name='t'><dialog title='T'><list><item label='A' do='back'/>"
+			"<item label='B' do='back'/><item label='C' do='back'/><item label='D' do='back'/>"
+			"<item label='E' do='back'/></list></dialog></screen>", "at most 4 choices");
+		refused("<screen name='t'><dialog title='T' text='{nothing.here}'><list><item label='A' do='back'/>"
+			"</list></dialog></screen>", "no binding {nothing.here}");
+		refused("<screen name='t'><dialog title='T'><list><item label='A' do='open nowhere'/></list>"
+			"</dialog></screen>", "no action");
+		refused("<screen name='t'><dialog title='T'><list><item label='A' do='back'/></list></dialog>"
+			"<dialog title='U'/></screen>", "one <dialog>");
+		refused("<screen name='t'><list><item label='A' do='back'/></list><dialog title='T'/></screen>",
+			"with no <box>, <table> or <list> beside it");
+		refused("<screen name='t'><dialog title='T' words='W'><list><item label='A' do='back'/></list>"
+			"</dialog></screen>", "no attribute words");
+	}
+	else if (!strcmp(name, "coop"))
+	{
+		static char const *const coop_actions[] = { "coop host", "coop join", "coop split" };
+		static char const *const who_actions[] = { "coop host friends", "coop host anyone", "coop host invite" };
+		static char const *const columns[] = { "host", "mission", "difficulty", "players", "ping" };
+		struct menu_screen_block const *table, *fix;
+		int index, table_index, cards = 0;
+
+		/* (co-op's one screen: HOST, JOIN and SPLIT SCREEN's cards, HOST
+		focused first) */
+		CHECK(read_text(coop_xml, &screen, problem), "co-op's file is refused: %s", problem);
+		CHECK(!strcmp(screen.name, "coop") && kind_total(&screen, MENU_SCREEN_CARDS, -2) == 1 &&
+			!strcmp(screen.blocks[kind_first(&screen, MENU_SCREEN_CARDS)].focus, "host"), "co-op's cards");
+		for (index = 0; index < screen.block_count; index++)
+		{
+			if (screen.blocks[index].kind != MENU_SCREEN_CARD)
+				continue;
+			CHECK(cards < 3 && !strcmp(screen.blocks[index].action, coop_actions[cards]), "co-op's card %d", cards);
+			cards++;
+		}
+		CHECK(cards == 3, "%d co-op cards", cards);
+		menu_screen_free(&screen);
+		/* (WHO CAN JOIN: FRIENDS, ANYONE, INVITE ONLY, each hosting) */
+		CHECK(read_text(coop_who_xml, &screen, problem), "WHO CAN JOIN's file is refused: %s", problem);
+		cards = 0;
+		for (index = 0; index < screen.block_count; index++)
+		{
+			if (screen.blocks[index].kind != MENU_SCREEN_CARD)
+				continue;
+			CHECK(cards < 3 && !strcmp(screen.blocks[index].action, who_actions[cards]), "WHO CAN JOIN's card %d",
+				cards);
+			cards++;
+		}
+		CHECK(cards == 3 && !strcmp(screen.blocks[kind_first(&screen, MENU_SCREEN_CARDS)].focus, "friends"),
+			"WHO CAN JOIN's cards");
+		menu_screen_free(&screen);
+		/* (the co-op list: the server browser's games, its columns the
+		host, mission, difficulty, players and ping, an empty list's fix
+		under its words, no tabs nor searches) */
+		CHECK(read_text(coop_join_xml, &screen, problem), "the co-op list's file is refused: %s", problem);
+		table_index = kind_first(&screen, MENU_SCREEN_TABLE);
+		CHECK(table_index >= 0, "no table");
+		table = &screen.blocks[table_index];
+		CHECK(!strcmp(table->source, "browser.games") && !strcmp(table->action, "browser join") && table->empty,
+			"the co-op list's source, do or empty");
+		CHECK(kind_total(&screen, MENU_SCREEN_COLUMN, table_index) == 5, "%d columns",
+			kind_total(&screen, MENU_SCREEN_COLUMN, table_index));
+		for (index = 0; index < 5; index++)
+			CHECK(block_of(&screen, columns[index]) != NULL, "no %s column", columns[index]);
+		CHECK(block_of(&screen, "ping")->cell == MENU_SCREEN_CELL_PING, "the ping's column");
+		fix = &screen.blocks[kind_first(&screen, MENU_SCREEN_BUTTON)];
+		CHECK(fix->parent == table_index && !strcmp(fix->action, "coop fix") && !strcmp(fix->condition, "browser.fix"),
+			"the empty list's fix");
+		CHECK(kind_total(&screen, MENU_SCREEN_TAB, -2) == 0 && kind_total(&screen, MENU_SCREEN_SEARCH, -2) == 0,
+			"the co-op list has tabs or searches");
+		menu_screen_free(&screen);
+		/* (the server browser's CO-OP tab: co-op's screen) */
+		CHECK(read_text(browser_xml, &screen, problem), "the browser's file is refused: %s", problem);
+		CHECK(block_of(&screen, "coop") && !strcmp(block_of(&screen, "coop")->action, "open coop"),
+			"the browser's CO-OP tab does not open co-op's screen");
+		menu_screen_free(&screen);
+	}
+	else if (!strcmp(name, "add_player"))
+	{
+		static char const *const columns[] = { "color", "controller", "profile", "state" };
+		struct menu_screen_block const *done;
+		int index, table_index;
+
+		/* (Add Player: the four controllers' rows, its back and Start the
+		screen's own (those joining let go of; brought in), DONE in the
+		panel once all are ready) */
+		CHECK(read_text(add_player_xml, &screen, problem), "Add Player's file is refused: %s", problem);
+		CHECK(!strcmp(screen.name, "add_player") && !strcmp(screen.back, "add player back") &&
+			!strcmp(screen.start, "add player done"), "Add Player's name, back or start");
+		table_index = kind_first(&screen, MENU_SCREEN_TABLE);
+		CHECK(table_index >= 0 && !strcmp(screen.blocks[table_index].source, "add.players"), "Add Player's table");
+		for (index = 0; index < 4; index++)
+			CHECK(block_of(&screen, columns[index]) != NULL, "no %s column", columns[index]);
+		CHECK(block_of(&screen, "color")->cell == MENU_SCREEN_CELL_SWATCH, "the color's column");
+		done = &screen.blocks[kind_first(&screen, MENU_SCREEN_BUTTON)];
+		CHECK(!strcmp(done->action, "add player done") && !strcmp(done->condition, "add.done"), "DONE");
+		menu_screen_free(&screen);
 	}
 	else
 	{

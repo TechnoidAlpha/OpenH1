@@ -183,15 +183,15 @@ int main(int argc, char **argv)
 		network_standard_globals.joined = TRUE;
 		network_standard_globals.local_vehicle_hijack = TRUE;
 		CHECK(!network_standard_vehicle_hijack(), "a client took its own setting, not its host's record");
-		SET_FLAG(record.cooperative_flags, _network_game_vehicle_hijack_bit, TRUE);
+		SET_FLAG(record.standard_flags, _network_game_vehicle_hijack_bit, TRUE);
 		CHECK(network_standard_vehicle_hijack(), "a client did not take its host's record");
 		network_standard_globals.vehicle_hijack_heard = FALSE;
 		CHECK(!network_standard_vehicle_hijack(), "a client did not take its host's word during the game");
 		network_standard_globals.vehicle_hijack_heard = TRUE;
-		SET_FLAG(record.cooperative_flags, _network_game_vehicle_hijack_bit, FALSE);
+		SET_FLAG(record.standard_flags, _network_game_vehicle_hijack_bit, FALSE);
 		CHECK(network_standard_vehicle_hijack(), "a client took the record over its host's later word");
 		network_standard_globals.joined = FALSE;
-		SET_FLAG(record.cooperative_flags, _network_game_vehicle_hijack_bit, TRUE);
+		SET_FLAG(record.standard_flags, _network_game_vehicle_hijack_bit, TRUE);
 		CHECK(!network_standard_vehicle_hijack(), "a Legacy game's client played it");
 		return 0;
 	}
@@ -208,7 +208,7 @@ int main(int argc, char **argv)
 		CHECK(network_standard_vehicle_hijack(), "a demo did not play its header's rule");
 		demo_game = &record;
 		CHECK(!network_standard_vehicle_hijack(), "a host's demo did not play its record's rule");
-		SET_FLAG(record.cooperative_flags, _network_game_vehicle_hijack_bit, TRUE);
+		SET_FLAG(record.standard_flags, _network_game_vehicle_hijack_bit, TRUE);
 		network_standard_globals.local_vehicle_hijack = FALSE;
 		CHECK(network_standard_vehicle_hijack(), "a host's demo played this machine's setting");
 		return 0;

@@ -7,7 +7,7 @@ whatever its own game.enhanced_animations, a game of one machine its setting
 as its map began, a demo's playback its recording's, never the playback
 machine's settings. */
 #include "config.inc"
-struct network_game { unsigned long cooperative_flags; };
+struct network_game { unsigned long cooperative_flags; byte standard_flags; };
 static struct network_game record;
 static short connection;
 static boolean demo_is_playing;
@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 		network_standard_globals.joined = TRUE;
 		CHECK(network_standard_enhanced_animations(), "a client took its own setting, not its host's");
 		CHECK(network_standard_turns_with_aim(0), "a client's turning not its host's");
-		record.cooperative_flags = FLAG(_network_game_classic_turning_bit);
+		record.standard_flags = FLAG(_network_game_classic_turning_bit);
 		network_standard_globals.local_enhanced_animations = TRUE;
 		CHECK(!network_standard_enhanced_animations(), "a Classic host's client has the enhancements");
 		CHECK(!network_standard_turns_with_aim(0), "a Classic host's client turns");

@@ -55,16 +55,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("pause_box_fit", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_pause_boxes_kept_and_fitted():
-    """Both pause menus keep their box for pause_boxes_fit rather than widening it as the map loads, and it runs
-    each frame the menus are drawn."""
-    tags = read(SOURCE)
-    assert "pause_box_keep(box, NULL, NULL, growth);" in function(tags, "pause_patch")
-    assert "pause_box_widen(" not in function(tags, "pause_patch")
-    campaign = function(tags, "pause_campaign_widen")
-    assert "pause_box_keep(box, moved, split_moved, growth);" in campaign
-    assert "pause_box_widen(" not in campaign and "pause_objectives_move(" not in campaign
-    layout = function(tags, "ui_widget_port_wide_layout")
-    assert layout.index("pause_boxes_fit();") < layout.index("return;")

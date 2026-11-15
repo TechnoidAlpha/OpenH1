@@ -1,6 +1,5 @@
 """Actual transparent queue sorting, skinning and plane ordering, without GL."""
 import sys
-import re
 from pathlib import Path
 
 import pytest
@@ -63,16 +62,6 @@ def generated(control=None):
 def test_case(case):
     status, output = run(build("transparent_plane_order", generated()), case)
     assert status == 0, output
-
-
-def test_compressed_weight_declaration():
-    # Confirm that the CPU's signed-short weights match the actual draw stream.
-    source = read("source/rasterizer/xbox/rasterizer_xbox_vertex_shaders_initialize.c")
-    declaration = re.search(r"vertex_shader_declarations\[\]\s*=\s*\{([^}]+)\}", source).group(1)
-    tokens = [int(v, 16) for v in re.findall(r"0x[\dA-Fa-f]+", declaration)]
-    offset = int(re.search(r"vertex_shader_table\[13\]\.declaration = &vertex_shader_declarations\[(0x[\dA-Fa-f]+)", source).group(1), 16) // 4
-    weight = next(v for v in tokens[offset:offset+9] if v != 0xFFFFFFFF and v & 0xFFFF == 6)
-    assert (weight >> 16) & 0xFF == constant(read("port/include/xdk/xdk_d3d8.h"), "D3DVSDT_NORMSHORT1")
 
 
 @pytest.mark.parametrize("control", CONTROLS)

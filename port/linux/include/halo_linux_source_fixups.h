@@ -54,6 +54,12 @@ unsigned int halo_gpu_journal_form(void);
 the objects not found */
 int halo_gpu_journal_replay(unsigned int const *words, unsigned int count,
 	struct halo_gpu_journal_bitmaps const *bitmaps, unsigned int *unknown);
+/* Discard measured listener motion at camera cuts and lifecycle boundaries
+(source/sound/sound_manager.c). NONE resets every local listener. */
+void sound_listener_motion_reset(short local_player_index);
+
+/* MCC weapon-deletion notification (port/linux/game/mcc_first_person.inl). */
+void mcc_first_person_weapon_deleted(long weapon_index);
 
 /* frames between the 30 Hz ticks (port/linux/game/render_interpolation.c);
 the platform layer reads the display.interpolation setting */
@@ -109,6 +115,11 @@ float render_interpolation_first_person_phase(short local_player_index);
 /* ... and how far the step running now ends past it, the same way (0 to 1),
 for a state changed in it (first_person_weapon_start_interpolation) */
 float render_interpolation_first_person_step_phase(void);
+/* ... and a Spartan link feed's weapon (first_person_weapons.c's feeds'
+slots), sampled at the frame's time as the player's own view drawn from
+the newest step is (render_interpolation_first_person_phase): -1 with the
+frames' interpolation off */
+float render_interpolation_first_person_feed_phase(void);
 void render_interpolation_first_person(short local_player_index, struct real_matrix4x3 *node_matrices,
 	short node_count, struct render_camera const *camera);
 float render_interpolation_game_time_sec(long ticks);
@@ -292,6 +303,7 @@ gauge (port/linux/game/weapon_gauge.c) */
 float weapon_gauge_meter_value(long object_index, short value_source, float meter_value);
 /* while TRUE, drawing shifts right to center 640-column layouts */
 void halo_screen_ui_offset(unsigned char centered);
+long halo_screen_ui_offset_current(void);
 /* names a model lighting vertex program, whose draws can be lit for each
 pixel (port/linux/src/d3d8_device.c, display.per_pixel_lighting) */
 void halo_vertex_shader_lighting(unsigned long handle);
@@ -447,6 +459,10 @@ void input_trace_player(int controller, int substep, float forward, float strafe
 void input_trace_aim(int controller, int modern, int accelerating, float acceleration_seconds);
 /* the mouse in the menus (source/interface/ui_widget.c) */
 #include "halo_ui_pointer.h"
+/* the debug camera's mouse and keys (source/camera/director.c): whether the
+middle button, R and F are held, and the wheel's notches since the last call
+(port/linux/src/xinput_sdl.c) */
+int halo_linux_debug_camera_input(int *middle, int *up, int *down, float *wheel);
 
 /* replaces the file at to with the one at from, at once (a rename: on POSIX
 rename(2), on Windows MoveFileEx's replace), both Xbox paths; FALSE if it

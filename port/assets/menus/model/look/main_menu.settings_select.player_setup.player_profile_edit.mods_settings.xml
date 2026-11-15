@@ -12,6 +12,8 @@
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_0" x="28" y="78"/>
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods" x="28" y="100"/>
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods_folder" x="28" y="125"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3" x="28" y="156"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mcc_packages" x="28" y="178"/>
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_bar" x="0" y="448"/>
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tabs" x="0" y="46"/>
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tabs_search" x="0" y="46"/>
@@ -110,5 +112,18 @@
 	</look>
 	<look name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_folder_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
 		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" index="3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mcc_packages" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mcc_packages_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mcc_packages_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" index="4" scale="1 1.2"/>
 	</look>
 </model>

@@ -11,6 +11,11 @@
 		<on event="created" run="initialize sp level list solo"/>
 		<on event="deleted" run="dispose sp level list"/>
 		<on event="custom_activation" run="solo level set map" open="main_menu/difficulty_select/difficulty_select_list_screen"/>
+		<on event="b" run="port mcc solo folder back"/>
+		<on event="back" run="port mcc solo folder back"/>
 	</behaviour>
-	<behaviour name="main_menu/solo_level_select/solo_level_select_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/solo_level_select/solo_level_select_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="port mcc solo folder back"/>
+		<on event="back" run="port mcc solo folder back"/>
+	</behaviour>
 </model>

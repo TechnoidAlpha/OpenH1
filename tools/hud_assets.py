@@ -988,9 +988,11 @@ def thresholds(arguments) -> None:
 def build(arguments) -> None:
     description = json.loads(LAYOUT.read_text())
     names = {f"{entry['name']}.png" for entry in description["assets"]}
-    # (and the Custom Edition sheets tools/ce_hud_assets.py makes from these)
-    if (ASSETS / "ce_layout.json").exists():
-        names |= {f"{entry['name']}.png" for entry in json.loads((ASSETS / "ce_layout.json").read_text())["assets"]}
+    # (and the Custom Edition sheets tools/ce_hud_assets.py makes from these,
+    # and the MCC maps' own, mcc_layout.json's)
+    for listing in ("ce_layout.json", "mcc_layout.json"):
+        if (ASSETS / listing).is_file():
+            names |= {f"{entry['name']}.png" for entry in json.loads((ASSETS / listing).read_text())["assets"]}
     # (all of them, the stale ones removed; or only those named)
     if not arguments.names:
         for stale in ASSETS.glob("*.png"):

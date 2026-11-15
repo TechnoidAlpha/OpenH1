@@ -23,7 +23,7 @@ MT = port_settings.MT
 ROOT_SCREEN = f"{MT}/lobby/lobby_screen"
 WIDTHS = port_settings.WIDE_SCREENS
 CASES = ["teams", "free-for-all", "overflow", "party", "tags", "controls"]
-PURE = ("lobby_board_teams", "lobby_board_tag", "lobby_board_rank", "lobby_board_lay_out_rows", "lobby_board_lay_out",
+PURE = ("lobby_board_teams", "lobby_board_tag", "lobby_board_mark_split", "lobby_board_rank", "lobby_board_lay_out_rows", "lobby_board_lay_out",
         "lobby_board_controls_for")
 
 # a fault in the code, and the case that must catch it
@@ -32,6 +32,10 @@ NEGATIVE_CONTROLS = {
     "one-team": ("short team = entries[order[index]].team == 1 ? 1 : 0;", "short team = 0;", "teams"),
     # (a game without teams split by team)
     "teams-always": ("\tif (!teams)\n\t{\n\t\tshown", "\tif (FALSE)\n\t{\n\t\tshown", "free-for-all"),
+    # (a machine's P2 the host too, as every player of the host's machine was)
+    "split-host": ("\t\tif (entries[index].split)\n\t\t\tentries[index].host = FALSE;\n", "", "tags"),
+    # (a machine's players all its first)
+    "no-split": ("(controllers[other] < controllers[index] ||", "(FALSE ||", "tags"),
     # (the host not first)
     "host-not-first": ("if (entry->host && !entry->bot)\n\t\treturn 0;", "if (FALSE)\n\t\treturn 0;", "party"),
     # (the party's members not together)

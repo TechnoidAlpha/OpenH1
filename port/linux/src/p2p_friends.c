@@ -310,6 +310,10 @@ static struct
 	struct p2p_friends_notice notices[MAXIMUM_NOTICES];
 	int notice_count;
 	unsigned long notice_serial;
+	/* the game this machine hosts is its invite's alone (a co-op game's
+	INVITE ONLY: p2p_friends_set_game_closed): its presence offers no JOIN
+	while it hosts */
+	int game_closed;
 } friends;
 
 /* the messages sent now are the last before the game quits */
@@ -1248,9 +1252,10 @@ static void presence_now(struct presence *presence)
 	}
 	else
 		p2p_party_spare(link, sizeof(link), id, sizeof(id));
-	if (p2p_party_parse_link(link, presence->token))
-		presence->flags |= _presence_joinable;
 	p2p_discord_game(&hosting, &playing, presence->description, sizeof(presence->description), &players, &maximum);
+	/* (a game hosted for its invite alone: no JOIN offered while it is) */
+	if (!(hosting && friends.game_closed) && p2p_party_parse_link(link, presence->token))
+		presence->flags |= _presence_joinable;
 	if (hosting)
 		presence->flags |= _presence_hosting;
 	if (playing)
@@ -2222,6 +2227,26 @@ int p2p_friends_join(const unsigned char *code)
 		p2p_log("Friends: joining %s's party", record->name);
 	pthread_mutex_unlock(&p2p_lock);
 	return joined;
+}
+
+void p2p_friends_set_game_closed(int closed)
+{
+	pthread_mutex_lock(&p2p_lock);
+	if (friends.game_closed != (closed != 0))
+		p2p_log(closed ? "Friends: the game hosted is invite only: friends are offered no JOIN" :
+			"Friends: friends may join the game hosted");
+	friends.game_closed = closed != 0;
+	pthread_mutex_unlock(&p2p_lock);
+}
+
+int p2p_friends_game_closed(void)
+{
+	int closed;
+
+	pthread_mutex_lock(&p2p_lock);
+	closed = friends.game_closed;
+	pthread_mutex_unlock(&p2p_lock);
+	return closed;
 }
 
 int p2p_friends_invite(const unsigned char *code)

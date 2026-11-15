@@ -315,6 +315,10 @@ def _generate_host(n: Writer, sln: Any, guest: Dict[str, Path]) -> None:
         if name == "win32_upnp.c":
             cflags = f"{win32_cflags} {miniupnpc_include}"
         add(WINDOWS_DIR / "src" / name, cflags)
+    # the MCC packages' previews and sharing (posix.h's posix_mcc_*), whose
+    # files have Windows's paths of their own
+    for name in ("posix_mcc_preview.c", "posix_mcc_share.c"):
+        add(LINUX_DIR / "src" / name, win32_cflags)
     for source in miniupnpc_sources():
         add(source, " ".join([*base_cflags, miniupnpc_include, f"-I{MINIUPNPC_DIR / 'src'}", "-w"]),
             name=f"miniupnpc_{source.name}.o")

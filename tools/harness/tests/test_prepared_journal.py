@@ -27,7 +27,6 @@ def generated(fault=None):
                         function(prepared, 'prepared_hash_string'),
                         function(prepared, 'prepared_key_of'),
                         function(prepared, 'prepared_key'),
-                        function(prepared, 'render_prepared_key'),
                         function(prepared, 'render_prepared_played'),
                         function(prepared, 'prepared_header_fits'),
                         function(prepared, 'render_prepared_draws_missing')))

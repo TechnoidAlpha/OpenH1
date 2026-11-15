@@ -20,6 +20,7 @@ is logcat's, tag "halo".
 */
 
 #include "host.h"
+#include "host_mcc_memory.h"
 #include "tomlc17.h"
 
 #include <SDL3/SDL.h>
@@ -313,7 +314,7 @@ static void *game_main(void *unused)
 		/* The guest needs the landscape display's pixel dimensions before
 		its window opens; afterwards it queries the drawable itself. */
 		const SDL_DisplayMode *mode;
-		char width[16], height[16];
+		char width[16], height[16], refresh[16];
 
 		SDL_InitSubSystem(SDL_INIT_VIDEO);
 		mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
@@ -332,6 +333,13 @@ static void *game_main(void *unused)
 			host_environment_set(&environment, "HALO_DISPLAY_HEIGHT", height);
 			host_logf(HOST_LOG_INFO, "display %dx%d: rendering %sx%s (render scale %.2f)", mode->w, mode->h, width,
 				height, render_scale);
+		}
+		if (mode)
+		{
+			/* display.max_fps's "twice the refresh rate" (sdl_platform.c):
+			the guest cannot ask SDL for the display mode */
+			snprintf(refresh, sizeof(refresh), "%g", mode->refresh_rate > 0.0f ? mode->refresh_rate : 60.0f);
+			host_environment_set(&environment, "HALO_DISPLAY_REFRESH", refresh);
 		}
 		{
 			/* dp for the touch controls (port/linux/src/touch_input.c): SDL
@@ -423,6 +431,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 	/* (before main: what the reservation finds goes to logcat too) */
 	host_log_set_sink(log_to_logcat);
 	host_memory_reserve_early();
+	/* MCC must reserve before the guest and renderer make allocations. */
+	host_mcc_memory_initialize();
 	return JNI_VERSION_1_6;
 }
 

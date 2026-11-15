@@ -55,8 +55,8 @@ enum
 (network_chat.c's CHAT_TEXT_SIZE, 63 characters) */
 static char const *const welcome_lines[] =
 {
-	"This server runs OpenH1.",
-	"Get it free at openh1.com for smoother 60 and 120 tick games.",
+	"This server runs GOAT H1.",
+	"Get it free at goath1.com for smoother 60 and 120 tick games.",
 };
 
 /* ---------- structures */

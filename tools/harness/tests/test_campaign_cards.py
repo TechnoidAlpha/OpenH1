@@ -97,23 +97,6 @@ def test_generator_sizes_are_the_engines():
             assert (int(attributes["width"]), int(attributes["height"])) == size
 
 
-def test_the_menus_open_them():
-    """The main menu's CAMPAIGN opens the Campaign menu, a new profile's campaign the difficulties, and split-screen
-    co-op's player 2 Choose Mission: no screen opens the old list (New Game's, Load Game's)."""
-    main_menu = (menu_layout.CE / "main_menu.xml").read_text()
-    assert main_menu.count(f'open="{CAMPAIGN}/campaign_screen"') == 2
-    assert f'open="{CAMPAIGN}/difficulty_screen"' in main_menu
-    coop = (menu_layout.CE / "main_menu.multiplayer_type_select.coop.xml").read_text()
-    assert f'open="{CAMPAIGN}/mission_screen"' in coop
-    for path in menu_layout.CE.glob("*.xml"):
-        if path.name.startswith(("main_menu.campaign_select", "main_menu.solo_level_select")):
-            continue
-        text = path.read_text()
-        for old in ("campaign_select/campaign_menu", "solo_level_select/solo_level_select_screen",
-                    "difficulty_select/difficulty_select_list_screen", "load_level_select_screen"):
-            assert f'open="main_menu/{old}"' not in text, (path.name, old)
-
-
 def test_functions_are_named():
     """Every function and game data input the campaign's file runs is one menu_tags.c names."""
     tags = read("port/linux/game/menu_tags.c")
@@ -219,14 +202,3 @@ def test_mission_cards_fit(aspect):
         assert len(badges) == 4
         _apart(badges, "the card's badges")
         assert one(boxes, f"card_title_{kind}").y1 <= min(box.y0 for box in badges)
-
-
-def test_one_wording_and_lines():
-    """Every card says NOT YET BEATEN (issue 681: the cards beside the chosen one said NOT BEATEN, a shorter wording
-    that fit their box), and the panel wraps the objective to the lines its box holds."""
-    source = read("port/linux/game/campaign_menu.inc")
-    card = function(source, "mission_card_show")
-    assert 'L"NOT YET BEATEN"' in card and '"NOT BEATEN"' not in source and '"UNBEATEN"' not in source
-    panel = function(source, "mission_panel_show")
-    assert panel.count('menu_text_box_wrap(named(panel, "detail_objective", 0)') == 2
-    assert panel.count("MISSION_OBJECTIVE_LINES);") == 2

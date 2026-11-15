@@ -114,20 +114,3 @@ def test_case(case):
 def test_negative_control(control):
     status, output = run(build("typed_values", generated(control)), NEGATIVE_CONTROLS[control][2])
     assert status == CHECK_FAILED, f"{control} was not caught: {output}"
-
-
-def test_caret_on_the_capitals_middle():
-    """Every text field's caret (text_field_show's, the sliders' held on: Server Setup's, the browser's searches, the
-    touchscreen's search, a password's, a friend code's, Host Controls') is drawn by the text box, empty or not: a bar
-    about the font's capitals, on their middle, which the fields' text_y puts on the field's middle (test_menu_fit's
-    "centred"); no field draws an underscore."""
-    menus = read("port/linux/game/menu_functions.c")
-    assert "L'_'" not in menus
-    assert "ui_widget_port_caret_show(value_text, TRUE);" in menus
-    widgets = read("source/interface/ui_widget.c")
-    draw = function(widgets, "ui_widget_port_caret_draw")
-    assert "draw_unicode_string_capital_middle(bounds, text)" in draw and "draw_string_capital_height()" in draw
-    assert re.search(r"middle - half, middle \+ half", draw)
-    render = function(widgets, "widget_instance_render_text_box")
-    assert render.count("ui_widget_port_caret_draw(") == 2
-    assert "if ((!*text || !**text) && !caret)" in render

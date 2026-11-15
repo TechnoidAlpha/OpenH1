@@ -2,3 +2,15 @@
 # Windows checkout (core.autocrlf): a CRLF shebang line does not start.
 *.sh text eol=lf
 port/android/gradlew text eol=lf
+
+# The menus tools/ce_menus.py writes (tools/menus_regen.sh's GENERATED):
+# folded in GitHub's diffs, and merged by taking our side, since the
+# post-merge hook (or tools/menus_regen.sh --resolve) writes them again from
+# the merged sources. tools/git_setup.sh sets up the menus-generated driver;
+# without it git merges them as any file.
+port/assets/menus/ce/** merge=menus-generated linguist-generated
+port/assets/menus/port_svg/** merge=menus-generated linguist-generated
+port/assets/menus/model/** merge=menus-generated linguist-generated
+port/assets/menus/menus.json merge=menus-generated linguist-generated
+port/assets/menus/NON_HANDDRAWN.md merge=menus-generated linguist-generated
+port/assets/menus/UNWIRED.md merge=menus-generated linguist-generated

@@ -15,6 +15,17 @@ header included in hcex build.
 
 /* ---------- constants */
 
+/* port: the first-person weapons' slots: each local player's (4), then the
+HUD's Spartan link's feeds', one for each teammate a feed shows
+(port/linux/game/spartan_link.c: up to four feeds in each of four windows),
+whose weapon and arms are animated as on the teammate's own screen, drawing
+only, beside the game state */
+enum
+{
+	FIRST_PERSON_WEAPON_FEEDS = 16,
+	FIRST_PERSON_WEAPON_SLOTS = 4+FIRST_PERSON_WEAPON_FEEDS,
+};
+
 /* ---------- macros */
 
 /* ---------- structures */
@@ -55,7 +66,8 @@ short first_person_weapon_get_marker_by_name_render(
 	char const *name,
 	struct object_marker *markers,
 	short maximum_marker_count);
-void first_person_weapon_center_flashlight(
+/* port: TRUE where the viewmodel placed it */
+boolean first_person_weapon_center_flashlight(
 	long unit_index,
 	real_point3d *position,
 	real_vector3d *forward,

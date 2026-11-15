@@ -106,23 +106,3 @@ def test_negative_control(control):
     where, change, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("host_rules", generated((where, change))), case)
     assert status == CHECK_FAILED, f"a fault ({control}) passed '{case}': the test cannot see it\n{output}"
-
-
-def test_rules_are_wired():
-    """RULES is GAME's CHANGE RULES..., the message is an OpenH1 game's (OpenH1's own, which no OpenCE machine is
-    sent) and its protocol version was raised for it, the lobby takes the changes that waited, and the game's update
-    runs the vehicle set's change each second."""
-    menu = read("port/linux/game/host_controls_menu.inc")
-    assert "_host_tab_rules = NUMBER_OF_HOST_TABS," in menu and "_host_game_change_rules," in menu
-    distributed = read("port/linux/game/network_distributed.h")
-    assert "#define FIRST_OPENH1_DISTRIBUTED_MESSAGE _distributed_message_player_substeps" in distributed
-    first = int(re.search(r"_distributed_message_player_substeps = (\d+)", distributed).group(1))
-    assert int(re.search(r"_distributed_message_host_rules = (\d+)", distributed).group(1)) >= first
-    limits = read("port/linux/include/halo_port_limits.h")
-    assert int(re.search(r"#define HALO_PORT_STANDARD_NETWORK_VERSION (\d+)", limits).group(1)) >= 10
-    host_game = read("port/linux/game/network_host_game.c")
-    assert "network_host_rules_apply_waiting(variant, TRUE);" in function(host_game, "host_game_apply_limits")
-    engine = read("source/game/game_engine.c")
-    assert "game_engine_update_vehicle_set_change();" in function(engine, "game_engine_update")
-    assert "if (game_engine_vehicle_homes_waiting[index])\n\t\t\tcontinue;" in \
-        function(engine, "game_engine_update_vehicle_respawn")

@@ -15,11 +15,17 @@
 		<child widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_right_name"/>
 		<child widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_right_pic"/>
 		<child widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_right_data"/>
+		<child widget="main_menu/new_select/mcc_folder_name"/>
+		<child widget="main_menu/new_select/mcc_folder_help"/>
 	</widget>
 	<widget name="main_menu/solo_level_select/replay_level_right_name" type="text" controller="1" left="412" top="205" width="196" height="46" string_list="main_menu/map_list" string_index="2" font="ui\large_ui" color="#FF2896FF" align="center" text_flags="wrap unbreak" source="tools/port_settings.py multiplayer_files/_map_description/words">
 	</widget>
 	<widget name="main_menu/solo_level_select/replay_level_right_pic" controller="1" left="440" top="85" width="140" height="114" bitmap="ui\shell\bitmaps\sp_levels" radius="5" source="tools/port_settings.py multiplayer_files/_map_description">
 	</widget>
 	<widget name="main_menu/solo_level_select/replay_level_right_data" type="text" controller="1" left="412" top="257" width="196" height="85" string_list="main_menu/solo_level_select/map_data" string_index="2" font="ui\small_ui" color="#FF2896FF" align="center" text_flags="wrap unbreak" source="tools/port_settings.py multiplayer_files/_map_description/words">
+	</widget>
+	<widget name="main_menu/new_select/mcc_folder_name" type="text" controller="1" left="412" top="205" width="196" height="52" font="ui\large_ui" color="#FF2896FF" align="center" text_flags="wrap" source="tools/port_settings.py multiplayer_files/_map_description">
+	</widget>
+	<widget name="main_menu/new_select/mcc_folder_help" type="text" controller="1" left="412" top="257" width="196" height="85" font="ui\small_ui" color="#FF2896FF" align="center" text_flags="wrap" source="tools/port_settings.py multiplayer_files/_map_description">
 	</widget>
 </menus>

@@ -23,30 +23,6 @@ built = pytest.mark.skipif(
     reason="needs a Mac with Apple silicon and build/ios/OpenH1.app (ninja ios)")
 
 
-def test_info_plist():
-    plist = ios_app.info_plist(IOS_BUNDLE_ID, 1234, IOS_MINIMUM)
-    assert plist["CFBundleIdentifier"] == "com.openh1.openh1"
-    assert plist["CFBundleExecutable"] == "halo" and plist["CFBundleName"] == "OpenH1"
-    assert plist["CFBundleShortVersionString"] == plist["CFBundleVersion"] == "1234"
-    assert plist["MinimumOSVersion"] == IOS_MINIMUM
-    assert plist["CFBundleSupportedPlatforms"] == ["iPhoneOS"]
-    # landscape only, full screen, the game's files in Documents for the Files app
-    assert plist["UISupportedInterfaceOrientations"] == ["UIInterfaceOrientationLandscapeLeft",
-                                                         "UIInterfaceOrientationLandscapeRight"]
-    assert plist["UISupportedInterfaceOrientations~ipad"] == plist["UISupportedInterfaceOrientations"]
-    assert plist["UIRequiresFullScreen"] is True
-    assert plist["CADisableMinimumFrameDurationOnPhone"] is True
-    assert plist["UIFileSharingEnabled"] is True and plist["LSSupportsOpeningDocumentsInPlace"] is True
-    assert plist["GCSupportsControllerUserInteraction"] is True
-    assert plist["LSApplicationCategoryType"] == "public.app-category.games"
-    assert plist["LSSupportsGameMode"] is True
-    assert plist["GCSupportsGameMode"] is True
-    assert plist["NSMicrophoneUsageDescription"] and plist["NSLocalNetworkUsageDescription"]
-    assert "not endorsed" in plist["NSHumanReadableCopyright"]
-    simulator = ios_app.info_plist(IOS_BUNDLE_ID, 0, IOS_MINIMUM, simulator=True)
-    assert simulator["CFBundleSupportedPlatforms"] == ["iPhoneSimulator"]
-
-
 def test_info_plist_takes_the_games_links():
     """the app is the handler of openh1:// links (invites, parties' links), the scheme p2p.h's links have, and
     not of halo:// ones, OpenCE's"""

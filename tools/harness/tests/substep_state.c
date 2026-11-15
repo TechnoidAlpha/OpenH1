@@ -20,6 +20,17 @@ static struct distributed_substep_base distributed_taken_substep_bases[MAXIMUM_T
 
 static long now_time;
 static long game_time_get(void) { return now_time; }
+static boolean distributed_point_valid(real_point3d const *point, real bound) {
+	return fabsf(point->x) <= bound && fabsf(point->y) <= bound && fabsf(point->z) <= bound;
+}
+static boolean distributed_scripted_pose_valid(struct distributed_unit_state const *state) { (void)state; return TRUE; }
+/* (vehicle_riding.c's checks of a deck part: none of these players rides one) */
+static boolean vehicle_riding_deck_values_valid(struct vehicle_riding_deck const *deck) { (void)deck; return TRUE; }
+static boolean vehicle_riding_deck_vehicle_named(long vehicle_index) { (void)vehicle_index; return FALSE; }
+static short biped_riding_vehicle_node_count(long vehicle_index) { (void)vehicle_index; return NONE; }
+static boolean vehicle_riding_deck_valid(struct vehicle_riding_deck const *deck, short node_count) {
+	(void)deck; (void)node_count; return FALSE;
+}
 #include "under_test.inc"
 
 /* a player on foot of a client (predicted), at the client's tick predicted */

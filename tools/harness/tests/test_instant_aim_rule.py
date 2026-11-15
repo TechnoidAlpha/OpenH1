@@ -18,9 +18,9 @@ CONTROLS = [
     ('return !(network_standard_globals.hosting && network_standard_globals.hosting_no_direct_camera);',
      'return TRUE;', 'classic_host'),
     # (a client's own setting, not its host's word)
-    ('TEST_FLAG(game->cooperative_flags, _network_game_no_direct_camera_bit)', 'FALSE', 'classic_client'),
+    ('TEST_FLAG(game->standard_flags, _network_game_no_direct_camera_bit)', 'FALSE', 'classic_client'),
     # (the record not stamped)
-    ('\t\tSET_FLAG(game->cooperative_flags, _network_game_no_direct_camera_bit,\n'
+    ('\t\tSET_FLAG(game->standard_flags, _network_game_no_direct_camera_bit,\n'
      '\t\t\tnetwork_standard_globals.hosting && network_standard_globals.hosting_no_direct_camera);\n', '',
      'classic_client'),
     # (the playlist's rate not applied: the settings' 60)

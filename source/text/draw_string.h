@@ -141,6 +141,10 @@ word const *draw_string_port_run(
 struct font_header *draw_string_port_font(
 	struct parse_string_state const *state);
 
+/* port: readback for scoped adornment drawing. */
+void draw_string_get_format(short *style, short *justification, unsigned long *flags);
+void draw_string_get_indents(short *initial, short *paragraph);
+
 /* ---------- globals */
 
 /* ---------- public code */

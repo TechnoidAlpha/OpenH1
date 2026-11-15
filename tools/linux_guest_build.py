@@ -284,6 +284,8 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
         PORT_DIR / "host_main.c", PORT_DIR / "host_desktop.c",
         LINUX_DIR / "src" / "posix_files.c", LINUX_DIR / "src" / "posix_net.c",
         LINUX_DIR / "src" / "posix_trace_marker.c",
+        # the MCC packages' previews and sharing (posix.h's posix_mcc_*)
+        LINUX_DIR / "src" / "posix_mcc_preview.c", LINUX_DIR / "src" / "posix_mcc_share.c",
         # (where config.toml is, for the debugging settings host_main.c reads)
         LINUX_DIR / "src" / "install_layout.c",
         TOML_DIR / "tomlc17.c",

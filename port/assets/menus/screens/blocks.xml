@@ -12,6 +12,17 @@ screen file's, set on each widget as the screen is made. -->
 	<!-- (on a touchscreen, drawn from background_tall_touch: its footer's line raised, as the tall screens' are,
 	menu_tags.c's widget_build) -->
 	<widget name="screens/campaign" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<!-- co-op's (screens/coop.xml, coop_who.xml, coop_join.xml: menu_functions.c's coop_menu.inc); the co-op
+	list's runs the server browser's model on its co-op list while it is open -->
+	<widget name="screens/coop" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<widget name="screens/coop_who" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<widget name="screens/coop_join" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall">
+		<on event="created" run="port coop join init"/>
+		<on event="deleted" run="port coop join dispose"/>
+	</widget>
+	<!-- Add Player's (screens/add_player.xml: menu_functions.c), as the lobby's and a game under way's ADD PLAYER
+	and another controller's START open it -->
+	<widget name="screens/add_player" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
 	<!-- a header's title in the tall layout's band, as Settings' and the browsers' titles (port_settings.py's tall_title) -->
 	<widget name="screens/header_text" type="text" left="24" width="592" height="40" font="heading" color="#FF2995FD" text_y="9" wide="-106 0" text_flags="no_focus_test"/>
 	<!-- an inner screen's header: its lettered picture (the file's picture=), where the campaign menu's is -->
@@ -248,6 +259,9 @@ picture, the line, the words for no rows) -->
 	touchscreen a finger's height) -->
 	<widget name="screens/chat" width="404" height="79" flags="keep_ends" bitmap="main_menu/parts/panel_404x79"/>
 	<widget name="screens/chat_name" type="text" width="120" height="15" font="ui\small_ui" color="#FF5AA9FF" text_y="-2" text_flags="no_focus_test"/>
+	<!-- a lineup's place's name (a tall screen's own <spartan>'s names), centred under its Spartan's feet, in its
+	team's colour or white (menu_screen.c sets its place, width and colour) -->
+	<widget name="screens/lineup_name" type="text" width="80" height="14" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="-3" text_flags="no_focus_test"/>
 	<widget name="screens/chat_text" type="text" width="380" height="15" font="ui\small_ui" color="#FFDCE8F8" text_y="-2" text_flags="no_focus_test"/>
 	<widget name="screens/chat_input" type="text" width="392" height="20" flags="keep_ends" bitmap="main_menu/parts/item_392x20" font="ui\small_ui" color="#FF6F9CD0" text_x="8" text_y="1">
 		<on event="a" run="port screen do"/>
@@ -334,5 +348,29 @@ picture, the line, the words for no rows) -->
 	<widget name="screens/objectives_title" type="text" width="204" height="22" font="ui\large_ui" color="#FF2896FF"/>
 	<widget name="screens/objectives_text" type="text" width="270" height="94" font="ui\small_ui" color="#FF0080FF">
 		<data input="solo game objective text"/>
+	</widget>
+	<!-- A pop-up's blocks (<dialog>: screens/quit.xml, screens/save_changes.xml): the Quit question's box
+	in the middle of the screen, as the PC version's quit_screen draws it (its alert_bkd, its blue border and
+	bands), its title in the top band, its words under it and its choices side by side in the bottom band, each
+	a button of Quit's OK and BACK (menu_screen.c places them, and makes the box as wide as its choices need,
+	its ends kept). -->
+	<!-- the screens a pop-up of its own opens as (menu_screen.c's screen_places): over the menus' scene, as
+	Quit's question is -->
+	<widget name="screens/save_changes" width="640" height="480" flags="pass_unhandled_to_focused_child"/>
+	<!-- the screen it was opened from, behind it (an editor's), dimmed -->
+	<widget name="screens/dialog_dim" width="640" height="480" bitmap="ui\shell\bitmaps\semi_transparent_grey"/>
+	<!-- the box, cut above its bottom band (as tall as its words need), and its foot, that band (tools/port_settings.py's
+	dialog_foot_svg, from alert_bkd's) -->
+	<widget name="screens/dialog" width="280" height="128" flags="keep_ends" bitmap="bitmaps/alert_bkd"/>
+	<widget name="screens/dialog_foot" width="280" height="32" flags="keep_ends" bitmap="dialog/dialog_foot"/>
+	<widget name="screens/dialog_title" type="text" width="245" height="20" font="ui\large_ui" color="#FF2896FF" text_flags="no_focus_test"/>
+	<widget name="screens/dialog_text" type="text" width="245" height="94" font="ui\large_ui" color="#FFCCCCCC" align="center" text_flags="no_focus_test wrap"/>
+	<!-- its choices: left and right step them, the pointer over one gives it the focus; A, Start, a click or a
+	tap does its do -->
+	<widget name="screens/dialog_list" type="column_list" width="640" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<widget name="screens/dialog_choice" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 </menus>

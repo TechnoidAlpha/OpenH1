@@ -18,7 +18,7 @@ struct distributed_relayed_action { int unused; };
 struct structure_bsp { struct { long count; } clusters; };
 struct player_datum { boolean quit_out_of_game; long unit_index; };
 struct unit_datum { struct { real_vector3d aiming_vector; char current_zoom_level; } unit; };
-struct distributed_unit_state { byte flags; long unit_index; long vehicle_index; short seat_index; };
+struct distributed_unit_state { byte flags; long unit_index; long vehicle_index; short seat_index; boolean deck_present; };
 #include "config.inc"
 static struct distributed_unit_state distributed_host_states[MAXIMUM_TRACKED_PLAYERS];
 static struct distributed_relayed_action distributed_host_actions[MAXIMUM_TRACKED_PLAYERS];
@@ -125,9 +125,11 @@ int main(int argc, char **argv) {
             1, NONE, NONE };
         struct distributed_unit_state riding = state;
         struct distributed_unit_state dead = state;
+        struct distributed_unit_state rider = state;
 
         riding.flags = FLAG(_distributed_unit_alive_bit);
         dead.flags = 0;
+        rider.deck_present = TRUE;
         /* player 1 of an OpenH1 client (machine 1), whose sub-steps the
         host runs as they come; player 2 the host's own; player 3 of an
         OpenCE machine (2) */
@@ -148,6 +150,7 @@ int main(int argc, char **argv) {
         distributed_forward_periods[0][1] = 1;
         CHECK(!distributed_substep_state_due(0, 1, &riding), "a riding player due");
         CHECK(!distributed_substep_state_due(0, 1, &dead), "a dead player due");
+        CHECK(!distributed_substep_state_due(0, 1, &rider), "a player on a vehicle's deck due");
         distributed_forward_periods[0][2] = 1;
         CHECK(distributed_substep_state_due(0, 2, &state), "the host's own player (or a bot) not due");
         distributed_forward_periods[0][3] = 1;

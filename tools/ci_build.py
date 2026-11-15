@@ -21,9 +21,9 @@ and is skipped with an older one; the guests' compiler is the pinned LLVM
 22 that configure.py downloads, tools/guest_toolchain.py). A profile build is a debug build with
 configure.py --profile, so that the profiling build is built too. CI_COMPILER_LAUNCHER (ccache, say) is
 passed on as --compiler-launcher, CI_GUEST_LLVM_CACHE as --guest-llvm-cache, and CI_GUEST_ASM_CACHE as
---guest-asm-cache. A build of the master branch gets the run's
-number (HALO_BUILD_NUMBER), which its release is named after and the
-self-updater compares.
+--guest-asm-cache. A release's build gets its number (CI_BUILD_NUMBER, as
+HALO_BUILD_NUMBER), which its release is named after and the self-updater
+compares.
 
 --vr builds the VR mode in (configure.py --vr; "VR" in port/linux/README.md).
 For linux_x86_64, into dist/halo-linux-x86_64-vr-<config>/, a build of its
@@ -258,12 +258,14 @@ def main() -> int:
     asm_cache = os.environ.get("CI_GUEST_ASM_CACHE")
     if asm_cache:
         configure += ["--guest-asm-cache", asm_cache]
-    # a build of master knows its number, which names its release (build-<n>),
-    # for the self-updater (port/linux/src/updater.c, and the Android app);
-    # other builds have none, and never look for updates
-    if os.environ.get("GITHUB_REF") == "refs/heads/master" and os.environ.get("GITHUB_RUN_NUMBER", "").isdigit():
-        os.environ["HALO_BUILD_NUMBER"] = os.environ["GITHUB_RUN_NUMBER"]
-        print(f"build number {os.environ['HALO_BUILD_NUMBER']}", flush=True)
+    # a release's build knows its number, CI_BUILD_NUMBER (the workflow's,
+    # from the tag build-<n> or the version of a run started by hand), which
+    # names its release, for the self-updater (port/linux/src/updater.c, and
+    # the Android app); other builds have none, and never look for updates
+    number = os.environ.get("CI_BUILD_NUMBER", "")
+    if number.isdigit() and int(number) > 0:
+        os.environ["HALO_BUILD_NUMBER"] = number
+        print(f"build number {number}", flush=True)
     run(configure)
 
     if args.platform == "ios":

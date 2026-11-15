@@ -204,13 +204,15 @@
 	</look>
 	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" type="column_list">
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" x="54" y="73"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" x="54" y="103"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" x="54" y="133"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" x="54" y="163"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" x="54" y="193"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" x="54" y="223"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" x="54" y="253"/>
-		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" x="54" y="283"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" x="54" y="99"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" x="54" y="125"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" x="54" y="151"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" x="54" y="177"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" x="54" y="203"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" x="54" y="229"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" x="54" y="255"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" x="54" y="281"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" x="54" y="307"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" x="0" y="414"/>
 	</look>
 	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" type="column_list" box="0 0 640 28">
@@ -220,93 +222,115 @@
 	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
 		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="0"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_friendly_fire"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_team_wipe"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="1"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="2"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_extra_enemies"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="2"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="3"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_extra_pickups"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="3"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="4"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_extra_vehicles"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="4"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="5"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_enemies_multiplier"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="5"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="6"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_enemies_per_player"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="6"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="7"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_player_collisions"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
 		<text color="#FF2896FF"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_label" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_spinner" x="286" y="0"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_label" type="text" box="0 0 280 26">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="7"/>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="8"/>
 	</look>
-	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_ally_friendly_fire"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" box="0 0 512 24" picture="main_menu/parts/option_row_512x24">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_label" type="text" box="0 0 280 24">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 1" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_labels" index="9"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_spinner" type="spinner" box="0 1 206 23" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 6 -7 18" footer="bitmaps/arrow_sm_right" footer_box="213 6 219 18">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/multiplayer_type_select/server_settings/coop_options/var_coop_vehicle_riding"/>
 	</look>
 	<look name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" picture="bitmaps/gradient">
 		<at widget="main_menu/multiplayer_type_select/server_settings/voice_options/header_voice_options" x="0" y="0"/>

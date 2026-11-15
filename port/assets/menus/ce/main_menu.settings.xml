@@ -48,9 +48,9 @@
 		<child widget="main_menu/settings/panel_facts" x="400" y="360"/>
 		<child widget="main_menu/settings/panel_facts_values" x="400" y="360"/>
 	</widget>
-	<widget name="main_menu/settings/panel_name" type="text" controller="1" width="200" height="18" color="#FF6F9CD0" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+	<widget name="main_menu/settings/panel_name" type="text" controller="1" width="200" height="38" color="#FF6F9CD0" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_value" type="text" controller="1" width="200" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 -32" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+	<widget name="main_menu/settings/panel_value" type="text" controller="1" width="200" height="180" font="ui\large_ui" color="#FFFFFFFF" wide="0 -32" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
 	<widget name="main_menu/settings/panel_text" type="text" controller="1" width="200" height="220" color="#FF2896FF" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
@@ -149,6 +149,7 @@
 	</widget>
 	<strings name="main_menu/settings/tall_titles">
 		<string text="SETTINGS"/>
+		<string text="VOICE CHAT"/>
 		<string text="ADVANCED GRAPHICS"/>
 		<string text="BRIGHTNESS"/>
 		<string text="FRAME RATE &amp; SYNC"/>
@@ -163,6 +164,8 @@
 		<string text="SCREEN LAYOUT"/>
 		<string text="STREAMER MODE"/>
 		<string text="FILTERS"/>
+		<string text="CONTROLLER BUTTONS"/>
+		<string text="MCC PACKAGES"/>
 		<string text="DISCORD ACCOUNT"/>
 	</strings>
 	<widget name="main_menu/settings/stepped_left" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_left" wide="20 0" source="tools/port_settings.py settings_files/_settings_shared">

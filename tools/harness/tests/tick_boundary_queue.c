@@ -44,6 +44,13 @@ static void render_interpolation_frame_end(void) {}
 static void network_test_elevator_frame(void) {}
 static void game_frame(real seconds) { (void)seconds; }
 static real game_time_get_speed(void) { return 1.0f; }
+/* (a local game: no MCC host's speed, no distributed client's catch-up toward a
+host update: game_time.c's) */
+static void mcc_game_speed_frame(void) {}
+static real mcc_game_speed_client(real speed) { return speed; }
+static boolean network_game_distributed_client(void) { return FALSE; }
+static boolean network_standard_agreed_rate(void) { return FALSE; }
+static long game_time_distributed_target = NONE;
 static void build(short ticks)
 {
 	while (ticks-- > 0)

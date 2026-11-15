@@ -13,7 +13,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run  # noqa: E402
 
-CASES = ["public", "toggle", "private", "lan"]
+CASES = ["public", "toggle", "private", "lan", "coop"]
 
 # a fault in the menus' code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -34,6 +34,13 @@ NEGATIVE_CONTROLS = {
     "row-in-lan-game": (("shown = multiplayer.mode == _multiplayer_mode_host_internet && "
                          "config_boolean(\"network.online\") &&", "shown = config_boolean(\"network.online\") &&"),
                         "lan"),
+    # (co-op: a game for ANYONE never listed, as network.coop_public's PRIVATE left most; INVITE ONLY's friends
+    # offered JOIN; LISTING's PUBLIC not kept as ANYONE)
+    "coop-never-public": (('strcmp(config_string("network.coop_join"), "anyone") != 0', "TRUE"), "coop"),
+    "invite-open": (('p2p_friends_set_game_closed(hosting_cooperative() && !strcmp(config_string("network.coop_join"), '
+                     '"invite"));', "p2p_friends_set_game_closed(FALSE);"), "coop"),
+    "listing-not-kept": (('config_write("network.coop_join", private_game ? "friends" : "anyone")',
+                          'config_write("network.coop_join", "friends")'), "coop"),
 }
 
 
@@ -51,13 +58,18 @@ def generated(fault=None):
     config += re.search(r"static short const maximum_players\[\] = \{[^}]*\};", menus).group(0) + "\n"
     config += re.search(r"static short const cooperative_friendly_fire_modes\[\] =\s*\{[^}]*\};", menus).group(0)
     config += "\n"
+    # (co-op's WHO CAN JOIN: coop_menu.inc's)
+    coop = read("port/linux/game/coop_menu.inc")
+    config += enum_with(coop, "_coop_join_friends,") + "\n"
+    config += re.search(r"static char const \*const coop_join_words\[[^]]*\] = \{[^}]*\};", coop).group(0) + "\n"
     code = "\n\n".join([function(menus, name) for name in (
         "multiplayer_mode_set", "multiplayer_host", "server_settings_private", "server_settings_private_set",
         "server_settings_initialize", "ui_widget_port_cooperative_settings_apply",
         "server_start")] + [function(host, name) for name in (
         "host_notice", "host_confirming", "host_confirmed", "host_game", "host_game_teams", "host_game_rows_read",
         "host_game_limits", "host_game_row_text", "host_step_value", "host_password_done", "host_announce_done",
-        "host_teams_arrange", "host_game_row_change")])
+        "host_teams_arrange", "host_game_row_change")] + [function(coop, name) for name in (
+        "coop_who_kept", "coop_who_now", "coop_who_apply")])
     if fault:
         code = mutated(code, *fault)
     return (("config.inc", config), ("under_test.inc", code))

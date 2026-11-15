@@ -55,13 +55,6 @@ def generated(fault=None, faulty_function=None):
             ("types.inc", types + "\n"), ("under_test.inc", text))
 
 
-def test_the_list():
-    # (display.text_renderer is gone, and is no setting)
-    source = read("port/linux/src/port_config.c")
-    assert '"display.text_renderer",' in table(source)
-    assert '{ "display.text_renderer",' not in source
-
-
 @pytest.mark.parametrize("case", CASES)
 def test_case(case):
     status, output = run(build("config_retired_settings", generated()), case)

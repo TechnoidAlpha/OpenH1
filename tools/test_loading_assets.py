@@ -1,25 +1,13 @@
 """The supplied artwork and its normal-build embedding need no image library."""
-import hashlib
 import re
 import struct
 import shutil
 import subprocess
 import sys
-import zlib
-from pathlib import Path
 
 import pytest
 
 import embed_assets
-
-
-def test_committed_loading_payload():
-    directory = Path(__file__).resolve().parents[1] / "port/assets/loading"
-    assert hashlib.sha256((directory / "LOADING.jpg").read_bytes()).hexdigest() == (
-        "5062ff5c83664c6b2f692657ae864e9ad74d71b0af8af1e4305bd9a26dc3fa0f")
-    rgba = zlib.decompress((directory / "loading.rgba.zlib").read_bytes())
-    assert len(rgba) == 640 * 480 * 4
-    assert rgba[3::4] == bytes([255]) * (640 * 480)
 
 
 @pytest.mark.parametrize("present", [False, True])

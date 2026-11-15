@@ -103,4 +103,9 @@
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</behaviour>
 	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods_folder" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mcc_packages" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
 </model>

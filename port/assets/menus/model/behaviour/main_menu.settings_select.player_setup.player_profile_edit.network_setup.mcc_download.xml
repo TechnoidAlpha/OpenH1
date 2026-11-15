@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.network_setup.mcc_download.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/screen" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="b" run="port mcc share cancel"/>
+		<on event="back" run="port mcc share cancel"/>
+		<on event="deleted" run="port mcc share closed"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/download">
+		<on event="a" run="port mcc share download"/>
+		<on event="start" run="port mcc share download"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/workshop">
+		<on event="a" run="port mcc share workshop"/>
+		<on event="start" run="port mcc share workshop"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/browser">
+		<on event="a" run="port mcc share browser"/>
+		<on event="start" run="port mcc share browser"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/cancel">
+		<on event="a" run="port mcc share cancel"/>
+		<on event="start" run="port mcc share cancel"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

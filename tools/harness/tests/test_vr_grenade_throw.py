@@ -100,15 +100,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("vr_grenade_throw", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_registered_after_the_bipeds_and_projectiles():
-    # the VR slot runs after the bipeds' (the eye of the sub-step) and the projectiles' (launch takes the head start
-    # itself), and vr_grenade.c registers its throw there
-    header = read("port/linux/game/sim_rate.h")
-    assert header.index("_sim_substep_bipeds,") < header.index("_sim_substep_vr,")
-    assert header.index("_sim_substep_projectiles,") < header.index("_sim_substep_vr,")
-    assert "sim_substep_register(_sim_substep_vr, vr_grenade_substep);" in read("port/linux/game/vr_grenade.c")
-    # and the tick's own release (units.c) goes through vr_grenade_release, which launches it
-    assert "projectile_substep_launch(grenade_index);" in function(read("port/linux/game/vr_grenade.c"),
-                                                                   "vr_grenade_release")

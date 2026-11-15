@@ -510,11 +510,36 @@ static struct msdf_glyph *msdf_glyph(long font, unsigned long code, struct font_
 	return glyph ? glyph : msdf_make(face, file, key, *index);
 }
 
+/* a question mark's side bearings, in font units, cut to an exclamation
+mark's where its font draws it in the middle of a whole em (Cyborg Interface
+Gothic's, a fifth of an em of room either side), which set it apart from the
+word it ends ("ARE YOU SURE ?", #901): how much less room is left of its ink
+(*left) and in all (the return), 0 for a glyph left as it is */
+static int glyph_trim(stbtt_fontinfo const *info, unsigned long code, int index, int advance, int bearing, int *left)
+{
+	int mark = stbtt_FindGlyphIndex(info, '!');
+	int ink_x0 = 0, ink_x1 = 0, mark_x0 = 0, mark_x1 = 0, mark_advance = 0, mark_bearing = 0, right;
+	int em = info->numGlyphs > 0 ? (int)(1.0f / stbtt_ScaleForMappingEmToPixels(info, 1.0f) + 0.5f) : 0;
+
+	*left = 0;
+	if (code != '?' || !index || !mark || em <= 0 || bearing <= em / 8 ||
+		!stbtt_GetGlyphBox(info, index, &ink_x0, NULL, &ink_x1, NULL) ||
+		!stbtt_GetGlyphBox(info, mark, &mark_x0, NULL, &mark_x1, NULL))
+	{
+		return 0;
+	}
+	stbtt_GetGlyphHMetrics(info, mark, &mark_advance, &mark_bearing);
+	right = advance - ink_x1 - (mark_advance - mark_x1);
+	*left = bearing - mark_bearing > 0 ? bearing - mark_bearing : 0;
+	return *left + (right > 0 ? right : 0);
+}
+
 /* text_hires_glyph */
 static int msdf_text_glyph(long font, unsigned long code, struct text_hires_glyph *glyph)
 {
 	struct font_face *face = NULL;
-	int index = 0, x0, y0, x1, y1, advance = 0, bearing = 0, ink_x0 = 0, ink_x1 = 0;
+	int index = 0, x0, y0, x1, y1, advance = 0, bearing = 0, ink_x0 = 0, ink_x1 = 0, cut, cut_left;
+	float shift;
 	struct msdf_glyph *field = msdf_glyph(font, code, &face, &index);
 	float screen = halo_screen_pixel_scale(), pixels, pixels_x, pixel_scale, scale, u_scale, v_scale;
 
@@ -542,6 +567,17 @@ static int msdf_text_glyph(long font, unsigned long code, struct text_hires_glyp
 	{
 		glyph->ink_left = glyph->left;
 		glyph->ink_right = glyph->right;
+	}
+	/* (a question mark's room either side cut: glyph_trim) */
+	cut = glyph_trim(&face->info, code, index, advance, bearing, &cut_left);
+	if (cut)
+	{
+		shift = cut_left * face->scale * face->narrowing;
+		glyph->left -= shift;
+		glyph->right -= shift;
+		glyph->ink_left -= shift;
+		glyph->ink_right -= shift;
+		glyph->advance -= cut * face->scale * face->narrowing;
 	}
 	/* (the quad's corners in the field: font units, y up, from the pixels'
 	box, y down) */
@@ -640,13 +676,14 @@ int text_hires_glyph(long font, unsigned long code, struct text_hires_glyph *gly
 float text_hires_advance(long font, unsigned long code)
 {
 	struct font_face *face;
-	int index, advance = 0, bearing = 0;
+	int index, advance = 0, bearing = 0, cut_left;
 
 	if (font < 0 || font >= font_count || fonts[font].faces[0].scale <= 0.0f)
 		return -1.0f;
 	face = font_glyph(font, code, &index);
 	stbtt_GetGlyphHMetrics(&face->info, index, &advance, &bearing);
-	return advance * face->scale * face->narrowing;
+	return (advance - glyph_trim(&face->info, code, index, advance, bearing, &cut_left)) * face->scale *
+		face->narrowing;
 }
 
 float text_hires_kerning(long font, unsigned long first, unsigned long second)

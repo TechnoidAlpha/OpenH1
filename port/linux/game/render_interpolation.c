@@ -137,6 +137,7 @@ the frame takes its view.
 #include "sim_rate.h"
 #include "demo.h"
 #include "network_standard.h"
+#include "vehicle_riding.h" /* port: port/linux/game/vehicle_riding.c */
 
 /* port/linux/src/port_config.c */
 int config_boolean(const char *name);
@@ -3094,6 +3095,22 @@ static struct observer_result const *render_interpolation_direct_camera(
 		angles.pitch = PIN(angles.pitch + pitch, control->pitch_minimum, control->pitch_maximum);
 	}
 	player_aiming_vector_from_facing(local_player_get_player_index(local_player_index), &direct->forward, &angles);
+	/* (a dead player's unit keeps its last turn: its ticks no longer reset it) */
+	{
+		long unit_index = player_control_get_unit_index(local_player_index);
+
+		if (unit_index != NONE && !TEST_FLAG(object_get(unit_index)->object.damage_flags, _object_dead_bit))
+		{
+			/* (the facing holds this tick's whole turn by the vehicle the
+			player stands on, which is drawn only part of the way into the
+			tick; vehicle_riding.c) */
+			real kept_dyaw = vehicle_riding_kept_dyaw(local_player_index);
+
+			/* (no turn kept: the rotation by zero is skipped, for the frame's camera only) */
+			if (kept_dyaw != 0.f)
+				vehicle_riding_turn_vector(&direct->forward, -(1.0f - render_interpolation_fraction())*kept_dyaw);
+		}
+	}
 	observer_up_from_forward(&direct->forward, &direct->up);
 	return direct;
 }
@@ -4977,6 +4994,28 @@ real render_interpolation_first_person_phase(short local_player_index)
 	double phase;
 
 	if (!interpolation_rendering || !render_interpolation_view_newest(local_player_index))
+		return -1.0f;
+	if (game_time_get_paused())
+		return 0.0f;
+	phase = (double)game_time_get() + (double)interpolation_fraction - first_person_updated_time;
+	return phase < 0.0 ? 0.0f : phase > 1.0 ? 1.0f : (real)phase;
+}
+
+/* A Spartan link feed's first-person weapon (spartan_link.c; its slot's
+animations are first_person_weapons.c's feeds', advanced with the players'):
+sampled at the frame's time as the player's own view drawn from the newest
+step is, so that it moves every frame however seldom the feed is drawn (one
+feed a frame, in turn), which a blend between the poses drawn at the last
+two ticks (render_interpolation_first_person) could not: a feed drawn every
+other frame or less has none at the tick before. Its world is drawn between
+the ticks, a tick behind the weapon, which is posed at the feed's camera
+and so moves with nothing of the world's. -1 with the frames' interpolation
+off, drawn by the tick as before */
+real render_interpolation_first_person_feed_phase(void)
+{
+	double phase;
+
+	if (!interpolation_rendering)
 		return -1.0f;
 	if (game_time_get_paused())
 		return 0.0f;

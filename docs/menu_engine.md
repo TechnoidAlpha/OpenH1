@@ -544,5 +544,5 @@ The steps, in order:
    retired.
 
 Features that need the model (scrolling long strings, #899; one dialog
-style, #901; search, Settings' the first: "Deliberate differences"; live
+style, #901, begun as the hand-written screens' `<dialog>`; search, Settings' the first: "Deliberate differences"; live
 values) come after step 2, on the engine alone.

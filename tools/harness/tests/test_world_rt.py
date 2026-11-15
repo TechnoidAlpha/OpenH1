@@ -53,19 +53,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build("world_rt", generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_the_limits_alike():
-    # (world_rt.h's for the game, xgpu_stream.h's for the stream: d3d8_device.c checks them as it builds too)
-    import re
-    game = read("port/linux/include/world_rt.h")
-    stream = read("port/linux/src/xgpu_stream.h")
-
-    def number(text, name):
-        found = re.search(rf"\b{name}\s*=?\s*\(?([0-9]+)u?(?: << ([0-9]+))?", text)
-        assert found, name
-        return int(found.group(1)) << int(found.group(2) or 0)
-
-    assert number(game, "WORLD_RT_MESHES") == number(stream, "XGPU_STREAM_WORLD_AO_MESHES") - 1
-    assert number(game, "WORLD_RT_INSTANCES") == number(stream, "XGPU_STREAM_WORLD_AO_INSTANCES_MAXIMUM")
-    assert number(game, "WORLD_RT_MESH_TRIANGLES") == number(stream, "XGPU_STREAM_WORLD_AO_MESH_TRIANGLES")

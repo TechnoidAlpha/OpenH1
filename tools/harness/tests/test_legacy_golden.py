@@ -5,7 +5,7 @@ without), and fixed actors' (standing, riding, moving, with an impulse, a speech
 camouflaged) in their whole structures' messages (_distributed_message_actor_states), as many as a datagram holds a
 message; and the same states as an OpenH1 client is sent them (a unit state's difference, whole and from a state the
 client took; an actor's compact state). Each is held to the bytes recorded below, which a Legacy machine (OpenCE, at
-network version 41) reads: a change to any of them is one it cannot read, whatever else agrees. The OpenH1 encodings
+network version 44) reads: a change to any of them is one it cannot read, whatever else agrees. The OpenH1 encodings
 may change with OpenH1's protocol version; record their bytes again then (GOLDEN_RECORD=1 prints them)."""
 import hashlib
 import os
@@ -31,6 +31,8 @@ LEGACY_FUNCTIONS = ("legacy_put", "legacy_take", "legacy_actor_states_send", "ne
                     "distributed_unit_state_write", "distributed_unit_state_read", "network_legacy_actor_state_add",
                     "network_legacy_actor_states_end")
 DISTRIBUTED_FUNCTIONS = ("distributed_put", "distributed_take", "distributed_real_valid",
+                         "distributed_vector_pack", "distributed_vector_unpack", "distributed_deck_put",
+                         "distributed_deck_take",
                          "distributed_vector_difference", "distributed_grid_steps", "distributed_unit_state_snap",
                          "distributed_unit_state_as_written", "distributed_unit_difference_write")
 ACTOR_FUNCTIONS = ("actor_put", "actor_take", "actor_state_compact_write", "actor_state_compact_read")
@@ -81,8 +83,8 @@ legacy-player camouflaged predicted 02a3104200341200004d4200009bc20000403f2c0188
 legacy-player camouflaged 0223104200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc0040e02e03c8
 legacy-player powerups predicted 02a3084200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e84031f00
 legacy-player powerups 0223084200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc0040e02e84031f00
-legacy-player fine predicted 02a3404200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e0000963e0000f0bd0000a03b
-legacy-player fine 0223404200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc0040e02e0000963e0000f0bd0000a03b
+legacy-player fine predicted 02a3104200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e80000000963e0000f0bd0000a03b
+legacy-player fine 0223104200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc0040e02e80000000963e0000f0bd0000a03b
 """,
     "player-differences": """
 openh1-player-whole on-foot 0002a3004200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e
@@ -101,31 +103,31 @@ openh1-player-whole camouflaged 0002a3104200341200004d4200009bc20000403f2c0188ff
 openh1-player-difference camouflaged 01020190840002000000000028000103c8
 openh1-player-whole powerups 0002a3084200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e84031f00
 openh1-player-difference powerups 01020190440002000000000028000184031f00
-openh1-player-whole fine 0002a3404200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e0000963e0000f0bd0000a03b
-openh1-player-difference fine 0002a3404200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e0000963e0000f0bd0000a03b
+openh1-player-whole fine 0002a3104200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e80000000963e0000f0bd0000a03b
+openh1-player-difference fine 0002a3104200341200004d4200009bc20000403f2c0188ff0500007dd0077cfc34120040e02e80000000963e0000f0bd0000a03b
 """,
     "actors": """
-legacy-actor standing message 2 64 1 96 13007856ffffffffffff0000ff0103000000000000000002b004d4feb004d4feb004d4fe000000000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
+legacy-actor standing message 2 64 1 100 13007856ffffffffffff0000ff0103000000000000000002b004d4feb004d4feb004d4fe000000000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
 openh1-actor standing 00001300785600010302b004d4fe0040401f000048c10000214200004040007d24fa0000
-legacy-actor riding message 2 64 1 96 130078562100330001000100ff0103000000000000000002b004d4feb004d4feb004d4fe000000000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
+legacy-actor riding message 2 64 1 100 130078562100330001000100ff0103000000000000000002b004d4feb004d4feb004d4fe000000000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
 openh1-actor riding 01001300785601010302b004d4fe0040401f000048c10000214200004040007d24fa0000210033000100
-legacy-actor moving message 2 64 1 96 13007856ffffffffffff0000ff0103ff02017fec00000002b0040000b004d4fe7805d4fe000000000040401fffffffffffffffff00000000000048c100002142000040407800d8ff0000007d24fa000000000000ff7f0000
+legacy-actor moving message 2 64 1 100 13007856ffffffffffff0000ff0103ff02017fec00000002b0040000b004d4fe7805d4fe000000000040401fffffffffffffffff00000000000048c100002142000040407800d8ff0000007d24fa000000000000ff7f0000
 openh1-actor moving c01e1300785600010302b004d4fe0040401f000048c10000214200004040007d24fa00007805d4feb00400007800d8ff00007fec000201ff
-legacy-actor impulse message 2 64 1 96 13007856ffffffffffff4009040103000000000000000002b004d4feb004d4feb004d4fe18fc00000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
+legacy-actor impulse message 2 64 1 100 13007856ffffffffffff4009040103000000000000000002b004d4feb004d4feb004d4fe18fc00000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
 openh1-actor impulse 02001300785640010302b004d4fe0040401f000048c10000214200004040007d24fa0000040918fc
-legacy-actor speech message 2 64 1 96 13007856ffffffffffff0000ff0103000000000000000602b004d4feb004d4feb004d4fe000000000040401f0d0c0b0affffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
+legacy-actor speech message 2 64 1 100 13007856ffffffffffff0000ff0103000000000000000602b004d4feb004d4feb004d4fe000000000040401f0d0c0b0affffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
 openh1-actor speech 04001300785600010302b004d4fe0040401f000048c10000214200004040007d24fa0000060d0c0b0a
-legacy-actor animation message 2 64 1 96 13007856ffffffffffff0000ff0103000000000000000002b004d4feb004d4feb004d4fe000000000040401fffffffff0403020111000201000048c10000214200004040000000000000007d24fa000000000000ff7f0000
+legacy-actor animation message 2 64 1 100 13007856ffffffffffff0000ff0103000000000000000002b004d4feb004d4feb004d4fe000000000040401fffffffff0403020111000201000048c10000214200004040000000000000007d24fa000000000000ff7f0000
 openh1-actor animation 08001300785600010302b004d4fe0040401f000048c10000214200004040007d24fa00000403020111000201
-legacy-actor fleeing message 2 64 1 96 13007856ffffffffffff8000ff0103000000000000000002b004d4feb004d4feb004d4fe0000204e0040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
+legacy-actor fleeing message 2 64 1 100 13007856ffffffffffff8000ff0103000000000000000002b004d4feb004d4feb004d4fe0000204e0040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000000000000ff7f0000
 openh1-actor fleeing 10001300785680010302b004d4fe0040401f000048c10000214200004040007d24fa0000204e
-legacy-actor camouflaged message 2 64 1 96 13007856ffffffffffff1800ff0103000000000000800002b004d4feb004d4feb004d4fe000000000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000084030000007d0000
+legacy-actor camouflaged message 2 64 1 100 13007856ffffffffffff1800ff0103000000000000800002b004d4feb004d4feb004d4fe000000000040401fffffffffffffffff00000000000048c10000214200004040000000000000007d24fa000084030000007d0000
 openh1-actor camouflaged 20011300785618010302b004d4fe0040401f000048c10000214200004040007d24fa00008084030000007d
 """,
     "actor-messages": """
-legacy-actor-messages message 3 64 13 1152 sha256:5df5e72ecc3930fb
-message 3 64 13 1152 sha256:5c9598d5d7b4aad5
-message 3 64 4 360 sha256:69550b0c2b25db5a
+legacy-actor-messages message 3 64 13 1156 sha256:5df5e72ecc3930fb
+message 3 64 13 1156 sha256:5c9598d5d7b4aad5
+message 3 64 4 364 sha256:69550b0c2b25db5a
 """,
 }
 
@@ -160,15 +162,19 @@ def generated(fault=None):
                                                             distributed_header)[1] + "\n"
     config += "#define SUBSTEP_POSITION_SCALE " + re.search(r"#define SUBSTEP_POSITION_SCALE\s+(\S+)",
                                                             distributed)[1] + "\n"
+    config += "#define DISTRIBUTED_VELOCITY_SCALE " + re.search(r"#define DISTRIBUTED_VELOCITY_SCALE\s+(\S+)",
+                                                                distributed_header)[1] + "\n"
     config += re.search(r"#define DATAGRAM_ENTRIES\(type\) \\\n.*?\n.*?\n", distributed_header)[0]
     config += enum_with(distributed_header, "_distributed_message_player_prediction = 1") + "\n"
     config += structure(distributed_header, "distributed_vector") + "\n"
     config += structure(distributed_header, "distributed_message_header") + "\n"
+    # (a rider's deck part, which the unit state carries: vehicle_riding.h's)
+    config += structure(read("port/linux/game/vehicle_riding.h"), "vehicle_riding_deck") + "\n"
     # (the Legacy encodings' constants and structures, whole)
     config += legacy_header[legacy_header.index("/* ---------- constants */"):legacy_header.rindex("#endif")]
     config += "boolean distributed_real_valid(real value);\n"
     config += legacy[legacy.index("/* ---------- constants */"):legacy.index("/* ---------- private code */")]
-    for member in ("UNIT_BASE_TICKS", "_unit_difference_flags_bit"):
+    for member in ("UNIT_BASE_TICKS", "_unit_difference_form_whole", "_unit_difference_flags_bit"):
         config += enum_with(distributed, member) + "\n"
     for member in ("_actor_part_riding_bit", "ACTOR_COMPACT_MINIMUM_SIZE"):
         config += enum_with(actors, member) + "\n"

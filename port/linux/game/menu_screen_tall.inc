@@ -48,6 +48,9 @@ rows' top, height and step, the bottom they end over (the panel's) */
 #define TALL_ROWS_Y 92
 #define TALL_ROW_HEIGHT 24
 #define TALL_ROWS_BOTTOM 436
+/* a group's heading among the rows (the server browser's, the co-op list's):
+the blocks' dim blue (blocks.xml's card subtitle's), 0xRRGGBBAA */
+#define TALL_HEADING_COLOR 0x6F9CD0FFUL
 #define TALL_TABLE_GROW 144
 /* a row's cells: the first's left, the cells'
 pictures' top in a row (16 units tall, in its middle; the gap between two
@@ -203,6 +206,10 @@ shape (the menus' pictures', 140 by 114: menu_pictures.h) */
 height, and the gap under it */
 #define TALL_LINEUP_MOST 160
 #define TALL_LINEUP_GAP 4
+/* (its places' names: the line under the Spartans' feet, in its height,
+and the gap between two places' names) */
+#define TALL_LINEUP_NAME 14
+#define TALL_LINEUP_NAME_GAP 4
 /* (a <spartan>'s line: the gap before and after it) */
 #define PANEL_SPARTAN_GAP 6
 #define PANEL_SPARTAN_FEET 25
@@ -377,8 +384,9 @@ struct screen_tall
 	struct screen_values values;
 	/* the screen (the parts that take no focus), and its body (the rest) */
 	struct widget_instance *owner, *body;
-	/* the header's detail and the band's button (in a bar of its own, out
-	of the body: the pointer's, its key's, not the d-pad's) */
+	/* the header's detail and the band's button (in a bar of its own, the
+	body's first: the d-pad's and the stick's, up from the tabs, as well as
+	the pointer's and its key's) */
 	struct menu_screen_block const *header;
 	struct widget_instance *detail;
 	struct widget_instance *header_bar;
@@ -440,6 +448,10 @@ struct screen_tall
 	struct widget_instance *lineup;
 	short lineup_height;
 	long lineup_spartan;
+	/* (its places' names, under their Spartans: its names' binding, NULL
+	for none) */
+	char const *lineup_names_binding;
+	struct widget_instance *lineup_names[MAXIMUM_MENU_SPARTAN_PLACES];
 	/* the bar's prompts */
 	struct widget_instance *bar;
 	struct screen_prompt prompts[TALL_MAXIMUM_PROMPTS];
@@ -757,8 +769,11 @@ static void tall_build_header(struct screen_tall *tall, struct widget_instance *
 		if (button->kind != MENU_SCREEN_BUTTON || button->parent != header_index || !menu_screen_when(button->when))
 			continue;
 		/* (in a bar, as the table's and the panel's buttons: the pointer
-		clicks and taps only a list's items, and the screen is none) */
-		tall->header_bar = tall_add(tall, screen, tall_tag("bar"), 0, TALL_BUTTON_Y, 0, 0, 0, 0);
+		clicks and taps only a list's items, and the screen is none; the
+		body's first, so that the d-pad and the stick reach it as they reach
+		every other focusable block, up from the tabs (or the first row), and
+		A presses it) */
+		tall->header_bar = tall_add(tall, tall->body, tall_tag("bar"), 0, TALL_BUTTON_Y, 0, 0, 0, 0);
 		made = tall_add(tall, tall->header_bar, screens.button_tag, TALL_BUTTON_X, TALL_BUTTON_Y, 0, 0, 0, 0);
 		tall_centred(tall, made);
 		if (made)
@@ -1857,6 +1872,7 @@ static boolean tall_build(struct screen_open *open, struct menu_screen const *sc
 	if (pc_menu_text_field_editing(NULL))
 		pc_menu_text_field_end(TRUE);
 	memset(tall, 0, sizeof(*tall));
+	tall->values.local_player_index = widget->local_player_index;
 	tall->search_editing = NONE;
 	tall_screens[open_index] = tall;
 	widget->focused_child = NULL;
@@ -1964,6 +1980,20 @@ static boolean tall_build(struct screen_open *open, struct menu_screen const *sc
 			visible_set_safe(tall->lineup, FALSE);
 			if (tall->lineup && screen_spartan_add(open, block, tall->lineup))
 				tall->lineup_spartan = open->spartan_count - 1;
+			/* (its places' names, over it: placed each frame under their
+			Spartans) */
+			if (tall->lineup_spartan != NONE && block->names)
+			{
+				short place;
+
+				tall->lineup_names_binding = block->names;
+				for (place = 0; place < MAXIMUM_MENU_SPARTAN_PLACES; place++)
+				{
+					tall->lineup_names[place] = tall_add(tall, tall->owner, tall_tag("lineup_name"), TALL_TABLE_X,
+						tall_lanes_base(tall), 0, 0, 0, TALL_LINEUP_NAME);
+					visible_set_safe(tall->lineup_names[place], FALSE);
+				}
+			}
 			break;
 		}
 		}
@@ -2343,7 +2373,8 @@ static void tall_rows_frame(struct screen_tall *tall, struct widget_instance *sc
 		if (heading)
 		{
 			pc_menu_text_fit(row->heading, words, tall_width(tall, row->heading));
-			tall_color(tall, row->heading, 0xFFFFFFFFUL);
+			/* (dimmer than the rows under it, a section's label, not a row) */
+			tall_color(tall, row->heading, TALL_HEADING_COLOR);
 		}
 		for (column_index = 0; column_index < tall->column_count; column_index++)
 		{
@@ -2445,6 +2476,20 @@ static void tall_rows_frame(struct screen_tall *tall, struct widget_instance *sc
 		bar->disabled = !shown;
 		if (!shown && tall->body->focused_child == bar)
 			tall->body->focused_child = NULL;
+		/* (its words again, a binding's that may change: the co-op list's
+		fix, which follows why it is empty) */
+		if (shown && tall->table_button.widget && tall->table_button.block->label &&
+			strchr(tall->table_button.block->label, '{'))
+		{
+			char label[MENU_SCREEN_MAXIMUM_TEXT];
+			char text[MENU_SCREEN_MAXIMUM_TEXT];
+			boolean touch = ui_widget_port_touch_menus() != 0;
+
+			tall_text(tall, tall->table_button.block->label, label, sizeof(label));
+			snprintf(text, sizeof(text), touch ? "%s%s" : "%s %s", touch ? "" :
+				tall_key_picture(tall->table_button.block->key), label);
+			tall_text_set(tall->table_button.widget, text);
+		}
 		if (bar->child)
 			bar->child->animation.current_frame_index = (short)(tall->body->focused_child == bar);
 	}
@@ -2964,6 +3009,20 @@ static void tall_bar_frame(struct screen_tall *tall)
 		tall_text_set(prompt->widget, text);
 	}
 	tall_focus_off_hidden(tall->bar);
+	/* (no prompt lit while the focus is not on the bar: a column list lights
+	its focused child as it updates, ui_widget.c's column_list_update, which
+	it does on the focus's path alone, so the one lit last stayed lit as the
+	focus left the bar) */
+	if (tall->bar && tall->body->focused_child != tall->bar)
+	{
+		struct widget_instance *child;
+
+		for (child = tall->bar->child; child; child = child->next)
+		{
+			if (child->animation.number_of_sprite_frames == 2)
+				child->animation.current_frame_index = 0;
+		}
+	}
 	if (tall->header_button.widget)
 	{
 		char label[MENU_SCREEN_MAXIMUM_TEXT];
@@ -2976,6 +3035,93 @@ static void tall_bar_frame(struct screen_tall *tall)
 		tall_text(tall, tall->header_button.block->label, label, sizeof(label));
 		snprintf(text, sizeof(text), "%s %s", tall_key_picture(tall->header_button.key), label);
 		tall_text_set(tall->header_button.widget, text);
+		/* (lit while the d-pad, the stick or the pointer has it, as the
+		table's button) */
+		tall->header_button.widget->animation.current_frame_index = (short)(tall->body->focused_child == tall->header_bar);
+		if (!shown && tall->body->focused_child == tall->header_bar)
+			tall->body->focused_child = NULL;
+	}
+}
+
+/* the lineup's places' names: each place's (its names' binding's line)
+under its Spartan, centred under its feet (lower or higher as its place
+stands: menu_spartan_feet_lower) in the line under the Spartans, as wide as
+its place (cut short where it is wider), in its team's colour (red's,
+blue's; white without teams); an empty place's ("-", or no name) none, nor
+any where no Spartan is drawn */
+static void tall_lineup_names_frame(struct screen_tall *tall, struct screen_open *open)
+{
+	struct screen_spartan const *spartan;
+	struct menu_screen_block const *block;
+	char colors[MENU_SCREEN_MAXIMUM_TEXT], names[MENU_SCREEN_MAXIMUM_TEXT];
+	char const *color = colors, *name = names;
+	short place;
+
+	if (tall->lineup_spartan == NONE || !tall->lineup_names_binding)
+		return;
+	spartan = &open->spartans[tall->lineup_spartan];
+	block = &spartan->block;
+	tall_binding(tall, block->value, colors, sizeof(colors));
+	tall_binding(tall, tall->lineup_names_binding, names, sizeof(names));
+	/* (the places as screen_spartan_frame counts them: its colors' words) */
+	{
+		short places = 0;
+		char const *word = colors;
+
+		while (*word && places < spartan->places)
+		{
+			while (*word == ' ')
+				word++;
+			if (!*word)
+				break;
+			while (*word && *word != ' ')
+				word++;
+			places++;
+		}
+		for (place = 0; place < MAXIMUM_MENU_SPARTAN_PLACES; place++)
+		{
+			struct widget_instance *widget = tall->lineup_names[place];
+			struct screen_box *box = tall_box_of(tall, widget);
+			char line[MENU_SCREEN_MAXIMUM_TEXT];
+			unsigned short text[MENU_SCREEN_MAXIMUM_TEXT];
+			long length = 0, word_length = 0;
+			boolean shown;
+
+			/* (this place's color's word and name's line, and on to the next's) */
+			while (*color == ' ')
+				color++;
+			while (color[word_length] && color[word_length] != ' ')
+				word_length++;
+			while (name[length] && name[length] != '\n')
+				length++;
+			length = MIN(length, (long)sizeof(line) - 1);
+			memcpy(line, name, (size_t)length);
+			line[length] = 0;
+			shown = box && place < places && spartan->shown && menu_spartan_available() && line[0] &&
+				!(word_length == 1 && color[0] == '-');
+			visible_set_safe(widget, shown);
+			if (shown)
+			{
+				real width = (real)block->box_width / (real)places;
+				real middle = (real)block->box_x + width * ((real)place + 0.5f);
+				real feet = (real)(block->box_y + block->box_height) +
+					(real)block->box_height * menu_spartan_feet_lower((short)(spartan->first + place), spartan->places > 1);
+
+				box->width = (short)MAX(width - TALL_LINEUP_NAME_GAP, 8.0f);
+				box->at_x = (short)(middle - (real)box->width * 0.5f);
+				box->at_y = (short)(feet + 0.5f);
+				widget->horizontal_offset = (short)(box->at_x - (box->parent != NONE ? tall->boxes[box->parent].at_x : 0));
+				widget->vertical_offset = (short)(box->at_y - (box->parent != NONE ? tall->boxes[box->parent].at_y : 0));
+				tall_utf16(line, text, NUMBEROF(text));
+				pc_menu_text_fit(widget, text, box->width);
+				tall_color(tall, widget, word_length == 3 && !strncmp(color, "red", 3) ? TALL_LANE_RED :
+					word_length == 4 && !strncmp(color, "blue", 4) ? TALL_LANE_BLUE : 0);
+			}
+			color += word_length;
+			name += length;
+			if (*name == '\n')
+				name++;
+		}
 	}
 }
 
@@ -3041,8 +3187,8 @@ static void tall_frame(struct screen_open *open)
 	tall_panel_frame(tall, open);
 	tall_chat_frame(tall);
 	tall_bar_frame(tall);
-	/* (the band's button: the focus back to the body once the pointer is
-	not what gave its bar it; the d-pad steps the body alone) */
+	/* (the focus back to the body once the pointer is not what gave another
+	part it: the d-pad steps the body, the band's button among its blocks) */
 	if (screen->focused_child != tall->body && !ui_widget_port_pointer_focused())
 		screen->focused_child = tall->body;
 	/* (the focus off what cannot have it: the first row, else the bar) */
@@ -3108,11 +3254,14 @@ static void tall_frame(struct screen_open *open)
 		block->box_x = lineup->at_x;
 		block->box_y = lineup->at_y;
 		block->box_width = tall_width(tall, tall->lineup);
-		block->box_height = tall->lineup_height;
+		/* (with names, the Spartans over their line: the lineup's height
+		theirs and their names' together) */
+		block->box_height = (short)(tall->lineup_height - (tall->lineup_names_binding ? TALL_LINEUP_NAME : 0));
 		open->spartans[tall->lineup_spartan].shown = TRUE;
 	}
 	if (open->spartan_count)
 		screen_spartan_frame(open, NONE);
+	tall_lineup_names_frame(tall, open);
 }
 
 /* the chat's on-screen keyboard, where it is up: over the panel's lower

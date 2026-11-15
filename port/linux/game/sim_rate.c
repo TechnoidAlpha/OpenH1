@@ -54,6 +54,16 @@ sub-step a frame.
 #include "demo.h"
 #include "network_standard.h"
 
+/* the slots' order that their work needs: a shot made at a sub-step takes its head start there, a VR throw goes
+from the sub-step's eye and launches its own head start, and the poses are kept after everything that moves */
+_Static_assert(_sim_substep_weapons < _sim_substep_projectiles, "the projectiles' slot runs after the weapons'");
+_Static_assert(_sim_substep_bipeds < _sim_substep_vr && _sim_substep_projectiles < _sim_substep_vr,
+	"the VR slot runs after the bipeds' and the projectiles'");
+_Static_assert(_sim_substep_vehicles < _sim_substep_render_interpolation &&
+	_sim_substep_bipeds < _sim_substep_render_interpolation && _sim_substep_items < _sim_substep_render_interpolation &&
+	_sim_substep_projectiles < _sim_substep_render_interpolation && _sim_substep_vr < _sim_substep_render_interpolation,
+	"the poses are kept after every slot that moves anything");
+
 /* port/linux/src/port_config.c */
 long config_integer(char const *name);
 unsigned long config_changes(void);

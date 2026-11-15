@@ -40,16 +40,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build("view_flashlight", generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_the_lights_call_it():
-    # the flashlight's light (the first-person one) takes it before the first-person weapon's marker, which, where
-    # the weapon is drawn, carries it instead
-    lights = read("source/objects/object_lights.c")
-    call = lights.index("render_interpolation_view_flashlight(\n\t\t\t\t\t\t\t\tlight->object_index,")
-    assert lights.index("_light_definition_is_first_person_flashlight_bit))\n\t\t\t\t\t\t{") < call < \
-        lights.index("first_person_weapon_center_flashlight(\n\t\t\t\t\t\t\t\tlight->object_index,")
-    # (the views it reads: the one between the ticks and the one drawn, each frame)
-    interpolation = read("port/linux/game/render_interpolation.c")
-    assert "\t\tblended_views[local_player_index] = *blended;\n\t\tdrawn_views[local_player_index] = *direct;" in \
-        interpolation

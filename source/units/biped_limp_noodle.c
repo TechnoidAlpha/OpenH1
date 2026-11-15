@@ -837,7 +837,10 @@ seen (from inside a wall, under an overhang) is left as the animation put
 it. The pose is each machine's own (the host's word on a body is where it
 is and whether it lies limp, not its nodes: NETCODE.md's corrections), and
 a client's hit reported through a body is checked against the structure
-alone (network_damage.c), so nothing the machines must agree on changes */
+alone (network_damage.c), so nothing the machines must agree on changes.
+The pose is the game state's, though (the limp body starts from it, what
+strikes the body strikes it there), so it is fitted with the game's
+animation enhancements only (units.c): Classic plays as the original */
 
 #define BIPED_DRAPE_CLEARANCE 0.03f
 #define BIPED_DRAPE_DEAD_ZONE 0.01f

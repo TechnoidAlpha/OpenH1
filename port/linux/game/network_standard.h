@@ -121,6 +121,12 @@ boolean network_standard_hosting_vehicle_hijack(void);
 boolean network_standard_set_vehicle_hijack(boolean on);
 /* a client: the host's word during the game (network_hijack.c) */
 void network_standard_vehicle_hijack_heard(boolean on);
+/* whether this machine's players may hear their hit sounds (hit_sounds.c):
+not in a network game whose host forbids them (network.allow_hit_sounds
+false), which an OpenH1 game's record carries to its OpenH1 clients, as read
+in the lobby (_network_game_no_hit_sounds_bit); a Legacy game's clients hear
+nothing of the host's, and may; a game of this machine's own may */
+boolean network_standard_hit_sounds_allowed(void);
 /* the rules above as the game has them, for a demo's header (demo.h's
 _demo_rule_*) */
 unsigned long network_standard_demo_rules(void);

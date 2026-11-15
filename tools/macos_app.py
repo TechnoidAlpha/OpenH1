@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""The macOS app, OpenH1.app, its signature, its disk image and notarization
-(port/macos/README.md, "The app").
+"""The macOS app, GOAT H1 (build/macos/OpenH1.app; GOAT H1.app in the disk
+image), its signature, its disk image and notarization (port/macos/README.md,
+"The app").
 
     python3 tools/macos_app.py bundle ...   # ninja macos does it: build/macos/OpenH1.app, signed ad hoc
     python3 tools/macos_app.py dmg ...      # ninja macos_dmg: build/macos/OpenH1.dmg
@@ -9,15 +10,15 @@
         --keychain-profile <profile>
     python3 tools/macos_app.py notarize --identity ... --key AuthKey_<id>.p8 --key-id <id> --issuer <uuid>
 
-- bundle: OpenH1.app from the build: Contents/MacOS/halo (the executable, with
+- bundle: the app from the build: Contents/MacOS/halo (the executable, with
   an rpath of @executable_path/../Frameworks), Contents/Frameworks/
   libSDL3.0.dylib and Sparkle.framework (the updater, which the host loads
   from there: port/macos/host_app.m), Contents/Resources (the icon, brokers.txt, the About
   panel's credits, and in Licenses the licences of the app and of what it
   carries, which each copy must have) and Info.plist, signed with the hardened runtime and
   port/macos/halo.entitlements: ad hoc ("-") unless an identity is given.
-- dmg: a disk image of the app, with a link to Applications to drag it to,
-  in a window of its own (OpenH1's icon on the disk, a background, the icons
+- dmg: a disk image of the app, named GOAT H1.app in it, with a link to
+  Applications to drag it to, in a window of its own (the game's icon on the disk, a background, the icons
   placed: port/macos/dmg) when dmgbuild is installed (pip install
   dmgbuild==1.6.7), else a plain one.
 - sign: signs the app again with a Developer ID (and a secure timestamp,
@@ -42,7 +43,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 ENTITLEMENTS = ROOT / "port/macos/halo.entitlements"
-APP_NAME = "OpenH1"
+# the app's name (CFBundleName, CFBundleDisplayName: the menu bar, the About
+# panel, Activity Monitor) and, with .app, its file's in the disk image
+# (Finder, the Dock). The build's file stays OpenH1.app (no space in ninja's
+# and CI's paths), and so does an install that Sparkle updates: Sparkle
+# replaces the app where it is, under its old name (port/macos/README.md,
+# "The name"). The bundle ID, the appcast and its key are unchanged.
+APP_NAME = "GOAT H1"
+APP_FILE = APP_NAME + ".app"
+# the build's app (ninja macos), and its disk image's file (the release's
+# OpenH1.dmg, which the appcast and the README's links name)
+BUILD_APP = "OpenH1.app"
+BUILD_DMG = "OpenH1.dmg"
 EXECUTABLE = "halo"
 SDL_LIBRARY = "libSDL3.0.dylib"
 SPARKLE = "Sparkle.framework"
@@ -227,14 +239,14 @@ def dmg_laid_out(app: Path, partial: Path) -> None:
     import dmgbuild
 
     settings = {
-        "files": [str(app)],
+        "files": [(str(app), APP_FILE)],
         "symlinks": {"Applications": "/Applications"},
         "icon": str(ROOT / "port/macos" / (ICON + ".icns")),
         "background": str(DMG_ART / "background.png"),
         "window_rect": ((200, 140), DMG_WINDOW),
         "icon_size": DMG_ICON_SIZE,
         "text_size": 13,
-        "icon_locations": {app.name: DMG_APP_AT, "Applications": DMG_APPLICATIONS_AT},
+        "icon_locations": {APP_FILE: DMG_APP_AT, "Applications": DMG_APPLICATIONS_AT},
         "show_status_bar": False, "show_tab_view": False, "show_toolbar": False,
         "show_pathbar": False, "show_sidebar": False,
         "format": "ULFO",
@@ -265,7 +277,7 @@ def dmg(args: argparse.Namespace) -> None:
             folder = Path(temporary) / APP_NAME
             folder.mkdir()
             # (ditto keeps the signature's extended attributes and links)
-            run("ditto", str(app), str(folder / app.name))
+            run("ditto", str(app), str(folder / APP_FILE))
             (folder / "Applications").symlink_to("/Applications")
             run_retried("hdiutil", "create", "-quiet", "-volname", APP_NAME, "-srcfolder", str(folder), "-fs", "APFS",
                         "-format", "ULFO", "-ov", str(partial))
@@ -310,10 +322,10 @@ def notarize(args: argparse.Namespace) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     commands = parser.add_subparsers(dest="command", required=True)
-    default_app = str(ROOT / "build/macos" / (APP_NAME + ".app"))
-    default_dmg = str(ROOT / "build/macos" / (APP_NAME + ".dmg"))
+    default_app = str(ROOT / "build/macos" / BUILD_APP)
+    default_dmg = str(ROOT / "build/macos" / BUILD_DMG)
 
-    command = commands.add_parser("bundle", help="make OpenH1.app from the build")
+    command = commands.add_parser("bundle", help="make the app from the build")
     command.add_argument("--app", required=True)
     command.add_argument("--executable", required=True)
     command.add_argument("--sdl", required=True)

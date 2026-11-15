@@ -1,0 +1,6 @@
+the players' vehicle hijacks, vehicle_hijack.c, which every machine of the
+game simulates: the host's rule in the game record
+(_network_game_vehicle_hijack_bit, network_standard.c's
+network_standard_vehicle_hijack), and the host's word on each hijack and on
+the rule changed during a game (network_hijack.c's
+_distributed_message_vehicle_hijack)

@@ -434,6 +434,7 @@ void render_objects(
 
 /* port: port/linux/game/menu_spartan.c */
 boolean menu_spartan_object(long object_index);
+real_matrix4x3 const *menu_spartan_node_matrices(long object_index, real_matrix4x3 const *nodes);
 /* port: port/linux/game/first_person_legs.c */
 boolean first_person_legs_wanted(long object_index);
 real_matrix4x3 const *first_person_legs_node_matrices(long object_index, real_matrix4x3 const *nodes);
@@ -667,6 +668,10 @@ static void render_object_list(
 		if (!legs && !data->shadow && !render.camera.mirrored)
 			node_matrices = vr_death_body_nodes(object_index, node_matrices);
 #endif
+		/* port: the menus' Spartan and its rifle, posed on the menus' frame
+		clock while its view draws it (port/linux/game/menu_spartan.c) */
+		if (!legs && !data->shadow)
+			node_matrices = menu_spartan_node_matrices(object_index, node_matrices);
 		if (!object_is_first_person_camera(object_index) || render.camera.mirrored || (legs && node_matrices))
 		{
 			struct render_model_effect model_effect;

@@ -25,10 +25,12 @@ NEGATIVE_CONTROLS = {
                                   "if (!csmemcmp(request_token, game_token"), "openh1-host"),
     "mixed-refuses-opence": (("\t\treturn _network_standard_join_opence;", "\t\treturn NONE;"), "mixed-host"),
     "record-keeps-rate": (("legacy_game.standard_rate = 0;", ";"), "record"),
-    "record-keeps-pickup": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
+    "record-keeps-pickup": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
                              ""), "record"),
-    "record-keeps-turning": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_classic_turning_bit, FALSE);\n",
+    "record-keeps-turning": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_classic_turning_bit, FALSE);\n",
                               ""), "record"),
+    "record-keeps-hit-sounds": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_no_hit_sounds_bit, FALSE);\n",
+                                 ""), "record"),
     "openh1-messages-to-opence": (("return type < FIRST_OPENH1_DISTRIBUTED_MESSAGE || "
                                    "!network_standard_machine_is_opence(machine_index);", "return TRUE;"), "messages"),
     "opence-players-unknown": (("opence_players[absolute_index] = TRUE;", ";"), "players"),
@@ -44,8 +46,8 @@ NEGATIVE_CONTROLS = {
                                        "dedicated-server"),
     "server-legacy-setting-changes-rate": (("return rate ? rate : network_standard_globals.hosting_rate;",
                                             "return rate ? rate : SIM_RATE_CLASSIC;"), "dedicated-server"),
-    "legacy-record-keeps-old-rate": (("network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : 0",
-                                      "network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : "
+    "legacy-record-keeps-old-rate": (("network_standard_globals.hosting ? (byte)network_standard_server_rate(in_lobby) : 0",
+                                      "network_standard_globals.hosting ? (byte)network_standard_server_rate(in_lobby) : "
                                       "game->standard_rate"), "dedicated-server"),
 }
 

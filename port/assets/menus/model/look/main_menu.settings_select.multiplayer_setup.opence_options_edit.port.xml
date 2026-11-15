@@ -6,7 +6,7 @@
 		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" x="0" y="0"/>
 	</look>
 	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence" type="text" box="35 11 398 70">
-		<text font="ui\large_ui" color="#FFFFFFFF" at="13 16" text="OPENCE OPTIONS"/>
+		<text font="ui\large_ui" color="#FFFFFFFF" at="13 16" text="GOAT H1 OPTIONS"/>
 	</look>
 	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_help" type="text" box="68 341 550 420">
 		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/cap_opence"/>
@@ -142,6 +142,6 @@
 		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_gg_melee"/>
 	</look>
 	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_opence_item" type="text" box="51 309 283 341" picture="bitmaps/list_item_bkd">
-		<text font="ui\large_ui" color="#FF2896FF" at="13 5" text="OPENCE OPTIONS"/>
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" text="GOAT H1 OPTIONS"/>
 	</look>
 </model>

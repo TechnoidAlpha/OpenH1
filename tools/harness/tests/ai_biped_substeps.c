@@ -39,6 +39,15 @@ static boolean network_standard_player_is_opence(long player_index)
 	return player_index != NONE && player_index == opence_player;
 }
 
+/* the biped (its index) of a rider in a vehicle's window
+(vehicle_riding_bipeds.c), NONE for none */
+static long rider_biped = NONE;
+
+static boolean biped_riding_holds_lane(long biped_index)
+{
+	return biped_index != NONE && biped_index == rider_biped;
+}
+
 /* the fake object (a projectile's owner) */
 struct object_datum
 {
@@ -171,6 +180,13 @@ int main(int argc, char **argv)
 			CHECK(!object_lane_micro_candidate(1, _object_type_biped) == !units[i].micro,
 				"biped %d: player %ld actor %lx swarm %lx", i, units[i].player, units[i].actor, units[i].swarm);
 		}
+		/* (a player riding on a vehicle's deck, on the tick as at 30) */
+		fake_unit.unit.player_index = 0;
+		fake_unit.unit.actor_index = NONE;
+		fake_unit.unit.swarm_actor_index = NONE;
+		rider_biped = 1;
+		CHECK(!object_lane_micro_candidate(1, _object_type_biped), "a rider in the sub-steps");
+		rider_biped = NONE;
 		/* (a vehicle the AI drives stays on the tick) */
 		fake_unit.unit.player_index = NONE;
 		fake_unit.unit.actor_index = 0x10002;

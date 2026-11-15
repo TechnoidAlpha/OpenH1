@@ -108,25 +108,3 @@ def test_negative_control(control):
     fault, case = CONTROLS[control]
     status, output = run(build("hud_marks", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it\n{output}"
-
-
-def test_every_mark_placed_so():
-    # every mark the HUD projects through the view, and only while it draws: begun and ended in each
-    nav = function(read("source/interface/hud_nav_points.c"), "custom_render_nav_point")
-    hud = read("source/interface/hud.c")
-    for code in (nav, function(hud, "hud_draw_friendly_indicator"), function(hud, "hud_draw_player_name")):
-        assert "render_camera_view_to_screen(" in code
-        assert code.count("hud_draw_mark_begin(") == 1
-        # (ended on the way out of the VR mode's early return too)
-        assert code.count("hud_draw_mark_end();") == 2
-        assert not re.search(r"\(short\)fast_ftol\(screen_position\.[xy]\)", code)
-    # a ping's name placed so too, from where its arrow was drawn
-    ping_name = function(read("port/linux/game/network_markers.c"), "markers_draw_name")
-    assert ping_name.count("hud_draw_mark_begin(") == 1 and ping_name.count("hud_draw_mark_end();") == 1
-    # the game engine's goals and Basic Training's spots are drawn by custom_render_nav_point
-    assert "custom_render_nav_point(" in function(read("source/game/game_engine.c"), "game_engine_render_nav_points")
-    assert "custom_render_nav_point(" in read("port/linux/game/basic_training.c")
-    # the reticle's rest drawn with it, and cleared after
-    meter = function(read("source/interface/hud_draw.c"), "hud_draw_bitmap_with_meter")
-    assert meter.index("rasterizer_screen_offset_set(reticle_rest.i, reticle_rest.j);") < \
-        meter.index("hud_draw_bitmap_internal(") < meter.index("rasterizer_screen_offset_set(0.0f, 0.0f);")

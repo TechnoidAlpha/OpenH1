@@ -11,9 +11,18 @@ game, have none, and the key says so on the HUD.
 
 Each feed is the teammate's first-person view as this machine has the
 world: their eye (where their body is drawn, render_interpolation.c), their
-aim, their weapon's zoom, their weapon and arms (first_person_weapons.c's
-posed draw: the idle animation, not their reloads), their body hidden, and
-none of their HUD. A teammate in a seat whose camera follows the vehicle
+aim, their weapon's zoom, their weapon and arms, their body hidden, and
+none of their HUD. The weapon and arms move as on the teammate's own
+screen: first_person_weapons.c animates each linked teammate's in a slot of
+its own beside the local players' (its feeds' slots), from the same
+messages of their weapon and unit a local player's slot takes (every
+machine plays its teammates from their inputs, so each shot's kick and
+firing push back, a reload, empty or full, a melee, a grenade's throw, a
+weapon put away and readied, overheating and its vent, a charge, come as on
+their own machine) and from their unit as this machine has it each tick
+(the weapon in their hand, their throttle's moving overlay, their aim's
+turning sway). It is hidden while they zoom, as on their screen. Drawn at
+the frame's time, so it moves every frame though the feed is drawn in turn. A teammate in a seat whose camera follows the vehicle
 is seen from behind. Under each: their name, their shield, their health
 under it (the HUD's health colours, flashing as the HUD's does while their
 shield is down) and their distance.
@@ -42,8 +51,10 @@ detail chosen for that size. So the frame pays for about one small view,
 however many feeds there are; with the link hidden, nothing.
 
 Only what this machine draws: nothing is sent, the game state is not
-touched (no seed is taken, no effect or sound made), and the network
-version is unchanged.
+touched (no seed is taken, no effect or sound made: the feeds' slots are
+first_person_weapons.c's own, beside the game state, with their own idle
+poses' generator), and the network version is unchanged. The feeds' slots'
+animations step once a tick, a slot's few nodes, for each linked teammate.
 */
 
 #include "cseries.h"
@@ -123,6 +134,7 @@ void lights_port_keep(boolean keep);
 /* port/linux/game/render_interpolation.c */
 void render_interpolation_unit_camera_position(long unit_index, real_point3d *position);
 real render_interpolation_fraction(void);
+real render_interpolation_first_person_feed_phase(void);
 
 /* port/linux/src/xinput_sdl.c */
 int halo_spartan_link_pad_pressed(short port);
@@ -1387,10 +1399,11 @@ boolean spartan_link_feed_begin(
 	lights_port_keep(TRUE);
 	if (spartan_link.log)
 	{
-		platform_log("spartan link: %ld %d %ld %d %.4f %.4f %.4f %.5f %.5f %.5f %.4f %.3f", game_time_get(),
+		platform_log("spartan link: %ld %d %ld %d %.4f %.4f %.4f %.5f %.5f %.5f %.4f %.3f %.3f", game_time_get(),
 			(int)local_player_index, (long)DATUM_INDEX_TO_ABSOLUTE_INDEX(feed->player_index), through_eyes ? 1 : 0,
 			camera->position.x, camera->position.y, camera->position.z, camera->forward.i, camera->forward.j,
-			camera->forward.k, camera->vertical_field_of_view, render_interpolation_fraction());
+			camera->forward.k, camera->vertical_field_of_view, render_interpolation_fraction(),
+			render_interpolation_first_person_feed_phase());
 	}
 	return TRUE;
 }
@@ -1421,6 +1434,50 @@ long spartan_link_posed_unit(
 	void)
 {
 	return spartan_link.drawing ? spartan_link.posed_unit : NONE;
+}
+
+/* (debug.spartan_link_log: a feed's first-person weapon's state as it
+changes, first_person_weapons.c's feeds' slots) */
+void spartan_link_feed_state_log(
+	long unit_index,
+	char const *state,
+	real firing_push_back_velocity)
+{
+	if (spartan_link.log)
+	{
+		platform_log("spartan link feed state: %ld %lx %s %.3f", game_time_get(), (unsigned long)unit_index, state,
+			firing_push_back_velocity);
+	}
+}
+
+short spartan_link_linked_units(
+	long *unit_indices,
+	short maximum_count)
+{
+	short count = 0;
+	short local_player_index;
+
+	for (local_player_index = 0; local_player_index < MAXIMUM_LOCAL_PLAYERS; local_player_index++)
+	{
+		struct spartan_link_window *window = &spartan_link.windows[local_player_index];
+		short feed;
+
+		if (!spartan_link.in_game || !spartan_link_shown(local_player_index))
+			continue;
+		for (feed = 0; feed < window->count; feed++)
+		{
+			long unit_index = window->feeds[feed].unit_index;
+			short index;
+
+			if (window->feeds[feed].down_at || unit_index == NONE)
+				continue;
+			for (index = 0; index < count && unit_indices[index] != unit_index; index++)
+				;
+			if (index == count && count < maximum_count)
+				unit_indices[count++] = unit_index;
+		}
+	}
+	return count;
 }
 
 void spartan_link_draw(

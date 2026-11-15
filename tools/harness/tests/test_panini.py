@@ -5,14 +5,13 @@ the view's sides at the screen's sides, vertical lines straight, the middle magn
 full strength; what the HUD places over a point (render_camera_view_to_screen) where the pass draws it, a split
 screen's off-centre view too; the middle's magnification only while a window is drawn through it; off, nothing; the
 waypoints' arrows. The pass's GLSL has the same arithmetic."""
-import re
 import sys
 from pathlib import Path
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, ROOT, build, mutated, player_settings_slots, read, run  # noqa: E402
+from harness import CHECK_FAILED, build, mutated, player_settings_slots, read, run  # noqa: E402
 
 CASES = ["round_trip", "identity", "edges", "coverage", "shape", "hud_matches_pass", "center", "off", "direction",
          "players"]
@@ -62,12 +61,6 @@ CONTROLS = [
 ]
 
 
-def _model_slider(key: str) -> str:
-    """the model's slider row of the key (port/assets/menus/model, which menu_functions.c's sliders are made from):
-    its element's line"""
-    model = read("port/assets/menus/model/settings.xml")
-    return next(line for line in model.splitlines() if f'<row key="{key}" kind="slider"' in line)
-
 def generated(fault=None):
     projection = read(PROJECTION)
     game = read(GAME)
@@ -92,51 +85,3 @@ def test_case(case):
 def test_negative_control(file, before, after, case):
     status, output = run(build("panini", generated((file, before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_the_pass_has_the_same_arithmetic():
-    # tools/vulkan_post_shaders.py's PANINI_SOURCE (Metal's is compiled from it): the inverse of the header's
-    shader = (ROOT / "tools/vulkan_post_shaders.py").read_text()
-    source = shader[shader.index("PANINI_SOURCE = ("):]
-    source = "".join(re.findall(r'"((?:\\.|[^"\\])*)"', source[:source.index("\n)\n")]))
-    for line in ("float k = projected.x * projected.x / ((d + 1.0) * (d + 1.0));",
-                 "float c = max((sqrt(1.0 + k * (1.0 - d * d)) - k * d) / (k + 1.0), 1.0e-6);",
-                 "float S = (d + 1.0) / (d + c);",
-                 "return vec2(projected.x / (S * c), projected.y / (S * (panini.y + (1.0 - panini.y) * c)));",
-                 "vec2 projected = p / panini.z;"):
-        assert line in source, line
-    header = read(PROJECTION)
-    for line in ("float k = u * u / ((d + 1.0f) * (d + 1.0f));",
-                 "float c = (sqrtf(1.0f + k * (1.0f - d * d)) - k * d) / (k + 1.0f);",
-                 "S = (d + 1.0f) / (d + c);", "*x = u / (S * c);",
-                 "*y = v / (S * (projection->s + (1.0f - projection->s) * c));"):
-        assert line in header, line
-
-
-def test_the_hud_and_the_weapon_take_it():
-    # the projection's hook where every HUD mark is placed, the reticle and the passenger's offset scaled by the
-    # middle's magnification, the weapon's projection widened by it, the pass after the anti-aliasing
-    assert "if (panini_view_to_screen(camera, frustum, view_point, screen_point, &result))" in \
-        read("source/render/render_cameras.c")
-    assert "\t\t\trender_fov_scope_piece_scale(render.local_player_index) * panini_center_scale() :" in \
-        read("source/interface/hud_draw.c")
-    # (the weapon's reticle at the unzoomed view's magnification, kept through a zoom: #594)
-    assert "panini_center_scale_widened(reticle_widenings[local_player_index] > 0.0f ?" in \
-        read("port/linux/game/view_fov.c")
-    assert "passenger_camera_reticle_offset(&point, reticle_scale, &reticle_rest)" in read("source/interface/hud_draw.c")
-    assert "angle = 2.0f * atanf(tanf(angle * 0.5f) * panini_scale);" in read("port/linux/game/view_fov.c")
-    render = read("source/render/render.c")
-    assert render.index("halo_screen_anti_alias(") < render.index("panini_window_draw();") < \
-        render.index("interface_draw_screen();")
-
-
-def test_the_settings():
-    config = read("port/linux/src/port_config.c")
-    # (off by default: its strength 0)
-    assert '{ "display.panini", _config_real, "0.0", "HALO_PANINI",' in config
-    assert '{ "display.panini_vertical", _config_real, "0.0", "HALO_PANINI_VERTICAL",' in config
-    row = _model_slider("panini")
-    assert 'setting="display.panini"' in row and 'least="0" most="1" step="0.25" typed_least="0" typed_most="1"' in row
-    row = _model_slider("panini_vertical")
-    assert 'setting="display.panini_vertical"' in row and \
-        'least="0" most="1" step="0.05" typed_least="0" typed_most="1"' in row

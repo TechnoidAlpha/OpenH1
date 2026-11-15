@@ -53,7 +53,7 @@ long menu_tags_background(long tag_index);
 void menu_tags_background_set(long tag_index, long background_tag_index);
 long menu_tags_flags(long tag_index);
 short menu_tags_legend_growth(long legends_tag);
-unsigned long menu_tags_pause_rows(void);
+unsigned long menu_tags_pause_rows(short local_player_index);
 int halo_keyboard_prompts(void);
 boolean config_boolean(char const *name);
 struct widget_instance *ui_widget_port_add_child(struct widget_instance *parent, long tag_index,
@@ -63,6 +63,8 @@ boolean pc_menu_campaign_saved(char *level, char *difficulty, long size);
 void pc_menu_browser_visit(char const *tab);
 int pc_menu_browser_visit_kind(void);
 void pc_menu_main_menu_shown(struct widget_instance *screen);
+boolean pc_menu_edit_leave(short local_player_index, boolean save);
+long ui_widget_port_previous_screen(short local_player_index);
 int halo_keyboard_prompts(void);
 long ui_widget_port_text_box_font(struct widget_instance *widget, short *width);
 short ui_widget_port_past_move(void);
@@ -83,6 +85,14 @@ boolean pc_menu_browser_sort(char const *word);
 boolean pc_menu_browser_favorite(short row);
 boolean pc_menu_browser_select(struct widget_instance *widget, struct event_record *event, short row,
 	boolean *deleted);
+/* (menu_functions.c's coop_menu.inc: co-op's screens' bindings and
+actions, WHO CAN JOIN's choice kept, the co-op list's fix a host's, co-op's
+screen opened) */
+int pc_menu_coop_value(char const *name, char *value, unsigned long size);
+int pc_menu_coop_action(struct widget_instance *widget, struct event_record *event, char const *name, int *deleted);
+char const *pc_menu_coop_who_word(void);
+int pc_menu_coop_fix_hosts(void);
+void pc_menu_coop_opened(void);
 
 /* ---------- constants */
 
@@ -199,11 +209,37 @@ objectives' five) */
 /* the Xbox's pause menu's rows' frame, framing the focused one */
 #define BOX_ROW_PICTURE "ui\\shell\\bitmaps\\menu_bkds"
 
+/* a <dialog>'s layout, the PC version's Quit question's (quit_screen): its box
+(alert_bkd) as wide as Quit's at least and else as its choices need, its
+picture's transparent right this wide; as tall as its words need, in the
+middle of the screen: its top band this tall (to its line), its words this
+far below it and above its bottom band, a line of them this tall, at most
+this many, and its bottom band (its foot, dialog_foot's, the box's picture
+cut above it) this tall, from the foot's top this far down; its title and
+words this far in from its left (its title's top this far down), and its
+choices (each Quit's OK's button) this wide side by side in its bottom band,
+this far above the box's foot */
+#define DIALOG_LEAST_WIDTH 280
+#define DIALOG_PICTURE_MARGIN 18
+#define DIALOG_HEAD 29
+#define DIALOG_TEXT_ROOM 7
+#define DIALOG_LINE 21
+#define DIALOG_MOST_LINES 4
+#define DIALOG_FOOT 32
+#define DIALOG_FOOT_BAND 30
+#define DIALOG_TEXT_X 8
+#define DIALOG_TITLE_Y 4
+#define DIALOG_CHOICE_WIDTH 128
+#define DIALOG_CHOICES_UP 27
+#define DIALOG_CHOICES_ROOM 5
+
 #define SCREEN_BUTTON_B 1
 #define SCREEN_BUTTON_X 2
 #define SCREEN_BUTTON_Y 3
 /* (menu_engine.c's ENGINE_EVENT_BUTTON: the event manager's button event) */
 #define SCREEN_EVENT_BUTTON 3
+/* (and its ENGINE_EVENT_LEFT_STICK: the left stick pushed to an edge) */
+#define SCREEN_EVENT_LEFT_STICK 1
 
 /* ---------- the registry: what the files may name */
 
@@ -242,6 +278,12 @@ static boolean screen_call_lobby(struct widget_instance *widget, struct event_re
 	boolean *deleted);
 static boolean screen_call_close(struct widget_instance *widget, struct event_record *event, char const *name,
 	boolean *deleted);
+static boolean screen_call_edit(struct widget_instance *widget, struct event_record *event, char const *name,
+	boolean *deleted);
+static boolean screen_call_coop(struct widget_instance *widget, struct event_record *event, char const *name,
+	boolean *deleted);
+static boolean screen_call_add_player(struct widget_instance *widget, struct event_record *event, char const *name,
+	boolean *deleted);
 /* the row of the table an action is run for (0 up, on the table), NONE for
 none (a key's, a button's) */
 static short screen_action_row = NONE;
@@ -255,25 +297,55 @@ static struct screen_action const screen_actions[] =
 	campaign: a profile made first if there is none, as the PC version's
 	CAMPAIGN, and then Choose Mission at once: port_settings.py's
 	_solo_new_profile) */
-	{ "open solo", NULL, NULL, "new game if no plyr profiles", "port campaign init", "main_menu/campaign/mission_screen",
+	{ "open solo", NULL, "port coop host end", "new game if no plyr profiles", "port campaign init", "main_menu/campaign/mission_screen",
 		"main_menu/campaign/solo_creating_profile" },
 	/* (the server browser, as Multiplayer's SERVER BROWSER opens it: its mode
-	the browser's; every game, or the co-op games, this visit) */
+	the browser's; every game this visit) */
 	{ "open multiplayer", "all", "mp type set mode", "new game if no plyr profiles", NULL,
 		"main_menu/multiplayer_type_select/join_game/join_game_screen",
 		"main_menu/profile_manager/multiplayer_creating_profile" },
-	{ "open coop", "coop", "mp type set mode", "new game if no plyr profiles", NULL,
-		"main_menu/multiplayer_type_select/join_game/join_game_screen",
-		"main_menu/profile_manager/multiplayer_creating_profile" },
+	/* (co-op's one screen, screens/coop.xml, every way in: Campaign's
+	CO-OP, the server browser's CO-OP tab, Multiplayer's CO-OP CAMPAIGN) */
+	{ "open coop", NULL, NULL, NULL, NULL, "screens/coop", NULL },
 	/* (the browser's HOST & MORE: the PC version's Multiplayer screen, the
-	hub; its HOST CO-OP: the hub's co-op page, online or split screen) */
+	hub; co-op's own screen) */
 	{ "open host", NULL, NULL, NULL, NULL, "main_menu/multiplayer_type_select/multiplayer_type_select_screen", NULL },
-	{ "open host coop", NULL, NULL, NULL, NULL, "main_menu/multiplayer_type_select/hub/coop_screen", NULL },
+	{ "open host coop", NULL, NULL, NULL, NULL, "screens/coop", NULL },
+	/* (co-op's, screens/coop.xml: HOST, Choose Mission and Choose
+	Difficulty as the campaign's (a profile made first if there is none),
+	HOST's choosing begun; JOIN, the co-op list (screens/coop_join.xml);
+	SPLIT SCREEN, as the hub's SPLIT-SCREEN CO-OP. WHO CAN JOIN's cards
+	(screens/coop_who.xml) host the game; the co-op list's fix and JOIN BY
+	LINK, the lobby's fix: coop_menu.inc) */
+	{ "coop host", NULL, "port coop host begin", "new game if no plyr profiles", "port campaign init",
+		"main_menu/campaign/mission_screen", "main_menu/campaign/solo_creating_profile" },
+	/* (a profile made first if there is none, then the co-op list at once,
+	as HOST goes on to Choose Mission: port_settings.py's
+	_coop_join_new_profile) */
+	{ "coop join", NULL, NULL, "new game if no plyr profiles", NULL, "screens/coop_join",
+		"main_menu/campaign/coop_join_creating_profile" },
+	{ "coop split", NULL, NULL, "port coop begin", NULL, "main_menu/multiplayer_type_select/coop/player_2_profile_screen",
+		NULL },
+	{ "coop host friends", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_coop },
+	{ "coop host anyone", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_coop },
+	{ "coop host invite", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_coop },
+	{ "coop fix", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_coop },
+	{ "coop join link", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_coop },
+	{ "lobby fix", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_coop },
 	{ "open settings", NULL, NULL, "port settings begin", NULL,
 		"main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen", NULL },
 	{ "open training", NULL, NULL, NULL, NULL, "main_menu/training/training_screen", NULL },
-	/* (the quit question, as QUIT and B on the main menu open it) */
+	/* (the quit question, as QUIT and B on the main menu open it, and its OK:
+	screens/quit.xml) */
 	{ "quit", NULL, NULL, NULL, NULL, "main_menu/quit_select/quit_screen", NULL },
+	{ "quit game", NULL, NULL, "main menu quit game", NULL, NULL, NULL },
+	/* (back to the screen before, as B goes: a pop-up's BACK and CANCEL) */
+	{ "back", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_close },
+	/* (the question as a screen that edits a profile or a gametype is left
+	with changes: screens/save_changes.xml's SAVE and DON'T SAVE, back to the
+	editor, which saves them as its OK does, or leaves them) */
+	{ "edit save", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_edit },
+	{ "edit discard", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_edit },
 	/* (a screen's searches, <search>: the next one typed into, and every
 	one's words cleared) */
 	{ "search next", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_search },
@@ -322,7 +394,9 @@ static struct screen_action const screen_actions[] =
 	players, CHANGE TEAM), the invite copied, Server Setup, Host Controls,
 	another player of this machine, and the bots' choices stepped) */
 	{ "lobby row", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_lobby },
-	{ "lobby start", NULL, NULL, "port lobby start", NULL, NULL, NULL },
+	/* (its Start and START GAME: a controller not in the game joins, on Add
+	Player's screen; a player's starts the host's game) */
+	{ "lobby start", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_add_player },
 	{ "lobby team red", NULL, NULL, "port lobby team red", NULL, NULL, NULL },
 	{ "lobby team blue", NULL, NULL, "port lobby team blue", NULL, NULL, NULL },
 	{ "lobby team toggle", NULL, NULL, "port lobby team toggle", NULL, NULL, NULL },
@@ -351,10 +425,16 @@ static struct screen_action const screen_actions[] =
 	{ "lobby friend right", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_lobby },
 	{ "lobby friend invite", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_lobby },
 	{ "lobby close", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_lobby },
+	/* (Add Player's, screens/add_player.xml (menu_functions.c's): those joining
+	brought into the game (DONE, a player's START), or let go of (B, BACK);
+	either back to the screen before) */
+	{ "add player done", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_add_player },
+	{ "add player back", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_add_player },
 	/* (the pause menu's, screens/pause.xml and pause_campaign.xml, as its
 	rows did on the map's: the screen closed (RESUME GAME), or every screen
 	(B; the campaign's RESUME GAME); the player out of a multiplayer game
-	(LEAVE GAME, the screen closed); the host's Host Controls and END GAME;
+	(LEAVE GAME, the screen closed); the host's Host Controls, END GAME and
+	Basic Training's CHAPTERS (its first local player's alone);
 	network co-op's FRIENDLY FIRE; the campaign's REVERT TO SAVED and
 	RESTART LEVEL, each its question first, and SAVE AND QUIT) */
 	{ "close", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_close },
@@ -362,6 +442,7 @@ static struct screen_action const screen_actions[] =
 	{ "pause leave", NULL, NULL, NULL, NULL, NULL, NULL, screen_call_close },
 	{ "open host controls", NULL, NULL, "port host open", NULL, "main_menu/host_controls/host_controls_screen", NULL },
 	{ "pause end game", NULL, NULL, "port pause end game", NULL, NULL, NULL },
+	{ "pause chapters", NULL, NULL, "port training open", NULL, "main_menu/training/training_screen", NULL },
 	{ "pause friendly fire", NULL, NULL, "port coop friendly fire", NULL, NULL, NULL },
 	{ "pause revert", NULL, NULL, NULL, NULL, "ui\\shell\\error\\confirm_restartatsave_modal_fullscreen", NULL },
 	{ "pause restart", NULL, NULL, NULL, NULL, "ui\\shell\\error\\confirm_restartlevel_modal_fullscreen", NULL },
@@ -371,7 +452,9 @@ static struct screen_action const screen_actions[] =
 static char const *const screen_action_names[] =
 {
 	"open campaign", "open solo", "open multiplayer", "open coop", "open host", "open host coop", "open settings",
-	"open training", "quit", "search next", "search clear", "browser back", "browser host", "browser tab all",
+	"coop host", "coop join", "coop split", "coop host friends", "coop host anyone", "coop host invite", "coop fix",
+	"coop join link", "lobby fix",
+	"open training", "quit", "quit game", "back", "edit save", "edit discard", "search next", "search clear", "browser back", "browser host", "browser tab all",
 	"browser tab dedicated", "browser tab openh1", "browser tab legacy", "browser tab coop", "browser tab favorites",
 	"browser sort players", "browser sort ping", "browser sort server", "browser sort map", "browser sort mode",
 	"browser sort next", "browser favorite", "browser join", "browser refresh", "browser filters", "profile select",
@@ -380,18 +463,21 @@ static char const *const screen_action_names[] =
 	"lobby bots right", "lobby skill left", "lobby skill right", "lobby teams left", "lobby teams right",
 	"lobby chat", "lobby card", "lobby card friend", "lobby card mute", "lobby card kick", "lobby friends",
 	"lobby friend left", "lobby friend right", "lobby friend invite", "lobby close",
-	"close", "close all", "pause leave", "open host controls", "pause end game",
+	"add player done", "add player back",
+	"close", "close all", "pause leave", "open host controls", "pause end game", "pause chapters",
 	"pause friendly fire", "pause revert", "pause restart", "pause quit",
 };
 
 /* a binding's value: the saved game's mission and difficulty (player 1's
-profile's), none without one */
+profile's), none without one; the screen's local player (its widget's: a
+split screen's pause menu is its player's), whose the pause.* rows are */
 struct screen_values
 {
 	boolean read;
 	boolean saved;
 	char level[64];
 	char difficulty[64];
+	short local_player_index;
 };
 
 static char const *const screen_binding_names[] =
@@ -401,7 +487,7 @@ static char const *const screen_binding_names[] =
 	"browser.search.any", "browser.panel.title", "browser.panel.where", "browser.panel.kind",
 	"browser.panel.kind.tone", "browser.panel.tick", "browser.panel.opence", "browser.panel.players",
 	"browser.panel.ping", "browser.panel.status", "browser.joinable", "browser.server", "browser.link",
-	"browser.filtered", "profile.title", "profile.name", "profile.level", "profile.difficulty", "profile.controls",
+	"browser.filtered", "browser.fix", "coop.listing", "coop.link", "coop.problem", "coop.fix", "profile.title", "profile.name", "profile.level", "profile.difficulty", "profile.controls",
 	"profile.color", "profile.chosen", "profile.current", "color.profile", "color.title", "color.spartan",
 	"color.current", "color.about", "lobby.title", "lobby.subtitle", "lobby.subtitle.short", "lobby.red",
 	"lobby.red.count", "lobby.red.tone", "lobby.blue", "lobby.blue.count", "lobby.blue.tone", "lobby.gametype",
@@ -413,7 +499,8 @@ static char const *const screen_binding_names[] =
 	"lobby.card.party", "lobby.card.note", "lobby.card.facts", "lobby.card.friend",
 	"lobby.card.mutable", "lobby.card.mute", "lobby.card.kick", "lobby.friends", "lobby.friends.count",
 	"lobby.friend", "lobby.friend.where", "lobby.friends.said", "lobby.map.picture", "lobby.description",
-	"lobby.where", "lobby.lineup", "pause.friendly_fire", "pause.host_controls", "pause.end_game",
+	"lobby.where", "lobby.lineup", "lobby.lineup.names", "add.count", "add.title", "add.profile", "add.color", "add.help",
+	"add.done", "pause.friendly_fire", "pause.host_controls", "pause.end_game",
 	"pause.chapters",
 };
 
@@ -424,6 +511,7 @@ static struct menu_table_source const *const screen_sources[] =
 	&pc_menu_profile_source,
 	&pc_menu_lobby_source,
 	&pc_menu_color_source,
+	&pc_menu_add_player_source,
 };
 
 static char const *const screen_source_names[] =
@@ -432,6 +520,7 @@ static char const *const screen_source_names[] =
 	"profiles",
 	"lobby.players",
 	"profile.colors",
+	"add.players",
 };
 
 /* the chats a <chat> may name (menu_table.h), and their names */
@@ -466,11 +555,19 @@ static int screen_value(void *context, char const *name, char *value, unsigned l
 	/* (the lobby's: menu_functions.c's lobby_menu.inc) */
 	if (!strncmp(name, "lobby.", 6))
 		return pc_menu_lobby_value(name, value, size);
-	/* (the pause menu's: the rows this machine's has, as menu_tags.c adds
-	them to the map's; FRIENDLY FIRE's words, this machine's choice) */
+	/* (Add Player's: menu_functions.c's) */
+	if (!strncmp(name, "add.", 4))
+		return pc_menu_add_player_value(name, value, size);
+	/* (co-op's, the lobby's WHO CAN JOIN and what keeps people from the
+	game: coop_menu.inc) */
+	if (!strncmp(name, "coop.", 5))
+		return pc_menu_coop_value(name, value, size);
+	/* (the pause menu's: the rows this machine's has for the screen's local
+	player, as menu_tags.c adds them to the map's, the host's for its first
+	local player alone; FRIENDLY FIRE's words, this machine's choice) */
 	if (!strncmp(name, "pause.", 6))
 	{
-		unsigned long rows = menu_tags_pause_rows();
+		unsigned long rows = menu_tags_pause_rows(values->local_player_index);
 
 		if (!strcmp(name, "pause.friendly_fire") && TEST_FLAG(rows, _host_controls_pause_friendly_fire))
 			snprintf(value, size, config_boolean("network.coop_own_friendly_fire") ? "FRIENDLY FIRE ON" :
@@ -520,12 +617,22 @@ struct screen_place
 	void (*shown)(struct widget_instance *screen);
 	/* (whether it takes the screen's place this time: NULL, always) */
 	int (*takes)(void);
+	/* (a controller's key (MENU_SCREEN_KEY_*), before the screen's own and its
+	focus take it: MENU_SCREEN_KEY_FREE, theirs; NULL, all theirs) */
+	int (*key)(short controller, int key);
 };
 
 static struct screen_place const screen_places[] =
 {
 	{ "main", "main_menu\\main_menu", pc_menu_main_menu_shown, NULL },
 	{ "campaign", "screens\\campaign", NULL, NULL },
+	/* (co-op's one screen: its own, and the hub's co-op page, which
+	Multiplayer's CO-OP CAMPAIGN opens; HOST's WHO CAN JOIN; the co-op
+	list) */
+	{ "coop", "screens\\coop", NULL, NULL },
+	{ "coop", "main_menu\\multiplayer_type_select\\hub\\coop_screen", NULL, NULL },
+	{ "coop_who", "screens\\coop_who", NULL, NULL },
+	{ "coop_join", "screens\\coop_join", NULL, NULL },
 	/* (Join Game's, in each of its modes: the server browser, the local
 	network's list, Join by Link) */
 	{ "browser", "main_menu\\multiplayer_type_select\\join_game\\join_game_screen", NULL, NULL },
@@ -540,12 +647,20 @@ static struct screen_place const screen_places[] =
 	player, X adds one, Y the map vote or the invite), and what its list did
 	each frame done: pc_menu_lobby_frame) */
 	{ "lobby", "main_menu\\multiplayer_type_select\\lobby\\lobby_screen", pc_menu_lobby_frame, NULL },
+	/* (Add Player, as the lobby's and the preview's ADD PLAYER and another
+	controller's START open it: each controller not in the game its own
+	keys, menu_functions.c's) */
+	{ "add_player", "screens\\add_player", NULL, NULL, pc_menu_add_player_key },
 	/* (the pause menu, in place of the map's: menu_screen_pause_name opens
 	these, a campaign's or a multiplayer game's, pausing the game or not) */
 	{ "pause", "screens\\pause", NULL, NULL },
 	{ "pause", "screens\\pause_live", NULL, NULL },
 	{ "pause_campaign", "screens\\pause_campaign", NULL, NULL },
 	{ "pause_campaign", "screens\\pause_campaign_live", NULL, NULL },
+	/* (the pop-ups: the Quit question, in place of the PC version's; the
+	question as an editor is left with changes, a screen of its own) */
+	{ "quit", "main_menu\\quit_select\\quit_screen", NULL, NULL },
+	{ "save_changes", "screens\\save_changes", NULL, NULL },
 };
 
 /* ---------- the screens open */
@@ -589,8 +704,11 @@ struct screen_open
 	boolean colors;
 	struct screen_spartan spartans[MENU_SCREEN_MAXIMUM_SPARTANS];
 	long spartan_count;
-	/* (its cards' scale, to fill their room: 0 for their own size) */
+	/* (its cards' scale, to fill their room: 0 for their own size; and their
+	titles', smaller than CARD_TITLE_SCALE where one would be wider than its
+	card at it, every title of the row the same: 0 for CARD_TITLE_SCALE) */
 	real card_scale;
+	real card_title_scale;
 	/* (its button bar's prompts, each its key, and its place in the 640
 	and its side, which past 16:9 moves it to the screen's edge each frame) */
 	struct widget_instance *prompts[SCREEN_MAXIMUM_BUTTONS];
@@ -613,6 +731,17 @@ struct screen_open
 	struct widget_instance *box_middle;
 	struct widget_instance *box_legend;
 	short box_growth;
+	/* (its <dialog>'s: its box, title and words, drawn as wide as its
+	choices need) */
+	struct widget_instance *dialog_box;
+	struct widget_instance *dialog_title;
+	struct widget_instance *dialog_text;
+	struct widget_instance *dialog_foot;
+	/* (the box and its foot drawn under them twice more, each pair a box
+	and its foot: its picture's translucent bands made nearly opaque over
+	the screen behind) */
+	struct widget_instance *dialog_under[4];
+	short dialog_width, dialog_height;
 };
 
 static struct
@@ -630,6 +759,9 @@ static struct
 	/* (a <box>'s, its <legend>'s and its <objectives>') */
 	long box_left_tag, box_center_tag, box_right_tag, box_list_tag, box_item_tag, legend_tag;
 	long objectives_left_tag, objectives_center_tag, objectives_right_tag, objectives_title_tag, objectives_text_tag;
+	/* (a <dialog>'s) */
+	long dialog_tag, dialog_title_tag, dialog_text_tag, dialog_list_tag, dialog_choice_tag, dialog_foot_tag,
+		dialog_dim_tag;
 } screens = { FALSE };
 
 static void screens_names_give(void)
@@ -707,6 +839,13 @@ static boolean screen_blocks_found(void)
 	screens.objectives_right_tag = screen_block_tag("pc\\screens\\objectives_right");
 	screens.objectives_title_tag = screen_block_tag("pc\\screens\\objectives_title");
 	screens.objectives_text_tag = screen_block_tag("pc\\screens\\objectives_text");
+	screens.dialog_tag = screen_block_tag("pc\\screens\\dialog");
+	screens.dialog_title_tag = screen_block_tag("pc\\screens\\dialog_title");
+	screens.dialog_text_tag = screen_block_tag("pc\\screens\\dialog_text");
+	screens.dialog_list_tag = screen_block_tag("pc\\screens\\dialog_list");
+	screens.dialog_choice_tag = screen_block_tag("pc\\screens\\dialog_choice");
+	screens.dialog_foot_tag = screen_block_tag("pc\\screens\\dialog_foot");
+	screens.dialog_dim_tag = screen_block_tag("pc\\screens\\dialog_dim");
 	if (screens.title_art_tag == NONE || screens.list_tag == NONE || screens.item_tag == NONE ||
 		screens.hint_tag == NONE || screens.prompt_left_tag == NONE || screens.button_tag == NONE ||
 		screens.cards_tag == NONE || screens.card_tag == NONE || screens.card_title_tag == NONE ||
@@ -717,7 +856,9 @@ static boolean screen_blocks_found(void)
 		screens.box_list_tag == NONE || screens.box_item_tag == NONE || screens.legend_tag == NONE ||
 		screens.objectives_left_tag == NONE || screens.objectives_center_tag == NONE ||
 		screens.objectives_right_tag == NONE || screens.objectives_title_tag == NONE ||
-		screens.objectives_text_tag == NONE)
+		screens.objectives_text_tag == NONE || screens.dialog_tag == NONE || screens.dialog_title_tag == NONE ||
+		screens.dialog_text_tag == NONE || screens.dialog_list_tag == NONE || screens.dialog_choice_tag == NONE ||
+		screens.dialog_foot_tag == NONE || screens.dialog_dim_tag == NONE)
 	{
 		platform_log("menus: the screens' blocks (screens/blocks.xml) are not all there");
 		screens.blocks_found = FALSE;
@@ -790,6 +931,13 @@ static struct widget_instance *screen_widget_add(struct widget_instance *parent,
 	return widget;
 }
 
+/* the bindings' values unread, for the open screen's local player */
+static void screen_values_clear(struct screen_values *values, struct screen_open const *open)
+{
+	memset(values, 0, sizeof(*values));
+	values->local_player_index = open && open->widget ? open->widget->local_player_index : NONE;
+}
+
 /* whether an item is made: its when holds, and its label's bindings have
 values */
 static boolean screen_item_shown(struct menu_screen_block const *item, struct screen_values *values, char *label,
@@ -810,6 +958,7 @@ static boolean screen_button_right(struct menu_screen_block const *button)
 
 static boolean tall_build(struct screen_open *open, struct menu_screen const *screen);
 static boolean box_build(struct screen_open *open, struct menu_screen const *screen);
+static boolean dialog_build(struct screen_open *open, struct menu_screen const *screen);
 
 /* a <spartan> of the screen's made (the widget it is drawn at: its
 picture), its Spartans' indices after those of the screen's <spartan>s
@@ -846,6 +995,30 @@ static struct screen_spartan *screen_spartan_add(struct screen_open *open, struc
 
 /* the screen's widgets made from the hand-written screen, in place of
 whatever it had: FALSE (nothing changed) if they cannot be */
+/* a card's title measured: the row's titles drawn smaller than
+CARD_TITLE_SCALE (all of them, so that they match) where this one would be
+wider than its box at it (SPLIT SCREEN's) */
+#define CARD_TITLE_MARGIN 6
+static void screen_card_title_fit(struct screen_open *open, struct widget_instance *title, char const *label)
+{
+	unsigned short wide[MENU_SCREEN_MAXIMUM_TEXT];
+	short index, width, room;
+	real scale;
+
+	for (index = 0; label[index] && index < MENU_SCREEN_MAXIMUM_TEXT - 1; index++)
+		wide[index] = (unsigned char)label[index];
+	wide[index] = 0;
+	width = pc_menu_text_width(title, wide);
+	room = (short)(CARD_WIDTH - 2 * CARD_TITLE_MARGIN - 2 * CARD_TITLE_MARGIN);
+	if (width <= 0 || width * CARD_TITLE_SCALE <= room)
+		return;
+	scale = (real)room / (real)width;
+	if (scale < 1.0f)
+		scale = 1.0f;
+	if (open->card_title_scale <= 0.0f || scale < open->card_title_scale)
+		open->card_title_scale = scale;
+}
+
 static boolean screen_build(struct screen_open *open, struct menu_screen const *screen)
 {
 	struct widget_instance *widget = open->widget;
@@ -870,8 +1043,11 @@ static boolean screen_build(struct screen_open *open, struct menu_screen const *
 		/* (a screen with a <box>: the pause menu's layout) */
 		if (screen->blocks[index].kind == MENU_SCREEN_BOX)
 			return box_build(open, screen);
+		/* (a pop-up: the Quit question's box) */
+		if (screen->blocks[index].kind == MENU_SCREEN_DIALOG)
+			return dialog_build(open, screen);
 	}
-	memset(&values, 0, sizeof(values));
+	screen_values_clear(&values, open);
 	/* (each block's room, from the top down: a space shares what is left) */
 	for (index = 0; index < screen->block_count; index++)
 	{
@@ -984,6 +1160,7 @@ static boolean screen_build(struct screen_open *open, struct menu_screen const *
 				focus_id = block->focus;
 			/* (at their own size: a scale, 0 for none, would draw them larger) */
 			open->card_scale = 0.0f;
+			open->card_title_scale = 0.0f;
 			card_width = CARD_WIDTH;
 			card_gap = CARD_GAP;
 			x = (short)((SCREEN_WIDTH - count * card_width - (count - 1) * card_gap) / 2);
@@ -1019,6 +1196,7 @@ static boolean screen_build(struct screen_open *open, struct menu_screen const *
 				if (part)
 				{
 					screen_text_set(part, label);
+					screen_card_title_fit(open, part, label);
 					part = part->next;
 				}
 				if (part)
@@ -1271,7 +1449,7 @@ static boolean box_build(struct screen_open *open, struct menu_screen const *scr
 	}
 	if (!box || !list)
 		return FALSE;
-	memset(&values, 0, sizeof(values));
+	screen_values_clear(&values, open);
 	for (index = 0; index < screen->block_count; index++)
 	{
 		if (screen->blocks[index].kind == MENU_SCREEN_ITEM && screen->blocks[index].parent == list_index &&
@@ -1402,7 +1580,7 @@ static void box_frame(struct screen_open *open)
 	short growth = 0;
 	long index;
 
-	memset(&values, 0, sizeof(values));
+	screen_values_clear(&values, open);
 	for (index = 0; index < open->item_count; index++)
 	{
 		struct menu_screen_block const *item = open->item_blocks[index];
@@ -1455,16 +1633,243 @@ static boolean box_picture_of(struct widget_instance const *widget, long *bitmap
 	return FALSE;
 }
 
+/* ---------- a <dialog> (a pop-up: the Quit question's, as the PC version's
+quit_screen draws it): its box in the middle of the screen, its title, its
+words and its choices side by side in its foot */
+
+/* a screen's widgets and all in them taken out of the events and the
+pointer's targets: drawn alone (a pop-up's screen behind it) */
+static void dialog_still(struct widget_instance *widget)
+{
+	struct widget_instance *child;
+
+	widget->disabled = TRUE;
+	for (child = widget->child; child; child = child->next)
+		dialog_still(child);
+}
+
+/* the dialog's widgets made: the screen it was opened from behind it, as it
+was and dimmed, taking nothing (where that is a generated screen: an editor's
+question over the editor; Quit's main menu is a hand-written one, so Quit's
+is over the menus' scene, as before); its box as wide as Quit's, or as its
+choices need (its picture's ends kept), as tall as its words need, in the
+middle of the screen: its title in the box's top band, its words under it
+(wrapped to the box), and its choices, each a button of Quit's, side by side
+in its bottom band, the list's focus on the one it names (a hot reload's,
+the one focused). FALSE if the screen has no <dialog> with a <list> */
+static boolean dialog_build(struct screen_open *open, struct menu_screen const *screen)
+{
+	struct widget_instance *widget = open->widget;
+	struct screen_values values;
+	char label[MENU_SCREEN_MAXIMUM_TEXT];
+	struct menu_screen_block const *dialog = NULL, *list = NULL;
+	long index, choices = 0, list_index = NONE, focus_index = 0, behind_tag;
+	short width, height, shown, left, top, x, lines = 1;
+	struct widget_instance *focus = NULL;
+	char const *focus_id;
+
+	for (index = 0; index < screen->block_count; index++)
+	{
+		if (screen->blocks[index].kind == MENU_SCREEN_DIALOG)
+			dialog = &screen->blocks[index];
+		else if (screen->blocks[index].kind == MENU_SCREEN_LIST)
+		{
+			list = &screen->blocks[index];
+			list_index = index;
+		}
+	}
+	if (!dialog || !list)
+		return FALSE;
+	screen_values_clear(&values, open);
+	for (index = 0; index < screen->block_count; index++)
+	{
+		if (screen->blocks[index].kind == MENU_SCREEN_ITEM && screen->blocks[index].parent == list_index &&
+			screen_item_shown(&screen->blocks[index], &values, label, sizeof(label)))
+		{
+			choices++;
+		}
+	}
+	choices = PIN(choices, 1, MENU_SCREEN_MAXIMUM_CHOICES);
+	width = (short)MAX(DIALOG_LEAST_WIDTH, choices * DIALOG_CHOICE_WIDTH + DIALOG_CHOICES_ROOM + DIALOG_PICTURE_MARGIN);
+	shown = (short)(width - DIALOG_PICTURE_MARGIN);
+	left = (short)((SCREEN_WIDTH - width) / 2);
+	/* (its first opening on the list's focus, as each question asks anew; made
+	again by a hot reload, on the choice focused) */
+	focus_id = open->generation && screens.focused[open->place - screen_places][0] ?
+		screens.focused[open->place - screen_places] : list->focus;
+	/* the screen's own widgets let go of, and its own made */
+	widget->focused_child = NULL;
+	while (widget->child)
+		ui_widget_delete(widget->child);
+	open->list = NULL;
+	open->item_count = 0;
+	open->colors = FALSE;
+	open->spartan_count = 0;
+	open->header = NULL;
+	open->prompt_count = 0;
+	open->box = FALSE;
+	/* (the screen it was opened from, behind it and dimmed) */
+	behind_tag = ui_widget_port_previous_screen(widget->local_player_index);
+	if (behind_tag != NONE && !screen_place_of(behind_tag))
+	{
+		struct widget_instance *behind = screen_widget_add(widget, behind_tag, 0, 0);
+
+		if (behind)
+		{
+			dialog_still(behind);
+			screen_widget_add(widget, screens.dialog_dim_tag, 0, 0);
+		}
+	}
+	for (index = 0; index < NUMBEROF(open->dialog_under); index++)
+	{
+		open->dialog_under[index] = screen_widget_add(widget, index % 2 ? screens.dialog_foot_tag : screens.dialog_tag,
+			left, 0);
+		if (!open->dialog_under[index])
+			return FALSE;
+	}
+	open->dialog_box = screen_widget_add(widget, screens.dialog_tag, left, 0);
+	open->dialog_foot = screen_widget_add(widget, screens.dialog_foot_tag, left, 0);
+	open->dialog_title = screen_widget_add(widget, screens.dialog_title_tag, (short)(left + DIALOG_TEXT_X), 0);
+	open->dialog_text = screen_widget_add(widget, screens.dialog_text_tag, (short)(left + DIALOG_TEXT_X), 0);
+	if (!open->dialog_box || !open->dialog_foot || !open->dialog_title || !open->dialog_text)
+		return FALSE;
+	if (dialog->label && menu_screen_text(dialog->label, screen_value, &values, label, sizeof(label)))
+		screen_text_set(open->dialog_title, label);
+	open->dialog_text->visible = FALSE;
+	if (dialog->text && menu_screen_text(dialog->text, screen_value, &values, label, sizeof(label)) && label[0])
+	{
+		screen_text_set(open->dialog_text, label);
+		open->dialog_text->visible = TRUE;
+		lines = (short)MAX(1, pc_menu_text_lines(open->dialog_text,
+			(unsigned short const *)open->dialog_text->parameters.text_box.text,
+			(short)(shown - 2 * DIALOG_TEXT_X), DIALOG_MOST_LINES));
+	}
+	/* (as tall as its words, in the middle of the screen) */
+	height = (short)(DIALOG_HEAD + DIALOG_TEXT_ROOM * 2 + lines * DIALOG_LINE + DIALOG_FOOT_BAND);
+	top = (short)((SCREEN_HEIGHT - height) / 2);
+	open->dialog_width = width;
+	open->dialog_height = height;
+	open->dialog_box->vertical_offset = (short)(widget->vertical_offset + top);
+	open->dialog_foot->vertical_offset = (short)(widget->vertical_offset + top + height - DIALOG_FOOT);
+	for (index = 0; index < NUMBEROF(open->dialog_under); index++)
+	{
+		open->dialog_under[index]->vertical_offset = index % 2 ? open->dialog_foot->vertical_offset :
+			open->dialog_box->vertical_offset;
+	}
+	open->dialog_title->vertical_offset = (short)(widget->vertical_offset + top + DIALOG_TITLE_Y);
+	open->dialog_text->vertical_offset = (short)(widget->vertical_offset + top + DIALOG_HEAD + DIALOG_TEXT_ROOM);
+	/* (its choices, side by side in the middle of its bottom band) */
+	open->list = screen_widget_add(widget, screens.dialog_list_tag, 0, 0);
+	if (!open->list)
+		return FALSE;
+	x = (short)(left + (shown - choices * DIALOG_CHOICE_WIDTH) / 2);
+	for (index = 0; index < screen->block_count; index++)
+	{
+		struct menu_screen_block const *item = &screen->blocks[index];
+		struct widget_instance *made;
+
+		if (item->kind != MENU_SCREEN_ITEM || item->parent != list_index ||
+			!screen_item_shown(item, &values, label, sizeof(label)) || open->item_count >= choices)
+		{
+			continue;
+		}
+		made = screen_widget_add(open->list, screens.dialog_choice_tag,
+			(short)(x + open->item_count * DIALOG_CHOICE_WIDTH), (short)(top + height - DIALOG_CHOICES_UP));
+		if (!made)
+			break;
+		screen_text_set(made, label);
+		open->items[open->item_count] = made;
+		open->item_blocks[open->item_count] = item;
+		open->hints[open->item_count] = NULL;
+		open->pictures[open->item_count] = NONE;
+		snprintf(open->ids[open->item_count], SCREEN_ID_LENGTH, "%s", item->id ? item->id : "");
+		snprintf(open->actions[open->item_count], SCREEN_ACTION_LENGTH, "%s", item->action);
+		if (!focus || (focus_id && item->id && !strcmp(item->id, focus_id)))
+		{
+			focus = made;
+			focus_index = open->item_count;
+		}
+		open->item_count++;
+	}
+	if (focus)
+	{
+		widget->focused_child = open->list;
+		open->list->focused_child = focus;
+		open->list->parameters.list.selected_index = (short)focus_index;
+	}
+	snprintf(open->back, sizeof(open->back), "%s", screen->back ? screen->back : "");
+	open->generation = menu_screens_generation(screen->name);
+	return TRUE;
+}
+
+/* a dialog's box, its foot, title and words drawn as wide as its choices
+make the box (its pictures' ends kept: keep_ends), the box cut above its
+foot and its words as tall as their lines: TRUE for them */
+static boolean dialog_picture_of(struct widget_instance const *widget, long *bitmap_tag, rectangle2d *bounds)
+{
+	long open_index;
+
+	for (open_index = 0; widget && open_index < SCREEN_MAXIMUM_OPEN; open_index++)
+	{
+		struct screen_open const *open = &screens.open[open_index];
+		short shown = (short)(open->dialog_width - DIALOG_PICTURE_MARGIN);
+
+		if (!open->widget || !open->dialog_box)
+			continue;
+		if (widget == open->dialog_box || widget == open->dialog_under[0] || widget == open->dialog_under[2])
+		{
+			bounds->x1 = (short)(bounds->x0 + open->dialog_width);
+			bounds->y1 = (short)(bounds->y0 + open->dialog_height - DIALOG_FOOT);
+		}
+		else if (widget == open->dialog_foot || widget == open->dialog_under[1] || widget == open->dialog_under[3])
+			bounds->x1 = (short)(bounds->x0 + open->dialog_width);
+		else if (widget == open->dialog_title)
+			bounds->x1 = (short)(bounds->x0 + shown - 2 * DIALOG_TEXT_X);
+		else if (widget == open->dialog_text)
+		{
+			bounds->x1 = (short)(bounds->x0 + shown - 2 * DIALOG_TEXT_X);
+			bounds->y1 = (short)(bounds->y0 + open->dialog_height - DIALOG_HEAD - DIALOG_FOOT_BAND -
+				DIALOG_TEXT_ROOM);
+		}
+		else
+			continue;
+		*bitmap_tag = NONE;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+/* "edit save" and "edit discard" (screens/save_changes.xml's SAVE and DON'T
+SAVE): back to the editor the question was opened from (the screen before),
+then its changes saved as its OK saves them, or let go of, and the editor
+closed, as its OK closes it (menu_functions.c) */
+static boolean screen_call_edit(struct widget_instance *widget, struct event_record *event, char const *name,
+	boolean *deleted)
+{
+	boolean save = !strcmp(name, "edit save");
+	short local_player_index = widget_instance_get_topmost_parent(widget)->local_player_index;
+
+	menu_tags_back(widget, event, deleted);
+	*deleted = TRUE;
+	return pc_menu_edit_leave(local_player_index, save);
+}
+
 /* "close", "close all" and "pause leave": the screen closed (the pause
 menu's RESUME GAME), every screen (B; the campaign's RESUME GAME), or the
 player taken out of the game (the Xbox's "mp game player quit") and the
-screen closed */
+screen closed; "back": back to the screen before, as B goes (a pop-up's
+BACK and CANCEL) */
 static boolean screen_call_close(struct widget_instance *widget, struct event_record *event, char const *name,
 	boolean *deleted)
 {
 	struct widget_instance *screen = widget_instance_get_topmost_parent(widget);
 
 	*deleted = FALSE;
+	if (!strcmp(name, "back"))
+	{
+		menu_tags_back(widget, event, deleted);
+		return TRUE;
+	}
 	if (!strcmp(name, "pause leave"))
 	{
 		long index = pc_menu_event_function_index("mp game player quit");
@@ -1531,6 +1936,12 @@ boolean menu_screen_opened(struct widget_instance *widget)
 	screen = menu_screens_find(place->screen);
 	if (!screen)
 		return FALSE;
+	/* (co-op's screen: HOST's choosing over, as Choose Mission's B comes
+	back to it; WHO CAN JOIN on the choice kept: coop_menu.inc) */
+	if (!strcmp(place->screen, "coop"))
+		pc_menu_coop_opened();
+	if (!strcmp(place->screen, "coop_who"))
+		snprintf(screens.focused[place - screen_places], SCREEN_ID_LENGTH, "%s", pc_menu_coop_who_word());
 	for (index = 0; index < SCREEN_MAXIMUM_OPEN; index++)
 	{
 		struct screen_open *open = &screens.open[index];
@@ -1633,7 +2044,7 @@ static short screen_spartan_colors(struct screen_open const *open, struct screen
 		char value[MENU_SCREEN_MAXIMUM_TEXT];
 		char const *word = value;
 
-		memset(&values, 0, sizeof(values));
+		screen_values_clear(&values, open);
 		if (!block->value || !screen_value(&values, block->value, value, sizeof(value)))
 		{
 			colors[0] = SCREEN_SPARTAN_NONE;
@@ -1727,7 +2138,7 @@ static void screen_spartan_frame(struct screen_open *open, long focused)
 			menu_spartan_place((short)(spartan->first + place), color,
 				(real)block->box_x + (real)block->box_width * ((real)place + 0.5f) / (real)places,
 				(real)(block->box_y + block->box_height),
-				(real)block->box_height / (real)(!lineup && places > 2 ? 2 : 1));
+				(real)block->box_height / (real)(!lineup && places > 2 ? 2 : 1), lineup);
 			drawn |= place == 0;
 		}
 		if (spartan->picture && !lineup)
@@ -1986,6 +2397,114 @@ static boolean screen_call_lobby(struct widget_instance *widget, struct event_re
 	return result;
 }
 
+/* the lobby's start (menu_functions.c's: a controller not in the game
+joins, on Add Player's screen), and Add Player's DONE and BACK (those
+joining brought in, or let go of; then back to the screen before) */
+static boolean screen_call_add_player(struct widget_instance *widget, struct event_record *event, char const *name,
+	boolean *deleted)
+{
+	int call_deleted = FALSE;
+	boolean result;
+
+	*deleted = FALSE;
+	if (!strcmp(name, "lobby start"))
+	{
+		result = pc_menu_lobby_start(widget, event, &call_deleted) != 0;
+		*deleted = call_deleted != 0;
+		return result;
+	}
+	if (!pc_menu_add_player_action(name))
+		return TRUE;
+	menu_tags_back(widget, event, deleted);
+	return TRUE;
+}
+
+/* (menu_table.h's) the place of a hand-written screen by its name, where
+the new menus run it and its file is read (NULL: none) */
+static struct screen_place const *screen_place_named(char const *name)
+{
+	char tag_name[256];
+	long index;
+
+	if (!menu_engine_looks())
+		return NULL;
+	screens_names_give();
+	for (index = 0; index < NUMBEROF(screen_places); index++)
+	{
+		if (strcmp(screen_places[index].screen, name) || !menu_screens_find(name))
+			continue;
+		snprintf(tag_name, sizeof(tag_name), "pc\\%s", screen_places[index].widget);
+		if (tag_loaded(UI_WIDGET_DEFINITION_TAG, tag_name) != NONE)
+			return &screen_places[index];
+	}
+	return NULL;
+}
+
+int menu_screen_open_ready(char const *name)
+{
+	return screen_place_named(name) != NULL;
+}
+
+int menu_screen_open_named(struct widget_instance *widget, struct event_record *event, char const *name,
+	int *deleted)
+{
+	struct screen_place const *place = screen_place_named(name);
+	boolean open_deleted = FALSE;
+	boolean opened;
+	char tag_name[256];
+
+	*deleted = FALSE;
+	if (!place)
+		return FALSE;
+	snprintf(tag_name, sizeof(tag_name), "pc\\%s", place->widget);
+	opened = menu_tags_open(widget, event, tag_name, &open_deleted);
+	*deleted = open_deleted != 0;
+	return opened;
+}
+
+/* a controller's key on a screen that takes keys by controller (a press,
+not a held one's repeat: menu_table.h's MENU_SCREEN_KEY_*); NONE for none
+(an event that is no key: a stick let go of) */
+static int screen_key_of(struct event_record const *event)
+{
+	if (event->type == SCREEN_EVENT_LEFT_STICK)
+	{
+		return event->data.stick.x == SHORT_MIN ? MENU_SCREEN_KEY_LEFT :
+			event->data.stick.x == SHORT_MAX ? MENU_SCREEN_KEY_RIGHT :
+			event->data.stick.y == SHORT_MIN || event->data.stick.y == SHORT_MAX ? MENU_SCREEN_KEY_OTHER : NONE;
+	}
+	if (event->type != SCREEN_EVENT_BUTTON)
+		return NONE;
+	if (event->data.button.value != 1)
+		return MENU_SCREEN_KEY_OTHER;
+	switch (event->data.button.index)
+	{
+	case _gamepad_analog_button_a: return MENU_SCREEN_KEY_A;
+	case _gamepad_analog_button_b: return MENU_SCREEN_KEY_B;
+	case _gamepad_binary_button_start: return MENU_SCREEN_KEY_START;
+	case _gamepad_binary_button_dpad_left: return MENU_SCREEN_KEY_LEFT;
+	case _gamepad_binary_button_dpad_right: return MENU_SCREEN_KEY_RIGHT;
+	}
+	return MENU_SCREEN_KEY_OTHER;
+}
+
+/* co-op's actions of C's own (menu_functions.c's coop_menu.inc): WHO CAN
+JOIN's cards, the co-op list's fix (HOST CO-OP's: the HOST card's own
+action) and JOIN BY LINK, the lobby's fix */
+static boolean screen_call_coop(struct widget_instance *widget, struct event_record *event, char const *name,
+	boolean *deleted)
+{
+	int coop_deleted = FALSE;
+	boolean result;
+
+	*deleted = FALSE;
+	if (!strcmp(name, "coop fix") && pc_menu_coop_fix_hosts())
+		return screen_action_run(widget, event, "coop host", deleted);
+	result = pc_menu_coop_action(widget, event, name, &coop_deleted) != 0;
+	*deleted = coop_deleted != 0;
+	return result;
+}
+
 boolean menu_screen_step(struct widget_instance *widget, struct event_record *event, boolean *deleted, short step)
 {
 	struct screen_open *open = screen_open_of(widget_instance_get_topmost_parent(widget));
@@ -2043,6 +2562,22 @@ boolean menu_screen_back(struct widget_instance *widget, struct event_record *ev
 	struct screen_open *open = screen_open_of(widget);
 
 	*deleted = FALSE;
+	/* (a screen that takes keys by controller (Add Player's: a controller
+	not in the game joining with its own), before its focus and its own
+	keys: those it takes, and its done, back to the screen before) */
+	if (open && open->place->key && event->controller_index >= 0)
+	{
+		int key = screen_key_of(event);
+		int taken = key == NONE ? MENU_SCREEN_KEY_FREE : open->place->key(event->controller_index, key);
+
+		if (taken == MENU_SCREEN_KEY_DONE)
+		{
+			menu_tags_back(widget, event, deleted);
+			return TRUE;
+		}
+		if (taken != MENU_SCREEN_KEY_FREE)
+			return TRUE;
+	}
 	/* (Start anywhere on a screen of its own start: that, where it does
 	something) */
 	if (open && open->start[0] && event->type == SCREEN_EVENT_BUTTON && event->data.button.value == 1 &&
@@ -2080,15 +2615,18 @@ boolean menu_screen_text_scale(long definition_index, short wide_extra, real *sc
 	if (screens.blocks_found && (definition_index == screens.card_title_tag ||
 		definition_index == screens.card_subtitle_tag))
 	{
-		real card_scale = 1.0f;
+		real card_scale = 1.0f, title_scale = CARD_TITLE_SCALE;
 		long open_index;
 
 		for (open_index = 0; open_index < SCREEN_MAXIMUM_OPEN; open_index++)
 		{
 			if (screens.open[open_index].widget && screens.open[open_index].card_scale > 0.0f)
 				card_scale = screens.open[open_index].card_scale;
+			/* (a row whose titles are drawn smaller to fit: screen_card_title_fit) */
+			if (screens.open[open_index].widget && screens.open[open_index].card_title_scale > 0.0f)
+				title_scale = screens.open[open_index].card_title_scale;
 		}
-		*scale = (definition_index == screens.card_title_tag ? CARD_TITLE_SCALE : 1.0f) * card_scale;
+		*scale = (definition_index == screens.card_title_tag ? title_scale : 1.0f) * card_scale;
 		return TRUE;
 	}
 	if (!screens.blocks_found || definition_index != screens.item_tag)
@@ -2157,6 +2695,9 @@ boolean menu_screen_item_picture(struct widget_instance const *widget, long *bit
 		return TRUE;
 	/* (a box's middle: as wide as its legend needs) */
 	if (screens.blocks_found && box_picture_of(widget, bitmap_tag, bounds))
+		return TRUE;
+	/* (a dialog's box, title and words: as wide as its choices make it) */
+	if (screens.blocks_found && dialog_picture_of(widget, bitmap_tag, bounds))
 		return TRUE;
 	/* (a header: the picture its file names) */
 	if (screens.blocks_found && widget->definition_tag_index == screens.header_tag)

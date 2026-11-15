@@ -95,6 +95,8 @@ symbols in this file:
 #include "objects/objects.h"
 #include "units/units.h"
 #include "text/unicode.h"
+#include "mcc_main.h" /* port: port/linux/game/mcc_main.c */
+#include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
 
 #include <xtl.h>
 
@@ -885,6 +887,12 @@ boolean network_game_create_game_objects(
 	}
 	else
 	{
+		/* port: MCC refusals unwind through the network session lifecycle. */
+		if (mcc_main_network_load_failed(options.map_name))
+		{
+			game->local_data.game_objects_loaded = FALSE;
+			return FALSE;
+		}
 		/* port: not _error_immediate (0), which stopped the game for good
 		(halt_and_catch_fire): the game is left */
 		error(_error_silent, "game_load() failed.");

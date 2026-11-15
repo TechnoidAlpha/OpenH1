@@ -183,6 +183,23 @@ static void game_state_write_to_persistent_storage(void *buffer, unsigned long *
 	disk.play = play;
 }
 
+/* the saved game is never an MCC map's here (menu_functions.c's
+mcc_saved_game_read: the profile's saved game named an MCC map), so
+CONTINUE goes on as it does for the game's own maps */
+static boolean mcc_saved_game_read(char name[256], short *difficulty)
+{
+	(void)difficulty;
+	name[0] = 0;
+	return FALSE;
+}
+
+static boolean mcc_cache_require(char const *name, unsigned long checksum)
+{
+	(void)name;
+	(void)checksum;
+	return FALSE;
+}
+
 #include "under_test.inc"
 
 /* the map change (main.c's main_new_map): TRUE if the saved game was loaded */

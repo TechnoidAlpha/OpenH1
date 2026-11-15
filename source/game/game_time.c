@@ -79,6 +79,8 @@ symbols in this file:
 #include "scenario/scenario_definitions.h"
 #include "profile_sections.h" /* port: port/linux/include/profile_sections.h */
 #include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
+#include "network_standard.h" /* port: network_standard_agreed_rate (port/linux/game/network_standard.c) */
+#include "mcc_game_speed.h" /* port: port/linux/game/mcc_game_speed.c */
 /* port/linux/game/network_distributed.c's */
 void network_distributed_tick(void);
 /* port: port/linux/game/network_clock.c */
@@ -128,6 +130,8 @@ static boolean game_time_run_substep(void);
 /* ---------- globals */
 
 static struct game_time_globals_struct *game_time_globals;
+/* port: a reliable host update's time, not part of the saved world. */
+static long game_time_distributed_target = NONE;
 
 /* port: game.sim_rate's sub-steps spread over the frames (game_time_update;
 port/linux/game/sim_rate.h), outside the game state: a game is saved
@@ -179,6 +183,7 @@ void game_time_initialize(
 {
 	game_time_globals = (struct game_time_globals_struct *)game_state_malloc("game time globals", NULL, sizeof(*game_time_globals));
 	memset(game_time_globals, 0, sizeof(*game_time_globals));
+	game_time_distributed_target = NONE; /* port: no previous session's target */
 
 	return;
 }
@@ -190,6 +195,7 @@ void game_time_initialize_for_new_map(
 	memset(game_time_globals, 0, sizeof(*game_time_globals));
 	game_time_globals->initialized = TRUE;
 	game_time_port_drop_substeps();
+	game_time_distributed_target = NONE; /* port: no previous map's target */
 
 	return;
 }
@@ -197,6 +203,7 @@ void game_time_initialize_for_new_map(
 void game_time_dispose_from_old_map(
 	void)
 {
+	game_time_distributed_target = NONE; /* port: discard the departing map's target */
 	if (game_time_globals)
 	{
 		game_time_globals->initialized = FALSE;
@@ -218,6 +225,7 @@ void game_time_end(
 {
 	match_assert("c:\\halo\\SOURCE\\game\\game_time.c", 196, game_time_globals);
 	game_time_globals->active = FALSE;
+	game_time_distributed_target = NONE; /* port: discard the finished game's target */
 
 	return;
 }
@@ -231,6 +239,7 @@ void game_time_set_distributed(
 	game_time_globals->server_time = time;
 	game_time_globals->leftover_dt = 0.f;
 	game_time_port_drop_substeps();
+	game_time_distributed_target = NONE; /* port: a new clock invalidates its target */
 
 	return;
 }
@@ -246,6 +255,21 @@ void game_time_port_advance(
 		return;
 	game_time_globals->local_time += ticks;
 	game_time_globals->server_time += ticks;
+
+	return;
+}
+
+/* port: remember only validated reliable host time. Small stalls used to
+leave clients behind indefinitely; game_time_update runs the missing ticks. */
+void game_time_synchronize_distributed(
+	long time)
+{
+	if (!game_time_globals || !game_time_globals->initialized ||
+		!game_time_globals->active || !network_game_distributed_client() ||
+		game_time_menu_scene() || time < 0 || time > 0x3FFFFFFF)
+		return;
+	if (time > game_time_globals->local_time && time > game_time_distributed_target)
+		game_time_distributed_target = time;
 
 	return;
 }
@@ -349,6 +373,9 @@ real game_time_get_tick_fraction(
 	if (!game_time_globals || !game_time_globals->active || game_time_globals->paused)
 		return 1.0f;
 	fraction = game_time_globals->leftover_dt * game_time_globals->speed * TICKS_PER_SECOND;
+	/* port: MCC clients interpolate using only the host's approved speed. */
+	if (network_game_distributed_client())
+		fraction = game_time_globals->leftover_dt * mcc_game_speed_client(game_time_globals->speed) * TICKS_PER_SECOND;
 	/* port: and the sub-steps of the open tick that have run (a frame drawn
 	from the last of them on: sim_substep_blend), less those run before their
 	time (game_time_finish_tick) */
@@ -452,7 +479,7 @@ real game_time_get_speed(
 	/* port: a client of another's game runs at the host's speed (its own
 	set before it joined too: cheats_network_client_enforce) */
 	if (network_game_distributed_client())
-		return 1.0f;
+		return mcc_game_speed_client(1.0f); /* port: legacy clients remain at one */
 	return game_time_globals->speed;
 }
 
@@ -552,6 +579,8 @@ void game_time_update(
 	real time_delta_sec)
 {
 	match_assert("c:\\halo\\SOURCE\\game\\game_time.c", 205, game_time_globals);
+	/* port: MCC speed updates must continue when simulation is stopped. */
+	mcc_game_speed_frame();
 
 	/* port: the frame's input read (the main loop's player_control_update,
 	before this) */
@@ -569,6 +598,9 @@ void game_time_update(
 		first sub-step, and what follows its fast phase with its last. */
 		short substep_count = (short)(sim_rate_next() / SIM_RATE_CLASSIC);
 		real steps_per_second = game_time_globals->speed*(TICKS_PER_SECOND*substep_count);
+		/* port: preserve native client cheat enforcement; use MCC host state separately. */
+		if (network_game_distributed_client())
+			steps_per_second = mcc_game_speed_client(game_time_globals->speed)*(TICKS_PER_SECOND*substep_count);
 
 		/* The native builds draw several frames per tick
 		(port/linux/game/render_interpolation.c). A frame that runs no tick has
@@ -641,6 +673,22 @@ void game_time_update(
 			}
 			match_assert("c:\\halo\\SOURCE\\game\\game_time.c", 306,
 				game_time_globals->leftover_dt>=0.f && game_time_globals->leftover_dt<100.f);
+			/* port: recover a small clock deficit by simulating, not skipping,
+			ticks. Keep the fractional time above and the frame's existing cap;
+			at most double its normal work, never extrapolating the host's time
+			(a Legacy game's client: an OpenH1 game's paces its clock to the
+			host's itself, network_clock.c) */
+			if (steps_elapsed > 0 && network_game_distributed_client() && !network_standard_agreed_rate() &&
+				!game_time_held() && !game_time_menu_scene() && game_time_globals->local_time >= 0 &&
+				game_time_distributed_target > game_time_globals->local_time)
+			{
+				long steps_behind = (game_time_distributed_target - game_time_globals->local_time)*substep_count -
+					sim_substep_next();
+				long extra_steps = MIN(steps_elapsed, steps_behind - steps_elapsed);
+
+				if (extra_steps > 0)
+					steps_elapsed += MIN(extra_steps, TICKS_PER_SECOND*substep_count - steps_elapsed);
+			}
 			/* port: the sub-steps already run before their time
 			(game_time_finish_tick) are these */
 			if (game_time_substeps.substeps_ahead > 0 && steps_elapsed > 0)

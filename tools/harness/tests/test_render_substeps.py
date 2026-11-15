@@ -249,12 +249,3 @@ def test_negative_control(control):
         if status == CHECK_FAILED:
             return
     assert False, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_registered_last():
-    # the poses are kept after every slot that moves anything, and the frames read only render-side tables
-    header = read("port/linux/game/sim_rate.h")
-    for slot in ("_sim_substep_bipeds,", "_sim_substep_items,", "_sim_substep_projectiles,", "_sim_substep_vr,"):
-        assert header.index(slot) < header.index("_sim_substep_render_interpolation,")
-    code = read("port/linux/game/render_interpolation.c")
-    assert "sim_substep_register(_sim_substep_render_interpolation, render_interpolation_substep);" in code

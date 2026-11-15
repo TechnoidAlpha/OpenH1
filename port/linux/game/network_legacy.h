@@ -2,7 +2,7 @@
 NETWORK_LEGACY.H
 
 The Legacy encodings of the host's per-tick streams (port/linux/NETCODE.md,
-"The Legacy encodings"): network version 41's, OpenCE's, which a Legacy
+"The Legacy encodings"): network version 44's, OpenCE's, which a Legacy
 game and an OpenCE machine of an OpenH1 game take, frozen byte for byte
 (tools/harness/tests/test_legacy_golden.py). network_legacy_machine is the
 one place that says which machines take them; the players' states and the
@@ -16,6 +16,7 @@ distributed_tick_states_begin, network_actors.c's actor_states_begin).
 
 #include "game/players.h"
 #include "network_distributed.h"
+#include "vehicle_riding.h"
 
 /* ---------- constants */
 
@@ -44,6 +45,14 @@ enum
 	/* (alive) camouflaged, and doubly so */
 	_distributed_unit_camouflaged_bit = 0,
 	_distributed_unit_super_camouflaged_bit,
+	/* (alive) the unit is suspended (OpenCE's, network version 42) */
+	_distributed_unit_suspended_bit,
+	/* (alive, placed: OpenH1's alone, never sent an OpenCE machine) its
+	velocity at full precision follows the state's other parts
+	(fine_velocity): it was a ninth part, which the parts' byte, all eight of
+	its bits OpenCE's from version 43, has no room for. A state with it
+	always has the camouflage part, which carries these flags */
+	_distributed_unit_fine_velocity_bit = 7,
 };
 
 /* a unit state's parts on the wire: which of those that are not always
@@ -62,12 +71,29 @@ enum
 	_distributed_unit_part_camouflage_bit,
 	/* (dead) who killed it, when anyone */
 	_distributed_unit_part_killer_bit,
-	/* (alive, placed: an OpenH1 game's client's prediction) how fast it
-	moves at full precision, after the rest: the host's tick moves the
-	player on from it, as the client's did (in 16 bits a part, a
-	1024th of a world unit a tick, the host's moves of a client's player
-	at 120 came apart from the client's in a tick of twenty) */
-	_distributed_unit_part_fine_velocity_bit,
+	/* (alive) host-controlled facing, aim and look while input is inhibited
+	(network version 42) */
+	_distributed_unit_part_scripted_pose_bit,
+	/* (alive, placed) where on a vehicle's deck it is, in that vehicle's
+	window (vehicle_riding.h's struct vehicle_riding_deck; network version 43) */
+	_distributed_unit_part_deck_bit,
+	NUMBER_OF_DISTRIBUTED_UNIT_PARTS
+};
+
+/* the parts are the bits of one byte on the wire: a ninth would be lost
+without a word (an OpenH1 game's velocity at full precision is a unit flag:
+_distributed_unit_fine_velocity_bit) */
+typedef char distributed_unit_parts_assert[NUMBER_OF_DISTRIBUTED_UNIT_PARTS <= 8 ? 1 : -1];
+
+/* a scripted pose's vectors (_distributed_unit_part_scripted_pose_bit) */
+enum
+{
+	_distributed_pose_facing,
+	_distributed_pose_aiming,
+	_distributed_pose_looking,
+	_distributed_pose_current_aiming,
+	_distributed_pose_current_looking,
+	NUMBER_OF_DISTRIBUTED_POSE_VECTORS
 };
 
 enum
@@ -75,8 +101,10 @@ enum
 	/* a unit state's bytes on the wire: its player, flags and parts, and
 	the most it has */
 	DISTRIBUTED_UNIT_STATE_MINIMUM_SIZE = 3,
-	DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE = 3 + 4 + (4 + 2) + (12 + 3 * 6) + 2 + 2 * 2 + 4 * 2 +
-		2 * NUMBER_OF_PLAYER_POWERUPS + 2 + 1,
+	/* (a deck part: its vehicle, node, place, velocity, ticks, flags and peak) */
+	DISTRIBUTED_DECK_SIZE = 4 + 2 + 12 + 6 + 1 + 1 + 2,
+	DISTRIBUTED_UNIT_STATE_MAXIMUM_SIZE = 3 + 4 + (4 + 2) + (12 + 3 * 6) + DISTRIBUTED_DECK_SIZE + 2 + 2 * 2 + 4 * 2 +
+		2 * NUMBER_OF_PLAYER_POWERUPS + 2 + 1 + NUMBER_OF_DISTRIBUTED_POSE_VECTORS * 6,
 };
 
 /* struct distributed_actor_state flags */
@@ -137,7 +165,13 @@ struct distributed_unit_state
 	word recent_shield_damage;
 	/* the player's powerups: how long each has left */
 	short powerup_durations[NUMBER_OF_PLAYER_POWERUPS];
-	/* (_distributed_unit_part_fine_velocity_bit) how fast it moves, at full
+	boolean scripted_pose;
+	struct distributed_vector pose[NUMBER_OF_DISTRIBUTED_POSE_VECTORS];
+	/* (alive, placed) its player in a vehicle's window: the deck part, when
+	deck_present (never on the wire: distributed_deck_put) */
+	boolean deck_present;
+	struct vehicle_riding_deck deck;
+	/* (_distributed_unit_fine_velocity_bit) how fast it moves, at full
 	precision, and whether it is sent so */
 	real_vector3d fine_velocity;
 	boolean fine;
@@ -204,6 +238,11 @@ and every client's predictions are these; OpenH1's messages carry them
 whole too (a difference's or a sub-step's whole form). */
 word distributed_unit_state_write(struct distributed_unit_state const *state, boolean predicted, byte *buffer);
 word distributed_unit_state_read(byte const *buffer, byte const *end, struct distributed_unit_state *state);
+/* (network_distributed.c's) a deck part's bytes, and from the wire (FALSE
+when cut short); whether a scripted pose's vectors are unit vectors */
+byte *distributed_deck_put(byte *cursor, struct vehicle_riding_deck const *deck);
+boolean distributed_deck_take(byte const **cursor, byte const *end, boolean *present, struct vehicle_riding_deck *deck);
+boolean distributed_scripted_pose_valid(struct distributed_unit_state const *state);
 
 /* (the host) an actor's state to a machine that takes the Legacy encoding,
 whole (_distributed_message_actor_states, its message sent as it fills): the

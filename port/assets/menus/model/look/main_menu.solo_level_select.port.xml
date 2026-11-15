@@ -15,6 +15,8 @@
 		<at widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_right_name" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_right_pic" x="0" y="0"/>
 		<at widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_right_data" x="0" y="0"/>
+		<at widget="main_menu/new_select/mcc_folder_name" x="0" y="0"/>
+		<at widget="main_menu/new_select/mcc_folder_help" x="0" y="0"/>
 	</look>
 	<look name="main_menu/solo_level_select/replay_level_right_name" type="text" box="412 205 608 251">
 		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="wrap unbreak" string_list="main_menu/map_list" index="2"/>
@@ -22,5 +24,11 @@
 	<look name="main_menu/solo_level_select/replay_level_right_pic" box="440 85 580 199" picture="ui\shell\bitmaps\sp_levels" radius="5"/>
 	<look name="main_menu/solo_level_select/replay_level_right_data" type="text" box="412 257 608 342">
 		<text font="ui\small_ui" color="#FF2896FF" align="center" flags="wrap unbreak" string_list="main_menu/solo_level_select/map_data" index="2"/>
+	</look>
+	<look name="main_menu/new_select/mcc_folder_name" type="text" box="412 205 608 257">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="wrap"/>
+	</look>
+	<look name="main_menu/new_select/mcc_folder_help" type="text" box="412 257 608 342">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" flags="wrap"/>
 	</look>
 </model>

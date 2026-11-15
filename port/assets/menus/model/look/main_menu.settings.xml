@@ -49,10 +49,10 @@
 		<at widget="main_menu/settings/panel_facts" x="400" y="398"/>
 		<at widget="main_menu/settings/panel_facts_values" x="400" y="398"/>
 	</look>
-	<look name="main_menu/settings/panel_name" role="panel name" type="text" box="0 0 200 18" wide="0 -32" past="0 93">
+	<look name="main_menu/settings/panel_name" role="panel name" type="text" box="0 0 200 38" wide="0 -32" past="0 93">
 		<text font="ui\small_ui" color="#FF6F9CD0"/>
 	</look>
-	<look name="main_menu/settings/panel_value" role="panel value" type="text" box="0 0 200 24" wide="0 -32" past="0 93">
+	<look name="main_menu/settings/panel_value" role="panel value" type="text" box="0 0 200 180" wide="0 -32" past="0 93">
 		<text font="ui\large_ui" color="#FFFFFFFF"/>
 	</look>
 	<look name="main_menu/settings/panel_text" role="panel text" type="text" box="0 0 200 302" wide="0 -32" past="0 93">

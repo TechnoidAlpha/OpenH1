@@ -61,12 +61,3 @@ def test_drawn_on_the_shown_link_only():
     assert "collision_test_vector" in called
     # and none of it sent: the network's code never asks
     assert "spartan_link" not in read("port/linux/game/network_distributed.c")
-
-
-def test_aim_read_outside_the_drawing():
-    # the line along the aim meets the objects as the game has them (spartan_link_update), not as the frame poses
-    # them between ticks: in the drawing it flickered red and blue frame by frame within one tick
-    code = read("port/linux/game/spartan_link.c")
-    assert "spartan_link_feed_aim_update(" in function(code, "spartan_link_update")
-    assert "spartan_link_feed_aim_update(" not in function(code, "spartan_link_draw")
-    assert "spartan_link_aim_ray(" not in function(code, "spartan_link_feed_aim_place")

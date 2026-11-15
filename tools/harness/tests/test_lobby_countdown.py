@@ -2,7 +2,8 @@
 once, with one press, for a host alone, a host with split screen players and machines together, even during a countdown
 another machine started; the other machines' requests count down as the Xbox game's did; and a machine joining without
 a player does not stop it; and a dedicated server's rule, its director's (server_director.c's
-server_director_ok_to_countdown): server.min_players held to 1 to 16, server.team_start, and its own state."""
+server_director_ok_to_countdown): server.min_players held to 1 to 16, server.team_start, and its own state, its
+countdown the director's to start, which a client machine's START NOW takes five seconds off."""
 
 import re
 import sys
@@ -20,6 +21,7 @@ CASES = [
     "host-stop-and-start-at-once",
     "dedicated-one-team-starts", "dedicated-both-teams-waits",
     "dedicated-below-minimum-waits", "dedicated-minimum-clamped", "dedicated-director-refuses",
+    "dedicated-start-now-five-seconds",
 ]
 FUNCTIONS = (
     "countdown_timer_update", "countdown_timer_get_time_remaining", "countdown_timer_increment",
@@ -27,7 +29,8 @@ FUNCTIONS = (
     "network_game_server_get_client_machine_count", "server_needs_more_teams",
     "server_has_enough_machines", "server_players_on_one_machine", "server_ok_to_countdown",
     "network_game_server_update_countdown", "network_game_server_client_machine_may_slow_countdown",
-    "network_game_server_game_start_request_event",
+    "network_game_server_game_start_request_event", "network_game_server_begin_game_start_countdown",
+    "network_game_server_port_countdown_begin",
 )
 CONSTANTS = (
     "MAXIMUM_NETWORK_MACHINE_COUNT", "MAXIMUM_NETWORK_PLAYER_COUNT", "NUMBER_OF_MULTIPLAYER_TEAMS",
@@ -110,6 +113,11 @@ NEGATIVE_CONTROLS = {
     "entry-ignored": (
         ("!director.entry_applied || ", ""),
         "server_director_ok_to_countdown", "dedicated-director-refuses",
+    ),
+    # a dedicated server's countdown started by a client machine's START NOW, not its director
+    "dedicated-start-now-starts-countdown": (
+        ("if (!halo_server_mode() &&", "if (1 &&"),
+        "network_game_server_update_countdown", "dedicated-start-now-five-seconds",
     ),
 }
 

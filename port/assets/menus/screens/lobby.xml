@@ -21,16 +21,18 @@ INVITE FRIENDS, ADD PLAYER and CHAT at its right (a touchscreen's HOST
 CONTROLS too). What it
 shows and does is menu_functions.c's lobby_menu.inc, as for the generated
 screen (the row source lobby.players, the lobby.* bindings and actions):
-left and right on the players change this player's team, Start starts the
-host's game; the generated screen's own keys stay (B leaves, START joins
-another controller's player, X adds one, Y the map vote or COPY INVITE).
+left and right on the players change this player's team, a player's Start
+starts the host's game, and the Start of a controller not yet in the game
+opens Add Player (screens/add_player.xml) with it joining; the generated
+screen's own keys stay (B leaves, X opens Add Player, Y the map vote or COPY
+INVITE).
 Under the players, the lobby's text chat (network_chat.c's lobby lines,
 each name in its team's colour): T or Y on the keyboard, LB (CHAT) or A on
 its line on a controller (the on-screen keyboard), a tap on it on a
 touchscreen; the host's LOBBY TEXT CHAT has it on or off for everyone. -->
 <screen name="lobby" start="lobby start">
 	<header title="{lobby.title}" detail="{lobby.subtitle}" fallback="{lobby.subtitle.short}"/>
-	<spartan height="80" color="lobby.lineup" when="pointer"/>
+	<spartan height="80" color="lobby.lineup" names="lobby.lineup.names" when="pointer"/>
 	<table source="lobby.players" lanes="2" do="lobby card" left="lobby team red" right="lobby team blue">
 		<lane label="{lobby.red}" detail="{lobby.red.count}" tone="lobby.red.tone"/>
 		<lane label="{lobby.blue}" detail="{lobby.blue.count}" tone="lobby.blue.tone"/>
@@ -49,11 +51,15 @@ touchscreen; the host's LOBBY TEXT CHAT has it on or off for everyone. -->
 			<pill text="{lobby.opence}" tone="2" width="132"/>
 		</pills>
 		<text text="THEN: {lobby.after}" if="lobby.after"/>
+		<text text="{coop.listing}" lines="2" if="coop.listing"/>
+		<text text="{coop.link}" if="coop.link" when="pointer"/>
+		<text text="{coop.problem}" lines="2" if="coop.problem"/>
 		<choice label="BOTS" value="{lobby.bots}" left="lobby bots left" right="lobby bots right" if="lobby.bots.shown" dim="lobby.bots.count.locked"/>
 		<choice label="SKILL" value="{lobby.skill}" left="lobby skill left" right="lobby skill right" if="lobby.bots.some" dim="lobby.bots.locked"/>
 		<choice label="TEAMS" value="{lobby.teams}" left="lobby teams left" right="lobby teams right" if="lobby.bots.some" dim="lobby.bots.locked"/>
 		<text text="{lobby.status}" lines="2"/>
 		<heading text="{lobby.waiting}" if="lobby.waiting"/>
+		<button key="accept" label="{coop.fix}" if="coop.fix" do="lobby fix"/>
 		<button key="accept" label="HOST CONTROLS" if="lobby.controls" do="lobby host" when="pointer"/>
 		<button key="accept" label="GAME SETTINGS" if="lobby.settings" do="lobby settings"/>
 		<button key="accept" label="{lobby.start}" if="lobby.host" do="lobby start"/>
@@ -84,6 +90,7 @@ touchscreen; the host's LOBBY TEXT CHAT has it on or off for everyone. -->
 		<button key="back" label="BACK" if="lobby.panel.open" do="lobby close" touch-width="84"/>
 		<button key="back" label="LEAVE" if="lobby.details" touch-width="84"/>
 		<button key="dpad" label="CHANGE TEAM" side="right" if="lobby.team.change" do="lobby team toggle" touch-width="120"/>
+		<button key="y" label="COPY LINK" side="right" if="coop.link" do="lobby invite" when="pointer"/>
 		<button key="rb" label="INVITE FRIENDS" side="right" if="lobby.invite" do="lobby friends" when="pointer"/>
 		<button key="rb" label="INVITE" side="right" if="lobby.invite" do="lobby friends" touch-width="80" when="touch"/>
 		<button key="x" label="ADD PLAYER" side="right" if="lobby.add" touch-width="106"/>

@@ -33,6 +33,10 @@ long spartan_link_hidden_unit(void);
 (an antenna's or a flag's steps, antenna.c, flags.c) it leaves alone */
 boolean spartan_link_drawing(void);
 long spartan_link_posed_unit(void);
+/* the units the shown feeds show (each once, the downed left out), whose
+weapon and arms first_person_weapons.c animates in its feeds' slots, a tick
+at a time: their count, at most maximum_count */
+short spartan_link_linked_units(long *unit_indices, short maximum_count);
 
 /* the window's link drawn in its HUD (render.c, after the rest of the HUD) */
 void spartan_link_draw(short local_player_index);

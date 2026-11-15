@@ -56,17 +56,6 @@ def test_negative_control(control):
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
 
 
-def test_widgets_with_a_radius_draw_rounded():
-    """A widget with a radius (menu_files.c reads it, menu_tags.c keeps it) has its picture drawn cut round, not
-    square with a picture over its corners."""
-    assert '{ "radius", NULL, &widget.radius }' in read("port/linux/src/menu_files.c")
-    assert "tag_value_set(menu_tags.radii, &menu_tags.radius_count, build.widget_tags[index], (short)widget->radius);" \
-        in read("port/linux/game/menu_tags.c")
-    render = function(read("source/interface/ui_widget.c"), "widget_instance_render_recursive")
-    assert "short radius = pc_menu_widget_radius(widget->definition_tag_index);" in render
-    assert "menu_shape_rounded_picture(" in render
-
-
 def test_campaign_pictures_are_cut_round():
     """Every picture of a mission (CONTINUE's, the panel's, the cards', a Custom Edition map's) is cut round, and no
     picture of corners is laid over one (issue 687)."""

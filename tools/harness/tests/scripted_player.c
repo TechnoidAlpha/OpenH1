@@ -69,8 +69,11 @@ static void test_pad_gamepad(XINPUT_GAMEPAD *pad) { (void)pad; }
 static int test_latency_on(void) { return !strncmp(test_input_setting, "latency:", 8); }
 static void test_latency_gamepad(XINPUT_GAMEPAD *pad) { (void)pad; }
 
-static void test_input_menu_gamepad(XINPUT_GAMEPAD *pad)
+static void test_input_menu_ports_read(void) { }
+
+static void test_input_menu_gamepad(XINPUT_GAMEPAD *pad, int port)
 {
+	(void)port;
 	if (menu_script_plays++ == 0)
 		menu_script_first_read = (long long)(SDL_GetTicks() - test_input_menu_since);
 	pad->bAnalogButtons[XINPUT_GAMEPAD_A] = 255;

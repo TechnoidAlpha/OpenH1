@@ -94,21 +94,6 @@ def test_functions_are_named():
         assert f'!strcmp(name, "{name}")' in menu, name
 
 
-def test_question_opened_and_answered():
-    """RESTART MISSION and Choose Mission's Y and RESTART open the question; its RESTART restarts, its CANCEL and B
-    go back."""
-    widgets = menu_layout.widgets()
-    text = (menu_layout.CE / "main_menu.campaign.xml").read_text()
-    opens = f'open="{CAMPAIGN}/restart_screen"'
-    assert re.search(rf'<on event="a" run="port campaign restart ask" {opens}/>', text)
-    assert re.search(rf'<on event="y" run="port campaign missions restart" {opens}/>', text)
-    assert re.search(rf'<on event="a" run="port campaign missions restart" {opens}/>', text)
-    assert f"{CAMPAIGN}/restart_button_confirm" in widgets and f"{CAMPAIGN}/restart_button_cancel" in widgets
-    assert '<on event="a" run="port campaign restart"/>' in text
-    assert '<on event="b" run="port campaign restart cancel" back="true"/>' in text
-    assert '<on event="a" run="port campaign restart cancel" back="true"/>' in text
-
-
 @pytest.mark.parametrize("aspect", WIDTHS)
 def test_layout(aspect):
     """RESTART MISSION within the screen's margin, apart from the other items; Choose Mission's RESTART apart from

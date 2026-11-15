@@ -107,6 +107,10 @@
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" flags="pass_unhandled_to_focused_child"/>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
@@ -133,6 +137,10 @@
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" flags="pass_unhandled_to_focused_child"/>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</behaviour>
 	<behaviour name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" flags="pass_unhandled_to_focused_child"/>

@@ -64,6 +64,13 @@
 			<choice shown="SHIELD ONLY" value="shields_only"/>
 			<choice shown="EXPLOSIVES ONLY" value="explosives_only"/>
 		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" focusable="true" setting="network.coop_team_wipe">
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="REVERT CHECKPOINT" value="revert"/>
+			<choice shown="RESPAWN ONLY" value="respawn"/>
+		</node>
 		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
 		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies"/>
 		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" focusable="true" setting="network.coop_enemies_mode">
@@ -112,6 +119,12 @@
 		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
 		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire"/>
 		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" focusable="true" setting="network.coop_ally_friendly_fire">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" focusable="true" setting="network.vehicle_riding">
 			<choice shown="ON" value="true"/>
 			<choice shown="OFF" value="false"/>
 		</node>

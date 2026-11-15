@@ -501,4 +501,40 @@ BOOL xgpu_texture_decode_level(const struct xgpu_texture_description *descriptio
 void xgpu_texture_decode_dxt(const struct xgpu_texture_description *description, unsigned long level,
 	const unsigned char *source, DWORD *destination);
 
+/* ---------- MCC textures
+
+An MCC map's textures (port/linux/game/mcc_texture_cache.c) are converted to
+Xbox formats in memory of their own, outside the Xbox's contiguous memory
+the host's texture cache reads texels from. Each has a header of its own
+(mcc_texture_bridge.c) whose Data is XGPU_MCC_TEXTURE_DATA, never read as an
+address, and is drawn as an image (xgpu_images.h) in its place: its first
+level decoded to RGBA as it is first bound, or as the map loads
+(xgpu_mcc_texture_prepare), and the levels past it made by the host
+(xbox_textures.c). A cube map or a volume has no image (images are 2D), nor
+does a P8 texture bound with no palette, and is not drawn. */
+#define XGPU_MCC_TEXTURE_DATA 0xffffffffUL
+
+/* (mcc_texture_bridge.c) for an MCC texture's header: its description (a
+linear one's sides and pitch as its header could not hold them), its
+texels and their size, and the high-res HUD texture drawn in its place
+(hud_hires.h's hud_hires_embedded, -1 none); FALSE if the header is no MCC
+texture's */
+BOOL mcc_texture_bridge_texels(const DWORD *resource, struct xgpu_texture_description *description,
+	const void **pixels, unsigned long *bytes, long *hud_asset);
+
+/* (xbox_textures.c) the image drawn for the MCC texture whose header is at
+resource (0 none: not an MCC texture's, or one with no image), and its
+description as it is drawn; palette: a P8 texture's 256 D3DCOLORs (0 none) */
+unsigned int xgpu_mcc_texture_image(DWORD resource, DWORD palette, struct xgpu_texture_description *description);
+/* (xbox_textures.c) an MCC texture's image made ahead, as its map loads, if
+its first level's RGBA is at most budget bytes: those bytes, 0 if it was not
+made (or was already) */
+unsigned long xgpu_mcc_texture_prepare(const DWORD *resource, unsigned long budget);
+/* (xbox_textures.c) an MCC texture let go: its image deleted (once the
+frames that drew it are done) */
+void xgpu_mcc_texture_forget(const DWORD *resource);
+/* (d3d8_device.c) a texture's header about to be freed: taken from every
+stage it is set to, so that no draw reads it after */
+void xgpu_mcc_texture_unbind(const DWORD *resource);
+
 #endif

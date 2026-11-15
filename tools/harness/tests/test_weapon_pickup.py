@@ -27,13 +27,13 @@ NEGATIVE_CONTROLS = {
     "read-in-game": (("\tif (in_lobby)\n\t{\n\t\tnetwork_standard_globals.hosting_hold_to_pick_up",
                       "\tif (TRUE)\n\t{\n\t\tnetwork_standard_globals.hosting_hold_to_pick_up"), "host"),
     # (an OpenCE machine sent the bit)
-    "opence-sent-the-bit": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
+    "opence-sent-the-bit": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
                              ""), "opence-record"),
     # (a Legacy host's record says hold)
     "legacy-record": (("network_standard_globals.hosting && network_standard_globals.hosting_hold_to_pick_up);",
                        "network_standard_globals.hosting_hold_to_pick_up);"), "legacy-host"),
     # (a client's own setting, not its host's)
-    "client-own-setting": (("return !TEST_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit);",
+    "client-own-setting": (("return !TEST_FLAG(game->standard_flags, _network_game_hold_to_pick_up_bit);",
                             "return config_boolean(\"game.auto_pickup\") != 0;"), "client"),
 }
 

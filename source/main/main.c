@@ -391,6 +391,7 @@ symbols in this file:
 #include "matchmaking.h" /* port: port/linux/game/matchmaking.c */
 #include "network_aim_assist.h" /* port: port/linux/game/network_aim_assist.c */
 #include "network_shield_effects.h" /* port: port/linux/game/network_shield_effects.c */
+#include "network_riding_map.h" /* port: port/linux/game/network_riding_map.c */
 #include "map_share.h" /* port: port/linux/game/map_share.c */
 #include "profile_sections.h" /* port: port/linux/include/profile_sections.h */
 #include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
@@ -409,6 +410,8 @@ symbols in this file:
 #include "text/font_group.h"
 #include "tag_files/files.h"
 #include "custom_edition_cache.h" /* port: custom_edition_level_name */
+#include "mcc_cache.h" /* port: port/linux/game/mcc_cache.h */
+#include "mcc_main.h" /* port: port/linux/game/mcc_main.h */
 #include "view_fov.h" /* port: display.fov, before the projection and culling */
 #include "far_clip.h" /* port: display.draw_distance, the far clip plane */
 #include "lowered_reticle.h" /* port: display.lowered_reticle, the view above the aim */
@@ -1348,6 +1351,9 @@ short main_get_solo_level_from_name(
 	char lower_name[128] = { 0 };
 	short level;
 
+	if (mcc_level_name(name))
+		return NONE;
+
 	/* port: a Custom Edition map (custom_maps\a30) is never one of the
 	campaign's levels, whatever its name holds
 	(port/linux/game/custom_edition_cache.c) */
@@ -1574,6 +1580,9 @@ static void main_new_map(
 	}
 	else
 	{
+		/* port: an MCC map that fails to load goes back to the menus (mcc_main.c) */
+		if (mcc_main_load_failed(options->map_name))
+			return;
 		error(_error_immediate, "game_load() failed.");
 	}
 
@@ -1664,6 +1673,24 @@ static boolean main_map_change_refused(
 	return TRUE;
 }
 
+/* port: a game of this machine alone has no network game: a client or
+server the menus made and left behind is let go of as its map loads. The
+server browser's (as CAMPAIGN's CO-OP opens it), backed out of to CAMPAIGN
+and a mission started there, left its client searching, which the Xbox's
+main menu let go of (main_menu_initialize) and CAMPAIGN never does; the
+campaign then took itself for a network game (network_game_is_active), and
+Start or Escape asked for a multiplayer game's pause screen the map has not:
+no pause, whichever controller pressed it. (Not for the menus' pictures,
+whose maps load behind the menus.) */
+static void main_local_game_leave_network(
+	void)
+{
+	if (menu_pictures_preparing())
+		return;
+	dispose_global_network_game_client();
+	dispose_global_network_game_server();
+}
+
 static void main_change_map_name(
 	void)
 {
@@ -1738,6 +1765,7 @@ static void main_change_map_name(
 				NUMBEROF(options.map_name) - 1);
 			options.map_name[NUMBEROF(options.map_name) - 1] = 0;
 			options.difficulty = global_difficulty_level;
+			main_local_game_leave_network();
 			game_dispose_from_old_map();
 			game_precache_new_map(options.map_name, TRUE);
 			game_unload();
@@ -2115,6 +2143,9 @@ void main_load_ui_scenario(
 void main_roll_credits(
 	void)
 {
+	/* port: standalone MCC scenarios finish through their own menu transition. */
+	if (mcc_main_map_completed())
+		return;
 	error(_error_silent, "congratulations, you won the game!");
 	main_menu_load();
 	game_end_credits_start();
@@ -2402,13 +2433,12 @@ static void main_lost_map_private(
 	{
 		main_globals.lost_map = FALSE;
 		main_globals.loss_timer = 0;
-		/* port: in network co-op, everyone dying respawns the players where
-		they were at the last checkpoint, without a revert. A mission the
-		scripts failed (game_lost, with players still alive: d40's timer,
-		a50's Keyes) does revert, or its failure cutscene would never end. */
+		/* port: the co-op host chooses whether a team wipe rewinds or only
+		respawns. Scripted failures still revert, or their cutscene would
+		never end. A missing save falls back to checkpoint positions. */
 		if (game_connection() != _game_connection_network_server)
 			game_state_revert();
-		else if (players_are_all_dead() || !main_coop_host_revert())
+		else if ((players_are_all_dead() && !network_coop_wipe_reverts()) || !main_coop_host_revert())
 			players_respawn_at_checkpoint();
 	}
 	return;
@@ -2601,6 +2631,14 @@ static void main_won_map_private(
 {
 	short level;
 	short local_player_index;
+
+	/* port: explicit MCC campaigns own their mission order and host decision.
+	 * The Xbox/CE level table below cannot represent package mission identities. */
+	if (mcc_main_campaign_won())
+	{
+		main_globals.won_map = FALSE;
+		return;
+	}
 
 	/* port: when a network co-op level is won, the round ends for everyone as
 	in multiplayer, back to the lobby, and the next round is the campaign's
@@ -4012,6 +4050,8 @@ void main_loop(
 			network_aim_assist_update();
 			/* port: the host's shield effects, for every machine (port/linux/game/network_shield_effects.c) */
 			network_shield_effects_update();
+			/* port: the map's riding choice, for every machine (port/linux/game/network_riding_map.c) */
+			network_riding_map_update();
 			/* port: map sharing, in the lobby and in game (port/linux/game/map_share.c) */
 			map_share_update();
 			/* port: network games' text chat (port/linux/game/network_chat.c) */

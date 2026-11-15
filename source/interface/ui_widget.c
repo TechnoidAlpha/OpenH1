@@ -682,6 +682,7 @@ boolean menu_studio_note_field(wchar_t *line, long size);
 #include "networking/network_server_manager.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_party.h" /* port: port/linux/game/network_party.c */
+#include "touch_postgame.h" /* port: port/linux/game/touch_postgame.c */
 #include "rasterizer/rasterizer.h"
 #include "saved games/player_profile.h"
 #include "saved games/playlist_profile.h"
@@ -698,9 +699,22 @@ boolean menu_studio_note_field(wchar_t *line, long size);
 #include "text/unicode.h"
 #include "ui_widget.h"
 #include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
+#include "mcc_pause_runtime.h" /* port: port/linux/game/mcc_pause_runtime.h */
+#include "mcc_pause.h" /* port: port/linux/game/mcc_pause.h */
+#include "mcc_ui_network.h" /* port: port/linux/game/mcc_ui_network.h */
+#include "mcc_ui.h" /* port: port/linux/game/mcc_ui.h */
+#include "mcc_hud_draw.h" /* port: port/linux/game/mcc_hud_draw.h */
+#include "mcc_menu_preview.h" /* port: port/linux/game/mcc_menu_preview.c */
+#include "mcc_menu_text.h" /* port: port/linux/game/mcc_menu_text.c */
+#include "mcc_maps.h" /* port: port/linux/game/mcc_maps.h */
 /* port: port/linux/game/menu_functions.c: a text's colour in place of its
 own (the server browser's pings) */
 boolean pc_menu_text_color(struct widget_instance *widget, real_argb_color *color);
+/* port: port/linux/game/menu_functions.c: a line too long for its box, to
+draw in place of a widget's text: whole and scrolled while its row has the
+focus, cut short with "..." while not (widget_instance_port_text_line_draw) */
+wchar_t const *pc_menu_text_line(struct widget_instance *widget, long font, wchar_t const *text, short width,
+	boolean row, boolean focused, unsigned long now, real *scroll, short *room, short *overflow);
 
 /* ---------- constants */
 
@@ -2192,6 +2206,41 @@ void *ui_widget_realloc(
 		line);
 }
 
+/* port: MCC maps are selected by their full namespaced path. They do not enter
+the Xbox/CE multiplayer level-index list. */
+boolean ui_widget_port_mcc_multiplayer_map_choose(char const *level_name)
+{
+	short index = mcc_maps_find(level_name);
+	struct network_game_server *server = global_network_game_server_get();
+
+	if (index == NONE || mcc_maps_campaign(index))
+		return FALSE;
+	main_set_multiplayer_map_name(level_name);
+	game_engine_override_map_name(level_name);
+	if (server)
+		network_game_server_change_map_name(server, level_name);
+	saved_game_file_remember_last_used_multiplayer_map(level_name);
+	return TRUE;
+}
+
+boolean ui_widget_port_mcc_cooperative_level_choose(char const *level_name, short difficulty)
+{
+	struct network_game_server *server = global_network_game_server_get();
+	struct game_variant variant;
+
+	if (!server || !mcc_maps_level_campaign(level_name) ||
+		difficulty < 0 || difficulty >= NUMBER_OF_GAME_DIFFICULTY_LEVELS)
+		return FALSE;
+	csmemset(&variant, 0, sizeof(variant));
+	ustrcpy(variant.human_readable_game_description, L"Co-op");
+	main_set_difficulty(difficulty);
+	main_set_multiplayer_map_name(level_name);
+	network_game_server_port_set_cooperative(server, difficulty);
+	network_game_server_change_map_name(server, level_name);
+	network_game_server_change_game_variant(server, &variant);
+	return TRUE;
+}
+
 void widget_free(
 	void *ptr)
 {
@@ -3258,6 +3307,11 @@ void ui_widgets_close_all(
 		if (widget_globals.widget_stack[local_player_index])
 			dispose_widget_stack(&widget_globals.widget_stack[local_player_index]);
 	}
+	/* port: Release only an editor opened by MCC after its widgets are gone. */
+	{
+
+		mcc_ui_settings_close(NONE);
+	}
 
 	return;
 }
@@ -3285,6 +3339,8 @@ void ui_widgets_close_all_for_local_player(
 				dispose_widget_stack(&widget_globals.widget_stack[widget_index]);
 		}
 	}
+	/* port: and MCC's pause menu's settings (mcc_ui.c) */
+	mcc_ui_settings_close(local_player_index);
 
 	return;
 }
@@ -3733,6 +3789,15 @@ static void event_handler_dispatch(
 		/* port: not from a widget its function deleted (it went back:
 		menu_functions.c's profile_save_changes), which the Xbox's opened
 		from regardless */
+		/* port: MCC's New Game can close every widget at once. The event ends
+		with that deletion, before anything can open from the deleted tree */
+		if (TEST_FLAG(handler->flags, _event_handler_open_widget_bit) &&
+			!widget_deleted && handler->widget_tag.index != NONE &&
+			mcc_ui_new_game(widget, &widget_deleted))
+		{
+			*calling_widget_deleted = widget_deleted;
+			return;
+		}
 		if (TEST_FLAG(handler->flags, _event_handler_open_widget_bit) &&
 			!widget_deleted &&
 			handler->widget_tag.index != NONE)
@@ -4256,6 +4321,36 @@ void ui_widget_port_go_back(
 	widget_instance_go_back_to_previous(widget);
 }
 
+/* port: the screen up for a local player (NONE: the menus' own), NULL for
+none: the screen gone back to, for the menus' functions (a pop-up's choice
+done on the screen before it: port/linux/game/menu_functions.c's
+pc_menu_edit_leave) */
+struct widget_instance *ui_widget_port_active_screen(
+	short local_player_index)
+{
+	short widget_stack = (local_player_index == NONE) ? 0 : local_player_index;
+
+	if (widget_stack < 0 || widget_stack >= MAXIMUM_NUMBER_OF_LOCAL_PLAYERS)
+		return NULL;
+	return widget_globals.active_widgets[widget_stack];
+}
+
+/* port: the screen a local player's back goes to (the top of its history),
+NONE for none: a pop-up's screen behind it (port/linux/game/menu_screen.c's
+dialog_build) */
+long ui_widget_port_previous_screen(
+	short local_player_index)
+{
+	short widget_stack = (local_player_index == NONE) ? 0 : local_player_index;
+
+	if (widget_stack < 0 || widget_stack >= MAXIMUM_NUMBER_OF_LOCAL_PLAYERS ||
+		!widget_globals.widget_stack[widget_stack])
+	{
+		return NONE;
+	}
+	return widget_globals.widget_stack[widget_stack]->data.previous_widget_tag;
+}
+
 /* port: a widget of a tag made a child of the parent, before the child
 before (NULL: last), its offsets the parent's (the menu engine's rows of
 Settings' search, from their own pages' widgets: port/linux/game/menu_engine.c);
@@ -4475,6 +4570,9 @@ static void render_state_bitmap(
 	if (bitmap && _texture_cache_bitmap_get_hardware_format(
 		(struct bitmap_data *)bitmap, FALSE, TRUE))
 	{
+		/* port: an MCC map's icon is drawn as its HUD's are (mcc_hud_draw.c) */
+		if (mcc_hud_icon_draw(bitmap_group_index, bitmap, clip, cursor_bounds, color, icon, TRUE))
+			return;
 		/* port: the sprite from a high-res texture, if it has one */
 		bitmap = hud_hires_sprite_bitmap(bitmap, icon->sequence_index);
 		scale = hud_globals_get_scale(local_player_count() > 1);
@@ -5295,6 +5393,20 @@ void network_game_reset_to_pregame_ui(
 	void)
 {
 	ui_widgets_close_all();
+	/* port: An MCC restart retains this round's settings and returns directly to
+	 * the ready lobby. The ordinary host map picker pauses its countdown. */
+	{
+
+		if (mcc_ui_network_restart_pregame())
+		{
+			char const *screen = network_game_is_splitscreen_local() ?
+				"ui\\shell\\main_menu\\multiplayer_type_select\\split_screen\\pregame\\splitscreen_pregame_wrapper_normal" :
+				pc_menus_screen("ui\\shell\\main_menu\\multiplayer_type_select\\connected\\pregame\\connected_pregame_screen");
+			if (!ui_widget_load_by_name_or_tag(screen, NONE, NULL, NONE, NONE, NONE, NONE))
+				error(_error_silent, "mcc: failed to load restart pregame screen");
+			return;
+		}
+	}
 	if (network_game_is_splitscreen_local())
 	{
 		if (network_game_is_quickstart_local())
@@ -5708,6 +5820,156 @@ static boolean widget_instance_port_on_focus_path(
 			return FALSE;
 	}
 	return TRUE;
+}
+
+/* port: whether a widget's text is a row's (issue 899: cut short with "..."
+where it is too long, and scrolled while the row has the focus): a
+spinner's value, a list's row's text, or a text box in a list's row */
+static boolean widget_instance_port_in_row(
+	struct widget_instance *widget)
+{
+	struct widget_instance *parent = widget->parent;
+
+	return widget->type == _ui_widget_type_spinner_list ||
+		(parent && (parent->type == _ui_widget_type_column_list ||
+			(parent->parent && parent->parent->type == _ui_widget_type_column_list)));
+}
+
+/* port: whether a widget's row has the focus: in a list, its row (the
+list's child it is in, or is) on the path the focus takes (a settings row:
+its label, its spinner's value); elsewhere, the widget the focus ends at
+(down the screen's focused children) is the widget or its parent (a
+hand-written table's row, its cells). Not a screen's own texts, nor a
+panel's the focus passes through: only the focused row's lines scroll */
+static boolean widget_instance_port_row_focused(
+	struct widget_instance *widget)
+{
+	struct widget_instance *row, *end = widget;
+
+	if (!widget->parent)
+		return FALSE;
+	for (row = widget; row->parent; row = row->parent)
+	{
+		if (row->parent->type == _ui_widget_type_column_list)
+			return widget_instance_port_on_focus_path(row);
+	}
+	while (end->parent)
+		end = end->parent;
+	while (end->focused_child)
+		end = end->focused_child;
+	return end == widget || (widget->parent->parent && end == widget->parent);
+}
+
+/* port: how far, in the menus' units, a scrolled line fades out at a cut
+edge (at most a quarter of its room) */
+#define UI_WIDGET_PORT_TEXT_LINE_FADE 8.0f
+
+/* port: a line of a menu's text too long for its box (issue 899:
+menu_functions.c's pc_menu_text_line) drawn in its place, in the bounds
+it is laid out in (its look's scale set, as begun) less the room kept clear
+at its left and right (inset, in the screen's units: a spinner's arrows),
+and its clip: while its row has the focus, the whole line left-justified in
+the room it was fitted to, moved left by its scroll (its fraction of a unit
+too, the high-res text's: rasterizer_text_set_shift), cut to that room and
+faded out at an edge it is cut at; while not, its form cut short with
+"...". FALSE if the text is drawn as it is (it fits), the draw mode set as
+it was either way */
+static boolean widget_instance_port_text_line_draw(
+	struct widget_instance *widget,
+	rectangle2d const *bounds,
+	rectangle2d const *clip,
+	wchar_t const *text,
+	long font_index,
+	short justification,
+	real_argb_color const *color,
+	short inset_left,
+	short inset_right)
+{
+	real scroll, scale, origin_x, origin_y, fade;
+	short room, overflow;
+	boolean focused = widget_instance_port_row_focused(widget);
+	rectangle2d inside = *bounds, laid, cut;
+	wchar_t const *line;
+	short whole, left, right;
+
+	/* (the room kept clear, in the units it is laid out in) */
+	rasterizer_text_get_scale(&scale, &origin_x, &origin_y);
+	inside.x0 = (short)(inside.x0 + (short)((real)inset_left / scale + 0.999f));
+	inside.x1 = (short)(inside.x1 - (short)((real)inset_right / scale + 0.999f));
+	line = pc_menu_text_line(widget, font_index, text, (short)(inside.x1 - inside.x0), widget_instance_port_in_row(widget),
+		focused, widget_globals.current_system_milliseconds, &scroll, &room, &overflow);
+	/* (measuring a line sets the draw mode: as it was) */
+	draw_string_set_draw_mode(font_index, NONE, justification, 0, color);
+	if (!line)
+		return FALSE;
+	if (!focused)
+	{
+		rasterizer_draw_unicode_string(&inside, clip, NULL, 0, line);
+		return TRUE;
+	}
+	/* (the room: at the box's left, right or middle, as justified) */
+	left = justification == _text_justification_right ? (short)(inside.x1 - room) :
+		justification == _text_justification_center ? (short)((inside.x0 + inside.x1 - room) / 2) : inside.x0;
+	right = (short)(left + room);
+	whole = (short)scroll;
+	laid = inside;
+	laid.x0 = (short)(left - whole);
+	laid.x1 = (short)(laid.x0 + 0x3FFF);
+	/* (the clip in the screen's units, as the scale draws the room: a unit
+	wider at its right for the line's fraction of a unit) */
+	cut = *clip;
+	cut.x0 = (short)MAX(cut.x0, (short)(origin_x + ((real)left - origin_x) * scale));
+	cut.x1 = (short)MIN(cut.x1, (short)(origin_x + ((real)right + 1.0f - origin_x) * scale + 0.999f));
+	/* (faded at its left once it has moved, at its right until its end shows) */
+	fade = MIN(UI_WIDGET_PORT_TEXT_LINE_FADE, (real)room * 0.25f);
+	draw_string_set_draw_mode(font_index, NONE, _text_justification_left, 0, color);
+	rasterizer_text_set_shift(scroll - (real)whole, (real)left, (real)right, scroll > 0.0f ? fade : 0.0f,
+		scroll < (real)overflow ? fade : 0.0f);
+	if (cut.x1 > cut.x0)
+		rasterizer_draw_unicode_string(&laid, &cut, NULL, 0, line);
+	rasterizer_text_set_shift(0.0f, 0.0f, -1.0f, 0.0f, 0.0f);
+	draw_string_set_draw_mode(font_index, NONE, justification, 0, color);
+	return TRUE;
+}
+
+/* port: the room a spinner's value keeps clear at its left and right, in
+the screen's units, for its arrows (its header's and footer's pictures,
+each drawn at its size from its bounds' corner, or across its bounds if
+they are wider) and a gap past them: as far as an arrow reaches into its
+text's box (bounds, as drawn, before its look's scale), and the gap */
+#define UI_WIDGET_PORT_SPINNER_ARROW_GAP 3
+
+static void widget_instance_port_spinner_insets(
+	struct widget_instance *widget,
+	struct ui_widget_definition *definition,
+	rectangle2d const *bounds,
+	point2d offset,
+	short *inset_left,
+	short *inset_right)
+{
+	short middle = (short)((bounds->x0 + bounds->x1) / 2);
+	short extra = spinner_string_list_extra_count(definition->text_label_string_list.index) ? SPINNER_EXTRA_WIDTH : 0;
+
+	(void)widget;
+	*inset_left = 0;
+	*inset_right = 0;
+	if (definition->list_header_bitmap.index != NONE)
+	{
+		struct bitmap_data *bitmap = bitmap_group_get_bitmap_from_sequence(definition->list_header_bitmap.index, 0, 0);
+		short x0 = (short)(definition->list_header_bounds.x0 - extra + offset.x);
+		short x1 = (short)MAX(definition->list_header_bounds.x1 - extra + offset.x, x0 + (bitmap ? bitmap->width : 0));
+
+		if (bitmap && x0 < middle)
+			*inset_left = (short)MAX(0, x1 + UI_WIDGET_PORT_SPINNER_ARROW_GAP - bounds->x0);
+	}
+	if (definition->list_footer_bitmap.index != NONE)
+	{
+		struct bitmap_data *bitmap = bitmap_group_get_bitmap_from_sequence(definition->list_footer_bitmap.index, 0, 0);
+		short x0 = (short)(definition->list_footer_bounds.x0 + offset.x);
+
+		if (bitmap && x0 > middle)
+			*inset_right = (short)MAX(0, bounds->x1 - (x0 - UI_WIDGET_PORT_SPINNER_ARROW_GAP));
+	}
 }
 
 static boolean string_has_icons_to_draw(
@@ -6128,6 +6390,8 @@ static void widget_instance_render_text_box(
 	/* port: the scale a dialog's text is drawn at to fit its room
 	(ui_widget_port_text_fit) */
 	real fit_scale = 1.0f;
+	/* port: (its text wrapped to its box) */
+	boolean wrapped = FALSE;
 
 	if (definition->text_label_string_list.index != NONE)
 	{
@@ -6301,11 +6565,32 @@ static void widget_instance_render_text_box(
 				ui_widget_port_text_unbreak(*text);
 		}
 		fit_scale = ui_widget_port_text_fit(*text, &bounds, width, height, &font_index, &color, justification);
+		wrapped = TRUE;
 	}
 	/* port: or drawn at its look's scale (the menu engine's), but a field
 	typed into, whose caret is placed at its font's size */
 	else if (!caret)
 		fit_scale = ui_widget_port_text_scale_begin(widget, definition, &bounds, offset, justification);
+	/* port: MCC owns these text boxes (mcc_pause.c): their instance copies
+	 * wrapped to the panel width, not the map's objective strings or other
+	 * menus' */
+	if (mcc_pause_text_wrap_needed(widget->definition_tag_index))
+	{
+		ui_widget_port_text_wrap(*text, &bounds, (short)(bounds.x1 - bounds.x0));
+		clip.x0 = MAX(clip.x0, bounds.x0);
+		clip.y0 = MAX(clip.y0, bounds.y0);
+		clip.x1 = MIN(clip.x1, bounds.x1);
+		clip.y1 = MIN(clip.y1, bounds.y1);
+	}
+	/* port: an MCC catalog's text, wrapped as measured in every menu style:
+	 * the MCC module formats it and clips it to this text box (mcc_menu_text.c) */
+	if (mcc_menu_text_draw(widget->definition_tag_index, widget->parameters.text_box.string_list_index,
+		*text, font_index, justification, &color, &bounds, &clip))
+	{
+		if (fit_scale != 1.0f)
+			rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
+		return;
+	}
 	/* port: the key of a button pictured beside the words in their gap
 	(ui_widget_port_key_label_text), the words left-justified moved left
 	by as much as the key's cap is wider than the gap, so that they end
@@ -6358,8 +6643,14 @@ static void widget_instance_render_text_box(
 	}
 	else if (string_has_icons_to_draw(*text))
 		draw_string_and_hack_in_icons(&bounds, &clip, NULL, 0, *text, FALSE);
-	else
+	/* port: a line too long for its box: whole and scrolled while its row
+	has the focus, cut short while not (issue 899); not a text wrapped to
+	its box, nor a field typed into */
+	else if (wrapped || caret ||
+		!widget_instance_port_text_line_draw(widget, &bounds, &clip, *text, font_index, justification, &color, 0, 0))
+	{
 		rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, *text);
+	}
 	/* port: (the text drawn at its own size again) */
 	if (fit_scale != 1.0f)
 		rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
@@ -6587,15 +6878,25 @@ static void widget_instance_render_spinner_list(
 					definition->justification,
 					0,
 					&color);
-				/* port: at its look's scale (the menu engine's) */
-				if (ui_widget_port_text_scale_begin(widget, definition, &bounds, offset,
-					definition->justification) != 1.0f)
+				/* port: at its look's scale (the menu engine's); a value too
+				long for its box whole and scrolled while its row has the
+				focus, cut short while not (issue 899), clear of its arrows */
 				{
-					rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, item_text);
-					rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
+					short inset_left, inset_right;
+					real scale;
+
+					widget_instance_port_spinner_insets(widget, definition, &bounds, offset, &inset_left,
+						&inset_right);
+					scale = ui_widget_port_text_scale_begin(widget, definition, &bounds, offset,
+						definition->justification);
+					if (!widget_instance_port_text_line_draw(widget, &bounds, &clip, item_text,
+						definition->text_font.index, definition->justification, &color, inset_left, inset_right))
+					{
+						rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, item_text);
+					}
+					if (scale != 1.0f)
+						rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
 				}
-				else
-					rasterizer_draw_unicode_string(&bounds, &clip, NULL, 0, item_text);
 			}
 		}
 		if (definition->text_label_string_list.index != NONE)
@@ -8605,7 +8906,10 @@ static void ui_widgets_process_mouse(
 			ui_mouse_hover_x = pointer.x;
 			ui_mouse_hover_y = pointer.y;
 		}
-		if (pointer.left_clicks)
+		/* (a click on the carnage report's touchscreen buttons is the
+		report's: touch_postgame.c) */
+		if (pointer.left_clicks &&
+			(!game_engine_showing_postgame() || !touch_postgame_click(pointer.click_x, pointer.click_y)))
 		{
 			ui_mouse_click_pending = TRUE;
 			ui_mouse_click_x = pointer.click_x;
@@ -8888,6 +9192,8 @@ static void widget_instance_render_recursive(
 	/* port: (its definition's own box, before a hand-written screen's) */
 	rectangle2d own_bounds = definition->bounds;
 
+	short mcc_picture_index; /* port: (an MCC map's preview: mcc_menu_preview.c) */
+
 	/* port: a screen the port's menu engine draws (port/linux/game/menu_engine.c) */
 	if (!widget->parent && menu_engine_screen_draw(widget, clip_rect, offset, focus, use_nifty_plasma_fx))
 		return;
@@ -8951,7 +9257,16 @@ static void widget_instance_render_recursive(
 	the unknown level's frame for a map without one
 	(port/linux/game/custom_edition_maps.c) */
 	frame_index = widget->animation.current_frame_index;
-	custom_edition_picture = custom_edition_maps_picture(definition->background_bitmap.index, &frame_index);
+	/* port: MCC display indices never enter the CE provider. A failed MCC
+	 * preview retains the existing unknown frame in every menu style. */
+	mcc_picture_index = mcc_menu_preview_index(definition->background_bitmap.index, frame_index);
+	if (mcc_picture_index != NONE)
+	{
+		frame_index = 13;
+		custom_edition_picture = NULL;
+	}
+	else
+		custom_edition_picture = custom_edition_maps_picture(definition->background_bitmap.index, &frame_index);
 	bitmap = custom_edition_picture ? custom_edition_picture : bitmap_group_get_bitmap_from_sequence(
 		definition->background_bitmap.index,
 		0,
@@ -9058,7 +9373,11 @@ static void widget_instance_render_recursive(
 				custom_edition_maps_campaign_level(widget->animation.current_frame_index) == NONE;
 			short radius = pc_menu_widget_radius(widget->definition_tag_index);
 
-			if (pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
+			/* port: MCC art fits and clips to this style's authored thumbnail
+			 * rectangle; only the MCC module decodes or owns its texture. */
+			if (mcc_picture_index != NONE && mcc_menu_preview_draw(mcc_picture_index, &bounds, clip, color, &multitexture_params))
+				shown = FALSE;
+			if (shown && pc_menu_frame_placement(bitmap, &frame_x, &frame_y, &frame_width, &frame_height))
 			{
 				placed = TRUE;
 				bounds.x0 += frame_x;
@@ -10727,6 +11046,29 @@ static boolean ui_check_for_pause_game(
 					pressed_by_first_local_player = FALSE;
 			}
 			local_player_count++;
+		}
+		/* port: MCC selects its owned stock-style pause tree; embedded map menus
+		 * remain available to custom scripts but are never the pause entry. */
+		{
+
+
+			if (mcc_pause_runtime_active())
+			{
+				if ((!network_game || game_engine_allow_pause()) &&
+					pressing_local_player_index == controller_index)
+				{
+					if (widget_globals.active_widgets[controller_index])
+						ui_widgets_close_all_for_local_player(controller_index);
+					else if (network_game || local_player_count <= 1 || !game_time_get_paused())
+					{
+						long screen = mcc_pause_runtime_screen(local_player_count, pressed_by_first_local_player);
+						if (screen == NONE || !ui_widget_load_by_name_or_tag(NULL, screen, NULL,
+							controller_index, NONE, NONE, NONE))
+							error(_error_silent, "mcc: failed to open native pause menu");
+					}
+				}
+				return pause_pressed;
+			}
 		}
 		if (network_game)
 		{

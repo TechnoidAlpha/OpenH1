@@ -40,6 +40,7 @@ the files: nothing played or sent between machines.
 #include "cache/cache_files.h"
 #include "game/game_globals.h"
 #include "game/players.h"
+#include "interface/first_person_weapons.h"
 #include "items/projectile_definitions.h"
 #include "items/weapon_definitions.h"
 #include "models/model_animation_definitions.h"
@@ -149,7 +150,8 @@ static struct
 	a map loaded since without pal_tags_loaded (a Custom Edition map's) has
 	none of them */
 	unsigned long generation;
-	/* each local player's first-person animation and how far through its
+	/* each first-person weapon's slot's animation (a local player's, or a
+	Spartan link feed's: FIRST_PERSON_WEAPON_SLOTS) and how far through its
 	next frame it is (pal_tags_first_person_advance) */
 	struct
 	{
@@ -157,7 +159,7 @@ static struct
 		short animation_index;
 		short frame_index;
 		real fraction;
-	} advancing[MAXIMUM_LOCAL_PLAYERS];
+	} advancing[FIRST_PERSON_WEAPON_SLOTS];
 } pal_tags;
 
 /* ---------- private code */
@@ -379,7 +381,7 @@ void pal_tags_loaded(
 	csmemset(&pal_tags, 0, sizeof(pal_tags));
 	for (index = 0; index < NUMBEROF(pal_tags.first_person_graphs); index++)
 		pal_tags.first_person_graphs[index] = NONE;
-	for (index = 0; index < MAXIMUM_LOCAL_PLAYERS; index++)
+	for (index = 0; index < FIRST_PERSON_WEAPON_SLOTS; index++)
 		pal_tags.advancing[index].graph_index = NONE;
 	pal_tags.generation = cache_files_tags_generation();
 	region = cache_files_build_region(build);
@@ -420,7 +422,7 @@ boolean pal_tags_first_person_advance(
 {
 	short index;
 
-	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS)
+	if (local_player_index < 0 || local_player_index >= FIRST_PERSON_WEAPON_SLOTS)
 		return TRUE;
 	/* (another animation, or this one again from its start; not a state
 	holding its last frame, first_person_weapon_next_state) */
@@ -454,7 +456,7 @@ real pal_tags_first_person_fraction(
 	short animation_index,
 	short frame_index)
 {
-	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
+	if (local_player_index < 0 || local_player_index >= FIRST_PERSON_WEAPON_SLOTS ||
 		pal_tags.advancing[local_player_index].graph_index != graph_index ||
 		pal_tags.advancing[local_player_index].animation_index != animation_index ||
 		frame_index < pal_tags.advancing[local_player_index].frame_index ||

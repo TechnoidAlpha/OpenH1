@@ -17,9 +17,9 @@ CASES = ['pro_host', 'pro_client', 'crispy', 'not_pro', 'shields', 'aim_assist',
          'collisions']
 # (faults, and the case that must catch each)
 CONTROLS = [
-    ('\t\tSET_FLAG(game->cooperative_flags, _network_game_pro_rules_bit, network_standard_pro_hosting());\n', '',
+    ('\t\tSET_FLAG(game->standard_flags, _network_game_pro_rules_bit, network_standard_pro_hosting());\n', '',
      'pro_client'),
-    ('TEST_FLAG(game->cooperative_flags, _network_game_pro_rules_bit)', 'FALSE', 'pro_client'),
+    ('TEST_FLAG(game->standard_flags, _network_game_pro_rules_bit)', 'FALSE', 'pro_client'),
     ('\tcase _game_connection_network_server:\n\t\treturn network_standard_pro_hosting();\n', '', 'pro_host'),
     ('return network_standard_pro_hosting() ? _shield_effects_stock : host_effects();', 'return host_effects();',
      'shields'),
@@ -50,6 +50,7 @@ def generated(fault=None):
     config = '\n'.join([
         enum_with(read('source/game/game.h'), '_game_connection_local = 0'),
         enum_with(read('source/networking/network_game_manager.h'), '_network_game_pro_rules_bit'),
+        enum_with(read('source/networking/network_game_manager.h'), '_network_game_cooperative_no_player_collisions_bit'),
         enum_with(read('port/linux/game/network_shield_effects.h'), '_shield_effects_stock'),
         '#define DISTRIBUTED_CLIENT_BUILD_MODS_SIZE 512',
         '#define PRO_FIELD_OF_VIEW 110.0',

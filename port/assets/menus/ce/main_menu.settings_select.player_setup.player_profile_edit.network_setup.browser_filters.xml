@@ -147,6 +147,6 @@
 		<string text="Lists only the games whose ping is under this.|A game whose ping is not known is listed: a local network game's, a dedicated server's, one still being timed."/>
 		<string text=""/>
 		<string text="Lists only the games of this tick rate.|GOAT H1 games play at 30, 60 or 120 ticks a second; Legacy games are OpenCE's netcode."/>
-		<string text="Lists only the games of this type.|Slayer is free for all; SWAT, Infection and Gun Game are OpenCE's. Pro 2v2 is PRO 2V2's games."/>
+		<string text="Lists only the games of this type.|Slayer is free for all; SWAT, Infection and Gun Game are GOAT H1's. Pro 2v2 is PRO 2V2's games."/>
 	</strings>
 </menus>

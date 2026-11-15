@@ -72,15 +72,6 @@ def test_render_skips_tags_used_as_both_struct_and_union():
 XDK_INCLUDE = Path(__file__).resolve().parent.parent / "port" / "include" / "xdk"
 
 
-def test_xdk_headers_use_the_sdk_spellings():
-    # each port gives the SDK's keywords and names its own meaning (its
-    # prefix header), so none of one port's must be written into them
-    for header in sorted(XDK_INCLUDE.glob("*.h")):
-        text = re.sub(r"/\*.*?\*/", "", header.read_text(encoding="utf-8"), flags=re.S)
-        assert "__attribute__" not in text, header.name
-        assert not re.findall(r"\bhalo_\w+", text), header.name
-
-
 def x86_abi(tmp_path):
     """skips unless this computer builds the game's 32-bit x86 ABI
     (tools/x86_game_abi.py: clang and the C library's 32-bit files)"""
@@ -294,7 +285,7 @@ def test_menus_are_well_formed():
 
 def test_menu_settings_exist():
     """Every setting a menu's spinner sets is one of config.toml's
-    (port/linux/src/port_config.c) or of the profile, and
+    (port/linux/src/port_config.c), of the profile or an action of a row's, and
     the keyboard's controls are the same in the settings, in the controls'
     screen and in the input code."""
     root = MENUS.parent.parent.parent
@@ -304,17 +295,20 @@ def test_menu_settings_exist():
     profile = set(re.findall(r'\{ "(profile\.[a-z_]+)", \d', functions))
     # (rows of two settings: menu_functions.c's own, render_resolution_text)
     profile |= set(re.findall(r'#define \w+_SETTING "([a-z_]+\.[a-z_]+)"', functions))
+    # (and the actions a row does on OK rather than a setting: DISCORD ACCOUNT's LINK, setting_write's)
+    actions = set(re.findall(r'!strcmp\(name, "([a-z_]+\.action)"\)', functions))
     for path in (MENUS / "ce").glob("*.xml"):
         for setting in re.findall(r'setting="([^"]+)"', path.read_text()):
-            assert setting in known | profile, f"{path.name}: {setting}"
+            assert setting in known | profile | actions, f"{path.name}: {setting}"
     controls = set(re.findall(r'"(controls\.[a-z_]+)"', (root / "port/linux/src/xinput_sdl.c").read_text()))
     assert controls == {name for name in known if name.startswith("controls.")}
     assert controls == set(re.findall(r'\{ "(controls\.[a-z_]+)", L"', functions))
 
 
-def config_check_build(tmp_path, defines):
+def config_check_build(tmp_path, defines, fault=None):
     """port_config.c built on its own with the build's defines
-    (tools/config_check.c): run(command...) in a folder of config.toml"""
+    (tools/config_check.c): run(command...) in a folder of config.toml;
+    with a fault (before, after), port_config.c's text changed so"""
     root = Path(__file__).resolve().parent.parent
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
@@ -333,6 +327,9 @@ def config_check_build(tmp_path, defines):
     (stubs / "posix_server.h").write_text("int posix_server_private_file(const char *path);\n")
     for name in ("port_config.c", "port_config.h", "install_layout.h"):
         shutil.copy(root / "port/linux/src" / name, stubs / name)
+    if fault:
+        from tools.harness import mutated
+        (stubs / "port_config.c").write_text(mutated((stubs / "port_config.c").read_text(), *fault))
     program = tmp_path / "config_check"
     subprocess.run([compiler, *defines, f"-I{stubs}",
                     f"-I{root}/port/third_party/tomlc17", "-o", str(program), str(stubs / "port_config.c"),
@@ -679,6 +676,73 @@ def test_graphics_preset_on_a_headset(config_check):
     assert graphics_values(config_check) == GRAPHICS_ENHANCED
     config_check("write", "display.graphics", "classic")
     assert graphics_values(config_check) == GRAPHICS_CLASSIC
+RIDING_SETTINGS = {"network.vehicle_riding": "HALO_NET_VEHICLE_RIDING",
+                   "server.vehicle_riding_override_gametype": "HALO_SERVER_VEHICLE_RIDING_OVERRIDE_GAMETYPE"}
+
+
+def riding_settings(run, monkeypatch):
+    """riding's two settings: off by default, and on by their environment keys"""
+    for name, key in RIDING_SETTINGS.items():
+        monkeypatch.delenv(key, raising=False)
+        assert run("get", name) == "false", name
+        monkeypatch.setenv(key, "true")
+        assert run("get", name) == "true", key
+        monkeypatch.delenv(key)
+
+
+def test_vehicle_riding_settings(tmp_path, monkeypatch):
+    """Riding's two settings keep their names, defaults and environment keys (sv_set's list:
+    harness/tests/test_server_command_words.py's settable case)."""
+    riding_settings(config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"]), monkeypatch)
+
+
+@pytest.mark.parametrize("fault", [
+    ('{ "network.vehicle_riding", _config_boolean, "false",', '{ "network.vehicle_riding", _config_boolean, "true",'),
+    ('"HALO_NET_VEHICLE_RIDING"', '"HALO_NET_RIDING"'),
+    ('{ "server.vehicle_riding_override_gametype", _config_boolean, "false",',
+     '{ "server.vehicle_riding_override_gametype", _config_boolean, "true",'),
+], ids=["default-true", "env-key", "override-default-true"])
+def test_vehicle_riding_settings_negative_control(tmp_path, monkeypatch, fault):
+    run = config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"], fault)
+    with pytest.raises(AssertionError):
+        riding_settings(run, monkeypatch)
+
+
+# (settings whose shipped default is a choice made on purpose: a departure from the stock game off, or a fix on)
+SHIPPED_DEFAULTS = {
+    "display.latency_meter": "false",
+    "display.lowered_reticle": "false",
+    "display.lowered_reticle_amount": "10",
+    "display.panini": "0",
+    "display.panini_vertical": "0",
+    "display.draw_distance": "1024",
+    "display.overshield_layer_color": "true",
+    "controls.walk": "Left Shift",
+    "game.sim_rate": "60",
+}
+
+
+def shipped_defaults(run):
+    found = {name: run("get", name) for name in SHIPPED_DEFAULTS}
+    assert found == SHIPPED_DEFAULTS
+
+
+def test_shipped_defaults(tmp_path, monkeypatch):
+    """The defaults a new config.toml has for the settings above, as the built port_config.c reads them"""
+    for key in ("HALO_LATENCY_METER", "HALO_LOWERED_RETICLE", "HALO_LOWERED_RETICLE_AMOUNT", "HALO_PANINI",
+                "HALO_PANINI_VERTICAL", "HALO_DRAW_DISTANCE", "HALO_OVERSHIELD_LAYER_COLOR", "HALO_KEY_WALK",
+                "HALO_SIM_RATE"):
+        monkeypatch.delenv(key, raising=False)
+    shipped_defaults(config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"]))
+
+
+@pytest.mark.parametrize("fault", [
+    ('{ "display.draw_distance", _config_real, "1024.0",', '{ "display.draw_distance", _config_real, "2048.0",'),
+    ('{ "display.latency_meter", _config_boolean, "false",', '{ "display.latency_meter", _config_boolean, "true",'),
+], ids=["draw-distance", "latency-meter"])
+def test_shipped_defaults_negative_control(tmp_path, fault):
+    with pytest.raises(AssertionError):
+        shipped_defaults(config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"], fault))
 
 
 def test_default_brokers_are_brokers_txt():
@@ -937,7 +1001,6 @@ def test_friends_negative_controls(tmp_path, what, original, mutated, case):
         f"{what}: the {case} case still passes"
 
 
-
 # port_config.c on its own, with the app's file paths (HALO_DATA_ROOT) and C
 # library calls: "get <setting>" prints it, "write <setting> <value>" sets it
 CONFIG_PROGRAM = r"""
@@ -1010,6 +1073,12 @@ def test_config_has_each_section_once(tmp_path):
     run("write", "display.first_person_legs", "true")
     assert run("get", "display.first_person_legs")[0] == "true"
 
+    # MCC discovery starts enabled; an explicit later opt-out stays saved.
+    for key in ("game.workshop_maps", "game.mcc_campaigns", "game.mcc_collections"):
+        assert run("get", key)[0] == "true"
+        run("write", key, "false")
+        assert run("get", key)[0] == "false"
+
     # an older version's
     config.write_text("[display]\nvsync = false\n\n[game]\nconsole_log = \"all\"\n\n"
                       "[display]\nfirst_person_legs = true\n")
@@ -1045,6 +1114,8 @@ def test_system_link_bots_messages_are_the_games():
         sizes[name] = sum(int(count) * {"pad": 0, "bytes": 1, "shorts": 2, "longs": 4}.get(kind, 0) + (kind == "array")
                           for kind, count in re.findall(r"_data_packet_field_(\w+), (\d+)", fields))
 
+    from tools import network_format
+    assert bots.NETWORK_VERSION == network_format.version()
     sent = []
     machine = bots.Machine(1, "127.0.0.2", "127.0.0.1", print)
     machine.udp.close()

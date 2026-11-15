@@ -98,6 +98,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "mcc_hud_draw.h" /* port: port/linux/game/mcc_hud_draw.c */
 #include "cseries/cseries.h"
 #include "cseries/errors.h"
 #include "game_state.h"
@@ -131,6 +132,7 @@ symbols in this file:
 over what it marks, not in the HUD's layer */
 boolean vr_render_world_waypoint(real_point3d const *point, boolean on_screen, real x, real y);
 #endif
+#include "mcc_campaign.h" /* port: port/linux/game/mcc_campaign.c */
 
 /* ---------- constants */
 
@@ -807,6 +809,7 @@ void custom_render_nav_point(
 			byte alpha;
 			real_rgb_color rgb_temp;
 
+			scale *= mcc_hud_bitmap_scale(bitmap_index); /* port: preserve MCC waypoint bitmap scaling. */
 			alpha = PIN(255 * fast_ftol_C(arrow->opacity), 0, 255);
 			pixel32_to_real_rgb_color(arrow->color, &rgb_temp);
 			rgb_temp.red *= PIN(1.f - arrow->fade, 0.f, 1.f);
@@ -1034,6 +1037,8 @@ void hud_render_nav_points(
 	/* port: the players' pings (port/linux/game/network_markers.c) */
 	network_markers_render(local_player_index);
 	game_engine_render_nav_points(local_player_index);
+	/* port: MCC campaign markers have separate state (mcc_campaign.c) */
+	mcc_campaign_render(local_player_index);
 
 	return;
 }

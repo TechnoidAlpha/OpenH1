@@ -9,8 +9,8 @@ controller, the keyboard and the mouse, on every port.
 | Path | Contents |
 | --- | --- |
 | `ce/*.xml` | The PC version's screens, one file for each folder of its tags, laid out as it has them; `ce/strings.xml` their text, `ce/bitmaps.xml` their pictures |
-| `ce/shell/...png` | The pictures, drawn from the high-res redraws in `svg/` (up to 4x), else a placeholder |
-| `NON_HANDDRAWN.md` | The pictures that are not redraws: those drawn from the Xbox's map (the player's own), and the placeholders, to be redrawn |
+| `ce/shell/...png` | The pictures, drawn from the high-res redraws in `svg/` (up to 4x), else empty (no picture shows) |
+| `NON_HANDDRAWN.md` | The pictures that are not redraws: those drawn from the Xbox's map (the player's own), and the empty frames, to be redrawn |
 | `UNWIRED.md` | The menus' functions that do nothing yet: the lists they fill are empty, and the settings they change do not change |
 | `model/` | The menu engine's model of the generated screens (`docs/menu_engine.md`): `settings.xml`, the settings screens' rows and geometries (`tools/port_settings.py`), `look/`, every widget's look (`tools/menu_look.py`; Settings' in its tall layout), `behaviour/`, every widget's behaviour (`tools/menu_behaviour.py`), and `nodes.xml`, the setup screens' nodes and their rows' conditions (`tools/menu_nodes.py`) |
 | `menus.json` | The files the game embeds |
@@ -62,12 +62,6 @@ options:
 - `--redraws`: the hand-made SVG redraws (ui-svg-handmade), copied to
   `svg/`. `svg/` has every redraw the menus draw, so `menus_regen.sh` copies
   it into the inputs' `redraws/` before each run; a new redraw goes there.
-- `--placeholder`: the picture drawn where a picture has no redraw and the
-  Xbox's map has not got it: `--fetch` cuts it from the largest of those
-  frames (`NON_HANDDRAWN.md`).
-- `--pictures` (optional): the PC version's pictures, of which only where
-  each sits in its frame is read: `--fetch` decodes those of the
-  placeholders' frames from the tags (`tools/ce_menu_pictures.py`).
 
 ce_menus.py needs Pillow, NumPy, SciPy and fontTools (`--fetch` puts them in
 the inputs' `venv/`). Its output does not depend on the computer: the titles
@@ -87,6 +81,32 @@ the campaign's) without the PC version's tags: their entries in
 files of those no screen names any more removed, and `menus.json`. The
 rest of `ce/bitmaps.xml` stays as it is. It needs `rsvg-convert`, Pillow and
 NumPy.
+
+## Merging
+
+The files `tools/ce_menus.py` writes (`ce/`, `port_svg/`, `model/`,
+`menus.json`, `NON_HANDDRAWN.md`, `UNWIRED.md`) stay committed, so that no
+build (Android, iOS, Windows, the releases) needs the PC version's tags, and
+are never merged by hand. Once per clone:
+
+```sh
+tools/git_setup.sh
+```
+
+sets up the `menus-generated` merge driver (`.gitattributes`): a merge takes
+our side of a generated file without a conflict, and its post-merge hook
+writes the menus again from the merged sources when both sides changed
+them, folded into the merge commit. A merge stopped by a conflict in a
+source (`tools/port_settings.py`, say): resolve that, then the one command
+
+```sh
+tools/menus_regen.sh --resolve
+```
+
+writes the menus again, fetching the inputs if needed, and stages them,
+whatever their conflicts; `git commit` finishes. CI's merge checks run
+`tools/menus_regen.sh --check`, which fails when the committed files are not
+what the generator writes (a merge or a change made without it).
 
 ## Elements
 
@@ -302,7 +322,6 @@ number).
 `tools/ce_menus.py` draws each frame from its redraw in `svg/` (copied from
 ui-svg-handmade) at up to 4x its size. A picture with no redraw is the
 Xbox's map's, where it has the same one (a whole bitmap, or a `<frame
-map=...>`), else a placeholder, placed where the PC version's picture is in
-its frame (`--pictures`: only where, not the picture, is read);
-`NON_HANDDRAWN.md` lists both. It needs `rsvg-convert`, Pillow, NumPy and
+map=...>`), else nothing: the frame is drawn empty, so that a screen shows no
+picture there rather than a stand-in's words; `NON_HANDDRAWN.md` lists both. It needs `rsvg-convert`, Pillow, NumPy and
 SciPy.

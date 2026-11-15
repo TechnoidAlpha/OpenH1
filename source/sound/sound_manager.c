@@ -219,6 +219,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries.h"
+#include "mcc_campaign.h" /* port: port/linux/game/mcc_campaign.c */
 #include "errors.h"
 #include "data.h"
 #include "cseries/profile.h"
@@ -233,6 +234,7 @@ symbols in this file:
 #include "game_sound.h"
 #include "sound_preferences.h"
 #include "camera/director.h" /* port: the listener's velocity (refresh_listener) */
+#include "coop_sound_sync.h" /* port: port/linux/game/coop_sound_sync.c */
 #include "camera/observer.h"
 #include "effects/player_effects.h"
 #include "game/game.h"
@@ -264,6 +266,18 @@ enum
 {
 	MAXIMUM_SOUND_CHANNELS = 256,
 	MAXIMUM_SOUND_CALLBACK_DATA = 0x30,
+	/* port: data_new of the mixer (sound_initialize). The obstruction
+	results are one per datum, so the two stay the same size. */
+	MAXIMUM_SOUND_DATUMS = 0x200,
+	MAXIMUM_LOOPING_SOUND_DATUMS = 0x80,
+};
+
+/* port: which datum's obstruction result a source keeps (source_audible) */
+enum sound_obstruction_cache_kind
+{
+	_sound_obstruction_cache_none,
+	_sound_obstruction_cache_sound,
+	_sound_obstruction_cache_looping_sound
 };
 
 enum sound_promotion_result
@@ -650,6 +664,11 @@ static void sound_channel_summary_build(
 static void channel_queue_sound(
 	short channel_index,
 	struct sound_permutation *permutation);
+/* port: and from byte_offset into the first permutation's samples */
+static void channel_queue_sound_from(
+	short channel_index,
+	struct sound_permutation *permutation,
+	long byte_offset);
 static void channel_set_properties_hardware(
 	short channel_index,
 	struct platform_sound_channel_properties *properties,
@@ -720,9 +739,12 @@ static boolean sound_preempts_sound(
 	real challenger_distance_squared);
 static short sound_find_best_channel(
 	long sound_index);
+/* port: and the datum whose obstruction result it keeps */
 static short source_audible(
 	struct sound_source *source,
-	real maximum_distance);
+	real maximum_distance,
+	short cache_kind,
+	long cache_datum_index);
 static void refresh_sounds(
 	void);
 static void refresh_listener(
@@ -996,13 +1018,14 @@ void sound_initialize(
 	}
 
 	sound_manager_globals.platform_definition = platform_definition;
-	sound_data = data_new("sounds", 0x200, sizeof(struct sound_datum));
+	/* port: the sizes named, as the obstruction results' are */
+	sound_data = data_new("sounds", MAXIMUM_SOUND_DATUMS, sizeof(struct sound_datum));
 	if (!sound_data)
 	{
 		return;
 	}
 
-	looping_sound_data = data_new("looping sounds", 0x80, 0xE4);
+	looping_sound_data = data_new("looping sounds", MAXIMUM_LOOPING_SOUND_DATUMS, 0xE4);
 	if (!looping_sound_data)
 	{
 		return;
@@ -1210,6 +1233,11 @@ static real sound_manager_master_gain(
 {
 	real gain = sound_class_get_gain(class_index) * sound_manager_port_volume(class_index);
 
+	/* port: MCC scripts own effects gain and map-local muting; inactive maps get 1. */
+	{
+		gain *= mcc_campaign_mix_gain(class_index == _sound_class_music);
+	}
+
 	if (class_index != _sound_class_scripted_dialog_to_player &&
 		class_index != _sound_class_scripted_dialog_to_other &&
 		class_index != _sound_class_scripted_dialog_force_unspatialized)
@@ -1376,6 +1404,28 @@ static void channel_queue_sound(
 		channel->playing_permutation = permutation;
 		channel->estimated_tick_time = 0.f;
 	}
+
+	return;
+}
+
+/* port: channel_queue_sound, a channel that plays nothing starting its
+permutation byte_offset into its samples (coop_sound_sync.c) */
+static void channel_queue_sound_from(
+	short channel_index,
+	struct sound_permutation *permutation,
+	long byte_offset)
+{
+	struct sound_channel_datum *channel = channel_get(channel_index);
+
+	if (byte_offset <= 0 || channel->playing_permutation || channel->queued_permutation)
+	{
+		channel_queue_sound(channel_index, permutation);
+		return;
+	}
+
+	dsound_port_queue_sound_from(channel_index, permutation, byte_offset);
+	channel->playing_permutation = permutation;
+	channel->estimated_tick_time = 0.f;
 
 	return;
 }
@@ -1657,9 +1707,12 @@ static long update_potentially_audible_looping_sound(
 			sound_definition_get(definition_index);
 		real maximum_distance =
 			sound_definition_get_maximum_distance(definition_index);
+		/* port: the looping sound keeps its obstruction result for the tick */
 		short listener_index = source_audible(
 			&looping_sound->source,
-			maximum_distance);
+			maximum_distance,
+			_sound_obstruction_cache_looping_sound,
+			looping_sound_index);
 
 		if (listener_index != NONE)
 		{
@@ -1667,6 +1720,7 @@ static long update_potentially_audible_looping_sound(
 			if (sound_index != NONE)
 			{
 				struct sound_datum *sound = sound_get(sound_index);
+				short placement; /* port: where a co-op client starts the sound (coop_sound_sync.c) */
 
 				sound->listener_index = listener_index;
 				sound->definition_index = definition_index;
@@ -1706,6 +1760,41 @@ static long update_potentially_audible_looping_sound(
 					definition,
 					sound->pitch_range_index,
 					NONE);
+				/* port: a co-op client that joins during a looping sound that
+				plays once starts it where the host has reached: a part that has
+				played out there does not play, and the sound stops with the
+				loop that has */
+				placement = coop_sound_sync_place(
+					looping_sound->definition_index,
+					looping_sound->loop_identifier,
+					track_index,
+					type == _sound_start_track ? _coop_sound_sync_start_part :
+						type == _sound_loop_track ? _coop_sound_sync_loop_part :
+						_coop_sound_sync_stop_part,
+					definition_index,
+					sound->pitch_range_index,
+					&sound->permutation_index,
+					VALID_INDEX(sound->pitch_range_index, definition->pitch_ranges.count) ?
+						sound_scale_value(
+							sound->pitch,
+							definition->zero_pitch_modifier,
+							definition->one_pitch_modifier,
+							scale) *
+						TAG_BLOCK_GET_ELEMENT(
+							&definition->pitch_ranges,
+							sound->pitch_range_index,
+							struct sound_pitch_range)->playback_rate :
+						0.f,
+					sound_index);
+				if (placement != _coop_sound_sync_play)
+				{
+					if (placement == _coop_sound_sync_finished)
+					{
+						looping_sound->ordered_sounds_finished = TRUE;
+					}
+					datum_delete(sound_data, sound_index);
+					return NONE;
+				}
 				_sound_cache_sound_request(
 					sound_permutation_get(
 						sound->definition_index,
@@ -2571,9 +2660,12 @@ long sound_new_impulse(
 
 					if (sound_definition_is_playable(definition_index))
 					{
+						/* port: a new impulse has no datum to keep its obstruction result yet */
 						short listener_index = source_audible(
 							source,
-							maximum_distance);
+							maximum_distance,
+							_sound_obstruction_cache_none,
+							NONE);
 
 						if (listener_index != NONE)
 						{
@@ -2743,7 +2835,17 @@ boolean sound_refresh_looping(
 				0x30E,
 				loop->definition_index==definition_index);
 
-			loop->source = *source;
+			{
+				/* port: the owner's source leaves obstruction and occlusion unset
+				(source_audible works them out, and only in range), so a loop taking
+				the owner's would hand a voice fading out of range garbage gains */
+				real obstruction = new_looping_sound ? 0.f : loop->source.obstruction;
+				real occlusion = new_looping_sound ? 0.f : loop->source.occlusion;
+
+				loop->source = *source;
+				loop->source.obstruction = obstruction;
+				loop->source.occlusion = occlusion;
+			}
 			loop->flip_flop = sound_manager_globals.flip_flop;
 
 			if ((refresh_state == _looping_sound_refresh_stop ||
@@ -2960,13 +3062,19 @@ boolean sound_refresh_looping(
 				}
 
 				if (loop->component_sound_count == 0 &&
-					source_audible(source, definition->runtime_maximum_distance) == NONE)
+					source_audible(source, definition->runtime_maximum_distance,
+						_sound_obstruction_cache_looping_sound, looping_sound_index) == NONE)
 				{
 					datum_delete(looping_sound_data, looping_sound_index);
 				}
 
 				loop->alternate = alternate;
 				loop->state = refresh_state;
+				/* port: whether its parts have been placed (coop_sound_sync_place) */
+				coop_sound_sync_refreshed(
+					definition_index,
+					looping_sound_identifier,
+					loop->component_sound_count > 0 || loop->ordered_sounds_finished);
 			}
 		}
 		else if (new_looping_sound)
@@ -3047,7 +3155,11 @@ static void update_channel_for_looping_sound(
 			0x9DA,
 			sound_cache_sound_loaded(permutation));
 		channel_set_properties_hardware(channel_index, &properties, FALSE);
-		channel_queue_sound(channel_index, permutation);
+		/* port: from where coop_sound_sync_place put it (0: its beginning) */
+		channel_queue_sound_from(
+			channel_index,
+			permutation,
+			coop_sound_sync_take_offset(channel->sound_index, permutation));
 		sound->playing_channel_index = channel_index;
 	}
 	else
@@ -3386,9 +3498,97 @@ void sound_dispose_from_old_map(
 	return;
 }
 
+/* port: a sound's obstruction result for a tick, for its listener
+(source_audible) */
+struct sound_obstruction_cache_entry
+{
+	boolean valid;
+	long datum_index;
+	long game_time;
+	short local_player_index;
+	real obstruction;
+	real occlusion;
+};
+
+static struct sound_obstruction_cache_entry sound_obstruction_cache[MAXIMUM_SOUND_DATUMS];
+static struct sound_obstruction_cache_entry looping_sound_obstruction_cache[MAXIMUM_LOOPING_SOUND_DATUMS];
+
+static struct sound_obstruction_cache_entry *sound_obstruction_cache_entry(
+	short kind,
+	long datum_index)
+{
+	long slot;
+
+	if (datum_index == NONE)
+	{
+		return NULL;
+	}
+	slot = DATUM_INDEX_TO_ABSOLUTE_INDEX(datum_index);
+	if (kind == _sound_obstruction_cache_sound && slot < MAXIMUM_SOUND_DATUMS)
+	{
+		return &sound_obstruction_cache[slot];
+	}
+	if (kind == _sound_obstruction_cache_looping_sound && slot < MAXIMUM_LOOPING_SOUND_DATUMS)
+	{
+		return &looping_sound_obstruction_cache[slot];
+	}
+	return NULL;
+}
+
+/* port: the wall test is remembered for the sound for this tick. Another
+sound cannot take its slot. The position is not part of the key: between
+ticks a sound on a moving object follows its object's interpolated pose
+(render_interpolation.c), which differs every frame. The tick's first test
+stands for the tick, as it does for a listener that moves. */
+static boolean sound_obstruction_cache_recall(
+	short kind,
+	long datum_index,
+	short local_player_index,
+	struct sound_source *source)
+{
+	struct sound_obstruction_cache_entry *entry;
+	long now;
+
+	entry = sound_obstruction_cache_entry(kind, datum_index);
+	now = game_time_get();
+	if (!entry || !entry->valid ||
+		entry->datum_index != datum_index ||
+		entry->game_time != now ||
+		entry->local_player_index != local_player_index)
+	{
+		return FALSE;
+	}
+	source->obstruction = entry->obstruction;
+	source->occlusion = entry->occlusion;
+	return TRUE;
+}
+
+static void sound_obstruction_cache_store(
+	short kind,
+	long datum_index,
+	short local_player_index,
+	struct sound_source *source)
+{
+	struct sound_obstruction_cache_entry *entry;
+
+	entry = sound_obstruction_cache_entry(kind, datum_index);
+	if (!entry)
+	{
+		return;
+	}
+	entry->valid = TRUE;
+	entry->datum_index = datum_index;
+	entry->game_time = game_time_get();
+	entry->local_player_index = local_player_index;
+	entry->obstruction = source->obstruction;
+	entry->occlusion = source->occlusion;
+}
+
 static short source_audible(
 	struct sound_source *source,
-	real maximum_distance)
+	real maximum_distance,
+	short cache_kind,
+	long cache_datum_index)
 {
 	short nearest_listener_index = NONE;
 
@@ -3427,12 +3627,31 @@ static short source_audible(
 			}
 		}
 
-		if (nearest_listener_index != NONE)
+		/* port: a sound past its own range is unheard, and the wall test is a
+		collision ray through the map. The Maw's escape ramp sees a long run
+		of the ship, and a mission played straight through still has the
+		earlier rooms' sounds. Each of those rays ran, then this range check
+		discarded the sound. A sound in range keeps that result for the rest
+		of the tick, so the tick's other frames do not fire the ray again. */
+		if (nearest_listener_index != NONE &&
+			nearest_distance_squared <= maximum_distance * maximum_distance)
 		{
-			compute_sound_obstruction(
+			if (!sound_obstruction_cache_recall(
+				cache_kind,
+				cache_datum_index,
 				nearest_listener_index,
-				source,
-				square_root(nearest_distance_squared));
+				source))
+			{
+				compute_sound_obstruction(
+					nearest_listener_index,
+					source,
+					square_root(nearest_distance_squared));
+				sound_obstruction_cache_store(
+					cache_kind,
+					cache_datum_index,
+					nearest_listener_index,
+					source);
+			}
 		}
 
 		if (nearest_distance_squared > maximum_distance * maximum_distance ||
@@ -3474,10 +3693,13 @@ static void refresh_sounds(
 
 		if (!stop_sound)
 		{
+			/* port: the sound keeps its obstruction result for the tick */
 			short listener_index = source_audible(
 				&sound->source,
 				sound_definition_get_maximum_distance(
-					sound->definition_index));
+					sound->definition_index),
+				_sound_obstruction_cache_sound,
+				sound_index);
 
 			render_debug_sound(sound_index);
 
@@ -3493,6 +3715,27 @@ static void refresh_sounds(
 
 			if (listener_index == NONE)
 			{
+				/* port: no listener hears it, and the one it had may have gone (a
+				local player who left the game: its listener is no longer valid, and
+				the channels' update asserts on a sound's): another's stands in */
+				if (!listener_get(sound->listener_index)->valid)
+				{
+					short other_listener_index;
+
+					for (
+						other_listener_index = 0;
+						other_listener_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS &&
+							!listener_get(other_listener_index)->valid;
+						other_listener_index++)
+					{
+					}
+
+					if (other_listener_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS)
+					{
+						sound->listener_index = other_listener_index;
+					}
+				}
+
 				if (!TEST_FLAG(sound->flags, _sound_inaudible_bit))
 				{
 					sound_start_fade(
@@ -4005,6 +4248,18 @@ void sound_idle(
 	sound_cache_idle();
 	sound_manager_globals.idling = FALSE;
 
+	return;
+}
+
+/* port: OpenCE measures the listener's velocity from its motion between
+ticks, and forgets that history at camera cuts and map changes (their
+camera_scripting.c and director.c call this). Here the listener's velocity
+is the player's unit's or the camera's own each frame (refresh_listener),
+with no history to forget, so there is nothing to do. */
+void sound_listener_motion_reset(
+	short local_player_index)
+{
+	(void)local_player_index;
 	return;
 }
 

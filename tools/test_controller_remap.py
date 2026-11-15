@@ -726,6 +726,8 @@ static long local_player_get_player_index(short p){return p>=0&&p<4?occupants[p]
 short controller_remap_local_player(short p){return p;}
 struct key_stroke{int key;};
 static int input_get_key(struct key_stroke *key){return 0;}
+/* (the chat's lines scrolled back: opening and closing it go back to the newest) */
+static short chat_scroll;
 static WORD chat_held_buttons[4];
 static unsigned char chat_held_analog[4];
 '''

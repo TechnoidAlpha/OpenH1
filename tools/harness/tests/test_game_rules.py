@@ -13,7 +13,7 @@ CASES = ['client', 'host', 'local', 'playback', 'simulation-fixes']
 # (faults, and the case that must catch each)
 CONTROLS = [
     # (a client's own setting, as before: its host and it posed that player otherwise)
-    ('return !TEST_FLAG(game->cooperative_flags, _network_game_classic_turning_bit);\n\t\tbreak;', 'break;',
+    ('return !TEST_FLAG(game->standard_flags, _network_game_classic_turning_bit);\n\t\tbreak;', 'break;',
      'client'),
     # (the host's own setting, not its lobby's word)
     ('if (network_standard_globals.hosting)\n\t\t\treturn !network_standard_globals.hosting_classic_turning;', '',

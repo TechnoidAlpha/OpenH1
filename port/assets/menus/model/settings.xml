@@ -178,7 +178,27 @@
 			<choice shown="9" value="0.9"/>
 			<choice shown="10" value="1"/>
 		</row>
-		<section key="section_10" title="VOICE CHAT"/>
+		<section key="section_10" title="MULTIPLAYER"/>
+		<row key="voice_chat_settings" kind="link" label="VOICE CHAT ›" crumb="AUDIO › MULTIPLAYER" open="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat/voice_chat_screen">
+			<help>Talking to the other players in network games, your microphone and their voices' volume.</help>
+		</row>
+		<row key="hit_sounds" kind="choice" setting="audio.hit_sounds" label="HIT SOUNDS" crumb="AUDIO › MULTIPLAYER">
+			<help>A short beep each time you damage another player, as the host dealt it. A host may forbid them in its games.</help>
+			<note>The beep is a placeholder for now.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="allow_hit_sounds" kind="choice" setting="network.allow_hit_sounds" label="ALLOW HIT SOUNDS" crumb="AUDIO › MULTIPLAYER">
+			<help>In the games you host, whether the players may hear their hit sounds. A Legacy game's players cannot be told.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat/voice_chat_screen" kind="settings" layout="page" geometry="tall" title="VOICE CHAT">
+		<section key="section_0" title="VOICE CHAT"/>
 		<row key="voice_chat" kind="choice" setting="audio.voice_chat" label="VOICE CHAT" crumb="AUDIO › VOICE CHAT" search="mic microphone" search_choices="push talk open mic">
 			<help>Talk to the other players in network games: while Push to Talk is held (Key Bindings sets its key), whenever you speak, or never.</help>
 			<choice shown="PUSH TO TALK" value="push_to_talk"/>
@@ -203,9 +223,9 @@
 			<choice shown="9" value="0.9"/>
 			<choice shown="10" value="1"/>
 		</row>
-		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
-		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
-		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
 	</screen>
 	<screen name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_settings_screen" kind="settings" layout="tab" geometry="tall" tab="CONTROLS">
 		<about>The mouse, the controller and the keys.</about>
@@ -336,7 +356,7 @@
 		</row>
 		<section key="section_9" title="MAP SHARING" when="desktop android"/>
 		<row key="map_download" kind="choice" setting="network.map_download" label="DOWNLOAD MAPS" crumb="ONLINE › MAP SHARING" when="desktop android">
-			<help>Joining a game on a Custom Edition map you do not have downloads it from the players, if they share it.</help>
+			<help>Joining a game on a map you do not have downloads it, if it is shared: a Custom Edition map from the players, an MCC map from the host, after asking.</help>
 			<choice shown="ON" value="true"/>
 			<choice shown="OFF" value="false"/>
 		</row>
@@ -486,6 +506,10 @@
 		</row>
 		<row key="mods_folder" kind="link" label="MODS FOLDER" crumb="MODS › MODS">
 			<help>Each mod is a folder in the mods folder, beside the maps folder, with its mod.toml and its tags. Mods are turned on and off from the main menu's Settings, not in a game.</help>
+		</row>
+		<section key="section_3" title="MASTER CHIEF COLLECTION"/>
+		<row key="mcc_packages" kind="link" label="MCC PACKAGES ›" crumb="MODS › MASTER CHIEF COLLECTION" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen">
+			<help>The Master Chief Collection's maps: finding them, their campaign missions and collections, and the copies downloaded from hosts.</help>
 		</row>
 		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
 		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
@@ -1042,6 +1066,10 @@
 		<row key="pad_4" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
 		<row key="pad_5" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
 		<row key="pad_6" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<section key="section_10" title="BUTTON PICTURES"/>
+		<row key="controller_buttons" kind="link" label="CONTROLLER BUTTONS ›" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/controller_buttons_screen">
+			<help>The HUD's buttons drawn as your controller has them, Xbox, PlayStation or Switch, and the style of each.</help>
+		</row>
 		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
 		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
 		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
@@ -1326,7 +1354,7 @@
 		</row>
 		<row key="browser_game_type" kind="choice" setting="network.browser_game_type" label="GAME TYPE" crumb="ONLINE › SERVER BROWSER FILTERS" search_choices="any slayer team capture the flag oddball king of hill race swat infection gun game co op pro 2v2">
 			<help>Lists only the games of this type.</help>
-			<note>Slayer is free for all; SWAT, Infection and Gun Game are OpenCE's. Pro 2v2 is PRO 2V2's games.</note>
+			<note>Slayer is free for all; SWAT, Infection and Gun Game are GOAT H1's. Pro 2v2 is PRO 2V2's games.</note>
 			<choice shown="ANY" value="any"/>
 			<choice shown="SLAYER" value="slayer"/>
 			<choice shown="TEAM SLAYER" value="team_slayer"/>
@@ -1339,6 +1367,69 @@
 			<choice shown="GUN GAME" value="gun_game"/>
 			<choice shown="CO-OP" value="coop"/>
 			<choice shown="PRO 2V2" value="pro_2v2"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/controller_buttons_screen" kind="settings" layout="page" geometry="tall" title="CONTROLLER BUTTONS">
+		<section key="section_0" title="DETECTION"/>
+		<row key="auto_button_detection" kind="choice" setting="input.auto_button_detection" label="AUTO DETECTION" crumb="CONTROLS › … › CONTROLLER BUTTONS">
+			<help>Draws the HUD's buttons as the controller you play with has them: Xbox, PlayStation or Switch, in the styles below. Off: Interface's BUTTON STYLE for every controller.</help>
+			<note>Needs HIGH-RES HUD.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_2" title="STYLES"/>
+		<row key="hud_button_style_xbox" kind="choice" setting="display.hud_button_style_xbox" label="XBOX" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="gems dark modern">
+			<help>An Xbox controller's buttons. Modern: today's Xbox controller's.</help>
+			<choice shown="CLASSIC" value="classic"/>
+			<choice shown="GEMS" value="gems"/>
+			<choice shown="DARK GEMS" value="menu_gems"/>
+			<choice shown="MODERN" value="xbox_modern"/>
+		</row>
+		<row key="hud_button_style_ps" kind="choice" setting="display.hud_button_style_ps" label="PLAYSTATION" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="gems dark modern">
+			<help>A PlayStation controller's buttons.</help>
+			<choice shown="CLASSIC" value="ps_classic"/>
+			<choice shown="GEMS" value="ps_gems"/>
+			<choice shown="DARK GEMS" value="ps_dark_gems"/>
+			<choice shown="MODERN" value="ps_modern"/>
+		</row>
+		<row key="hud_button_style_switch" kind="choice" setting="display.hud_button_style_switch" label="SWITCH" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="gems modern">
+			<help>A Switch controller's buttons.</help>
+			<choice shown="CLASSIC" value="switch_classic"/>
+			<choice shown="GEMS" value="switch_gems"/>
+			<choice shown="MODERN" value="switch_modern"/>
+		</row>
+		<row key="hud_bumper_style" kind="choice" setting="display.hud_bumper_style" label="BUMPERS" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="original xbox modern">
+			<help>The Xbox's bumpers as the original controller's black and white buttons, or as LB and RB.</help>
+			<choice shown="ORIGINAL XBOX" value="original"/>
+			<choice shown="MODERN XBOX" value="modern"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen" kind="settings" layout="page" geometry="tall" title="MCC PACKAGES">
+		<section key="section_0" title="MCC MAPS"/>
+		<row key="workshop_maps" kind="choice" setting="game.workshop_maps" label="STEAM DISCOVERY" crumb="MODS › MCC PACKAGES" when="desktop">
+			<help>Finds the Halo CE Workshop maps Steam has installed on this computer. The MCC packages in the game's own folder come first.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="mcc_campaigns" kind="choice" setting="game.mcc_campaigns" label="CAMPAIGN MISSIONS" crumb="MODS › MCC PACKAGES">
+			<help>Uses a package's campaign details for its missions' order and progress. Online, the host chooses the next map.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="mcc_collections" kind="choice" setting="game.mcc_collections" label="COLLECTION FOLDERS" crumb="MODS › MCC PACKAGES">
+			<help>Groups the installed MCC packages into folders, by the collection list the game comes with. Works without Steam.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_4" title="DOWNLOADED"/>
+		<row key="mcc_downloads" kind="link" label="MCC DOWNLOADS ›" crumb="MODS › MCC PACKAGES" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/screen">
+			<help>The MCC maps downloaded from hosts: their space, and removing them. The original packages and saved games are kept.</help>
 		</row>
 		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
 		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>

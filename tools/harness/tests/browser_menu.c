@@ -124,6 +124,10 @@ static int config_boolean(char const *name)
 	return !strcmp(config_string(name), "true");
 }
 
+/* (menu_engine.c's: the new engine draws the menus, not the classic) */
+static boolean engine_looks;
+static boolean menu_engine_looks(void) { return engine_looks; }
+
 static long config_integer(char const *name)
 {
 	return atol(config_string(name));
@@ -717,6 +721,15 @@ int main(int argc, char **argv)
 		browser_view_read();
 		CHECK(browser_tab == _browser_tab_all && browser_sort_column == _browser_sort_players,
 			"words not known read as tab %d, column %d", browser_tab, browser_sort_column);
+		/* CO-OP kept, the new engine's browser: ALL (its CO-OP tab opens
+		co-op's own screen, whose list is the co-op games) */
+		config_set("network.browser_tab", "coop");
+		engine_looks = TRUE;
+		browser_view_read();
+		CHECK(browser_tab == _browser_tab_all, "the new engine's browser opened on tab %d, not ALL", browser_tab);
+		engine_looks = FALSE;
+		browser_view_read();
+		CHECK(browser_tab == _browser_tab_coop, "the classic engine's browser opened on tab %d, not CO-OP", browser_tab);
 		return 0;
 	}
 	CASE("search")

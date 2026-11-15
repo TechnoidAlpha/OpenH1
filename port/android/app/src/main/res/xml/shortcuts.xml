@@ -12,4 +12,14 @@
             android:targetPackage="com.openh1.openh1"
             android:targetClass="com.halo.decomp.BackupActivity" />
     </shortcut>
+    <shortcut
+        android:shortcutId="mcc_import"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/mcc_import_label">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.openh1.openh1"
+            android:targetClass="com.halo.decomp.MccImportActivity" />
+    </shortcut>
 </shortcuts>

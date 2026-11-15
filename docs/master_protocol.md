@@ -69,14 +69,26 @@ checks), since anyone can make signatures that verify under one.
 executable) lists the masters, one per line:
 `https://master1.example.org ed25519:<64 hex>`; `#` starts a comment; the
 first 4 are used. The release's names OpenH1's master and OpenCE's
-official master; a file that names none (missing, empty, or comments alone)
-leaves the same two, built into the game (`master_list_read_defaults` in
+official masters; a file that names none (missing, empty, or comments alone)
+leaves the same four, built into the game (`master_list_read_defaults` in
 `port/linux/src/master_list.c`):
-`https://master.goath1.com ed25519:120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399684`
-(`deploy/net`) and
-`https://master.opencommunityedition.com ed25519:89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225aa`.
-A file that names any master is asked instead of them.
-The web build reads its site's `masters.json` before the official master. The URL is an origin with no path, or a path
+
+```
+https://master.goath1.com ed25519:120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399684
+https://master.opencommunityedition.com ed25519:89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225aa
+https://ocemaster.halobase.net ed25519:1d018c4d1e182585948cd807f19133122c1a1484a74dcffa7792d18012573459
+https://masterce.unicade.io ed25519:22aa04b7cf041af39c2e9765b5da10989254ed49fa23b730cd90e6d36a0a411a
+```
+
+(the first is OpenH1's, `deploy/net`). A file that names any master is asked
+instead of them. A server that names none in its masters file trusts every
+one of these as it trusts a master it names: it publishes its game to each,
+checks a joining machine's address against the union of their netlists
+(below, "The netlist: VPN, Tor and datacenter addresses"), and takes a pass
+any of them signed (below, "The pass at the door"), whose Discord account
+its bans then name. An operator who trusts fewer names them in `masters.txt`.
+
+The web build reads its site's `masters.json` before the official masters. The URL is an origin with no path, or a path
 the master is served under as it is (a proxy must not rewrite paths, since
 the path is signed).
 
@@ -281,7 +293,7 @@ signature as `listing_signed` does.
 | --- | --- | --- |
 | 0 | 2 | `"HL"` |
 | 2 | 1 | Format: 1 |
-| 3 | 2 | Network version (`HALO_PORT_NETWORK_VERSION`, 40 now) |
+| 3 | 2 | Network version (`HALO_PORT_NETWORK_VERSION`, 43 now) |
 | 5 | 1 | Flags (below) |
 | 6 | 4 | Sequence: the host's count of its listings (the newest wins) |
 | 10 | 4 | The host's Unix time when it made the listing |

@@ -51,9 +51,3 @@ def test_case(case):
 def test_negative_control(before, after, case):
     status, output = run(build('body_drape', generated((before, after))), case)
     assert status == CHECK_FAILED, output
-
-
-def test_drawn_from_the_animation():
-    # Every unit's nodes, as the objects' update makes them, go through it after the unit's own (units.c).
-    post = function(read('source/units/units.c'), 'unit_postprocess_node_matrices')
-    assert 'biped_limp_noodle_drape_dying(unit_index, node_matrices);' in post

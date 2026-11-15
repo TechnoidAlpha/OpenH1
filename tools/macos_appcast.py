@@ -42,7 +42,7 @@ def appcast(build: int, url: str, signature: str, length: str, notes: str, relea
     return f"""<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
   <channel>
-    <title>OpenH1</title>
+    <title>GOAT H1</title>
     <link>https://github.com/OpenH1/goath1/releases</link>
     <language>en</language>
     <item>

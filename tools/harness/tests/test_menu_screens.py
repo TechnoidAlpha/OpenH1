@@ -94,6 +94,11 @@ NEGATIVE_CONTROLS = {
                        "panels"),
     # a box's align not checked: "bottom" taken
     "box-align-unchecked": ("values[3] && strcmp(values[3], \"top\") && strcmp(values[3], \"middle\")", "0", "box"),
+    # a dialog's choices not counted: a fifth taken (#901)
+    "dialog-choices-uncounted": ("else if (choices > MENU_SCREEN_MAXIMUM_CHOICES)", "else if (choices > 99)", "dialog"),
+    # a dialog taken with no list of its choices
+    "dialog-no-list": ("\t\tif (list < 0)\n\t\t\treader_problem(reader, \"a <dialog> has a <list> of its choices\", NULL);\n"
+                       "\t\telse if", "\t\tif", "dialog"),
 }
 
 
@@ -174,7 +179,13 @@ def built(fault=None):
                                        c_string((ROOT / "port/assets/menus/screens/pause.xml").read_bytes()) + ";\n" +
                                        "static char const pause_campaign_xml[] =\n" +
                                        c_string((ROOT / "port/assets/menus/screens/pause_campaign.xml").read_bytes()) +
-                                       ";\n")
+                                       ";\n" + "static char const save_changes_xml[] =\n" +
+                                       c_string((ROOT / "port/assets/menus/screens/save_changes.xml").read_bytes()) +
+                                       ";\n" + "static char const quit_xml[] =\n" +
+                                       c_string((ROOT / "port/assets/menus/screens/quit.xml").read_bytes()) + ";\n" + "".join(
+                                           f"static char const {name}_xml[] =\n" +
+                                           c_string((ROOT / f"port/assets/menus/screens/{name}.xml").read_bytes()) +
+                                           ";\n" for name in ("coop", "coop_who", "coop_join", "add_player")))
     (work / "menu_screens.h").write_text(read("port/linux/include/menu_screens.h"))
     executable = work / "menu_screens"
     command = ["clang", *ABI_FLAGS, "-std=gnu99", "-O1", "-Wall", "-Werror", "-Wno-unused-function",
@@ -188,7 +199,7 @@ def built(fault=None):
 
 CASES = ["main", "hints", "good", "syntax", "elements", "spartan", "items", "actions", "bindings", "when",
          "kept", "browser", "profile_select", "profile_color", "tabs", "table", "panel", "buttons", "lanes", "choice", "lobby", "chat",
-         "box", "picture", "panels"]
+         "box", "picture", "panels", "dialog", "coop", "add_player"]
 
 
 @pytest.mark.parametrize("case", CASES)
@@ -237,6 +248,16 @@ def test_actions_registered():
             assert f'"{binding}"' in color, binding
         elif binding.startswith("lobby."):
             assert f'"{binding}"' in lobby, binding
+        elif binding.startswith("add."):
+            # (Add Player's, menu_functions.c's pc_menu_add_player_value)
+            assert '"add."' in value, binding
+            assert f'"{binding}"' in re.search(r"\nint pc_menu_add_player_value\(.*?\n\}\n", functions,
+                                                re.S).group(0), binding
+        elif binding.startswith("coop."):
+            # (co-op's, coop_menu.inc's pc_menu_coop_value)
+            assert '"coop."' in value, binding
+            assert f'"{binding}"' in re.search(r"\nint pc_menu_coop_value\(.*?\n\}\n",
+                                                read("port/linux/game/coop_menu.inc"), re.S).group(0), binding
         else:
             assert f'"{binding}"' in value, binding
     sources = re.findall(r'"([^"]+)"', re.search(r"screen_source_names\[\] =\n\{\n(.*?)\n\};", source,
@@ -253,6 +274,8 @@ def test_main_menu_files_listed():
     assert "screens/main.xml" in listed and "screens/blocks.xml" in listed and "screens/browser.xml" in listed
     assert "screens/profile_select.xml" in listed and "screens/lobby.xml" in listed
     assert "screens/profile_color.xml" in listed
+    assert all(f"screens/{name}.xml" in listed for name in ("coop", "coop_who", "coop_join", "add_player"))
     assert "screens/pause.xml" in listed and "screens/pause_campaign.xml" in listed
+    assert "screens/quit.xml" in listed and "screens/save_changes.xml" in listed
     files = read("port/linux/src/menu_files.c")
     assert 'strncmp(files[index].path, "screens/", 8) || !strcmp(files[index].path, "screens/blocks.xml")' in files

@@ -49,7 +49,7 @@ machines, 16 players) are 0x226 and 0x434. */
 /* (then the gametype's PC options, struct game_variant_options: 0x2C bytes) */
 #define HALO_PORT_NETWORK_GAME_VARIANT_OPTIONS_OFFSET (HALO_PORT_NETWORK_GAME_PLAYERS_END + 0xA)
 #define HALO_PORT_NETWORK_GAME_LOCAL_DATA_OFFSET (HALO_PORT_NETWORK_GAME_PLAYERS_END + 0x36)
-#define HALO_PORT_NETWORK_GAME_SIZE (HALO_PORT_NETWORK_GAME_PLAYERS_END + 0x3A)
+#define HALO_PORT_NETWORK_GAME_SIZE (HALO_PORT_NETWORK_GAME_PLAYERS_END + 0x3A + 64) /* MCC content and metadata SHA-256 */
 
 /* ---------- system link protocol
 
@@ -66,7 +66,17 @@ is newer (network_client_manager.c). A host advertises it, with its netcode,
 in its game's advertisement's reserved bytes (network_server_message_handler.c),
 which hosts built before there was a version send as zeros: version 0.
 Raise it with any change to what the machines send each other. */
-#define HALO_PORT_NETWORK_VERSION 41
+/* Version 42 integrates MCC admission/sharing and shared checkpoint, boat,
+clock and scripted-pose agreement. Every map family uses the same version.
+Version 43: an MCC map's damage impulses follow the damage's direction, a
+vehicle on its side throws its riders, chat marks the host's lines, a co-op
+cutscene's sound carries how far the host has played it, and a machine's
+MCC conversion holds a round's start out of an allowance; a player standing
+on a vehicle rides it (a unit's state carries the deck it stands on, the map's
+riding choice has its own message: port/linux/NETCODE.md).
+Version 44: MCC package offers are automatic under Map Sharing, and a joiner
+may satisfy omitted base resources with its own validated local files. */
+#define HALO_PORT_NETWORK_VERSION 44
 /* ... the advertisement's reserved bytes: the version (a little-endian word),
 then flags, then the game's kind (an OpenCE gametype's mode, and Hardcore:
 port/linux/game/game_modes.h's game_modes_kind), for the server browser */
@@ -159,15 +169,25 @@ network_standard_simulation_fixes), where it stayed pinned on a wall
 steeper than 45 degrees: every machine of the game moves its copies alike;
 29: a co-op player the host brought to its own player, or went to, told on
 their machine, the brought player turned the host's way
-(network_host_controls.c's _distributed_message_host_teleport); 31 (30
-left to the campaign skulls' work, which wants a version of its own): the
-players' vehicle hijacks, vehicle_hijack.c, which every machine of the game
-simulates: the rule in the game record (_network_game_vehicle_hijack_bit,
-network_standard.c's network_standard_vehicle_hijack), and the host's word
-on each hijack and on the rule changed during a game
-(network_hijack.c's _distributed_message_vehicle_hijack).
+(network_host_controls.c's _distributed_message_host_teleport); 30:
+whether the host forbids its players' hit sounds in the game record
+(_network_game_no_hit_sounds_bit, network_standard.c's
+network_standard_hit_sounds_allowed); 31: network version 44, OpenCE's
+(the MCC maps' admission, package sharing, checkpoint, game speed and
+vehicle riding messages, _distributed_message_checkpoint to
+_distributed_message_vehicle_riding_map, 96 to 107; the join request's
+shared agreement; the game record's MCC content and metadata hashes), and the Standard
+game's switches (hold to pick up, classic turning, no direct camera, Pro
+rules, no hit sounds) moved from bits 3 to 7 of the record's
+cooperative_flags, whose bit 3 OpenCE took for vehicle riding, to bits 0 to
+4 of standard_flags, the high byte of what was the short standard_rate
+(source/networking/network_game_manager.h); the chat line's lobby bit
+moved from 3 to 4 and the chat settings' lobby bit from 2 to 3, after
+OpenCE's host bits (network_chat.c); a unit state's fine velocity moved
+from part bit 6, OpenCE's scripted pose's, to bit 7 of its unit flags
+(network_legacy.h).
 Legacy games, and what an OpenCE machine sees, are unchanged) */
-#define HALO_PORT_STANDARD_BASE_VERSION 41
+#define HALO_PORT_STANDARD_BASE_VERSION 44
 #define HALO_PORT_STANDARD_VERSION_BIT 0x8000
 #define HALO_PORT_STANDARD_ADVERTISED_VERSION (HALO_PORT_STANDARD_VERSION_BIT | HALO_PORT_STANDARD_NETWORK_VERSION)
 #if HALO_PORT_STANDARD_BASE_VERSION != HALO_PORT_NETWORK_VERSION
@@ -196,7 +216,7 @@ header included; the per-tick update of 128 players is 3,857 */
 update of 128 players decodes to 0x1010 bytes */
 #define HALO_PORT_NETWORK_PACKET_SIZE 0x1100
 
-/* the game settings record (HALO_PORT_NETWORK_GAME_SIZE, 13,136 bytes at 128
+/* the game settings record (HALO_PORT_NETWORK_GAME_SIZE, 13,200 bytes at 128
 machines and players) does not fit one message; it is sent in pieces of
 this many bytes (4 pieces), each 3,594 bytes on the wire */
 #define HALO_PORT_NETWORK_GAME_SETTINGS_FRAGMENT_SIZE 0xE00

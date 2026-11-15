@@ -93,6 +93,9 @@ def notices(platform: str) -> List[Tuple[Path, str]]:
         # the menus' XML parser (port/third_party/expat), in every build,
         # whose MIT license asks copies to carry its notice
         (ROOT / "port/third_party/expat/COPYING", "expat-COPYING.txt"),
+        # the MCC maps' BC texture decoder (port/third_party/bcdec), in every
+        # build, whose MIT license asks copies to carry its notice
+        (ROOT / "port/third_party/bcdec/LICENSE", "bcdec-LICENSE.txt"),
         # voice chat's codec (port/third_party/opus), in every build, whose
         # BSD license asks binaries to carry its notice
         (ROOT / "port/third_party/opus/COPYING", "opus-COPYING.txt"),

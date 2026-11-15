@@ -72,10 +72,10 @@ framed (`ce/port/stills`, tools/ce_menus.py's `rounded_still`).
 | `stills/buttons_gems.png` | 160x100 | Button style GEMS, the same |
 | `stills/buttons_dark_gems.png` | 160x100 | Button style DARK GEMS, the same |
 
-## Placeholders, to be redrawn
+## Not redrawn yet: drawn empty
 
-The Xbox's map has none of these (or other pictures under the name), so each frame is a placeholder
-until it is redrawn.
+The Xbox's map has none of these (or other pictures under the name), so each frame is drawn empty
+(no picture shows there) until it is redrawn.
 
 | File | Size | The PC version's picture |
 | --- | --- | --- |
@@ -93,7 +93,7 @@ until it is redrawn.
 | `ce/shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__6.png` | 512x256 | `shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__6.png` |
 | `ce/shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__8.png` | 512x256 | `shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__8.png` |
 
-13 of 470 frames are placeholders.
+13 of 542 frames are drawn empty.
 
 The PC version's `ui\gamespy` and `ui\ticker` fonts are drawn with `ui\small_ui`, which
 the Xbox's map has.

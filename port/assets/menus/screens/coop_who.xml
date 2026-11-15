@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Co-op's HOST, after its mission and difficulty: who can join
+(docs/menu_screens.md, "Co-op"). Three cards, the choice kept
+(network.coop_join) focused as it opens: FRIENDS (friends see the game in
+their co-op list and join it; strangers do not), ANYONE (listed in
+everyone's co-op list and server browser too) or INVITE ONLY (only its
+invite link joins). A card hosts the game at once, into the lobby. -->
+<screen name="coop_who">
+	<header title="WHO CAN JOIN?"/>
+	<space/>
+	<cards focus="friends">
+		<card id="friends" title="FRIENDS" subtitle="Your friends see it and can join" picture="main_menu/campaign/art_146x119" frame="1" do="coop host friends"/>
+		<card id="anyone" title="ANYONE" subtitle="Listed for everyone to find" picture="main_menu/campaign/art_146x119" frame="4" do="coop host anyone"/>
+		<card id="invite" title="INVITE ONLY" subtitle="Only people you send the link to" picture="main_menu/campaign/art_146x119" frame="8" do="coop host invite"/>
+	</cards>
+	<space/>
+	<buttons>
+		<button key="accept" label="HOST"/>
+		<button key="back" label="BACK"/>
+	</buttons>
+</screen>

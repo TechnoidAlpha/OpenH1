@@ -52,6 +52,14 @@ static boolean game_state_image_data_valid(byte *image, void *live, short maximu
 #define game_state_image_memory_pool_valid(image, address, size) FALSE
 #define game_state_image_lruv_cache_valid(image, address, allocation) FALSE
 
+/* no MCC map (an MCC map's image is the whole game state: mcc_checkpoint.c's
+tests), and the console's state always good (hs_console_state.inl's) */
+#define mcc_cache_tags_loaded() FALSE
+#define mcc_checkpoint_validate(image, size, used, cpu_size, live) TRUE
+#define mcc_checkpoint_restore(image, size, used, cpu_size) TRUE
+#define hs_console_state_validate(image, live, size) TRUE
+#define hs_console_state_restore() ((void)0)
+
 #include "under_test.inc"
 
 /* ---------- the cases */

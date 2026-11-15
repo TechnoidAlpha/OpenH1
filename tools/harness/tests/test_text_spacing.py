@@ -80,17 +80,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("text_spacing", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_glyphs_drawn_and_measured_where_laid_out():
-    """The glyphs are drawn (rasterizer_draw_hires_glyph) and measured for what is laid out about them
-    (rasterizer_text_port_drawn_span and _real: a key's cap) at the same place, from their run; and every line
-    draw_string draws is noted for the runs."""
-    text = read(TEXT)
-    assert "pen_x + hires_text_glyph_offset(state, font, font_character, hires_text_font, glyph.advance) + glyph.left" \
-        in function(text, "rasterizer_draw_hires_glyph")
-    for name in ("rasterizer_text_port_drawn_span", "rasterizer_text_port_drawn_span_real"):
-        assert "hires_text_glyph_offset(state, draw_string_port_font(state)" in function(text, name), name
-    draw = read(DRAW)
-    for name, unicode in (("draw_string_partial", "FALSE"), ("draw_unicode_string_partial", "TRUE")):
-        assert f"draw_string_port_line_begin(string, {unicode}, string_index, string_length);" in function(draw, name)

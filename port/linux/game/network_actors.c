@@ -49,6 +49,7 @@ an AI unit the same way it kills a player's.
 #include "network_distributed.h"
 #include "network_legacy.h"
 #include "network_standard.h"
+#include "vehicle_riding.h"
 
 #include <math.h>
 
@@ -844,7 +845,7 @@ static boolean actor_state_apply(
 
 		if (dx * dx + dy * dy + dz * dz > REMOTE_CORRECTION_TOLERANCE * REMOTE_CORRECTION_TOLERANCE &&
 			network_objects_reconcile(state->unit_index, &state->position, &forward, &up, &velocity, NULL,
-				REMOTE_BLEND_DISTANCE))
+				REMOTE_BLEND_DISTANCE, _network_vehicle_write_state))
 		{
 			distributed_count_correction();
 		}
@@ -1050,9 +1051,10 @@ goes that tick. In an OpenH1 game a unit whose control made a press
 at an OpenH1 client's player, or that player's aim on it, goes to that client
 every tick: a far sniper's or a Banshee's shot leaves it where it is aimed
 as the host fires it, not some ticks later. A unit no actor drove this tick
-is dropped from the table, unless it is fleeing: a unit running blindly
-moves by itself, without its actor's control, and dropped it stood running
-in place on the clients. */
+is dropped from the table, unless it is fleeing or seated: fleeing units move
+without their actor's control (dropped, a unit running blindly stood running
+in place on the clients), and an idle seated actor still needs its seat sent
+to the clients. */
 void network_actors_host_tick(
 	void)
 {
@@ -1080,7 +1082,9 @@ void network_actors_host_tick(
 		struct host_actor *actor = &host_actors[index];
 
 		if (!actor_unit_valid(actor->unit_index) ||
-			(!actor->noted && !TEST_FLAG(unit_get(actor->unit_index)->unit.flags, _unit_running_blindly_bit)))
+			(!actor->noted && !TEST_FLAG(unit_get(actor->unit_index)->unit.flags, _unit_running_blindly_bit) &&
+			(!vehicle_riding_enabled() || unit_get(actor->unit_index)->object.parent_object_index == NONE ||
+			unit_get(actor->unit_index)->unit.parent_seat_index == NONE)))
 		{
 			host_actors[index--] = host_actors[--host_actor_count];
 			continue;

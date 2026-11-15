@@ -212,7 +212,9 @@ unsigned long network_host_controls_pause_rows_for(
 	END GAME) */
 	if (view->coop)
 		SET_FLAG(rows, _host_controls_pause_friendly_fire, TRUE);
-	if (!view->host)
+	/* (the host's machine's, or an admin's, first local player's alone: a
+	split screen's other players have none) */
+	if (!view->host || !view->first_player)
 		return rows;
 	if (!view->coop && view->training && view->training_screen)
 		SET_FLAG(rows, _host_controls_pause_chapters, TRUE);
@@ -221,6 +223,14 @@ unsigned long network_host_controls_pause_rows_for(
 	else if (!view->coop)
 		SET_FLAG(rows, _host_controls_pause_end_game, TRUE);
 	return rows;
+}
+
+boolean network_host_controls_local_player_for(
+	short local_player_index,
+	short first_local_player_index)
+{
+	return local_player_index == NONE || first_local_player_index == NONE ||
+		local_player_index == first_local_player_index;
 }
 
 unsigned long network_host_controls_actions_for(
@@ -416,6 +426,12 @@ boolean network_host_controls_available(
 	seat.playing = server && game_in_progress() && !main_menu_is_loaded();
 	seat.lobby = server && network_host_game_in_lobby();
 	return network_host_controls_shown_for(&seat);
+}
+
+boolean network_host_controls_local_player(
+	short local_player_index)
+{
+	return network_host_controls_local_player_for(local_player_index, local_player_get_next(NONE));
 }
 
 boolean network_host_controls_in_lobby(

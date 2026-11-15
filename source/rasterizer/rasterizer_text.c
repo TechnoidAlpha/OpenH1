@@ -266,6 +266,14 @@ static boolean hires_text_fonts_made = FALSE;
 static real text_scale = 1.0f;
 static real text_scale_origin_x = 0.0f;
 static real text_scale_origin_y = 0.0f;
+/* port: the line's shift left and its cut (rasterizer_text_set_shift), the
+high-res text's; the font tags' bitmaps are drawn at whole units */
+static real text_shift = 0.0f;
+static real text_shift_left = 0.0f;
+static real text_shift_right = -1.0f;
+/* (and faded out over so many units at its left and right edges: 0 none) */
+static real text_shift_fade_left = 0.0f;
+static real text_shift_fade_right = 0.0f;
 static pixel32 global_shadow_color = 0;
 static short rasterizer_text_unused = 0;
 static short magic_number= 12;
@@ -835,6 +843,22 @@ void rasterizer_text_get_scale(
 	return;
 }
 
+void rasterizer_text_set_shift(
+	real shift,
+	real left,
+	real right,
+	real fade_left,
+	real fade_right)
+{
+	text_shift = shift;
+	text_shift_left = left;
+	text_shift_right = right;
+	text_shift_fade_left = fade_left;
+	text_shift_fade_right = fade_right;
+
+	return;
+}
+
 /* port: a character's quad, scaled (rasterizer_text_set_scale), and moved
 past the whole units it is laid out at (rasterizer_screen_offset_set) */
 static void rasterizer_text_draw_scaled_character(
@@ -1188,6 +1212,24 @@ static real hires_text_glyph_offset(
 	return (font_character->character_width - advance) * 0.5f;
 }
 
+/* port: a shifted line's colour at x (rasterizer_text_set_shift, in the
+units it is drawn at once shifted): its alpha faded out toward a cut edge
+that fades, over the fade's units */
+static unsigned long rasterizer_text_shift_faded(
+	unsigned long color,
+	real x)
+{
+	real alpha = 1.0f;
+
+	if (text_shift_fade_left > 0.0f)
+		alpha = MIN(alpha, (x - text_shift_left) / text_shift_fade_left);
+	if (text_shift_fade_right > 0.0f)
+		alpha = MIN(alpha, (text_shift_right - x) / text_shift_fade_right);
+	alpha = PIN(alpha, 0.0f, 1.0f);
+
+	return (color & 0x00FFFFFF) | ((unsigned long)((real)(color >> 24) * alpha + 0.5f) << 24);
+}
+
 /* port: a character from the high-res text's atlas: the font's glyph on the
 baseline, where hires_text_glyph_offset sets it in its word, cut where
 draw_string cut a part of the font tag's character that shows (to the
@@ -1238,6 +1280,13 @@ static void rasterizer_draw_hires_glyph(
 	{
 		clip_bottom = 32767.0f;
 	}
+	/* port: a line shifted left (rasterizer_text_set_shift): cut to its
+	box's edges where they are once it is shifted, then shifted */
+	if (text_shift_left <= text_shift_right)
+	{
+		clip_left = MAX(clip_left, text_shift_left + text_shift);
+		clip_right = MIN(clip_right, text_shift_right + text_shift);
+	}
 	top = baseline + glyph.top;
 	bottom = baseline + glyph.bottom;
 	u0 = glyph.u0;
@@ -1266,6 +1315,8 @@ static void rasterizer_draw_hires_glyph(
 	}
 	if (right <= left || bottom <= top)
 		return;
+	left -= text_shift;
+	right -= text_shift;
 
 	/* (the drop shadow first, a unit down and right, as the font tags') */
 	for (pass = shadow ? 0 : 1; pass < 2; pass++)
@@ -1276,6 +1327,12 @@ static void rasterizer_draw_hires_glyph(
 		vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = vertex_color;
 		vertices[0].position.x = vertices[3].position.x = left + offset;
 		vertices[1].position.x = vertices[2].position.x = right + offset;
+		/* port: (a shifted line faded out at its cut edges) */
+		if (text_shift_fade_left > 0.0f || text_shift_fade_right > 0.0f)
+		{
+			vertices[0].color = vertices[3].color = rasterizer_text_shift_faded(vertex_color, left + offset);
+			vertices[1].color = vertices[2].color = rasterizer_text_shift_faded(vertex_color, right + offset);
+		}
 		vertices[0].position.y = vertices[1].position.y = top + offset;
 		vertices[2].position.y = vertices[3].position.y = bottom + offset;
 		vertices[0].texture_coordinates.x = vertices[3].texture_coordinates.x = u0;

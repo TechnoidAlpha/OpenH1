@@ -14,7 +14,7 @@ then draws its views as with display.direct_camera off
 #define csstrncmp strncmp
 #define csmemset memset
 #define SET_FLAG(flags, bit, value) ((value) ? ((flags) |= FLAG(bit)) : ((flags) &= ~FLAG(bit)))
-struct network_game { short standard_rate; unsigned long cooperative_flags; };
+struct network_game { byte standard_rate; byte standard_flags; unsigned long cooperative_flags; };
 static struct network_game record;
 static short connection;
 static char const *game_mode = "openh1";
@@ -29,6 +29,8 @@ static struct
 	boolean hosting_classic_turning;
 	/* (the hijacks' rule: test_vehicle_hijack.py's) */
 	boolean hosting_vehicle_hijack;
+	/* (hit sounds: hit_sounds.c's host rule) */
+	boolean hosting_no_hit_sounds;
 	boolean mixed;
 	boolean mixed_since;
 	boolean joined;
@@ -83,7 +85,7 @@ int main(int argc, char **argv)
 		memset(&network_standard_globals, 0, sizeof(network_standard_globals));
 		connection = _game_connection_network_client;
 		network_standard_globals.joined = TRUE;
-		CHECK(TEST_FLAG(record.cooperative_flags, _network_game_no_direct_camera_bit), "the record says nothing");
+		CHECK(TEST_FLAG(record.standard_flags, _network_game_no_direct_camera_bit), "the record says nothing");
 		CHECK(!network_standard_direct_camera_allowed(), "a Classic game's client keeps its own Instant Aim");
 	}
 	CASE("crispy")
@@ -93,7 +95,7 @@ int main(int argc, char **argv)
 			"a Crispy game not OpenH1 120 Tick");
 		CHECK(!network_standard_globals.mixed, "a Crispy game open to OpenCE's players");
 		CHECK(network_standard_direct_camera_allowed(), "a Crispy host loses its own Instant Aim");
-		CHECK(!TEST_FLAG(record.cooperative_flags, _network_game_no_direct_camera_bit), "its record forces it off");
+		CHECK(!TEST_FLAG(record.standard_flags, _network_game_no_direct_camera_bit), "its record forces it off");
 		connection = _game_connection_network_client;
 		network_standard_globals.joined = TRUE;
 		CHECK(network_standard_direct_camera_allowed(), "a Crispy client loses its own Instant Aim");
@@ -110,7 +112,7 @@ int main(int argc, char **argv)
 		CHECK(network_standard_server_rate(TRUE) == 60, "the settings' 60 not back");
 		CHECK(network_standard_globals.mixed, "OpenCE's players not let in again");
 		CHECK(network_standard_direct_camera_allowed(), "Instant Aim still forced off");
-		CHECK(!TEST_FLAG(record.cooperative_flags, _network_game_no_direct_camera_bit), "the record still says so");
+		CHECK(!TEST_FLAG(record.standard_flags, _network_game_no_direct_camera_bit), "the record still says so");
 		game_mode = "legacy";
 		network_standard_server_created();
 		CHECK(!network_standard_globals.hosting, "a Legacy setting not Legacy again");
@@ -120,7 +122,7 @@ int main(int argc, char **argv)
 		/* (a Legacy host's game, the bit's byte whatever it is: its own) */
 		connection = _game_connection_network_client;
 		network_standard_globals.joined = FALSE;
-		record.cooperative_flags = FLAG(_network_game_no_direct_camera_bit);
+		record.standard_flags = FLAG(_network_game_no_direct_camera_bit);
 		CHECK(network_standard_direct_camera_allowed(), "a Legacy host's record taken as OpenH1's");
 	}
 	CASE("out_of_game")

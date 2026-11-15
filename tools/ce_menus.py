@@ -4,8 +4,7 @@ files (port/assets/menus/ce, read by port/linux/src/menu_files.c):
 
     python tools/ce_menus.py --tags .../halopc-restored/tags \\
         --definitions .../invader/src/tag/hek/definition \\
-        --redraws .../ui-svg-handmade --placeholder .../placeholder.png \\
-        [--pictures .../extracted-ui-assets-fixed]
+        --redraws .../ui-svg-handmade
 
 Every widget reachable from the PC main menu (ui\\shell\\main_menu\\main_menu:
 its children, the widgets its handlers open, their conditional widgets and
@@ -19,10 +18,9 @@ in the PC bitmaps' layout), copied to port/assets/menus/svg, at up to 4
 times their size. The pictures with no redraw (renders, screenshots, logos)
 are the Xbox map's bitmap of the same name, where it has the same pictures
 in the same order (XBOX_BITMAPS: the player's own ui.map draws them, and
-nothing is shipped), else the --placeholder image, fitted to each frame
-where the PC version's picture is (--pictures: only their bounds are read),
-else to the part of it the widgets show;
-port/assets/menus/NON_HANDDRAWN.md lists both, the placeholders as ones to
+nothing is shipped), else nothing: the frame is drawn empty, so that a
+screen shows no picture there rather than a stand-in's words;
+port/assets/menus/NON_HANDDRAWN.md lists both, the empty frames as ones to
 be redrawn.
 
 What this engine (the Xbox's) has no use for is written but never runs: the
@@ -232,7 +230,6 @@ XBOX_FRAMES = {
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__2": 1,
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__7": 3,
 }
-PLACEHOLDER_SCALE = 2
 
 # the Xbox's functions that the PC version rewrote for its own widgets (its
 # column lists where the Xbox had spinners, and other children), which stop
@@ -419,10 +416,9 @@ def bounds_text(bounds: tuple) -> str:
 
 
 class Art:
-    def __init__(self, tags: Tags, redraws: Path, placeholder: Path, shown: dict, pictures: Optional[Path]):
-        self.tags, self.redraws, self.shown, self.pictures_folder = tags, redraws, shown, pictures
-        self.placeholder = Image.open(placeholder).convert("RGBA")
-        self.pictures = []  # (frame, size, PC picture) of the frames drawn as the placeholder
+    def __init__(self, tags: Tags, redraws: Path):
+        self.tags, self.redraws = tags, redraws
+        self.empty = []  # (frame, size, PC picture) of the frames drawn empty, with no redraw
         self.xbox_frames = []  # (PC frame, Xbox bitmap, its frame) drawn from the Xbox map
         self.added_frames = []  # (our bitmap, Xbox bitmap, its frame): port_settings.BITMAP_FRAMES
         self.svgs = []
@@ -544,7 +540,7 @@ class Art:
                 lines.append(f"\t\t<frame{attributes([('map', tag), ('index', XBOX_FRAMES[name])])}/>")
                 continue
             png = f"ce/{relative}__{index}.png"
-            self.draw(relative, index, len(data), width, height, MENUS / png, self.shown.get(tag, []))
+            self.draw(relative, index, len(data), width, height, MENUS / png)
             self.pngs.append(png)
             lines.append(f"\t\t<frame{attributes([('png', png), ('width', width), ('height', height)])}/>")
         # (frames of the port's items: tools/port_settings.py)
@@ -556,8 +552,7 @@ class Art:
         lines.append("\t</bitmap>")
         return "\n".join(lines)
 
-    def draw(self, relative: str, index: int, count: int, width: int, height: int, output: Path,
-             shown: list) -> None:
+    def draw(self, relative: str, index: int, count: int, width: int, height: int, output: Path) -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         for name in self.frame_sources(relative, index, count):
             svg = self.redraws / f"{name}.svg"
@@ -572,26 +567,11 @@ class Art:
                     sys.exit(f"{svg}: {image.shape[1]}x{image.shape[0]}, not {scale}x {width}x{height}")
                 save_png(Image.fromarray(bleed(image), "RGBA"), output)
                 return
-        # (no redraw: the placeholder, as large as fits, in the middle of where
-        # the PC version's picture is (only its bounds are read), else of the
-        # part the widgets show: a widget draws its bitmap from the top left,
-        # cut to its size)
+        # (no redraw: the frame empty, at its size, until it is redrawn; a
+        # stand-in picture would show players its words)
         name = self.frame_sources(relative, index, count)[-1]
-        image = Image.new("RGBA", (width * PLACEHOLDER_SCALE, height * PLACEHOLDER_SCALE), (0, 0, 0, 0))
-        area = (0, 0, min([width] + [w for w, _ in shown]), min([height] + [h for _, h in shown]))
-        original = self.pictures_folder / f"{name}.png" if self.pictures_folder else None
-        if original and original.is_file():
-            with Image.open(original) as picture:
-                if picture.size == (width, height):
-                    bounds = picture.convert("RGBA").getchannel("A").point(lambda value: 255 if value > 16 else 0).getbbox()
-                    if bounds:
-                        area = (bounds[0], bounds[1], min(bounds[2], area[2]), min(bounds[3], area[3]))
-        area = tuple(value * PLACEHOLDER_SCALE for value in area)
-        picture = self.placeholder.copy()
-        picture.thumbnail((area[2] - area[0], area[3] - area[1]), Image.LANCZOS)
-        image.paste(picture, ((area[0] + area[2] - picture.width) // 2, (area[1] + area[3] - picture.height) // 2))
-        save_png(image, output)
-        self.pictures.append((output.relative_to(MENUS).as_posix(), width, height, f"{name}.png"))
+        save_png(Image.new("RGBA", (width, height), (0, 0, 0, 0)), output)
+        self.empty.append((output.relative_to(MENUS).as_posix(), width, height, f"{name}.png"))
 
 
 # ---------- the widgets
@@ -847,15 +827,12 @@ def main() -> None:
     parser.add_argument("--tags", type=Path)
     parser.add_argument("--definitions", type=Path)
     parser.add_argument("--redraws", type=Path)
-    parser.add_argument("--placeholder", type=Path, help="the picture for frames with no redraw")
-    parser.add_argument("--pictures", type=Path,
-                        help="the PC version's pictures, as PNGs by tag path: only where each is, to place its placeholder")
     arguments = parser.parse_args()
     if arguments.port_pictures:
         port_pictures_only()
         return
-    if not (arguments.tags and arguments.definitions and arguments.redraws and arguments.placeholder):
-        parser.error("--tags, --definitions, --redraws and --placeholder are needed (or --port-pictures)")
+    if not (arguments.tags and arguments.definitions and arguments.redraws):
+        parser.error("--tags, --definitions and --redraws are needed (or --port-pictures)")
     tags = Tags(arguments.tags, arguments.definitions)
     # (the names of the Xbox's own as the game has them, which the tags' own
     # names give a little differently: "create&edit", "NULL")
@@ -870,19 +847,7 @@ def main() -> None:
             shutil.rmtree(folder)
     CE.mkdir(parents=True)
     widgets = reachable(tags)
-    # the sizes the widgets show their bitmaps at
-    shown = defaultdict(list)
-    for widget in widgets.values():
-        top, left, bottom, right = widget["bounds"]
-        size = (right - left, bottom - top)
-        if widget["background bitmap"]:
-            shown[widget["background bitmap"]].append(size)
-        for kind in ("header", "footer"):
-            if widget[f"list {kind} bitmap"]:
-                top, left, bottom, right = widget[f"{kind} bounds"]
-                shown[widget[f"list {kind} bitmap"]].append((right - left, bottom - top) if any(widget[f"{kind} bounds"])
-                                                            else size)
-    art = Art(tags, arguments.redraws, arguments.placeholder, shown, arguments.pictures)
+    art = Art(tags, arguments.redraws)
     fonts = Counter()
     # the widgets, a file for each folder of their tags
     folders = defaultdict(list)
@@ -1026,16 +991,16 @@ def main() -> None:
                for png, what in port_settings.SETTINGS_PICTURE_FILES.items()]
     report += [
         "",
-        "## Placeholders, to be redrawn",
+        "## Not redrawn yet: drawn empty",
         "",
-        "The Xbox's map has none of these (or other pictures under the name), so each frame is a placeholder",
-        "until it is redrawn.",
+        "The Xbox's map has none of these (or other pictures under the name), so each frame is drawn empty",
+        "(no picture shows there) until it is redrawn.",
         "",
         "| File | Size | The PC version's picture |",
         "| --- | --- | --- |",
     ]
-    report += [f"| `{png}` | {w}x{h} | `{source}` |" for png, w, h, source in sorted(art.pictures)]
-    report += ["", f"{len(art.pictures)} of {len(art.pngs)} frames are placeholders.",
+    report += [f"| `{png}` | {w}x{h} | `{source}` |" for png, w, h, source in sorted(art.empty)]
+    report += ["", f"{len(art.empty)} of {len(art.pngs)} frames are drawn empty.",
                "", "The PC version's `ui\\gamespy` and `ui\\ticker` fonts are drawn with `ui\\small_ui`, which",
                "the Xbox's map has.", ""]
     (MENUS / "NON_HANDDRAWN.md").write_text("\n".join(report))
@@ -1074,7 +1039,7 @@ def main() -> None:
     }, indent=1) + "\n")
     size = sum((MENUS / name).stat().st_size for name in files)
     print(f"{len(widgets)} widgets in {len(folders)} files, {len(string_lists)} string lists, {len(bitmaps)} bitmaps "
-          f"({len(art.pngs)} frames, {len(art.pictures)} not redrawn); {size // 1024} KB; fonts {dict(fonts)}")
+          f"({len(art.pngs)} frames, {len(art.empty)} not redrawn); {size // 1024} KB; fonts {dict(fonts)}")
 
 
 if __name__ == "__main__":

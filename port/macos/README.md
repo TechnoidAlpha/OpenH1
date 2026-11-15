@@ -21,7 +21,7 @@ maps and the campaign. It was tested on an Apple A18 Pro with macOS 27.
   of `configure.py` selects a different clang.
 - The guest is compiled with LLVM 22.1.8, which `configure.py` downloads
   the first time (approximately 1.5 GB) to `~/Library/Caches/openh1`. Refer
-  to "The guests' compiler" in [README.md](../../README.md#the-guests-compiler).
+  to "The guests' compiler" in [docs/building.md](../../docs/building.md#the-guests-compiler).
   With `--macos-guest-cc` (or `--macos-cc`, or `--guest-llvm=system`), the
   guest is compiled with that clang instead, and `configure.py` needs
   `ld.lld`, `llvm-ar` and `llvm-objdump` on the `PATH` or in Homebrew's
@@ -53,7 +53,7 @@ use the network tests (`HALO_NETWORK_TEST=host:bloodgulch`;
 ## The app
 
 `ninja macos` makes `build/macos/OpenH1.app` (`tools/macos_app.py`), named
-OpenH1 as the site is; its executable is `halo`, as the other desktop
+GOAT H1 (refer to "The name"); its executable is `halo`, as the other desktop
 builds' are (`halo.exe`). Its settings and saves are in Application
 Support's OpenH1 folder whatever the app is called, so an earlier
 `Halo.app` can simply be deleted:
@@ -147,6 +147,24 @@ a Mac app does, before the game starts:
 - **Menus.** SDL's: About, Hide, Quit (Cmd-Q quits as closing the window
   does; before the game starts, at once), and the Window menu with Toggle
   Full Screen (Cmd-Ctrl-F). The window has the native fullscreen button.
+
+### The name
+
+The app is GOAT H1: `CFBundleName` and `CFBundleDisplayName` (the menu
+bar, the About panel, Activity Monitor, the app switcher), and the disk
+image's `GOAT H1.app` (volume GOAT H1, "Drag GOAT H1 to Applications").
+The build's file stays `OpenH1.app` (no space in ninja's and CI's paths),
+and so do the release's `OpenH1.dmg`, the bundle ID, the appcast and its
+key, so updates are unaffected.
+
+Sparkle (2.10) replaces an installed app where it is, under its file name:
+an `OpenH1.app` that updates to a build named GOAT H1 is still
+`OpenH1.app`. It starts and runs as GOAT H1 (the menu bar, the app
+switcher), while Finder, Launchpad and a Dock icon kept in the Dock show
+the file's name, OpenH1. A new download dragged to Applications is
+`GOAT H1.app` and shows GOAT H1 everywhere. The app does not rename
+itself (which would break Dock icons and risk App Translocation); a player
+can rename `OpenH1.app` to `GOAT H1.app` in Finder, and updates carry on.
 
 ### Updates
 
@@ -252,8 +270,8 @@ signed ad hoc.
 ### The release build and the disk image
 
 `python3 configure.py --release`, then `ninja macos_dmg`:
-`build/macos/OpenH1.dmg` holds the app and a link to Applications, laid
-out in a window of its own: OpenH1's icon on the disk, the app on the left
+`build/macos/OpenH1.dmg` holds the app, as `GOAT H1.app`, and a link to
+Applications, laid out in a window of its own: the game's icon on the disk, the app on the left
 and Applications on the right over a background (`port/macos/dmg`:
 `background.html`, rendered by `render.sh` to `background.png` and
 `background@2x.png`). That is dmgbuild's

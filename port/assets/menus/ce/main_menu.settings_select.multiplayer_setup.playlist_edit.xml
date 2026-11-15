@@ -14,8 +14,9 @@
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_opence_item"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\gametype_edit_screen">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_edit_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\gametype_edit_screen + port_settings.WIDGET_PATCHES">
 		<on event="created" run="close if not editing profile"/>
+		<on event="b back" run="port edit leave" open="screens/save_changes"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/header_edit_multiplayer_gametype"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/edit_playlist_select_list"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_label" x="294" y="360"/>
@@ -37,7 +38,7 @@
 		<on event="start" run="mp profile save changes" open="error/warning_saving_file_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_pic" controller="1" left="290" top="80" width="284" height="208" bitmap="main_menu/settings_select/multiplayer_setup/playlist_edit/gametype_options" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\playlist_edit_ext_desc_pic">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_pic" controller="1" left="307" top="82" width="256" height="190" bitmap="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_options" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\playlist_edit_ext_desc_pic + port_settings.WIDGET_PATCHES">
 	</widget>
 	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_ext_desc_text" type="text" controller="1" left="294" top="276" width="321" height="124" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_list_extended_dsc_text" font="ui\large_ui" color="#FF2896FF" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\playlist_edit_ext_desc_text">
 	</widget>

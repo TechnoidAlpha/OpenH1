@@ -453,9 +453,10 @@ static boolean host_ask(short verb, struct host_controls_player const *player, l
 	return TRUE;
 }
 
+/* the playlist and its next, the server's (an admin's) or this host's */
 static struct server_rotation const *host_playlist(void)
 {
-	return host_remote() ? network_admin_rotation() : host_playlist();
+	return host_remote() ? network_admin_rotation() : network_host_game_playlist();
 }
 
 static long host_playlist_index(void)
@@ -464,7 +465,7 @@ static long host_playlist_index(void)
 
 	if (network_admin_remote_state(&state))
 		return state.rotation_index;
-	return host_playlist_index();
+	return network_host_game_playlist_index();
 }
 
 static short host_gametypes(struct host_game_gametype const **gametypes)
@@ -1454,10 +1455,11 @@ static boolean host_controls_initialize(void)
 }
 
 /* "port host open" (the pause menu's and the lobby's HOST CONTROLS): the
-host's alone */
-static boolean host_controls_open(void)
+host's alone, or an admin's, and of their machine's first local player's
+screen (a split screen's player 1: host_rows_player) */
+static boolean host_controls_open(struct widget_instance *widget)
 {
-	if (!host_available())
+	if (!host_available() || !host_rows_player(widget))
 	{
 		ui_play_audio_feedback_sound(SOUND_ERROR);
 		return FALSE;

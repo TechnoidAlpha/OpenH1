@@ -15,8 +15,9 @@
 		<on event="start" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" description="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_ext_desc" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\game_type_select\gametype_select_list">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" description="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_ext_desc" source="tools/ce_menus.py widget_xml ui\shell\main_menu\settings_select\multiplayer_setup\playlist_edit\game_type_select\gametype_select_list + port_settings.WIDGET_PATCHES">
 		<data input="gametype select menu update desc"/>
+		<data input="port gametype select desc"/>
 		<on event="created" run="mp profile init game engine"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_ctf_item"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_koth_item"/>

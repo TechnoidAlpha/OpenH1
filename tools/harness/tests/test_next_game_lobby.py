@@ -87,6 +87,8 @@ def generated(fault=None):
     clock = read("source/game/game_time.c")
     code += "\n" + structure(clock, "game_time_globals_struct")
     code += "\nstatic struct game_time_globals_struct *game_time_globals;\n"
+    # (a reliable host update's time, which the map's start and end forget)
+    code += "static long game_time_distributed_target = NONE;\n"
     end = clock.index("} game_time_substeps;") + len("} game_time_substeps;")
     code += clock[clock.rindex("static struct", 0, end):end] + "\n"
     for name in ("game_time_port_drop_substeps", "game_time_initialize_for_new_map", "game_time_dispose_from_old_map",

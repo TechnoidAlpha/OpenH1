@@ -27,5 +27,14 @@ struct controller_device
 void controller_device_get(short port, struct controller_device *device);
 void controller_device_read(void *gamepad, struct controller_device *device);
 void controller_device_update(short port, void *gamepad);
+/* the HUD's button styles (display.hud_button_style and its families'
+ * display.hud_button_style_xbox, _ps and _switch): a style's index by its
+ * name, its controller family, a family's setting, and a port's style, its
+ * controller's family's where input.auto_button_detection says (OpenCE's
+ * button glyphs: port/linux/game/controller_glyphs.c) */
+int controller_button_style_index(char const *name);
+int controller_button_style_family(int style);
+char const *controller_button_family_setting(int family);
+int controller_button_style_for_port(short port);
 
 #endif

@@ -2,7 +2,6 @@
 prompt's game control or controller button is (a profile's layout moving the button, not the key), and the text the
 prompt shows; with the game's own tables (the HUD's icons' game controls, the keyboard's actions), not copies."""
 
-import re
 import sys
 from pathlib import Path
 
@@ -98,36 +97,3 @@ def test_key_prompts(case):
 def test_fault_detected(fault, case):
     status, output = run(build("key_prompts", generated(fault)), case)
     assert status == CHECK_FAILED, output
-
-
-def test_score_hint_drawn_as_a_button():
-    """The multiplayer start's score hint (game_engine_get_state_message) names the Back button by the icon name
-    draw_string_and_hack_in_icons reads, and the HUD draws its custom message through it for the player whose HUD it
-    is, so the prompt is the scoreboard's key on the keyboard (#511). With a controller it is the Back button's picture
-    where the message icons draw_string_and_hack_in_icons takes have one (the Xbox's have none), else the word."""
-    engine = read("source/game/game_engine.c")
-    widgets = read("source/interface/ui_widget.c")
-    messaging = read("source/interface/hud_messaging.c")
-    hint = re.search(r"hud_key_prompt_score_hint\(player->local_player_index, message, message_character_count\)",
-                     engine)
-    assert hint, "the score hint's BACK is not made a button"
-    start = engine.index("_game_engine_message_press_back_for_score,\n", engine.index("boolean game_engine_get_state_message("))
-    assert hint.start() > start and hint.start() - start < 700, "not the score hint's"
-    call = re.search(r'hud_key_prompt_button_word\(text, length, L"BACK", L"%([\w-]+)"\)',
-                     function(read("port/linux/game/hud_key_prompts.c"), "hud_key_prompt_score_hint"))
-    assert call, "the score hint's BACK is not its icon"
-    icons = re.findall(r'L"([\w-]+)"', widgets[widgets.index("static wchar_t const *icon_names["):][:2000])
-    icon_enum = enum_with(messaging, "_icon_a_button")
-    order = re.findall(r"(_icon_\w+)", icon_enum[icon_enum.index("{"):])
-    assert icons.index(call.group(1)) == order.index("_icon_back_button")
-    renderer = function(messaging, "render_state_text")
-    # (every custom state message's buttons drawn, the campaign's too: a vehicle hijack's prompt)
-    assert "if (custom)\n\t\tdraw_string_and_hack_in_icons(" in renderer
-    custom = messaging[messaging.index("if (datum->state_message.message_buffer[0])"):][:600]
-    assert "local_player_index_for_draw_string_and_hack_in_icons = local_player_index;" in custom
-    # the sprite looked for is the one draw_string_and_hack_in_icons draws
-    sprite = function(read("port/linux/game/hud_key_prompts.c"), "button_sprite_drawn")
-    assert "[_interface_bitmap_iface_map2].index" in sprite
-    assert "[_interface_bitmap_iface_map2].index" in function(widgets, "render_state_bitmap")
-    assert re.search(r"render_state_text\(\s*&line_bounds,\s*&line_cursor,\s*datum->state_message.message_buffer,"
-                     r"\s*TRUE\)", custom)

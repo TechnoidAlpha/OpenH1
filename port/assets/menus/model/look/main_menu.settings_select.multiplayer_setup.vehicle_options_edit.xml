@@ -95,6 +95,7 @@
 	</look>
 	<look name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu" type="column_list">
 		<at widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicles_respawn" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_riding" x="54" y="100"/>
 		<at widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_team" x="54" y="126"/>
 		<at widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_presets" x="54" y="152"/>
 		<at widget="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_warthog" x="54" y="178"/>

@@ -119,6 +119,7 @@ symbols in this file:
 
 #include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
 #include "director.h"
+#include "mcc_camera.h" /* port: port/linux/game/mcc_camera.c */
 
 #include "camera_scripting.h"
 #include "dead_camera.h"
@@ -140,6 +141,11 @@ symbols in this file:
 
 #include "units/unit_definitions.h"
 #include "units/units.h"
+
+/* port: the player's movement and turn before the director's inhibit zeroes
+them (player_control.c), which move the debug camera */
+extern real_vector2d player_control_port_debug_throttle[];
+extern real_euler_angles2d player_control_port_debug_facing[];
 
 /* network_game_globals.c's */
 boolean network_game_distributed_client(void);
@@ -262,6 +268,7 @@ void director_dispose_from_old_map(
 	short local_player_index;
 
 	controller_remap_reset(); /* port: release held actions and camera context between maps */
+	sound_listener_motion_reset(NONE); /* port: discard motion across map unload */
 
 	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
 	{
@@ -300,6 +307,24 @@ boolean director_inhibited_input(
 	short local_player_index)
 {
 	return director_get(local_player_index)->inhibited_input;
+}
+
+/* port: the unit whose motion the camera follows: the player's own in first
+person or behind it, the one a dead player watches; NONE for a scripted,
+editor or flying camera. For the sounds' Doppler effect (sound_manager.c). */
+long director_get_followed_unit(
+	short local_player_index)
+{
+	struct director *director = director_get(local_player_index);
+
+	if (*director_camera_scripted)
+		return NONE;
+	if (director->camera_proc == (director_camera_update_proc)first_person_camera_update ||
+		director->camera_proc == (director_camera_update_proc)following_camera_update)
+		return player_control_get_unit_index(local_player_index);
+	if (director->camera_proc == (director_camera_update_proc)dead_camera_update)
+		return ((struct dead_camera *)director->camera_data)->unit_index;
+	return NONE;
 }
 
 director_perspective director_get_perspective(
@@ -378,6 +403,14 @@ short director_desired_perspective(
 			following = TRUE;
 	}
 
+	/* port: MCC weapon cameras must select the same perspective for display
+	 * and deterministic aiming. The adapter leaves legacy maps and seats alone. */
+	if (mcc_camera_weapon_following(unit_index))
+	{
+		*perspective = _director_perspective_third_person;
+		following = TRUE;
+	}
+
 	return following;
 }
 
@@ -398,13 +431,19 @@ void director_save_camera(
 	void)
 {
 	FILE *file;
+	/* port: the first local player's camera, not local player 0's: a game
+	started from a controller's menus may have no local player 0 */
+	short local_player_index = local_player_get_next(NONE);
 
-	file = fopen("d:\\camera.txt", "w");
+	if (local_player_index == NONE)
+		return;
+	/* port: in the working directory; the Xbox's was on its D: drive */
+	file = fopen("camera.txt", "w");
 	if (file)
 	{
 		struct observer_result const *camera;
 
-		camera = observer_get_camera(0);
+		camera = observer_get_camera(local_player_index);
 		fprintf(file, "%f %f %f\n", camera->position.x, camera->position.y, camera->position.z);
 		fprintf(file, "%f %f %f\n", camera->forward.i, camera->forward.j, camera->forward.k);
 		fprintf(file, "%f %f %f\n", camera->up.i, camera->up.j, camera->up.k);
@@ -423,6 +462,7 @@ static void director_set_camera(
 	struct director *director = director_get(local_player_index);
 
 	director->camera_proc = camera_proc;
+	sound_listener_motion_reset(local_player_index); /* port: camera selection is not listener motion */
 	director->debug_input_scale = 1.f;
 	director->debug_controls = FALSE;
 	if (interpolate)
@@ -434,8 +474,14 @@ static void director_set_camera(
 void director_load_camera(
 	void)
 {
-	FILE *file = fopen("d:\\camera.txt", "r");
+	/* port: the first local player's (director_save_camera) */
+	short local_player_index = local_player_get_next(NONE);
+	FILE *file;
 
+	if (local_player_index == NONE)
+		return;
+	/* port: in the working directory (director_save_camera) */
+	file = fopen("camera.txt", "r");
 	if (file)
 	{
 		real_point3d position;
@@ -444,7 +490,7 @@ void director_load_camera(
 		real_vector3d stored_up;
 		real_vector3d cross_product;
 		real field_of_view;
-		struct director *director = director_get(0);
+		struct director *director = director_get(local_player_index);
 		struct flying_camera *camera =
 			(struct flying_camera *)director->camera_data;
 
@@ -462,7 +508,7 @@ void director_load_camera(
 			camera->roll = -camera->roll;
 		camera->field_of_view = field_of_view;
 		director_set_camera(
-			0,
+			local_player_index,
 			(director_camera_update_proc)flying_camera_update,
 			FALSE);
 		director->camera_mode_index = _camera_flying;
@@ -889,6 +935,11 @@ static boolean director_update_controls(
 	unsigned int pad_held, pad_pressed;
 	int remapped;
 	struct director *director = director_get(local_player_index);
+	/* port: the debug camera's mouse button and keys (xinput_sdl.c) */
+	int middle;
+	int key_up;
+	int key_down;
+	float wheel;
 
 	remapped = controller_remap_camera(local_player_index,
 		director->camera_proc == (director_camera_update_proc)flying_camera_update ||
@@ -896,6 +947,7 @@ static boolean director_update_controls(
 		director->camera_proc == (director_camera_update_proc)orbiting_camera_update,
 		director->debug_controls, &pad_held, &pad_pressed);
 	csmemset(controls, 0, sizeof(*controls));
+	halo_linux_debug_camera_input(&middle, &key_up, &key_down, &wheel);
 	controls->local_player_index = local_player_index;
 	controls->seconds_elapsed = director_globals.dtime;
 	player_index = player_get(
@@ -936,20 +988,26 @@ static boolean director_update_controls(
 			if (remapped ? (pad_pressed & (1u << PAD_CAMERA_SWITCH)) != 0 :
 				gamepad->buttons[_gamepad_binary_button_right_thumb] == 1)
 				director->debug_controls = !director->debug_controls;
-			/* port: menus and chat retain navigation without moving the custom camera. */
-			if (director->debug_controls && (!remapped || controller_remap_playing((short)player_index)))
+			/* port: the mouse takes priority; menus and chat retain their input. */
+			if (director->debug_controls && !middle &&
+				(!remapped || controller_remap_playing((short)player_index)))
 			{
+				/* port: moved and turned by the player's input (the sticks,
+				the keys and the mouse, with their settings), not the raw sticks;
+				raised and lowered by R and F too */
+				real_vector2d throttle = player_control_port_debug_throttle[local_player_index];
+				real_euler_angles2d facing = player_control_port_debug_facing[local_player_index];
 				control_flags = 0;
 				SET_FLAG(
 					control_flags,
 					_camera_control_up_bit,
-					remapped ? (pad_held & (1u << PAD_CAMERA_UP)) != 0 :
-						gamepad->buttons[_gamepad_analog_button_right_trigger] != 0);
+					(remapped ? (pad_held & (1u << PAD_CAMERA_UP)) != 0 :
+						gamepad->buttons[_gamepad_analog_button_right_trigger] != 0) || key_up);
 				SET_FLAG(
 					control_flags,
 					_camera_control_down_bit,
-					remapped ? (pad_held & (1u << PAD_CAMERA_DOWN)) != 0 :
-						gamepad->buttons[_gamepad_analog_button_left_trigger] != 0);
+					(remapped ? (pad_held & (1u << PAD_CAMERA_DOWN)) != 0 :
+						gamepad->buttons[_gamepad_analog_button_left_trigger] != 0) || key_down);
 				controls->wheel_delta = remapped ?
 					(real)(!!(pad_held & (1u << PAD_CAMERA_FASTER)) - !!(pad_held & (1u << PAD_CAMERA_SLOWER))) * 0.4f :
 					(real)((gamepad->buttons[_gamepad_binary_button_dpad_up] > 1) -
@@ -958,18 +1016,12 @@ static boolean director_update_controls(
 					local_player_index,
 					control_flags,
 					controls->wheel_delta);
-				controls->facing_delta.yaw =
-					(real)gamepad->sticks[_gamepad_stick_right].x *
-						director_globals.dtime * -0.0000392699076f;
-				controls->facing_delta.pitch =
-					(real)gamepad->sticks[_gamepad_stick_right].y *
-						director_globals.dtime * 0.0000196349538f;
+				controls->facing_delta.yaw = facing.yaw;
+				controls->facing_delta.pitch = facing.pitch;
 				controls->position_delta.i =
-					(real)gamepad->sticks[_gamepad_stick_left].y *
-						director->debug_input_scale * director_globals.dtime * 0.00005f;
+					throttle.i * director->debug_input_scale * director_globals.dtime * 1.638f;
 				controls->position_delta.j =
-					(real)gamepad->sticks[_gamepad_stick_left].x *
-						director->debug_input_scale * director_globals.dtime * -0.00005f;
+					throttle.j * director->debug_input_scale * director_globals.dtime * 1.638f;
 				controls->position_delta.k +=
 					director->debug_variables[_variable_height].delta;
 				controls->active = TRUE;
@@ -1027,7 +1079,41 @@ static boolean director_update_controls(
 			director_inhibit_facing(local_player_index);
 		}
 	}
+	/* port: the debug camera flies while the middle mouse button is held, as
+	Custom Edition's and Sapien's: WASD and the mouse move it, R and F raise
+	and lower it, the wheel sets its speed. The controller's debug controls
+	(the right stick's click) are left as they are, and give way to it while
+	the button is held */
+	if (middle && !controls->active &&
+		(!remapped || controller_remap_playing((short)player_index)) &&
+		director->camera_proc !=
+			(director_camera_update_proc)first_person_camera_update &&
+		director->camera_proc !=
+			(director_camera_update_proc)following_camera_update)
+	{
+		unsigned long control_flags = 0;
+		real_vector2d throttle = player_control_port_debug_throttle[local_player_index];
+		real_euler_angles2d facing = player_control_port_debug_facing[local_player_index];
 
+		SET_FLAG(control_flags, _camera_control_up_bit, key_up);
+		SET_FLAG(control_flags, _camera_control_down_bit, key_down);
+		controls->wheel_delta = -(real)wheel;
+		director_process_variables(
+			local_player_index,
+			control_flags,
+			controls->wheel_delta);
+		controls->facing_delta.yaw = facing.yaw;
+		controls->facing_delta.pitch = facing.pitch;
+		controls->position_delta.i =
+			throttle.i * director->debug_input_scale * director_globals.dtime * 1.638f;
+		controls->position_delta.j =
+			throttle.j * director->debug_input_scale * director_globals.dtime * 1.638f;
+		controls->position_delta.k +=
+			director->debug_variables[_variable_height].delta;
+		controls->active = TRUE;
+		director_inhibit_input(local_player_index);
+		director_inhibit_facing(local_player_index);
+	}
 	return switch_camera;
 }
 
@@ -1060,6 +1146,7 @@ void director_initialize_for_new_map(
 {
 	short local_player_index;
 
+	sound_listener_motion_reset(NONE); /* port: also called when restoring a saved game */
 	controller_remap_reset(); /* port: release held actions and camera context between maps */
 
 	director_globals.game_mode = game_in_editor() ? _director_mode_editor : _director_mode_game;

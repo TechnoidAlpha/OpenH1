@@ -359,8 +359,14 @@
 	<bitmap name="main_menu/settings/header_settings">
 		<frame png="ce/port/main_menu/settings/header_settings.png" width="512" height="64"/>
 	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat/header_voice_chat">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat/header_voice_chat.png" width="512" height="64"/>
+	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/controls_setup/header_key_bindings">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/controls_setup/header_key_bindings.png" width="512" height="64"/>
+	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/header_controller_buttons">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/header_controller_buttons.png" width="512" height="64"/>
 	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/header_button_remapping">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/header_button_remapping.png" width="512" height="64"/>
@@ -379,6 +385,9 @@
 	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/header_discord_account">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/header_discord_account.png" width="512" height="64"/>
+	</bitmap>
+	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/header_mcc_packages">
+		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/header_mcc_packages.png" width="512" height="64"/>
 	</bitmap>
 	<bitmap name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/header_advanced_graphics">
 		<frame png="ce/port/main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/header_advanced_graphics.png" width="512" height="64"/>
@@ -445,6 +454,9 @@
 		<frame png="ce/port/pause/objectives_right__0.png" width="16" height="256"/>
 		<frame png="ce/port/pause/objectives_right__1.png" width="16" height="256"/>
 		<frame png="ce/port/pause/objectives_right__2.png" width="16" height="256"/>
+	</bitmap>
+	<bitmap name="dialog/dialog_foot">
+		<frame png="ce/port/dialog/dialog_foot__0.png" width="256" height="32"/>
 	</bitmap>
 	<bitmap name="voice/speaker">
 		<frame png="ce/port/voice/speaker__0.png" width="24" height="24"/>
@@ -1060,6 +1072,10 @@
 	<bitmap name="main_menu/parts/option_row_512x22">
 		<frame png="ce/port/main_menu/parts/option_row_512x22__0.png" width="512" height="22"/>
 		<frame png="ce/port/main_menu/parts/option_row_512x22__1.png" width="512" height="22"/>
+	</bitmap>
+	<bitmap name="main_menu/parts/option_row_512x24">
+		<frame png="ce/port/main_menu/parts/option_row_512x24__0.png" width="512" height="24"/>
+		<frame png="ce/port/main_menu/parts/option_row_512x24__1.png" width="512" height="24"/>
 	</bitmap>
 	<bitmap name="main_menu/parts/option_row_512x26">
 		<frame png="ce/port/main_menu/parts/option_row_512x26__0.png" width="512" height="26"/>

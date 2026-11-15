@@ -30,6 +30,7 @@ Edition channel orders, which the command stream hands the host.
 
 #include <SDL3/SDL.h>
 #include <pthread.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -626,14 +627,20 @@ unsigned int xgpu_texture_replacement(DWORD resource, struct xgpu_texture_descri
 {
 	const DWORD *header = (const DWORD *)resource;
 	DWORD data = header[1], format_word = header[3], size_word = header[4];
-	struct replacement_choice *choice = &replacement_choices[replacement_hash(data, format_word, size_word) %
-		REPLACEMENT_CHOICE_COUNT];
-	unsigned long epoch = __atomic_load_n(&replacement_epoch, __ATOMIC_ACQUIRE);
-	unsigned long watched_serial = memory_watch_serial(), settings = config_changes();
+	struct replacement_choice *choice;
+	unsigned long epoch, watched_serial, settings;
 	struct replacement_entry *entry;
 	unsigned int image;
 	BOOL overridden, keep;
 
+	/* (an MCC texture, drawn as an image of its own: below; every one's Data
+	is the same, so none is kept among the choices) */
+	if (data == XGPU_MCC_TEXTURE_DATA)
+		return xgpu_mcc_texture_image(resource, 0, description);
+	choice = &replacement_choices[replacement_hash(data, format_word, size_word) % REPLACEMENT_CHOICE_COUNT];
+	epoch = __atomic_load_n(&replacement_epoch, __ATOMIC_ACQUIRE);
+	watched_serial = memory_watch_serial();
+	settings = config_changes();
 	if (choice->kept && choice->data == data && choice->format_word == format_word &&
 		choice->size_word == size_word && choice->epoch == epoch && choice->watched_serial == watched_serial &&
 		choice->settings == settings)
@@ -674,4 +681,200 @@ unsigned int xgpu_texture_replacement(DWORD resource, struct xgpu_texture_descri
 		choice->point_threshold = description->hires_point_threshold != 0;
 	}
 	return image;
+}
+
+/* ---------- MCC textures (xgpu.h)
+
+Each MCC texture's image, found by its header, made of its first level as
+the texture is first bound (or as its map loads: xgpu_mcc_texture_prepare)
+and kept until the texture is let go (xgpu_mcc_texture_forget); a P8
+texture's is made again if it is bound with another palette. The game and
+the front end share a thread. */
+
+#define MCC_IMAGE_BUCKET_COUNT 1024
+
+struct mcc_image
+{
+	struct mcc_image *next;
+	const DWORD *resource;
+	unsigned int image;
+	/* the palette its image was decoded with (a P8 texture's) */
+	unsigned long palette_hash;
+	/* no image could be made: not tried again */
+	BOOL failed;
+};
+
+static struct mcc_image *mcc_image_buckets[MCC_IMAGE_BUCKET_COUNT];
+
+static unsigned long mcc_image_bucket(const DWORD *resource)
+{
+	return (unsigned long)((((uintptr_t)resource >> 4) * 2654435761UL) % MCC_IMAGE_BUCKET_COUNT);
+}
+
+static struct mcc_image *mcc_image_find(const DWORD *resource, BOOL create)
+{
+	struct mcc_image **bucket = &mcc_image_buckets[mcc_image_bucket(resource)];
+	struct mcc_image *entry;
+
+	for (entry = *bucket; entry; entry = entry->next)
+	{
+		if (entry->resource == resource)
+			return entry;
+	}
+	if (!create || !(entry = calloc(1, sizeof(*entry))))
+		return NULL;
+	entry->resource = resource;
+	entry->next = *bucket;
+	*bucket = entry;
+	return entry;
+}
+
+static unsigned long mcc_palette_hash(const D3DCOLOR *palette)
+{
+	unsigned long hash = 2166136261UL;
+	int index;
+
+	if (!palette)
+		return 0;
+	for (index = 0; index < 256; index++)
+		hash = (hash ^ (unsigned long)palette[index]) * 16777619UL;
+	return hash | 1;
+}
+
+/* the RGBA bytes of an MCC texture's first level (malloc's), NULL for one
+with no image (a cube map, a volume, a P8 texture with no palette, texels
+short of the level) or no memory */
+static unsigned char *mcc_image_decode(const struct xgpu_texture_description *description, const void *pixels,
+	unsigned long bytes, const D3DCOLOR *palette)
+{
+	unsigned long count = description->width * description->height, index;
+	DWORD *texels;
+
+	if (description->cube_map || description->depth > 1 || !description->width || !description->height ||
+		description->width > 16384 || description->height > 16384 || !pixels ||
+		xgpu_texture_level_size(description, 0) > bytes || (description->format == 0x0b && !palette))
+	{
+		return NULL;
+	}
+	texels = malloc(count * sizeof(DWORD));
+	if (!texels)
+		return NULL;
+	if (description->compressed)
+	{
+		xgpu_texture_decode_dxt(description, 0, (const unsigned char *)pixels, texels);
+	}
+	else if (!xgpu_texture_decode_level(description, 0, (const unsigned char *)pixels, palette, texels))
+	{
+		free(texels);
+		return NULL;
+	}
+	/* (ARGB words, BGRA bytes, to the images' RGBA) */
+	for (index = 0; index < count; index++)
+	{
+		DWORD value = texels[index];
+
+		texels[index] = (value & 0xff00ff00UL) | ((value >> 16) & 0xffUL) | ((value & 0xffUL) << 16);
+	}
+	return (unsigned char *)texels;
+}
+
+/* the entry's image made (or made again for another palette); FALSE if it
+has none */
+static BOOL mcc_image_make(struct mcc_image *entry, const struct xgpu_texture_description *description,
+	const void *pixels, unsigned long bytes, const D3DCOLOR *palette)
+{
+	unsigned long hash = description->format == 0x0b ? mcc_palette_hash(palette) : 0;
+	unsigned char *rgba;
+
+	if (entry->image && entry->palette_hash == hash)
+		return TRUE;
+	if (entry->failed && entry->palette_hash == hash)
+		return FALSE;
+	xgpu_image_delete(entry->image);
+	entry->image = 0;
+	entry->palette_hash = hash;
+	entry->failed = TRUE;
+	rgba = mcc_image_decode(description, pixels, bytes, palette);
+	if (!rgba)
+	{
+		platform_log("mcc textures: a %lux%lux%lu texture of format %02lx%s is not drawn", description->width,
+			description->height, description->depth, (unsigned long)description->format,
+			description->cube_map ? " (a cube map)" : description->depth > 1 ? " (a volume)" :
+			description->format == 0x0b && !palette ? " (P8 with no palette)" : "");
+		return FALSE;
+	}
+	/* (its levels made by the host from the first) */
+	entry->image = xgpu_image_create(rgba, description->width, description->height,
+		description->linear ? 1 : description->levels, XGPU_IMAGE_RGBA, TRUE);
+	entry->failed = !entry->image;
+	return entry->image != 0;
+}
+
+unsigned int xgpu_mcc_texture_image(DWORD resource, DWORD palette, struct xgpu_texture_description *description)
+{
+	const DWORD *header = (const DWORD *)resource;
+	struct xgpu_texture_description mcc;
+	struct mcc_image *entry;
+	const void *pixels;
+	unsigned long bytes, levels;
+	long hud_asset;
+	unsigned int image;
+
+	if (!header || !mcc_texture_bridge_texels(header, &mcc, &pixels, &bytes, &hud_asset))
+		return 0;
+	*description = mcc;
+	/* (a stock MCC HUD sheet's high-res texture: mcc_texture_bridge.c) */
+	if (hud_asset >= 0 && hud_hires_enabled() && (image = hud_hires_override_texture(hud_asset, &levels)) != 0)
+	{
+		description->levels = levels;
+		description->hires = TRUE;
+		description->hires_coverage = hud_hires_override_coverage(hud_asset);
+		description->hires_point_threshold = hud_hires_override_point_threshold(hud_asset);
+		return image;
+	}
+	entry = mcc_image_find(header, TRUE);
+	if (!entry || !mcc_image_make(entry, &mcc, pixels, bytes, (const D3DCOLOR *)palette))
+		return 0;
+	if (description->linear)
+		description->levels = 1;
+	return entry->image;
+}
+
+unsigned long xgpu_mcc_texture_prepare(const DWORD *resource, unsigned long budget)
+{
+	struct xgpu_texture_description description;
+	struct mcc_image *entry;
+	const void *pixels;
+	unsigned long bytes;
+	long hud_asset;
+
+	if (!resource || !mcc_texture_bridge_texels(resource, &description, &pixels, &bytes, &hud_asset) ||
+		description.format == 0x0b || (hud_asset >= 0 && hud_hires_enabled()) ||
+		(unsigned long long)description.width * description.height * 4 > budget)
+	{
+		return 0;
+	}
+	entry = mcc_image_find(resource, TRUE);
+	if (!entry || entry->image || entry->failed || !mcc_image_make(entry, &description, pixels, bytes, NULL))
+		return 0;
+	return description.width * description.height * 4;
+}
+
+void xgpu_mcc_texture_forget(const DWORD *resource)
+{
+	struct mcc_image **link = &mcc_image_buckets[mcc_image_bucket(resource)];
+
+	while (*link)
+	{
+		struct mcc_image *entry = *link;
+
+		if (entry->resource == resource)
+		{
+			*link = entry->next;
+			xgpu_image_delete(entry->image);
+			free(entry);
+			return;
+		}
+		link = &entry->next;
+	}
 }

@@ -10,7 +10,7 @@ exactly as master does (the gate).
 | `scorecard.py` | The runner: scenarios × rates → measures → the table; `--tags`, `--pairs`, `--mutation-checks`, `--holdouts` |
 | `scenarios.py` | The scenarios (data), their tags and the stubs that need retail maps |
 | `metrics.py` | The trace read, what each kind of scenario measures, and the tolerances |
-| `identity.py` | The 30 Hz gate: bit-identical to master (the determinism log, `tools/determinism_compare.py`) |
+| `identity.py` | The 30 Hz gate: bit-identical to master (the determinism log, `tools/determinism_compare.py`); `--repeat`, two runs of this build alike |
 | `campaign_identity.py`, `campaign_b30.txt` | The campaign's 30 Hz gate: b30's AI in Classic, its global seed each tick as the original code's (retail maps: `HALO_RETAIL_MAPS`) |
 | `ci.py`, `enforced.txt` | CI's step (the linux-x86_64 job), and the tags it enforces at 60 and 120 |
 
@@ -81,6 +81,13 @@ builds and compared: each tick's game state allocation by allocation, the random
 Script threads are left out (they keep a guest image address, which moves with any code). `--record <folder>` keeps
 a build's logs and `--baseline <folder>` compares with them: CI records master's on each master build and compares
 every branch with the latest. `--trace` checks that tracing changes nothing; `--mutation jump` must fail.
+
+    python tools/scorecard/identity.py --repeat
+
+The determinism check: the same scenarios played twice by this build, compared whole (every allocation, the seeds,
+their takers by call site): two runs of the same input must be the same game, tick for tick. It needs no baseline,
+so CI runs it on every branch, with its negative control, `--repeat --mutation unseeded` (a draw of the game's seed
+by the host's clock), which must fail.
 
 ### The campaign gate
 

@@ -7,7 +7,7 @@
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/options_menu" x="0" y="0"/>
 	</look>
 	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/header_first_person" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
-		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/settings/tall_titles" index="4" scale="1.4 1.4"/>
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/settings/tall_titles" index="5" scale="1.4 1.4"/>
 	</look>
 	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/options_menu" type="column_list">
 		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/section_0" x="28" y="50"/>
