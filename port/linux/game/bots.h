@@ -77,6 +77,22 @@ void play_log_tick(struct player_action const *actions);
 1); TRUE once on it, to fire */
 boolean bots_hunt(float *forward, float *strafe);
 
+/* what a bot is doing now, as bots_command.c's answers show it: its goal
+(bots.c's _bots_goal_*: 0 none, 1 an enemy, 2 roaming, 3 a weapon, 4 a
+vehicle, 5 cover, 6 a power item, 7 its team's ask, 8 an objective or an
+order), whether it fights and whom (a player's datum, NONE), and whether it
+is in a vehicle; FALSE for a bot not in the game */
+struct bots_bot_view
+{
+	short goal;
+	boolean fighting;
+	long target_player_index;
+	boolean in_vehicle;
+};
+boolean bots_bot_view(long bot_index, struct bots_bot_view *view);
+/* the bots' paths reach ground at the point (or near it) */
+boolean bots_point_on_ground(real_point3d const *point);
+
 /* a map's start and end (players.c) */
 void bots_initialize_for_new_map(void);
 void bots_dispose_from_old_map(void);

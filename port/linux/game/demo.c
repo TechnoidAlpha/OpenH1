@@ -71,6 +71,10 @@ A record is its type (a byte), its length (4 bytes) and its bytes:
                                        and each allocation's
     V <variant> <options>              the game's variant (a multiplayer game's)
     B <tick> <milliseconds>            a bookmark (the clip key)
+    W <tick> <line>                    a line of the host's to its bots, as the
+                                       tick applied it (bots_command.c: before
+                                       the tick's A; the playback logs it, its
+                                       bots' input being the A's)
     E <tick>                           the end
 
 Everything a demo holds is checked before the playback takes it, as the
@@ -1824,6 +1828,19 @@ void demo_bookmark(
 	platform_log("demos: the last %.0f s of %s marked as a clip", demo_settings.clip_seconds, demo_recorder.name);
 }
 
+void demo_record_bot_command(
+	char const *line)
+{
+	unsigned long start;
+
+	if (!demo_recorder.recording)
+		return;
+	start = demo_record_begin(&demo_recorder.records, 'W');
+	demo_buffer_u32(&demo_recorder.records, (unsigned long)game_time_get());
+	demo_buffer_bytes(&demo_recorder.records, line, (unsigned long)strlen(line));
+	demo_record_end(&demo_recorder.records, start);
+}
+
 /* ---------- what the frames put in while a tick is open */
 
 /* what changed since the shadow was taken, as an M record of the sub-step
@@ -2686,8 +2703,16 @@ static void demo_playback_tick_begin(
 			demo_playback_record(&bytes, &length, TRUE);
 			demo_engine_state_set(bytes, length);
 		}
-		else if (type == 'B' || type == 'V')
+		else if (type == 'B' || type == 'V' || type == 'W')
+		{
 			demo_playback_record(&bytes, &length, TRUE);
+			/* (the host's line to its bots, which the A's input plays) */
+			if (type == 'W' && length >= 4)
+			{
+				platform_log("demos: tick %lu, the host's bots: %.*s", demo_read_u32(bytes), (int)MIN(length - 4, 200UL),
+					(char const *)bytes + 4);
+			}
+		}
 		else
 			break;
 	}
@@ -2724,6 +2749,13 @@ boolean demo_playback_tick_actions(
 		{
 			demo_playback_record(&bytes, &length, TRUE);
 			demo_engine_state_set(bytes, length);
+		}
+		/* (the host's line to its bots, which the A's input plays) */
+		else if (type == 'W' && length >= 4)
+		{
+			demo_playback_record(&bytes, &length, TRUE);
+			platform_log("demos: tick %lu, the host's bots: %.*s", demo_read_u32(bytes), (int)MIN(length - 4, 200UL),
+				(char const *)bytes + 4);
 		}
 		else
 			break;

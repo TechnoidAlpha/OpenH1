@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A demo's contents (port/linux/game/demo.c, docs/demos.md): its header,
 its blocks and its records by type, their sizes packed and unpacked, its
-ticks, bookmarks and snapshots.
+ticks, bookmarks, snapshots and the host's commands to its bots.
 
     python tools/demo_info.py demos/20261108-014642-a10.demo
     python tools/demo_info.py --patches demos/....demo    # each difference from outside the ticks
@@ -158,6 +158,7 @@ def main() -> int:
     patches = []
     tick = None
     bookmarks = []
+    bot_commands = []
     for kind, record_type, data in demo.records("R"):
         types[record_type] += 1
         sizes[record_type] += len(data) + 5
@@ -170,6 +171,9 @@ def main() -> int:
             patches.append((tick, len(data)))
         elif record_type == "B":
             bookmarks.append(struct.unpack_from("<II", data))
+        elif record_type == "W" and len(data) >= 4:
+            # (the host's line to its bots, as its tick applied it: port/linux/game/bots_command.c)
+            bot_commands.append((struct.unpack_from("<I", data)[0], data[4:].decode("ascii", "replace")))
     seconds = ticks / 30.0
     print(f"  {ticks} ticks ({seconds / 60:.1f} min of game), ticks {first} to {last}; "
           f"{total / 1e6:.2f} MB, {total / 1e6 / max(seconds / 60, 1e-9):.2f} MB a minute"
@@ -178,6 +182,8 @@ def main() -> int:
         print(f"    {record_type}: {types[record_type]} records, {sizes[record_type] / 1e6:.3f} MB unpacked")
     for tick_value, milliseconds in bookmarks:
         print(f"  bookmark at tick {tick_value}: the last {milliseconds / 1000:.0f} s")
+    for tick_value, line in bot_commands:
+        print(f"  bots at tick {tick_value}: {line}")
     if args.patches:
         for tick_value, size in patches:
             print(f"  P at tick {tick_value}: {size} bytes")

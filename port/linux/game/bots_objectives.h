@@ -78,6 +78,12 @@ boolean bots_objectives_carrying(long player_index);
 /* the point is in a hill now */
 boolean bots_objectives_in_hill(real_point3d const *point);
 
+/* Capture the Flag's flag of the team (the one it defends), as this tick
+found it: its object, where it is, the player carrying it (NONE), and
+whether it is at its place; FALSE for none in play (another game) */
+boolean bots_objectives_flag(short team, long *object_index, real_point3d *position, long *carrier,
+	boolean *at_home);
+
 /* the minute line's part (empty in a Slayer game) */
 void bots_objectives_report(char *line, long size);
 
