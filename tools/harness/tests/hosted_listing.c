@@ -204,6 +204,8 @@ static boolean game_engine_running(void) { return TRUE; }
 static boolean game_engine_has_teams(void) { return FALSE; }
 static boolean game_engine_can_score(void) { return TRUE; }
 static boolean network_standard_hosting(void) { return TRUE; }
+static boolean network_standard_hosting_vehicle_hijack(void) { return FALSE; }
+static boolean network_standard_set_vehicle_hijack(boolean on) { (void)on; return TRUE; }
 static boolean network_host_controls_restarting(void) { return FALSE; }
 static boolean network_host_rules_available(void) { return FALSE; }
 static boolean network_host_controls_end_game(void) { return TRUE; }
