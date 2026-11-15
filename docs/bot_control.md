@@ -62,20 +62,27 @@ For a dedicated server, add `--http <host:port> --password <admin password>`
 
 | Order | What the bots do |
 | --- | --- |
-| `attack [target]` | Go to the target, fighting on the way, and hold the ground there. With no target: the enemy base. On the enemy flag: take it, and the game's own play carries it home; if the flag is carried, hunt the enemy carrier (or escort the teammate who has it). On a player: go where their team last saw that player, and prefer that player as a target. If no one on the team has seen that player, the bots search on their own. |
+| `attack [target]` (`take`, `contest`) | Go to the target, fighting on the way, and hold the ground there. With no target: the enemy base. On the enemy flag: take it, and the game's own play carries it home; if the flag is carried, hunt the enemy carrier (or escort the teammate who has it). On a player: go where their team last saw that player, and prefer that player as a target. If no one on the team has seen that player, the bots search on their own. |
 | `push` | Attack the enemy base. |
 | `defend [target]` (`guard`) | Keep within about 10 units of the target, fighting from there. With no target: their own flag (in Capture the Flag) or base. |
 | `hold [target]` | Stay at the spot, through fights. With no target: where each bot stands. |
 | `follow <player>` | Stay with a teammate (`me` is the host's own player). |
+| `escort <target>` | Stay with a teammate, or with whoever carries a flag or the ball: by a teammate carrying it, after an enemy carrying it, by it while it lies. `escort flag carrier`, `escort ball carrier`. |
+| `return [flag]` | Go to their own flag lying out and touch it to return it; after its carrier while it is carried; done once it is home. |
 | `goto <target>` (`go to`, `move`) | Go there, then stay nearby. |
 | `retreat` | Fall back to their own base and defend it. |
 | `regroup` | Gather at the middle of the team's living players. |
-| `clear` (`free`) | Back to their own play. |
+| `clear` (`free`, `play objective`) | Back to their own play, the game's objective with it. |
 
 A target is a place (`red base`, `blue flag`, `middle`, `hill 2`,
 `warthog 1`, `rocket launcher`, ...: `bots places`), `our flag`,
 `enemy base` and the like (resolved for each bot's team), a player's name,
-`me`, or coordinates (`12.5,-80,0.3`). `flag` and `base` alone mean the
+`me`, or coordinates (`12.5,-80,0.3`). Objectives that move are targets
+too: `hill` (King of the Hill's hill in play, wherever it moves: `hold hill`,
+`contest hill`), `ball` (Oddball's, lying or carried: `take ball`,
+`defend ball carrier`), and the flags where they are now (`red flag`);
+`flag carrier` is the enemy carrying the bot's own flag for an attack or a
+return, and the teammate carrying the enemy's for an escort or a defense. `flag` and `base` alone mean the
 bot's own for `defend`, `hold` and `retreat`, and the enemy's for the others.
 The places come from the map itself: its flag stands and starting points
 (the bases), its hills, its vehicles and its power item spawns.
@@ -121,6 +128,14 @@ following the gametype's team balance rule.
 - A demo records each command where its tick applied it (`W` records:
   `tools/demo_info.py` lists them). Playback uses the recorded controls, so
   the replay matches the game tick for tick.
+- A team's coach sees only what that team could know: `--team red` (or the
+  red coach's token, below) gives red's bots alone, the enemies red's bots
+  saw (where and when they last saw them, never where they are now), the
+  other team's orders not at all, and a kill red was not part of without
+  where it happened. What the game shows every player stays in: the score,
+  the time, the flags' and the ball's markers, the hill, the kill feed.
+  Only the bots' sight counts as a team's: a human teammate's view is not
+  tracked.
 - The bots see only what a player in their place could. An attack on an
   enemy uses what the bot's team has seen of that enemy, and the HUD's
   carrier markers, never the enemy's real position. The host's output (`bots`, `watch`)
@@ -143,8 +158,11 @@ before going on):
 ```
 
 Events: `kill`, `flag_taken`, `flag_dropped`, `flag_returned`,
-`flag_captured`, `command` (a line applied, and to how many bots),
-`command_failed`, `order`, `order_done`, `order_failed`, and `snapshot`.
+`flag_captured`, `ball_taken`, `ball_dropped`, `hill_moved`,
+`hill_controlled` (`team`, or `player` in a free-for-all), `hill_contested`,
+`hill_free`, `lap`, `command` (a line applied, and to how many bots),
+`command_failed`, `order`, `order_done`, `order_failed`, `match_started`,
+`match_over`, `match_speed`, and `snapshot`.
 `seq` counts up from 0 for the whole run. The game keeps the last 512 events.
 `goath1 bots events <after> --json` gets the ones after a number, and the
 answer's `next` is the number to ask for next time.
@@ -170,3 +188,81 @@ An agent can also skip the stream and work in turns. Each turn it calls
 `goath1 bots status --json` and `goath1 bots bots --json`, chooses orders, sends
 them (`goath1 bots order ... --json` replies `{"ok":true,"bots":3,"tick":...}`),
 then reads `goath1 bots events <next> --json` to see what happened.
+
+## Team knowledge
+
+`goath1 bots knowledge --json` (one line of JSON) is what each team knows,
+for a coach's decisions:
+
+- `objective`: the mode, the score, the score to win and how far each team
+  is from it, the time left; and by gametype, Capture the Flag's flags
+  (`home`, `carried` or `dropped`, where, the carrier, `return_in` seconds
+  for a dropped flag), Oddball's balls (where, the carrier and their team),
+  King of the Hill's hill (where, `control`: `red`, `blue`, `contested`,
+  `none`, and `move_in` seconds for a moving hill), Race's nav points and
+  each player's laps. Slayer has the score and `to_win`.
+- `teams`: for each team, its `players` (where, health, shield, each
+  weapon's rounds loaded and carried or its battery, frag and plasma
+  grenades), its `enemies_seen` (the last sighting of each enemy its bots
+  saw: where, `tick`, `seconds_ago`), and its `power_items` (each power
+  weapon and power-up spawn: `present` and `back_in` seconds as the team's
+  bots last saw it, or `next_turn_in` by the game's clock, which every
+  player can time).
+- `kills`: the last 16 kills (killer, victim, their teams, the weapon).
+  Headshots are not told apart.
+
+`goath1 bots bots --json` gives each bot's `weapons` and `grenades` too.
+
+`--team red` (or `blue`) is a coach's view: `bots`, `places`, `events`,
+`watch` and `knowledge` then show what that team knows alone, and orders and
+traits go to that team's bots alone (`all` is all of its own). Each time the
+game opens bot control it writes `bot_control_red.txt` and
+`bot_control_blue.txt` beside `bot_control.txt`, each with a token of its
+own: a coach given only its team's file (`goath1 bots --team red`, which reads
+it) cannot see more than its team, whatever it asks, and cannot add, remove
+or move bots or run the match. `watch --team red` prints `knowledge` as its
+snapshot.
+
+## Running a match from the command line
+
+The host runs whole matches, one after another, for a script or an AI agent
+that trains its team:
+
+| Command | What it does |
+| --- | --- |
+| `match start <map> <gametype> [--bots N] [--seed S] [--score N] [--time M]` | Plays that game now: in the lobby at once and started, or the game being played ended and the new one started from its lobby (a dedicated server as `sv_map`, a player's host as Host Controls' change of game). `--bots N` puts N bots on each team; `--seed` is the game's random seed; `--score` and `--time` its score to win and minutes. A game of bots alone plays once `match start` has run. |
+| `match restart` | The last `match start` again. |
+| `match end` | Ends the match now, with its scores. |
+| `match status` | The match's number, `state` (`starting`, `playing`, `over`), map, mode, seed, ticks, score, speed asked and measured. |
+| `match speed <x>` | Runs the simulation x times faster than real time (0.1 to 30, `max` for 30): the game's own speed, so each tick plays as it would and only more of them run a frame. Only where no other machine is in the game: a dedicated server, or a host whose game has no one else. It is refused while another machine is in, and drops to 1 (a `match_speed` event) the moment one joins. |
+| `match results --json` | The winner, the score, `ticks` and `seconds` of game, `real_seconds` it took, each player's score, kills, deaths, assists, suicides, betrayals, shots and accuracy (`null` when the game counted no shots), and objective statistics (flag grabs, captures and returns; ball and hill seconds; laps), the teams' totals, and `orders`: each line the ticks applied and its tick. Kept until the next match starts. A coach's results list its own orders alone. |
+| `match at <tick> <line>` | An `order`, `set` or `team` line applied at that tick of the next match (or this one). |
+
+The same seed and the same lines at the same ticks play the same match:
+`goath1 bots match start ... --replay results.json` starts it and sends
+each of the results' orders for its tick. `tools/scorecard/bot_match.py
+--repeat` plays a Blood Gulch match on a dedicated server, then again from
+its results, and checks the two agree (`--mutation seed` is its negative
+control). At `match speed 20` a 4-minute match plays in 12 seconds.
+
+A coach's loop, a match at a time:
+
+```sh
+halo --server &                                     # or a host's game with --bot-control
+goath1 bots --http 127.0.0.1:8080 --password "$PW" match start bloodgulch ctf --bots 4 --seed 7 --score 3
+goath1 bots --http 127.0.0.1:8080 --password "$PW" match speed 20
+goath1 bots --http 127.0.0.1:8080 --password "$PW" --team red watch --json --every 1 | while read -r line; do
+  case "$line" in
+    *'"event":"snapshot"'*)                                   # red's knowledge: decide
+      goath1 bots --http 127.0.0.1:8080 --password "$PW" --team red order all attack enemy flag ;;
+    *'"event":"flag_taken"'*'"flag":"red"'*)
+      goath1 bots --http 127.0.0.1:8080 --password "$PW" --team red order all return flag ;;
+    *'"event":"match_over"'*) break ;;
+  esac
+done
+goath1 bots --http 127.0.0.1:8080 --password "$PW" match results --json > results.json
+```
+
+On a host's own game the same commands run without `--http` and
+`--password`, and a coach with `bot_control_red.txt` alone runs
+`goath1 bots --team red ...`.
