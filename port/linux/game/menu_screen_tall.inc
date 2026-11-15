@@ -29,12 +29,11 @@ BROWSER_TALL, _browser and _touch_browser) */
 #define TALL_DETAIL_X 300
 #define TALL_DETAIL_Y 11
 #define TALL_DETAIL_WIDTH 312
-#define TALL_BUTTON_X 276
-/* (the band's button as wide as its words and its key's cap: a
-controller's View cap is wider than the keyboard's F1) */
-#define TALL_BUTTON_WIDTH 176
+/* (the band's button's left: its middle where it was at 148 wide, before
+it took the controller's View cap, wider than the keyboard's F1: blocks.xml) */
+#define TALL_BUTTON_X 264
 #define TALL_BUTTON_Y 8
-#define TALL_BUTTON_WIDTH 148
+#define TALL_BUTTON_WIDTH 172
 /* the tabs: their strip's top, the first's left, each's step and width;
 their keys' prompts at the screen's margin and after the last */
 #define TALL_TABS_Y 46
@@ -784,8 +783,7 @@ static void tall_build_header(struct screen_tall *tall, struct widget_instance *
 		every other focusable block, up from the tabs (or the first row), and
 		A presses it) */
 		tall->header_bar = tall_add(tall, tall->body, tall_tag("bar"), 0, TALL_BUTTON_Y, 0, 0, 0, 0);
-		made = tall_add(tall, tall->header_bar, screens.button_tag, TALL_BUTTON_X, TALL_BUTTON_Y, 0, 0,
-			TALL_BUTTON_WIDTH, 0);
+		made = tall_add(tall, tall->header_bar, screens.button_tag, TALL_BUTTON_X, TALL_BUTTON_Y, 0, 0, 0, 0);
 		tall_centred(tall, made);
 		if (made)
 			tall->header_bar->focused_child = made;

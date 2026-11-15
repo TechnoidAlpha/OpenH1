@@ -104,10 +104,10 @@ def test_negative_control(fault):
 def test_negative_control_no_a_handler():
     """a block without an A handler is caught: the band's button's"""
     assert "a" in blocks()["button"][1]
-    faulty = mutated(read(BLOCKS), '<widget name="screens/button" type="text" width="148" height="24" flags="keep_ends" '
+    faulty = mutated(read(BLOCKS), '<widget name="screens/button" type="text" width="172" height="24" flags="keep_ends" '
                      'bitmap="main_menu/parts/button_148x24" font="ui\\small_ui" color="#FFFFFFFF" text_x="8" '
                      'text_y="3">\n\t\t<on event="a" run="port screen do"/>\n',
-                     '<widget name="screens/button" type="text" width="148" height="24" flags="keep_ends" '
+                     '<widget name="screens/button" type="text" width="172" height="24" flags="keep_ends" '
                      'bitmap="main_menu/parts/button_148x24" font="ui\\small_ui" color="#FFFFFFFF" text_x="8" '
                      'text_y="3">\n')
     assert "made" in unreachable(read(TALL), faulty)
