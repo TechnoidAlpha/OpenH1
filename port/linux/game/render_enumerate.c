@@ -1322,6 +1322,33 @@ static boolean object_effect_drawn(long model_index, short kind, long value)
 	return FALSE;
 }
 
+/* a model camouflaged, as rasterizer_xbox_active_camouflage.c draws it:
+fading (the model blended over its refraction) and fully cloaked (an
+intensity of 1: depth alone, alpha tested against its base map, then the
+refraction unblended), each with the ordinary and the hyper-stealth
+parameters. A player who picks up active camouflage is fully cloaked
+within a second; without the cloaked draws, their first-person weapon's
+and the other camouflaged units' pipelines were made in play, as they were
+first drawn so */
+static void camouflage_draw(long model_index, short state, struct render_model_effect *effect, unsigned long flags)
+{
+	static real const intensities[] = { 0.5f, 1.0f };
+	short intensity, parameter;
+
+	effect->type = _render_model_effect_type_active_camouflage;
+	for (intensity = 0; intensity < (short)NUMBEROF(intensities); intensity++)
+	{
+		for (parameter = 0; parameter < 2; parameter++)
+		{
+			effect->intensity = intensities[intensity];
+			effect->parameter = (real)parameter;
+			model_draw(model_index, state, effect, 0, flags);
+		}
+	}
+	effect->type = _render_model_effect_type_none;
+	effect->intensity = effect->parameter = 0.0f;
+}
+
 static void object_effects_draw(void)
 {
 	struct tag_iterator iterator;
@@ -1364,16 +1391,7 @@ static void object_effects_draw(void)
 				effect.modifier_shader = NULL;
 			}
 			if (camouflage && unlit_effects)
-			{
-				effect.type = _render_model_effect_type_active_camouflage;
-				effect.intensity = 0.5f;
-				effect.parameter = 0.0f;
-				model_draw(model_index, state, &effect, 0, 0);
-				effect.parameter = 1.0f;
-				model_draw(model_index, state, &effect, 0, 0);
-				effect.type = _render_model_effect_type_none;
-				effect.intensity = effect.parameter = 0.0f;
-			}
+				camouflage_draw(model_index, state, &effect, 0);
 			if (self_occludes && unlit_effects)
 			{
 				effect.type = _render_model_effect_type_modifier;
@@ -1423,13 +1441,9 @@ static void first_person_model_draw(long model_index)
 		memset(&effect, 0, sizeof(effect));
 		if (unlit_effects_drawn())
 		{
-			effect.type = _render_model_effect_type_active_camouflage;
 			effect.source_object_index = STAND_IN_OBJECT_INDEX;
 			effect.source_object_centroid = render.camera.position;
-			effect.intensity = 0.5f;
-			model_draw(model_index, state, &effect, 0, flags);
-			effect.parameter = 1.0f;
-			model_draw(model_index, state, &effect, 0, flags);
+			camouflage_draw(model_index, state, &effect, flags);
 		}
 		memset(&effect, 0, sizeof(effect));
 		effect.source_object_index = STAND_IN_OBJECT_INDEX;
