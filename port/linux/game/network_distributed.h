@@ -264,7 +264,7 @@ enum
 	_distributed_message_host_teleport = 143,
 	/* a vehicle hijack the host began or called off, and the rule changed
 	during a game (network_hijack.c), reliably, to every OpenH1 client */
-	_distributed_message_vehicle_hijack = 144, /* netver: pending */
+	_distributed_message_vehicle_hijack = 144,
 
 	NUMBER_OF_DISTRIBUTED_MESSAGES
 };

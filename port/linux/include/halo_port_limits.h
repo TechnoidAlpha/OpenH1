@@ -105,7 +105,7 @@ takes it for a newer version and does not join. Raise it with any change to
 what a Standard game's machines send each other, and with every raise of
 HALO_PORT_NETWORK_VERSION: HALO_PORT_STANDARD_BASE_VERSION is the network
 version it was last raised for, and the build fails until they agree. */
-#define HALO_PORT_STANDARD_NETWORK_VERSION 31
+#define HALO_PORT_STANDARD_NETWORK_VERSION 32
 /* (1: the rate agreed; 2: the players' sub-steps sent, network_substeps.c;
 3: OpenCE players in the game, network_standard.c's mixed games; 4: a
 player moved to the other team by the host, network_host_controls.c; 5:
@@ -185,7 +185,12 @@ cooperative_flags, whose bit 3 OpenCE took for vehicle riding, to bits 0 to
 moved from 3 to 4 and the chat settings' lobby bit from 2 to 3, after
 OpenCE's host bits (network_chat.c); a unit state's fine velocity moved
 from part bit 6, OpenCE's scripted pose's, to bit 7 of its unit flags
-(network_legacy.h).
+(network_legacy.h); 32: the players' vehicle hijacks, vehicle_hijack.c, which
+every machine of the game simulates: the host's rule in the game record
+(_network_game_vehicle_hijack_bit, network_standard.c's
+network_standard_vehicle_hijack), and the host's word on each hijack and on
+the rule changed during a game (network_hijack.c's
+_distributed_message_vehicle_hijack).
 Legacy games, and what an OpenCE machine sees, are unchanged) */
 #define HALO_PORT_STANDARD_BASE_VERSION 44
 #define HALO_PORT_STANDARD_VERSION_BIT 0x8000
