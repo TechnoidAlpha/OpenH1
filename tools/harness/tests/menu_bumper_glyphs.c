@@ -11,7 +11,7 @@ HUD's are as display.hud_bumper_style says. test_menu_bumper_glyphs.py takes the
 
 #include "harness.h"
 
-static boolean controller_glyph_menu_bumpers;
+boolean controller_glyph_menu_bumpers; /* (not static: a control reads it not at all) */
 static char const *bumper_style = "original";
 
 static char const *config_string(char const *name)
