@@ -29,9 +29,9 @@ BROWSER_TALL, _browser and _touch_browser) */
 #define TALL_DETAIL_X 300
 #define TALL_DETAIL_Y 11
 #define TALL_DETAIL_WIDTH 312
-/* (the band's button's left: its middle where it was at 148 wide, before
-it took the controller's View cap, wider than the keyboard's F1: blocks.xml) */
-#define TALL_BUTTON_X 264
+/* (the band's button's left: 172 wide (blocks.xml) for the controller's View
+cap, wider than the keyboard's F1, clear of the title at 4:3) */
+#define TALL_BUTTON_X 270
 #define TALL_BUTTON_Y 8
 #define TALL_BUTTON_WIDTH 172
 /* the tabs: their strip's top, the first's left, each's step and width;
