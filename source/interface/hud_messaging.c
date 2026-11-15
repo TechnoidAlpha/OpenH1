@@ -149,6 +149,7 @@ symbols in this file:
 #include "text/unicode.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "controller_remap.h" /* port: port/linux/game/controller_remap_game.c */
+#include "network_standard.h" /* port: port/linux/game/network_standard.c */
 
 #include <stddef.h>
 
@@ -525,8 +526,8 @@ static void render_state_text(
 	text_bounds.x0 = bounds->x0;
 	/* port: (the campaign's too: a vehicle hijack's prompt names its
 	button, port/linux/game/vehicle_hijack.c; the buttons are the HUD
-	globals', which every map has) */
-	if (custom)
+	globals', which every map has; with hijacking off, the original's) */
+	if (custom && (game_engine_running() || network_standard_vehicle_hijack()))
 		draw_string_and_hack_in_icons(&text_bounds, NULL, NULL, 0, text, TRUE);
 	else
 		rasterizer_draw_unicode_string(&text_bounds, NULL, NULL, 0, text);

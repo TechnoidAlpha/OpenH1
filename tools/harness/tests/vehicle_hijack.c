@@ -32,6 +32,7 @@ enum
 struct network_game
 {
 	byte cooperative_flags;
+	byte standard_flags;
 };
 
 /* the game: its connection, network_standard.c's state, the record, a demo */

@@ -76,3 +76,19 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("vehicle_hijack", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
+
+
+def default_of(source, name):
+    entry = re.search(r'\{ "' + re.escape(name) + r'", _config_boolean, "(\w+)"', source)
+    assert entry, f"no setting {name}"
+    return entry.group(1)
+
+
+def test_default_off():
+    """Hijacking is the host's choice and off unless it turns it on: config.toml's default for game.vehicle_hijack
+    (port_config.c) is false, so a host that never touched it plays stock Halo (and so do its clients). The negative
+    control: the default turned on is seen."""
+    source = read("port/linux/src/port_config.c")
+    assert default_of(source, "game.vehicle_hijack") == "false"
+    faulty = source.replace('{ "game.vehicle_hijack", _config_boolean, "false"', '{ "game.vehicle_hijack", _config_boolean, "true"')
+    assert default_of(faulty, "game.vehicle_hijack") != "false"
