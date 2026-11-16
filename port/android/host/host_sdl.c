@@ -15,6 +15,8 @@ so the audio callback is handed to a thread that has one.
 
 #include <SDL3/SDL.h>
 #include <pthread.h>
+#include <stdatomic.h>
+#include <stdlib.h>
 #include <string.h>
 #ifdef __APPLE__
 #include <TargetConditionals.h>
@@ -28,11 +30,38 @@ float host_app_render_scale(void);
 /* the audio session's output latency now (microseconds; -1 not known) */
 int host_app_audio_output_latency(void);
 #endif
+#ifdef __ANDROID__
+/* host_main.c: the fraction of the screen's pixels the game draws at */
+float host_app_render_scale(void);
+#endif
+#if defined(__APPLE__) && !TARGET_OS_IPHONE
+/* the system's own state of the keys and mouse buttons
+(host_sdl_input_held) */
+#define HOST_SYSTEM_KEYS 1
+/* CoreGraphics's (CGEventSource.h, whose headers host.h's names collide
+with): the session's state of a key, by its key code, and of a mouse
+button */
+typedef uint16_t CGKeyCode;
+typedef uint32_t CGMouseButton;
+typedef int32_t CGEventSourceStateID;
+#define kCGEventSourceStateCombinedSessionState 0
+#define kCGMouseButtonLeft 0
+#define kCGMouseButtonRight 1
+#define kCGMouseButtonCenter 2
+extern bool CGEventSourceKeyState(CGEventSourceStateID state, CGKeyCode key);
+extern bool CGEventSourceButtonState(CGEventSourceStateID state, CGMouseButton button);
+/* each scancode's key code (its event's raw code), as last seen down */
+static uint16_t system_key_codes[SDL_SCANCODE_COUNT];
+#endif
 #if defined(__APPLE__) && !TARGET_OS_IPHONE
 /* port/macos/host_app.m: the updater's (weak: the Metal tests and the
 replay have no host_app.m) */
 void host_app_update_tick(void);
 #pragma weak host_app_update_tick
+#endif
+#ifdef __linux__
+#include <sys/resource.h>
+#include <time.h>
 #endif
 #ifdef __APPLE__
 /* port/macos/host_links.c: the links the app is opened with (openh1://...),
@@ -49,7 +78,8 @@ SDL_AudioStream *host_audio_output_open(SDL_AudioDeviceID device, const SDL_Audi
 int host_audio_output_resume(SDL_AudioStream *stream);
 int host_audio_output_close(SDL_AudioStream *stream);
 int host_audio_output_timing(SDL_AudioStream *stream, int *timing);
-void host_audio_output_thread(SDL_AudioStream *stream, int *state);
+void host_audio_output_thread(SDL_AudioStream *stream, int *state, void **output);
+void host_audio_output_usage(uint64_t *values);
 #endif
 #if defined(__APPLE__) && !TARGET_OS_IPHONE
 /* port/macos/host_raw_mouse.m: the mouse's unaccelerated counts */
@@ -183,6 +213,13 @@ int32_t host_sdl_scancode_from_name(const char *name)
 	return (int32_t)SDL_GetScancodeFromName(name);
 }
 
+int32_t host_sdl_key_from_scancode(int32_t scancode, int32_t modifiers, int32_t key_event)
+{
+	if (scancode < 0 || scancode >= SDL_SCANCODE_COUNT)
+		return (int32_t)SDLK_UNKNOWN;
+	return (int32_t)SDL_GetKeyFromScancode((SDL_Scancode)scancode, (SDL_Keymod)modifiers, key_event != 0);
+}
+
 int64_t host_sdl_ticks(void)
 {
 	return (int64_t)SDL_GetTicks();
@@ -220,9 +257,10 @@ void host_sdl_window_size_in_pixels(uint32_t window, int *width, int *height)
 	*height = 0;
 	if (object)
 		SDL_GetWindowSizeInPixels(object, width, height);
-#if defined(__APPLE__) && TARGET_OS_IPHONE
+#if (defined(__APPLE__) && TARGET_OS_IPHONE) || defined(__ANDROID__)
 	/* (display.render_scale: the game draws smaller, host_metal.m's
-	drawables are that size, and the display scales them up) */
+	drawables and Android's swapchain are that size, and the display scales
+	them up) */
 	*width = (int)(*width * host_app_render_scale() + 0.5f) & ~1;
 	*height = (int)(*height * host_app_render_scale() + 0.5f) & ~1;
 #endif
@@ -297,10 +335,131 @@ int host_sdl_poll_event(void *event)
 		}
 	}
 #endif
+#ifdef HOST_SYSTEM_KEYS
+	/* (each key's place on the keyboard, as the system's state names it:
+	host_sdl_input_held) */
+	if (host_event.type == SDL_EVENT_KEY_DOWN && host_event.key.scancode < SDL_SCANCODE_COUNT)
+		system_key_codes[host_event.key.scancode] = host_event.key.raw;
+#endif
 	/* the layouts agree except for the pointers of text, drop and user
 	events, which the guest does not read */
 	memcpy(event, &host_event, sizeof(host_event));
 	return 1;
+}
+
+/* ---------- the keys and buttons held */
+
+#ifdef HOST_SYSTEM_KEYS
+/* the system's own state of a key, by its place on the keyboard (the
+key's raw code in SDL's events, a modifier's from the table: SDL's events
+of the modifiers carry none); -1 where it is not known (an ISO keyboard's
+two keys whose codes SDL exchanges, a key not seen down) */
+static int system_key_held(int scancode)
+{
+	int code;
+
+	switch (scancode)
+	{
+	case SDL_SCANCODE_LSHIFT: code = 56; break;
+	case SDL_SCANCODE_RSHIFT: code = 60; break;
+	case SDL_SCANCODE_LCTRL: code = 59; break;
+	case SDL_SCANCODE_RCTRL: code = 62; break;
+	case SDL_SCANCODE_LALT: code = 58; break;
+	case SDL_SCANCODE_RALT: code = 61; break;
+	case SDL_SCANCODE_LGUI: code = 55; break;
+	case SDL_SCANCODE_RGUI: code = 54; break;
+	default:
+		code = system_key_codes[scancode];
+		if (!code || code == 10 || code == 50 || code > 127)
+			return -1;
+		break;
+	}
+	return CGEventSourceKeyState(kCGEventSourceStateCombinedSessionState, (CGKeyCode)code) ? 1 : 0;
+}
+
+/* the system's own state of a mouse button (SDL's numbering), -1 where it
+is not known */
+static int system_button_held(int button)
+{
+	static const int buttons[] = { -1, kCGMouseButtonLeft, kCGMouseButtonCenter, kCGMouseButtonRight, 3, 4 };
+
+	if (button <= 0 || button >= (int)(sizeof(buttons) / sizeof(buttons[0])))
+		return -1;
+	return CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, (CGMouseButton)buttons[button]) ? 1 : 0;
+}
+
+/* how long SDL may hold what the system has let go of before it counts as
+let go: its event can be that long on the way on a loaded machine (it then
+lets go as it comes, and nothing is lost) */
+#define SYSTEM_RELEASE_NS 250000000ull
+#endif
+
+/* what SDL holds now (SDL_GetKeyboardState, SDL_GetMouseState), for the
+game's held keys and buttons, which its events alone could leave held when
+an event is lost (sdl_platform.c: platform_pump_events): keys[scancode],
+for count scancodes, bit 0 when SDL holds the key, bit 1 when the system
+has had it up for SYSTEM_RELEASE_NS though SDL holds it (macOS, whose key
+up can fail to come); the mouse buttons SDL holds (SDL_BUTTON_MASK) in the
+low 16 bits returned, those the system has had up so long in the high 16.
+The system's state of a key (or a button) counts only once it has been
+seen to agree with SDL's that it is held: where the app may not read it, it
+says every key is up, and nothing is let go of. */
+uint32_t host_sdl_input_held(uint8_t *keys, int count)
+{
+	int numkeys = 0, scancode;
+	const bool *state = SDL_GetKeyboardState(&numkeys);
+	uint32_t buttons = (uint32_t)SDL_GetMouseState(NULL, NULL) & 0xffffu;
+#ifdef HOST_SYSTEM_KEYS
+	static uint64_t key_up_since[SDL_SCANCODE_COUNT], button_up_since[16];
+	static uint8_t key_readable[SDL_SCANCODE_COUNT], button_readable[16];
+	uint64_t now = SDL_GetTicksNS();
+	int button;
+#endif
+
+	if (count > SDL_SCANCODE_COUNT)
+		count = SDL_SCANCODE_COUNT;
+	for (scancode = 0; scancode < count; scancode++)
+	{
+		keys[scancode] = scancode < numkeys && state && state[scancode] ? 1 : 0;
+#ifdef HOST_SYSTEM_KEYS
+		if (keys[scancode])
+		{
+			int system = system_key_held(scancode);
+
+			if (system == 1)
+				key_readable[scancode] = 1;
+			if (system != 0)
+				key_up_since[scancode] = 0;
+			else if (!key_up_since[scancode])
+				key_up_since[scancode] = now;
+			else if (key_readable[scancode] && now - key_up_since[scancode] >= SYSTEM_RELEASE_NS)
+				keys[scancode] |= 2;
+		}
+		else
+			key_up_since[scancode] = 0;
+#endif
+	}
+#ifdef HOST_SYSTEM_KEYS
+	for (button = 1; button < 16; button++)
+	{
+		if (buttons & SDL_BUTTON_MASK(button))
+		{
+			int system = system_button_held(button);
+
+			if (system == 1)
+				button_readable[button] = 1;
+			if (system != 0)
+				button_up_since[button] = 0;
+			else if (!button_up_since[button])
+				button_up_since[button] = now;
+			else if (button_readable[button] && now - button_up_since[button] >= SYSTEM_RELEASE_NS)
+				buttons |= (uint32_t)SDL_BUTTON_MASK(button) << 16;
+		}
+		else
+			button_up_since[button] = 0;
+	}
+#endif
+	return buttons;
 }
 
 /* ---------- gamepads */
@@ -372,6 +531,35 @@ int host_sdl_rumble_gamepad(uint32_t gamepad, uint32_t low, uint32_t high, uint3
 	return object ? SDL_RumbleGamepad(object, (Uint16)low, (Uint16)high, milliseconds) : 0;
 }
 
+/* (gyro aiming: port/linux/src/xinput_sdl.c) */
+int host_sdl_gamepad_has_sensor(uint32_t gamepad, int type)
+{
+	SDL_Gamepad *object = host_sdl_handle_get(gamepad, _handle_gamepad);
+
+	return object ? SDL_GamepadHasSensor(object, (SDL_SensorType)type) : 0;
+}
+
+int host_sdl_set_gamepad_sensor_enabled(uint32_t gamepad, int type, int enabled)
+{
+	SDL_Gamepad *object = host_sdl_handle_get(gamepad, _handle_gamepad);
+	int done;
+
+	if (!object)
+		return 0;
+	done = SDL_SetGamepadSensorEnabled(object, (SDL_SensorType)type, enabled != 0);
+	if (enabled)
+		host_logf(HOST_LOG_INFO, "gamepad %s: sensor %d on%s (%.0f samples a second)", SDL_GetGamepadName(object),
+			type, done ? "" : " failed", SDL_GetGamepadSensorDataRate(object, (SDL_SensorType)type));
+	return done;
+}
+
+int host_sdl_gamepad_steam(uint32_t gamepad)
+{
+	SDL_Gamepad *object = host_sdl_handle_get(gamepad, _handle_gamepad);
+
+	return object && SDL_GetGamepadSteamHandle(object) != 0;
+}
+
 /* ---------- audio */
 
 /* SDL calls audio_callback on its own audio thread, which cannot run guest
@@ -394,29 +582,169 @@ struct audio_binding
 	int quit;
 	int additional;
 	int total;
+	/* when the request was passed to the thread (HALO_AUDIO_MIX_TIMES) */
+	uint64_t requested_ns;
 	unsigned char *buffer;
 	int buffer_length;
 	int buffer_size;
 #ifdef HOST_AUDIO_OUTPUT
-	/* the stream, and the output unit's set-up the thread was last made
-	ready for (host_audio_output_thread) */
+	/* the stream, the output unit's set-up the thread was last made ready
+	for, and its output, found once (host_audio_output_thread) */
 	SDL_AudioStream *stream;
 	int output_setups;
+	void *output;
 #endif
 };
 
 /* the binding whose callback this thread is running, if any */
 static __thread struct audio_binding *calling_back;
 
+/* (HALO_AUDIO_MIX_TIMES) the longest the device's callback took, from its
+call to its return, since audio_mix_timed last logged */
+static _Atomic uint64_t audio_callback_most_ns;
+
+/* HALO_AUDIO_MIX_TIMES=<seconds>: the guest's mixes timed (the audio
+thread's, each request's) and logged that often: their count, mean, 99th
+percentile and most, and the bytes asked for (for measuring: a mix longer
+than its buffer's time is a buffer the device ran dry for) */
+static void audio_mix_timed(uint64_t nanoseconds, int bytes)
+{
+	static int wanted = -1;
+	static uint64_t period, began, most, total, times[4096];
+	static unsigned long count, asked;
+
+	if (wanted < 0)
+	{
+		const char *seconds = getenv("HALO_AUDIO_MIX_TIMES");
+
+		wanted = seconds && atof(seconds) > 0.0;
+		period = wanted ? (uint64_t)(atof(seconds) * 1e9) : 0;
+	}
+	if (!wanted)
+		return;
+	if (!began)
+		began = SDL_GetTicksNS();
+	if (count < sizeof(times) / sizeof(times[0]))
+		times[count] = nanoseconds;
+	count++;
+	total += nanoseconds;
+	asked += bytes > 0 ? (unsigned long)bytes : 0;
+	most = nanoseconds > most ? nanoseconds : most;
+	if (SDL_GetTicksNS() - began >= period)
+	{
+		unsigned long kept = count < sizeof(times) / sizeof(times[0]) ? count : sizeof(times) / sizeof(times[0]);
+		unsigned long index, above = 0;
+		uint64_t high;
+
+		/* (the 99th percentile: the least of the top 1%, by counting) */
+		for (high = most; high > 0; high -= high / 64 + 1)
+		{
+			for (index = 0, above = 0; index < kept; index++)
+				above += times[index] >= high;
+			if (above * 100 >= kept)
+				break;
+		}
+		host_logf(HOST_LOG_INFO, "sound: %lu mixes in %.1f s, %.3f ms each on average, %.3f at the 99th percentile, "
+			"%.3f at most; %lu bytes asked for each; the device's callback %.3f ms at most", count,
+			(double)(SDL_GetTicksNS() - began) / 1e9, (double)total / count / 1e6, (double)high / 1e6,
+			(double)most / 1e6, asked / count,
+			(double)atomic_exchange(&audio_callback_most_ns, 0) / 1e6);
+		began = SDL_GetTicksNS();
+		count = asked = 0;
+		total = most = 0;
+	}
+}
+
+/* what the thread running the mix did meanwhile (HALO_AUDIO_MIX_TIMES): its
+processor time, the page faults (the process's on a Mac, the thread's on
+Linux) and pages read in, the times it was switched out (Linux: its
+involuntary switches), and its priority (a Mac's: 97 while real-time) */
+struct audio_mix_usage
+{
+	uint64_t cpu_ns;
+	uint64_t faults, pageins, switches;
+	int priority;
+};
+
+static void audio_mix_usage(struct audio_mix_usage *usage)
+{
+	memset(usage, 0, sizeof(*usage));
+#ifdef HOST_AUDIO_OUTPUT
+	{
+		uint64_t values[5];
+
+		host_audio_output_usage(values);
+		usage->cpu_ns = values[0];
+		usage->faults = values[1];
+		usage->pageins = values[2];
+		usage->switches = values[3];
+		usage->priority = (int)values[4];
+	}
+#elif defined(__linux__)
+	{
+		struct timespec now;
+		struct rusage rusage;
+
+		if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &now) == 0)
+			usage->cpu_ns = (uint64_t)now.tv_sec * 1000000000ull + (uint64_t)now.tv_nsec;
+		if (getrusage(RUSAGE_THREAD, &rusage) == 0)
+		{
+			usage->faults = (uint64_t)rusage.ru_minflt + (uint64_t)rusage.ru_majflt;
+			usage->pageins = (uint64_t)rusage.ru_majflt;
+			usage->switches = (uint64_t)rusage.ru_nivcsw;
+		}
+	}
+#endif
+}
+
+/* HALO_AUDIO_MIX_TIMES: a mix over HALO_AUDIO_MIX_SLOW_MS (2 by default)
+logged by its request's number (the guest's mixer logs its parts by the same
+number): its time, the thread's processor time in it, the faults, pages read
+in and switches meanwhile, its priority, and how long the thread took to start
+on the request */
+static int audio_mix_watching(uint64_t *slow_ns)
+{
+	static int wanted = -1;
+	static uint64_t slow;
+
+	if (wanted < 0)
+	{
+		const char *seconds = getenv("HALO_AUDIO_MIX_TIMES");
+		const char *milliseconds = getenv("HALO_AUDIO_MIX_SLOW_MS");
+
+		slow = (uint64_t)((milliseconds && atof(milliseconds) > 0.0 ? atof(milliseconds) : 2.0) * 1e6);
+		wanted = seconds && atof(seconds) > 0.0;
+	}
+	*slow_ns = slow;
+	return wanted;
+}
+
+#ifdef _WIN32
+/* port/windows/host/host_thread_win.c: the calling thread made MMCSS's "Pro
+Audio" task (its handle; NULL, it could not be), and made itself again */
+void *host_thread_pro_audio_begin(void);
+void host_thread_pro_audio_end(void *task);
+#endif
+
 static void *audio_thread(void *context)
 {
+	unsigned long requests = 0;
 	struct audio_binding *binding = context;
+
+#ifdef _WIN32
+	void *pro_audio;
+#endif
 
 #ifndef __ANDROID__
 	/* (SDL's audio thread waits on this one while the guest mixes: at its
 	priority, so that a busy computer, a build running, keeps the mix in
 	time, as SDL keeps its own; a small audio.buffer_frames needs it) */
 	SDL_SetCurrentThreadPriority(SDL_THREAD_PRIORITY_TIME_CRITICAL);
+#endif
+#ifdef _WIN32
+	/* (and on Windows, MMCSS's "Pro Audio" task, above that priority, as
+	Windows's own audio engine's threads are, where it gives one) */
+	pro_audio = host_thread_pro_audio_begin();
 #endif
 #if defined(__APPLE__) && !TARGET_OS_IPHONE
 #endif
@@ -433,16 +761,46 @@ static void *audio_thread(void *context)
 		total = binding->total;
 		pthread_mutex_unlock(&binding->lock);
 #ifdef HOST_AUDIO_OUTPUT
-		host_audio_output_thread(binding->stream, &binding->output_setups);
+		host_audio_output_thread(binding->stream, &binding->output_setups, &binding->output);
 #endif
 		calling_back = binding;
-		host_call_guest(binding->callback, binding->userdata, binding->handle, (uint32_t)additional, (uint32_t)total);
-		calling_back = NULL;
-		pthread_mutex_lock(&binding->lock);
-		binding->pending = 0;
-		pthread_cond_signal(&binding->done);
+		requests++;
+		{
+			uint64_t began = SDL_GetTicksNS(), took, slow_ns;
+			int watching = audio_mix_watching(&slow_ns);
+			struct audio_mix_usage before, after;
+
+			if (watching)
+				audio_mix_usage(&before);
+			host_call_guest(binding->callback, binding->userdata, binding->handle, (uint32_t)additional,
+				(uint32_t)total);
+			took = SDL_GetTicksNS() - began;
+			audio_mix_timed(took, additional);
+			calling_back = NULL;
+			if (watching)
+				audio_mix_usage(&after);
+			pthread_mutex_lock(&binding->lock);
+			binding->pending = 0;
+			pthread_cond_signal(&binding->done);
+			/* (logged after the buffer is handed back) */
+			if (watching && took >= slow_ns)
+			{
+				pthread_mutex_unlock(&binding->lock);
+				host_logf(HOST_LOG_INFO, "sound: slow mix (request %lu): %.3f ms, %.3f ms of it on the processor; "
+					"started %.3f ms after the request; %llu faults, %llu pages read in, %llu switches meanwhile; "
+					"priority %d (%d before)", requests, (double)took / 1e6,
+					(double)(after.cpu_ns - before.cpu_ns) / 1e6, (double)(began - binding->requested_ns) / 1e6,
+					(unsigned long long)(after.faults - before.faults),
+					(unsigned long long)(after.pageins - before.pageins),
+					(unsigned long long)(after.switches - before.switches), after.priority, before.priority);
+				pthread_mutex_lock(&binding->lock);
+			}
+		}
 	}
 	pthread_mutex_unlock(&binding->lock);
+#ifdef _WIN32
+	host_thread_pro_audio_end(pro_audio);
+#endif
 	pthread_cond_destroy(&binding->done);
 	pthread_cond_destroy(&binding->requested);
 	pthread_mutex_destroy(&binding->lock);
@@ -454,10 +812,14 @@ static void *audio_thread(void *context)
 static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int additional, int total)
 {
 	struct audio_binding *binding = userdata;
+	uint64_t slow_ns, took;
+	int watching = audio_mix_watching(&slow_ns);
+	uint64_t called = watching ? SDL_GetTicksNS() : 0;
 
 	pthread_mutex_lock(&binding->lock);
 	binding->additional = additional;
 	binding->total = total;
+	binding->requested_ns = SDL_GetTicksNS();
 	binding->pending = 1;
 	pthread_cond_signal(&binding->requested);
 	while (binding->pending)
@@ -468,6 +830,11 @@ static void SDLCALL audio_callback(void *userdata, SDL_AudioStream *stream, int 
 		SDL_PutAudioStreamData(stream, binding->buffer, binding->buffer_length);
 		binding->buffer_length = 0;
 	}
+	if (!watching)
+		return;
+	took = SDL_GetTicksNS() - called;
+	if (took > atomic_load_explicit(&audio_callback_most_ns, memory_order_relaxed))
+		atomic_store_explicit(&audio_callback_most_ns, took, memory_order_relaxed);
 }
 
 /* audio the guest puts into its stream during the stream's callback, for
@@ -556,12 +923,16 @@ uint32_t host_sdl_open_audio_stream(uint32_t device, const void *spec, uint32_t 
 
 int host_sdl_put_audio_stream_data(uint32_t stream, const void *data, int length)
 {
-	SDL_AudioStream *object = host_sdl_handle_get(stream, _handle_audio);
+	SDL_AudioStream *object;
 
-	if (!object)
-		return 0;
+	/* (the mix, during the device's callback: kept without the handles'
+	lock, which the game's threads take, so that the device's thread never
+	waits on one the scheduler has set aside holding it) */
 	if (calling_back && calling_back->handle == stream)
 		return audio_keep(calling_back, data, length);
+	object = host_sdl_handle_get(stream, _handle_audio);
+	if (!object)
+		return 0;
 	return SDL_PutAudioStreamData(object, data, length);
 }
 

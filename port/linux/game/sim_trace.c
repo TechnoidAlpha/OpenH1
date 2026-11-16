@@ -114,7 +114,11 @@ debug.trace_mutation puts a known bug in on purpose, which the scorecard
 must catch (its negative controls): "head_start", a projectile moves a whole
 tick further as it is made (as Halo 2's did, the other way, at 60 Hz);
 "jump", a jump leaves the ground 1.3% faster (2.6% higher, as an
-uncorrected 60 Hz jump does); "speed", a projectile starts 1% slow.
+uncorrected 60 Hz jump does); "speed", a projectile starts 1% slow;
+"unseeded", a draw of the game's random seed after a step whenever the
+host's clock reads an odd microsecond, as randomness taken from outside the
+game would (two runs of the same input then differ: identity.py --repeat
+must catch it).
 */
 
 #include "cseries.h"
@@ -138,6 +142,7 @@ uncorrected 60 Hz jump does); "speed", a projectile starts 1% slow.
 const char *config_string(char const *name);
 double config_real(char const *name);
 void platform_log(char const *format, ...);
+unsigned long long platform_shared_clock_microseconds(void);
 /* port/linux/game/network_test.c: the tick a scenario's seconds count from
 (its cues'), NONE until it is known; 0 with no network test */
 long network_test_cues_start_tick(void);
@@ -160,6 +165,7 @@ enum
 	_mutation_head_start,
 	_mutation_jump,
 	_mutation_speed,
+	_mutation_unseeded,
 };
 
 /* ---------- globals */
@@ -248,6 +254,8 @@ static void sim_trace_check(
 		sim_trace.mutation = _mutation_jump;
 	else if (!strcmp(mutation, "speed"))
 		sim_trace.mutation = _mutation_speed;
+	else if (!strcmp(mutation, "unseeded"))
+		sim_trace.mutation = _mutation_unseeded;
 	else
 	{
 		platform_log("sim trace: no mutation \"%s\"", mutation);
@@ -549,6 +557,8 @@ void sim_trace_step(
 		sim_trace_events_length = 0;
 		return;
 	}
+	if (sim_trace.mutation == _mutation_unseeded && (platform_shared_clock_microseconds() & 1))
+		seed_random(get_global_random_seed_address());
 	seconds = sim_trace_seconds();
 	fprintf(sim_trace.file, "s %.6f %ld %ld\n", seconds, tick, micro_step);
 	fwrite(sim_trace_events, 1, sim_trace_events_length, sim_trace.file);

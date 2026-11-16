@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/shell.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="common_button_back" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions"/>
+	</look>
+	<look name="common_button_cancel" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+</model>

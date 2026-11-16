@@ -1,0 +1,640 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.lobby.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_header" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_subtitle" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_team_0" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_title_0" x="40" y="88"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_team_1" x="226" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_title_1" x="238" y="88"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_all" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_title_all" x="40" y="88"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_count_0" x="112" y="92"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_count_1" x="310" y="92"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_0" x="36" y="116"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_1" x="36" y="136"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_2" x="36" y="156"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_3" x="36" y="176"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_4" x="36" y="196"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_5" x="36" y="216"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_6" x="36" y="236"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_7" x="36" y="256"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_8" x="36" y="276"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_9" x="36" y="296"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_10" x="36" y="316"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_11" x="36" y="336"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_0_12" x="36" y="356"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_0" x="234" y="116"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_1" x="234" y="136"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_2" x="234" y="156"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_3" x="234" y="176"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_4" x="234" y="196"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_5" x="234" y="216"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_6" x="234" y="236"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_7" x="234" y="256"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_8" x="234" y="276"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_9" x="234" y="296"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_10" x="234" y="316"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_11" x="234" y="336"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_row_1_12" x="234" y="356"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_panel" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/touch/board_panel" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/touch/board_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_header" box="35 11 398 70" wide="-106 0" picture="main_menu/multiplayer_type_select/lobby/header_lobby"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_subtitle" type="text" box="300 50 612 68" wide="106 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_team_0" box="0 0 186 320" wide="-106 70" picture="main_menu/parts/team_panel_186x320"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_title_0" type="text" box="0 0 100 22" wide="-106 0">
+		<text font="ui\large_ui" color="#FFFF6B5E" flags="no_focus_test" text="RED"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_team_1" box="0 0 186 320" wide="-36 70" picture="main_menu/parts/team_panel_186x320"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_title_1" type="text" box="0 0 100 22" wide="-36 0">
+		<text font="ui\large_ui" color="#FF5AA9FF" flags="no_focus_test" text="BLUE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_all" box="0 0 384 320" wide="-106 140" picture="main_menu/parts/panel_384x320"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_title_all" type="text" box="0 0 100 22" wide="-106 0">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test" text="PLAYERS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_count_0" type="text" box="0 0 90 16" wide="-36 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_count_1" type="text" box="0 0 90 16" wide="34 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_0" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_0" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_0" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_0" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_0" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_0" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_0" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_1" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_1" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_1" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_1" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_1" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_1" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_1" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_2" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_2" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_2" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_2" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_2" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_2" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_2" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_3" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_3" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_3" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_3" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_3" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_3" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_3" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_4" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_4" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_4" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_4" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_4" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_4" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_4" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_5" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_5" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_5" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_5" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_5" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_5" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_5" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_6" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_6" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_6" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_6" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_6" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_6" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_6" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_7" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_7" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_7" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_7" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_7" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_7" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_7" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_8" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_8" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_8" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_8" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_8" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_8" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_8" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_9" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_9" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_9" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_9" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_9" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_9" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_9" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_10" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_10" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_10" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_10" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_10" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_10" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_10" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_11" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_11" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_11" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_11" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_11" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_11" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_11" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_0_12" box="0 0 170 18" wide="-106 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_0_12" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_0_12" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_0_12" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_0_12" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_0_12" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_0_12" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_0" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_0" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_0" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_0" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_0" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_0" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_0" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_1" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_1" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_1" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_1" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_1" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_1" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_1" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_2" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_2" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_2" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_2" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_2" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_2" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_2" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_3" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_3" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_3" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_3" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_3" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_3" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_3" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_4" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_4" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_4" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_4" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_4" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_4" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_4" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_5" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_5" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_5" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_5" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_5" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_5" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_5" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_6" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_6" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_6" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_6" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_6" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_6" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_6" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_7" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_7" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_7" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_7" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_7" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_7" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_7" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_8" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_8" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_8" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_8" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_8" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_8" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_8" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_9" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_9" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_9" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_9" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_9" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_9" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_9" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_10" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_10" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_10" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_10" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_10" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_10" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_10" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_11" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_11" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_11" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_11" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_11" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_11" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_11" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_row_1_12" box="0 0 170 18" wide="-36 70" picture="main_menu/parts/player_row_170x18">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_dot_1_12" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_name_1_12" x="22" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tag_1_12" x="60" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_dot_1_12" box="0 0 8 8" picture="main_menu/parts/dot_8"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_name_1_12" type="text" box="0 0 80 18" wide="0 70">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tag_1_12" type="text" box="0 0 100 18" wide="70 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_next_label" type="text" box="0 0 164 16">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="NEXT GAME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_gametype" type="text" box="0 0 164 22" wide="0 72">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_map" type="text" box="0 0 164 16" wide="0 72">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_limits" type="text" box="0 0 164 16" wide="0 72">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_kind" type="text" box="0 0 64 16" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_tick" type="text" box="0 0 64 16" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_opence" type="text" box="0 0 132 16" picture="main_menu/parts/pill_132">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_after_label" type="text" box="0 0 42 16">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="THEN"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_after" type="text" box="0 0 120 16" wide="0 72">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_status" type="text" box="0 0 164 38" wide="0 72">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_waiting" type="text" box="0 0 164 26" wide="0 72">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_panel" box="420 80 612 400" wide="34 72" picture="main_menu/parts/panel_192x320">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_next_label" x="434" y="90"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_gametype" x="434" y="104"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_map" x="434" y="126"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_limits" x="434" y="142"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_kind" x="434" y="162"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_tick" x="502" y="162"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_opence" x="434" y="180"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_after_label" x="434" y="198"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_after" x="478" y="198"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_status" x="434" y="282"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_waiting" x="434" y="368"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_players" box="0 0 384 320" wide="-106 140"/>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_count" box="0 0 164 22" wide="34 72" picture="main_menu/parts/item_164x22">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_count_label" x="8" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_count_spinner" x="70" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_count_label" type="text" box="0 0 60 22">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 2" text="BOTS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_count_spinner" type="spinner" box="0 2 84 20" wide="72 0" header="bitmaps/arrow_sm_left" header_box="-6 5 0 17" footer="bitmaps/arrow_sm_right" footer_box="87 5 93 17">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 0" items="NONE|ADD 1|ADD 2|ADD 3|ADD 4|ADD 5|ADD 6|ADD 7|ADD 8|ADD 9|ADD 10|ADD 11|ADD 12|ADD 13|ADD 14|ADD 15|ADD 16|ADD 20|ADD 24|ADD 28|ADD 32|ADD 36|ADD 40|ADD 44|ADD 48|ADD 52|ADD 56|ADD 60|ADD 64|FILL TO 2|FILL TO 3|FILL TO 4|FILL TO 5|FILL TO 6|FILL TO 7|FILL TO 8|FILL TO 9|FILL TO 10|FILL TO 11|FILL TO 12|FILL TO 13|FILL TO 14|FILL TO 15|FILL TO 16|FILL TO 20|FILL TO 24|FILL TO 28|FILL TO 32|FILL TO 36|FILL TO 40|FILL TO 44|FILL TO 48|FILL TO 52|FILL TO 56|FILL TO 60|FILL TO 64"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_skill" box="0 0 164 22" wide="34 72" picture="main_menu/parts/item_164x22">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_skill_label" x="8" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_skill_spinner" x="70" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_skill_label" type="text" box="0 0 60 22">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 2" text="SKILL"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_skill_spinner" type="spinner" box="0 2 84 20" wide="72 0" header="bitmaps/arrow_sm_left" header_box="-6 5 0 17" footer="bitmaps/arrow_sm_right" footer_box="87 5 93 17">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 0" items="EASY|NORMAL|HEROIC|LEGENDARY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_teams" box="0 0 164 22" wide="34 72" picture="main_menu/parts/item_164x22">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_teams_label" x="8" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_teams_spinner" x="70" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_teams_label" type="text" box="0 0 60 22">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 2" text="TEAMS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_bots_teams_spinner" type="spinner" box="0 2 84 20" wide="72 0" header="bitmaps/arrow_sm_left" header_box="-6 5 0 17" footer="bitmaps/arrow_sm_right" footer_box="87 5 93 17">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 0" items="EVEN|AGAINST YOU"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_host" type="text" box="0 0 164 22" wide="34 72" picture="main_menu/parts/outline_164x22">
+		<text font="ui\small_ui" color="#FFCFE3FF" align="center" at="0 2" text="HOST CONTROLS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_settings" type="text" box="0 0 164 22" wide="34 72" picture="main_menu/parts/outline_164x22">
+		<text font="ui\small_ui" color="#FFCFE3FF" align="center" at="0 2" text="GAME SETTINGS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_start" type="text" box="0 0 164 26" wide="34 72" picture="main_menu/parts/button_164x26">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="12 4"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/lobby/board_players" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_count" x="434" y="216"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_skill" x="434" y="238"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_bots_teams" x="434" y="260"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_host" x="434" y="322"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_settings" x="434" y="345"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_start" x="434" y="368"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/board_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/board_prompts" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/lobby/prompt_team" x="28" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/prompt_invite" x="176" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/prompt_add" x="305" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/prompt_leave" x="516" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/prompt_invite" type="text" box="0 0 128 24" wide="-106 0" picture="main_menu/parts/item_128x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%y-button COPY INVITE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/prompt_add" type="text" box="0 0 143 24" wide="106 0" picture="main_menu/parts/item_143x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%x-button ADD PLAYER"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/prompt_leave" type="text" box="0 0 96 24" wide="106 0" picture="main_menu/parts/item_96x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%b-button LEAVE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/prompt_team" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="30 3" text="CHANGE TEAM"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/prompt_team_left" x="8" y="5"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/prompt_team_right" x="18" y="5"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/prompt_team_left" box="0 0 6 12" picture="bitmaps/arrow_sm_left"/>
+	<look name="main_menu/multiplayer_type_select/lobby/prompt_team_right" box="0 0 6 12" picture="bitmaps/arrow_sm_right"/>
+	<look name="main_menu/multiplayer_type_select/lobby/header_lobby" box="35 11 398 70" picture="main_menu/multiplayer_type_select/lobby/header_lobby"/>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_join_help" type="text" box="355 446 630 470">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 5" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_desc">
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/lobby_right_item" x="22" y="2"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_right_item" box="406 75 568 401" picture="bitmaps/spinner_list_3_wide_item_background">
+		<at widget="main_menu/multiplayer_type_select/lobby/lobby_map_pic" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/lobby_map_name" x="0" y="0"/>
+		<at widget="main_menu/solo_level_select/replay_level_right_pic" x="0" y="0"/>
+		<at widget="main_menu/solo_level_select/replay_level_right_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/lobby_game_data" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_map_pic" box="419 87 559 201" picture="ui\shell\bitmaps\mp_map_grafix"/>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_map_name" type="text" box="417 204 563 247">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/mp_map_list"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/lobby_game_data" type="text" box="417 250 563 394">
+		<text font="ui\small_ui" color="#FF2896FF"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_title" type="text" box="30 30 610 66">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test" text="VOTE FOR THE NEXT GAME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_0" x="20" y="73"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_1" x="20" y="103"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_2" x="20" y="133"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_3" x="20" y="163"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_4" x="20" y="193"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_5" x="20" y="223"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_6" x="20" y="253"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_7" x="20" y="283"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_0" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd_top">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_1" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_2" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_3" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_4" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_5" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_6" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_7" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_desc">
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/lobby_right_item" x="22" y="2"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_lobby" x="510" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_lobby" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="LOBBY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/player_profile_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/player_profile_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/header_add_player" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/player_profile_help" x="20" y="416"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/header_add_player" box="35 11 398 70" picture="main_menu/multiplayer_type_select/lobby/header_add_player"/>
+	<look name="main_menu/multiplayer_type_select/lobby/player_profile_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_0" x="20" y="73"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_1" x="20" y="103"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_2" x="20" y="133"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_3" x="20" y="163"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_4" x="20" y="193"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_5" x="20" y="223"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_6" x="20" y="253"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_7" x="20" y="283"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_8" x="20" y="313"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_9" x="20" y="343"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_10" x="20" y="373"/>
+		<at widget="main_menu/multiplayer_type_select/coop/player_2_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/player_profile_help" type="text" box="0 0 350 24">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 5" flags="no_focus_test" text="The new player's profile."/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/preview_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/header_lobby" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/lobby_join_help" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/lobby/preview_status" x="30" y="75"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/preview_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_status" type="text" box="0 0 360 300">
+		<text font="ui\large_ui" color="#FF2896FF"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/lobby/preview_button_join" x="250" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/preview_button_add" x="380" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/lobby/preview_button_back" x="510" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_button_join" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="JOIN GAME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_button_add" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="ADD PLAYER"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/lobby/preview_button_back" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="BACK"/>
+	</look>
+</model>

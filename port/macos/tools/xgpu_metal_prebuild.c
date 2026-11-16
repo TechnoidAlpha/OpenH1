@@ -182,6 +182,50 @@ static int pipeline_new(const struct xgpu_metal_pipeline_state_key *key)
 	return 1;
 }
 
+/* the derived draws made (their hashes: an open-addressed set), so that
+each is made once */
+static uint64_t *derived_slots;
+static uint32_t derived_used, derived_capacity;
+
+static int derived_new(const struct xgpu_manifest_draw *draw)
+{
+	uint64_t hash = xgpu_manifest_hash(draw, sizeof(*draw), XGPU_MANIFEST_HASH_START);
+	uint32_t slot;
+
+	if (!hash)
+		hash = 1;
+	if ((derived_used + 1) * 2 > derived_capacity)
+	{
+		uint64_t *old = derived_slots;
+		uint32_t old_capacity = derived_capacity, at;
+
+		derived_capacity = derived_capacity ? derived_capacity * 2 : 4096;
+		derived_slots = calloc(derived_capacity, sizeof(*derived_slots));
+		if (!derived_slots)
+			fail("out of memory");
+		derived_used = 0;
+		for (at = 0; at < old_capacity; at++)
+		{
+			if (!old[at])
+				continue;
+			for (slot = (uint32_t)old[at] & (derived_capacity - 1); derived_slots[slot];
+				slot = (slot + 1) & (derived_capacity - 1))
+				;
+			derived_slots[slot] = old[at];
+			derived_used++;
+		}
+		free(old);
+	}
+	for (slot = (uint32_t)hash & (derived_capacity - 1); derived_slots[slot]; slot = (slot + 1) & (derived_capacity - 1))
+	{
+		if (derived_slots[slot] == hash)
+			return 0;
+	}
+	derived_slots[slot] = hash;
+	derived_used++;
+	return 1;
+}
+
 /* a draw's pipeline: its shaders made and its state's key; 0 if its
 shaders failed */
 static int draw_pipeline(const struct xgpu_manifest *manifest, const struct xgpu_manifest_draw *draw,
@@ -214,8 +258,10 @@ static int draw_pipeline(const struct xgpu_manifest *manifest, const struct xgpu
 	if (!program)
 		fail("out of memory");
 	record = vertex_program_record(microcode, program);
-	lit = (draw->key.lighting == XGPU_LIGHTING_MODEL || draw->key.lighting == XGPU_LIGHTING_MODEL_POINT) &&
-		vertex_lighting_record(program, &lighting);
+	/* (its lighting's record for every lit form, as the backend has it
+	from the guest for the program whatever the draw: the split's vertex
+	function reads its normal, position and lights too) */
+	lit = draw->key.lighting != XGPU_LIGHTING_NONE && vertex_lighting_record(program, &lighting);
 	free(program);
 	/* the layout's attributes (immediate mode's: the registers written),
 	and the draw's variant */
@@ -265,8 +311,9 @@ static int draw_pipeline(const struct xgpu_manifest *manifest, const struct xgpu
 /* a vertex shader's functions (an s record: the game's code's), in every
 form a draw can need: drawn from its layout or in immediate mode, unlit or
 lit as the settings can light it (each pixel's lighting for a model's
-lighting program; the dynamic lights for a structure's lightmap pass,
-whose normal, binormal and tangent are packed: d3d8_device.c). The pixel
+lighting program, or its ambient light handed on apart for the ambient
+occlusion; the dynamic lights for a structure's lightmap pass, whose
+normal, binormal and tangent are packed: d3d8_device.c). The pixel
 key is none: these draws are for their vertex functions alone */
 static uint32_t vertex_shader_functions(const struct xgpu_manifest *manifest, const struct xgpu_manifest_draw *shader)
 {
@@ -290,7 +337,7 @@ static uint32_t vertex_shader_functions(const struct xgpu_manifest *manifest, co
 		lights = lighting.lights;
 	free(program);
 	free(record);
-	for (form = 0; form < 5; form++)
+	for (form = 0; form < 6; form++)
 	{
 		draw = *shader;
 		draw.key.color_format = XGPU_FORMAT_BGRA8;
@@ -312,6 +359,13 @@ static uint32_t vertex_shader_functions(const struct xgpu_manifest *manifest, co
 				continue;
 			draw.key.lighting = form == 3 ? XGPU_LIGHTING_MODEL_POINT : XGPU_LIGHTING_MODEL;
 			break;
+		case 4:
+			/* (display.ambient_occlusion over a model lit for each vertex:
+			its ambient light handed on apart) */
+			if (!lights)
+				continue;
+			draw.key.lighting = XGPU_LIGHTING_MODEL_SPLIT;
+			break;
 		default:
 			if ((shader->key.packed_attributes & 0xe) != 0xe)
 				continue;
@@ -328,7 +382,7 @@ int main(int argc, char **argv)
 {
 	struct xgpu_manifest manifest, vertex;
 	char error[256], path[1024];
-	uint32_t index, failed = 0, skipped = 0;
+	uint32_t index, failed = 0, skipped = 0, derived_count = 0;
 	unsigned long pipelines;
 	int samples, parts, depth;
 
@@ -358,24 +412,53 @@ int main(int argc, char **argv)
 	snprintf(path, sizeof(path), "%s/xgpu_metal_combiner.metal", sources_folder);
 	if (!prebuild_write_text(path, xgpu_metal_combiner_source, strlen(xgpu_metal_combiner_source)))
 		fail("cannot write the combiner's function's source");
+	/* each draw as every setting derives it (xgpu_manifest_derive: lit, and
+	unlit where the backend could not light it), each derived draw once */
 	for (index = 0; index < manifest.draw_count; index++)
 	{
-		struct xgpu_metal_pipeline_state_key state;
+		struct xgpu_manifest_settings settings;
+		int combination, unlit, lit;
 
-		if (!draw_pipeline(&manifest, &manifest.draws[index], &state))
+		for (combination = 0; xgpu_manifest_settings(combination, &settings); combination++)
 		{
-			failed++;
-			continue;
+			/* (unlit only where lit: else the same draw) */
+			for (unlit = 0, lit = 1; unlit < 2 && lit; unlit++)
+			{
+				struct xgpu_manifest_draw derived;
+				struct xgpu_manifest_draw forms[XGPU_MANIFEST_WORLD_AO_FORMS];
+				int form, form_count;
+
+				lit = xgpu_manifest_derive(&manifest.draws[index], &manifest.contexts[index], &settings, unlit, &derived);
+				/* (display.ambient_occlusion "world"'s forms of it: finding its
+				occlusion itself, reading it found once a pixel, and the
+				pre-pass's twin, or another's as an occluder: xgpu_manifest.h) */
+				form_count = xgpu_manifest_world_ao_forms(&derived, &manifest.contexts[index], &settings, forms);
+				for (form = 0; form < form_count; form++)
+				{
+				struct xgpu_metal_pipeline_state_key state;
+				struct xgpu_manifest_draw draw = forms[form];
+
+				if (!derived_new(&draw))
+					continue;
+				derived_count++;
+				if (!draw_pipeline(&manifest, &draw, &state))
+				{
+					failed++;
+					continue;
+				}
+				if (!xgpu_metal_pipeline_archivable(&state))
+				{
+					skipped++;
+					continue;
+				}
+				if (!function_written[state.pixel_shader - 1])
+					continue;
+				if (pipeline_new(&state))
+					prebuild_script_pipeline(&state, function_name(state.vertex_shader),
+						function_name(state.pixel_shader));
+				}
+			}
 		}
-		if (!xgpu_metal_pipeline_archivable(&state))
-		{
-			skipped++;
-			continue;
-		}
-		if (!function_written[state.pixel_shader - 1])
-			continue;
-		if (pipeline_new(&state))
-			prebuild_script_pipeline(&state, function_name(state.vertex_shader), function_name(state.pixel_shader));
 	}
 	/* every vertex shader the game creates, in each form (its pipelines are
 	the draws'; these make no more) */
@@ -413,14 +496,17 @@ int main(int argc, char **argv)
 
 		if (!xgpu_metal_shaders()->halo(NULL, &halo_vertex, &halo_pixel))
 			fail("cannot write the glows' functions");
+		/* (display.ambient_occlusion "world"'s pass's) */
+		if (!xgpu_metal_shaders()->world_ao_pass(NULL, &halo_vertex, &halo_pixel))
+			fail("cannot write the world occlusion's pass's functions");
 		for (index = 0; index < XGPU_METAL_POST_FUNCTION_COUNT; index++)
 			xgpu_metal_pixel_shader_create(xgpu_metal_post_functions[index].source, xgpu_metal_post_functions[index].size,
 				xgpu_metal_post_functions[index].entry, NULL);
 	}
 	pipelines = prebuild_script_write(argv[3], argv[4]);
-	printf("%u draws, %u vertex shaders: %u functions (%u in the library), %lu pipelines (%u draws' writing no colour, not archived; "
-		"%u whose shaders failed)\n", manifest.draw_count, vertex.vertex_shader_count, function_count, functions_written(), pipelines,
-		skipped, failed);
+	printf("%u draws (%u under every setting), %u vertex shaders: %u functions (%u in the library), %lu pipelines (%u draws' "
+		"writing no colour, not archived; %u whose shaders failed)\n", manifest.draw_count, derived_count,
+		vertex.vertex_shader_count, function_count, functions_written(), pipelines, skipped, failed);
 	xgpu_manifest_free(&manifest);
 	xgpu_manifest_free(&vertex);
 	return failed ? 1 : 0;

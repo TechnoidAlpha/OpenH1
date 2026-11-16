@@ -181,7 +181,8 @@ void particles_reconnect_to_structure_bsp(
 void particle_new(
 	struct new_particle_data const *data);
 void particles_update(
-	real dt);
+	real dt,
+	real first_dt);
 
 /* ---------- globals */
 

@@ -1546,3 +1546,18 @@ boolean game_engine_oddball_read_network_state(
 	oddball_events.transfers = state.transfers;
 	return TRUE;
 }
+
+/* port: the game type's state kept outside the game state, part by part
+(NULL past the last), for a demo (port/linux/game/demo.c) */
+void *game_engine_oddball_port_demo_state(
+	short part,
+	long *size)
+{
+	switch (part)
+	{
+	case 0:
+		*size = (long)sizeof(oddball_globals);
+		return &oddball_globals;
+	}
+	return NULL;
+}

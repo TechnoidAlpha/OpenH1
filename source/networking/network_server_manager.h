@@ -91,6 +91,18 @@ void network_game_server_port_set_settings(
 multiplayer; the next round is on next_map (NULL repeats the level). */
 void network_game_server_port_cooperative_won(
 	char const *next_map);
+/* port: a co-op level ended for everyone as a won one is, the next round on
+next_map (NULL: this level again) at difficulty (NONE: the game's): its
+host's change of level (port/linux/game/network_host_game.c) */
+void network_game_server_port_cooperative_change(
+	char const *next_map,
+	short difficulty);
+/* port: a co-op lobby's level and difficulty, its other settings kept (its
+host's change of level) */
+void network_game_server_port_set_cooperative_level(
+	struct network_game_server *server,
+	char const *map_name,
+	short difficulty);
 /* port: co-op server settings: the difficulty, sent to clients, and the
 most players a co-op game starts with (Server Setup sets its own) */
 void network_game_server_port_set_cooperative(

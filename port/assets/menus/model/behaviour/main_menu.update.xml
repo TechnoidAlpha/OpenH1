@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.update.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/update/update_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/update/button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="main_menu/update/button_update">
+		<on event="a" run="port update now"/>
+		<on event="start" run="port update now"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/update/button_later">
+		<on event="a" back="true"/>
+		<on event="start" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

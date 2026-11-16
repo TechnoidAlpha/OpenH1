@@ -44,7 +44,7 @@ def generated(fault=None):
                                   ("PRESSED_TRIGGER_STEP", "PRESSED_STICK_STEP", "PRESSED_AIM_STEP")) + " };\n"
     config += "".join(re.search(r"^#define " + name + r" .*\n", objects, re.M).group(0) for name in
                       ("AIMED_AT_DISTANCE", "AIMED_AT_COSINE"))
-    config += structure(actors, "distributed_actor_state") + "\n"
+    config += structure(read("port/linux/game/network_legacy.h"), "distributed_actor_state") + "\n"
     config += structure(actors, "actor_pressed") + "\n"
     return (("config.inc", config), ("under_test.inc", code))
 

@@ -62,7 +62,11 @@ FRAME_ALLOCATIONS = ["game time globals", "lights", "decals", "decal globals", "
                      "decal vertex cache", "particle systems",
                      "particle system particles", "particle", "contrail", "contrail point", "game sound globals",
                      "cached object render states", "motion sensor (radar)", "object looping sounds",
-                     "scenario globals", "player control globals", "first person weapons"]
+                     "scenario globals", "player control globals", "first person weapons",
+                     # (the lights' own allocations, beside "lights": the effects
+                     # the frames make light them, as port/linux/game/demo.c's
+                     # frames' allocations have them)
+                     "lights globals", "light", "cluster light reference", "light cluster reference"]
 
 
 # the simulation's rate of a log that names none (game.sim_rate: a build
@@ -81,6 +85,9 @@ class Tick:
         self.state_hash = state_hash
         self.rate = rate
         self.allocations = []
+        # (each allocation's again, a data array's of its datums in use only:
+        # the u line; "=" where it is the a line's)
+        self.used_allocations = []
         self.takers = {}
         self.frames = []
 
@@ -102,6 +109,7 @@ def read_log(path):
     allocations = {}
     ticks = []
     pending_allocations = None
+    pending_used = None
     current = None
     rate = CLASSIC_RATE
     asserts = (0, 0)
@@ -115,6 +123,8 @@ def read_log(path):
                 allocations[int(parts[1])] = (" ".join(parts[4:]), int(parts[2], 16), int(parts[3]))
             elif kind == "a":
                 pending_allocations = parts[1:]
+            elif kind == "u":
+                pending_used = parts[1:]
             elif kind == "rate" and len(parts) >= 2 and parts[1].isdigit():
                 rate = int(parts[1])
             elif kind == "asserts" and len(parts) >= 3 and parts[1].isdigit() and parts[2].isdigit():
@@ -122,7 +132,10 @@ def read_log(path):
             elif kind == "t" and len(parts) >= 8:
                 current = Tick(int(parts[1]), parts[3], parts[5], parts[7], rate, asserts)
                 current.allocations = pending_allocations or []
-                pending_allocations = None
+                if pending_used and len(pending_used) == len(current.allocations):
+                    current.used_allocations = [x if u == "=" else u
+                                                for x, u in zip(current.allocations, pending_used)]
+                pending_allocations = pending_used = None
                 ticks.append(current)
             elif kind in TAKER_LABELS and current is not None and len(parts) >= 2:
                 current.takers[kind] = [int(parts[1].rstrip(":"))] + expand(parts[2:])
@@ -205,6 +218,12 @@ MEMORY_POOL_HEADER_SIZE = 0x38
 # (in an object datum: objects.h)
 OBJECT_MAGIC_NUMBER = 0x8
 OBJECT_CACHED_RENDER_STATE_INDEX = 0x120
+OBJECT_ATTACHMENT_TYPES = 0xf4
+OBJECT_ATTACHMENT_INDICES = 0xfc
+MAXIMUM_ATTACHMENTS_PER_OBJECT = 8
+# (the attachments' types whose datums are the frames': a light, a looping
+# sound, a contrail, a particle system; not an effect, the simulation's)
+FRAME_ATTACHMENT_TYPES = (0, 1, 3, 4)
 MEMORY_POOL_BLOCK_HEADER_SIZE = 0x18
 
 
@@ -240,13 +259,20 @@ def compare_dumps(allocations, path_a, path_b, ignored, limit=12):
         position += size
         if name == "objects" and x[:4] == b"loop":
             # (not the objects' magic numbers, the collision tests' marks,
+            # the indices of their attachments that are the frames' datums,
             # their cached render states' indices, the renderer's, nor the
             # free space after the last block, as the log's hash leaves
             # them out)
             x, y = bytearray(x), bytearray(y)
             for blocks, data in ((memory_pool_blocks(x), x), (memory_pool_blocks(y), y)):
                 for start, size, _ in blocks:
-                    for field in (OBJECT_MAGIC_NUMBER, OBJECT_CACHED_RENDER_STATE_INDEX):
+                    datum = start + MEMORY_POOL_BLOCK_HEADER_SIZE
+                    fields = [OBJECT_MAGIC_NUMBER, OBJECT_CACHED_RENDER_STATE_INDEX]
+                    if OBJECT_ATTACHMENT_INDICES + 4 * MAXIMUM_ATTACHMENTS_PER_OBJECT <= size - MEMORY_POOL_BLOCK_HEADER_SIZE:
+                        fields += [OBJECT_ATTACHMENT_INDICES + 4 * index
+                                   for index in range(MAXIMUM_ATTACHMENTS_PER_OBJECT)
+                                   if data[datum + OBJECT_ATTACHMENT_TYPES + index] in FRAME_ATTACHMENT_TYPES]
+                    for field in fields:
                         if field + 4 <= size - MEMORY_POOL_BLOCK_HEADER_SIZE:
                             offset = start + MEMORY_POOL_BLOCK_HEADER_SIZE + field
                             data[offset:offset + 4] = b"\0\0\0\0"
@@ -336,8 +362,21 @@ def main():
     if not ticks_a or not ticks_b:
         print("error: a log has no ticks")
         return 2
-    if allocations_a != allocations_b:
-        print("note: the two runs' game state allocations differ (another build?)")
+    same_allocations = allocations_a == allocations_b
+    matched = []
+    if not same_allocations:
+        # (another build's, with an allocation more or less: the others
+        # compared by their names, each where it is in its own log)
+        names_b = {}
+        for index, (name, _, size) in allocations_b.items():
+            names_b.setdefault((name, size), []).append(index)
+        for index, (name, _, size) in sorted(allocations_a.items()):
+            others = names_b.get((name, size))
+            if others:
+                matched.append((index, others.pop(0)))
+        only = sorted({name for name, _, _ in allocations_a.values()} ^ {name for name, _, _ in allocations_b.values()})
+        print("note: the two runs' game state allocations differ (another build?)" +
+              (f"; compared by name, not: {', '.join(only)}" if only else ""))
     rates_a = sorted({tick.rate for tick in ticks_a})
     rates_b = sorted({tick.rate for tick in ticks_b})
     if rates_a != rates_b:
@@ -379,8 +418,17 @@ def main():
             frames_compared += 1
             if x != y and first_frame_difference is None:
                 first_frame_difference = (tick_a.number, index)
-        differing = [index for index, (x, y) in enumerate(zip(tick_a.allocations, tick_b.allocations))
-                     if x != y and index not in ignored]
+        # (what the ticks keep: a data array's datums in use, not what its
+        # free slots hold, which no tick reads, where both logs have them)
+        hashes_a, hashes_b = tick_a.allocations, tick_b.allocations
+        if args.simulation and tick_a.used_allocations and tick_b.used_allocations:
+            hashes_a, hashes_b = tick_a.used_allocations, tick_b.used_allocations
+        if same_allocations:
+            pairs = list(enumerate(zip(hashes_a, hashes_b)))
+        else:
+            pairs = [(index, (hashes_a[index], hashes_b[other])) for index, other in matched
+                     if index < len(hashes_a) and other < len(hashes_b)]
+        differing = [index for index, (x, y) in pairs if x != y and index not in ignored]
         seeds_differ = (tick_a.global_seed, tick_a.local_seed) != (tick_b.global_seed, tick_b.local_seed)
         tick_kinds = ("G", "L", "C") if args.simulation else tuple(TAKER_LABELS)
         if args.builds:

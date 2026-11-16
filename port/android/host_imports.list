@@ -6,6 +6,8 @@
 # declarations.
 host_syscall
 host_log
+host_log_recent
+host_crash_record
 host_abort
 host_exit
 host_get_tp
@@ -15,6 +17,7 @@ host_memory_watch_initialize
 host_memory_watch_protect
 host_memory_watch_generation
 host_memory_watch_serial
+host_memory_watch_page_size
 host_memory_watch_prepare_write
 host_memory_watch_forget
 host_memory_watch_begin_frame
@@ -28,6 +31,7 @@ host_sdl_create_window
 host_sdl_window_size_in_pixels
 host_sdl_set_relative_mouse
 host_sdl_poll_event
+host_sdl_input_held
 host_sdl_set_clipboard_text
 host_sdl_get_clipboard_text
 host_sdl_show_toast
@@ -43,8 +47,12 @@ host_sdl_gamepad_button
 host_sdl_gamepad_type
 host_sdl_rumble_gamepad
 host_sdl_close_gamepad
+host_sdl_gamepad_has_sensor
+host_sdl_set_gamepad_sensor_enabled
+host_sdl_gamepad_steam
 host_sdl_scancode_name
 host_sdl_scancode_from_name
+host_sdl_key_from_scancode
 host_sdl_open_audio_stream
 host_sdl_put_audio_stream_data
 host_sdl_resume_audio_stream_device
@@ -57,6 +65,7 @@ host_render_stream_submit
 host_render_stream_wait
 host_render_stream_close
 host_audio_headphones
+host_caches
 host_https_request
 
 host_errno

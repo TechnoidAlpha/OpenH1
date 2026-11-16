@@ -37,6 +37,17 @@ too (XGPU_DYNAMIC_LIGHTS_MAXIMUM), and the game gave them to the first it
 found, in the clusters' order. Past 128, the lights are put in the order of
 what they show first, so that the 128 drawn are those that matter most to
 the view, classic or enhanced.
+
+Which clusters a light reaches (dynamic_lights_clusters): the game lights the
+structure with a light only in the clusters its sphere floods into through
+the structure's portals (structure_clusters_in_sphere: its surfaces gathered
+for its pass are theirs), and an object only by the lights of its clusters.
+The renderer lights each pixel by the lights of its cell of the grid, which
+is the world's boxes, not its clusters, and reached through walls: a plasma
+bolt in the next corridor lit this one's walls. So each light's clusters go
+with it, as each cluster's mask of the lights that reach it, and the
+structure's 3D BSP, from which a pixel finds its cluster
+(dynamic_lights_world; xgpu.h).
 */
 
 #include "cseries.h"
@@ -47,6 +58,10 @@ the view, classic or enhanced.
 #include "rasterizer/rasterizer_lights.h"
 #include "interface/first_person_weapons.h"
 #include "game/game.h"
+#include "scenario/scenario.h"
+#include "structures/structures.h"
+#include "structures/structure_bsp_definitions.h"
+#include "physics/bsp3d.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -66,7 +81,20 @@ static struct
 	real_point3d tick_position[MAXIMUM_LIGHTS_PER_WINDOW];
 	struct halo_dynamic_light lights[MAXIMUM_LIGHTS_PER_WINDOW];
 	unsigned long frame;
+	/* each light whose clusters were noted (dynamic_lights_clusters; one
+	not noted reaches every cluster), and each cluster's mask of the lights
+	that reach it */
+	boolean clusters_noted[MAXIMUM_LIGHTS_PER_WINDOW];
+	unsigned int cluster_masks[HALO_DYNAMIC_LIGHTS_CLUSTERS][4];
+	/* the structure whose BSP the renderer has (dynamic_lights_world) */
+	void const *world_nodes;
+	long world_node_count;
+	void const *world_leaves;
+	long world_leaf_count;
 } dynamic_lights;
+
+typedef char dynamic_lights_clusters_fit[HALO_DYNAMIC_LIGHTS_CLUSTERS >= MAXIMUM_CLUSTERS_PER_STRUCTURE ? 1 : -1];
+typedef char dynamic_lights_lights_fit[HALO_DYNAMIC_LIGHTS_MAXIMUM >= MAXIMUM_LIGHTS_PER_WINDOW ? 1 : -1];
 
 /* a rasterizer light just submitted: its flags (HALO_DYNAMIC_LIGHT_*), its
 cone, as rasterizer_set_model_lighting_point_light makes it, and where the
@@ -84,6 +112,95 @@ void dynamic_lights_note(
 	dynamic_lights.cone_scale[rasterizer_light_index] = cone_scale;
 	dynamic_lights.cone_offset[rasterizer_light_index] = cone_offset;
 	dynamic_lights.tick_position[rasterizer_light_index] = *tick_position;
+}
+
+/* a rasterizer light just submitted: the clusters it reaches (count less
+than 0: every one) */
+void dynamic_lights_clusters(
+	long rasterizer_light_index,
+	short count,
+	short const *clusters)
+{
+	unsigned int bit;
+	short index;
+
+	if (rasterizer_light_index < 0 || rasterizer_light_index >= MAXIMUM_LIGHTS_PER_WINDOW || count < 0)
+		return;
+	dynamic_lights.clusters_noted[rasterizer_light_index] = TRUE;
+	bit = 1u << (rasterizer_light_index & 31);
+	for (index = 0; index < count; index++)
+	{
+		if (clusters[index] >= 0 && clusters[index] < HALO_DYNAMIC_LIGHTS_CLUSTERS)
+			dynamic_lights.cluster_masks[clusters[index]][rasterizer_light_index >> 5] |= bit;
+	}
+}
+
+/* the structure's 3D BSP to the renderer (xgpu.h's world), when the
+structure is another than it has: its nodes, planes and leaves' clusters;
+none (no node) for one past the world's room, whose lights then reach every
+cluster */
+static void dynamic_lights_world(
+	void)
+{
+	struct structure_bsp *structure = global_structure_bsp_get();
+	struct bsp3d *bsp = structure ? global_bsp3d_get() : NULL;
+	static unsigned int (*texels)[4];
+	long node_count, plane_count, leaf_count, plane_base, leaf_base, total, index;
+
+	if (!bsp)
+		return;
+	node_count = bsp->nodes.count;
+	plane_count = bsp->planes.count;
+	leaf_count = structure->leaves.count;
+	if (dynamic_lights.world_nodes == bsp->nodes.address && dynamic_lights.world_node_count == node_count &&
+		dynamic_lights.world_leaves == structure->leaves.address && dynamic_lights.world_leaf_count == leaf_count)
+	{
+		return;
+	}
+	dynamic_lights.world_nodes = bsp->nodes.address;
+	dynamic_lights.world_node_count = node_count;
+	dynamic_lights.world_leaves = structure->leaves.address;
+	dynamic_lights.world_leaf_count = leaf_count;
+	plane_base = 1 + node_count;
+	leaf_base = plane_base + plane_count;
+	total = leaf_base + (leaf_count + 3) / 4;
+	if (!texels)
+		texels = malloc(HALO_DYNAMIC_LIGHTS_WORLD_TEXELS * sizeof(*texels));
+	if (!texels)
+		return;
+	if (node_count <= 0 || node_count >= LONG_MAX / 4 || plane_count < 0 || leaf_count < 0 ||
+		total > HALO_DYNAMIC_LIGHTS_WORLD_TEXELS)
+	{
+		platform_log("dynamic lights: the structure's BSP (%ld nodes, %ld planes, %ld leaves) is more than the "
+			"renderer has room for: its lights reach every cluster", node_count, plane_count, leaf_count);
+		memset(texels[0], 0, sizeof(texels[0]));
+		halo_dynamic_lights_world(texels, 1);
+		return;
+	}
+	texels[0][0] = (unsigned int)node_count;
+	texels[0][1] = (unsigned int)plane_base;
+	texels[0][2] = (unsigned int)leaf_base;
+	texels[0][3] = (unsigned int)leaf_count;
+	for (index = 0; index < node_count; index++)
+	{
+		struct bsp3d_node const *node = TAG_BLOCK_GET_ELEMENT(&bsp->nodes, index, struct bsp3d_node);
+
+		texels[1 + index][0] = (unsigned int)node->plane_designator;
+		texels[1 + index][1] = (unsigned int)node->children[0];
+		texels[1 + index][2] = (unsigned int)node->children[1];
+		texels[1 + index][3] = 0;
+	}
+	for (index = 0; index < plane_count; index++)
+		memcpy(texels[plane_base + index], TAG_BLOCK_GET_ELEMENT(&bsp->planes, index, real_plane3d), 16);
+	memset(texels[leaf_base], 0xff, (size_t)(total - leaf_base) * sizeof(texels[0]));
+	for (index = 0; index < leaf_count; index++)
+	{
+		short cluster = TAG_BLOCK_GET_ELEMENT(&structure->leaves, index, struct structure_leaf)->cluster_index;
+
+		texels[leaf_base + index / 4][index % 4] = cluster >= 0 && cluster < structure->clusters.count ?
+			(unsigned int)cluster : 0xffffffffu;
+	}
+	halo_dynamic_lights_world(texels, (int)total);
 }
 
 /* an effect's light on a node of a weapon held by a unit: where it is seen, on the first-person weapon's marker of the same
@@ -163,7 +280,7 @@ void dynamic_lights_submit(
 				(double)out->radius, (double)out->color[0], (double)out->color[1], (double)out->color[2]);
 		}
 	}
-	if (config_boolean("debug.dynamic_lights_log") && !(dynamic_lights.frame % 72))
+	if (!(dynamic_lights.frame % 72) && config_boolean("debug.dynamic_lights_log"))
 	{
 		long projectiles = 0, models_only = 0;
 
@@ -187,7 +304,21 @@ void dynamic_lights_submit(
 	up_axis[0] = render.camera.up.i;
 	up_axis[1] = render.camera.up.j;
 	up_axis[2] = render.camera.up.k;
-	halo_dynamic_lights_set(dynamic_lights.lights, (int)count, camera, right_axis, up_axis);
+	/* (a light whose clusters were not noted reaches every one) */
+	for (light_index = 0; light_index < count; light_index++)
+	{
+		long cluster;
+
+		if (dynamic_lights.clusters_noted[light_index])
+			continue;
+		for (cluster = 0; cluster < HALO_DYNAMIC_LIGHTS_CLUSTERS; cluster++)
+			dynamic_lights.cluster_masks[cluster][light_index >> 5] |= 1u << (light_index & 31);
+	}
+	dynamic_lights_world();
+	halo_dynamic_lights_set(dynamic_lights.lights, (int)count, camera, right_axis, up_axis,
+		(unsigned int const (*)[4])dynamic_lights.cluster_masks);
+	memset(dynamic_lights.cluster_masks, 0, sizeof(dynamic_lights.cluster_masks));
+	memset(dynamic_lights.clusters_noted, 0, sizeof(dynamic_lights.clusters_noted));
 	/* (each submit notes its own again; one not noted is omni) */
 	for (light_index = 0; light_index < count; light_index++)
 	{
@@ -246,6 +377,20 @@ void dynamic_lights_drawn(long light, real_point3d const *position, real radius,
 	lights_drawn[index].position = *position;
 	lights_drawn[index].radius = radius;
 	lights_drawn[index].intensity = MAX(color->red, MAX(color->green, color->blue));
+}
+
+/* port/linux/game/world_scene.c (display.ambient_occlusion "world"'s light
+list): the light last drawn at an absolute index (dynamic_lights_drawn),
+its handle, where and how far it reached; FALSE if none has been. It only
+reads */
+boolean dynamic_lights_drawn_get(long index, long *light, real_point3d *position, real *radius)
+{
+	if (index < 0 || index >= MAXIMUM_LIGHTS_PER_MAP || !lights_drawn[index].light)
+		return FALSE;
+	*light = lights_drawn[index].light;
+	*position = lights_drawn[index].position;
+	*radius = lights_drawn[index].radius;
+	return TRUE;
 }
 
 /* object_lights.c lights_preprocess_scene: the scene's lights (light

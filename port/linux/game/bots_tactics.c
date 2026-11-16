@@ -72,6 +72,7 @@ one enemy and the distance to the nearest teammate, sampled each second.
 /* port/linux/src/port_config.c */
 int config_boolean(char const *name);
 long config_integer(char const *name);
+unsigned long config_changes(void);
 
 #define TACTICS_PI 3.14159265f
 #define TACTICS_DEGREES (TACTICS_PI / 180.0f)
@@ -166,6 +167,9 @@ static struct
 	/* debug.bots_tactics_team: the one team whose bots play together (NONE:
 	both) */
 	short only_team;
+	/* the settings as config_changes was when they were read */
+	boolean settings_read;
+	unsigned long settings_read_at;
 	long now;
 	long roles_tick;
 	struct tactics_player players[TACTICS_PLAYERS];
@@ -779,10 +783,15 @@ void bots_tactics_tick_begin(void)
 	long dead_count = 0, index;
 	short team;
 
-	bots_tactics.on = config_boolean("bots.tactics");
+	/* (the settings read again only as they change: config_changes) */
+	if (!bots_tactics.settings_read || bots_tactics.settings_read_at != config_changes())
 	{
-		long only_team = config_integer("debug.bots_tactics_team");
+		long only_team;
 
+		bots_tactics.settings_read_at = config_changes();
+		bots_tactics.settings_read = TRUE;
+		bots_tactics.on = config_boolean("bots.tactics");
+		only_team = config_integer("debug.bots_tactics_team");
 		bots_tactics.only_team = only_team == 0 || only_team == 1 ? (short)only_team : (short)NONE;
 	}
 	bots_tactics.now = now;

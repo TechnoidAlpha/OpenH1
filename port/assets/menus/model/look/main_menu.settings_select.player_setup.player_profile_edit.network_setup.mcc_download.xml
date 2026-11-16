@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.network_setup.mcc_download.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/screen" type="column_list" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/description" x="40" y="80"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/download" x="195" y="300"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/workshop" x="195" y="334"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/browser" x="195" y="368"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/cancel" x="195" y="402"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/title" x="40" y="24"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/title" type="text" box="0 0 560 40">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test" text="MCC MAP DOWNLOAD"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/description" type="text" box="0 0 560 200">
+		<text font="ui\small_ui" color="#FFFFFFFF"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/download" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="DOWNLOAD FROM HOST"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/workshop" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="OPEN IN STEAM"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/browser" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="OPEN IN BROWSER"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_download/cancel" type="text" box="0 0 250 28" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" text="CANCEL"/>
+	</look>
+</model>

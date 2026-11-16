@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The main menu (docs/menu_screens.md). The new menu engine's;
+display.menu_engine = "classic" keeps the PC version's. Laid out as the PC
+version's main menu: the title art, then the items as its lettered pictures,
+no hints or button bar. -->
+<screen name="main" back="quit">
+	<title-art/>
+	<list focus="campaign">
+		<item id="training" label="VR TUTORIAL" picture="main_menu/menu_training" when="vr" do="open training"/>
+		<item id="campaign" label="CAMPAIGN" picture="main_menu/menu_load_campaign" do="open campaign"/>
+		<item id="multiplayer" label="MULTIPLAYER" picture="main_menu/menu_multiplayer" do="open multiplayer"/>
+		<item id="settings" label="SETTINGS" picture="main_menu/menu_settings" do="open settings"/>
+		<item id="quit" label="QUIT" picture="main_menu/menu_quit" do="quit"/>
+	</list>
+</screen>

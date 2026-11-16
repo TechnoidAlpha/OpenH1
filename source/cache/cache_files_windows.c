@@ -191,6 +191,8 @@ symbols in this file:
 #include "scenario/scenario_definitions.h"
 #include "rasterizer/rasterizer.h"
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
+#include "mcc_cache.h" /* port: port/linux/game/mcc_cache.c */
+#include "mcc_share.h" /* port: port/linux/game/mcc_share.c */
 
 #include <xtl.h>
 
@@ -199,9 +201,11 @@ symbols in this file:
 enum
 {
 	MAXIMUM_SIMULTANEOUS_CACHE_REQUESTS = 512,
-	NUMBER_OF_CACHED_MAP_FILES = 6,
+	/* port: 32, any map in any of them, each its map's size, within a
+	budget of the disk's space (halo_port_capacity.h) */
+	NUMBER_OF_CACHED_MAP_FILES = HALO_PORT_CACHED_MAP_FILES, /* (6) */
 	CACHE_FILE_SECTOR_SIZE = 512,
-	MAXIMUM_CACHE_FILES = 20,
+	MAXIMUM_CACHE_FILES = 64, /* port: (20) */
 	CACHE_FILE_THREAD_STACK_SIZE = 0x4000,
 
 	SOLO_CACHE_FILE_MAXIMUM_SIZE = 0x11600000,
@@ -315,26 +319,27 @@ typedef char verify_cache_file_request_pending_offset[
 	offsetof(
 		struct cache_file_request,
 		pending) == 0x1D ? 1 : -1];
+/* port: (the original's at its six cache files: 0x3048 and on) */
 typedef char verify_cache_file_copy_in_progress_offset[
 	offsetof(
 		struct cache_file_runtime_globals,
-		copy_in_progress) == 0x3048 ? 1 : -1];
+		copy_in_progress) == NUMBER_OF_CACHED_MAP_FILES * sizeof(struct cached_map_file) + 0x0 ? 1 : -1];
 typedef char verify_cache_file_copying_map_index_offset[
 	offsetof(
 		struct cache_file_runtime_globals,
-		copying_to_map_file_index) == 0x304A ? 1 : -1];
+		copying_to_map_file_index) == NUMBER_OF_CACHED_MAP_FILES * sizeof(struct cached_map_file) + 0x2 ? 1 : -1];
 typedef char verify_cache_file_copying_map_name_offset[
 	offsetof(
 		struct cache_file_runtime_globals,
-		copying_to_map_file_name) == 0x304C ? 1 : -1];
+		copying_to_map_file_name) == NUMBER_OF_CACHED_MAP_FILES * sizeof(struct cached_map_file) + 0x4 ? 1 : -1];
 typedef char verify_cache_file_open_map_index_offset[
 	offsetof(
 		struct cache_file_runtime_globals,
-		open_map_file_index) == 0x306C ? 1 : -1];
+		open_map_file_index) == NUMBER_OF_CACHED_MAP_FILES * sizeof(struct cached_map_file) + 0x24 ? 1 : -1];
 typedef char verify_cache_file_requests_offset[
 	offsetof(
 		struct cache_file_runtime_globals,
-		requests) == 0x3078 ? 1 : -1];
+		requests) == NUMBER_OF_CACHED_MAP_FILES * sizeof(struct cached_map_file) + 0x30 ? 1 : -1];
 
 /* ---------- prototypes */
 
@@ -344,6 +349,10 @@ static void cache_file_get_map_path(
 static boolean cache_file_read_header_from_dvd(
 	const char *map_name,
 	struct cache_file_header *header);
+static boolean cache_file_read_header_from_dvd_checked( /* port */
+	const char *map_name,
+	struct cache_file_header *header,
+	boolean fatal);
 static short cached_map_files_find_free_map(
 	long file_length,
 	short scenario_type);
@@ -418,10 +427,41 @@ static void cached_map_file_invalidate(
 	short map_file_index);
 static short cached_map_files_find_map(
 	const char *map_name);
+/* port: the cache files' budget (port/linux/src/map_cache.c) */
+static long cached_map_type_maximum_size(
+	short scenario_type);
+static unsigned long long cached_map_files_bytes(
+	short except_map_file_index);
+static boolean cached_map_file_resize(
+	short map_file_index,
+	long size);
+static short cached_map_files_least_useful(
+	short except_map_file_index);
+static void cached_map_files_make_room(
+	short map_file_index,
+	long size);
+static unsigned long long cached_map_files_fit_budget(
+	void);
 
 /* ---------- globals */
 
 static struct cache_file_runtime_globals cache_file_globals;
+/* port: (cache_files_open_cache_files, cache_files_unpack_update) */
+static boolean cached_map_file_adopt(
+	short map_file_index);
+/* port: the most the cache files hold together (map_cache_budget), and
+whether the copy in progress took the texture cache's memory for its
+buffers (a copy has buffers of its own: map_cache_copy_buffer) */
+static unsigned long long cached_map_files_budget;
+/* port: (the least the budget is: what the Xbox's six cache files held) */
+#define CACHED_MAP_FILES_LEAST_BUDGET ((unsigned long long)SOLO_CACHE_FILE_MAXIMUM_SIZE * 2 + \
+	MAIN_MENU_CACHE_FILE_MAXIMUM_SIZE + (unsigned long long)MULTIPLAYER_CACHE_FILE_MAXIMUM_SIZE * 3)
+static boolean cache_copy_buffer_stolen = TRUE;
+/* port: the slots a worker is unpacking a map into (port/linux/src/map_unpack.c),
+the game's thread's: no map until the worker is done and the slot passes
+the check a slot gets as the game starts (cached_map_file_adopt) */
+static boolean cached_map_file_unpacking[NUMBER_OF_CACHED_MAP_FILES];
+static char cached_map_file_unpacking_name[NUMBER_OF_CACHED_MAP_FILES][32];
 
 /* ---------- public code */
 
@@ -554,7 +594,9 @@ void cache_files_dispose(
 void cache_files_precache_set_priority(
 	boolean blocking)
 {
-	cache_copy_set_priority(blocking);
+	/* port: (the copy is a worker's, port/linux/src/map_unpack.c, which
+	runs a load's copy before any other) */
+	(void)blocking;
 
 	return;
 }
@@ -582,6 +624,9 @@ boolean cache_files_precache_is_copying_map(
 boolean cache_files_precache_map_loaded(
 	const char *map_name)
 {
+	/* port: an MCC map (mcc_maps\<name>) is read in place (mcc_cache.c) */
+	if (mcc_level_name(map_name))
+		return mcc_cache_available(map_name);
 	/* port: a Halo Custom Edition map (custom_maps\<name>) is read in place
 	and never copied to the cache partition; it is never the game's own map
 	of that file name (port/linux/game/custom_edition_cache.c) */
@@ -599,7 +644,9 @@ boolean cache_files_precache_map_loaded(
 		!(cache_file_globals.copy_in_progress && map_file_index == cache_file_globals.copying_to_map_file_index))
 	{
 		cache_file_get_map_path(tag_name_strip_path(map_name), path);
-		if (!cache_slot_source_matches(map_file_index, path))
+		if (!cache_slot_source_matches(map_file_index, path, cached_map_file_get(map_file_index)->header.name,
+				(unsigned long)cached_map_file_get(map_file_index)->header.checksum,
+				(unsigned long)cached_map_file_get(map_file_index)->header.file_length))
 		{
 			error(_error_silent, "map '%s' has changed since it was cached: copied again", map_name);
 			cache_slot_source_forget(map_file_index);
@@ -635,11 +682,68 @@ unsigned long cache_files_map_copyable_checksum(
 	return (unsigned long)header.checksum;
 }
 
+/* port: whether a map can be loaded: in the cache already, a Custom Edition
+map this machine plays, or one the precache would copy
+(cache_files_map_copyable_checksum). A map named at the console (map_name)
+or in a file is asked of before the game it would end is left: the Xbox's
+precache took a map it could not find for a damaged disc and stopped the
+game for good (display_error_damaged_media). The reason a map is refused is
+logged. */
+boolean cache_files_map_loadable(
+	const char *map_name)
+{
+	const char *cache_map_name;
+	struct cache_file_header header;
+
+	if (!map_name || !map_name[0])
+	{
+		error(_error_silent, "no map named");
+		return FALSE;
+	}
+	if (custom_edition_level_name(map_name))
+	{
+		if (custom_edition_cache_playable(map_name))
+			return TRUE;
+		error(_error_silent, "couldn't find the Custom Edition map '%s' in custom_maps", map_name);
+		return FALSE;
+	}
+	if (cache_files_precache_map_loaded(map_name))
+		return TRUE;
+	cache_map_name = tag_name_strip_path(map_name);
+	if (!cache_map_name[0] || !cache_file_read_header_from_dvd_checked(cache_map_name, &header, FALSE))
+	{
+		error(_error_silent, "couldn't find map '%s' (%s), or it is no map this build runs", cache_map_name, map_name);
+		return FALSE;
+	}
+	if (_stricmp(header.name, cache_map_name) != 0)
+	{
+		error(_error_silent, "map '%s' names itself '%s' in its header: refused", cache_map_name, header.name);
+		return FALSE;
+	}
+	if (cached_map_files_find_free_map(header.file_length, header.scenario_type) == NONE)
+	{
+		error(_error_silent, "no cache file can hold map '%s' (%08x bytes, type %d)",
+			cache_map_name, header.file_length, header.scenario_type);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 boolean cache_files_precache_map_begin(
 	const char *map_name,
 	boolean copy_map)
 {
 	const char *cache_map_name = tag_name_strip_path(map_name);
+
+	if (mcc_level_name(map_name))
+	{
+		/* port: a package being fetched from the host (port/linux/game/mcc_share.c)
+		is validated once it is there */
+		if (mcc_share_game_downloading(map_name))
+			return TRUE;
+		return mcc_cache_require(map_name, 0);
+	}
 
 	/* port: a Halo Custom Edition map (custom_maps\<name>) this machine has
 	not is missing, as a map not on the DVD is: never the game's own map of
@@ -654,6 +758,9 @@ boolean cache_files_precache_map_begin(
 
 		return FALSE;
 	}
+	/* port: a map a worker is unpacking is waited for, never copied a
+	second time into another slot (port/linux/src/map_unpack.c) */
+	cache_files_unpack_wait(map_name);
 	if (!cache_files_precache_map_loaded(map_name))
 	{
 		struct cache_file_header header;
@@ -661,12 +768,14 @@ boolean cache_files_precache_map_begin(
 
 		if (cache_file_read_header_from_dvd(cache_map_name, &header))
 		{
-			long buffer_size = cache_copy_buffer_size(copy_map);
 			short map_file_index = cached_map_files_find_free_map(
 				header.file_length,
 				header.scenario_type);
-			void *buffer;
 			struct cached_map_file *map_file;
+			char slot_path[256];
+			/* port: the cache file's size, its map's (sectors' reads past
+			its end within it) */
+			long copy_size = (header.file_length + 0xFFFF) & ~0xFFFF;
 
 			/* port: the cache file slots are found by the name in their
 			header (cached_map_files_find_map): a map file whose header names
@@ -699,7 +808,9 @@ boolean cache_files_precache_map_begin(
 
 				return FALSE;
 			}
-			buffer = texture_cache_steal_memory(buffer_size);
+			/* port: the copy is the unpacking workers' (port/linux/src/map_unpack.c),
+			with buffers of their own: the texture cache keeps its memory */
+			cache_copy_buffer_stolen = FALSE;
 			map_file = cached_map_file_get(map_file_index);
 
 			memset(
@@ -717,12 +828,30 @@ boolean cache_files_precache_map_begin(
 				sizeof(cache_file_globals.copying_to_map_file_name) - 1] = 0;
 			cache_file_get_map_path(cache_map_name, path);
 			error(_error_silent, "starting precaching of map '%s'", cache_map_name);
-			cache_copy_begin(
-				buffer,
-				buffer_size,
-				cached_map_file_get_handle(map_file_index),
-				cached_map_file_get_size(map_file_index),
-				path);
+			/* port: the maps given up for its room (the least useful first),
+			and the file emptied and made its map's size */
+			cached_map_files_make_room(map_file_index, copy_size);
+			if (!cached_map_file_resize(map_file_index, 0) || !cached_map_file_resize(map_file_index, copy_size))
+			{
+				error(_error_silent, "couldn't size cache file %d for map '%s'", map_file_index, cache_map_name);
+			}
+			/* port: the map unpacked into the slot by a worker, whole as the
+			Xbox's decompressor (cache_files_decompress_windows.c) wrote it, and
+			its source marked last; ended in cache_files_precache_map_end */
+			cached_map_file_get_path(map_file_index, slot_path);
+			if (!path[0] || !map_unpack_queue(map_file_index, path, slot_path, copy_size, TRUE))
+			{
+				error(_error_silent, "couldn't begin the copy of map '%s'", cache_map_name);
+				cache_file_globals.copy_in_progress = FALSE;
+				cache_file_globals.copying_to_map_file_index = NONE;
+				cached_map_file_resize(map_file_index, 0);
+				if (copy_map)
+				{
+					display_error_damaged_media();
+				}
+
+				return FALSE;
+			}
 		}
 		else
 		{
@@ -759,9 +888,49 @@ void cache_files_initialize(
 	cache_file_windows_thread_create();
 	cache_files_verify_language();
 	cache_files_open_cache_files();
-	cache_copy_initialize();
+	/* port: the cache files' budget, of the disk's space (at least what the
+	Xbox's six held), port/linux/src/map_cache.c */
+	cached_map_files_budget = CACHED_MAP_FILES_LEAST_BUDGET;
+	/* (a copy of the game running beside the one that keeps the cache:
+	those six's room alone, cache_slot_folder) */
+	if (cache_slot_folder_keeps_cache())
+	{
+		cached_map_files_budget = map_cache_budget(cached_map_files_bytes(NONE), cached_map_files_budget);
+		/* (a cache past it, kept at a larger budget before: given up to fit
+		now, as the setting's change does while the game runs) */
+		cached_map_files_fit_budget();
+	}
+	/* port: (the copies are port/linux/src/map_unpack.c's: the Xbox's
+	decompressor's thread is not started) */
 
 	return;
+}
+
+/* port: a copy's slot taken as a whole map: only a copy the worker ended
+whole, the slot on the disk and its source marked last
+(port/linux/src/map_unpack.c), that passes the check of the game's start
+(cached_map_file_adopt), its header the map's it was copying; any other (failed, ended, its
+header or pages not written) emptied, so that it is copied again, never
+played (port/linux/src/xbox_files.c's cache slots' sources) */
+static void cache_files_precache_map_mark(
+	short map_file_index)
+{
+	struct cached_map_file *map_file = cached_map_file_get(map_file_index);
+
+	if (map_unpack_take(map_file_index) &&
+		cached_map_file_adopt(map_file_index) &&
+		map_file->header.name[0] &&
+		_stricmp(map_file->header.name, cache_file_globals.copying_to_map_file_name) == 0 &&
+		cached_map_file_get_size(map_file_index) >= map_file->header.file_length)
+	{
+		return;
+	}
+	if (map_file->header.name[0])
+		error(_error_silent, "the copy of map '%s' did not end whole: copied again", map_file->header.name);
+	cache_slot_source_forget(map_file_index);
+	memset(&map_file->header, 0, sizeof(struct cache_file_header));
+	memset(&map_file->last_modification_date, 0, sizeof(FILETIME));
+	cached_map_file_resize(map_file_index, 0);
 }
 
 void cache_files_precache_map_end(
@@ -771,18 +940,12 @@ void cache_files_precache_map_end(
 		"c:\\halo\\SOURCE\\cache\\cache_files_windows.c",
 		1031,
 		cache_file_globals.copy_in_progress);
-	cache_copy_end();
-	texture_cache_return_memory();
+	/* port: (the worker's copy waited for: cache_files_precache_map_mark) */
+	if (cache_copy_buffer_stolen) /* port: (cache_files_precache_map_begin) */
+		texture_cache_return_memory();
+	cache_copy_buffer_stolen = TRUE;
 	cached_map_file_set_modification_date(cache_file_globals.copying_to_map_file_index);
-	cached_map_file_read_header(cache_file_globals.copying_to_map_file_index);
-	/* port: the map file the copy came from (cache_slot_source_matches) */
-	if (cached_map_file_get(cache_file_globals.copying_to_map_file_index)->header.name[0])
-	{
-		char path[256];
-
-		cache_file_get_map_path(cache_file_globals.copying_to_map_file_name, path);
-		cache_slot_source_record(cache_file_globals.copying_to_map_file_index, path);
-	}
+	cache_files_precache_map_mark(cache_file_globals.copying_to_map_file_index);
 	cache_file_globals.copy_in_progress = FALSE;
 	cache_file_globals.copying_to_map_file_index = NONE;
 
@@ -796,7 +959,7 @@ void cache_files_precache_map_queue_end(
 		"c:\\halo\\SOURCE\\cache\\cache_files_windows.c",
 		1022,
 		cache_file_globals.copy_in_progress);
-	cache_copy_queue_end();
+	map_unpack_stop(cache_file_globals.copying_to_map_file_index); /* port: (map_unpack.c) */
 
 	return;
 }
@@ -893,6 +1056,11 @@ boolean cache_file_open(
 		header,
 		&cached_map_file_get(map_file_index)->header,
 		sizeof(struct cache_file_header));
+	/* port: played (not a map of the menus' pictures' pass): the maps
+	played least recently, then those never played, are given up first for
+	room (cached_map_files_least_useful) */
+	if (!menu_pictures_preparing())
+		cache_slot_source_played(map_file_index);
 
 	return TRUE;
 }
@@ -908,6 +1076,14 @@ short cache_file_read(
 	short request_index = cache_request_next_free_index();
 	struct cache_file_request *request = cache_request_get(request_index);
 
+	/* port: the reads of an MCC map are served in place, at once
+	(port/linux/game/mcc_cache.c) */
+	if (mcc_cache_tags_loaded())
+	{
+		*completion_flag_reference = mcc_cache_read(tag_index, offset, size, buffer) ?
+			TRUE : _cache_file_read_failed;
+		return request_index;
+	}
 	/* port: the reads of a Halo Custom Edition map are served in place, at
 	once; the request stays free (port/linux/game/custom_edition_cache.c) */
 	if (custom_edition_cache_tags_loaded())
@@ -974,28 +1150,19 @@ short cache_files_precache_map_status(
 		"c:\\halo\\SOURCE\\cache\\cache_files_windows.c",
 		984,
 		cache_file_globals.copy_in_progress);
-	switch (cache_copy_get_status(progress))
+	/* port: the worker's copy (port/linux/src/map_unpack.c) */
+	switch (map_unpack_status(cache_file_globals.copying_to_map_file_index, progress))
 	{
-		case _cache_copy_bad_file_failure:
-		case _cache_copy_read_failure:
-			status = _cached_map_file_failed;
-			break;
-
-		case _cache_copy_write_failure:
-			cached_map_file_invalidate(cache_file_globals.copying_to_map_file_index);
-			status = _cached_map_file_failed;
-			break;
-
-		case _cache_copy_in_progress:
+		case 0:
 			status = _cached_map_file_in_progress;
 			break;
 
-		case _cache_copy_finished:
+		case 1:
 			status = _cached_map_file_success;
 			break;
 
 		default:
-			match_vassert("c:\\halo\\SOURCE\\cache\\cache_files_windows.c", 1013, FALSE, NULL);
+			status = _cached_map_file_failed;
 			break;
 	}
 
@@ -1070,14 +1237,7 @@ static void cache_files_verify_language(
 static void cache_files_open_cache_files(
 	void)
 {
-	struct cache_file_header blank_header;
-	struct cache_file_header dvd_header;
 	char path[256];
-	char map_path[256]; /* port: the slot's source (cache_slot_source_matches) */
-	OVERLAPPED overlapped;
-	boolean deleted_stale_cache_files = FALSE;
-	volatile boolean completion_flag;
-	boolean valid;
 	short map_file_index;
 
 	cached_map_files_delete(NUMBER_OF_CACHED_MAP_FILES);
@@ -1086,12 +1246,12 @@ static void cache_files_open_cache_files(
 		map_file_index++)
 	{
 		struct cached_map_file *map_file = cached_map_file_get(map_file_index);
-		long size;
 		HANDLE file;
 
-		valid = FALSE;
+		/* port: a cache file is its map's size (cache_files_precache_map_begin),
+		not its slot's; one not a whole map of the maps folder is emptied
+		(cached_map_file_adopt) */
 		cached_map_file_get_path(map_file_index, path);
-		size = cached_map_file_get_size(map_file_index);
 		file = CreateFileA(
 			path,
 			GENERIC_READ | GENERIC_WRITE,
@@ -1100,49 +1260,7 @@ static void cache_files_open_cache_files(
 			OPEN_ALWAYS,
 			FILE_FLAG_NO_BUFFERING | FILE_FLAG_OVERLAPPED,
 			NULL);
-		if (file != INVALID_HANDLE_VALUE)
-		{
-			if (GetLastError() == ERROR_ALREADY_EXISTS &&
-				GetFileSize(file, NULL) == (unsigned long)size)
-			{
-				valid = TRUE;
-			}
-			else
-			{
-				if (!deleted_stale_cache_files)
-				{
-					cached_map_files_delete(map_file_index);
-					deleted_stale_cache_files = TRUE;
-				}
-
-				completion_flag = FALSE;
-				cached_map_issue_async_write(
-					file,
-					&overlapped,
-					&blank_header,
-					sizeof(struct cache_file_header),
-					0,
-					&completion_flag,
-					cache_file_blocking_io_completion_routine);
-				cached_map_block_on_async_request(&completion_flag);
-				if (completion_flag &&
-					SetFilePointer(file, size, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER &&
-					SetEndOfFile(file))
-				{
-					valid = TRUE;
-				}
-				else
-				{
-					valid = FALSE;
-					match_vassert(
-						"c:\\halo\\SOURCE\\cache\\cache_files_windows.c",
-						811,
-						FALSE,
-						csprintf(temporary, "setup for new cache file failed (#%d)", GetLastError()));
-				}
-			}
-		}
-		else
+		if (file == INVALID_HANDLE_VALUE)
 		{
 			match_vassert(
 				"c:\\halo\\SOURCE\\cache\\cache_files_windows.c",
@@ -1151,41 +1269,71 @@ static void cache_files_open_cache_files(
 				csprintf(temporary, "couldn't open or create new cache file (#%d)", GetLastError()));
 		}
 
-		if (!valid && file != INVALID_HANDLE_VALUE)
-		{
-			CloseHandle(file);
-			file = INVALID_HANDLE_VALUE;
-		}
-
 		map_file->file = file;
-		if (valid)
+		memset(&map_file->header, 0, sizeof(struct cache_file_header));
+		if (file == INVALID_HANDLE_VALUE)
 		{
-			char *cache_map_name = cached_map_file_get(map_file_index)->header.name;
-
-			cached_map_file_read_header(map_file_index);
-			/* port: and the map file the slot was copied from is still the
-			one in the maps folder, not another of the same name and header
-			(a modded map, which keeps the checksum): the Xbox's disc never
-			changed */
-			cache_slot_source_load(map_file_index);
-			cache_file_get_map_path(cache_map_name, map_path);
-			if (cache_file_read_header_from_dvd(cache_map_name, &dvd_header) &&
-				map_file->header.checksum == dvd_header.checksum &&
-				cache_slot_source_matches(map_file_index, map_path) &&
-				valid)
-			{
-				continue;
-			}
+			continue;
 		}
-
-		cache_slot_source_forget(map_file_index); /* port: (above) */
-		memset(
-			&map_file->header,
-			0,
-			sizeof(struct cache_file_header));
+		cached_map_file_adopt(map_file_index);
 	}
 
 	return;
+}
+
+/* port: a slot file taken as its map only if it is a whole map of the maps
+folder: its header read, the map's in the maps folder (its checksum), and
+the map file the slot was copied from still the one in the maps folder,
+not another of the same name and header (a modded map, which keeps the
+checksum: the Xbox's disc never changed), with its source's mark of a
+whole copy (cache_slot_source_matches). Else it is emptied, which gives
+its space back (the six of fixed sizes of the builds before keep their
+maps). As the game starts, and as a slot a worker unpacked is taken back
+(cache_files_unpack_update) */
+static boolean cached_map_file_adopt(
+	short map_file_index)
+{
+	struct cached_map_file *map_file = cached_map_file_get(map_file_index);
+	struct cache_file_header dvd_header;
+	char map_path[256];
+	boolean valid = FALSE;
+
+	memset(&map_file->header, 0, sizeof(struct cache_file_header));
+	if (map_file->file == INVALID_HANDLE_VALUE)
+	{
+		return FALSE;
+	}
+	if (cached_map_file_get_size(map_file_index) >= (long)sizeof(struct cache_file_header))
+	{
+		char *cache_map_name = map_file->header.name;
+
+		cached_map_file_read_header(map_file_index);
+		cache_slot_source_load(map_file_index);
+		cache_file_get_map_path(cache_map_name, map_path);
+		valid = map_file->file != INVALID_HANDLE_VALUE &&
+			cache_map_name[0] &&
+			cached_map_file_get_size(map_file_index) >= map_file->header.file_length &&
+			cache_file_read_header_from_dvd(cache_map_name, &dvd_header) &&
+			map_file->header.checksum == dvd_header.checksum &&
+			cache_slot_source_matches(map_file_index, map_path, cache_map_name,
+				(unsigned long)map_file->header.checksum, (unsigned long)map_file->header.file_length);
+	}
+	if (valid)
+	{
+		return TRUE;
+	}
+
+	cache_slot_source_forget(map_file_index);
+	memset(
+		&map_file->header,
+		0,
+		sizeof(struct cache_file_header));
+	if (map_file->file != INVALID_HANDLE_VALUE)
+	{
+		cached_map_file_resize(map_file_index, 0);
+	}
+
+	return FALSE;
 }
 
 static void CALLBACK cache_file_read_io_completion_routine(
@@ -1323,9 +1471,12 @@ static void cache_file_get_map_path(
 	return;
 }
 
-static boolean cache_file_read_header_from_dvd(
+/* port: (with fatal FALSE, a file that is no cache file is refused without
+its assertion: cache_files_map_loadable) */
+static boolean cache_file_read_header_from_dvd_checked(
 	const char *map_name,
-	struct cache_file_header *header)
+	struct cache_file_header *header,
+	boolean fatal)
 {
 	boolean result = FALSE;
 	char path[256];
@@ -1351,7 +1502,7 @@ static boolean cache_file_read_header_from_dvd(
 			&bytes_read,
 			NULL) &&
 			bytes_read == sizeof(struct cache_file_header) &&
-			cache_file_header_verify(header, path, TRUE))
+			cache_file_header_verify(header, path, fatal))
 		{
 			result = TRUE;
 		}
@@ -1361,60 +1512,58 @@ static boolean cache_file_read_header_from_dvd(
 	return result;
 }
 
+static boolean cache_file_read_header_from_dvd(
+	const char *map_name,
+	struct cache_file_header *header)
+{
+	return cache_file_read_header_from_dvd_checked(map_name, header, TRUE);
+}
+
 static short cached_map_files_find_free_map(
 	long file_length,
 	short scenario_type)
 {
+	/* port: any cache file holds a map of any type, up to the most its type
+	had on the Xbox: an empty one while the budget has room for the map,
+	else the least useful map's (cached_map_files_least_useful), else an
+	empty one all the same; never the open map's, nor the one a copy is
+	going to */
 	short best_map_file_index = NONE;
-	struct cached_map_file *best_map_file;
-	short first_map_file_index;
-	short last_map_file_index;
+	short empty_map_file_index = NONE;
 	short map_file_index;
 
-	switch (scenario_type)
+	if (file_length >= cached_map_type_maximum_size(scenario_type))
 	{
-		case _scenario_type_solo:
-			first_map_file_index = 0;
-			last_map_file_index = 1;
-			break;
-
-		case _scenario_type_multiplayer:
-			first_map_file_index = 3;
-			last_map_file_index = 5;
-			break;
-
-		case _scenario_type_main_menu:
-			first_map_file_index = 2;
-			last_map_file_index = 2;
-			break;
-
-		/* port: the type is the map's header's, and a release build's assertion
-		goes on: a type no cache file is for finds none */
-		default:
-			match_vassert("c:\\halo\\SOURCE\\cache\\cache_files_windows.c", 1172, FALSE, NULL);
-			return NONE;
+		return NONE;
 	}
 
-	for (map_file_index = first_map_file_index;
-		map_file_index <= last_map_file_index;
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
 		map_file_index++)
 	{
-		if (cache_file_globals.open_map_file_index != map_file_index)
-		{
-			struct cached_map_file *map_file = cached_map_file_get(map_file_index);
+		struct cached_map_file *map_file = cached_map_file_get(map_file_index);
 
-			if (cached_map_file_get_size(map_file_index) > file_length)
-			{
-				if (best_map_file_index == NONE ||
-					cached_map_file_get_size(map_file_index) < cached_map_file_get_size(best_map_file_index) ||
-					CompareFileTime(
-						&best_map_file->last_modification_date,
-						&map_file->last_modification_date) > 0)
-				{
-					best_map_file_index = map_file_index;
-					best_map_file = map_file;
-				}
-			}
+		if (cache_file_globals.open_map_file_index != map_file_index &&
+			!(cache_file_globals.copy_in_progress && cache_file_globals.copying_to_map_file_index == map_file_index) &&
+			!cached_map_file_unpacking[map_file_index] &&
+			map_file->file != INVALID_HANDLE_VALUE &&
+			!map_file->header.name[0])
+		{
+			empty_map_file_index = map_file_index;
+			break;
+		}
+	}
+	if (empty_map_file_index != NONE &&
+		cached_map_files_bytes(empty_map_file_index) + (unsigned long long)file_length <= cached_map_files_budget)
+	{
+		best_map_file_index = empty_map_file_index;
+	}
+	else
+	{
+		best_map_file_index = cached_map_files_least_useful(NONE);
+		if (best_map_file_index == NONE)
+		{
+			best_map_file_index = empty_map_file_index;
 		}
 	}
 
@@ -1433,14 +1582,14 @@ static long cached_map_file_get_size(
 		"c:\\halo\\SOURCE\\cache\\cache_files_windows.c",
 		1232,
 		map_file_index>=0 && map_file_index<NUMBER_OF_CACHED_MAP_FILES);
-	if (map_file_index <= 1)
+	/* port: the cache file's own (its map's: cache_files_precache_map_begin),
+	0 if it did not open */
+	if (cached_map_file_get(map_file_index)->file == INVALID_HANDLE_VALUE)
 	{
-		return SOLO_CACHE_FILE_MAXIMUM_SIZE;
+		return 0;
 	}
 
-	return (map_file_index <= 2)
-		? MAIN_MENU_CACHE_FILE_MAXIMUM_SIZE
-		: MULTIPLAYER_CACHE_FILE_MAXIMUM_SIZE;
+	return (long)GetFileSize(cached_map_file_get(map_file_index)->file, NULL);
 }
 
 static HANDLE cached_map_file_get_handle(
@@ -1600,7 +1749,8 @@ static void cached_map_file_get_path(
 	short map_file_index,
 	char *path)
 {
-	sprintf(path, "z:\\cache%03d.map", map_file_index);
+	/* port: this copy of the game's folder (cache_slot_folder) */
+	sprintf(path, "%scache%03d.map", cache_slot_folder(), map_file_index);
 
 	return;
 }
@@ -1773,4 +1923,395 @@ static short cached_map_files_find_map(
 	}
 
 	return NONE;
+}
+
+/* port: the most a map of a type may be (the Xbox's cache files' sizes) */
+static long cached_map_type_maximum_size(
+	short scenario_type)
+{
+	switch (scenario_type)
+	{
+		case _scenario_type_solo:
+			return SOLO_CACHE_FILE_MAXIMUM_SIZE;
+
+		case _scenario_type_multiplayer:
+			return MULTIPLAYER_CACHE_FILE_MAXIMUM_SIZE;
+
+		case _scenario_type_main_menu:
+			return MAIN_MENU_CACHE_FILE_MAXIMUM_SIZE;
+
+		/* (the type is the map's header's, and a release build's assertion
+		goes on: a type no cache file is for finds none) */
+		default:
+			match_vassert("c:\\halo\\SOURCE\\cache\\cache_files_windows.c", 1172, FALSE, NULL);
+			return 0;
+	}
+}
+
+/* port: the bytes the cache files take, but one's */
+static unsigned long long cached_map_files_bytes(
+	short except_map_file_index)
+{
+	unsigned long long bytes = 0;
+	short map_file_index;
+
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
+		map_file_index++)
+	{
+		if (map_file_index != except_map_file_index)
+		{
+			bytes += (unsigned long)cached_map_file_get_size(map_file_index);
+		}
+	}
+
+	return bytes;
+}
+
+/* port: a cache file made size bytes long (0 gives its space back) */
+static boolean cached_map_file_resize(
+	short map_file_index,
+	long size)
+{
+	HANDLE file = cached_map_file_get_handle(map_file_index);
+
+	return file != INVALID_HANDLE_VALUE &&
+		SetFilePointer(file, size, NULL, FILE_BEGIN) != INVALID_SET_FILE_POINTER &&
+		SetEndOfFile(file);
+}
+
+/* port: how useful a map is kept, by its name, when it has not been played:
+the main menu's, the campaign's levels in their order, then the multiplayer
+maps, the most played first; another map least (larger is more useful) */
+static long cached_map_usefulness(
+	char const *name)
+{
+	static char const *const useful_maps[] =
+	{
+		"ui", "a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40",
+		"bloodgulch", "hangemhigh", "chillout", "prisoner", "damnation", "sidewinder", "ratrace",
+		"beavercreek", "longest", "wizard", "carousel", "boardingaction", "putput",
+	};
+	long index;
+
+	for (index = 0; index < NUMBEROF(useful_maps); index++)
+	{
+		if (_stricmp(name, useful_maps[index]) == 0)
+		{
+			return NUMBEROF(useful_maps) - index;
+		}
+	}
+
+	return 0;
+}
+
+/* port: the map given up first for room: of those a cache file holds (not
+the open map's, nor the one a copy is going to, nor except's), the one
+played least recently, those never played (copied by the menus' pictures'
+pass, or ahead: port/linux/game/map_cache_prefill.c) before any played and
+the least useful of them first; NONE if there is none */
+static short cached_map_files_least_useful(
+	short except_map_file_index)
+{
+	short best_map_file_index = NONE;
+	unsigned long best_played = 0;
+	long best_usefulness = 0;
+	short map_file_index;
+
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
+		map_file_index++)
+	{
+		struct cached_map_file *map_file = cached_map_file_get(map_file_index);
+		unsigned long played;
+		long usefulness;
+
+		if (map_file_index == except_map_file_index ||
+			map_file_index == cache_file_globals.open_map_file_index ||
+			(cache_file_globals.copy_in_progress && map_file_index == cache_file_globals.copying_to_map_file_index) ||
+			cached_map_file_unpacking[map_file_index] ||
+			map_file->file == INVALID_HANDLE_VALUE ||
+			!map_file->header.name[0])
+		{
+			continue;
+		}
+		played = cache_slot_source_played_time(map_file_index);
+		usefulness = cached_map_usefulness(map_file->header.name);
+		if (best_map_file_index == NONE ||
+			played < best_played ||
+			(played == best_played && usefulness < best_usefulness))
+		{
+			best_map_file_index = map_file_index;
+			best_played = played;
+			best_usefulness = usefulness;
+		}
+	}
+
+	return best_map_file_index;
+}
+
+/* port: the maps given up, the least useful first, until the cache files
+have room within the budget for size bytes in map_file_index's */
+static void cached_map_files_make_room(
+	short map_file_index,
+	long size)
+{
+	while (cached_map_files_bytes(map_file_index) + (unsigned long long)size > cached_map_files_budget)
+	{
+		short victim_map_file_index = cached_map_files_least_useful(map_file_index);
+		struct cached_map_file *victim;
+
+		if (victim_map_file_index == NONE)
+		{
+			break;
+		}
+		victim = cached_map_file_get(victim_map_file_index);
+		error(_error_silent, "map '%s' given up from the cache for room", victim->header.name);
+		cache_slot_source_forget(victim_map_file_index);
+		memset(&victim->header, 0, sizeof(struct cache_file_header));
+		memset(&victim->last_modification_date, 0, sizeof(FILETIME));
+		cached_map_file_resize(victim_map_file_index, 0);
+	}
+
+	return;
+}
+
+/* port: the maps given up, the least useful first, until the cache files
+fit their budget (a smaller one: Settings' DISK SPACE SAVER, game.map_cache_megabytes);
+never the open map's, nor the one a copy is going to: the bytes given up */
+static unsigned long long cached_map_files_fit_budget(
+	void)
+{
+	unsigned long long before = cached_map_files_bytes(NONE);
+
+	cached_map_files_make_room(NONE, 0);
+
+	return before - cached_map_files_bytes(NONE);
+}
+
+/* port: the budget read again (game.map_cache_megabytes changed:
+port/linux/game/map_cache_prefill.c), and the cache made to fit it now: the
+workers' unpacks ended first (their slots, unfinished, emptied), as a copy
+begun for the larger budget may not fit the smaller; the bytes given up */
+unsigned long long cache_files_budget_update(
+	void)
+{
+	short map_file_index;
+
+	if (!cache_slot_folder_keeps_cache())
+	{
+		return 0;
+	}
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
+		map_file_index++)
+	{
+		if (cached_map_file_unpacking[map_file_index])
+		{
+			map_unpack_stop(map_file_index);
+			map_unpack_wait(map_file_index);
+		}
+	}
+	cache_files_unpack_update();
+	cached_map_files_budget = map_cache_budget(cached_map_files_bytes(NONE), CACHED_MAP_FILES_LEAST_BUDGET);
+
+	return cached_map_files_fit_budget();
+}
+
+/* port: the bytes a copy of a map (a10) into the cache would take, without
+giving up another map's (port/linux/game/map_cache_prefill.c); 0 if a cache
+file holds it, the precache would refuse it, or the budget has no room */
+long cache_files_map_prefill_size(
+	char const *map_name)
+{
+	char const *cache_map_name = tag_name_strip_path(map_name);
+	struct cache_file_header header;
+	long copy_size;
+	short map_file_index;
+
+	if (custom_edition_level_name(map_name) ||
+		cache_files_precache_map_loaded(map_name) ||
+		!cache_file_read_header_from_dvd(cache_map_name, &header) ||
+		_stricmp(header.name, cache_map_name) != 0 ||
+		header.file_length >= cached_map_type_maximum_size(header.scenario_type))
+	{
+		return 0;
+	}
+	copy_size = (header.file_length + 0xFFFF) & ~0xFFFF;
+	map_file_index = cached_map_files_find_free_map(header.file_length, header.scenario_type);
+	if (map_file_index == NONE ||
+		cached_map_file_get(map_file_index)->header.name[0] ||
+		cached_map_files_bytes(map_file_index) + (unsigned long long)copy_size > cached_map_files_budget)
+	{
+		return 0;
+	}
+
+	return copy_size;
+}
+
+/* port: the bytes the cache files take, their budget, and the maps they
+hold (debug.load_trace) */
+void cache_files_cache_usage(
+	unsigned long long *bytes,
+	unsigned long long *budget,
+	long *maps)
+{
+	short map_file_index;
+
+	*bytes = cached_map_files_bytes(NONE);
+	*budget = cached_map_files_budget;
+	*maps = 0;
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
+		map_file_index++)
+	{
+		*maps += cached_map_file_get(map_file_index)->header.name[0] != 0;
+	}
+
+	return;
+}
+
+/* port: the slot a worker is unpacking a map (a10) into, NONE if none */
+static short cached_map_files_find_unpacking(
+	char const *map_name)
+{
+	short map_file_index;
+
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
+		map_file_index++)
+	{
+		if (cached_map_file_unpacking[map_file_index] &&
+			_stricmp(cached_map_file_unpacking_name[map_file_index], tag_name_strip_path(map_name)) == 0)
+		{
+			return map_file_index;
+		}
+	}
+
+	return NONE;
+}
+
+/* port: a stock map (a10) unpacked into a slot by a worker
+(port/linux/src/map_unpack.c), if the precache would copy it and the budget
+has room for it without giving up another map (cache_files_map_prefill_size's
+rules): its slot chosen here and held, emptied and made the map's size,
+its source forgotten, until the worker is done (cache_files_unpack_update).
+FALSE if it was not begun */
+boolean cache_files_unpack_begin(
+	char const *map_name)
+{
+	char const *cache_map_name = tag_name_strip_path(map_name);
+	struct cache_file_header header;
+	char map_path[256], slot_path[256];
+	short map_file_index;
+	long copy_size;
+
+	if (!cache_slot_folder_keeps_cache() ||
+		cached_map_files_find_unpacking(map_name) != NONE ||
+		cache_files_precache_is_copying_map(map_name) ||
+		(copy_size = cache_files_map_prefill_size(map_name)) <= 0 ||
+		!cache_file_read_header_from_dvd(cache_map_name, &header))
+	{
+		return FALSE;
+	}
+	map_file_index = cached_map_files_find_free_map(header.file_length, header.scenario_type);
+	if (map_file_index == NONE || cached_map_file_get(map_file_index)->header.name[0])
+	{
+		return FALSE;
+	}
+	cache_slot_source_forget(map_file_index);
+	if (!cached_map_file_resize(map_file_index, 0) || !cached_map_file_resize(map_file_index, copy_size))
+	{
+		cached_map_file_resize(map_file_index, 0);
+		return FALSE;
+	}
+	cache_file_get_map_path(cache_map_name, map_path);
+	cached_map_file_get_path(map_file_index, slot_path);
+	if (!map_path[0] || !map_unpack_queue(map_file_index, map_path, slot_path, copy_size, FALSE))
+	{
+		cached_map_file_resize(map_file_index, 0);
+		return FALSE;
+	}
+	cached_map_file_unpacking[map_file_index] = TRUE;
+	strncpy(cached_map_file_unpacking_name[map_file_index], cache_map_name,
+		sizeof(cached_map_file_unpacking_name[map_file_index]) - 1);
+	cached_map_file_unpacking_name[map_file_index][sizeof(cached_map_file_unpacking_name[map_file_index]) - 1] = 0;
+
+	return TRUE;
+}
+
+/* port: the slots the workers are done with taken back, each only once it
+passes the check of the game's start (cached_map_file_adopt) */
+void cache_files_unpack_update(
+	void)
+{
+	short map_file_index;
+	int succeeded;
+
+	while (map_unpack_take_finished(&map_file_index, &succeeded))
+	{
+		if (map_file_index < 0 || map_file_index >= NUMBER_OF_CACHED_MAP_FILES ||
+			!cached_map_file_unpacking[map_file_index])
+		{
+			continue;
+		}
+		cached_map_file_unpacking[map_file_index] = FALSE;
+		if (succeeded && cached_map_file_adopt(map_file_index))
+		{
+			cached_map_file_set_modification_date(map_file_index);
+		}
+		else
+		{
+			error(_error_silent, "the unpack of map '%s' did not end whole: copied again",
+				cached_map_file_unpacking_name[map_file_index]);
+			cache_slot_source_forget(map_file_index);
+			memset(&cached_map_file_get(map_file_index)->header, 0, sizeof(struct cache_file_header));
+			cached_map_file_resize(map_file_index, 0);
+		}
+		cached_map_file_unpacking_name[map_file_index][0] = 0;
+	}
+
+	return;
+}
+
+/* port: whether a worker is unpacking a map (a10) */
+boolean cache_files_map_unpacking(
+	char const *map_name)
+{
+	cache_files_unpack_update();
+
+	return cached_map_files_find_unpacking(map_name) != NONE;
+}
+
+/* port: how many maps the workers are unpacking */
+long cache_files_unpacking_count(
+	void)
+{
+	long count = 0;
+	short map_file_index;
+
+	for (map_file_index = 0;
+		map_file_index < NUMBER_OF_CACHED_MAP_FILES;
+		map_file_index++)
+	{
+		count += cached_map_file_unpacking[map_file_index] != 0;
+	}
+
+	return count;
+}
+
+/* port: a map (a10) a worker is unpacking waited for, and taken back */
+void cache_files_unpack_wait(
+	char const *map_name)
+{
+	short map_file_index = cached_map_files_find_unpacking(map_name);
+
+	if (map_file_index == NONE)
+	{
+		return;
+	}
+	map_unpack_wait(map_file_index);
+	cache_files_unpack_update();
+
+	return;
 }

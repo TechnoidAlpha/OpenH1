@@ -15,11 +15,10 @@ XGPU_STREAM_SOURCE_IMAGE). xgpu_images.c.
 #include "xgpu.h"
 
 /* an image's pixels: 4 bytes each, red, green, blue and alpha (the PNGs'
-order); or a byte each, the coverage (alpha) of white */
+order) */
 enum
 {
 	XGPU_IMAGE_RGBA,
-	XGPU_IMAGE_COVERAGE,
 };
 
 struct xgpu_image
@@ -59,6 +58,10 @@ changes it (its levels, hires and what goes with it); and the channels the
 texels at address are sampled from at the stage (a Custom Edition map's:
 xgpu_stream.h's texture stage) */
 unsigned int xgpu_texture_replacement(DWORD resource, struct xgpu_texture_description *description);
+/* (xbox_textures.c) what a texture's replacement is chosen from has changed
+(a placeholder or a menu's art registered or let go), on any thread: each
+texture's choice is made again at its next bind */
+void xgpu_texture_replacements_changed(void);
 unsigned long xgpu_texture_channels(unsigned long address, int stage);
 
 #endif

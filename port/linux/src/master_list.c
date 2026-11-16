@@ -179,6 +179,11 @@ int master_list_read_file(const char *setting, char (*urls)[MASTER_LIST_URL_SIZE
 	return count;
 }
 
+/* the relays used when relays.txt cannot be read (the builds that bring no
+file: Android, macOS, iOS, the Steam Frame's): the project's own
+(deploy/net), as port/assets/network/relays.txt names them */
+#define DEFAULT_RELAYS "net.goath1.com:2302\n"
+
 int master_list_read_relays(const char *setting, char (*hosts)[MASTER_LIST_RELAY_HOST_SIZE], unsigned short *ports,
 	int maximum)
 {
@@ -191,7 +196,12 @@ int master_list_read_relays(const char *setting, char (*hosts)[MASTER_LIST_RELAY
 		return 0;
 	text = masters_file(setting, path, sizeof(path));
 	if (!text)
-		return 0;
+	{
+		text = (char *)malloc(sizeof(DEFAULT_RELAYS));
+		if (!text)
+			return 0;
+		memcpy(text, DEFAULT_RELAYS, sizeof(DEFAULT_RELAYS));
+	}
 	for (line = text; *line && count < maximum;)
 	{
 		const char *end = line + strcspn(line, "\n");
@@ -254,7 +264,9 @@ static int master_keep(const char *url, const char *key, char (*urls)[MASTER_LIS
 }
 
 /* the official master servers, asked when masters.txt names none (it is
-missing, empty or has comments alone) */
+missing, empty or has comments alone, or the build brings none: Android,
+macOS, iOS, the Steam Frame's): the project's own (deploy/net), then
+OpenCE's, as port/assets/network/masters.txt names them */
 int master_list_read_defaults(char (*urls)[MASTER_LIST_URL_SIZE], unsigned char (*keys)[MASTER_LIST_KEY_SIZE],
 	int maximum)
 {
@@ -264,14 +276,52 @@ int master_list_read_defaults(char (*urls)[MASTER_LIST_URL_SIZE], unsigned char 
 		const char *key;
 	} masters[] =
 	{
+		{ "https://master.goath1.com",
+			"ed25519:120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399684" },
 		{ "https://master.opencommunityedition.com",
 			"ed25519:89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225aa" },
+		{ "https://ocemaster.halobase.net",
+			"ed25519:1d018c4d1e182585948cd807f19133122c1a1484a74dcffa7792d18012573459" },
+		{ "https://masterce.unicade.io",
+			"ed25519:22aa04b7cf041af39c2e9765b5da10989254ed49fa23b730cd90e6d36a0a411a" },
 	};
 	int index, count = 0;
 
 	for (index = 0; index < (int)(sizeof(masters) / sizeof(masters[0])) && count < maximum; index++)
 		count += master_keep(masters[index].url, masters[index].key, urls, keys, count);
 	return count;
+}
+
+/* the publishers whose servers are the project's own
+(master_list_project_server), by the ids the project's own master gave them (the
+first of master_list_read_defaults', master.goath1.com: deploy/net). An id
+is that master's word, in its signed list: no one else's list or listing
+makes a server the project's, whatever it calls itself, and another master's
+list naming the same id is not believed. An id is added here as the
+project publishes servers (opence-master-cli list-publishers, on the
+master) */
+static const char *const project_publishers[] =
+{
+	NULL,
+};
+
+int master_list_project_server(const unsigned char *master_key, const char *publisher_id)
+{
+	char urls[1][MASTER_LIST_URL_SIZE];
+	unsigned char keys[1][MASTER_LIST_KEY_SIZE];
+	int index;
+
+	if (!master_key || !publisher_id || !publisher_id[0] || master_list_read_defaults(urls, keys, 1) != 1 ||
+		memcmp(master_key, keys[0], MASTER_LIST_KEY_SIZE))
+	{
+		return 0;
+	}
+	for (index = 0; project_publishers[index]; index++)
+	{
+		if (!strcmp(project_publishers[index], publisher_id))
+			return 1;
+	}
+	return 0;
 }
 
 int master_list_read(const char *setting, char (*urls)[MASTER_LIST_URL_SIZE],
@@ -579,9 +629,10 @@ static void read_masters(void)
 	pthread_mutex_unlock(&list.lock);
 }
 
-/* a list's servers given to the browser, as the master of that key id's
-(8 bytes): how many were taken */
-static int take_list(const char *body, unsigned long size, const unsigned char *master_key_id)
+/* a list's servers given to the browser, as the master of that key's (and
+key id's, 8 bytes): how many were taken */
+static int take_list(const char *body, unsigned long size, const unsigned char *master_key,
+	const unsigned char *master_key_id)
 {
 	struct server_json_document document;
 	int servers, index, taken = 0;
@@ -594,7 +645,7 @@ static int take_list(const char *body, unsigned long size, const unsigned char *
 		int entry = server_json_element(&document, servers, index);
 		char listing_text[600];
 		unsigned char listing[MAXIMUM_LISTING];
-		char publisher[64] = "", region[32] = "";
+		char publisher[64] = "", publisher_id[64] = "", region[32] = "";
 		double version = 0;
 		int listing_size, character, dedicated;
 
@@ -609,6 +660,8 @@ static int take_list(const char *body, unsigned long size, const unsigned char *
 			continue;
 		server_json_get_string(&document, server_json_member(&document, server_json_member(&document, entry, "publisher"),
 			"name"), publisher, sizeof(publisher));
+		server_json_get_string(&document, server_json_member(&document, server_json_member(&document, entry, "publisher"),
+			"id"), publisher_id, sizeof(publisher_id));
 		server_json_get_string(&document, server_json_member(&document, entry, "region"), region, sizeof(region));
 		server_json_get_number(&document, server_json_member(&document, entry, "network_version"), &version);
 		/* (a dedicated server's, as the entry says: a player's public game,
@@ -630,7 +683,7 @@ static int take_list(const char *body, unsigned long size, const unsigned char *
 		}
 		region[P2P_LISTING_REGION_SIZE] = 0;
 		taken += p2p_lobby_take_master_listing(listing, listing_size, publisher, region, (int)version, dedicated,
-			master_key_id);
+			master_list_project_server(master_key, publisher_id), master_key_id);
 	}
 	server_json_document_free(&document);
 	return taken;
@@ -690,7 +743,7 @@ static void *list_thread_main(void *argument)
 				int taken;
 
 				p2p_sha256(keys[index], MASTER_LIST_KEY_SIZE, digest);
-				taken = take_list(fetched.body, fetched.size, digest);
+				taken = take_list(fetched.body, fetched.size, keys[index], digest);
 
 				answered++;
 				platform_log("server browser: %s lists %d server%s", urls[index], taken, taken == 1 ? "" : "s");

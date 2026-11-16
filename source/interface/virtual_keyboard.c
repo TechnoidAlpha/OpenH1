@@ -348,6 +348,13 @@ static rectangle2d keyboard_rect[NUMBER_OF_VIRTUAL_KEYS] =
 
 static struct virtual_keyboard_globals virtual_keyboard_globals= {0};
 
+/* port: a title and a caption of the caller's in place of ENTER NAME and
+the keyboard's own strings' (virtual_keyboard_port_launch: Settings'
+search's, port/linux/game/settings_search_menu.inc), until the keyboard is
+launched again */
+static wchar_t const *virtual_keyboard_port_title;
+static wchar_t const *virtual_keyboard_port_caption;
+
 /* port: the computer's keyboard types into the keyboard while it is up
 (port/linux/src/xinput_sdl.c), set as it opens and closes: it is processed
 only while it is up, so its processing cannot end the typing */
@@ -357,6 +364,281 @@ static void virtual_keyboard_set_active(boolean active)
 
 	virtual_keyboard_globals.active = active;
 	platform_text_typing(active);
+}
+
+/* port: the keyboard's screen in the look of the menus the port has (the
+PC version's, display.menus "pc"; issue 667), where they are up (their
+heading font, pc\heading, is loaded): the screens' backdrop across the
+whole screen (as bitmaps\gradient draws it: a line under the title, the
+body shaded darker down to the footer's line and its band), the title in
+the menus' heading font, the text box's and the keys' panels and the
+chosen, pressed and held keys as rounded boxes drawn at the display's
+resolution (port/linux/game/menu_shapes.c), the footer's prompts at the
+right of the wide layout (ui_widget_port_wide_extra), each the key while
+the keyboard and mouse were used last and the button while a controller
+was (draw_string_and_hack_in_icons), which a click takes as the Xbox's
+legends; where they are not, the Xbox's picture */
+
+/* port/linux/game/menu_shapes.c */
+void menu_shape_rounded_box(real x0, real y0, real x1, real y1, real radius, real edge, pixel32 fill,
+	pixel32 color);
+void menu_shape_shaded_box(real x0, real y0, real x1, real y1, real radius, real edge, pixel32 top, pixel32 bottom,
+	pixel32 color);
+void menu_shape_band(real x0, real y0, real x1, real y1, pixel32 top, pixel32 bottom);
+/* port/linux/src/xinput_sdl.c (halo_keyboard.h) */
+int halo_keyboard_prompts(void);
+
+enum
+{
+	/* the backdrop's lines and bands (bitmaps\gradient, 1 unit a row) */
+	VIRTUAL_KEYBOARD_PORT_TITLE_LINE = 70,
+	VIRTUAL_KEYBOARD_PORT_FOOTER_LINE = 409,
+	VIRTUAL_KEYBOARD_PORT_FOOTER_BOTTOM = 444,
+	/* the title's capitals' top and the pen's place past the layout's
+	left edge, as the headers' pictures set theirs (tools/port_settings.py's
+	TITLE_LEFT and TITLE_TOP in a header at 35, 11) */
+	VIRTUAL_KEYBOARD_PORT_TITLE_X = 66,
+	VIRTUAL_KEYBOARD_PORT_TITLE_TOP = 45,
+	VIRTUAL_KEYBOARD_PORT_TITLE_CAPITALS = 21,
+	/* the footer's prompts (port_settings.py's: 24 high, their words 8 in,
+	WIDE_MARGIN from the layout's right edge, apart) */
+	VIRTUAL_KEYBOARD_PORT_PROMPT_TOP = 415,
+	VIRTUAL_KEYBOARD_PORT_PROMPT_HEIGHT = 24,
+	VIRTUAL_KEYBOARD_PORT_PROMPT_TEXT_X = 8,
+	VIRTUAL_KEYBOARD_PORT_PROMPT_TEXT_Y = 3,
+	VIRTUAL_KEYBOARD_PORT_PROMPT_MARGIN = 24,
+	VIRTUAL_KEYBOARD_PORT_PROMPT_GAP = 12,
+	VIRTUAL_KEYBOARD_PORT_BACK_WIDTH = 88,
+	VIRTUAL_KEYBOARD_PORT_ENTER_WIDTH = 108,
+	/* the panels about the text and the keys (keyboard_rect's), and a key's
+	box inside its rectangle */
+	VIRTUAL_KEYBOARD_PORT_PANEL_LEFT = 106,
+	VIRTUAL_KEYBOARD_PORT_PANEL_RIGHT = 534,
+	VIRTUAL_KEYBOARD_PORT_TEXT_PANEL_TOP = 110,
+	VIRTUAL_KEYBOARD_PORT_TEXT_PANEL_BOTTOM = 148,
+	VIRTUAL_KEYBOARD_PORT_KEYS_PANEL_TOP = 152,
+	VIRTUAL_KEYBOARD_PORT_KEYS_PANEL_BOTTOM = 326,
+	VIRTUAL_KEYBOARD_PORT_KEY_INSET = 1,
+};
+
+/* a key's look: none, chosen, pressed (A on it last), held on (Shift, Caps
+Lock, Symbols) */
+enum
+{
+	_virtual_keyboard_port_key_plain,
+	_virtual_keyboard_port_key_chosen,
+	_virtual_keyboard_port_key_pressed,
+	_virtual_keyboard_port_key_held,
+};
+
+/* the Xbox's legends' rectangles, measured on its picture (icon and words,
+with a few units of margin), and where the click finds BACK and ENTER now:
+those, or the port's prompts' boxes as last drawn */
+static rectangle2d const keyboard_back_legend_xbox_rect= {412, 368, 438, 462};
+static rectangle2d const keyboard_enter_legend_xbox_rect= {412, 468, 438, 572};
+static rectangle2d keyboard_back_legend_rect= {412, 368, 438, 462};
+static rectangle2d keyboard_enter_legend_rect= {412, 468, 438, 572};
+
+/* whether the keyboard is drawn in the port's menus' look: their heading
+font is loaded */
+static long virtual_keyboard_port_heading_font(
+	void)
+{
+	return tag_loaded(FONT_GROUP_TAG, "pc\\heading");
+}
+
+/* the footer's prompts' boxes, from the right edge of the layout (the
+menus' 640, or past it on a wide screen) leftward: BACK, then ENTER (the
+Xbox's legends' order, read from the right, as the port's footers end with
+BACK) */
+static void virtual_keyboard_port_prompt_boxes(
+	short right,
+	rectangle2d *back,
+	rectangle2d *enter)
+{
+	back->y0 = enter->y0 = VIRTUAL_KEYBOARD_PORT_PROMPT_TOP;
+	back->y1 = enter->y1 = VIRTUAL_KEYBOARD_PORT_PROMPT_TOP + VIRTUAL_KEYBOARD_PORT_PROMPT_HEIGHT;
+	back->x1 = (short)(right - VIRTUAL_KEYBOARD_PORT_PROMPT_MARGIN);
+	back->x0 = (short)(back->x1 - VIRTUAL_KEYBOARD_PORT_BACK_WIDTH);
+	enter->x1 = (short)(back->x0 - VIRTUAL_KEYBOARD_PORT_PROMPT_GAP);
+	enter->x0 = (short)(enter->x1 - VIRTUAL_KEYBOARD_PORT_ENTER_WIDTH);
+}
+
+/* how far the layout reaches past each side of the menus' 640: the wide
+layout's half (or a touchscreen's anchors'), as the port's screens are
+drawn (ui_widget_render) */
+static short virtual_keyboard_port_side(
+	void)
+{
+	return (short)MAX(ui_widget_port_anchor_extra(), (ui_widget_port_wide_extra() + 1) / 2);
+}
+
+/* a font's capitals' height (its H's rows with ink), 0 for none */
+static short virtual_keyboard_port_capital_height(
+	struct font_header *font)
+{
+	struct font_character *capital = font ? font_get_character_by_ascii_code(font, 'H') : NULL;
+	short top = NONE, bottom = NONE;
+	short row;
+
+	for (row = 0; capital && row < capital->bitmap_height; row++)
+	{
+		byte const *pixels = (byte const *)font->pixels.address + capital->pixels_offset + row * capital->bitmap_width;
+		short column;
+
+		for (column = 0; column < capital->bitmap_width; column++)
+		{
+			if (pixels[column])
+			{
+				if (top == NONE)
+					top = row;
+				bottom = row;
+				break;
+			}
+		}
+	}
+	return top == NONE ? 0 : (short)(bottom - top + 1);
+}
+
+/* the backdrop, the title and the panels */
+static void virtual_keyboard_port_render_backdrop(
+	long heading_font)
+{
+	short screen_side = (short)MAX((halo_screen_width() - 640) / 2, 0);
+	real left = (real)-screen_side;
+	real right = (real)(640 + screen_side);
+	struct font_header *heading = font_definition_get(heading_font);
+	short capitals = virtual_keyboard_port_capital_height(heading);
+
+	menu_shape_band(left, VIRTUAL_KEYBOARD_PORT_TITLE_LINE, right, VIRTUAL_KEYBOARD_PORT_TITLE_LINE + 1,
+		0xFF36AFFFUL, 0xFF36AFFFUL);
+	menu_shape_band(left, VIRTUAL_KEYBOARD_PORT_TITLE_LINE + 1, right, VIRTUAL_KEYBOARD_PORT_FOOTER_LINE,
+		0xA3062951UL, 0xB0030910UL);
+	menu_shape_band(left, VIRTUAL_KEYBOARD_PORT_FOOTER_LINE, right, VIRTUAL_KEYBOARD_PORT_FOOTER_LINE + 1,
+		0xFF2896FFUL, 0xFF2896FFUL);
+	menu_shape_band(left, VIRTUAL_KEYBOARD_PORT_FOOTER_LINE + 1, right, VIRTUAL_KEYBOARD_PORT_FOOTER_BOTTOM,
+		0xB2000000UL, 0xB2000000UL);
+
+	/* the title, its capitals as tall as the headers' */
+	if (heading && capitals > 0)
+	{
+		real_argb_color title_color;
+		real scale = (real)VIRTUAL_KEYBOARD_PORT_TITLE_CAPITALS / (real)capitals;
+		rectangle2d bounds;
+
+		title_color.alpha = 1.0f;
+		title_color.red = 0x29 / 255.0f;
+		title_color.green = 0x95 / 255.0f;
+		title_color.blue = 0xFD / 255.0f;
+		bounds.x0 = (short)(VIRTUAL_KEYBOARD_PORT_TITLE_X - virtual_keyboard_port_side());
+		bounds.x1 = (short)(bounds.x0 + 640);
+		/* (the capitals' top, scaled about the box's top) */
+		bounds.y0 = (short)(VIRTUAL_KEYBOARD_PORT_TITLE_TOP -
+			(short)((heading->ascending_height - capitals) * scale + 0.5f));
+		bounds.y1 = (short)(bounds.y0 + 64);
+		draw_string_set_draw_mode(heading_font, NONE, 0, 0, &title_color);
+		rasterizer_text_set_scale(scale, (real)bounds.x0, (real)bounds.y0);
+		rasterizer_draw_unicode_string(&bounds, NULL, NULL, 0,
+			virtual_keyboard_port_title ? virtual_keyboard_port_title : L"ENTER NAME");
+		rasterizer_text_set_scale(1.0f, 0.0f, 0.0f);
+	}
+
+	/* the panels: the text's and the keys', filled as the Xbox's picture
+	(ui\bkd_virtual_keyboard) fills them: 0xEE of one shade down both,
+	from 02142A at the text's top to 02070D at the keys' bottom, edged in
+	its 31AAFF (issue 896: a flat navy hid the shade) */
+	menu_shape_shaded_box(VIRTUAL_KEYBOARD_PORT_PANEL_LEFT, VIRTUAL_KEYBOARD_PORT_TEXT_PANEL_TOP,
+		VIRTUAL_KEYBOARD_PORT_PANEL_RIGHT, VIRTUAL_KEYBOARD_PORT_TEXT_PANEL_BOTTOM, 9.5f, 2.0f,
+		0xEE02142AUL, 0xEE021225UL, 0xFF31AAFFUL);
+	menu_shape_shaded_box(VIRTUAL_KEYBOARD_PORT_PANEL_LEFT, VIRTUAL_KEYBOARD_PORT_KEYS_PANEL_TOP,
+		VIRTUAL_KEYBOARD_PORT_PANEL_RIGHT, VIRTUAL_KEYBOARD_PORT_KEYS_PANEL_BOTTOM, 9.5f, 2.0f,
+		0xEE021225UL, 0xEE02070DUL, 0xFF31AAFFUL);
+}
+
+/* how a key looks: chosen (pressed, if A was the last thing done to it), or
+held on, else plain */
+static short virtual_keyboard_port_key_look(
+	long key_index)
+{
+	if (virtual_keyboard_layout_table[virtual_keyboard_globals.row][virtual_keyboard_globals.column] == key_index)
+	{
+		return virtual_keyboard_globals.last_event == _event_key_select ?
+			_virtual_keyboard_port_key_pressed : _virtual_keyboard_port_key_chosen;
+	}
+	if ((key_index == _vkey_shift && virtual_keyboard_globals.shift_active) ||
+		(key_index == _vkey_caps && virtual_keyboard_globals.caps_active) ||
+		(key_index == _vkey_symbols && virtual_keyboard_globals.symbols_active))
+	{
+		return _virtual_keyboard_port_key_held;
+	}
+	return _virtual_keyboard_port_key_plain;
+}
+
+/* the keys' boxes, under their letters: the chosen one framed as the menus
+frame theirs, a pressed one lit, a held one dimly */
+static void virtual_keyboard_port_render_keys(
+	void)
+{
+	long key_index;
+
+	for (key_index = 0; key_index < NUMBER_OF_VIRTUAL_KEYS; key_index++)
+	{
+		rectangle2d const *key = &keyboard_rect[key_index];
+		short look = virtual_keyboard_port_key_look(key_index);
+		pixel32 fill, edge;
+
+		if (look == _virtual_keyboard_port_key_plain)
+			continue;
+		fill = look == _virtual_keyboard_port_key_pressed ? 0xE60D3A7AUL :
+			look == _virtual_keyboard_port_key_chosen ? 0xE6002244UL : 0xBF0A2A5AUL;
+		edge = look == _virtual_keyboard_port_key_pressed ? 0xFF8CC8FFUL :
+			look == _virtual_keyboard_port_key_chosen ? 0xFF2299FFUL : 0x802299FFUL;
+		menu_shape_rounded_box(
+			(real)(key->x0 + VIRTUAL_KEYBOARD_PORT_KEY_INSET),
+			(real)(key->y0 + VIRTUAL_KEYBOARD_PORT_KEY_INSET),
+			(real)(key->x1 - VIRTUAL_KEYBOARD_PORT_KEY_INSET),
+			(real)(key->y1 - VIRTUAL_KEYBOARD_PORT_KEY_INSET),
+			8.0f, 2.0f, fill, edge);
+	}
+}
+
+/* the footer's prompts: BACK (B, Esc) and, while the keyboard and mouse
+were used last, Enter's DONE (the keyboard's Enter ends the typing, as
+Start and a click on it do), else A's ENTER (which types the chosen key);
+their boxes are where a click finds them */
+static void virtual_keyboard_port_render_prompts(
+	void)
+{
+	real_argb_color color;
+	long font_index = tag_loaded(FONT_GROUP_TAG, "ui\\small_ui");
+	rectangle2d boxes[2];
+	wchar_t const *words[2];
+	short index;
+
+	/* (port_settings.py's PART_TEXT) */
+	color.alpha = 1.0f;
+	color.red = 0xCF / 255.0f;
+	color.green = 0xE3 / 255.0f;
+	color.blue = 1.0f;
+	if (font_index == NONE)
+		font_index = virtual_keyboard_globals.keyboard->font_tag.index;
+	/* (where a click finds them: virtual_keyboard_click) */
+	virtual_keyboard_port_prompt_boxes((short)(640 + virtual_keyboard_port_side()), &keyboard_back_legend_rect,
+		&keyboard_enter_legend_rect);
+	boxes[0] = keyboard_back_legend_rect;
+	boxes[1] = keyboard_enter_legend_rect;
+	words[0] = L"%b-button BACK";
+	words[1] = halo_keyboard_prompts() ? L"%a-button DONE" : L"%a-button ENTER";
+	for (index = 0; index < NUMBEROF(boxes); index++)
+	{
+		rectangle2d bounds = boxes[index];
+
+		bounds.x0 = (short)(bounds.x0 + VIRTUAL_KEYBOARD_PORT_PROMPT_TEXT_X);
+		bounds.y0 = (short)(bounds.y0 + VIRTUAL_KEYBOARD_PORT_PROMPT_TEXT_Y);
+		bounds.x1 = (short)(bounds.x1 + 640);
+		draw_string_set_draw_mode(font_index, NONE, 0, 0, &color);
+		draw_string_and_hack_in_icons(&bounds, NULL, NULL, 0, words[index], FALSE);
+	}
 }
 
 /* ---------- public code */
@@ -447,6 +729,10 @@ boolean virtual_keyboard_launch(
 		419,
 		(caption_index>=FIRST_VIRTUAL_KEYBOARD_CAPTION_STRING_INDEX) && (caption_index<NUMBER_OF_VIRTUAL_KEYBOARD_STRINGS));
 
+	/* port: (the keyboard's own title and caption, unless the port's launch
+	gives them) */
+	virtual_keyboard_port_title = NULL;
+	virtual_keyboard_port_caption = NULL;
 	if (!virtual_keyboard_globals.active && virtual_keyboard_globals.keyboard)
 	{
 		event_manager_flush();
@@ -476,6 +762,26 @@ boolean virtual_keyboard_launch(
 	}
 
 	return result;
+}
+
+/* port: the keyboard launched with a title and a caption of the caller's
+(its words, kept while the keyboard is up), not ENTER NAME and one of its
+strings' */
+boolean virtual_keyboard_port_launch(
+	wchar_t *text_buffer,
+	word buffer_size,
+	wchar_t const *title,
+	wchar_t const *caption)
+{
+	boolean launched = virtual_keyboard_launch(text_buffer, buffer_size, FIRST_VIRTUAL_KEYBOARD_CAPTION_STRING_INDEX);
+
+	if (launched)
+	{
+		virtual_keyboard_port_title = title;
+		virtual_keyboard_port_caption = caption;
+	}
+
+	return launched;
 }
 
 boolean virtual_keyboard_active(
@@ -643,6 +949,8 @@ static void virtual_keyboard_render_internal(
 	real_argb_color caption_color;
 	real_argb_color text_color;
 	struct font_header *keyboard_font_header;
+	/* port: the port's menus' look, where they are up */
+	long heading_font = virtual_keyboard_port_heading_font();
 
 	text_color.alpha = 1.0f;
 	text_color.red = 0.9f;
@@ -660,7 +968,18 @@ static void virtual_keyboard_render_internal(
 		1038,
 		keyboard_font_header);
 
-	if (virtual_keyboard_globals.keyboard->background_bitmap_tag.index != NONE)
+	/* port: the port's backdrop, title and panels; the Xbox's legends'
+	click areas where its picture is drawn */
+	if (heading_font != NONE)
+	{
+		virtual_keyboard_port_render_backdrop(heading_font);
+	}
+	else
+	{
+		keyboard_back_legend_rect = keyboard_back_legend_xbox_rect;
+		keyboard_enter_legend_rect = keyboard_enter_legend_xbox_rect;
+	}
+	if (heading_font == NONE && virtual_keyboard_globals.keyboard->background_bitmap_tag.index != NONE)
 	{
 		rectangle2d bounds;
 		struct bitmap_data *bitmap;
@@ -684,6 +1003,10 @@ static void virtual_keyboard_render_internal(
 		wchar_t *caption = unicode_string_list_get_string(
 			virtual_keyboard_globals.keyboard->special_key_labels_string_list_tag.index,
 			virtual_keyboard_globals.caption_index);
+
+		/* port: (the port's caller's caption: virtual_keyboard_port_launch) */
+		if (virtual_keyboard_port_caption)
+			caption = (wchar_t *)virtual_keyboard_port_caption;
 
 		bounds.y0 = 78;
 		bounds.x0 = 114;
@@ -757,6 +1080,9 @@ static void virtual_keyboard_render_internal(
 		}
 	}
 
+	/* port: the keys' boxes under their letters */
+	if (heading_font != NONE)
+		virtual_keyboard_port_render_keys();
 	draw_string_set_draw_mode(virtual_keyboard_globals.keyboard->font_tag.index, NONE, 2, 0, &text_color);
 	{
 		struct virtual_keyboard_key *keys = virtual_keyboard_globals.keyboard->keys.address;
@@ -800,7 +1126,8 @@ static void virtual_keyboard_render_internal(
 				bitmap_index = key->unselected_background_bitmap_tag.index;
 			}
 
-			if (bitmap_index != NONE)
+			/* port: (the port's look's boxes drawn already) */
+			if (bitmap_index != NONE && heading_font == NONE)
 			{
 				bitmap = bitmap_group_get_bitmap_from_sequence(bitmap_index, 0, 0);
 				if (bitmap)
@@ -913,11 +1240,16 @@ static void virtual_keyboard_render_internal(
 					label_bounds.y1 += 5;
 					rasterizer_draw_unicode_string(&label_bounds, NULL, NULL, 0, label);
 				}
-				if (bitmap)
+				/* port: (the port's look's boxes drawn already) */
+				if (bitmap && heading_font == NONE)
 					draw_bitmap_in_rect(bitmap, &keyboard_rect[key_index], &keyboard_rect[key_index], NULL, 0xffffffff, NULL, FALSE);
 			}
 		}
 	}
+
+	/* port: the footer's prompts */
+	if (heading_font != NONE)
+		virtual_keyboard_port_render_prompts();
 
 	return;
 }
@@ -1388,9 +1720,8 @@ static void virtual_keyboard_process_internal(
 
 /* The "B =BACK" and "A =ENTER" legends are part of the keyboard's background
 bitmap, not widgets, so nothing else can hit-test them; measured on the
-rendered screen (icon and label, with a few pixels of margin). */
-static rectangle2d const keyboard_back_legend_rect= {412, 368, 438, 462};
-static rectangle2d const keyboard_enter_legend_rect= {412, 468, 438, 572};
+rendered screen (icon and label, with a few pixels of margin), or the port's
+prompts' boxes (keyboard_back_legend_rect, above). */
 
 /* (virtual_keyboard.h) */
 long virtual_keyboard_target_rectangles(

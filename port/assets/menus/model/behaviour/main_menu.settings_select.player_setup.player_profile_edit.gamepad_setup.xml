@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.gamepad_setup.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gamepad_setup_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" run="port settings page cancel" back="true"/>
+		<on event="back" run="port settings page cancel" back="true"/>
+		<on event="y" run="port settings search"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_defaults">
+		<on event="a" run="port settings defaults"/>
+		<on event="start" run="port settings defaults"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_ok">
+		<on event="a" run="port settings keep" back="true"/>
+		<on event="start" run="port settings keep" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_cancel">
+		<on event="a" run="port settings page cancel" back="true"/>
+		<on event="start" run="port settings page cancel" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_look_sensitivity" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/look_sensitivity_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_invert_look" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/invert_look_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_invert_look_horizontal" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/invert_look_horizontal_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_gyro_flick_stick" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_flight_inversion" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/flight_inversion_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_autocenter" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/autocenter_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_button_preset" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_preset_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_joystick_preset" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/joystick_preset_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_button_remapping" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_remapping_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_remapping_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_stick_dead_zones" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/dead_zones_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/dead_zones_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_vibration" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/vibration_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_ingame_help" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/ingame_help_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/op_create_profile" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port settings new profile" branch="true"/>
+		<on event="start" run="port settings new profile" branch="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

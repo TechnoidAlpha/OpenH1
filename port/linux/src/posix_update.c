@@ -653,6 +653,24 @@ static int read_memory_body(struct connection *connection, unsigned char **data,
 	}
 }
 
+/* whether header lines (each ended by "\r\n"; NULL for none) have one of
+name's */
+static int header_named(const char *headers, const char *name)
+{
+	size_t length = strlen(name);
+	const char *line = headers;
+
+	while (line && *line)
+	{
+		if (!strncasecmp(line, name, length) && line[length] == ':')
+			return 1;
+		line = strstr(line, "\r\n");
+		if (line)
+			line += 2;
+	}
+	return 0;
+}
+
 int update_https_request(const char *method, const char *url, const char *headers, const void *body,
 	unsigned long body_size, unsigned long maximum, struct update_response *response, char *error, int error_size)
 {
@@ -731,11 +749,14 @@ int update_https_request(const char *method, const char *url, const char *header
 		free(request);
 		return 0;
 	}
+	/* (JSON accepted unless the caller's headers say what is: the
+	self-updater's application/octet-stream, for a file of GitHub's API) */
 	snprintf(request, request_size,
-		"%s %s HTTP/1.1\r\nHost: %s%s%s\r\nUser-Agent: opence\r\nAccept: application/json\r\n"
+		"%s %s HTTP/1.1\r\nHost: %s%s%s\r\nUser-Agent: opence\r\n%s"
 		"Connection: close\r\nContent-Length: %lu\r\n%s\r\n",
 		method, path, host, strcmp(port, plain ? "80" : "443") ? ":" : "", strcmp(port, plain ? "80" : "443") ? port : "",
-		body ? body_size : 0UL, headers ? headers : "");
+		header_named(headers, "Accept") ? "" : "Accept: application/json\r\n", body ? body_size : 0UL,
+		headers ? headers : "");
 	head_length = strlen(request);
 	if (body && body_size)
 	{

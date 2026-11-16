@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.campaign.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/campaign/campaign_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="port campaign init"/>
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/campaign_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/campaign/item_continue">
+		<on event="a" run="port campaign continue"/>
+		<on event="start" run="port campaign continue"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/item_restart">
+		<on event="a" run="port campaign restart ask" open="main_menu/campaign/restart_screen"/>
+		<on event="start" run="port campaign restart ask" open="main_menu/campaign/restart_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/item_missions">
+		<on event="a" run="port campaign missions" open="main_menu/campaign/mission_screen"/>
+		<on event="start" run="port campaign missions" open="main_menu/campaign/mission_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/item_coop">
+		<on event="a" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/item_back">
+		<on event="a" back="true"/>
+		<on event="start" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/campaign_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/campaign/prompt_back">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/restart_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="port campaign restart cancel" back="true"/>
+		<on event="back" run="port campaign restart cancel" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/restart_button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="main_menu/campaign/restart_button_confirm">
+		<on event="a" run="port campaign restart"/>
+		<on event="start" run="port campaign restart"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/restart_button_cancel">
+		<on event="a" run="port campaign restart cancel" back="true"/>
+		<on event="start" run="port campaign restart cancel" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/mission_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<on event="left" run="port campaign previous"/>
+		<on event="stick_left" run="port campaign previous"/>
+		<on event="right" run="port campaign next"/>
+		<on event="stick_right" run="port campaign next"/>
+		<on event="up" run="port campaign up"/>
+		<on event="stick_up" run="port campaign up"/>
+		<on event="down" run="port campaign down"/>
+		<on event="stick_down" run="port campaign down"/>
+		<on event="white" run="port campaign tab previous"/>
+		<on event="black" run="port campaign tab next"/>
+		<on event="y" run="port campaign missions restart" open="main_menu/campaign/restart_screen"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/mission_resume_row" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/campaign/mission_resume">
+		<on event="a" run="port campaign continue"/>
+		<on event="start" run="port campaign continue"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/source_tabs" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/campaign/tab_halo">
+		<on event="a" run="port campaign tab"/>
+		<on event="start" run="port campaign tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/tab_custom">
+		<on event="a" run="port campaign tab"/>
+		<on event="start" run="port campaign tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/mission_cards" flags="pass_unhandled_to_focused_child wheel_sideways">
+		<on event="created" run="port campaign missions init"/>
+		<on event="left" run="port campaign previous"/>
+		<on event="stick_left" run="port campaign previous"/>
+		<on event="right" run="port campaign next"/>
+		<on event="stick_right" run="port campaign next"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/arrow_previous">
+		<on event="a" run="port campaign previous"/>
+		<on event="start" run="port campaign previous"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/arrow_next">
+		<on event="a" run="port campaign next"/>
+		<on event="start" run="port campaign next"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/card_big_0">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/card_small_0">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/card_big_1">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/card_small_1">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/card_big_2">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/card_small_2">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/mission_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/campaign/prompt_select">
+		<on event="a" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="start" run="port campaign choose" open="main_menu/campaign/difficulty_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/prompt_restart">
+		<on event="a" run="port campaign missions restart" open="main_menu/campaign/restart_screen"/>
+		<on event="start" run="port campaign missions restart" open="main_menu/campaign/restart_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<on event="left" run="port campaign difficulty previous"/>
+		<on event="stick_left" run="port campaign difficulty previous"/>
+		<on event="right" run="port campaign difficulty next"/>
+		<on event="stick_right" run="port campaign difficulty next"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_list" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port campaign difficulty init"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_0">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_1">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_2">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_3">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/difficulty_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/campaign/prompt_play">
+		<on event="a" run="port campaign play"/>
+		<on event="start" run="port campaign play"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/solo_creating_profile" flags="pass_unhandled_to_focused_child no_history">
+		<on event="deleted" run="new campaign decision" open="main_menu/campaign/mission_screen"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign/coop_join_creating_profile" flags="pass_unhandled_to_focused_child no_history">
+		<on event="deleted" run="new campaign decision" open="screens/coop_join"/>
+	</behaviour>
+</model>

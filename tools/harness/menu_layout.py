@@ -53,6 +53,11 @@ def _platform_shown(platform, platforms):
 @lru_cache(maxsize=None)
 def widgets():
     """every <widget> of the menu files, by its name (a nested one a child of the one it is in)"""
+    return widgets_of(ElementTree.parse(path).getroot() for path in sorted(CE.glob("*.xml")))
+
+
+def widgets_of(roots):
+    """every <widget> of the files' <menus> elements (roots), by its name"""
     found = {}
 
     def read(element):
@@ -66,8 +71,8 @@ def widgets():
                 children.append((item.get("name"), int(item.get("x", 0)), int(item.get("y", 0)), item.get("platform")))
         found[element.get("name")] = Widget(dict(element.attrib), children)
 
-    for path in sorted(CE.glob("*.xml")):
-        for element in ElementTree.parse(path).getroot():
+    for root in roots:
+        for element in root:
             if element.tag == "widget":
                 read(element)
     return found
@@ -93,11 +98,11 @@ def inner(width):
     return Box("inner", area.x0 + margin, 0, area.x1 - margin, 480, ())
 
 
-def layout(root, width, platforms=DESKTOP):
+def layout(root, width, platforms=DESKTOP, every=None):
     """the widgets under a screen (root) as drawn on a screen this wide: a Box each, in drawing order (a list's
-    description after its children)"""
+    description after its children); of the menu files', or of every (widgets_of's)"""
     extra = port_settings.wide_extra_of(width)
-    every = widgets()
+    every = every or widgets()
     boxes = []
 
     def walk(name, x, y, path):
@@ -105,10 +110,15 @@ def layout(root, width, platforms=DESKTOP):
         attributes = widget.attributes
         if not _platform_shown(attributes.get("platform"), platforms):
             return
+        # (and past 16:9, a menu engine's look's past: its move and growth at 21:9 past 16:9's, menu_tags.c's
+        # ui_widget_port_past_scale: engine_widgets)
         dx, dw = (int(value) for value in attributes.get("wide", "0 0").split())
-        x += port_settings.wide_scale(dx, extra)
+        past_dx, past_dw = (int(value) for value in attributes.get("past", "0 0").split())
+        past = min(max(width - port_settings.WIDE_WIDTH, 0), 4 * PAST_EXTRA)
+        x += port_settings.wide_scale(dx, extra) + past_scale(past_dx, past)
         left, top = int(attributes.get("left", 0)), int(attributes.get("top", 0))
-        right = left + int(attributes.get("width", 640)) + port_settings.wide_scale(dw, extra)
+        right = left + int(attributes.get("width", 640)) + port_settings.wide_scale(dw, extra) + past_scale(past_dw,
+                                                                                                             past)
         bottom = top + int(attributes.get("height", 480))
         boxes.append(Box(name.rsplit("/", 1)[-1], x + left, y + top, x + right, y + bottom, path))
         for child, child_x, child_y, platform in widget.children:
@@ -119,6 +129,27 @@ def layout(root, width, platforms=DESKTOP):
 
     walk(root, 0, 0, ())
     return boxes
+
+
+# a past's width, 21:9's past 16:9's (menu_tags.c's WIDE_LAYOUT_PAST_EXTRA)
+PAST_EXTRA = port_settings.WIDE_SCREENS["21:9"] - port_settings.WIDE_WIDTH
+
+
+def past_scale(value, past):
+    """a past attribute's move or growth at a width past 16:9's, rounded as menu_tags.c's
+    ui_widget_port_past_scale (half away from 0)"""
+    scaled = value * past
+    return (abs(scaled) + PAST_EXTRA // 2) // PAST_EXTRA * (-1 if scaled < 0 else 1)
+
+
+@lru_cache(maxsize=None)
+def engine_widgets():
+    """the widgets as the menu engine lays them out (display.menu_engine "new"): the menu files', those of its tall
+    layout in their place (tools/port_settings.py's tall_widgets: the browsers')"""
+    every = dict(widgets())
+    every.update(widgets_of([ElementTree.fromstring("<menus>" + "".join(port_settings.tall_widgets())
+                                                    + "</menus>")]))
+    return every
 
 
 def named(boxes, name):

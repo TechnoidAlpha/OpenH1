@@ -1,0 +1,7 @@
+# tools/menus_regen.sh's Python packages: its --fetch installs them in the
+# inputs' venv, as CI's menus check does. Pinned, so that every machine
+# draws the menus' pictures alike.
+pillow==13.0.0
+numpy==2.5.4
+scipy==1.18.1
+fonttools==4.68.0

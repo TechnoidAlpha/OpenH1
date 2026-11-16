@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_settings_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="b" run="port settings cancel" back="true"/>
+		<on event="back" run="port settings cancel" back="true"/>
+		<on event="white" run="port settings tab previous"/>
+		<on event="black" run="port settings tab next"/>
+		<on event="y" run="port settings search"/>
+		<child widget="main_menu/settings/header_settings"/>
+		<child widget="main_menu/settings/profile"/>
+		<child widget="main_menu/settings/tabs/tab_prompt_previous" x="24" y="76"/>
+		<child widget="main_menu/settings/tabs/tab_prompt_next" x="586" y="76"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/options_menu"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/tab_panel" source="tools/port_settings.py settings_files/_settings_page">
+		<data input="port settings page"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_0" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods" x="28" y="124"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods_folder" x="28" y="145"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3" x="28" y="172"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mcc_packages" x="28" y="192"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_bar" y="414"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tabs" y="76"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tabs_search" y="76"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_defaults" x="24" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_ok" x="358" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_cancel" x="488" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_video_settings" type="text" controller="1" width="59" height="22" flags="keep_ends" wide="-106 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_audio_settings" type="text" controller="1" width="61" height="22" flags="keep_ends" wide="-71 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="1" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_mouse_settings" type="text" controller="1" width="92" height="22" flags="keep_ends" wide="-35 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="2" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_network_settings" type="text" controller="1" width="67" height="22" flags="keep_ends" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="3" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_interface_settings" type="text" controller="1" width="95" height="22" flags="keep_ends" wide="35 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="4" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_profile_settings" type="text" controller="1" width="83" height="22" flags="keep_ends" wide="71 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="5" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_mods_settings" type="text" controller="1" width="57" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/settings/tab_current" string_list="main_menu/settings/tab_names" string_index="6" color="#FFFFFFFF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tabs" type="column_list" width="640" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_video_settings" x="56"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_audio_settings" x="117"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_mouse_settings" x="180"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_network_settings" x="274"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_interface_settings" x="343"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_profile_settings" x="440"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tab_mods_settings" x="525"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_video_settings" type="text" controller="1" width="56" height="22" flags="keep_ends" wide="4 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_audio_settings" type="text" controller="1" width="58" height="22" flags="keep_ends" wide="21 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="1" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_mouse_settings" type="text" controller="1" width="88" height="22" flags="keep_ends" wide="38 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="2" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_network_settings" type="text" controller="1" width="65" height="22" flags="keep_ends" wide="55 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="3" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_interface_settings" type="text" controller="1" width="91" height="22" flags="keep_ends" wide="72 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="4" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_profile_settings" type="text" controller="1" width="81" height="22" flags="keep_ends" wide="89 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="5" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_mods_settings" type="text" controller="1" width="53" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/settings/tab_current" string_list="main_menu/settings/tab_names" string_index="6" color="#FFFFFFFF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/tabs_search" type="column_list" width="640" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings/search_field" x="56"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_video_settings" x="78"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_audio_settings" x="136"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_mouse_settings" x="196"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_network_settings" x="286"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_interface_settings" x="353"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_profile_settings" x="446"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/search_tab_mods_settings" x="529"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="-106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
+		<on event="a" run="port settings defaults"/>
+		<on event="start" run="port settings defaults"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
+		<on event="a" run="port settings ok" back="true"/>
+		<on event="start" run="port settings ok" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
+		<on event="a" run="port settings cancel" back="true"/>
+		<on event="start" run="port settings cancel" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_0" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_0_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_0_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="a" open="main_menu/mods/mods_screen"/>
+		<on event="start" open="main_menu/mods/mods_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_label"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mods_folder" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_folder_label"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_folder_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/section_3_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" string_index="3" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/op_mcc_packages" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mcc_packages_label"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mcc_packages_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<strings name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/labels">
+		<string text="MODS"/>
+		<string text="MANAGE MODS ›"/>
+		<string text="MODS FOLDER"/>
+		<string text="MASTER CHIEF COLLECTION"/>
+		<string text="MCC PACKAGES ›"/>
+	</strings>
+	<strings name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/help_strings">
+		<string text="Texture, sound, text and model packs from the mods folder."/>
+		<string text=""/>
+		<string text="Texture, sound, text and model packs from the mods folder: turn each on or off, and choose which plays over which. They are this computer's, for every profile."/>
+		<string text="Each mod is a folder in the mods folder, beside the maps folder, with its mod.toml and its tags. Mods are turned on and off from the main menu's Settings, not in a game."/>
+		<string text=""/>
+		<string text="The Master Chief Collection's maps: finding them, their campaign missions and collections, and the copies downloaded from hosts."/>
+	</strings>
+</menus>

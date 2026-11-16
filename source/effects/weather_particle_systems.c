@@ -641,6 +641,7 @@ static void weather_particle_system_render(
 				}
 			}
 
+			render_marks_next(RENDER_MARK_WEATHER, type_definition->bitmap.index); /* port: debug.render_marks */
 			build_sprites_begin(&sprite_data, type->particle_count, type_definition->bitmap.index, &type_definition->shader, 0);
 
 			for (particle_index = type->first_particle_index; particle_index!=NONE; particle_index = particle->next_particle_index)

@@ -7,7 +7,9 @@ Linux and macOS hosts'): every interval, each thread that runs guest code
 is suspended, its program counter and frame records logged, and resumed.
 Each record is copied with ReadProcessMemory, which fails rather than
 faulting on memory that cannot be read, as the frame pointer may hold
-anything in code built without frame pointers.
+anything in code built without frame pointers. The stall detector's samples
+(port/android/host/host_stall.c) of the game's thread and the render thread
+are taken the same way.
 */
 
 #include "host_win.h"
@@ -150,4 +152,77 @@ void host_debug_start_sampler(const char *setting)
 	if (thread)
 		CloseHandle(thread);
 	host_logf(HOST_LOG_INFO, "sampling guest threads every %g s", seconds);
+}
+
+/* ---------- the stall detector's samples (host_stall.c) */
+
+static DWORD stall_threads[HOST_STALL_THREADS];
+
+void host_debug_stall_thread(int thread)
+{
+	if (thread >= 0 && thread < HOST_STALL_THREADS)
+		stall_threads[thread] = GetCurrentThreadId();
+}
+
+void host_debug_stall_prepare(void)
+{
+}
+
+void host_debug_stall_interrupt(int which)
+{
+	HANDLE thread;
+	CONTEXT context;
+	uint64_t returns[12], fp;
+	int count = 0;
+
+	if (which < 0 || which >= HOST_STALL_THREADS || !stall_threads[which])
+		return;
+	thread = OpenThread(THREAD_SUSPEND_RESUME | THREAD_GET_CONTEXT, FALSE, stall_threads[which]);
+	if (!thread)
+		return;
+	if (SuspendThread(thread) == (DWORD)-1)
+	{
+		CloseHandle(thread);
+		return;
+	}
+	context.ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
+	if (GetThreadContext(thread, &context))
+	{
+		fp = context.Rbp;
+		while (count < 12 && fp && !(fp & 7))
+		{
+			uint64_t frame[2];
+
+			if (!read_memory((uintptr_t)fp, frame, sizeof(frame)))
+				break;
+			returns[count++] = frame[1];
+			if (frame[0] <= fp)
+				break;
+			fp = frame[0];
+		}
+		ResumeThread(thread);
+		host_stall_record(which, context.Rip, 0, returns, count);
+	}
+	else
+	{
+		ResumeThread(thread);
+	}
+	CloseHandle(thread);
+}
+
+void host_debug_describe_address(uint64_t address, char *buffer, size_t size)
+{
+	HMODULE module = NULL;
+	char path[MAX_PATH];
+	const char *file;
+
+	if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+		(LPCSTR)(uintptr_t)address, &module) || !GetModuleFileNameA(module, path, sizeof(path)))
+	{
+		snprintf(buffer, size, "%llx", (unsigned long long)address);
+		return;
+	}
+	file = strrchr(path, '\\');
+	file = file ? file + 1 : path;
+	snprintf(buffer, size, "%s+%llx", file, (unsigned long long)(address - (uintptr_t)module));
 }

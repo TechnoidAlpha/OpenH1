@@ -114,6 +114,9 @@ static void item_set_rested_surface(
 	struct item_datum *item,
 	long surface_index);
 
+/* port: port/linux/game/network_standard.c's */
+boolean network_standard_simulation_fixes(void);
+
 /* port: the fast phase (sim_rate.h) */
 static boolean item_move_substep(
 	long item_index,
@@ -791,7 +794,25 @@ static boolean item_move_substep(
 			new_velocity.i += collision.plane.n.i * reflection;
 			new_velocity.j += collision.plane.n.j * reflection;
 			new_velocity.k += collision.plane.n.k * reflection;
-			if (collision_test_point(
+			/* port: a strike where the item already was (it lay on the
+			surface, where the last bounce left it) moves it 0.05 off along
+			the normal, as one found inside geometry is. Left on the surface,
+			on one steeper than 45 degrees (where nothing comes to rest),
+			gravity's push into it struck it there again every tick: the
+			item never moved, its velocity down the slope grew without end,
+			it sounded its impact each tick and it kept its spin. Lifted off,
+			it falls on down the slope to rest at its foot. The original's
+			glitch, fixed but in a Legacy game, whose OpenCE machines play
+			the original's (network_standard_simulation_fixes) */
+			if (collision.t <= 0.f && network_standard_simulation_fixes())
+			{
+				point_from_line3d(
+					&collision.point,
+					&collision.plane.n,
+					0.05f,
+					&new_position);
+			}
+			else if (collision_test_point(
 					ITEM_UPDATE_COLLISION_TEST_FLAGS,
 					&new_position,
 					item_index))

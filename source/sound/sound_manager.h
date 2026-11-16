@@ -52,6 +52,11 @@ long sound_render_time(
 	void);
 void sound_render(
 	void);
+/* port: the listeners placed at the local players' cameras, as sound_render
+places them, for a frame that is not drawn (main.c: a multiplayer game's
+first ticks, #740) */
+void sound_render_listeners(
+	void);
 
 void sound_stop_all(
 	void);

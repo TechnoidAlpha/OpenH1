@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/vr_visor_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/vr_visor_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py settings_files/_setting_screen/_screen">
 		<on event="b" back="true"/>
 		<on event="back" back="true"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/header_vr_display"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/options_menu"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/header_vr_display" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/player_setup/player_profile_edit/vr_display/header_vr_display">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/header_vr_display" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/player_setup/player_profile_edit/vr_display/header_vr_display" source="tools/port_settings.py settings_files/_setting_screen/_screen">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help" type="text" controller="1" left="68" top="366" width="482" height="60" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help" type="text" controller="1" left="68" top="366" width="482" height="60" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help_strings" font="ui\large_ui" color="#FFFFFFFF" source="tools/port_settings.py settings_files/_setting_screen/_screen">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help" source="tools/port_settings.py settings_files/_setting_screen/_screen">
 		<data input="port settings help"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud" x="54" y="73"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_depth" x="54" y="97"/>
@@ -27,125 +27,125 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_energy" x="54" y="337"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_setting_screen/_screen">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_defaults" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_ok" x="380" y="1"/>
 		<child widget="common_button_cancel" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="0" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="VISOR|FLAT" setting="vr.hud" values="visor|flat" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="VISOR|FLAT" setting="vr.hud" values="visor|flat" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_depth" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_depth" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|0.5X|0.75X|1X|1.25X|1.5X|2X" setting="vr.hud_depth" values="0|0.5|0.75|1|1.25|1.5|2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|0.5X|0.75X|1X|1.25X|1.5X|2X" setting="vr.hud_depth" values="0|0.5|0.75|1|1.25|1.5|2" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_wrap" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_wrap" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|50%|100%|150%|200%" setting="vr.hud_wrap" values="0|0.5|1|1.5|2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|50%|100%|150%|200%" setting="vr.hud_wrap" values="0|0.5|1|1.5|2" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_lag" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_lag" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|20 MS|30 MS|50 MS|80 MS|120 MS" setting="vr.hud_lag" values="0|0.02|0.03|0.05|0.08|0.12" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|20 MS|30 MS|50 MS|80 MS|120 MS" setting="vr.hud_lag" values="0|0.02|0.03|0.05|0.08|0.12" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glow" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glow" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|25%|50%|75%|100%" setting="vr.hud_glow" values="0|0.25|0.5|0.75|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|25%|50%|75%|100%" setting="vr.hud_glow" values="0|0.25|0.5|0.75|1" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glass" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glass" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|25%|50%|75%|100%" setting="vr.hud_glass" values="0|0.25|0.5|0.75|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|25%|50%|75%|100%" setting="vr.hud_glass" values="0|0.25|0.5|0.75|1" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_react" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_react" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|25%|50%|75%|100%" setting="vr.hud_react" values="0|0.25|0.5|0.75|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|25%|50%|75%|100%" setting="vr.hud_react" values="0|0.25|0.5|0.75|1" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|25%|50%|75%|100%" setting="vr.helmet_rim" values="0|0.25|0.5|0.75|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|25%|50%|75%|100%" setting="vr.helmet_rim" values="0|0.25|0.5|0.75|1" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim_depth" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim_depth" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="8" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="8" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="6 CM|8 CM|10 CM|12 CM|15 CM|20 CM" setting="vr.helmet_rim_depth" values="0.06|0.08|0.1|0.12|0.15|0.2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="6 CM|8 CM|10 CM|12 CM|15 CM|20 CM" setting="vr.helmet_rim_depth" values="0.06|0.08|0.1|0.12|0.15|0.2" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_frame" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_frame" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="9" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|20%|40%|60%|80%|100%" setting="vr.visor_frame" values="0|0.2|0.4|0.6|0.8|1" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="NONE|20%|40%|60%|80%|100%" setting="vr.visor_frame" values="0|0.2|0.4|0.6|0.8|1" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_effects" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_effects" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="10" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="10" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="vr.visor_effects" values="true|false" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="ON|OFF" setting="vr.visor_effects" values="true|false" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_energy" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_energy" width="512" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x22" color="#FF2896FF" source="tools/port_settings.py settings_files/_setting_screen/_option_row">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_spinner" x="320" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_spinner" x="286"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_label" type="text" controller="1" width="300" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_label" type="text" controller="1" width="280" height="22" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" string_index="11" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="0" source="tools/port_settings.py settings_files/_setting_screen/_option_label">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_spinner" type="spinner" left="3" top="2" width="147" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="25%|50%|75%|100%|150%|200%" setting="vr.visor_energy" values="0.25|0.5|0.75|1|1.5|2" font="ui\large_ui" color="#FF2896FF" align="center" text_y="1" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_spinner" type="spinner" top="0" width="206" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" font="ui\large_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -13 17 -7" footer_bounds="5 213 17 219" strings="25%|50%|75%|100%|150%|200%" setting="vr.visor_energy" values="0.25|0.5|0.75|1|1.5|2" source="tools/port_settings.py settings_files/_setting_screen">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py settings_files/_setting_screen/_button">
 		<on event="a" run="port settings defaults"/>
 		<on event="start" run="port settings defaults"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py settings_files/_setting_screen/_button">
 		<on event="a" run="port settings save" back="true"/>
 		<on event="start" run="port settings save" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

@@ -36,6 +36,7 @@ struct _object
 {
 	struct { short size; } node_matrices;
 	real_point3d position;
+	real_vector3d forward;
 	real_vector3d translational_velocity;
 	long parent_object_index;
 	real outgoing_function_values[NUMBER_OF_OUTGOING_OBJECT_FUNCTIONS];
@@ -127,6 +128,13 @@ static void sim_substep_register(short slot, sim_substep_procedure procedure)
 }
 static short sim_substep_count(void) { return fake_substep_count; }
 static real game_time_get_tick_fraction(void) { return fake_fraction; }
+/* (the clock's time since its newest step, in ticks: these frames' part of a sub-step past it) */
+static real game_time_get_step_age(void)
+{
+	real steps = fake_fraction * (real)fake_substep_count;
+
+	return (steps - floorf(steps)) / (real)fake_substep_count;
+}
 static short director_get_perspective(short local_player_index) { return perspective; }
 static long scripted_camera_object_relative_to(void) { return NONE; }
 static boolean scripted_camera_object_is_first_person_camera(long index) { return FALSE; }

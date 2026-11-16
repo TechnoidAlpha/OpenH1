@@ -25,6 +25,7 @@ symbols in this file:
 #include "render/render_debug.h"
 #include "scenario/scenario.h"
 #include "sound/game_sound.h"
+#include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
 
 /* ---------- constants */
 
@@ -53,6 +54,13 @@ boolean debug_material_effects;
 #pragma bss_seg()
 #endif
 
+/* port: each local player's camera as the tick began (material_effects_tick_begin) */
+static struct
+{
+	boolean taken[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+	real_point3d positions[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
+} material_effect_tick_cameras;
+
 /* ---------- public code */
 
 boolean material_effect_visible(
@@ -71,8 +79,16 @@ boolean material_effect_visible(
 		{
 			if (local_player_get_player_index(local_player_index) != NONE)
 			{
-				struct observer_result const *camera = observer_get_camera(local_player_index);
-				if (distance_squared3d(&camera->position, position) < 100.0f)
+				real_point3d const *camera_position = &observer_get_camera(local_player_index)->position;
+
+				/* port: in the fast phase, the camera as the tick began, as a tick
+				at 30 sees it: at 60 and 120 the frames between a tick's sub-steps
+				move the camera on, and a player's own spawn (the camera brought
+				to it after the tick that made it began) made its landing's thud,
+				which the Xbox's never sounded (material_effects_tick_begin) */
+				if (sim_substep_index() != NONE && material_effect_tick_cameras.taken[local_player_index])
+					camera_position = &material_effect_tick_cameras.positions[local_player_index];
+				if (distance_squared3d(camera_position, position) < 100.0f)
 				{
 					visible = TRUE;
 					break;
@@ -82,6 +98,30 @@ boolean material_effect_visible(
 	}
 
 	return visible;
+}
+
+/* port: the local players' cameras as a tick begins (its own work, before
+its fast phase: game.c), for what the tick decides by them (above). The
+frames move the cameras between a tick's sub-steps at game.sim_rate 60 and
+120 (sim_rate.h); at 30 none runs within a tick, and these are the cameras
+the tick sees anyway */
+void material_effects_tick_begin(
+	void)
+{
+	short local_player_index;
+
+	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
+	{
+		material_effect_tick_cameras.taken[local_player_index] =
+			local_player_get_player_index(local_player_index) != NONE;
+		if (material_effect_tick_cameras.taken[local_player_index])
+		{
+			material_effect_tick_cameras.positions[local_player_index] =
+				observer_get_camera(local_player_index)->position;
+		}
+	}
+
+	return;
 }
 
 void material_effect_new(

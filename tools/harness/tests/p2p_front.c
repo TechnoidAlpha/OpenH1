@@ -400,12 +400,15 @@ static int case_return_routability(void)
 	server_begin(1);
 	p2p_front_update(now);
 	index = sent_of(FRONT, 'R', 0);
+	REQUIRE(index >= 0);
 	to_front(sent[index].data, sent[index].size, SERVER, SERVER_PORT);
 	index = sent_of(SERVER, 'C', 0);
+	REQUIRE(index >= 0);
 	to_front(sent[index].data, sent[index].size, FRONT, FRONT_PORT);
 	/* (a REGISTER with the server's cookie, from another address: only a
 	challenge, to that address, and no registration) */
 	index = sent_of(FRONT, 'R', index);
+	REQUIRE(index >= 0);
 	memcpy(good, sent[index].data, REGISTER);
 	before = sent_count;
 	to_front(good, REGISTER, OTHER, SERVER_PORT);
@@ -513,6 +516,7 @@ static int case_forwarding(void)
 	before = sent_count;
 	REQUIRE(p2p_front_send(client, packet, 200));
 	index = sent_of(FRONT, 'T', before);
+	REQUIRE(index >= 0);
 	to_size = sent[index].size;
 	memcpy(to, sent[index].data, (size_t)to_size);
 	to_front(to, to_size, OTHER, SERVER_PORT);

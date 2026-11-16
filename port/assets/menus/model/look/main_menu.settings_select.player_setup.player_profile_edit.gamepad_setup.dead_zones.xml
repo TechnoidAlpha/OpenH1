@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.gamepad_setup.dead_zones.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/dead_zones_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/header_dead_zones" x="0" y="0"/>
+		<at widget="main_menu/settings/profile" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/header_dead_zones" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/settings/tall_titles" index="12" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/section_0" x="28" y="50"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/op_left_stick_dead_zone" x="28" y="72"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/op_right_stick_dead_zone" x="28" y="97"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_bar" x="0" y="448"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_defaults" x="24" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_cancel" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_defaults" type="text" box="0 0 128 24" wide="-106 0" past="-143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/button_cancel" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/section_0" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/section_0_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/section_0_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/labels" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/op_left_stick_dead_zone" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/left_stick_dead_zone_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/left_stick_dead_zone_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/left_stick_dead_zone_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/labels" index="1" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/left_stick_dead_zone_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="DEFAULT (27%)|0%|5%|10%|15%|20%|25%|30%|35%|40%|45%|50%" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/op_right_stick_dead_zone" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/right_stick_dead_zone_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/right_stick_dead_zone_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/right_stick_dead_zone_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/right_stick_dead_zone_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="DEFAULT (27%)|0%|5%|10%|15%|20%|25%|30%|35%|40%|45%|50%" scale="1 1.2"/>
+	</look>
+</model>

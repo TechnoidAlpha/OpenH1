@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.training.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/main_menu_item_training" type="text" box="0 0 256 33" picture="main_menu/menu_training"/>
+	<look name="main_menu/training/training_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/training/chapters_list" x="0" y="0"/>
+		<at widget="main_menu/training/header_training" x="0" y="0"/>
+	</look>
+	<look name="main_menu/training/header_training" box="35 11 398 70" picture="main_menu/training/header_training"/>
+	<look name="main_menu/training/chapters_list" type="column_list">
+		<at widget="main_menu/training/op_chapter_1" x="20" y="73"/>
+		<at widget="main_menu/training/op_chapter_2" x="20" y="103"/>
+		<at widget="main_menu/training/op_chapter_3" x="20" y="133"/>
+		<at widget="main_menu/training/op_chapter_4" x="20" y="163"/>
+		<at widget="main_menu/training/op_chapter_5" x="20" y="193"/>
+		<at widget="main_menu/training/op_chapter_6" x="20" y="223"/>
+		<at widget="main_menu/training/op_chapter_7" x="20" y="253"/>
+		<at widget="main_menu/training/op_chapter_8" x="20" y="283"/>
+		<at widget="main_menu/training/button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/training/op_chapter_1" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd_top">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_2" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_3" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_4" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_5" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_6" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_7" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/op_chapter_8" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/training/chapter_name" x="12" y="0"/>
+		<at widget="main_menu/training/chapter_state" x="318" y="0"/>
+	</look>
+	<look name="main_menu/training/chapter_name" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="0 4"/>
+	</look>
+	<look name="main_menu/training/chapter_state" type="text" box="0 0 66 22">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/training/chapter_details">
+		<at widget="main_menu/training/chapter_details_name" x="0" y="0"/>
+		<at widget="main_menu/training/chapter_details_text" x="0" y="0"/>
+	</look>
+	<look name="main_menu/training/chapter_details_name" type="text" box="412 84 612 128">
+		<text font="ui\large_ui" color="#FFFFFFFF"/>
+	</look>
+	<look name="main_menu/training/chapter_details_text" type="text" box="412 130 612 402">
+		<text font="ui\small_ui" color="#FF2896FF"/>
+	</look>
+	<look name="main_menu/training/button_bar" type="column_list" box="0 0 640 28">
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+</model>

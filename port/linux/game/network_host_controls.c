@@ -35,6 +35,13 @@ decides, and everything here takes the host's own ways of deciding:
   killed first, without statistics (as a player who quits), by the host, so
   every machine sees the death as any other; the player respawns on the new
   team. Their score goes with them; their team's stays.
+- Bring to me and Go to (network co-op's, under TELEPORT...) move the
+  player beside the host's player, or the host's player beside them, as a
+  BSP switch moves the players (players.c's players_coop_host_teleport):
+  the host's simulation, which every machine sees as it sees any move. The
+  player's OpenH1 machine is told (_distributed_message_host_teleport,
+  protocol version 29), which turns a brought player the host's way (its
+  input drives its facing) and says so on their screen.
 - Allow votekick is network.votekick, which the host reads at each vote;
   Listing is the internet listing's PUBLIC or PRIVATE (p2p_set_hosting_public),
   Max players the game's most (network_game_server_port_set_settings), never
@@ -79,6 +86,8 @@ tools/harness/tests/test_host_controls.py's.
 #include "network_host_game.h"
 #include "network_host_rules.h"
 #include "network_admin.h"
+#include "network_coop.h"
+#include "interface/hud_messaging.h"
 #include "latency_meter.h"
 #include "bots.h"
 
@@ -112,6 +121,14 @@ enum
 {
 	/* the team move's format: a machine takes its own alone */
 	HOST_TEAM_FORMAT = 1,
+	/* a co-op teleport's (the same), and what it tells the player */
+	HOST_TELEPORT_FORMAT = 1,
+	_host_teleport_brought = 0,
+	_host_teleport_joined,
+	/* a facing's parts on the wire, of 1 */
+	HOST_TELEPORT_FACING_SCALE = 32767,
+	/* a player's name's characters, at most (player_datum's, ended) */
+	HOST_TELEPORT_NAME_LENGTH = 11,
 	MAXIMUM_HOST_CONTROLS_MACHINES = HALO_PORT_MAXIMUM_NETWORK_MACHINES,
 	/* the teams a player moves between (red, blue) */
 	HOST_CONTROLS_TEAMS = 2,
@@ -137,6 +154,22 @@ struct distributed_host_team
 };
 
 typedef char distributed_host_team_size_assert[sizeof(struct distributed_host_team) == 4 ? 1 : -1];
+
+/* on the wire, the co-op host's to a player's OpenH1 machine, reliably: the
+player (absolute index) brought to the host's player (_host_teleport_brought:
+facing, of HOST_TELEPORT_FACING_SCALE, the way the host's faces) or joined
+by the host's (_host_teleport_joined), and the host's player */
+struct distributed_host_teleport
+{
+	byte format;
+	byte kind;
+	byte player_index;
+	byte host_player_index;
+	short facing[3];
+	short pad;
+};
+
+typedef char distributed_host_teleport_size_assert[sizeof(struct distributed_host_teleport) == 12 ? 1 : -1];
 
 /* ---------- globals */
 
@@ -169,6 +202,37 @@ boolean network_host_controls_shown_for(
 	return seat->server && ((seat->connection == _game_connection_network_server && seat->playing) || seat->lobby);
 }
 
+unsigned long network_host_controls_pause_rows_for(
+	struct host_controls_pause_view const *view)
+{
+	unsigned long rows = 0;
+
+	/* (network co-op's FRIENDLY FIRE, every machine's; then its host's
+	HOST CONTROLS, as a multiplayer game's host has it: the campaign has no
+	END GAME) */
+	if (view->coop)
+		SET_FLAG(rows, _host_controls_pause_friendly_fire, TRUE);
+	/* (the host's machine's, or an admin's, first local player's alone: a
+	split screen's other players have none) */
+	if (!view->host || !view->first_player)
+		return rows;
+	if (!view->coop && view->training && view->training_screen)
+		SET_FLAG(rows, _host_controls_pause_chapters, TRUE);
+	else if (!view->local && view->host_controls_screen)
+		SET_FLAG(rows, _host_controls_pause_host_controls, TRUE);
+	else if (!view->coop)
+		SET_FLAG(rows, _host_controls_pause_end_game, TRUE);
+	return rows;
+}
+
+boolean network_host_controls_local_player_for(
+	short local_player_index,
+	short first_local_player_index)
+{
+	return local_player_index == NONE || first_local_player_index == NONE ||
+		local_player_index == first_local_player_index;
+}
+
 unsigned long network_host_controls_actions_for(
 	struct host_controls_player_view const *view)
 {
@@ -190,6 +254,12 @@ unsigned long network_host_controls_actions_for(
 	SET_FLAG(actions, _host_controls_kick, TRUE);
 	SET_FLAG(actions, _host_controls_ban, TRUE);
 	SET_FLAG(actions, _host_controls_mute, TRUE);
+	/* (co-op alone: never a versus game's) */
+	if (view->coop)
+	{
+		SET_FLAG(actions, _host_controls_bring, view->bring);
+		SET_FLAG(actions, _host_controls_go_to, view->go_to);
+	}
 	return actions;
 }
 
@@ -358,6 +428,12 @@ boolean network_host_controls_available(
 	return network_host_controls_shown_for(&seat);
 }
 
+boolean network_host_controls_local_player(
+	short local_player_index)
+{
+	return network_host_controls_local_player_for(local_player_index, local_player_get_next(NONE));
+}
+
 boolean network_host_controls_in_lobby(
 	void)
 {
@@ -444,7 +520,8 @@ unsigned long network_host_controls_player_actions(
 	{
 		struct host_controls_player entry;
 
-		return network_admin_player(player_index, &entry) ? entry.actions & ~FLAG(_host_controls_mute) : 0;
+		return network_admin_player(player_index, &entry) ? entry.actions & ~(FLAG(_host_controls_mute) |
+			FLAG(_host_controls_bring) | FLAG(_host_controls_go_to)) : 0;
 	}
 	if (!player || player->quit_out_of_game || !network_host_controls_available())
 		return 0;
@@ -453,6 +530,9 @@ unsigned long network_host_controls_player_actions(
 	view.bot_removable = view.bot && host_controls_bot_removable(player_index);
 	view.teams = game_engine_has_teams();
 	view.team_moves = network_host_controls_team_moves();
+	view.coop = network_coop_active();
+	view.bring = view.coop && players_coop_host_can_teleport(player_index, FALSE);
+	view.go_to = view.coop && players_coop_host_can_teleport(player_index, TRUE);
 	return network_host_controls_actions_for(&view);
 }
 
@@ -600,6 +680,54 @@ boolean network_host_controls_move_team(
 				(word)sizeof(message));
 		}
 	}
+	return TRUE;
+}
+
+boolean network_host_controls_teleport(
+	long player_index,
+	boolean go_to)
+{
+	struct player_datum *player = player_index != NONE ? player_try_and_get(player_index) : NULL;
+	struct
+	{
+		struct distributed_message_header header;
+		struct distributed_host_teleport teleport;
+	} message;
+	long machine_index;
+	long moved_player_index;
+	long beside_player_index = NONE;
+	long host_player_index;
+
+	if (!player || !network_host_controls_available() ||
+		!TEST_FLAG(network_host_controls_player_actions(player_index), go_to ? _host_controls_go_to : _host_controls_bring))
+	{
+		return FALSE;
+	}
+	moved_player_index = players_coop_host_teleport(player_index, go_to, &beside_player_index);
+	if (moved_player_index == NONE)
+		return FALSE;
+	host_player_index = go_to ? moved_player_index : beside_player_index;
+	/* (the player's machine, an OpenH1 one: an OpenCE machine has no such
+	message, and its player keeps its own facing) */
+	machine_index = distributed_player_machine((short)DATUM_INDEX_TO_ABSOLUTE_INDEX(player_index));
+	if (machine_index == NONE || !network_standard_machine_is_openh1(machine_index) || host_player_index == NONE)
+		return TRUE;
+	csmemset(&message, 0, sizeof(message));
+	message.teleport.format = HOST_TELEPORT_FORMAT;
+	message.teleport.kind = go_to ? _host_teleport_joined : _host_teleport_brought;
+	message.teleport.player_index = distributed_player_to_byte(player_index);
+	message.teleport.host_player_index = distributed_player_to_byte(host_player_index);
+	if (!go_to)
+	{
+		/* (the way player_teleport turned the brought player's unit: the host's) */
+		real_vector3d facing = unit_get(player_get(moved_player_index)->unit_index)->unit.desired_facing_vector;
+
+		message.teleport.facing[0] = (short)(PIN(facing.i, -1.f, 1.f) * HOST_TELEPORT_FACING_SCALE);
+		message.teleport.facing[1] = (short)(PIN(facing.j, -1.f, 1.f) * HOST_TELEPORT_FACING_SCALE);
+		message.teleport.facing[2] = (short)(PIN(facing.k, -1.f, 1.f) * HOST_TELEPORT_FACING_SCALE);
+	}
+	distributed_send_to_machine_reliably(machine_index, &message, _distributed_message_host_teleport, 1,
+		(word)(sizeof(message.header) + sizeof(message.teleport)));
 	return TRUE;
 }
 
@@ -1134,6 +1262,7 @@ boolean network_host_controls_open(
 		console_warning("host_controls: the menus have no Host Controls (display.menus)");
 		return FALSE;
 	}
+	error(_error_log, "host controls: opened (tab %d)", (int)tab);
 	return TRUE;
 }
 
@@ -1159,13 +1288,41 @@ static boolean host_controls_unban_named(
 	return FALSE;
 }
 
+/* the first player whose name begins with the text (to a quote or a
+parenthesis), in either case, but those who quit; NONE, said, if none */
+static long host_controls_player_named(
+	char const *text)
+{
+	struct data_iterator iterator;
+	struct player_datum *player;
+	short index;
+
+	while (*text == ' ' || *text == '"')
+		text++;
+	data_iterator_new(&iterator, player_data);
+	while ((player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
+	{
+		for (index = 0; text[index] && text[index] != '"' && text[index] != ')' &&
+			index < (short)NUMBEROF(player->name); index++)
+		{
+			char a = (char)player_name_character_ascii(player->name[index]);
+			char b = text[index];
+
+			if ((a >= 'A' && a <= 'Z' ? a - 'A' + 'a' : a) != (b >= 'A' && b <= 'Z' ? b - 'A' + 'a' : b))
+				break;
+		}
+		if (!player->quit_out_of_game && (!text[index] || text[index] == '"' || text[index] == ')'))
+			return iterator.datum_index;
+	}
+	console_warning("host_controls: no player's name begins with \"%s\"", text);
+	return NONE;
+}
+
 boolean network_host_controls_open_command(
 	char const *text)
 {
 	/* (host_controls_menu.inc's tabs, in their order) */
 	static char const *const tabs[] = { "players", "game", "maps", "playlist", "bans", "bots", "rules" };
-	struct data_iterator iterator;
-	struct player_datum *player;
 	long chosen = NONE;
 	short tab = 0;
 	short index;
@@ -1180,6 +1337,22 @@ boolean network_host_controls_open_command(
 	/* (Bans' Unban: the first ban whose players or address begin with the rest) */
 	if (!strncmp(text, "unban ", 6))
 		return host_controls_unban_named(text + 6);
+	/* (co-op's BRING TO ME and GO TO <name>, at once) */
+	if (!strncmp(text, "bring ", 6) || !strncmp(text, "goto ", 5))
+	{
+		boolean go_to = text[0] == 'g';
+
+		chosen = network_host_controls_available() ? host_controls_player_named(text + (go_to ? 5 : 6)) : NONE;
+		if (chosen == NONE)
+			return FALSE;
+		if (!network_host_controls_teleport(chosen, go_to))
+		{
+			console_warning(go_to ? "host_controls: you can't go to them now" :
+				"host_controls: they can't be brought to you now");
+			return FALSE;
+		}
+		return TRUE;
+	}
 	for (index = 0; index < NUMBEROF(tabs); index++)
 	{
 		size_t length = strlen(tabs[index]);
@@ -1196,26 +1369,9 @@ boolean network_host_controls_open_command(
 	/* (the first player whose name begins with the rest, in either case) */
 	if (*text && *text != ')' && network_host_controls_available())
 	{
-		data_iterator_new(&iterator, player_data);
-		while (chosen == NONE && (player = (struct player_datum *)data_iterator_next(&iterator)) != NULL)
-		{
-			for (index = 0; text[index] && text[index] != '"' && text[index] != ')' &&
-				index < (short)NUMBEROF(player->name); index++)
-			{
-				char a = (char)player_name_character_ascii(player->name[index]);
-				char b = text[index];
-
-				if ((a >= 'A' && a <= 'Z' ? a - 'A' + 'a' : a) != (b >= 'A' && b <= 'Z' ? b - 'A' + 'a' : b))
-					break;
-			}
-			if (!player->quit_out_of_game && (!text[index] || text[index] == '"' || text[index] == ')'))
-				chosen = iterator.datum_index;
-		}
+		chosen = host_controls_player_named(text);
 		if (chosen == NONE)
-		{
-			console_warning("host_controls: no player's name begins with \"%s\"", text);
 			return FALSE;
-		}
 	}
 	return network_host_controls_open(chosen, tab);
 }
@@ -1324,7 +1480,59 @@ boolean network_host_controls_handles_message(
 	if (size < sizeof(header))
 		return FALSE;
 	csmemcpy(&header, message, sizeof(header));
-	return header.type == _distributed_message_host_team;
+	return header.type == _distributed_message_host_team || header.type == _distributed_message_host_teleport;
+}
+
+/* (a client) the co-op host's teleport of its player: turned the host's
+way (brought), and told so on its screen */
+static void host_controls_handle_teleport(
+	word const *message,
+	word size)
+{
+	struct distributed_host_teleport teleport;
+	struct player_datum *player;
+	struct player_datum *host;
+	long player_index;
+	long host_player_index;
+	wchar_t name[HOST_TELEPORT_NAME_LENGTH + 1];
+	wchar_t text[64];
+
+	if (!network_coop_active() || size != sizeof(struct distributed_message_header) + sizeof(teleport))
+		return;
+	csmemcpy(&teleport, (byte const *)message + sizeof(struct distributed_message_header), sizeof(teleport));
+	if (teleport.format != HOST_TELEPORT_FORMAT ||
+		(teleport.kind != _host_teleport_brought && teleport.kind != _host_teleport_joined))
+	{
+		return;
+	}
+	player_index = distributed_player_from_byte(teleport.player_index);
+	host_player_index = distributed_player_from_byte(teleport.host_player_index);
+	player = player_index != NONE ? player_try_and_get(player_index) : NULL;
+	host = host_player_index != NONE ? player_try_and_get(host_player_index) : NULL;
+	if (!player || player->local_player_index == NONE || !host)
+		return;
+	ustrncpy(name, host->name, HOST_TELEPORT_NAME_LENGTH);
+	name[HOST_TELEPORT_NAME_LENGTH] = 0;
+	if (teleport.kind == _host_teleport_brought)
+	{
+		real_vector3d facing;
+
+		facing.i = (real)teleport.facing[0] / HOST_TELEPORT_FACING_SCALE;
+		facing.j = (real)teleport.facing[1] / HOST_TELEPORT_FACING_SCALE;
+		facing.k = (real)teleport.facing[2] / HOST_TELEPORT_FACING_SCALE;
+		if (facing.i * facing.i + facing.j * facing.j + facing.k * facing.k > 0.25f)
+		{
+			normalize3d(&facing);
+			player_control_set_facing(player->local_player_index, &facing);
+		}
+		usnprintf(text, NUMBEROF(text) - 1, L"Brought to %s", name);
+	}
+	else
+	{
+		usnprintf(text, NUMBEROF(text) - 1, L"%s joined you", name);
+	}
+	text[NUMBEROF(text) - 1] = 0;
+	hud_print_message(player->local_player_index, text);
 }
 
 void network_host_controls_handle_message(
@@ -1339,6 +1547,17 @@ void network_host_controls_handle_message(
 	long player_index;
 
 	csmemcpy(&header, message, sizeof(header));
+	/* (a co-op teleport: the host's alone, over its stream, in an OpenH1
+	game under way) */
+	if (header.type == _distributed_message_host_teleport)
+	{
+		if (machine_index == NONE && from_stream && game_connection() == _game_connection_network_client &&
+			network_standard_agreed_rate() && game_in_progress() && header.count == 1)
+		{
+			host_controls_handle_teleport(message, size);
+		}
+		return;
+	}
 	/* (the host's alone, over its stream, in an OpenH1 game under way of
 	teams; one move a message) */
 	if (machine_index != NONE || !from_stream || game_connection() != _game_connection_network_client ||

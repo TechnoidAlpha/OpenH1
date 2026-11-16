@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.coop.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_coop_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="7"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_online_coop_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="8"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/player_2_profile_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/coop/player_2_profile_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/coop/header_player_2" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/coop/player_2_help" x="20" y="416"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/header_player_2" box="35 11 398 70" picture="main_menu/multiplayer_type_select/coop/header_player_2"/>
+	<look name="main_menu/multiplayer_type_select/coop/player_2_profile_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_0" x="20" y="73"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_1" x="20" y="103"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_2" x="20" y="133"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_3" x="20" y="163"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_4" x="20" y="193"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_5" x="20" y="223"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_6" x="20" y="253"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_7" x="20" y="283"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_8" x="20" y="313"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_9" x="20" y="343"/>
+		<at widget="main_menu/multiplayer_type_select/coop/list_item_10" x="20" y="373"/>
+		<at widget="main_menu/multiplayer_type_select/coop/player_2_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_0" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd_top">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_1" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_2" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_3" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_4" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_5" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_6" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_7" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_8" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_9" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/list_item_10" box="0 0 390 28" picture="bitmaps/sel_list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_text" x="25" y="0"/>
+		<at widget="main_menu/new_select/list_item_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/player_2_help" type="text" box="0 0 350 24">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 5" flags="no_focus_test" text="Player 2: choose with your controller."/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/coop/player_2_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/profile_manager/profile_manager_button_ok" x="380" y="1"/>
+		<at widget="common_button_back" x="510" y="1"/>
+	</look>
+</model>

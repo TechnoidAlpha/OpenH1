@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" run="port settings cancel" back="true"/>
+		<on event="back" run="port settings cancel" back="true"/>
+		<on event="white" run="port settings tab previous"/>
+		<on event="black" run="port settings tab next"/>
+		<on event="y" run="port settings search"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_video_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_audio_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_mouse_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_network_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_interface_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_profile_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_mods_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_video_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_audio_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_mouse_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_network_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_interface_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_profile_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_mods_settings">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs_search" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_defaults">
+		<on event="a" run="port settings defaults"/>
+		<on event="start" run="port settings defaults"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_ok">
+		<on event="a" run="port settings ok" back="true"/>
+		<on event="start" run="port settings ok" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_cancel">
+		<on event="a" run="port settings cancel" back="true"/>
+		<on event="start" run="port settings cancel" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_mode" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_resolution" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/resolution_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_window_size" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/window_size_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_refresh_rate" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/refresh_rate_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_frame_rate_sync" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/frame_rate/frame_rate_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/frame_rate/frame_rate_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_fov" flags="pass_unhandled_to_focused_child">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port slider left"/>
+		<on event="stick_right" run="port slider right"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_orientation" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_screen_layout" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout/screen_layout_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout/screen_layout_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_first_person" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_movies" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_graphics" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_high_res_text" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_battery_saver" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_brightness_settings" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/brightness_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/brightness_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_advanced_graphics" flags="pass_unhandled_to_focused_child">
+		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/advanced_graphics_screen"/>
+		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/advanced_graphics_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

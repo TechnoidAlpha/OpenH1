@@ -177,6 +177,23 @@ static void case_takes(void)
 		"a change asked for now: taken by its restart");
 }
 
+/* a co-op level won: the level its host asked for after it, at its
+difficulty, else the campaign's next, at the game's */
+static void case_coop_after(void)
+{
+	char const *campaign = "levels\\a50\\a50";
+	short difficulty = 7;
+
+	CHECK(network_host_game_cooperative_level_after(campaign, FALSE, "levels\\c10\\c10", 3, &difficulty) ==
+		campaign && difficulty == NONE, "nothing asked for: the campaign's next, at the game's difficulty");
+	CHECK(!strcmp(network_host_game_cooperative_level_after(campaign, TRUE, "levels\\c10\\c10", 3, &difficulty),
+		"levels\\c10\\c10") && difficulty == 3, "asked for: that level, at its difficulty");
+	CHECK(network_host_game_cooperative_level_after(campaign, TRUE, "", 3, &difficulty) == campaign &&
+		difficulty == NONE, "asked for without a level: the campaign's next");
+	CHECK(network_host_game_cooperative_level_after(NULL, FALSE, NULL, 0, &difficulty) == NULL && difficulty == NONE,
+		"a level not in the campaign, nothing asked for: it again (NULL)");
+}
+
 /* the entries playable() was asked of, and which it takes ('y') */
 static char const *takes_these;
 static int asked;
@@ -342,6 +359,8 @@ int main(int argc, char **argv)
 
 	if (!strcmp(case_name, "takes"))
 		case_takes();
+	else if (!strcmp(case_name, "coop_after"))
+		case_coop_after();
 	else if (!strcmp(case_name, "try"))
 		case_try();
 	else if (!strcmp(case_name, "fits"))

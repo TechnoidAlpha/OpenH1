@@ -49,6 +49,9 @@ static void *global_structure_bsp_get(void) { return &structure_bsp; }
 static boolean structure_materials(void *structure_bsp, struct enumerated_materials *materials, boolean add)
 { (void)structure_bsp; assert(!add); materials_asked=materials; return materials_new; }
 static void platform_log(const char *format, ...) { (void)format; }
+/* (no menu pictures' pass: render_prepared.c records none) */
+static int menu_pictures_preparing(void) { return 0; }
+static int menu_pictures_stock_maps(void) { return 0; }
 """
     start = code.index("static struct\n", code.index("/* the maps enumerated (a map"))
     end = code.index("static short enumerated_map_count = 0;", start)

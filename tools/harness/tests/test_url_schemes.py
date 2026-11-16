@@ -32,8 +32,8 @@ def test_case(case):
 
 # a fault, and the case that must catch it
 FAULTS = {
-    "registers-halo": (('p2p_register_url_scheme(P2P_LINK_SCHEME, "OpenH1 invite");',
-                        'p2p_register_url_scheme(P2P_OLD_LINK_SCHEME, "OpenH1 invite");'), "schemes"),
+    "registers-halo": (('p2p_register_url_scheme(P2P_LINK_SCHEME, "GOAT H1 invite");',
+                        'p2p_register_url_scheme(P2P_OLD_LINK_SCHEME, "GOAT H1 invite");'), "schemes"),
     "halo-kept": (("\tp2p_forget_url_scheme(P2P_OLD_LINK_SCHEME);\n", ""), "schemes"),
     "opence-dropped": (("\tif (!strstr(existing, line))\n\t\treturn 0;\n", ""), "forget"),
     "path-prefix-taken": (('"\\nExec=\\"%s\\" %%u\\n"', '"\\nExec=\\"%s"'), "forget"),

@@ -31,6 +31,8 @@ password's command is never logged nor answered with the password.
 #include "network_host_game.h"
 #include "server_director.h"
 #include "server_gametypes.h"
+#include "math/real_math.h"
+#include "bots_command.h"
 
 #include "../src/p2p.h" /* port: port/linux/src/p2p.c */
 #include "../src/server_console.h" /* port: port/linux/src/server_console.c */
@@ -574,6 +576,34 @@ static boolean command_help(char const *line, long count, char **words)
 	return TRUE;
 }
 
+/* the host's words to its bots (bots_command.c; docs/bot_control.md): the
+line after "bots", each line of its answer said */
+static boolean command_bots(char const *line, long count, char **words)
+{
+	static char reply[60 * 1024];
+	char *cursor;
+	boolean succeeded;
+
+	(void)count;
+	(void)words;
+	while (*line == ' ' || *line == '\t')
+		line++;
+	line += 4;
+	succeeded = bots_command_run(line, reply, sizeof(reply));
+	for (cursor = reply; *cursor;)
+	{
+		char *end = strchr(cursor, '\n');
+
+		if (end)
+			*end = 0;
+		say("%s", cursor);
+		if (!end)
+			break;
+		cursor = end + 1;
+	}
+	return succeeded;
+}
+
 static boolean command_status(char const *line, long count, char **words)
 {
 	struct server_json json;
@@ -591,7 +621,7 @@ static boolean command_status(char const *line, long count, char **words)
 		server_json_free(&json);
 		return TRUE;
 	}
-	say("%s: %s, up %ldh%02ldm, %ld game%s played; OpenH1 %s, network version %d", config_string("server.name"),
+	say("%s: %s, up %ldh%02ldm, %ld game%s played; GOAT H1 %s, network version %d", config_string("server.name"),
 		server_status_state_name(server_director_state()), uptime / 3600, (uptime / 60) % 60,
 		server_director_games_hosted(), server_director_games_hosted() == 1 ? "" : "s", server_mode_build(),
 		HALO_PORT_NETWORK_VERSION);
@@ -599,7 +629,7 @@ static boolean command_status(char const *line, long count, char **words)
 		char mode[16], title[64];
 
 		server_director_game_mode(mode, sizeof(mode), title, sizeof(title), NULL);
-		say("games: %s (%s; OpenH1 protocol version %d)", title, mode, HALO_PORT_STANDARD_NETWORK_VERSION);
+		say("games: %s (%s; GOAT H1 protocol version %d)", title, mode, HALO_PORT_STANDARD_NETWORK_VERSION);
 		if (strcmp(mode, config_string("server.game_mode")))
 			say("server.game_mode %s waits for the server to be empty in its lobby", config_string("server.game_mode"));
 	}
@@ -777,7 +807,8 @@ static char const *const settable_settings[] =
 {
 	"server.name", "server.max_players", "server.min_players", "server.password", "server.public",
 	"server.rotation_fallback", "server.lobby_seconds", "server.postgame_seconds", "server.empty_seconds",
-	"server.idle_minutes", "server.team_start", "server.motd", "server.frame_rate", "server.game_mode",
+	"server.idle_minutes", "server.team_start", "server.team_switch",
+	"server.team_switch_cooldown_seconds", "server.motd", "server.frame_rate", "server.game_mode",
 	"server.web_password", "server.web_moderator_password", "server.log_format", "server.log_addresses",
 	"server.status_file", "server.auto_update", "server.coop_difficulty", "server.region", "server.master_publish",
 	"server.master_publish_address", "server.metrics", "server.chat_filter", "server.chat_filter_slurs",
@@ -789,8 +820,9 @@ static char const *const settable_settings[] =
 	"network.text_chat", "network.voice_lobby", "network.voice_mode", "network.voice_kbps", "network.votekick",
 	"network.vote_end_game", "network.votekick_threshold", "network.votekick_percent", "network.votekick_minutes", "network.votekick_ban_minutes", "network.map_share", "network.map_share_upload",
 	"network.public_address", "network.coop_friendly_fire", "network.coop_player_collisions",
-	"network.coop_ally_friendly_fire", "network.shield_effects", "network.fire_origins",
-	"network.allow_opence",
+	"network.vehicle_riding", "server.vehicle_riding_override_gametype",
+	"network.coop_ally_friendly_fire", "network.coop_team_wipe", "network.shield_effects", "network.fire_origins",
+	"network.allow_opence", "network.pings", "network.allow_hit_sounds",
 };
 
 /* those of them the owner's console alone changes (the standard input, the
@@ -848,6 +880,7 @@ static struct
 	{ "server.frame_rate", NULL, "30", "120" },
 	{ "server.game_mode", "legacy|openh1_30|openh1_60|openh1_120", NULL, NULL },
 	{ "server.team_start", "one|both|skip", NULL, NULL },
+	{ "server.team_switch_cooldown_seconds", NULL, "0", "3600" },
 	{ "server.log_format", "text|json", NULL, NULL },
 	{ "server.auto_update", "off|check|install", NULL, NULL },
 	{ "server.coop_difficulty", "easy|normal|hard|impossible", NULL, NULL },
@@ -871,8 +904,9 @@ static struct
 	{ "network.votekick_percent", NULL, "1", "100" },
 	{ "network.votekick_minutes", NULL, "0", "60" },
 	{ "network.votekick_ban_minutes", NULL, "1", "1440" },
-	{ "network.map_share_upload", NULL, "16", "20480" },
+	{ "network.map_share_upload", NULL, "16", "256000" },
 	{ "network.coop_friendly_fire", "off|on|shields_only|explosives_only", NULL, NULL },
+	{ "network.coop_team_wipe", "auto|revert|respawn", NULL, NULL },
 	{ "network.shield_effects", "stock|glow|light_show|overshield|glow_overshield|light_show_overshield|players", NULL,
 		NULL },
 };
@@ -1175,7 +1209,7 @@ static boolean command_settings(char const *line, long count, char **words)
 
 static boolean command_version(char const *line, long count, char **words)
 {
-	say("OpenH1 %s, network version %d", server_mode_build(), HALO_PORT_NETWORK_VERSION);
+	say("GOAT H1 %s, network version %d", server_mode_build(), HALO_PORT_NETWORK_VERSION);
 	return TRUE;
 }
 
@@ -1868,7 +1902,7 @@ static boolean command_team(char const *line, long count, char **words)
 
 		if (player_index == NONE || !network_host_controls_move_team(player_index))
 		{
-			say("sv_team: %s cannot move now (players move teams in an OpenH1 game of OpenH1 machines alone)", name);
+			say("sv_team: %s cannot move now (players move teams in a GOAT H1 game of GOAT H1 machines alone)", name);
 			return FALSE;
 		}
 	}
@@ -1902,7 +1936,7 @@ static boolean command_teams(char const *line, long count, char **words)
 	moved = server_director_playing() ? network_host_game_teams_arrange(how) : NONE;
 	if (moved == NONE)
 	{
-		say("sv_teams: the teams are arranged in a team game being played, of OpenH1 machines alone");
+		say("sv_teams: the teams are arranged in a team game being played, of GOAT H1 machines alone");
 		return FALSE;
 	}
 	say("teams %s: %d moved", how == _host_game_shuffle ? "shuffled" : "balanced", moved);
@@ -1981,7 +2015,7 @@ static boolean command_admin(char const *line, long count, char **words)
 		game = server_game();
 		if (!network_admin_machine_key(game->players[slot].machine_index, key_hex, key_id, &admin))
 		{
-			say("sv_admin: that player's game proved no admin key (an OpenH1 game of this version, in an OpenH1 "
+			say("sv_admin: that player's game proved no admin key (a GOAT H1 game of this version, in a GOAT H1 "
 				"game, proves it as it joins)");
 			return FALSE;
 		}
@@ -2307,6 +2341,7 @@ static struct server_command const server_command_table[] =
 {
 	{ "help", NULL, _server_role_viewer, "[command]", "the commands, or one's use", command_help },
 	{ "sv_status", NULL, _server_role_viewer, "[--json]", "the server and its game", command_status },
+	{ "bots", NULL, _server_role_admin, "<command> [--json]", "direct the bots: orders, traits (bots help)", command_bots },
 	{ "sv_players", NULL, _server_role_viewer, "[--json]", "the players", command_players },
 	{ "sv_rotation", "sv_mapcycle", _server_role_viewer, "", "the rotation", command_rotation },
 	{ "sv_maps", NULL, _server_role_viewer, "", "the multiplayer maps there are", command_maps },

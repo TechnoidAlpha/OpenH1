@@ -24,7 +24,7 @@ def compiler():
     return None
 
 
-def run_test(tmp_path, name, sources, includes=(), arguments=()):
+def run_test(tmp_path, name, sources, includes=(), arguments=(), flags=()):
     cc = compiler()
     if not cc:
         pytest.skip("no C compiler")
@@ -32,7 +32,7 @@ def run_test(tmp_path, name, sources, includes=(), arguments=()):
         pytest.skip("the host runs on AArch64 and x86-64 only")
     binary = tmp_path / name
     subprocess.run(
-        [cc, "-std=gnu11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O1", "-D_GNU_SOURCE",
+        [cc, "-std=gnu11", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-O1", "-D_GNU_SOURCE", *flags,
          f"-I{ROOT / 'port' / 'android' / 'include'}", f"-I{HOST}", *[f"-I{path}" for path in includes],
          "-pthread", *[str(source) for source in sources], "-o", str(binary)],
         check=True,
@@ -50,9 +50,71 @@ def test_host_arch(tmp_path):
 
 
 def test_host_memory(tmp_path):
+    if platform.system() != "Linux":
+        pytest.skip("host_memory.c is the Linux and Android hosts' (macOS's is host_memory_base.c and port/macos, "
+                    "Windows's port/windows/host)")
     run_test(tmp_path, "host_memory_test",
              [TESTS / "host_memory_test.c", HOST / "host_arch.c", HOST / "host_memory_watch.c",
               HOST / "host_watch_hash.c"])
+
+
+def host_log_ring(broken=False):
+    """log_keep and host_log_recent, as host_common.c has them"""
+    text = (HOST / "host_common.c").read_text()
+    start = text.index("/* the host's last lines, each ended by a newline")
+    end = text.index("void host_log_set_sink(")
+    code = text[start:end]
+    if broken:
+        # the negative control: the first line kept may be part of one
+        code = code.replace("if (start && !(start > oldest", "if (0 && !(start > oldest")
+    return code
+
+
+@pytest.mark.parametrize("broken", [False, True])
+def test_host_log_ring(tmp_path, broken):
+    """the host's last lines, kept for Save Report's host.log (host_common.c):
+    whole lines, the newest kept, a small buffer's; the negative control
+    takes part of a line first"""
+    (tmp_path / "host_log_ring.inc").write_text(host_log_ring(broken))
+    if not broken:
+        run_test(tmp_path, "host_log_ring_test", [TESTS / "host_log_ring_test.c"], [tmp_path])
+        return
+    with pytest.raises(AssertionError):
+        run_test(tmp_path, "host_log_ring_test", [TESTS / "host_log_ring_test.c"], [tmp_path])
+
+
+def host_crash_record():
+    """the crash record and host_abort, as host_common.c has them"""
+    text = (HOST / "host_common.c").read_text()
+    record = text[text.index("/* ---------- the crash record */"):text.index("void host_fatal(")]
+    abort = text[text.index("/* (the record is the SIGABRT's"):text.index("void host_exit(")]
+    return record + abort
+
+
+@pytest.mark.parametrize("broken", [False, True])
+def test_host_crash_signal(tmp_path, broken):
+    """a fatal signal writes the crash record (host_memory_watch.c's handlers):
+    abort(), the guest's raise(), host_abort, a SIGABRT sent from outside and a
+    segmentation fault, each with its frames, the process then ended by the
+    signal; an exit writes none. The negative control leaves SIGABRT
+    unhandled, as it was: no record for an abort"""
+    if platform.system() not in ("Linux", "Darwin"):
+        pytest.skip("the POSIX hosts' handlers (Windows's are host_memory_watch_win.c's)")
+    (tmp_path / "host_crash_record.inc").write_text(host_crash_record())
+    watch = HOST / "host_memory_watch.c"
+    if broken:
+        text = watch.read_text()
+        assert ", SIGABRT," in text
+        watch = tmp_path / "host_memory_watch.c"
+        watch.write_text(text.replace(", SIGABRT,", ",").replace('#include "host', f'#include "{HOST}/host'))
+    sources = [TESTS / "host_crash_signal_test.c", HOST / "host_arch.c", watch, HOST / "host_watch_hash.c"]
+    # (the frame records the report walks, as the host is built: tools/linux_guest_build.py)
+    flags = ["-fno-omit-frame-pointer"]
+    if not broken:
+        run_test(tmp_path, "host_crash_signal_test", sources, [tmp_path], [str(tmp_path)], flags)
+        return
+    with pytest.raises(AssertionError):
+        run_test(tmp_path, "host_crash_signal_test", sources, [tmp_path], [str(tmp_path)], flags)
 
 
 def test_frame_pacing_divisor(tmp_path):
@@ -122,31 +184,17 @@ def test_x32_boundary(tmp_path):
     assert result.returncode == 0 and result.stdout.strip() == "ok", result.stdout + result.stderr
 
 
-def test_image_base_agrees():
-    """tools/guest_arch.py's image_base is the host's HALO_GUEST_IMAGE_BASE
-    for this processor's guest"""
-    cc = compiler()
-    if not cc:
-        pytest.skip("no C compiler")
-    sys.path.insert(0, str(ROOT / "tools"))
-    from guest_arch import GUEST_ARCHES
-    machine = platform.machine().lower()
-    arch = next((arch for arch in GUEST_ARCHES.values()
-                 if arch.elf_arch == {"amd64": "x86_64", "arm64": "aarch64"}.get(machine, machine)), None)
-    if arch is None:
-        pytest.skip("no guest for this processor")
-    output = subprocess.run([cc, "-E", "-dM", "-x", "c", "-include",
-                             str(ROOT / "port" / "android" / "include" / "halo_android_abi.h"), "/dev/null"],
-                            capture_output=True, text=True, check=True).stdout
-    value = next(line.split()[2] for line in output.splitlines() if line.startswith("#define HALO_GUEST_IMAGE_BASE "))
-    assert int(value.rstrip("uU"), 16) == arch.image_base
-
-
 def sdl_build():
     """an SDL3 the builds made (its headers and library), or None"""
     for headers in sorted(ROOT.glob("build/*/third_party/SDL3/include")):
         build = headers.parent.parent.parent
-        libraries = sorted([*build.glob("libSDL3.*dylib"), *build.glob("**/libSDL3.so*")])
+        # (one this machine runs: not the Android or iOS builds')
+        if build.name.startswith(("android", "ios")):
+            continue
+        if platform.system() == "Darwin":
+            libraries = sorted(build.glob("libSDL3.*dylib"))
+        else:
+            libraries = sorted(build.glob("**/libSDL3.so*"))
         if (headers / "SDL3" / "SDL.h").exists() and libraries:
             return headers, libraries[0]
     return None

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The Quit question (docs/menu_screens.md), in place of the PC version's quit_screen, as the main menu's QUIT
+and B open it: OK quits, BACK (or B) goes back. -->
+<screen name="quit">
+	<dialog title="ARE YOU SURE?" text="Are you sure you wish to exit Halo?">
+		<list focus="back">
+			<item id="ok" label="OK" do="quit game"/>
+			<item id="back" label="BACK" do="back"/>
+		</list>
+	</dialog>
+</screen>

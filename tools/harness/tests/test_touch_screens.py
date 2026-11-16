@@ -30,9 +30,9 @@ TOUCH_DISPLAYS = [("phone", 2400, 1080, 420), ("phone 21:9", 2520, 1080, 420), (
 # (the screens: their roots, and the names menu_functions.c finds in them)
 SCREENS = {
     "multiplayer": (f"{MT}/multiplayer_type_select_screen",
-                    ["hub_matchmaking", "hub_join_internet", "hub_join_lan_item", "hub_join_direct", "hub_party",
+                    ["hub_join_internet", "hub_join_lan_item", "hub_join_direct", "hub_party",
                      "hub_friends", "hub_create", "hub_coop", "hub_gametypes", "browser_note",
-                     "item_note", "invite_note", "party_note", "matchmaking_note", "friends_note", "hub_panel",
+                     "item_note", "invite_note", "party_note", "friends_note", "hub_panel",
                      "multiplayer_status", "multiplayer_status_detail",
                      "multiplayer_options_txt", "online_now_label", "online_games_2", "online_players_2",
                      "best_2_name", "best_2_badge", "best_2_players", "best_2_ping", "prompt_refresh"]),
@@ -45,7 +45,8 @@ SCREENS = {
                         "browser_panel", "panel_title", "panel_where", "panel_kind", "panel_tick", "panel_opence",
                         "panel_status", "browser_join_bar", "button_join",
                         "join_game_button_bar", "prompt_favorite", "prompt_refresh", "prompt_paste", "prompt_sort",
-                        "prompt_back", "browser_empty", "browser_counts"]),
+                        "prompt_back", "browser_empty", "browser_counts", "join_game_header", "op_search_any",
+                        "op_search_field_any", "op_search_clear_any", "browser_clear_bar", "button_clear_search"]),
     "lobby": (f"{MT}/lobby/lobby_screen",
               ["board_players", "board_row_1_12", "board_name_0_0", "board_panel", "board_gametype", "board_map",
                "board_limits", "board_kind", "board_status", "board_waiting", "board_bots_count",
@@ -161,8 +162,14 @@ def test_touch_targets(screen, width):
             if box.name in other.path or other.name in box.path:
                 continue
             # (a footer's alternatives in one place, the game showing one: PASTE LINK for REFRESH, COPY LINK
-            # for MAKE PARTY)
-            if box[1:5] == other[1:5] and box.path == other.path and box.name.startswith("prompt_"):
+            # for MAKE PARTY; the browser's search's bar and the field typed into in its place)
+            if box[1:5] == other[1:5] and box.path == other.path and (box.name.startswith("prompt_") or
+                                                                      box.name.startswith("op_search_")):
+                continue
+            # (the browser's CLEAR SEARCH, shown in the rows' place while the search leaves the list none:
+            # menu_functions.c's browser_clear_show)
+            if {box.name, other.name} & {"button_clear_search"} and \
+                    any(re.fullmatch(r"server_item_\d+", name) for name in (box.name, other.name)):
                 continue
             assert not box.overlaps(other), f"{screen} at {width}: {name} {box} is over {other_name} {other}"
 
@@ -209,10 +216,13 @@ def test_touch_pictures_are_drawn_and_embedded():
 
 
 def text_width(words, font):
-    """the words' width in the menus' units, as the game draws them (menu_text.c: large_ui Overpass 900 at capitals
-    13 units high, small_ui Overpass 750 at 10, each 98% wide), with 7% to spare for its spacing"""
+    """the words' width in the menus' units, as the game draws them (text_hires.c: large_ui's font, fonts.json's,
+    at capitals 13 units high, small_ui's at 10, each 98% wide), with 7% to spare for its spacing"""
     from PIL import ImageFont
-    face, capitals = ("Overpass-900.ttf", 13) if "large" in font else ("Overpass-750.ttf", 10)
+    import json
+    tag, capitals = ("ui\\large_ui", 13) if "large" in font else ("ui\\small_ui", 10)
+    fonts = json.loads((ROOT / "port/assets/fonts/fonts.json").read_text())["fonts"]
+    face = next(entry["file"] for entry in fonts if entry["tag"] == tag)
     probe = ImageFont.truetype(str(ROOT / "port/assets/fonts" / face), 1000)
     _, top, _, bottom = probe.getbbox("H")
     return probe.getlength(words) * capitals / (bottom - top) * 0.98 * 1.07

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" source="tools/port_settings.py multiplayer_files/_gametype_rules_extras">
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_spinner" type="spinner" left="2" top="2" width="148" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_kills_score" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_spinner" type="spinner" left="2" top="2" width="148" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_kills_score" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156" source="tools/port_settings.py multiplayer_files/_gametype_rules_extras">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_score" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_score" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_gametype_rules_extras">
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_label"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_spinner" x="320" y="1"/>
 	</widget>
@@ -14,12 +14,12 @@
 		<string text="YES"/>
 		<string text="NO"/>
 	</strings>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_label" type="text" controller="1" width="320" height="22" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" string_index="7" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4" source="tools/port_settings.py multiplayer_files/_gametype_rules_extras">
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_spinner" type="spinner" left="2" top="2" width="148" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_kills_per_capture" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_spinner" type="spinner" left="2" top="2" width="148" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_kills_per_capture" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" list_flags="items_from_strings" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 150 19 156" source="tools/port_settings.py multiplayer_files/_gametype_rules_extras">
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_per_capture" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_per_capture" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_gametype_rules_extras">
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_label"/>
 		<child widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_spinner" x="320" y="1"/>
 	</widget>

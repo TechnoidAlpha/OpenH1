@@ -44,6 +44,11 @@ void network_chat_say_unchecked(short channel, char const *text);
 /* whether a line is being typed: the keyboard types into it, and drives no
 player (xinput_sdl.c), as with the console */
 boolean network_chat_typing(void);
+/* the line for a report's note (F8: port/linux/src/report.c), in any game:
+opened (FALSE if there is no player to type it), and closed unfinished.
+Enter or Escape gives it to report_note_done. */
+boolean network_chat_report_note_begin(void);
+void network_chat_report_note_cancel(void);
 /* Physical controller owning the on-screen keyboard, or NONE. */
 short network_chat_controller(void);
 /* (hud_unit.c) where the local player's motion sensor was drawn: its left
@@ -66,6 +71,53 @@ server_commands.c) a player's name (ASCII, 11 characters) muted for everyone
 for minutes (0: /mute's), every machine told, or unmuted: FALSE if it could
 not be */
 boolean network_chat_host_mute_named(char const *name, short minutes, boolean mute);
+/* ---------- the lobby's chat (the hand-written lobby's chat area,
+menu_screen.c and lobby_menu.inc) */
+
+enum
+{
+	/* the lobby's lines kept */
+	NETWORK_CHAT_LOBBY_LINES = 16,
+	/* a line's colour: its sender's team's, or the host's notice's */
+	NETWORK_CHAT_LOBBY_RED = 0,
+	NETWORK_CHAT_LOBBY_BLUE = 1,
+	NETWORK_CHAT_LOBBY_NOTICE = 2,
+};
+
+/* a lobby's line: its sender's name (none for a notice), its text, its
+colour, its sender's machine (NONE for a notice), when it came
+(system_milliseconds) */
+struct network_chat_lobby_line
+{
+	wchar_t name[12];
+	char text[64];
+	short color;
+	long machine;
+	unsigned long time;
+};
+
+/* (network_distributed.c) a lobby's message: a line of the lobby's, or the
+host's settings while in the lobby, which a game's chat never takes; and
+it handled (machine_index the sender's on the host, NONE on a client) */
+boolean network_chat_handles_lobby_message(word const *message, word size);
+void network_chat_handle_lobby_message(long machine_index, word const *message, word size, boolean from_stream);
+/* each frame the lobby's chat area is shown: its keys (T, Y) start a line */
+void network_chat_lobby_frame(void);
+/* whether the lobby has its chat now (the host's on, display.text_chat) */
+boolean network_chat_lobby_on(void);
+/* the lobby's lines, the oldest first, their count */
+short network_chat_lobby_lines(struct network_chat_lobby_line *lines, short maximum);
+/* the lobby's line being typed (NULL: none), and whether its on-screen
+keyboard is up */
+char const *network_chat_lobby_typed(boolean *keyboard);
+/* a lobby's line begun by a controller (NONE: the keyboard's), with the
+on-screen keyboard or not: FALSE if it cannot be */
+boolean network_chat_lobby_begin(short controller, boolean keyboard);
+/* the lobby's on-screen keyboard drawn in its area (the menus' screen's
+units, screen_width by screen_height), its keys' place noted for taps */
+void network_chat_lobby_draw_keyboard(long font_index, short x0, short y0, short x1, short y1, short screen_width,
+	short screen_height);
+
 /* (the host: network_voice.c) whether a player's name (the network game's,
 in the lobby too; at most 12 characters, ended or not) is muted for everyone:
 their machine's voice goes no further */

@@ -180,6 +180,27 @@ static void case_tags(void)
 	CHECK(lobby_board_tag(&entry) == _lobby_tag_openh1, "an OpenH1 player's tag");
 	entry.kind = _lobby_kind_unknown;
 	CHECK(lobby_board_tag(&entry) == _lobby_tag_none, "a player no one knows is tagged");
+	/* (a machine's players past its first: SPLIT SCREEN, none the host but
+	the host machine's first, on any machine: issue 1066's review) */
+	{
+		struct lobby_board_entry entries[5];
+		long machines[5] = { 0, 0, 3, 3, 0 };
+		short controllers[5] = { 1, 0, 0, 2, 3 };
+		short index;
+
+		for (index = 0; index < 5; index++)
+		{
+			entries[index] = player(0);
+			entries[index].host = machines[index] == 0;
+		}
+		entries[4] = bot(0);
+		lobby_board_mark_split(entries, machines, controllers, 5);
+		CHECK(lobby_board_tag(&entries[1]) == _lobby_tag_host, "the host machine's first player's tag");
+		CHECK(lobby_board_tag(&entries[0]) == _lobby_tag_split && !entries[0].host, "the host machine's P2 tagged HOST");
+		CHECK(!entries[2].split && entries[3].split && lobby_board_tag(&entries[3]) == _lobby_tag_split,
+			"a player machine's P1 and P3: split %d %d", entries[2].split, entries[3].split);
+		CHECK(lobby_board_tag(&entries[4]) == _lobby_tag_bot, "a bot of the host's machine");
+	}
 	CHECK(!strcmp(lobby_tag_words_test[_lobby_tag_opence], "OPENCE") &&
 		!strcmp(lobby_tag_words_test[_lobby_tag_host], "HOST") &&
 		!strcmp(lobby_tag_words_test[_lobby_tag_bot], "BOT"), "the tags' words");

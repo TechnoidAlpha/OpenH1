@@ -1,0 +1,28 @@
+# /etc/caddy/Caddyfile: HTTPS for master.goath1.com's master (opence-master
+# on 127.0.0.1:8090), with Let's Encrypt's certificate, which Caddy gets and
+# renews itself (ports 80 and 443).
+#
+# The public reaches only the protocol's endpoints (docs/master_protocol.md):
+# the list, the publishes, the netlist, the passes, the Discord link pages
+# (/link, its callback and /link/manage, with their /static/ styles), the
+# operators' signed requests, the master's and publishers' records,
+# /healthz. Everything else
+# (the admin pages, /metrics, the HTML pages) answers only addresses of the
+# tailnet: point master.goath1.com at the server's Tailscale address
+# (100.101.9.65) in /etc/hosts, or curl --resolve
+# master.goath1.com:443:100.101.9.65, and the request comes in on tailscale0
+# with the real certificate.
+master.goath1.com {
+	encode gzip
+
+	@public path /healthz /link /link/callback /link/manage /static/* /v1/servers /v1/servers/* /v1/netlist /v1/pass /v1/me /v1/keys /v1/master /v1/publishers /v1/publishers/* /v1/applications /v1/applications/*
+	handle @public {
+		reverse_proxy 127.0.0.1:8090
+	}
+
+	handle {
+		@outside not remote_ip 100.64.0.0/10 fd7a:115c:a1e0::/48
+		respond @outside 404
+		reverse_proxy 127.0.0.1:8090
+	}
+}

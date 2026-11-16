@@ -77,6 +77,20 @@ static double config_real(const char *name)
 {
 	return !strcmp(name, "display.lowered_reticle_amount") ? fake_percent : -1.0e9;
 }
+/* each local player's own (their profile's): player 2's switch set apart
+(fake_player2_on: -1 config.toml's) */
+static int fake_player2_on = -1;
+static int config_player_boolean(int local_player, const char *name)
+{
+	if (local_player == 1 && fake_player2_on >= 0 && !strcmp(name, "display.lowered_reticle"))
+		return fake_player2_on;
+	return config_boolean(name);
+}
+static double config_player_real(int local_player, const char *name)
+{
+	(void)local_player;
+	return config_real(name);
+}
 static struct unit_datum *render_fov_unit(short local_player_index, long *unit_index)
 {
 	(void)local_player_index;
@@ -104,8 +118,10 @@ static real weapon_get_field_of_view(long weapon_index, real field_of_view, shor
 
 /* panini.c's: the projection of a view of these half tangents at the
 viewport's edges, while display.panini is on */
-static boolean panini_projection_of_view(real tangent_x, real tangent_y, struct panini_projection *projection)
+static boolean panini_projection_of_view(short local_player_index, real tangent_x, real tangent_y,
+	struct panini_projection *projection)
 {
+	(void)local_player_index;
 	return fake_panini_d > 0.0f && panini_projection_fit(projection, fake_panini_d, fake_panini_s, tangent_x, tangent_y);
 }
 
@@ -136,7 +152,7 @@ static boolean project(struct render_camera const *camera, real_point3d const *p
 		return FALSE;
 	across = (to.i * right.i + to.j * right.j + to.k * right.k) / depth;
 	up = (to.i * camera->up.i + to.j * camera->up.j + to.k * camera->up.k) / depth;
-	if (panini_projection_of_view(tangent_x, tangent_y, &projection))
+	if (panini_projection_of_view(0, tangent_x, tangent_y, &projection))
 		panini_projection_forward(&projection, across, up, &across, &up);
 	screen->x = (camera->window_bounds.x0 + camera->window_bounds.x1) * 0.5f + across / tangent_x * viewport_width * 0.5f;
 	screen->y = (camera->window_bounds.y0 + camera->window_bounds.y1) * 0.5f - up / tangent_y * viewport_height * 0.5f;
@@ -504,6 +520,26 @@ int main(int argc, char **argv)
 			}
 		}
 		fake_panini_d = 0.f;
+	}
+	CASE("players")
+	{
+		/* split screen's players each their own: player 2's on in their
+		profile, player 1's off in config.toml's */
+		aim = camera_aimed(0.3f, 0.2f, angles[0]);
+		settings(0, 10.0);
+		fake_player2_on = 1;
+		fake_changes++;
+		view = aim;
+		lowered_reticle_view(1, UNZOOMED, &view);
+		CHECK(lowered_reticle_lift(1) > 0.f, "player 2's not lowered");
+		view = frame(aim, UNZOOMED);
+		CHECK(!memcmp(&view, &aim, sizeof(view)) && lowered_reticle_lift(0) == 0.f, "player 1's lowered");
+		fake_player2_on = 0;
+		fake_changes++;
+		view = aim;
+		lowered_reticle_view(1, UNZOOMED, &view);
+		CHECK(lowered_reticle_lift(1) == 0.f, "player 2's lowered once off");
+		fake_player2_on = -1;
 	}
 	return 0;
 }

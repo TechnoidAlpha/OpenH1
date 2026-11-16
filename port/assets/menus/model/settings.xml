@@ -1,0 +1,1870 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The settings screens' model, for the menu engine (docs/menu_engine.md; tools/port_settings.py) -->
+<model>
+	<geometry row_x="28" row_width="344" row_height="20" row_step="21" section_height="18" section_step="20" section_gap="6" tab_top="104" page_top="80" rows_bottom="408" spinner_x="188" spinner_width="140" search_word_extra="123" search_results="14" search_crumbs="8" panel_bottom="400"/>
+	<geometry name="tall" row_x="28" row_width="344" row_height="24" row_step="25" section_height="20" section_step="22" section_gap="6" tab_top="78" page_top="50" rows_bottom="438" spinner_x="188" spinner_width="140" panel_bottom="438" scrolls="true" search_word_extra="123" search_results="14" search_crumbs="8"/>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen" kind="settings" layout="tab" geometry="tall" tab="VIDEO">
+		<about>The window, the frame rate and the graphics.</about>
+		<section key="section_0" title="DISPLAY"/>
+		<row key="mode" kind="choice" setting="display.mode" label="WINDOW" crumb="VIDEO › DISPLAY" search="monitor" search_choices="fullscreen borderless windowed" when="computer">
+			<help>How the game takes the screen. Fullscreen sets the display to the game's resolution. Borderless covers it with a window that others open over. Windowed is a window to move and resize. F11 switches between the two.</help>
+			<choice shown="FULLSCREEN" value="fullscreen"/>
+			<choice shown="BORDERLESS" value="borderless"/>
+			<choice shown="WINDOWED" value="windowed"/>
+		</row>
+		<row key="resolution" kind="choice" setting="display.resolution" label="RESOLUTION" crumb="VIDEO › DISPLAY" search="monitor" search_choices="native" when="computer+!mode=windowed">
+			<help>What fullscreen and borderless draw at. Native is the display's own, the sharpest; a lower one is lighter on a slow computer, and softer. Fullscreen sets the display to it; borderless scales it.</help>
+			<choice shown="NATIVE" value="native"/>
+		</row>
+		<row key="window_size" kind="choice" setting="display.window_size" label="WINDOW SIZE" crumb="VIDEO › DISPLAY" when="computer+mode=windowed" same_place="true">
+			<help>The window's size: 4:3 first, then 16:10, 16:9 and 21:9. Its edges can also be dragged.</help>
+			<choice shown="1280 x 960" value="1280x960"/>
+		</row>
+		<row key="refresh_rate" kind="choice" setting="display.refresh_rate" label="REFRESH RATE" crumb="VIDEO › DISPLAY" search="hz monitor" when="computer+mode=fullscreen+refresh_rates">
+			<help>How many times a second the display shows a picture while the game is fullscreen. Auto keeps the display's own. VSync and Max FPS's Auto follow it.</help>
+			<choice shown="AUTO" value="0"/>
+		</row>
+		<row key="frame_rate_sync" kind="link" label="FRAME RATE &amp; SYNC ›" crumb="VIDEO › DISPLAY" search="fps framerate" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/frame_rate/frame_rate_screen">
+			<help>VSync, variable refresh (G-SYNC, FreeSync), the most frames a second and low latency.</help>
+		</row>
+		<row key="fov" kind="slider" setting="display.fov" label="FIELD OF VIEW" crumb="VIDEO › DISPLAY" search="fov" least="80" most="160" step="5" typed_least="20" typed_most="160">
+			<help>How wide you see on foot, in degrees across 16:9. Default is the Xbox's. Above 150 needs Panini Projection. Passengers use it too; driver and gunner: First Person.</help>
+			<note>Click the number (or press A) to type 20 to 160. Capped at 110 in Pro 2v2 games.</note>
+			<stop shown="DEFAULT" value="0"/>
+			<stop shown="80" value="80"/>
+			<stop shown="85" value="85"/>
+			<stop shown="90" value="90"/>
+			<stop shown="95" value="95"/>
+			<stop shown="100" value="100"/>
+			<stop shown="105" value="105"/>
+			<stop shown="110" value="110"/>
+			<stop shown="115" value="115"/>
+			<stop shown="120" value="120"/>
+			<stop shown="125" value="125"/>
+			<stop shown="130" value="130"/>
+			<stop shown="135" value="135"/>
+			<stop shown="140" value="140"/>
+			<stop shown="145" value="145"/>
+			<stop shown="150" value="150"/>
+			<stop shown="155" value="155"/>
+			<stop shown="160" value="160"/>
+		</row>
+		<row key="orientation" kind="choice" setting="display.orientation" label="ORIENTATION" crumb="VIDEO › DISPLAY" search_choices="landscape portrait" when="android">
+			<help>Which way up you hold the device. Portrait has a strip of buttons along the top, the picture under it and the touch controls below it. Auto turns with the device.</help>
+			<choice shown="LANDSCAPE" value="landscape"/>
+			<choice shown="PORTRAIT" value="portrait"/>
+			<choice shown="AUTO" value="auto"/>
+		</row>
+		<row key="screen_layout" kind="link" label="SCREEN LAYOUT ›" crumb="VIDEO › DISPLAY" when="android" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout/screen_layout_screen">
+			<help>Where the picture sits on a screen taller than it, its shape, and the frame around it in portrait.</help>
+		</row>
+		<row key="first_person" kind="link" label="FIRST PERSON ›" crumb="VIDEO › DISPLAY" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_screen">
+			<help>The vehicles' and scopes' fields of view, the Panini projection, how far you see, the reticle, a passenger's view, and your weapon, body and shields.</help>
+		</row>
+		<row key="movies" kind="choice" setting="display.movies" label="STARTUP MOVIES" crumb="VIDEO › DISPLAY" search="intro">
+			<help>Plays the Xbox's intro movie as the game starts, and its attract movies on an idle main menu. Any button skips the intro.</help>
+			<note>They are the bink folder of your Xbox disc image, copied with the maps. Without them, put the disc's bink folder beside your maps folder.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_11" title="GRAPHICS"/>
+		<row key="graphics" kind="choice" setting="display.graphics" label="QUALITY" crumb="VIDEO › GRAPHICS" search="preset" search_choices="custom">
+			<help>Enhanced: smoother edges, sharper textures and shadows, smoother lighting. Classic looks as the Xbox did.</help>
+			<note>Changing one shows CUSTOM.</note>
+			<choice shown="ENHANCED" value="enhanced"/>
+			<choice shown="CLASSIC" value="classic"/>
+			<choice shown="CUSTOM" value="custom"/>
+		</row>
+		<row key="high_res_text" kind="choice" setting="display.high_res_text" label="HIGH-RES TEXT" crumb="VIDEO › GRAPHICS">
+			<help>Draws text and titles with sharp high-resolution fonts. Off draws the game's own.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="battery_saver" kind="choice" setting="display.battery_saver" label="BATTERY SAVER" crumb="VIDEO › GRAPHICS">
+			<help>Up to 60 frames a second and Classic graphics, for a longer battery and a cooler device. Auto turns it on while the device runs on its battery. Your own settings come back as it turns off.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="ON" value="on"/>
+			<choice shown="AUTO" value="auto"/>
+		</row>
+		<row key="brightness_settings" kind="link" label="BRIGHTNESS ›" crumb="VIDEO › GRAPHICS" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/brightness_screen">
+			<help>How bright the picture is: its gamma, and on an HDR display, HDR's look, how bright white and the HUD are, and the display's peak.</help>
+		</row>
+		<row key="advanced_graphics" kind="link" label="ADVANCED GRAPHICS ›" crumb="VIDEO › GRAPHICS" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/advanced_graphics_screen">
+			<help>Render resolution, anti-aliasing, texture filtering, model detail, shadows, the lighting and the shields' glow, smooth motion and the tick rate.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/audio_settings_screen" kind="settings" layout="tab" geometry="tall" tab="AUDIO">
+		<about>The sound and its devices, 3D audio, the volumes and voice chat.</about>
+		<section key="section_0" title="SOUND"/>
+		<row key="output_device" kind="choice" setting="audio.output_device" label="OUTPUT DEVICE" crumb="AUDIO › SOUND" when="desktop">
+			<help>Where the game's sound and the other players' voices play.</help>
+			<choice shown="SYSTEM DEFAULT" value="default"/>
+		</row>
+		<row key="spatial" kind="choice" setting="audio.spatial" label="3D AUDIO" crumb="AUDIO › SOUND" search_choices="headphones speakers">
+			<help>Where the sounds around you come from. Auto and Headphones place each ahead, behind, above or below you, as the Xbox's 3D audio did on speakers and headphones alike; Speakers pans them left and right.</help>
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="HEADPHONES" value="headphones"/>
+			<choice shown="SPEAKERS" value="speakers"/>
+		</row>
+		<row key="reverb" kind="choice" setting="audio.reverb" label="REVERB" crumb="AUDIO › SOUND">
+			<help>Echoes sounds as the place you are in would, and muffles those behind walls, as the Xbox did. It costs a little of the processor.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="resampler" kind="choice" setting="audio.resampler" label="RESAMPLER" crumb="AUDIO › SOUND" search_choices="xbox clean">
+			<help>How sounds are converted to your speakers' rate. Xbox sounds as the Xbox did; Clean is clearer; Classic is brighter but harsher. Xbox and Classic cost a little less.</help>
+			<choice shown="XBOX" value="xbox"/>
+			<choice shown="CLEAN" value="sinc"/>
+			<choice shown="CLASSIC" value="linear"/>
+		</row>
+		<row key="enabled" kind="choice" setting="audio.enabled" label="SOUND" crumb="AUDIO › SOUND">
+			<help>Turns all sound off or on, at once.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_6" title="VOLUME"/>
+		<row key="volume" kind="choice" setting="audio.volume" label="MASTER VOLUME" crumb="AUDIO › VOLUME">
+			<help>The volume of everything the game plays. 10 is the Xbox's level; up to 20 is louder.</help>
+			<choice shown="0" value="0"/>
+			<choice shown="1" value="0.1"/>
+			<choice shown="2" value="0.2"/>
+			<choice shown="3" value="0.3"/>
+			<choice shown="4" value="0.4"/>
+			<choice shown="5" value="0.5"/>
+			<choice shown="6" value="0.6"/>
+			<choice shown="7" value="0.7"/>
+			<choice shown="8" value="0.8"/>
+			<choice shown="9" value="0.9"/>
+			<choice shown="10" value="1"/>
+			<choice shown="11" value="1.1"/>
+			<choice shown="12" value="1.2"/>
+			<choice shown="13" value="1.3"/>
+			<choice shown="14" value="1.4"/>
+			<choice shown="15" value="1.5"/>
+			<choice shown="16" value="1.6"/>
+			<choice shown="17" value="1.7"/>
+			<choice shown="18" value="1.8"/>
+			<choice shown="19" value="1.9"/>
+			<choice shown="20" value="2"/>
+		</row>
+		<row key="music_volume" kind="choice" setting="audio.music_volume" label="MUSIC VOLUME" crumb="AUDIO › VOLUME">
+			<help>The music's volume.</help>
+			<choice shown="0" value="0"/>
+			<choice shown="1" value="0.1"/>
+			<choice shown="2" value="0.2"/>
+			<choice shown="3" value="0.3"/>
+			<choice shown="4" value="0.4"/>
+			<choice shown="5" value="0.5"/>
+			<choice shown="6" value="0.6"/>
+			<choice shown="7" value="0.7"/>
+			<choice shown="8" value="0.8"/>
+			<choice shown="9" value="0.9"/>
+			<choice shown="10" value="1"/>
+		</row>
+		<row key="effects_volume" kind="choice" setting="audio.effects_volume" label="EFFECTS VOLUME" crumb="AUDIO › VOLUME">
+			<help>Every other sound: weapons, vehicles, the world and the characters' speech.</help>
+			<choice shown="0" value="0"/>
+			<choice shown="1" value="0.1"/>
+			<choice shown="2" value="0.2"/>
+			<choice shown="3" value="0.3"/>
+			<choice shown="4" value="0.4"/>
+			<choice shown="5" value="0.5"/>
+			<choice shown="6" value="0.6"/>
+			<choice shown="7" value="0.7"/>
+			<choice shown="8" value="0.8"/>
+			<choice shown="9" value="0.9"/>
+			<choice shown="10" value="1"/>
+		</row>
+		<section key="section_10" title="MULTIPLAYER"/>
+		<row key="voice_chat_settings" kind="link" label="VOICE CHAT ›" crumb="AUDIO › MULTIPLAYER" open="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat/voice_chat_screen">
+			<help>Talking to the other players in network games, your microphone and their voices' volume.</help>
+		</row>
+		<row key="hit_sounds" kind="choice" setting="audio.hit_sounds" label="HIT SOUNDS" crumb="AUDIO › MULTIPLAYER">
+			<help>A short beep each time you damage another player, as the host dealt it. A host may forbid them in its games.</help>
+			<note>The beep is a placeholder for now.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="allow_hit_sounds" kind="choice" setting="network.allow_hit_sounds" label="ALLOW HIT SOUNDS" crumb="AUDIO › MULTIPLAYER">
+			<help>In the games you host, whether the players may hear their hit sounds. A Legacy game's players cannot be told.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat/voice_chat_screen" kind="settings" layout="page" geometry="tall" title="VOICE CHAT">
+		<section key="section_0" title="VOICE CHAT"/>
+		<row key="voice_chat" kind="choice" setting="audio.voice_chat" label="VOICE CHAT" crumb="AUDIO › VOICE CHAT" search="mic microphone" search_choices="push talk open mic">
+			<help>Talk to the other players in network games: while Push to Talk is held (Key Bindings sets its key), whenever you speak, or never.</help>
+			<choice shown="PUSH TO TALK" value="push_to_talk"/>
+			<choice shown="OPEN MIC" value="open_mic"/>
+			<choice shown="OFF" value="off"/>
+		</row>
+		<row key="input_device" kind="choice" setting="audio.input_device" label="INPUT DEVICE" crumb="AUDIO › VOICE CHAT" search="mic microphone" when="desktop">
+			<help>The microphone voice chat listens to.</help>
+			<choice shown="SYSTEM DEFAULT" value="default"/>
+		</row>
+		<row key="voice_volume" kind="choice" setting="audio.voice_volume" label="VOICE VOLUME" crumb="AUDIO › VOICE CHAT">
+			<help>How loud the other players' voices are.</help>
+			<choice shown="0" value="0"/>
+			<choice shown="1" value="0.1"/>
+			<choice shown="2" value="0.2"/>
+			<choice shown="3" value="0.3"/>
+			<choice shown="4" value="0.4"/>
+			<choice shown="5" value="0.5"/>
+			<choice shown="6" value="0.6"/>
+			<choice shown="7" value="0.7"/>
+			<choice shown="8" value="0.8"/>
+			<choice shown="9" value="0.9"/>
+			<choice shown="10" value="1"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_settings_screen" kind="settings" layout="tab" geometry="tall" tab="CONTROLS">
+		<about>The mouse, the controller and the keys.</about>
+		<section key="section_0" title="MOUSE AND KEYBOARD"/>
+		<row key="mouse_sensitivity" kind="slider" setting="input.mouse_sensitivity" label="SENSITIVITY" crumb="CONTROLS › MOUSE AND KEYBOARD" search="sens dpi" least="0.1" most="10" step="0.05" typed_least="0.01" typed_most="100">
+			<help>How far the view turns as the mouse moves, on Counter-Strike 2's scale: your CS2 number turns the same here. Drag the slider, or press left and right. Click the number (or press A) to type an exact value, e.g. 1.7, then press Enter.</help>
+			<note>No acceleration.</note>
+		</row>
+		<row key="mouse_vertical_sensitivity" kind="choice" setting="input.mouse_vertical_sensitivity" label="VERTICAL SENSITIVITY" crumb="CONTROLS › MOUSE AND KEYBOARD" search="sens">
+			<help>How far the view turns up and down, of how far it turns side to side. 1X turns it as far.</help>
+			<choice shown="0.25X" value="0.25"/>
+			<choice shown="0.5X" value="0.5"/>
+			<choice shown="0.6X" value="0.6"/>
+			<choice shown="0.7X" value="0.7"/>
+			<choice shown="0.75X" value="0.75"/>
+			<choice shown="0.8X" value="0.8"/>
+			<choice shown="0.9X" value="0.9"/>
+			<choice shown="1X" value="1"/>
+			<choice shown="1.1X" value="1.1"/>
+			<choice shown="1.25X" value="1.25"/>
+			<choice shown="1.5X" value="1.5"/>
+			<choice shown="2X" value="2"/>
+		</row>
+		<row key="zoom_sensitivity" kind="choice" setting="input.zoom_sensitivity" label="ZOOM AIM SPEED" crumb="CONTROLS › MOUSE AND KEYBOARD" search="sens" search_choices="cs2 original">
+			<help>How fast you turn while zoomed in. CS2 matches Counter-Strike 2's scoped feel; Original is how Halo felt.</help>
+			<note>Mouse only: controllers always turn as Halo did.</note>
+			<choice shown="CS2" value="cs2"/>
+			<choice shown="ORIGINAL" value="halo"/>
+		</row>
+		<row key="invert_mouse" kind="choice" setting="input.invert_mouse" label="INVERT MOUSE" crumb="CONTROLS › MOUSE AND KEYBOARD">
+			<help>Moving the mouse forward looks down, as a flight stick does.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="mouse_aim_assist" kind="choice" setting="input.mouse_aim_assist" label="MOUSE AIM ASSIST" crumb="CONTROLS › MOUSE AND KEYBOARD">
+			<help>Slows and drags your aim along with a target while you aim with the mouse, as it does with a controller.</help>
+			<note>Off in Pro 2v2 games, for everyone.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="direct_camera" kind="choice" setting="display.direct_camera" label="INSTANT AIM" crumb="CONTROLS › MOUSE AND KEYBOARD" when="computer">
+			<help>Turns the view the moment the mouse moves, not up to two of the game's updates later. Off feels as the original did.</help>
+			<note>Off for everyone in a Pro 2v2 Classic game; yours again after it.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="menu_cursor" kind="choice" setting="display.menu_cursor" label="MENU CURSOR" crumb="CONTROLS › MOUSE AND KEYBOARD" search_choices="small medium large extra" when="computer+!vr" not_in_vr="true">
+			<help>The menus' blue arrow for the mouse, and its size. The sizes keep their share of the screen at any resolution.</help>
+			<note>Off shows the system's pointer.</note>
+			<choice shown="OFF" value="off"/>
+			<choice shown="SMALL" value="small"/>
+			<choice shown="MEDIUM" value="medium"/>
+			<choice shown="LARGE" value="large"/>
+			<choice shown="EXTRA LARGE" value="extra_large"/>
+		</row>
+		<row key="key_bindings" kind="link" label="KEY BINDINGS ›" crumb="CONTROLS › MOUSE AND KEYBOARD" search="keybinds keys" open="main_menu/settings_select/player_setup/player_profile_edit/controls_setup/controls_settings_screen">
+			<help>The keys and mouse buttons for each action, two for each.</help>
+		</row>
+		<row key="button_prompts" kind="choice" setting="input.button_prompts" label="BUTTON PROMPTS" crumb="CONTROLS › MOUSE AND KEYBOARD" search_choices="controller keyboard">
+			<help>The buttons the HUD's prompts show. Auto shows the keys or the controller's buttons, as you last played with.</help>
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="CONTROLLER" value="controller"/>
+			<choice shown="KEYBOARD" value="keyboard"/>
+		</row>
+		<section key="section_10" title="CONTROLLER"/>
+		<row key="controller" kind="link" label="CONTROLLER ›" crumb="CONTROLS › CONTROLLER" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gamepad_setup_screen">
+			<help>The look sensitivity and inversion, the button and stick layouts, and vibration, kept in your player profile.</help>
+		</row>
+		<row key="vr_setup" kind="link" label="VR SETUP ›" crumb="CONTROLS › CONTROLLER" when="vr" open="main_menu/settings_select/player_setup/player_profile_edit/vr_controls/vr_controls_screen">
+			<help>Your hands, aiming, turning, your height, the HUD and the menus in VR.</help>
+		</row>
+		<row key="crouch" kind="choice" setting="input.crouch" label="CROUCH" crumb="CONTROLS › CONTROLLER" search_choices="hold toggle">
+			<help>Hold crouches while the button is held, as Halo did. Toggle crouches at a tap until you press it again, jump, take a seat or die; holding it still crouches while held.</help>
+			<choice shown="HOLD" value="hold"/>
+			<choice shown="TOGGLE" value="toggle"/>
+		</row>
+		<row key="crouch_walk" kind="choice" setting="input.crouch_walk" label="CROUCH WALK" crumb="CONTROLS › CONTROLLER">
+			<help>Off: a full push of the stick stands you up from a crouch, as Halo did. On: you stay crouched and walk at a crouch's speed.</help>
+			<note>The touch controls always stay crouched.</note>
+			<choice shown="OFF" value="false"/>
+			<choice shown="ON" value="true"/>
+		</row>
+		<row key="touch_crouch" kind="choice" setting="input.touch_crouch" label="TOUCH CROUCH" crumb="CONTROLS › CONTROLLER" search_choices="toggle hold" when="touch">
+			<help>The touch controls' Crouch. Toggle crouches at a tap until the next tap, a jump, a seat or death; Hold crouches while your finger is on it.</help>
+			<choice shown="TOGGLE" value="toggle"/>
+			<choice shown="HOLD" value="hold"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/network_settings_screen" kind="settings" layout="tab" geometry="tall" tab="ONLINE">
+		<about>Internet play, sharing maps and updates.</about>
+		<section key="section_0" title="INTERNET"/>
+		<row key="online" kind="choice" setting="network.online" label="INTERNET PLAY" crumb="ONLINE › INTERNET" when="desktop+!in_game android+!in_game">
+			<help>Host and join games over the internet with invite links, and find public games. Off keeps to the local network.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="allow_upnp" kind="choice" setting="network.allow_upnp" label="OPEN ROUTER PORT" crumb="ONLINE › INTERNET" search="upnp" when="desktop+!in_game android+!in_game">
+			<help>Asks your router to open the game's port (UPnP), so that players can reach the games you host.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="join_from_clipboard" kind="choice" setting="network.join_from_clipboard" label="JOIN FROM CLIPBOARD" crumb="ONLINE › INTERNET" when="desktop+!in_game android+!in_game">
+			<help>Joins a game when you switch to the game with its invite link copied.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="discord_account" kind="status" label="DISCORD ACCOUNT ›" crumb="ONLINE › INTERNET" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/discord_account_screen">
+			<help>Link your Discord account, so that servers that block VPNs let you in while you use one.</help>
+		</row>
+		<row key="server_browser_filters" kind="link" label="SERVER BROWSER FILTERS ›" crumb="ONLINE › INTERNET" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen">
+			<help>Which games the server browser and the local network's list show: full and empty games, a password, the ping, the game types, and words to search for.</help>
+		</row>
+		<row key="streamer_mode" kind="link" label="STREAMER MODE ›" crumb="ONLINE › INTERNET" search="censor profanity" open="main_menu/settings_select/player_setup/player_profile_edit/interface_settings/streamer_mode/streamer_mode_screen">
+			<help>Hides offensive words in names and text from other players, maps and mods, as stars.</help>
+		</row>
+		<row key="auto_pickup" kind="choice" setting="game.auto_pickup" label="WEAPON PICKUP" crumb="ONLINE › INTERNET" search_choices="hold xbox walk over ce">
+			<help>Multiplayer, with a weapon slot empty: Hold picks up a weapon as you hold the action button, as on the Xbox; Walk Over as you walk over it, as in Custom Edition. Online: the host's choice.</help>
+			<choice shown="HOLD (XBOX)" value="false"/>
+			<choice shown="WALK OVER (CE)" value="true"/>
+		</row>
+		<row key="vehicle_hijack" kind="choice" setting="game.vehicle_hijack" label="VEHICLE HIJACKING" crumb="ONLINE › INTERNET">
+			<help>Hold the action button beside an enemy's Ghost, Warthog or landed Banshee to throw the rider out and take it. Online: the host's choice.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_9" title="MAP SHARING" when="desktop android"/>
+		<row key="map_download" kind="choice" setting="network.map_download" label="DOWNLOAD MAPS" crumb="ONLINE › MAP SHARING" when="desktop android">
+			<help>Joining a game on a map you do not have downloads it, if it is shared: a Custom Edition map from the players, an MCC map from the host, after asking.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="map_seed" kind="choice" setting="network.map_seed" label="HELP SEND MAPS" crumb="ONLINE › MAP SHARING" when="desktop android">
+			<help>In another player's game, sends its map to the players who join without it, as a torrent's peers do.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="map_seed_upload" kind="choice" setting="network.map_seed_upload" label="UPLOAD LIMIT" crumb="ONLINE › MAP SHARING" when="desktop android">
+			<help>The most of your upload that sending maps takes, so that the game keeps the rest.</help>
+			<choice shown="64 KB/S" value="64"/>
+			<choice shown="128 KB/S" value="128"/>
+			<choice shown="256 KB/S" value="256"/>
+			<choice shown="512 KB/S" value="512"/>
+			<choice shown="1 MB/S" value="1024"/>
+			<choice shown="2 MB/S" value="2048"/>
+			<choice shown="4 MB/S" value="4096"/>
+			<choice shown="8 MB/S" value="8192"/>
+			<choice shown="10 MB/S" value="10240"/>
+		</row>
+		<section key="section_13" title="UPDATES" when="desktop android"/>
+		<row key="auto" kind="choice" setting="update.auto" label="CHECK FOR UPDATES" crumb="ONLINE › UPDATES" when="desktop+!in_game android+!in_game">
+			<help>Looks for a new version when the game starts.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/interface_settings/interface_settings_screen" kind="settings" layout="tab" geometry="tall" tab="INTERFACE">
+		<about>The HUD, the players' names, the scoreboard and the chat.</about>
+		<section key="section_0" title="HUD"/>
+		<row key="high_res_hud" kind="choice" setting="display.high_res_hud" label="HIGH-RES HUD" crumb="INTERFACE › HUD">
+			<help>Draws the HUD from sharp high-resolution redraws. Off draws the game's own pictures.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="hud_button_style" kind="choice" setting="display.hud_button_style" label="BUTTON STYLE" crumb="INTERFACE › HUD" search_choices="gems dark" when="high_res_hud=true">
+			<help>The buttons the HUD draws. Classic: plain Xbox buttons. Gems: shaded Xbox buttons. Dark Gems: the menus' button artwork.</help>
+			<choice shown="CLASSIC" value="classic"/>
+			<choice shown="GEMS" value="gems"/>
+			<choice shown="DARK GEMS" value="menu_gems"/>
+		</row>
+		<row key="spartan_link" kind="choice" setting="display.spartan_link" label="SPARTAN LINK" crumb="INTERFACE › HUD" search_choices="small medium large">
+			<help>Your living teammates' views in the HUD's top line, with their names, shields and distances, in co-op and team games: the SPARTAN LINK key (or D-pad Down) shows and hides them. Off: the key does nothing.</help>
+			<choice shown="SMALL" value="small"/>
+			<choice shown="MEDIUM" value="medium"/>
+			<choice shown="LARGE" value="large"/>
+			<choice shown="OFF" value="off"/>
+		</row>
+		<section key="section_4" title="MULTIPLAYER"/>
+		<row key="player_names" kind="choice" setting="display.player_names" label="PLAYER NAMES" crumb="INTERFACE › MULTIPLAYER" search_choices="all allies enemies">
+			<help>In multiplayer, whose names are drawn above their heads.</help>
+			<choice shown="ALL" value="all"/>
+			<choice shown="ALLIES" value="allies"/>
+			<choice shown="ENEMIES" value="enemies"/>
+			<choice shown="NONE" value="none"/>
+		</row>
+		<row key="player_name_scale" kind="choice" setting="display.player_name_scale" label="NAME SIZE" crumb="INTERFACE › MULTIPLAYER">
+			<help>How large the players' names are drawn.</help>
+			<choice shown="0.5x" value="0.5"/>
+			<choice shown="0.75x" value="0.75"/>
+			<choice shown="1x" value="1"/>
+			<choice shown="1.25x" value="1.25"/>
+			<choice shown="1.5x" value="1.5"/>
+			<choice shown="2x" value="2"/>
+		</row>
+		<row key="scoreboard_team_layout" kind="choice" setting="display.scoreboard_team_layout" label="SCOREBOARD" crumb="INTERFACE › MULTIPLAYER" search_choices="teams by score">
+			<help>A team game's scoreboard: a column for each team, or every player in order of score.</help>
+			<choice shown="TEAMS" value="teams"/>
+			<choice shown="BY SCORE" value="score"/>
+		</row>
+		<row key="scoreboard_background" kind="choice" setting="display.scoreboard_background" label="SCOREBOARD PANEL" crumb="INTERFACE › MULTIPLAYER">
+			<help>Draws a dark panel behind the scoreboard, for clearer text.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="spectate_on_death" kind="choice" setting="game.spectate_on_death" label="WHILE DEAD" crumb="INTERFACE › MULTIPLAYER" search_choices="teammate view death camera">
+			<help>While you wait to respawn in co-op or a team game: watch a living teammate through their eyes (A or Jump for the next), or the game's death camera.</help>
+			<choice shown="TEAMMATE'S VIEW" value="teammates"/>
+			<choice shown="DEATH CAMERA" value="off"/>
+		</row>
+		<row key="match_timer" kind="choice" setting="display.match_timer" label="MATCH TIMER" crumb="INTERFACE › MULTIPLAYER">
+			<help>Draws a clock at the bottom right in multiplayer, counting up from the start of the game.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_11" title="CHAT"/>
+		<row key="text_chat" kind="choice" setting="display.text_chat" label="TEXT CHAT" crumb="INTERFACE › CHAT">
+			<help>Shows the text chat. Hide draws none of its lines, and its keys and D-pad Up open nothing.</help>
+			<choice shown="SHOW" value="true"/>
+			<choice shown="HIDE" value="false"/>
+		</row>
+		<row key="chat_style" kind="choice" setting="display.chat_style" label="CHAT TEXT" crumb="INTERFACE › CHAT" search_choices="colors white">
+			<help>Colors draws the names in their team's color; White draws it all white, as Custom Edition does.</help>
+			<choice shown="COLORS" value="colors"/>
+			<choice shown="WHITE" value="white"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/profile_settings_screen" kind="settings" layout="tab" geometry="tall" tab="PROFILES">
+		<about>Your player profiles, your name and color, and the disk space the maps and caches take.</about>
+		<section key="section_0" title="PLAYER"/>
+		<row key="name" kind="link" label="NAME ›" crumb="PROFILES › PLAYER" search="gamertag nickname" when="profile+!in_game" open="main_menu/settings_select/player_setup/player_profile_edit/name_edit/profile_name_screen" run="player profile change name">
+			<help>The name the other players see, kept in your player profile.</help>
+		</row>
+		<row key="color" kind="link" label="COLOR ›" crumb="PROFILES › PLAYER" search="colour" when="profile+!in_game" open="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_screen">
+			<help>Your armor's color in free-for-all multiplayer games, kept in your player profile.</help>
+		</row>
+		<row key="create_profile" kind="link" label="CREATE PROFILE ›" crumb="PROFILES › PLAYER" when="!profile+!in_game" run="port settings new profile">
+			<help>Your name, color and controller layout are kept in a player profile. Make one to set them; the rest of Settings works without one.</help>
+		</row>
+		<row key="profiles" kind="link" label="MANAGE PROFILES ›" crumb="PROFILES › PLAYER" when="profile+!in_game" open="main_menu/profile_manager/player_profile_manager" run="port settings profiles">
+			<help>Switch to another player profile, make a new one or delete one. Your changes so far are kept.</help>
+		</row>
+		<section key="section_5" title="STORAGE"/>
+		<row key="map_cache_megabytes" kind="choice" setting="game.map_cache_megabytes" label="MAP STORAGE" crumb="PROFILES › STORAGE" search="cache disk" search_choices="instant loading disk space saver">
+			<help>Instant Loading keeps every map unpacked, about 3.0 GB, so loads never wait. Disk Space Saver keeps at most 730 MB, saving 2.3 GB or more, little on most drives. A map it has not kept loads a second or more slower.</help>
+			<note>Switching back unpacks them in the background.</note>
+			<choice shown="INSTANT LOADING" value="0"/>
+			<choice shown="DISK SPACE SAVER" value="730"/>
+		</row>
+		<row key="clear_caches" kind="status" label="CLEAR CACHES" crumb="PROFILES › STORAGE" search="cache" run="port settings clear caches">
+			<help>Deletes what the game keeps only to start and load faster: the unpacked maps, their prepared draws, the menus' pictures, the ambient occlusion's volumes and the GPU's pipelines, made again as you play.</help>
+			<note>Select it twice: the first asks, the second clears.</note>
+		</row>
+		<section key="section_8" title="HELP"/>
+		<row key="report" kind="link" label="REPORT A PROBLEM" crumb="PROFILES › HELP" search="bug crash" run="port settings report">
+			<help>Saves a report (the log, your settings and GPU, the frame rate and a screenshot) and opens a GitHub issue filled in with it: say what happened, drag in the report's file, submit. F8 does the same in a game, its screenshot that moment.</help>
+		</row>
+		<section key="section_10" title="ABOUT"/>
+		<row key="about" kind="link" label="GOAT H1" crumb="PROFILES › ABOUT">
+			<help>Halo: Combat Evolved, the Xbox game, on this computer, played from your own copy of its maps. GOAT H1 is a free fan project.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/mods_settings/mods_settings_screen" kind="settings" layout="tab" geometry="tall" tab="MODS">
+		<about>Texture, sound, text and model packs from the mods folder.</about>
+		<section key="section_0" title="MODS"/>
+		<row key="mods" kind="link" label="MANAGE MODS ›" crumb="MODS › MODS" when="!in_game" open="main_menu/mods/mods_screen">
+			<help>Texture, sound, text and model packs from the mods folder: turn each on or off, and choose which plays over which. They are this computer's, for every profile.</help>
+		</row>
+		<row key="mods_folder" kind="link" label="MODS FOLDER" crumb="MODS › MODS">
+			<help>Each mod is a folder in the mods folder, beside the maps folder, with its mod.toml and its tags. Mods are turned on and off from the main menu's Settings, not in a game.</help>
+		</row>
+		<section key="section_3" title="MASTER CHIEF COLLECTION"/>
+		<row key="mcc_packages" kind="link" label="MCC PACKAGES ›" crumb="MODS › MASTER CHIEF COLLECTION" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen">
+			<help>The Master Chief Collection's maps: finding them, their campaign missions and collections, and the copies downloaded from hosts.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
+		<button key="button_ok" kind="ok" run="port settings ok" help="Keeps your changes, on every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings cancel" help="Leaves Settings without keeping any change."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced/advanced_graphics_screen" kind="settings" layout="page" geometry="tall" title="ADVANCED GRAPHICS">
+		<row key="render_resolution" kind="choice" setting="display.render_resolution" label="RENDER RESOLUTION" crumb="VIDEO › ADVANCED GRAPHICS" search_choices="xbox 640x480 full" when="computer">
+			<help>Full draws the game at your screen's resolution. Above 100% draws it larger and scales it down: finer and smoother, for over twice the graphics card's work at 150%, four times at 200%. Xbox draws 640x480, scaled up: softer, and very light.</help>
+			<choice shown="XBOX 640X480" value="original"/>
+			<choice shown="FULL" value="1"/>
+			<choice shown="125%" value="1.25"/>
+			<choice shown="150%" value="1.5"/>
+			<choice shown="175%" value="1.75"/>
+			<choice shown="200%" value="2"/>
+		</row>
+		<row key="anti_aliasing" kind="choice" setting="display.anti_aliasing" label="ANTI-ALIASING" crumb="VIDEO › ADVANCED GRAPHICS" search="aa" search_choices="fxaa smaa msaa" when="desktop">
+			<help>Smooths jagged edges. FXAA and SMAA cost little; MSAA is sharper and costs more of the graphics card.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="FXAA" value="fxaa"/>
+			<choice shown="SMAA" value="smaa"/>
+			<choice shown="MSAA 2X" value="msaa2x"/>
+			<choice shown="MSAA 4X" value="msaa4x"/>
+			<choice shown="MSAA 8X" value="msaa8x"/>
+		</row>
+		<row key="anti_aliasing_android" kind="choice" setting="display.anti_aliasing" label="ANTI-ALIASING" crumb="VIDEO › ADVANCED GRAPHICS" search="aa" search_choices="fxaa smaa msaa" when="android" same_place="true">
+			<help>Smooths jagged edges. FXAA and SMAA cost little; MSAA is sharper and costs more of the graphics card.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="FXAA" value="fxaa"/>
+			<choice shown="SMAA" value="smaa"/>
+			<choice shown="MSAA 2X" value="msaa2x"/>
+			<choice shown="MSAA 4X" value="msaa4x"/>
+		</row>
+		<row key="anisotropic_filtering" kind="choice" setting="display.anisotropic_filtering" label="TEXTURE FILTERING" crumb="VIDEO › ADVANCED GRAPHICS" search="anisotropic af">
+			<help>Keeps floors and walls sharp into the distance, at a small cost. Off looks as the Xbox did: surfaces blur a few steps away.</help>
+			<choice shown="OFF" value="0"/>
+			<choice shown="2X" value="2"/>
+			<choice shown="4X" value="4"/>
+			<choice shown="8X" value="8"/>
+			<choice shown="16X" value="16"/>
+		</row>
+		<row key="model_detail" kind="choice" setting="display.model_detail" label="MODEL DETAIL" crumb="VIDEO › ADVANCED GRAPHICS" search="lod" search_choices="xbox full highest">
+			<help>How detailed characters and vehicles stay in the distance. Xbox simplifies them as on a TV; Full keeps their detail for your screen; Highest always draws the most. Auto is Full in VR.</help>
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="XBOX" value="stock"/>
+			<choice shown="FULL" value="native"/>
+			<choice shown="HIGHEST" value="highest"/>
+		</row>
+		<row key="interpolation" kind="choice" setting="display.interpolation" label="SMOOTH MOTION" crumb="VIDEO › ADVANCED GRAPHICS" search="interpolation">
+			<help>Draws movement smoothly between the game's 30 updates a second, so that it looks fluid at any frame rate. Off shows each update as it is.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_6" title="LIGHTING"/>
+		<row key="shadow_resolution" kind="choice" setting="display.shadow_resolution" label="SHADOW QUALITY" crumb="VIDEO › ADVANCED GRAPHICS" search="shadows" search_choices="xbox medium high ultra">
+			<help>How sharp the shadows of characters, vehicles and weapons are. Xbox is the original's soft, blocky shadow; each step up is crisper, and costs a little more of the graphics card.</help>
+			<choice shown="XBOX" value="128"/>
+			<choice shown="MEDIUM" value="256"/>
+			<choice shown="HIGH" value="512"/>
+			<choice shown="ULTRA" value="1024"/>
+		</row>
+		<row key="per_pixel_lighting" kind="choice" setting="display.per_pixel_lighting" label="SMOOTH LIGHTING" crumb="VIDEO › ADVANCED GRAPHICS">
+			<help>Lights characters and weapons smoothly, without the flat facets of the Xbox's lighting, at a small cost.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="dynamic_lights" kind="choice" setting="display.dynamic_lights" label="DYNAMIC LIGHTS" crumb="VIDEO › ADVANCED GRAPHICS" when="desktop android">
+			<help>Enhanced: plasma bolts, muzzle flashes and blasts light their surroundings smoothly, with a glow. Classic lights them as the Xbox did.</help>
+			<note>Classic for everyone in a Pro 2v2 game; yours again after it.</note>
+			<choice shown="CLASSIC" value="classic"/>
+			<choice shown="ENHANCED" value="enhanced"/>
+		</row>
+		<row key="ambient_occlusion" kind="choice" setting="display.ambient_occlusion" label="AMBIENT OCCLUSION" crumb="VIDEO › ADVANCED GRAPHICS" search="ao ssao" search_choices="world ray traced" when="desktop android">
+			<help>World: soft shade where characters, vehicles and scenery meet the level and each other, from the level's shape; the levels keep their own lighting. Ray Traced: the shade of characters and vehicles traced by the graphics card, where it can (else World).</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="WORLD" value="world"/>
+			<choice shown="RAY TRACED" value="ray_traced"/>
+		</row>
+		<row key="shield_glow" kind="choice" setting="display.shield_glow" label="SHIELD GLOW" crumb="VIDEO › ADVANCED GRAPHICS">
+			<help>Shields light their surroundings as they flare, in the shield's own color. Online: the host's choice.</help>
+			<note>Off in Pro 2v2 games, for everyone.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="shield_glow_intensity" kind="choice" setting="display.shield_glow_intensity" label="GLOW INTENSITY" crumb="VIDEO › ADVANCED GRAPHICS" search_choices="light">
+			<help>Light Show: the shields' glow reaches three times as far, and is brighter. Online: the host's choice.</help>
+			<note>Default in Pro 2v2 games, for everyone.</note>
+			<choice shown="DEFAULT" value="default"/>
+			<choice shown="LIGHT SHOW" value="light_show"/>
+		</row>
+		<section key="section_13" title="GAME"/>
+		<row key="sim_rate" kind="choice" setting="game.sim_rate" label="TICK RATE" crumb="VIDEO › ADVANCED GRAPHICS" search="hz tickrate" search_choices="original">
+			<help>How often the world updates each second, in games on this device (campaign, split screen, bots). 60 and 120 respond faster and take more of the processor. Online games play at their host's tick rate: a GOAT H1 game's (GOAT H1 60 Tick), a Legacy game's 30.</help>
+			<choice shown="ORIGINAL (30)" value="30"/>
+			<choice shown="60" value="60"/>
+			<choice shown="120" value="120"/>
+		</row>
+		<row key="enhanced_animations" kind="choice" setting="game.enhanced_animations" label="ANIMATIONS" crumb="VIDEO › ADVANCED GRAPHICS">
+			<help>Enhanced: you turn with your aim in a jump and a grenade throw, and your legs keep moving as you throw. Classic moves as the Xbox did, so the AI plays as it did. Online: the host's choice.</help>
+			<choice shown="CLASSIC" value="false"/>
+			<choice shown="ENHANCED" value="true"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness/brightness_screen" kind="settings" layout="page" geometry="tall" title="BRIGHTNESS">
+		<section key="section_0" title="PICTURE"/>
+		<row key="gamma" kind="slider" setting="display.gamma" label="GAMMA" crumb="VIDEO › BRIGHTNESS" when="!vr_build" not_in_vr="true" least="0.5" most="2" step="0.05" typed_least="0.5" typed_most="2">
+			<help>How bright the picture is, the HUD and menus too, as Halo PC's gamma. Higher brightens the dark parts; lower darkens them. 1.0 shows the game as it is drawn. With HDR on an HDR display, Paper White sets the brightness instead.</help>
+			<note>Click the number (or press A) to type any from 0.5 to 2.0.</note>
+		</row>
+		<section key="section_2" title="HDR" when="hdr"/>
+		<row key="hdr" kind="choice" setting="display.hdr" label="HDR" crumb="VIDEO › BRIGHTNESS" when="hdr">
+			<help>Brighter highlights on an HDR display. Auto turns it on while the display shows HDR; a display without HDR shows the game as it was.</help>
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="ON" value="on"/>
+			<choice shown="OFF" value="off"/>
+		</row>
+		<row key="hdr_mode" kind="choice" setting="display.hdr_mode" label="HDR MODE" crumb="VIDEO › BRIGHTNESS" search_choices="faithful punchy" when="hdr">
+			<help>Faithful keeps the picture and brightens its highlights. Punchy lifts the whole scene, as a remaster would.</help>
+			<note>The pictures are approximate: SDR cannot show HDR.</note>
+			<choice shown="FAITHFUL" value="faithful"/>
+			<choice shown="PUNCHY" value="punchy"/>
+		</row>
+		<row key="hdr_paper_white_nits" kind="choice" setting="display.hdr_paper_white_nits" label="PAPER WHITE" crumb="VIDEO › BRIGHTNESS" when="hdr">
+			<help>With HDR, how bright white surfaces and the HUD are, in nits. System matches your system's SDR brightness. Raise it in a bright room.</help>
+			<choice shown="SYSTEM" value="0"/>
+			<choice shown="80 NITS" value="80"/>
+			<choice shown="100 NITS" value="100"/>
+			<choice shown="120 NITS" value="120"/>
+			<choice shown="140 NITS" value="140"/>
+			<choice shown="160 NITS" value="160"/>
+			<choice shown="180 NITS" value="180"/>
+			<choice shown="200 NITS" value="200"/>
+			<choice shown="220 NITS" value="220"/>
+			<choice shown="240 NITS" value="240"/>
+			<choice shown="260 NITS" value="260"/>
+			<choice shown="280 NITS" value="280"/>
+			<choice shown="300 NITS" value="300"/>
+			<choice shown="320 NITS" value="320"/>
+			<choice shown="340 NITS" value="340"/>
+			<choice shown="360 NITS" value="360"/>
+			<choice shown="380 NITS" value="380"/>
+			<choice shown="400 NITS" value="400"/>
+			<choice shown="420 NITS" value="420"/>
+			<choice shown="440 NITS" value="440"/>
+			<choice shown="460 NITS" value="460"/>
+			<choice shown="480 NITS" value="480"/>
+			<choice shown="500 NITS" value="500"/>
+		</row>
+		<row key="hdr_ui_nits" kind="choice" setting="display.hdr_ui_nits" label="UI BRIGHTNESS" crumb="VIDEO › BRIGHTNESS" search_choices="paper white" when="hdr">
+			<help>With HDR, how bright the HUD and the menus are, in nits, apart from the picture. Paper White keeps them where paper white is. The HUD's glows stay as far above it.</help>
+			<choice shown="PAPER WHITE" value="0"/>
+			<choice shown="80 NITS" value="80"/>
+			<choice shown="100 NITS" value="100"/>
+			<choice shown="120 NITS" value="120"/>
+			<choice shown="140 NITS" value="140"/>
+			<choice shown="160 NITS" value="160"/>
+			<choice shown="180 NITS" value="180"/>
+			<choice shown="200 NITS" value="200"/>
+			<choice shown="220 NITS" value="220"/>
+			<choice shown="240 NITS" value="240"/>
+			<choice shown="260 NITS" value="260"/>
+			<choice shown="280 NITS" value="280"/>
+			<choice shown="300 NITS" value="300"/>
+			<choice shown="320 NITS" value="320"/>
+			<choice shown="340 NITS" value="340"/>
+			<choice shown="360 NITS" value="360"/>
+			<choice shown="380 NITS" value="380"/>
+			<choice shown="400 NITS" value="400"/>
+			<choice shown="420 NITS" value="420"/>
+			<choice shown="440 NITS" value="440"/>
+			<choice shown="460 NITS" value="460"/>
+			<choice shown="480 NITS" value="480"/>
+			<choice shown="500 NITS" value="500"/>
+		</row>
+		<section key="section_7" title="DISPLAY" when="hdr"/>
+		<row key="hdr_display" kind="status" label="DISPLAY PEAK" crumb="VIDEO › BRIGHTNESS" when="hdr">
+			<help>The brightest the display shows, and its SDR white, as the system reports them.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/frame_rate/frame_rate_screen" kind="settings" layout="page" geometry="tall" title="FRAME RATE &amp; SYNC">
+		<row key="vsync" kind="choice" setting="display.vsync" label="VSYNC" crumb="VIDEO › FRAME RATE &amp; SYNC">
+			<help>Shows each frame at a refresh of the display: even motion that never tears. With Low Latency it adds almost no input lag. It is on in the Steam Deck's Game Mode.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="vrr" kind="choice" setting="display.vrr" label="VARIABLE REFRESH" crumb="VIDEO › FRAME RATE &amp; SYNC" search="gsync freesync vrr" when="desktop" enabled="!vrr_system">
+			<help>For a G-SYNC or FreeSync display: VSync on and the frame rate held just under the refresh rate, so each frame shows as soon as it is ready, without tearing. Auto turns it on where the system says VRR is on.</help>
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="ON" value="on"/>
+			<choice shown="OFF" value="off"/>
+		</row>
+		<row key="vrr_cap_margin" kind="choice" setting="display.vrr_cap_margin" label="VRR FRAME CAP" crumb="VIDEO › FRAME RATE &amp; SYNC" search="gsync freesync" when="desktop" enabled="vrr=on+!vrr_system vrr=auto+vrr_found+!vrr_system">
+			<help>Frames a second kept under the refresh rate, so the game stays in the screen's VRR range and never falls back to VSync. Lower is closer to the most frames; higher is safer on a screen with a narrow range.</help>
+			<note>Used while Variable Refresh is on.</note>
+			<choice shown="1" value="1"/>
+			<choice shown="2" value="2"/>
+			<choice shown="3" value="3"/>
+			<choice shown="4" value="4"/>
+			<choice shown="5" value="5"/>
+			<choice shown="6" value="6"/>
+			<choice shown="7" value="7"/>
+			<choice shown="8" value="8"/>
+			<choice shown="9" value="9"/>
+			<choice shown="10" value="10"/>
+		</row>
+		<row key="max_fps" kind="slider" setting="display.max_fps" label="MAX FPS" crumb="VIDEO › FRAME RATE &amp; SYNC" search="fps framerate" when="desktop+vsync=false" least="30" most="540" step="1" typed_least="10" typed_most="1000" whole="true">
+			<help>The most frames drawn a second with VSync off. Auto is twice the display's refresh rate. More feels smoother and uses more power; None draws as fast as it can.</help>
+			<note>Click the number (or press A) to type 10 to 1000.</note>
+			<stop shown="AUTO" value="0"/>
+			<stop shown="30" value="30"/>
+			<stop shown="60" value="60"/>
+			<stop shown="75" value="75"/>
+			<stop shown="90" value="90"/>
+			<stop shown="100" value="100"/>
+			<stop shown="120" value="120"/>
+			<stop shown="144" value="144"/>
+			<stop shown="165" value="165"/>
+			<stop shown="200" value="200"/>
+			<stop shown="240" value="240"/>
+			<stop shown="280" value="280"/>
+			<stop shown="360" value="360"/>
+			<stop shown="480" value="480"/>
+			<stop shown="540" value="540"/>
+			<stop shown="NONE" value="-1"/>
+		</row>
+		<row key="low_latency" kind="choice" setting="display.low_latency" label="LOW LATENCY" crumb="VIDEO › FRAME RATE &amp; SYNC" search="lag" when="!vrr_system">
+			<help>With VSync on, starts each frame just in time for the refresh it is shown at, so a press reaches the screen sooner. Off starts each frame as soon as the one before is waiting. Auto is on.</help>
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="ON" value="on"/>
+			<choice shown="OFF" value="off"/>
+		</row>
+		<row key="show_frame_rate" kind="choice" setting="display.show_frame_rate" label="SHOW FRAME RATE" crumb="VIDEO › FRAME RATE &amp; SYNC" search="fps framerate">
+			<help>Draws the frame rate at the bottom right of the screen, to see how the game runs: the frames drawn each second, averaged over half a second. Green is 30 or more, red under 30.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/first_person_screen" kind="settings" layout="page" geometry="tall" title="FIRST PERSON">
+		<section key="section_0" title="VIEW"/>
+		<row key="vehicle_fov" kind="slider" setting="display.vehicle_fov" label="VEHICLE FIELD OF VIEW" crumb="VIDEO › FIRST PERSON" search="fov" search_choices="match" least="80" most="160" step="5" typed_least="20" typed_most="160">
+			<help>How wide you see from a vehicle's third-person seats (driver, gunner), in degrees across a 16:9 screen. Passenger seats use your Field of View. Default keeps the game's view; Match uses your Field of View. Above 150 needs Panini Projection.</help>
+			<note>Click the number (or press A) to type any from 20 to 160.</note>
+			<stop shown="DEFAULT" value="default"/>
+			<stop shown="MATCH" value="match"/>
+			<stop shown="80" value="80"/>
+			<stop shown="85" value="85"/>
+			<stop shown="90" value="90"/>
+			<stop shown="95" value="95"/>
+			<stop shown="100" value="100"/>
+			<stop shown="105" value="105"/>
+			<stop shown="110" value="110"/>
+			<stop shown="115" value="115"/>
+			<stop shown="120" value="120"/>
+			<stop shown="125" value="125"/>
+			<stop shown="130" value="130"/>
+			<stop shown="135" value="135"/>
+			<stop shown="140" value="140"/>
+			<stop shown="145" value="145"/>
+			<stop shown="150" value="150"/>
+			<stop shown="155" value="155"/>
+			<stop shown="160" value="160"/>
+		</row>
+		<row key="scale_scoped_fov" kind="choice" setting="display.scale_scoped_fov" label="SCOPED FIELD OF VIEW" crumb="VIDEO › FIRST PERSON" search="fov" search_choices="xbox scaled">
+			<help>How far a scope zooms at your Field of View. Xbox zooms to the same view whatever yours is, as the Xbox did. Scaled zooms your own view by the same magnification, so a wider view stays wider zoomed.</help>
+			<choice shown="XBOX" value="false"/>
+			<choice shown="SCALED" value="true"/>
+		</row>
+		<row key="panini" kind="slider" setting="display.panini" label="PANINI PROJECTION" crumb="VIDEO › FIRST PERSON" when="!vr_build" least="0" most="1" step="0.25" typed_least="0" typed_most="1">
+			<help>Stops a wide field of view from stretching what is at the sides; you still see as far, and the middle is drawn larger. 1 keeps their shapes true. The HUD stays flat. Fields of view up to 160 need it.</help>
+			<note>Click the number (or press A) to type 0 to 1.</note>
+			<stop shown="OFF" value="0"/>
+			<stop shown="0.25" value="0.25"/>
+			<stop shown="0.5" value="0.5"/>
+			<stop shown="0.75" value="0.75"/>
+			<stop shown="1" value="1"/>
+		</row>
+		<row key="panini_vertical" kind="slider" setting="display.panini_vertical" label="PANINI VERTICAL" crumb="VIDEO › FIRST PERSON" when="!vr_build" least="0" most="1" step="0.05" typed_least="0" typed_most="1">
+			<help>With Panini Projection on: straightens floors and ceilings above and below the middle, and stretches the sides taller. 0 keeps their shapes true.</help>
+			<note>Click the number (or press A) to type 0 to 1.</note>
+		</row>
+		<row key="draw_distance" kind="slider" setting="display.draw_distance" label="DRAW DISTANCE" crumb="VIDEO › FIRST PERSON" least="1024" most="10000" step="1" typed_least="1024" typed_most="10000" whole="true">
+			<help>How far the world is drawn (the far clip), in world units of about 3 meters. Default is the game's 1024, which the stock maps fit in; farther shows more of a large custom map.</help>
+			<note>Click the number (or press A) to type any from 1024 to 10000.</note>
+			<stop shown="DEFAULT" value="1024"/>
+			<stop shown="1536" value="1536"/>
+			<stop shown="2048" value="2048"/>
+			<stop shown="3072" value="3072"/>
+			<stop shown="4096" value="4096"/>
+			<stop shown="6144" value="6144"/>
+			<stop shown="8192" value="8192"/>
+			<stop shown="10000" value="10000"/>
+		</row>
+		<row key="lowered_reticle" kind="choice" setting="display.lowered_reticle" label="LOWERED RETICLE" crumb="VIDEO › FIRST PERSON" search="crosshair">
+			<help>Puts the reticle below the middle of the screen, as Halo 2 and 3 do. Your view tilts up a little, so shots still go where the reticle points. Zooming centers it.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="lowered_reticle_amount" kind="slider" setting="display.lowered_reticle_amount" label="RETICLE LOWERED BY" crumb="VIDEO › FIRST PERSON" search="crosshair" least="1" most="25" step="1" typed_least="0" typed_most="30" whole="true">
+			<help>How far below the middle the lowered reticle sits, in percent of the screen's height. 10 is about Halo 2's and 3's.</help>
+			<note>Click the number (or press A) to type any from 0 to 30.</note>
+		</row>
+		<row key="passenger_third_person" kind="choice" setting="display.passenger_third_person" label="PASSENGER VIEW" crumb="VIDEO › FIRST PERSON" search_choices="behind seat">
+			<help>Riding in a Warthog or a Scorpion in the campaign and co-op: the view from behind the vehicle, or from your seat. Behind, the weapon cannot zoom.</help>
+			<choice shown="BEHIND" value="true"/>
+			<choice shown="SEAT" value="false"/>
+		</row>
+		<row key="weapon_body" kind="link" label="WEAPON &amp; BODY ›" crumb="VIDEO › FIRST PERSON" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/weapon_body/weapon_body_screen">
+			<help>Your weapon and hands: whether they are drawn, their field of view and their place. Your legs, and your shield's flare on your arms, its color and an overshield's.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/weapon_position/weapon_position_screen" kind="settings" layout="page" geometry="tall" title="WEAPON POSITION">
+		<section key="section_0" title="ALL WEAPONS"/>
+		<row key="viewmodel_offset_x" kind="slider" setting="display.viewmodel_offset_x" label="HORIZONTAL" crumb="VIDEO › … › WEAPON POSITION" least="-20" most="20" step="0.5" typed_least="-20" typed_most="20">
+			<help>Moves your weapon and hands right, or left below 0, in centimeters, for every weapon, as far on the screen at any weapon field of view. 0 keeps them where the game puts them. In a game, Settings from the pause menu also sets the weapon you hold on its own.</help>
+			<note>Click the number (or press A) to type any from -20 to 20.</note>
+		</row>
+		<row key="viewmodel_offset_y" kind="slider" setting="display.viewmodel_offset_y" label="VERTICAL" crumb="VIDEO › … › WEAPON POSITION" least="-20" most="20" step="0.5" typed_least="-20" typed_most="20">
+			<help>Moves your weapon and hands up, or down below 0, in centimeters. Lower it to see more of the screen. In a game, Settings from the pause menu also sets the weapon you hold on its own.</help>
+			<note>Click the number (or press A) to type any from -20 to 20.</note>
+		</row>
+		<row key="viewmodel_offset_z" kind="slider" setting="display.viewmodel_offset_z" label="DEPTH" crumb="VIDEO › … › WEAPON POSITION" least="-20" most="20" step="0.5" typed_least="-20" typed_most="20">
+			<help>Pushes your weapon and hands away from you, or closer below 0, in centimeters. Too close and they cut off. In a game, Settings from the pause menu also sets the weapon you hold on its own.</help>
+			<note>Click the number (or press A) to type any from -20 to 20.</note>
+		</row>
+		<row key="viewmodel_pitch" kind="slider" setting="display.viewmodel_pitch" label="PITCH" crumb="VIDEO › … › WEAPON POSITION" least="-15" most="15" step="0.5" typed_least="-15" typed_most="15">
+			<help>Tilts your weapon's muzzle up, or down below 0, in degrees, turning it in place. Your shots still go where the reticle points. In a game, Settings from the pause menu also sets the weapon you hold on its own.</help>
+			<note>Click the number (or press A) to type any from -15 to 15.</note>
+		</row>
+		<row key="viewmodel_yaw" kind="slider" setting="display.viewmodel_yaw" label="YAW" crumb="VIDEO › … › WEAPON POSITION" least="-15" most="15" step="0.5" typed_least="-15" typed_most="15">
+			<help>Turns your weapon's muzzle right, or left below 0, in degrees. Your shots still go where the reticle points. In a game, Settings from the pause menu also sets the weapon you hold on its own.</help>
+			<note>Click the number (or press A) to type any from -15 to 15.</note>
+		</row>
+		<row key="viewmodel_roll" kind="slider" setting="display.viewmodel_roll" label="ROLL" crumb="VIDEO › … › WEAPON POSITION" least="-15" most="15" step="0.5" typed_least="-15" typed_most="15">
+			<help>Tilts the top of your weapon right, or left below 0, in degrees. Your shots still go where the reticle points. In a game, Settings from the pause menu also sets the weapon you hold on its own.</help>
+			<note>Click the number (or press A) to type any from -15 to 15.</note>
+		</row>
+		<section key="section_7" title="THIS WEAPON"/>
+		<row key="viewmodel_weapon_x" kind="slider" setting="weapon.x" label="HORIZONTAL" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" least="-20" most="20" step="0.5" typed_least="-20" typed_most="20">
+			<help>Moves the weapon you hold right, or left below 0, in centimeters, added to All Weapons'. Each weapon keeps its own, a modded map's too.</help>
+			<note>Click the number (or press A) to type any from -20 to 20.</note>
+		</row>
+		<row key="viewmodel_weapon_y" kind="slider" setting="weapon.y" label="VERTICAL" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" least="-20" most="20" step="0.5" typed_least="-20" typed_most="20">
+			<help>Moves the weapon you hold up, or down below 0, in centimeters, added to All Weapons'.</help>
+			<note>Click the number (or press A) to type any from -20 to 20.</note>
+		</row>
+		<row key="viewmodel_weapon_z" kind="slider" setting="weapon.z" label="DEPTH" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" least="-20" most="20" step="0.5" typed_least="-20" typed_most="20">
+			<help>Pushes the weapon you hold away, or closer below 0, in centimeters, added to All Weapons'.</help>
+			<note>Click the number (or press A) to type any from -20 to 20.</note>
+		</row>
+		<row key="viewmodel_weapon_pitch" kind="slider" setting="weapon.pitch" label="PITCH" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" least="-15" most="15" step="0.5" typed_least="-15" typed_most="15">
+			<help>Tilts the muzzle of the weapon you hold up, or down below 0, in degrees, added to All Weapons'.</help>
+			<note>Click the number (or press A) to type any from -15 to 15.</note>
+		</row>
+		<row key="viewmodel_weapon_yaw" kind="slider" setting="weapon.yaw" label="YAW" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" least="-15" most="15" step="0.5" typed_least="-15" typed_most="15">
+			<help>Turns the muzzle of the weapon you hold right, or left below 0, in degrees, added to All Weapons'.</help>
+			<note>Click the number (or press A) to type any from -15 to 15.</note>
+		</row>
+		<row key="viewmodel_weapon_roll" kind="slider" setting="weapon.roll" label="ROLL" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" least="-15" most="15" step="0.5" typed_least="-15" typed_most="15">
+			<help>Tilts the top of the weapon you hold right, or left below 0, in degrees, added to All Weapons'.</help>
+			<note>Click the number (or press A) to type any from -15 to 15.</note>
+		</row>
+		<row key="viewmodel_weapon_reset" kind="status" label="RESET THIS WEAPON" crumb="VIDEO › … › WEAPON POSITION" when="weapon_held" run="port settings weapon reset">
+			<help>Puts the weapon you hold back to All Weapons' place: its own offsets go back to 0 when you press OK.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/weapon_body/weapon_body_screen" kind="settings" layout="page" geometry="tall" title="WEAPON &amp; BODY">
+		<section key="section_0" title="WEAPON"/>
+		<row key="viewmodel_visible" kind="choice" setting="display.viewmodel_visible" label="WEAPON AND HANDS" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY" search="viewmodel gun">
+			<help>Draws your weapon, your hands and what they hold. Hide clears the view; you still fire, reload and hear them.</help>
+			<choice shown="SHOW" value="true"/>
+			<choice shown="HIDE" value="false"/>
+		</row>
+		<row key="viewmodel_fov" kind="slider" setting="display.viewmodel_fov" label="WEAPON FIELD OF VIEW" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY" search="fov viewmodel gun" least="80" most="150" step="5" typed_least="20" typed_most="150">
+			<help>How wide your weapon and hands are drawn, in degrees across a 16:9 screen: wider draws them smaller. Default keeps the weapon's own view.</help>
+			<note>Click the number (or press A) to type any from 20 to 150.</note>
+			<stop shown="DEFAULT" value="0"/>
+			<stop shown="80" value="80"/>
+			<stop shown="85" value="85"/>
+			<stop shown="90" value="90"/>
+			<stop shown="95" value="95"/>
+			<stop shown="100" value="100"/>
+			<stop shown="105" value="105"/>
+			<stop shown="110" value="110"/>
+			<stop shown="115" value="115"/>
+			<stop shown="120" value="120"/>
+			<stop shown="125" value="125"/>
+			<stop shown="130" value="130"/>
+			<stop shown="135" value="135"/>
+			<stop shown="140" value="140"/>
+			<stop shown="145" value="145"/>
+			<stop shown="150" value="150"/>
+		</row>
+		<row key="weapon_position" kind="link" label="WEAPON POSITION ›" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY" search="viewmodel gun" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person/weapon_position/weapon_position_screen">
+			<help>Moves and turns your weapon and hands on the screen, for every weapon and, in a game, for the one you hold.</help>
+		</row>
+		<section key="section_4" title="BODY"/>
+		<row key="first_person_legs" kind="choice" setting="display.first_person_legs" label="LEGS" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY">
+			<help>Your legs when you look down, moving as you run: your body as the others see it.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_6" title="SHIELDS"/>
+		<row key="viewmodel_shield" kind="choice" setting="display.viewmodel_shield" label="ARM SHIELDS" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY">
+			<help>When your shield takes a hit, its flare shows on your first-person arms too, as on your body, and fades as it does there. A full, untouched shield shows nothing.</help>
+			<note>An overshield stays lit on them with Overshield on, below.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="shield_color" kind="choice" setting="display.shield_color" label="SHIELD COLOR" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY" search="colour" search_choices="white black red blue gray yellow green pink purple cyan cobalt orange teal sage brown tan maroon salmon">
+			<help>Your shield's flare in an armor color, whatever your armor. Only you see it. Default keeps its own.</help>
+			<choice shown="DEFAULT" value="default"/>
+			<choice shown="WHITE" value="white"/>
+			<choice shown="BLACK" value="black"/>
+			<choice shown="RED" value="red"/>
+			<choice shown="BLUE" value="blue"/>
+			<choice shown="GRAY" value="gray"/>
+			<choice shown="YELLOW" value="yellow"/>
+			<choice shown="GREEN" value="green"/>
+			<choice shown="PINK" value="pink"/>
+			<choice shown="PURPLE" value="purple"/>
+			<choice shown="CYAN" value="cyan"/>
+			<choice shown="COBALT" value="cobalt"/>
+			<choice shown="ORANGE" value="orange"/>
+			<choice shown="TEAL" value="teal"/>
+			<choice shown="SAGE" value="sage"/>
+			<choice shown="BROWN" value="brown"/>
+			<choice shown="TAN" value="tan"/>
+			<choice shown="MAROON" value="maroon"/>
+			<choice shown="SALMON" value="salmon"/>
+		</row>
+		<row key="overshield_effect" kind="choice" setting="display.overshield_effect" label="OVERSHIELD" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY">
+			<help>An overshield stays lit for as long as it lasts, in its own color, on your body and, with Arm Shields, your arms. Off draws it as the original did. Online: the host's choice.</help>
+			<note>Off in Pro 2v2 games, for everyone.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="overshield_layer_color" kind="choice" setting="display.overshield_layer_color" label="OVERSHIELD COLOR" crumb="VIDEO › FIRST PERSON › WEAPON &amp; BODY" search="colour" search_choices="layers red">
+			<help>The overshield's color as its layers drain, as your shield meter shows them: green while the green layer lasts, then red. Red keeps it red throughout.</help>
+			<choice shown="LAYERS" value="true"/>
+			<choice shown="RED" value="false"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gamepad_setup_screen" kind="settings" layout="page" geometry="tall" title="CONTROLLER" profile="true">
+		<section key="section_0" title="LOOK"/>
+		<row key="look_sensitivity" kind="choice" setting="profile.look_sensitivity" label="LOOK SENSITIVITY" crumb="CONTROLS › CONTROLLER" search="sens" when="profile">
+			<help>How fast the right stick turns the view.</help>
+			<choice shown="1" value="1"/>
+			<choice shown="2" value="2"/>
+			<choice shown="3" value="3"/>
+			<choice shown="4" value="4"/>
+			<choice shown="5" value="5"/>
+			<choice shown="6" value="6"/>
+			<choice shown="7" value="7"/>
+			<choice shown="8" value="8"/>
+			<choice shown="9" value="9"/>
+			<choice shown="10" value="10"/>
+		</row>
+		<row key="invert_look" kind="choice" setting="profile.invert_look" label="INVERT LOOK" crumb="CONTROLS › CONTROLLER" when="profile">
+			<help>Pushing the right stick up looks down.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="invert_look_horizontal" kind="choice" setting="input.invert_look_horizontal" label="INVERT TURNING" crumb="CONTROLS › CONTROLLER">
+			<help>Pushing the right stick right turns the view left. For every controller on this device.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="gyro_flick_stick" kind="link" label="GYRO &amp; FLICK STICK ›" crumb="CONTROLS › CONTROLLER" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_screen">
+			<help>Aim by turning a controller that has a gyroscope; the right stick's aim style (Classic or Modern), and the right stick as a flick stick.</help>
+		</row>
+		<row key="flight_inversion" kind="choice" setting="profile.flight_inversion" label="INVERT FLIGHT" crumb="CONTROLS › CONTROLLER" when="profile">
+			<help>Flying vehicles pitch as aircraft do: pushing up flies down.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="autocenter" kind="choice" setting="profile.autocenter" label="AUTO-CENTER LOOK" crumb="CONTROLS › CONTROLLER" when="profile">
+			<help>Levels the view while you walk.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<section key="section_7" title="LAYOUT"/>
+		<row key="button_preset" kind="choice" setting="profile.button_preset" label="BUTTON LAYOUT" crumb="CONTROLS › CONTROLLER" search_choices="swap triggers a l trigger b r stick bumper jumper fishsticks recon" when="profile">
+			<help>Which of the controller's buttons does what. Button Remapping sets them one by one; the keyboard's keys are Key Bindings'.</help>
+			<choice shown="DEFAULT" value="0"/>
+			<choice shown="SWAP TRIGGERS" value="1"/>
+			<choice shown="SWAP A, L TRIGGER" value="2"/>
+			<choice shown="SWAP B, L TRIGGER" value="3"/>
+			<choice shown="SWAP B, R STICK" value="4"/>
+			<choice shown="BUMPER JUMPER" value="5"/>
+			<choice shown="FISHSTICKS" value="6"/>
+			<choice shown="RECON" value="7"/>
+		</row>
+		<row key="joystick_preset" kind="choice" setting="profile.joystick_preset" label="STICK LAYOUT" crumb="CONTROLS › CONTROLLER" search_choices="southpaw legacy" when="profile">
+			<help>Which stick moves and which looks. Southpaw swaps them.</help>
+			<choice shown="DEFAULT" value="0"/>
+			<choice shown="SOUTHPAW" value="1"/>
+			<choice shown="LEGACY" value="2"/>
+			<choice shown="LEGACY SOUTHPAW" value="3"/>
+		</row>
+		<row key="button_remapping" kind="link" label="BUTTON REMAPPING ›" crumb="CONTROLS › CONTROLLER" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_remapping_screen">
+			<help>Put any action on any button, each player their own layout, the D-pad and Back too: chat, push to talk, the scoreboard, a screenshot.</help>
+		</row>
+		<row key="stick_dead_zones" kind="link" label="STICK DEAD ZONES ›" crumb="CONTROLS › CONTROLLER" search="deadzone" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/dead_zones_screen">
+			<help>How far each stick moves before it does anything: more for a worn stick that drifts, less for finer aim.</help>
+		</row>
+		<section key="section_12" title="FEEDBACK"/>
+		<row key="vibration" kind="choice" setting="profile.vibration" label="VIBRATION" crumb="CONTROLS › CONTROLLER" search="rumble" when="profile">
+			<help>Rumbles the controller.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="ingame_help" kind="choice" setting="profile.ingame_help" label="IN-GAME HELP" crumb="CONTROLS › CONTROLLER" when="profile">
+			<help>Shows the game's hints about its controls.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_15" title="PROFILE"/>
+		<row key="create_profile" kind="link" label="CREATE PROFILE ›" crumb="CONTROLS › CONTROLLER" when="!profile+!in_game" run="port settings new profile">
+			<help>Your name, color and controller layout are kept in a player profile. Make one to set them; the rest of Settings works without one.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_remapping_screen" kind="settings" layout="page" geometry="tall" title="BUTTON REMAPPING">
+		<section key="section_0" title="LAYOUT"/>
+		<row key="remap_player" kind="stepped" label="PLAYER" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller right" status="true">
+			<help>Whose buttons to edit. Each player's layout is kept apart, and named for the controller they play with. OK saves every player's.</help>
+		</row>
+		<row key="remap_group" kind="stepped" label="SHOW" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller right" status="true">
+			<help>Which of the actions to show: movement, combat, general, chat and voice, or the debug camera's.</help>
+		</row>
+		<section key="section_3" title="ACTIONS"/>
+		<row key="pad_1" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<row key="pad_2" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<row key="pad_3" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<row key="pad_4" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<row key="pad_5" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<row key="pad_6" kind="status" label="" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" run="port controller bind" named="true"/>
+		<section key="section_10" title="BUTTON PICTURES"/>
+		<row key="controller_buttons" kind="link" label="CONTROLLER BUTTONS ›" crumb="CONTROLS › CONTROLLER › BUTTON REMAPPING" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/controller_buttons_screen">
+			<help>The HUD's buttons drawn as your controller has them, Xbox, PlayStation or Switch, and the style of each.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/controls_setup/controls_settings_screen" kind="settings" layout="page" geometry="tall">
+		<section key="section_0" title="KEYBOARD AND MOUSE"/>
+		<row key="group" kind="choice" label="SHOW" crumb="CONTROLS › KEY BINDINGS" search_choices="movement weapons actions communication">
+			<help>Which of the actions to show: movement, weapons, actions or communication.</help>
+			<choice shown="MOVEMENT" value="0"/>
+			<choice shown="WEAPONS" value="1"/>
+			<choice shown="ACTIONS" value="2"/>
+			<choice shown="COMMUNICATION" value="3"/>
+		</row>
+		<section key="section_2" title="ACTIONS"/>
+		<row key="command_1" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_2" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_3" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_4" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_5" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_6" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_7" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<row key="command_8" kind="binding" label="" crumb="CONTROLS › KEY BINDINGS"/>
+		<section key="section_11" title="WALK"/>
+		<row key="walk" kind="choice" setting="input.walk" label="WALK" crumb="CONTROLS › KEY BINDINGS" search_choices="hold toggle">
+			<help>Hold walks while the Walk key is held; Toggle walks from one press to the next. Walking, the movement keys move you slowly, as a stick pushed a little does.</help>
+			<choice shown="HOLD" value="hold"/>
+			<choice shown="TOGGLE" value="toggle"/>
+		</row>
+		<row key="walk_speed" kind="choice" setting="input.walk_speed" label="WALK SPEED" crumb="CONTROLS › KEY BINDINGS" search_choices="tracker">
+			<help>How fast you walk. Tracker: as fast as you can and still stay off the enemies' motion trackers. Or a part of your full speed.</help>
+			<choice shown="TRACKER" value="tracker"/>
+			<choice shown="10%" value="10"/>
+			<choice shown="20%" value="20"/>
+			<choice shown="30%" value="30"/>
+			<choice shown="40%" value="40"/>
+			<choice shown="50%" value="50"/>
+			<choice shown="60%" value="60"/>
+			<choice shown="70%" value="70"/>
+			<choice shown="80%" value="80"/>
+			<choice shown="90%" value="90"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_screen" kind="settings" layout="page" geometry="tall" title="GYRO &amp; FLICK STICK">
+		<section key="section_0" title="GYRO AIMING"/>
+		<row key="gyro_found" kind="status" label="GYRO" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK">
+			<help>Whether a controller with a gyroscope is connected: a DualSense, a DualShock 4, a Switch Pro Controller or Joy-Cons, a Steam Deck.</help>
+			<note>With Steam Input, turn it off for GOAT H1.</note>
+		</row>
+		<row key="gyro_aim" kind="choice" setting="input.gyro_aim" label="GYRO AIMING" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search_choices="always hold aim pause thumb stick" when="gyro">
+			<help>Aim by turning the controller, as a mouse; the stick still works. Hold to Aim: only while the gyro button is held. Hold to Pause: except while it is held, to re-center. Thumb on Stick: while your thumb is on the right stick (Steam Deck, Steam Controller).</help>
+			<note>No aim assist on the gyro's aim.</note>
+			<choice shown="OFF" value="off"/>
+			<choice shown="ALWAYS ON" value="on"/>
+			<choice shown="HOLD TO AIM" value="hold"/>
+			<choice shown="HOLD TO PAUSE" value="pause"/>
+			<choice shown="THUMB ON STICK" value="touch"/>
+		</row>
+		<row key="gyro_button" kind="choice" setting="input.gyro_button" label="GYRO BUTTON" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search_choices="touchpad left paddle right capture share bumper trigger stick" when="gyro+gyro_aim=hold gyro+gyro_aim=pause">
+			<help>The button that Hold to Aim and Hold to Pause hold. It still does its own action too: Button Remapping can move that.</help>
+			<choice shown="TOUCHPAD" value="touchpad"/>
+			<choice shown="LEFT PADDLE" value="left_paddle"/>
+			<choice shown="RIGHT PADDLE" value="right_paddle"/>
+			<choice shown="CAPTURE / SHARE" value="misc"/>
+			<choice shown="LEFT BUMPER" value="left_bumper"/>
+			<choice shown="RIGHT BUMPER" value="right_bumper"/>
+			<choice shown="LEFT TRIGGER" value="left_trigger"/>
+			<choice shown="RIGHT TRIGGER" value="right_trigger"/>
+			<choice shown="LEFT STICK" value="left_stick"/>
+			<choice shown="RIGHT STICK" value="right_stick"/>
+		</row>
+		<row key="gyro_sensitivity" kind="slider" setting="input.gyro_sensitivity" label="SENSITIVITY" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search="sens" when="gyro" least="0.25" most="8" step="0.05" typed_least="0.05" typed_most="20">
+			<help>How far the view turns for each degree you turn the controller: 1 as far, 2 twice as far. Press A, or click the number, to type a value.</help>
+			<note>Zoomed in: as Zoom Aim Speed sets.</note>
+		</row>
+		<row key="gyro_vertical_sensitivity" kind="choice" setting="input.gyro_vertical_sensitivity" label="VERTICAL SENSITIVITY" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search="sens" when="gyro">
+			<help>How far the view turns up and down, of how far it turns side to side. 1X turns it as far.</help>
+			<choice shown="0.25X" value="0.25"/>
+			<choice shown="0.5X" value="0.5"/>
+			<choice shown="0.6X" value="0.6"/>
+			<choice shown="0.7X" value="0.7"/>
+			<choice shown="0.75X" value="0.75"/>
+			<choice shown="0.8X" value="0.8"/>
+			<choice shown="0.9X" value="0.9"/>
+			<choice shown="1X" value="1"/>
+			<choice shown="1.1X" value="1.1"/>
+			<choice shown="1.25X" value="1.25"/>
+			<choice shown="1.5X" value="1.5"/>
+			<choice shown="2X" value="2"/>
+		</row>
+		<row key="gyro_space" kind="choice" setting="input.gyro_space" label="TURN AXIS" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search_choices="player space local" when="gyro">
+			<help>Player Space turns you as you turn the controller about the up direction, however you hold it: flat, upright or between. Local Space turns you about the controller's own axis, as if held flat.</help>
+			<choice shown="PLAYER SPACE" value="player"/>
+			<choice shown="LOCAL SPACE" value="local"/>
+		</row>
+		<row key="gyro_smoothing" kind="choice" setting="input.gyro_smoothing" label="SMOOTHING" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" when="gyro">
+			<help>Steadies the smallest motions, your hand's tremor, but never a real turn. Off: every motion as it comes.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="gyro_calibrate" kind="status" label="CALIBRATE" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" when="gyro" run="port settings gyro calibrate">
+			<help>Put the controller down on something still, then select this: it measures the gyroscope at rest for a second and a half.</help>
+			<note>It also does so whenever it is held still.</note>
+		</row>
+		<section key="section_9" title="RIGHT STICK"/>
+		<row key="aim_style" kind="choice" setting="input.aim_style" label="AIM STYLE" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search="aim acceleration" search_choices="modern">
+			<help>Classic aims as the original: a diagonal turns faster, and can speed up the turn as a full push does. Modern aims as MCC's: the same speed whichever way you push, and only a push straight to the side speeds up the turn.</help>
+			<note>The mouse and touch controls are not changed.</note>
+			<choice shown="CLASSIC" value="classic"/>
+			<choice shown="MODERN" value="modern"/>
+		</row>
+		<row key="modern_aim_acceleration_angle" kind="choice" setting="input.modern_aim_acceleration_angle" label="ACCELERATION ANGLE" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search="aim acceleration" enabled="aim_style=modern">
+			<help>Modern aim: how far from straight to the side, in degrees, a full push still speeds up the turn. Lower keeps more diagonals from speeding it up.</help>
+			<choice shown="0" value="0"/>
+			<choice shown="5" value="5"/>
+			<choice shown="10" value="10"/>
+			<choice shown="15" value="15"/>
+			<choice shown="20" value="20"/>
+			<choice shown="25" value="25"/>
+			<choice shown="30" value="30"/>
+			<choice shown="35" value="35"/>
+			<choice shown="40" value="40"/>
+			<choice shown="45" value="45"/>
+		</row>
+		<row key="modern_aim_acceleration_threshold" kind="choice" setting="input.modern_aim_acceleration_threshold" label="ACCELERATION START" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK" search="aim acceleration" enabled="aim_style=modern">
+			<help>Modern aim: how far you push the stick before the turn speeds up. Default is the game's own, as Classic's.</help>
+			<choice shown="DEFAULT" value="-1"/>
+			<choice shown="50%" value="50"/>
+			<choice shown="55%" value="55"/>
+			<choice shown="60%" value="60"/>
+			<choice shown="65%" value="65"/>
+			<choice shown="70%" value="70"/>
+			<choice shown="75%" value="75"/>
+			<choice shown="80%" value="80"/>
+			<choice shown="85%" value="85"/>
+			<choice shown="90%" value="90"/>
+			<choice shown="95%" value="95"/>
+			<choice shown="100%" value="100"/>
+		</row>
+		<row key="flick_stick" kind="choice" setting="input.flick_stick" label="FLICK STICK" crumb="CONTROLS › CONTROLLER › GYRO &amp; FLICK STICK">
+			<help>Point the right stick and you turn at once to face that way: right, a quarter turn; down, about face. Turn it round its rim and you turn with it. Aim up and down with the gyro.</help>
+			<note>With the default stick layout.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/dead_zones/dead_zones_screen" kind="settings" layout="page" geometry="tall" title="STICK DEAD ZONES">
+		<section key="section_0" title="DEAD ZONES"/>
+		<row key="left_stick_dead_zone" kind="choice" setting="input.left_stick_dead_zone" label="LEFT STICK" crumb="CONTROLS › CONTROLLER › STICK DEAD ZONES" search="deadzone">
+			<help>How far the left stick moves before you move. Raise it for a stick that drifts; lower it to start walking sooner. Default is the game's own, 27%.</help>
+			<note>The touch controls' stick too.</note>
+			<choice shown="DEFAULT (27%)" value="-1"/>
+			<choice shown="0%" value="0"/>
+			<choice shown="5%" value="5"/>
+			<choice shown="10%" value="10"/>
+			<choice shown="15%" value="15"/>
+			<choice shown="20%" value="20"/>
+			<choice shown="25%" value="25"/>
+			<choice shown="30%" value="30"/>
+			<choice shown="35%" value="35"/>
+			<choice shown="40%" value="40"/>
+			<choice shown="45%" value="45"/>
+			<choice shown="50%" value="50"/>
+		</row>
+		<row key="right_stick_dead_zone" kind="choice" setting="input.right_stick_dead_zone" label="RIGHT STICK" crumb="CONTROLS › CONTROLLER › STICK DEAD ZONES" search="deadzone">
+			<help>How far the right stick moves before the view turns. Raise it for a stick that drifts; lower it for finer aim. Default is the game's own, 27%.</help>
+			<choice shown="DEFAULT (27%)" value="-1"/>
+			<choice shown="0%" value="0"/>
+			<choice shown="5%" value="5"/>
+			<choice shown="10%" value="10"/>
+			<choice shown="15%" value="15"/>
+			<choice shown="20%" value="20"/>
+			<choice shown="25%" value="25"/>
+			<choice shown="30%" value="30"/>
+			<choice shown="35%" value="35"/>
+			<choice shown="40%" value="40"/>
+			<choice shown="45%" value="45"/>
+			<choice shown="50%" value="50"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout/screen_layout_screen" kind="settings" layout="page" geometry="tall" title="SCREEN LAYOUT">
+		<section key="section_0" title="PICTURE" when="android"/>
+		<row key="picture_position" kind="choice" setting="display.picture_position" label="PICTURE POSITION" crumb="VIDEO › SCREEN LAYOUT" search_choices="center top bottom" when="android">
+			<help>Where the picture sits on a screen taller than it, such as a folding phone's inner screen or a tablet. Top puts all the black space below it, where the touch controls are; Bottom puts it all above. Portrait always has it near the top, under the strip of buttons.</help>
+			<choice shown="CENTER" value="center"/>
+			<choice shown="TOP" value="top"/>
+			<choice shown="BOTTOM" value="bottom"/>
+		</row>
+		<row key="picture_shape" kind="choice" setting="display.picture_shape" label="PICTURE SHAPE" crumb="VIDEO › SCREEN LAYOUT" when="android">
+			<help>The picture's shape on a screen taller than it. 4:3 is the Xbox's; 16:9 sees more to the sides and leaves more of the screen to the touch controls.</help>
+			<choice shown="4:3" value="4:3"/>
+			<choice shown="16:9" value="16:9"/>
+		</row>
+		<section key="section_3" title="PORTRAIT" when="android"/>
+		<row key="frame_style" kind="choice" setting="display.frame_style" label="PORTRAIT FRAME" crumb="VIDEO › SCREEN LAYOUT" search_choices="plain halo xbox" when="android">
+			<help>The look of the screen around the picture when you play in portrait: plain black, Halo's blue lines and rings, or Xbox green. It is never drawn over the picture.</help>
+			<choice shown="PLAIN" value="plain"/>
+			<choice shown="HALO" value="halo"/>
+			<choice shown="XBOX" value="xbox"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/interface_settings/streamer_mode/streamer_mode_screen" kind="settings" layout="page" geometry="tall" title="STREAMER MODE">
+		<section key="section_0" title="STREAMER MODE"/>
+		<row key="enabled" kind="choice" setting="streamer.enabled" label="STREAMER MODE" crumb="ONLINE › STREAMER MODE">
+			<help>Hides offensive words in names and text from other players, maps and mods, as stars.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_2" title="WORDS HIDDEN"/>
+		<row key="slurs" kind="choice" setting="streamer.slurs" label="SLURS" crumb="ONLINE › STREAMER MODE" search="censor" search_choices="severe strong mild">
+			<help>Slurs about race, sexuality, gender and disability.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="SEVERE" value="severe"/>
+			<choice shown="STRONG &amp; WORSE" value="strong"/>
+			<choice shown="MILD &amp; WORSE" value="mild"/>
+		</row>
+		<row key="swearing" kind="choice" setting="streamer.swearing" label="SWEARING" crumb="ONLINE › STREAMER MODE" search="censor profanity" search_choices="severe strong mild">
+			<help>Swearing and sexual words. Strong and Worse leaves the mildest showing.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="SEVERE" value="severe"/>
+			<choice shown="STRONG &amp; WORSE" value="strong"/>
+			<choice shown="MILD &amp; WORSE" value="mild"/>
+		</row>
+		<row key="insults" kind="choice" setting="streamer.insults" label="INSULTS" crumb="ONLINE › STREAMER MODE" search="censor" search_choices="severe strong mild">
+			<help>Name-calling and insults that are not slurs.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="SEVERE" value="severe"/>
+			<choice shown="STRONG &amp; WORSE" value="strong"/>
+			<choice shown="MILD &amp; WORSE" value="mild"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen" kind="settings" layout="page" geometry="tall">
+		<section key="section_0" title="GAMES"/>
+		<row key="browser_show_full" kind="choice" setting="network.browser_show_full" label="SHOW FULL GAMES" crumb="ONLINE › SERVER BROWSER FILTERS">
+			<help>Lists the games that have no room left.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="browser_show_empty" kind="choice" setting="network.browser_show_empty" label="SHOW EMPTY GAMES" crumb="ONLINE › SERVER BROWSER FILTERS">
+			<help>Lists the games that no one is playing yet.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="browser_show_password" kind="choice" setting="network.browser_show_password" label="SHOW PASSWORD GAMES" crumb="ONLINE › SERVER BROWSER FILTERS">
+			<help>Lists the games that need a password to join.</help>
+			<choice shown="YES" value="true"/>
+			<choice shown="NO" value="false"/>
+		</row>
+		<row key="browser_ping" kind="choice" setting="network.browser_ping" label="PING" crumb="ONLINE › SERVER BROWSER FILTERS" search_choices="any under">
+			<help>Lists only the games whose ping is under this.</help>
+			<note>A game whose ping is not known is listed: a local network game's, a dedicated server's, one still being timed.</note>
+			<choice shown="ANY" value="0"/>
+			<choice shown="UNDER 300 MS" value="300"/>
+			<choice shown="UNDER 250 MS" value="250"/>
+			<choice shown="UNDER 150 MS" value="150"/>
+			<choice shown="UNDER 100 MS" value="100"/>
+			<choice shown="UNDER 50 MS" value="50"/>
+		</row>
+		<section key="section_5" title="GAME"/>
+		<row key="browser_tick" kind="choice" setting="network.browser_tick" label="TICK RATE" crumb="ONLINE › SERVER BROWSER FILTERS" search_choices="any goat h1 legacy">
+			<help>Lists only the games of this tick rate.</help>
+			<note>GOAT H1 games play at 30, 60 or 120 ticks a second; Legacy games are OpenCE's netcode.</note>
+			<choice shown="ANY" value="any"/>
+			<choice shown="GOAT H1 30" value="30"/>
+			<choice shown="GOAT H1 60" value="60"/>
+			<choice shown="GOAT H1 120" value="120"/>
+			<choice shown="LEGACY" value="legacy"/>
+		</row>
+		<row key="browser_game_type" kind="choice" setting="network.browser_game_type" label="GAME TYPE" crumb="ONLINE › SERVER BROWSER FILTERS" search_choices="any slayer team capture the flag oddball king of hill race swat infection gun game co op pro 2v2">
+			<help>Lists only the games of this type.</help>
+			<note>Slayer is free for all; SWAT, Infection and Gun Game are GOAT H1's. Pro 2v2 is PRO 2V2's games.</note>
+			<choice shown="ANY" value="any"/>
+			<choice shown="SLAYER" value="slayer"/>
+			<choice shown="TEAM SLAYER" value="team_slayer"/>
+			<choice shown="CAPTURE THE FLAG" value="ctf"/>
+			<choice shown="ODDBALL" value="oddball"/>
+			<choice shown="KING OF THE HILL" value="king"/>
+			<choice shown="RACE" value="race"/>
+			<choice shown="SWAT" value="swat"/>
+			<choice shown="INFECTION" value="infection"/>
+			<choice shown="GUN GAME" value="gun_game"/>
+			<choice shown="CO-OP" value="coop"/>
+			<choice shown="PRO 2V2" value="pro_2v2"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons/controller_buttons_screen" kind="settings" layout="page" geometry="tall" title="CONTROLLER BUTTONS">
+		<section key="section_0" title="DETECTION"/>
+		<row key="auto_button_detection" kind="choice" setting="input.auto_button_detection" label="AUTO DETECTION" crumb="CONTROLS › … › CONTROLLER BUTTONS">
+			<help>Draws the HUD's buttons as the controller you play with has them: Xbox, PlayStation or Switch, in the styles below. Off: Interface's BUTTON STYLE for every controller.</help>
+			<note>Needs HIGH-RES HUD.</note>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_2" title="STYLES"/>
+		<row key="hud_button_style_xbox" kind="choice" setting="display.hud_button_style_xbox" label="XBOX" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="gems dark modern">
+			<help>An Xbox controller's buttons. Modern: today's Xbox controller's.</help>
+			<choice shown="CLASSIC" value="classic"/>
+			<choice shown="GEMS" value="gems"/>
+			<choice shown="DARK GEMS" value="menu_gems"/>
+			<choice shown="MODERN" value="xbox_modern"/>
+		</row>
+		<row key="hud_button_style_ps" kind="choice" setting="display.hud_button_style_ps" label="PLAYSTATION" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="gems dark modern">
+			<help>A PlayStation controller's buttons.</help>
+			<choice shown="CLASSIC" value="ps_classic"/>
+			<choice shown="GEMS" value="ps_gems"/>
+			<choice shown="DARK GEMS" value="ps_dark_gems"/>
+			<choice shown="MODERN" value="ps_modern"/>
+		</row>
+		<row key="hud_button_style_switch" kind="choice" setting="display.hud_button_style_switch" label="SWITCH" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="gems modern">
+			<help>A Switch controller's buttons.</help>
+			<choice shown="CLASSIC" value="switch_classic"/>
+			<choice shown="GEMS" value="switch_gems"/>
+			<choice shown="MODERN" value="switch_modern"/>
+		</row>
+		<row key="hud_bumper_style" kind="choice" setting="display.hud_bumper_style" label="BUMPERS" crumb="CONTROLS › … › CONTROLLER BUTTONS" search_choices="original xbox modern">
+			<help>The Xbox's bumpers as the original controller's black and white buttons, or as LB and RB.</help>
+			<choice shown="ORIGINAL XBOX" value="original"/>
+			<choice shown="MODERN XBOX" value="modern"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_packages/mcc_packages_screen" kind="settings" layout="page" geometry="tall" title="MCC PACKAGES">
+		<section key="section_0" title="MCC MAPS"/>
+		<row key="workshop_maps" kind="choice" setting="game.workshop_maps" label="STEAM DISCOVERY" crumb="MODS › MCC PACKAGES" when="desktop">
+			<help>Finds the Halo CE Workshop maps Steam has installed on this computer. The MCC packages in the game's own folder come first.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="mcc_campaigns" kind="choice" setting="game.mcc_campaigns" label="CAMPAIGN MISSIONS" crumb="MODS › MCC PACKAGES">
+			<help>Uses a package's campaign details for its missions' order and progress. Online, the host chooses the next map.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="mcc_collections" kind="choice" setting="game.mcc_collections" label="COLLECTION FOLDERS" crumb="MODS › MCC PACKAGES">
+			<help>Groups the installed MCC packages into folders, by the collection list the game comes with. Works without Steam.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<section key="section_4" title="DOWNLOADED"/>
+		<row key="mcc_downloads" kind="link" label="MCC DOWNLOADS ›" crumb="MODS › MCC PACKAGES" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/screen">
+			<help>The MCC maps downloaded from hosts: their space, and removing them. The original packages and saved games are kept.</help>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/discord_account_screen" kind="settings" layout="page" geometry="tall" title="DISCORD ACCOUNT">
+		<section key="section_0" title="ACCOUNT"/>
+		<row key="link_status" kind="status" label="DISCORD" crumb="ONLINE › DISCORD ACCOUNT">
+			<help>The Discord account linked to this game, and how many of the master servers it is linked with.</help>
+		</row>
+		<row key="link_unlink" kind="status" label="UNLINK" crumb="ONLINE › DISCORD ACCOUNT" when="discord_linked" run="port discord unlink">
+			<help>Forgets the linked account on this device. Select it twice: the first asks, the second unlinks.</help>
+		</row>
+		<section key="section_3" title="MASTER SERVERS"/>
+		<row key="link_master_1" kind="status" label="MASTER 1" crumb="ONLINE › DISCORD ACCOUNT" run="port discord link" named="true">
+			<help>A master server lists dedicated servers. Select it to link your Discord account with it in your browser.</help>
+		</row>
+		<row key="link_master_2" kind="status" label="MASTER 2" crumb="ONLINE › DISCORD ACCOUNT" run="port discord link" named="true">
+			<help>A master server lists dedicated servers. Select it to link your Discord account with it in your browser.</help>
+		</row>
+		<row key="link_master_3" kind="status" label="MASTER 3" crumb="ONLINE › DISCORD ACCOUNT" run="port discord link" named="true">
+			<help>A master server lists dedicated servers. Select it to link your Discord account with it in your browser.</help>
+		</row>
+		<row key="link_master_4" kind="status" label="MASTER 4" crumb="ONLINE › DISCORD ACCOUNT" run="port discord link" named="true">
+			<help>A master server lists dedicated servers. Select it to link your Discord account with it in your browser.</help>
+		</row>
+		<section key="section_8" title="PRIVACY"/>
+		<row key="link_share" kind="choice" setting="network.link_share" label="SHOW TO SERVERS" crumb="ONLINE › DISCORD ACCOUNT" search_choices="when asked always never">
+			<help>Which servers see your Discord name. When Asked: only a server that blocks VPNs, when you join it from one. Never: such a server refuses you on a VPN.</help>
+			<choice shown="WHEN ASKED" value="when_needed"/>
+			<choice shown="ALWAYS" value="always"/>
+			<choice shown="NEVER" value="never"/>
+		</row>
+		<button key="button_defaults" kind="defaults" run="port settings defaults" help="Puts this page's settings back to their defaults."/>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on this page and every tab, and applies them."/>
+		<button key="button_cancel" kind="cancel" run="port settings page cancel" help="Goes back without these changes."/>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/vr_controls/vr_controls_screen" kind="settings" layout="options" spacing="18">
+		<row key="hands" kind="choice" setting="vr.hands" label="HANDS:">
+			<help>Aiming with the controller, your hands: with arms
+from the shoulders, floating, or the game's arms.</help>
+			<choice shown="ARMS" value="arms"/>
+			<choice shown="FLOATING HANDS" value="floating"/>
+			<choice shown="GAME ARMS" value="game"/>
+		</row>
+		<row key="aim" kind="choice" setting="vr.aim" label="AIM:">
+			<help>What aims: the right controller, which holds the
+weapon, your head, or a gamepad's right stick.</help>
+			<choice shown="CONTROLLER" value="controller"/>
+			<choice shown="HEAD" value="head"/>
+			<choice shown="GAMEPAD" value="gamepad"/>
+		</row>
+		<row key="gamepad_view" kind="choice" setting="vr.gamepad_view" label="GAMEPAD VIEW:">
+			<help>With a gamepad, the right stick turns and
+pitches the view, only turns it, or in steps.</help>
+			<choice shown="CAMERA" value="camera"/>
+			<choice shown="LEVEL" value="level"/>
+			<choice shown="SNAP" value="snap"/>
+		</row>
+		<row key="two_handed" kind="choice" setting="vr.two_handed" label="TWO-HANDED AIM:">
+			<help>The left grip holds a long gun by its foregrip:
+it aims along the line between your hands.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="aim_assist" kind="choice" setting="vr.aim_assist" label="AIM ASSIST:">
+			<help>Near an enemy your aim is slow to leave it, and
+zoomed, it is drawn gently toward it.</help>
+			<choice shown="OFF" value="0"/>
+			<choice shown="WEAK" value="0.5"/>
+			<choice shown="ON" value="1"/>
+			<choice shown="STRONG" value="1.5"/>
+		</row>
+		<row key="melee_gesture" kind="choice" setting="vr.melee_gesture" label="SWING TO MELEE:">
+			<help>A hard swing of the right controller melees, as
+B does; with its grip held, a softer one will do.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="holsters" kind="choice" setting="vr.holsters" label="HOLSTERS:">
+			<help>Reach over your right shoulder for a long gun, or
+to your right hip for a pistol, and grip to draw it.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="physical_crouch" kind="choice" setting="vr.physical_crouch" label="PHYSICAL CROUCH:">
+			<help>Crouch in the room and you crouch in the game;
+stand up and you stand.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="scope_view" kind="choice" setting="vr.scope_view" label="SCOPES:">
+			<help>Smart-link: the right stick's click zooms on your
+visor. At the eye: raise the scope to your eye.</help>
+			<choice shown="OFF" value="off"/>
+			<choice shown="SMART-LINK" value="smartlink"/>
+			<choice shown="AT THE EYE" value="eye"/>
+		</row>
+		<row key="manual_reload" kind="choice" setting="vr.manual_reload" label="RELOAD BY HAND:">
+			<help>Take a magazine from your left hip and push it
+in: loaded at once. X still reloads.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="turn" kind="choice" setting="vr.turn" label="TURNING:">
+			<help>How the right stick turns you: in steps, or
+continuously.</help>
+			<choice shown="SNAP" value="snap"/>
+			<choice shown="SMOOTH" value="smooth"/>
+		</row>
+		<row key="snap_turn_angle" kind="choice" setting="vr.snap_turn_angle" label="SNAP TURN ANGLE:">
+			<help>How far each snap turn turns you.</help>
+			<choice shown="15 DEGREES" value="15"/>
+			<choice shown="22.5 DEGREES" value="22.5"/>
+			<choice shown="30 DEGREES" value="30"/>
+			<choice shown="45 DEGREES" value="45"/>
+			<choice shown="60 DEGREES" value="60"/>
+			<choice shown="90 DEGREES" value="90"/>
+		</row>
+		<row key="smooth_turn_speed" kind="choice" setting="vr.smooth_turn_speed" label="SMOOTH TURN SPEED:">
+			<help>How fast smooth turning turns you, the stick
+pushed all the way: degrees a second.</help>
+			<choice shown="60 DEG/S" value="60"/>
+			<choice shown="90 DEG/S" value="90"/>
+			<choice shown="120 DEG/S" value="120"/>
+			<choice shown="150 DEG/S" value="150"/>
+			<choice shown="180 DEG/S" value="180"/>
+			<choice shown="240 DEG/S" value="240"/>
+			<choice shown="300 DEG/S" value="300"/>
+			<choice shown="360 DEG/S" value="360"/>
+		</row>
+		<row key="vehicle_view" kind="choice" setting="vr.vehicle_view" label="VEHICLE VIEW:">
+			<help>In a vehicle's seat, the view from your head, or
+the game's camera following the vehicle.</help>
+			<choice shown="FIRST PERSON" value="first_person"/>
+			<choice shown="THIRD PERSON" value="third_person"/>
+		</row>
+		<row key="death_view" kind="choice" setting="vr.death_view" label="DEATH VIEW:">
+			<help>As you die, the view stays where your head was
+(turned to your body in a blink), or the game's.</help>
+			<choice shown="FACE YOUR BODY" value="face"/>
+			<choice shown="STILL" value="still"/>
+			<choice shown="GAME'S CAMERA" value="game"/>
+		</row>
+		<row key="vr_display_screen" kind="link" label="HAND, HEIGHT, HUD..." open="main_menu/settings_select/player_setup/player_profile_edit/vr_display/vr_display_screen">
+			<help>The hand that holds the weapon, your height, the
+world's scale, the HUD, the menus, the resolution.</help>
+		</row>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/vr_display_screen" kind="settings" layout="options" spacing="24">
+		<row key="dominant_hand" kind="choice" setting="vr.dominant_hand" label="DOMINANT HAND:">
+			<help>The hand that holds the weapon. Left: mirrored,
+the holsters at your left, the magazines at your right.</help>
+			<choice shown="RIGHT" value="right"/>
+			<choice shown="LEFT" value="left"/>
+		</row>
+		<row key="swap_sticks" kind="choice" setting="vr.swap_sticks" label="SWAP STICKS:">
+			<help>Move with the right stick and turn with the left:
+by default, with the left hand dominant.</help>
+			<choice shown="AS THE HAND" value="auto"/>
+			<choice shown="NO" value="no"/>
+			<choice shown="YES" value="yes"/>
+		</row>
+		<row key="height" kind="choice" setting="vr.height" label="POSITION (RESTART):">
+			<help>Seated: your eyes where they are when you
+recentre. From the next time the game starts.</help>
+			<choice shown="SEATED" value="seated"/>
+			<choice shown="STANDING" value="standing"/>
+		</row>
+		<row key="player_height" kind="choice" setting="vr.player_height" label="EYE HEIGHT:">
+			<help>Standing, the height of your eyes above the
+floor.</help>
+			<choice shown="1.40 M" value="1.4"/>
+			<choice shown="1.45 M" value="1.45"/>
+			<choice shown="1.50 M" value="1.5"/>
+			<choice shown="1.55 M" value="1.55"/>
+			<choice shown="1.60 M" value="1.6"/>
+			<choice shown="1.65 M" value="1.65"/>
+			<choice shown="1.70 M" value="1.7"/>
+			<choice shown="1.75 M" value="1.75"/>
+			<choice shown="1.80 M" value="1.8"/>
+			<choice shown="1.85 M" value="1.85"/>
+			<choice shown="1.90 M" value="1.9"/>
+			<choice shown="1.95 M" value="1.95"/>
+			<choice shown="2.00 M" value="2"/>
+		</row>
+		<row key="world_scale" kind="choice" setting="vr.world_scale" label="WORLD SCALE:">
+			<help>How large the world looks: more than 1 makes it
+larger, and you smaller in it.</help>
+			<choice shown="0.75X" value="0.75"/>
+			<choice shown="0.8X" value="0.8"/>
+			<choice shown="0.9X" value="0.9"/>
+			<choice shown="1X" value="1"/>
+			<choice shown="1.1X" value="1.1"/>
+			<choice shown="1.2X" value="1.2"/>
+			<choice shown="1.25X" value="1.25"/>
+			<choice shown="1.5X" value="1.5"/>
+		</row>
+		<row key="hud_distance" kind="choice" setting="vr.hud_distance" label="HUD DISTANCE:">
+			<help>How far in front of your eyes the HUD is.</help>
+			<choice shown="1.0 M" value="1"/>
+			<choice shown="1.5 M" value="1.5"/>
+			<choice shown="2.0 M" value="2"/>
+			<choice shown="2.5 M" value="2.5"/>
+			<choice shown="3.0 M" value="3"/>
+			<choice shown="4.0 M" value="4"/>
+			<choice shown="5.0 M" value="5"/>
+		</row>
+		<row key="hud_size" kind="choice" setting="vr.hud_size" label="HUD SIZE:">
+			<help>How wide the HUD is, in degrees of your view.</help>
+			<choice shown="40 DEGREES" value="40"/>
+			<choice shown="50 DEGREES" value="50"/>
+			<choice shown="60 DEGREES" value="60"/>
+			<choice shown="70 DEGREES" value="70"/>
+			<choice shown="80 DEGREES" value="80"/>
+			<choice shown="90 DEGREES" value="90"/>
+			<choice shown="100 DEGREES" value="100"/>
+		</row>
+		<row key="menu_distance" kind="choice" setting="vr.menu_distance" label="MENU DISTANCE:">
+			<help>How far in front of you the menus are.</help>
+			<choice shown="1.5 M" value="1.5"/>
+			<choice shown="2.0 M" value="2"/>
+			<choice shown="2.5 M" value="2.5"/>
+			<choice shown="3.0 M" value="3"/>
+			<choice shown="3.5 M" value="3.5"/>
+			<choice shown="4.0 M" value="4"/>
+		</row>
+		<row key="menu_width" kind="choice" setting="vr.menu_width" label="MENU WIDTH:">
+			<help>How wide the menus are.</help>
+			<choice shown="1.6 M" value="1.6"/>
+			<choice shown="2.0 M" value="2"/>
+			<choice shown="2.3 M" value="2.3"/>
+			<choice shown="2.6 M" value="2.6"/>
+			<choice shown="3.0 M" value="3"/>
+			<choice shown="3.5 M" value="3.5"/>
+			<choice shown="4.0 M" value="4"/>
+		</row>
+		<row key="resolution_scale" kind="choice" setting="vr.resolution_scale" label="RESOLUTION (RESTART):">
+			<help>Of the size the headset recommends: less is
+faster, more sharper. From the next start.</help>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="60%" value="0.6"/>
+			<choice shown="75%" value="0.75"/>
+			<choice shown="90%" value="0.9"/>
+			<choice shown="100%" value="1"/>
+			<choice shown="110%" value="1.1"/>
+			<choice shown="125%" value="1.25"/>
+			<choice shown="150%" value="1.5"/>
+		</row>
+		<row key="refresh_rate" kind="choice" setting="vr.refresh_rate" label="REFRESH RATE (RESTART):">
+			<help>The headset's rate, if it offers it; the game
+draws a frame each refresh. From the next start.</help>
+			<choice shown="HEADSET'S" value="0"/>
+			<choice shown="72 HZ" value="72"/>
+			<choice shown="80 HZ" value="80"/>
+			<choice shown="90 HZ" value="90"/>
+			<choice shown="120 HZ" value="120"/>
+			<choice shown="144 HZ" value="144"/>
+		</row>
+		<row key="vr_visor_screen" kind="link" label="HUD AND VISOR..." open="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/vr_visor_screen">
+			<help>The HUD on your helmet's visor: its depths, its
+glass and glow, the helmet's rim, the shields' energy.</help>
+		</row>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/vr_visor_screen" kind="settings" layout="options" spacing="24">
+		<row key="hud" kind="choice" setting="vr.hud" label="HUD:">
+			<help>On your helmet's visor, curved about your eyes,
+or a flat screen before them.</help>
+			<choice shown="VISOR" value="visor"/>
+			<choice shown="FLAT" value="flat"/>
+		</row>
+		<row key="hud_depth" kind="choice" setting="vr.hud_depth" label="HUD DEPTH:">
+			<help>How far apart in depth the HUD's parts are: the
+tracker nearest, the waypoints farthest.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="0.5X" value="0.5"/>
+			<choice shown="0.75X" value="0.75"/>
+			<choice shown="1X" value="1"/>
+			<choice shown="1.25X" value="1.25"/>
+			<choice shown="1.5X" value="1.5"/>
+			<choice shown="2X" value="2"/>
+		</row>
+		<row key="hud_wrap" kind="choice" setting="vr.hud_wrap" label="HUD WRAP:">
+			<help>The HUD's corners turned out along the visor's
+curve, toward the edges of your view.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="100%" value="1"/>
+			<choice shown="150%" value="1.5"/>
+			<choice shown="200%" value="2"/>
+		</row>
+		<row key="hud_lag" kind="choice" setting="vr.hud_lag" label="HUD LAG:">
+			<help>How far the HUD trails your head's turns.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="20 MS" value="0.02"/>
+			<choice shown="30 MS" value="0.03"/>
+			<choice shown="50 MS" value="0.05"/>
+			<choice shown="80 MS" value="0.08"/>
+			<choice shown="120 MS" value="0.12"/>
+		</row>
+		<row key="hud_glow" kind="choice" setting="vr.hud_glow" label="HUD GLOW:">
+			<help>The HUD's glow on the visor's glass.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="25%" value="0.25"/>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="75%" value="0.75"/>
+			<choice shown="100%" value="1"/>
+		</row>
+		<row key="hud_glass" kind="choice" setting="vr.hud_glass" label="HUD ON GLASS:">
+			<help>The HUD as light on the glass: the world through
+it, the glass's tint, its bloom and reflection.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="25%" value="0.25"/>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="75%" value="0.75"/>
+			<choice shown="100%" value="1"/>
+		</row>
+		<row key="hud_react" kind="choice" setting="vr.hud_react" label="HUD REACTS:">
+			<help>More contrast in bright light, dimmer in the dark,
+a flicker as your shields are hit.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="25%" value="0.25"/>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="75%" value="0.75"/>
+			<choice shown="100%" value="1"/>
+		</row>
+		<row key="helmet_rim" kind="choice" setting="vr.helmet_rim" label="HELMET RIM:">
+			<help>The helmet's faceplate about the visor, at the
+edges of your view, in depth.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="25%" value="0.25"/>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="75%" value="0.75"/>
+			<choice shown="100%" value="1"/>
+		</row>
+		<row key="helmet_rim_depth" kind="choice" setting="vr.helmet_rim_depth" label="RIM DEPTH:">
+			<help>How far before your eyes the helmet's rim is.</help>
+			<choice shown="6 CM" value="0.06"/>
+			<choice shown="8 CM" value="0.08"/>
+			<choice shown="10 CM" value="0.1"/>
+			<choice shown="12 CM" value="0.12"/>
+			<choice shown="15 CM" value="0.15"/>
+			<choice shown="20 CM" value="0.2"/>
+		</row>
+		<row key="visor_frame" kind="choice" setting="vr.visor_frame" label="VISOR SHADE:">
+			<help>The helmet's shadow on the glass at the edges of
+your view, and the glass's faint gold.</help>
+			<choice shown="NONE" value="0"/>
+			<choice shown="20%" value="0.2"/>
+			<choice shown="40%" value="0.4"/>
+			<choice shown="60%" value="0.6"/>
+			<choice shown="80%" value="0.8"/>
+			<choice shown="100%" value="1"/>
+		</row>
+		<row key="visor_effects" kind="choice" setting="vr.visor_effects" label="SHIELD EFFECTS:">
+			<help>The shields on the glass: their energy, the red
+warning, the HUD's flicker as they break.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="visor_energy" kind="choice" setting="vr.visor_energy" label="SHIELD ENERGY:">
+			<help>How strong the shields' energy across the glass
+is, as they are hit and as they recharge.</help>
+			<choice shown="25%" value="0.25"/>
+			<choice shown="50%" value="0.5"/>
+			<choice shown="75%" value="0.75"/>
+			<choice shown="100%" value="1"/>
+			<choice shown="150%" value="1.5"/>
+			<choice shown="200%" value="2"/>
+		</row>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/vr_fit_check/vr_fit_check_screen" kind="settings" layout="options" spacing="28">
+		<row key="turn" kind="choice" setting="vr.turn" label="TURNING:">
+			<help>How the right stick turns you: in steps, or
+continuously.</help>
+			<choice shown="SNAP" value="snap"/>
+			<choice shown="SMOOTH" value="smooth"/>
+		</row>
+		<row key="snap_turn_angle" kind="choice" setting="vr.snap_turn_angle" label="SNAP TURN ANGLE:">
+			<help>How far each snap turn turns you.</help>
+			<choice shown="15 DEGREES" value="15"/>
+			<choice shown="22.5 DEGREES" value="22.5"/>
+			<choice shown="30 DEGREES" value="30"/>
+			<choice shown="45 DEGREES" value="45"/>
+			<choice shown="60 DEGREES" value="60"/>
+			<choice shown="90 DEGREES" value="90"/>
+		</row>
+		<row key="smooth_turn_speed" kind="choice" setting="vr.smooth_turn_speed" label="SMOOTH TURN SPEED:">
+			<help>How fast smooth turning turns you, the stick
+pushed all the way: degrees a second.</help>
+			<choice shown="60 DEG/S" value="60"/>
+			<choice shown="90 DEG/S" value="90"/>
+			<choice shown="120 DEG/S" value="120"/>
+			<choice shown="150 DEG/S" value="150"/>
+			<choice shown="180 DEG/S" value="180"/>
+			<choice shown="240 DEG/S" value="240"/>
+			<choice shown="300 DEG/S" value="300"/>
+			<choice shown="360 DEG/S" value="360"/>
+		</row>
+		<row key="comfort_vignette" kind="choice" setting="vr.comfort_vignette" label="COMFORT VIGNETTE:">
+			<help>The edges of your view dim a little as a vehicle
+turns you fast, speeds up or slows hard.</help>
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</row>
+		<row key="height" kind="choice" setting="vr.height" label="POSITION (RESTART):">
+			<help>Seated: your eyes where they are when you
+recentre. From the next time the game starts.</help>
+			<choice shown="SEATED" value="seated"/>
+			<choice shown="STANDING" value="standing"/>
+		</row>
+		<row key="player_height" kind="choice" setting="vr.player_height" label="EYE HEIGHT:">
+			<help>Standing, the height of your eyes above the
+floor.</help>
+			<choice shown="1.40 M" value="1.4"/>
+			<choice shown="1.45 M" value="1.45"/>
+			<choice shown="1.50 M" value="1.5"/>
+			<choice shown="1.55 M" value="1.55"/>
+			<choice shown="1.60 M" value="1.6"/>
+			<choice shown="1.65 M" value="1.65"/>
+			<choice shown="1.70 M" value="1.7"/>
+			<choice shown="1.75 M" value="1.75"/>
+			<choice shown="1.80 M" value="1.8"/>
+			<choice shown="1.85 M" value="1.85"/>
+			<choice shown="1.90 M" value="1.9"/>
+			<choice shown="1.95 M" value="1.95"/>
+			<choice shown="2.00 M" value="2"/>
+		</row>
+	</screen>
+	<screen name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/settings_search_screen" kind="settings" layout="search" geometry="tall" title="SEARCH">
+		<about>Finds a setting on any tab or page by its name, the words that explain it or one of its choices: VSYNC, FOV, BORDERLESS. Change it right there. Esc, or B, goes back to where you were.|Start typing on any Settings screen, or press Ctrl+F, / or a controller's Y.</about>
+		<row key="hint_0" kind="hint" label="radar tracker motion">
+			<help>The motion tracker is set for each game you host: Server Setup's INDICATOR OPTIONS.</help>
+		</row>
+		<button key="button_ok" kind="ok" run="port settings keep" help="Saves your changes, on every tab, and applies them."/>
+		<button key="button_back" kind="back" run="port settings search back" help="Clears the search and goes back to where you were. Your changes stay until OK."/>
+	</screen>
+</model>

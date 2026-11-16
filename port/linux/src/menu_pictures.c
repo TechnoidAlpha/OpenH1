@@ -6,8 +6,8 @@ sp_levels and mp_map_grafix: 140x114 in the top left of 256x128 frames)
 drawn again, sharp, from the player's own maps (menu_pictures.h).
 
 Each picture's pose (port/assets/pictures: a camera's place, numbers only)
-is rendered once by the game itself, in its own window, as its main menu
-first shows: "Preparing menu pictures" (port/linux/game/menu_pictures_render.c),
+is rendered once by the game itself, in its own window, as a phase of its
+start between the intro movie and the main menu: "Preparing menu pictures" (port/linux/game/menu_pictures_render.c),
 a map at a time, loaded the normal way, the scene set, one frame drawn and
 kept. This file is its platform half: which pictures are rendered and in
 what order (menu_pictures_wanted), each frame kept cut to the picture's
@@ -26,9 +26,10 @@ not one of the pose's: a modded map), or its render failed twice (a
 failure, or the game gone in the middle of one: each render is noted as a
 failure before it starts, and as rendered when it ends); and until it is
 ready. A pose or map changed, a larger
-screen (at the next start), or this file's version renders it again.
-Nothing is rendered in runs nobody watches (tests: debug.hidden_window,
-debug.exit_after...), in VR, or with display.menu_pictures off.
+screen (at the next start), its picture's file gone or cut short, or this
+file's version renders it again.
+Nothing is rendered in runs nobody watches (tests: menu_pictures_quiet_run), in
+VR, or with display.menu_pictures off.
 */
 
 #include "menu_pictures.h"
@@ -37,6 +38,7 @@ debug.exit_after...), in VR, or with display.menu_pictures off.
 #include "port_config.h"
 #include "xgpu.h"
 #include "xgpu_images.h"
+#include "memory/zlib/zlib.h"
 
 #include <SDL3/SDL.h>
 #include <errno.h>
@@ -52,8 +54,12 @@ int mkdir(const char *path, unsigned int mode);
 
 /* the cache's notes say which version of the rendering made them: a change
 of the rendering renders every picture again (3: drawn without mods, as
-the maps shipped: those drawn with mods before are drawn again) */
-#define MENU_PICTURES_VERSION 3
+the maps shipped: those drawn with mods before are drawn again; 4: made as
+a phase of the game's start, with the game to itself: the failures and the
+movie's frames of the passes run under the intro movie, issue 550, are made
+again; 5: the player's body removed, which the scripts' object_destroy had
+refused: a10's had the Master Chief in it, issue 881) */
+#define MENU_PICTURES_VERSION 5
 /* renders of a pose (for a map) that did not finish before the original is
 kept */
 #define MENU_PICTURE_FAILURES 2
@@ -78,9 +84,6 @@ int halo_vr_running(void);
 /* d3d8_device.c's: the frame being drawn's pixels so far (BGRA, rows from
 the top; malloc's), and its size */
 unsigned char *d3d8_back_buffer_read(unsigned long *width, unsigned long *height);
-/* the game's zlib (source/memory/zlib, data_compress.c's) */
-int compress2(unsigned char *destination, unsigned long *destination_size, const unsigned char *source,
-	unsigned long source_size, int level);
 
 /* ---------- the pure parts (tools/harness/tests/menu_pictures.c) */
 
@@ -238,6 +241,81 @@ int menu_picture_overdue(
 	if (now < pass_began || now < picture_began)
 		return 0;
 	return now - picture_began > MENU_PICTURE_TIME_BUDGET || now - pass_began > MENU_PICTURES_TIME_BUDGET;
+}
+
+/* the game's start, in order (main.c's main_startup_update): the intro
+movie (display.movies), if any, played to its end or skipped; then the menus'
+pictures, if any are to be made; then the main menu's menus and music. The
+phase after this one, given the main menu's map loaded, a movie open, and
+whether the pictures' pass has the game (menu_pictures_phase_exclusive); for
+_menu_pictures_startup_pictures from the intro the pass is begun, and with
+none to make the start goes on to the main menu */
+long menu_pictures_startup_next(
+	long phase,
+	int main_menu_loaded,
+	int movie_open,
+	int pass_exclusive)
+{
+	switch (phase)
+	{
+	case _menu_pictures_startup_intro:
+		return main_menu_loaded && !movie_open ? _menu_pictures_startup_pictures : phase;
+	case _menu_pictures_startup_pictures:
+		return pass_exclusive ? phase : _menu_pictures_startup_done;
+	default:
+		return _menu_pictures_startup_done;
+	}
+}
+
+/* whether the main menu's menus and music wait (ui_widget.c's
+main_screen_shell_load): through the intro, and while the pass has the game;
+not once the pass has asked for the main menu at its end */
+int menu_pictures_startup_holds_main_menu(
+	long phase,
+	int pass_exclusive)
+{
+	return phase == _menu_pictures_startup_intro || (phase == _menu_pictures_startup_pictures && pass_exclusive);
+}
+
+/* whether the pass has the game to itself (running, and not yet ended: the
+main menu asked for): the map loader, the copy of a map's file into the
+cache and the texture cache's spare memory it takes are the pass's alone, no
+movie starts (bink_playback.c: a movie takes that memory too, and draws
+over the pass's frames), and the main menu's menus are not loaded */
+int menu_pictures_phase_exclusive(
+	int running,
+	int ended)
+{
+	return running && !ended;
+}
+
+static unsigned long picture_be32(unsigned char const *bytes)
+{
+	return (unsigned long)bytes[0] << 24 | (unsigned long)bytes[1] << 16 | (unsigned long)bytes[2] << 8 | bytes[3];
+}
+
+/* whether a cached picture's file, by its first and last bytes, is a whole
+PNG of this size: its signature and header, and its end chunk last (a file
+cut short, of another size, or not a PNG is not; its note's picture is
+rendered again) */
+int menu_picture_png_whole(
+	unsigned char const *head,
+	unsigned long head_size,
+	unsigned char const *tail,
+	unsigned long tail_size,
+	unsigned long width,
+	unsigned long height)
+{
+	static unsigned char const signature[16] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 13, 'I', 'H',
+		'D', 'R' };
+	static unsigned char const end[12] = { 0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xAE, 0x42, 0x60, 0x82 };
+
+	if (head_size < 24 || tail_size < 12 || memcmp(head, signature, sizeof(signature)) != 0 ||
+		memcmp(tail + tail_size - 12, end, sizeof(end)) != 0)
+	{
+		return 0;
+	}
+	return picture_be32(head + 16) == width && picture_be32(head + 20) == height;
 }
 
 static char const *const menu_picture_result_names[] = { "none", "rendered", "failed", "modded" };
@@ -734,6 +812,43 @@ static unsigned char *picture_chunk(unsigned char *out, char const *type, unsign
 	return out + 12 + size;
 }
 
+/* the game's zlib's deflate with the C library's allocator: its compress2
+allocates with the game's own, which only the game's thread may call, and
+the pictures are written on their own (picture_finish_thread). The same
+deflate as compress2's, so the same bytes */
+static voidpf picture_zalloc(voidpf opaque, uInt items, uInt size)
+{
+	(void)opaque;
+	return calloc(items, size);
+}
+
+static void picture_zfree(voidpf opaque, voidpf address)
+{
+	(void)opaque;
+	free(address);
+}
+
+static int picture_deflate(unsigned char *destination, unsigned long *destination_size, const unsigned char *source,
+	unsigned long source_size, int level)
+{
+	z_stream stream;
+	int result;
+
+	memset(&stream, 0, sizeof(stream));
+	stream.zalloc = picture_zalloc;
+	stream.zfree = picture_zfree;
+	if (deflateInit(&stream, level) != Z_OK)
+		return -1;
+	stream.next_in = (Bytef *)source;
+	stream.avail_in = (uInt)source_size;
+	stream.next_out = destination;
+	stream.avail_out = (uInt)*destination_size;
+	result = deflate(&stream, Z_FINISH);
+	*destination_size = stream.total_out;
+	deflateEnd(&stream);
+	return result == Z_STREAM_END ? 0 : -1;
+}
+
 static int picture_png_write(char const *path, unsigned char const *rgba, unsigned long width, unsigned long height)
 {
 	unsigned long stride = width * 4, raw_size = height * (stride + 1);
@@ -750,7 +865,7 @@ static int picture_png_write(char const *path, unsigned char const *rgba, unsign
 			raw[row * (stride + 1)] = 0;
 			memcpy(raw + row * (stride + 1) + 1, rgba + row * stride, stride);
 		}
-		if (compress2(png + 8 + 25 + 8, &packed_size, raw, raw_size, 6) == 0)
+		if (picture_deflate(png + 8 + 25 + 8, &packed_size, raw, raw_size, 1) == 0)
 		{
 			memcpy(png, "\x89PNG\r\n\x1a\n", 8);
 			header[0] = (unsigned char)(width >> 24);
@@ -784,15 +899,18 @@ static int picture_enabled(void)
 		!config_boolean("debug.null_renderer") && !halo_server_mode();
 }
 
-/* runs nobody watches (tests), and those whose first screen is not the
+/* runs nobody watches (tests: timed, scripted, driven through the script
+console, recorded or measured), and those whose first screen is not the
 main menu's: nothing rendered */
-static int picture_quiet_run(void)
+int menu_pictures_quiet_run(void)
 {
 	if (config_boolean("debug.menu_pictures"))
 		return 0;
 	return config_boolean("debug.hidden_window") || config_real("debug.exit_after") > 0.0 ||
 		config_string("debug.network_test")[0] || config_string("debug.test_input")[0] ||
-		config_boolean("debug.fixed_step") || config_string("debug.menu_open")[0]
+		config_boolean("debug.fixed_step") || config_string("debug.menu_open")[0] ||
+		config_boolean("debug.telnet_console") || config_integer("debug.screenshot_every") > 0 ||
+		config_boolean("debug.load_trace")
 #ifdef HALO_VR
 		|| halo_vr_running()
 #endif
@@ -856,6 +974,27 @@ static void picture_load(long pose)
 	pthread_attr_destroy(&attributes);
 }
 
+/* whether a pose's cached picture is a whole PNG of a scale's size
+(menu_picture_png_whole) */
+static int picture_file_whole(long pose, long scale)
+{
+	char path[1100];
+	unsigned char head[24], tail[12];
+	FILE *file;
+	int whole;
+
+	picture_path(path, sizeof(path), pose, "png");
+	file = fopen(path, "rb");
+	if (!file)
+		return 0;
+	whole = fread(head, 1, sizeof(head), file) == sizeof(head) && fseek(file, -(long)sizeof(tail), SEEK_END) == 0 &&
+		fread(tail, 1, sizeof(tail), file) == sizeof(tail) &&
+		menu_picture_png_whole(head, sizeof(head), tail, sizeof(tail),
+			(unsigned long)(MENU_PICTURE_FRAME_WIDTH * scale), (unsigned long)(MENU_PICTURE_FRAME_HEIGHT * scale));
+	fclose(file);
+	return whole;
+}
+
 /* a pose's picture found: the map's checksum, the note, and so whether it
 is drawn, and rendered */
 static void picture_check(long pose)
@@ -869,6 +1008,18 @@ static void picture_check(long pose)
 	pthread_mutex_unlock(&menu_pictures.lock);
 	state->decision = menu_picture_decide(&menu_picture_poses[pose], state->map_checksum,
 		state->noted ? &state->note : NULL, menu_pictures.wanted_scale);
+	/* (noted as rendered, but its picture gone or damaged: not rendered,
+	as far as its note goes; tried again, up to a point) */
+	if ((state->decision & (1UL << _menu_picture_use_bit)) && !picture_file_whole(pose, state->note.scale))
+	{
+		platform_log("menu pictures: %s's picture is missing or damaged: it is rendered again",
+			menu_picture_poses[pose].name);
+		pthread_mutex_lock(&menu_pictures.lock);
+		state->note.result = _menu_picture_none;
+		pthread_mutex_unlock(&menu_pictures.lock);
+		state->decision = menu_picture_decide(&menu_picture_poses[pose], state->map_checksum, &state->note,
+			menu_pictures.wanted_scale);
+	}
 	if (state->decision & (1UL << _menu_picture_use_bit))
 		picture_load(pose);
 }
@@ -892,9 +1043,33 @@ long menu_pictures_wanted(
 		picture_check(pose);
 		decisions[pose] = menu_pictures.pictures[pose].decision;
 	}
-	if (picture_quiet_run())
+	if (menu_pictures_quiet_run())
 		return 0;
 	return menu_picture_order(menu_picture_poses, picture_count(), decisions, poses, maximum);
+}
+
+long menu_pictures_maps(
+	long *poses,
+	long maximum)
+{
+	long pose, count = 0, other, index;
+
+	if (!menu_pictures.started || !picture_enabled() || menu_pictures_quiet_run())
+		return 0;
+	for (pose = 0; pose < picture_count() && count < maximum; pose++)
+	{
+		struct menu_picture_pose const *picture = &menu_picture_poses[pose];
+		int made_for = 0;
+
+		for (index = 0; index < picture->checksum_count && index < MAXIMUM_MENU_PICTURE_CHECKSUMS; index++)
+			made_for |= menu_pictures.pictures[pose].map_checksum && picture->checksums[index] ==
+				menu_pictures.pictures[pose].map_checksum;
+		for (other = 0; other < count && strcmp(menu_picture_poses[poses[other]].map, picture->map); other++)
+			;
+		if (made_for && other == count)
+			poses[count++] = pose;
+	}
+	return count;
 }
 
 long menu_pictures_scale(void)
@@ -1006,43 +1181,61 @@ void menu_pictures_render_given_up(
 	platform_log("menu pictures: %s %s: given up, the original is drawn", menu_picture_poses[pose].name, why);
 }
 
-int menu_pictures_render_kept(
-	long pose)
+/* a kept frame's picture made from its pixels: cut, its colours matched,
+framed, written and noted, then drawn; else its render failed (the
+finisher's: picture_finish_thread) */
+struct picture_finish_job
 {
-	unsigned long width = 0, height = 0;
-	unsigned char *bgra = d3d8_back_buffer_read(&width, &height);
+	long pose, scale;
+	unsigned char *bgra;
+	unsigned long width, height;
+	/* (when the frame was read, and how long that took, for the log) */
+	Uint64 read_at;
+	double read_milliseconds;
+	struct picture_finish_job *next;
+};
+
+static void picture_finish(struct picture_finish_job *job)
+{
+	long pose = job->pose, scale = job->scale;
 	struct menu_picture_state *state = &menu_pictures.pictures[pose];
 	struct menu_picture_pose const *picture = &menu_picture_poses[pose];
-	long scale = menu_pictures.wanted_scale;
 	unsigned long picture_width = (unsigned long)(MENU_PICTURE_WIDTH * scale);
 	unsigned long picture_height = (unsigned long)(MENU_PICTURE_HEIGHT * scale);
 	unsigned long frame_width = (unsigned long)(MENU_PICTURE_FRAME_WIDTH * scale);
 	unsigned long frame_height = (unsigned long)(MENU_PICTURE_FRAME_HEIGHT * scale);
 	unsigned char *cut = malloc(picture_width * picture_height * 4);
 	unsigned char *frame = malloc(frame_width * frame_height * 4);
+	Uint64 began = SDL_GetTicksNS(), cut_at = 0, framed_at = 0, written_at = 0;
 	struct menu_picture_note note;
 	char path[1100];
 	int written = 0;
 
-	if (bgra && cut && frame && menu_picture_cut(bgra, width, height, picture->aspect, cut, picture_width, picture_height))
+	if (cut && frame && menu_picture_cut(job->bgra, job->width, job->height, picture->aspect, cut, picture_width,
+		picture_height))
 	{
+		cut_at = SDL_GetTicksNS();
 		if (picture->colour_curve && state->original)
 			menu_picture_colour_curve(cut, picture_width * picture_height, state->original,
 				MENU_PICTURE_WIDTH * MENU_PICTURE_HEIGHT);
 		menu_picture_frame(cut, picture_width, picture_height, frame, frame_width, frame_height);
+		framed_at = SDL_GetTicksNS();
 		picture_path(path, sizeof(path), pose, "png");
 		written = picture_png_write(path, frame, frame_width, frame_height);
-		platform_log("menu pictures: %s, %lux%lu from a %lux%lu frame%s: %s", picture->name, picture_width,
-			picture_height, width, height, picture->colour_curve ? (state->original ? ", colours matched" :
-			", colours not matched (no original)") : "", written ? path : "not written");
+		written_at = SDL_GetTicksNS();
+		platform_log("menu pictures: %s, %lux%lu from a %lux%lu frame%s: %s (read %.1f ms, waited %.1f, cut %.1f, "
+			"colours and frame %.1f, written %.1f)", picture->name, picture_width, picture_height, job->width,
+			job->height, picture->colour_curve ? (state->original ? ", colours matched" :
+			", colours not matched (no original)") : "", written ? path : "not written", job->read_milliseconds,
+			(began - job->read_at) / 1e6, (cut_at - began) / 1e6, (framed_at - cut_at) / 1e6,
+			(written_at - framed_at) / 1e6);
 	}
 	free(cut);
-	free(bgra);
 	if (!written)
 	{
 		free(frame);
 		menu_pictures_render_failed(pose, "was not written");
-		return 0;
+		return;
 	}
 	note = state->noted_before ? state->note_before : (struct menu_picture_note){ 0 };
 	menu_picture_note_begin(&note, picture, state->map_checksum, scale);
@@ -1051,7 +1244,7 @@ int menu_pictures_render_kept(
 	{
 		free(frame);
 		platform_log("menu pictures: cannot write the note of %s", picture->name);
-		return 0;
+		return;
 	}
 	state->rendering = 0;
 	/* (drawn at once: the preparing screen's, then the menus') */
@@ -1061,6 +1254,113 @@ int menu_pictures_render_kept(
 	state->decision = 1UL << _menu_picture_use_bit;
 	pthread_mutex_unlock(&menu_pictures.lock);
 	picture_pixels_set(pose, frame, frame_width, frame_height, scale);
+}
+
+/* The kept frames' pictures are made on a thread of their own, in the
+order they were kept, while the pass goes on to the next map: the game's
+thread only reads the frame back (the GPU's work, waited for), and the
+main menu waits for the last (menu_pictures_render_finished). Each picture
+is made from its own frame's pixels as it was on the game's thread, so the
+files are the same. */
+static struct
+{
+	pthread_mutex_t lock;
+	pthread_cond_t changed;
+	struct picture_finish_job *first, *last;
+	/* jobs queued and not yet finished; the thread is running */
+	long pending;
+	int running;
+} picture_finisher = { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, NULL, NULL, 0, 0 };
+
+static void *picture_finish_thread(void *unused)
+{
+	(void)unused;
+	pthread_mutex_lock(&picture_finisher.lock);
+	for (;;)
+	{
+		struct picture_finish_job *job;
+
+		while (!picture_finisher.first)
+			pthread_cond_wait(&picture_finisher.changed, &picture_finisher.lock);
+		job = picture_finisher.first;
+		picture_finisher.first = job->next;
+		if (!picture_finisher.first)
+			picture_finisher.last = NULL;
+		pthread_mutex_unlock(&picture_finisher.lock);
+		picture_finish(job);
+		free(job->bgra);
+		free(job);
+		pthread_mutex_lock(&picture_finisher.lock);
+		picture_finisher.pending--;
+		pthread_cond_broadcast(&picture_finisher.changed);
+	}
+	return NULL;
+}
+
+/* a job handed to the finisher (started the first time); else, without
+one, made here */
+static void picture_finish_queue(struct picture_finish_job *job)
+{
+	pthread_mutex_lock(&picture_finisher.lock);
+	if (!picture_finisher.running)
+	{
+		pthread_t thread;
+		pthread_attr_t attributes;
+
+		pthread_attr_init(&attributes);
+		pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+		picture_finisher.running = pthread_create(&thread, &attributes, picture_finish_thread, NULL) == 0;
+		pthread_attr_destroy(&attributes);
+	}
+	if (!picture_finisher.running)
+	{
+		pthread_mutex_unlock(&picture_finisher.lock);
+		picture_finish(job);
+		free(job->bgra);
+		free(job);
+		return;
+	}
+	job->next = NULL;
+	if (picture_finisher.last)
+		picture_finisher.last->next = job;
+	else
+		picture_finisher.first = job;
+	picture_finisher.last = job;
+	picture_finisher.pending++;
+	pthread_cond_broadcast(&picture_finisher.changed);
+	pthread_mutex_unlock(&picture_finisher.lock);
+}
+
+void menu_pictures_render_finished(void)
+{
+	pthread_mutex_lock(&picture_finisher.lock);
+	while (picture_finisher.pending > 0)
+		pthread_cond_wait(&picture_finisher.changed, &picture_finisher.lock);
+	pthread_mutex_unlock(&picture_finisher.lock);
+}
+
+int menu_pictures_render_kept(
+	long pose)
+{
+	unsigned long width = 0, height = 0;
+	Uint64 began = SDL_GetTicksNS();
+	unsigned char *bgra = d3d8_back_buffer_read(&width, &height);
+	struct picture_finish_job *job = bgra ? calloc(1, sizeof(*job)) : NULL;
+
+	if (!job)
+	{
+		free(bgra);
+		menu_pictures_render_failed(pose, "was not written");
+		return 0;
+	}
+	job->pose = pose;
+	job->scale = menu_pictures.wanted_scale;
+	job->bgra = bgra;
+	job->width = width;
+	job->height = height;
+	job->read_at = SDL_GetTicksNS();
+	job->read_milliseconds = (job->read_at - began) / 1e6;
+	picture_finish_queue(job);
 	return 1;
 }
 

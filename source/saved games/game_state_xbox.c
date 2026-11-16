@@ -100,7 +100,9 @@ symbols in this file:
 #include "interface/player_ui.h"
 #include "memory/crc.h"
 #include "saved games/game_state.h"
+#include "saved games/player_profile.h" /* port: game_state_persistent_storage_file_expected */
 #include "sound/sound_manager.h"
+#include "../../port/linux/src/saved_game_writer.h" /* port: port/linux/src/saved_game_writer.c */
 #include <xtl.h>
 
 /* ---------- constants */
@@ -148,6 +150,15 @@ static HANDLE game_state_open_persistent_storage(
 /* ---------- globals */
 
 static struct xbox_game_state_globals_prefix xbox_game_state_globals = { 0 };
+
+/* port: the checkpoint's image, the part of the game state in use
+(game_state_image_take), which the writer's thread writes to the file
+(saved_game_writer.c); kept for the next, and the revert's read */
+static struct
+{
+	void *image;
+	long size;
+} game_state_file_image = { 0 };
 
 /* ---------- public code */
 
@@ -230,14 +241,17 @@ void game_state_create_or_open_file(
 		87,
 		!xbox_game_state_globals.file_open);
 
+	/* port: the file is written whole beside itself and renamed over it
+	(saved_game_writer.c), and read by a handle of its own: none is kept
+	open, nor is the file made the game state's size (a checkpoint holds
+	the part of it in use). Whether it can be made is checked, as before */
 	xbox_game_state_globals.handle = CreateFileA("z:\\savegame.bin",
 		GENERIC_READ|GENERIC_WRITE, 0, NULL, OPEN_ALWAYS,
 		FILE_FLAG_NO_BUFFERING|FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-	if (xbox_game_state_globals.handle != INVALID_HANDLE_VALUE &&
-		SetFilePointer(xbox_game_state_globals.handle, GAME_STATE_FILE_SIZE, NULL,
-			FILE_BEGIN) != INVALID_SET_FILE_POINTER &&
-		SetEndOfFile(xbox_game_state_globals.handle))
+	if (xbox_game_state_globals.handle != INVALID_HANDLE_VALUE)
 	{
+		CloseHandle(xbox_game_state_globals.handle);
+		xbox_game_state_globals.handle = INVALID_HANDLE_VALUE;
 		xbox_game_state_globals.file_open = TRUE;
 	}
 	else
@@ -260,17 +274,54 @@ void game_state_close_file(
 		"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
 		106,
 		xbox_game_state_globals.file_open);
-	CloseHandle(xbox_game_state_globals.handle);
+	/* port: the last checkpoint written first */
+	game_state_write_wait();
 	xbox_game_state_globals.file_open = FALSE;
 
 	return;
 }
 
+/* port: the image of the last checkpoint written (saved_game_writer.c),
+before the next is taken or the file read: FALSE if the write failed */
+boolean game_state_write_wait(
+	void)
+{
+	int error = saved_game_writer_wait();
+
+	if (error && xbox_game_state_globals.file_valid_for_read)
+	{
+		xbox_game_state_globals.file_valid_for_read = FALSE;
+		match_vassert(
+			"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
+			132,
+			FALSE,
+			csprintf(temporary, "couldn't write saved game file (#%d)", error));
+	}
+
+	return !error;
+}
+
+/* port: room for an image of the size (the checkpoint's, kept), or NULL */
+static void *game_state_file_image_reserve(
+	long size)
+{
+	if (game_state_file_image.size != size)
+	{
+		if (game_state_file_image.image)
+			free(game_state_file_image.image);
+		game_state_file_image.image = malloc(size);
+		game_state_file_image.size = game_state_file_image.image ? size : 0;
+	}
+
+	return game_state_file_image.image;
+}
+
 boolean game_state_write_to_file(
 	void)
 {
-	unsigned long bytes_written;
 	boolean result = FALSE;
+	long size;
+	void *image;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
@@ -281,12 +332,16 @@ boolean game_state_write_to_file(
 		121,
 		xbox_game_state_globals.file_open);
 
-	if (SetFilePointer(xbox_game_state_globals.handle, 0, NULL, FILE_BEGIN) !=
-			INVALID_SET_FILE_POINTER &&
-		WriteFile(xbox_game_state_globals.handle, xbox_game_state_globals.buffer,
-			xbox_game_state_globals.buffer_size, &bytes_written, NULL) &&
-		bytes_written == xbox_game_state_globals.buffer_size)
+	/* port: the part of the game state in use copied, and written to the
+	file on the writer's thread (saved_game_writer.c), not here in the
+	middle of a frame; the copy is free once the last write is done */
+	game_state_write_wait();
+	size = game_state_image_size();
+	image = game_state_file_image_reserve(size);
+	if (image)
 	{
+		game_state_image_take(image);
+		saved_game_writer_begin("z:\\savegame.bin", image, size);
 		xbox_game_state_globals.file_valid_for_read = TRUE;
 		result = TRUE;
 	}
@@ -296,7 +351,7 @@ boolean game_state_write_to_file(
 			"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
 			132,
 			FALSE,
-			csprintf(temporary, "couldn't write saved game file (#%d)", GetLastError()));
+			csprintf(temporary, "couldn't write saved game file (no memory for its image)"));
 	}
 
 	return result;
@@ -305,9 +360,11 @@ boolean game_state_write_to_file(
 boolean game_state_read_from_file(
 	void)
 {
+	HANDLE file;
+	unsigned long size = 0;
 	unsigned long bytes_read;
 	boolean result = FALSE;
-	void *image;
+	void *image = NULL;
 
 	match_assert(
 		"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
@@ -317,20 +374,30 @@ boolean game_state_read_from_file(
 		"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
 		145,
 		xbox_game_state_globals.file_open);
+	/* port: the last checkpoint written first */
+	game_state_write_wait();
 	match_assert(
 		"c:\\halo\\SOURCE\\saved games\\game_state_xbox.c",
 		146,
 		xbox_game_state_globals.file_valid_for_read || recover_saved_games_hack);
 
-	/* port: read beside the game state, and taken once checked */
-	image = malloc(xbox_game_state_globals.buffer_size);
+	/* port: read beside the game state, and taken once checked: an image
+	of the part in use, or (an older build's file, recover_saved_games_hack)
+	of the whole game state */
+	file = CreateFileA("z:\\savegame.bin", GENERIC_READ, 0, NULL, OPEN_EXISTING,
+		FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+	if (file != INVALID_HANDLE_VALUE)
+	{
+		size = GetFileSize(file, NULL);
+		if (size == (unsigned long)game_state_image_size())
+			image = game_state_file_image_reserve(size);
+		else if (size == GAME_STATE_FILE_SIZE)
+			image = malloc(size);
+	}
 	if (image &&
-		SetFilePointer(xbox_game_state_globals.handle, 0, NULL, FILE_BEGIN) !=
-			INVALID_SET_FILE_POINTER &&
-		ReadFile(xbox_game_state_globals.handle, image,
-			xbox_game_state_globals.buffer_size, &bytes_read, NULL) &&
-		bytes_read == xbox_game_state_globals.buffer_size &&
-		game_state_image_accept(image, xbox_game_state_globals.buffer_size))
+		ReadFile(file, image, size, &bytes_read, NULL) &&
+		bytes_read == size &&
+		game_state_image_accept(image, size))
 	{
 		result = TRUE;
 	}
@@ -342,7 +409,10 @@ boolean game_state_read_from_file(
 			FALSE,
 			csprintf(temporary, "couldn't read saved game file (#%d)", GetLastError()));
 	}
-	free(image);
+	if (image && image != game_state_file_image.image)
+		free(image);
+	if (file != INVALID_HANDLE_VALUE)
+		CloseHandle(file);
 
 	return result;
 }
@@ -445,6 +515,33 @@ static __inline boolean game_state_get_persistent_storage_path(
 	result = player_ui_get_path_to_local_player_profile_directory(0, path) != FALSE;
 
 	return result;
+}
+
+/* port: the persistent storage's file (its check on a thread, ahead of the
+menus that ask for it: port/linux/src/saved_game_check.c) */
+boolean game_state_persistent_storage_file(
+	char *path)
+{
+	if (!game_state_get_persistent_storage_path(path))
+		return FALSE;
+	strcat(path, game_state_get_persistent_storage_filename());
+	return TRUE;
+}
+
+/* port: ...and the one it will be: the main menu has no player yet until
+one presses a button, and then the profile used last is the player's */
+boolean game_state_persistent_storage_file_expected(
+	char *path)
+{
+	long profile_index;
+
+	if (game_state_persistent_storage_file(path))
+		return TRUE;
+	profile_index = player_ui_get_player1_last_used_profile_index();
+	if (profile_index == NONE || !player_profile_get_enclosing_directory_path(profile_index, path))
+		return FALSE;
+	strcat(path, game_state_get_persistent_storage_filename());
+	return TRUE;
 }
 
 static void delete_persistent_storage(

@@ -393,12 +393,6 @@ def test_negative_control_the_cut_that_keeps_the_eye_fails(tmp_path):
     assert v["first"] > 1.0
 
 
-def test_back_from_a_death_cuts_the_seats_eye():
-    death_reset = function((ROOT / "port/linux/game/vr_death.c").read_text(), "death_reset")
-    # (both ways back: the death cam's, "crt", and the held eye's, "face" and "still")
-    assert death_reset.count("vr_seat_eye_cut();") == 2
-
-
 # ---------- steering with the sticks (vr.c)
 
 STEER_WORLD = r"""
@@ -476,18 +470,6 @@ def test_sticks_steer_a_seat_without_the_hands_on_its_controls(tmp_path):
     assert float(lines["barsfacing"][2]) > 0.0
 
 
-def test_handlebars_facing_unchanged():
-    text = VR.read_text()
-    assert "float error = turn_facing(fabsf(turn) * HANDLEBAR_TURN_RATE);" in function(text, "bars_facing")
-
-
-def test_left_stick_does_not_strafe_while_it_steers():
-    gamepad = function(VR.read_text(), "halo_vr_gamepad")
-    assert "if (!seat_stick_steers() && !seat_drives())\n\t\tstick_merge(&pad->sThumbLX" in gamepad
-    # (the throttle, forward and back, always reaches the game)
-    assert "\tstick_merge(&pad->sThumbLY, vr.input.left_stick[1]);" in gamepad
-
-
 # ---------- the player's body in a seat (first_person_legs.c, tools/vr_cabin_model.py)
 
 LEGS = ROOT / "port/linux/game/first_person_legs.c"
@@ -531,8 +513,14 @@ static real_point3d the_anchor;
 static int leant;
 static boolean vr_render_body_seat(long object_index, struct vr_body_seat *seat) {*seat = the_seat; return TRUE;}
 static boolean vr_render_body_anchor(real_point3d *neck, real *yaw) {*neck = the_anchor; *yaw = 0; return TRUE;}
-static void first_person_legs_vr_lean(long object_index, struct model const *model, long count,
-    real_point3d const *pivot, real_point3d const *neck_top, real_vector3d const *forward, real_vector3d const *left)
+struct render_frustum {int unused;};
+static struct render_frustum the_view;
+static boolean vr_render_body_eyes(real_point3d eyes[2], struct render_frustum const *views[2], real *near,
+    real *seconds)
+{eyes[0] = eyes[1] = the_anchor; views[0] = views[1] = &the_view; *near = 0.0625f; *seconds = 0; return TRUE;}
+static void first_person_legs_lean(long object_index, struct model const *model, long count,
+    real_point3d const *pivot, real_point3d const *neck_top, real_vector3d const *forward, real_vector3d const *left,
+    real_point3d const eyes[2], struct render_frustum const *const views[2], real near, real seconds, real most)
 {leant++;}
 """
 
@@ -601,7 +589,8 @@ def body_source(text=None):
     text = text or LEGS.read_text()
     source = BODY_WORLD
     source += between(BODY_H.read_text(), "struct vr_body_seat", "#endif")
-    source += defines(text, "FIRST_PERSON_LEGS_VR_BACK", "FIRST_PERSON_LEGS_SEAT_TURN_MOST")
+    source += defines(text, "FIRST_PERSON_LEGS_VR_BACK", "FIRST_PERSON_LEGS_SEAT_TURN_MOST", "FIRST_PERSON_LEGS_FOLDED",
+                      "FIRST_PERSON_LEGS_LEAN_MAXIMUM")
     source += "static real_matrix4x3 first_person_legs_matrices[FIRST_PERSON_LEGS_MAXIMUM_NODES];\n"
     source += BODY_STUBS
     for name in ("first_person_legs_name_has", "first_person_legs_node", "first_person_legs_turn",

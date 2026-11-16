@@ -32,7 +32,7 @@ final class VulkanSupport {
             return;
         }
         new AlertDialog.Builder(activity)
-            .setTitle("OpenH1 cannot run on this device")
+            .setTitle("GOAT H1 cannot run on this device")
             .setMessage("The game draws with Vulkan 1.3, which this device's graphics driver does not have.\n\n"
                 + "Most phones from about 2021 on have it, once their system updates are installed. If an "
                 + "update for this device is offered, install it and try again.")

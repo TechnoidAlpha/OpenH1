@@ -35,6 +35,8 @@ def test_frame_limit_holds_while_pressing(tmp_path):
     shutil.copy2(GAME, run / "halo")
     for library in GAME.parent.glob("lib*.so*"):
         shutil.copy2(library, run / library.name)
+    # (the assets' file the game reads beside it: embedded_assets.h)
+    shutil.copy2(GAME.parent / "openh1.assets", run / "openh1.assets")
     environment = {key: value for key, value in os.environ.items() if not key.startswith(("HALO_", "SDL_"))}
     environment.update(HOME=str(run), XDG_RUNTIME_DIR=str(run / "runtime"), HALO_DATA_ROOT=str(run),
                        HALO_SAVE_ROOT=str(run / "save"), HALO_NET_ONLINE="false", HALO_NO_CLIPBOARD="1",

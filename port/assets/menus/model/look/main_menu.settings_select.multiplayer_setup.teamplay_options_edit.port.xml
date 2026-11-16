@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.teamplay_options_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_force_team_spawns" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/force_team_spawns_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/force_team_spawns_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/force_team_spawns_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/force_team_spawns_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_force_team_spawns"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_mode" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_mode_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_mode_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_mode_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_mode_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_voice_mode"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_lobby" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_voice_lobby"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_kbps" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_kbps_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_kbps_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_kbps_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_kbps_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_voice_kbps"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_proximity" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_proximity_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_proximity_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_proximity_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_proximity_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_voice_proximity"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_votekick" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/votekick_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/votekick_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/votekick_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/votekick_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_votekick"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_text_chat" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/text_chat_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/text_chat_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/text_chat_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="9"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/text_chat_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_text_chat"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_pings" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/pings_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/pings_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/pings_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_labels" index="10"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/pings_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/var_pings"/>
+	</look>
+</model>

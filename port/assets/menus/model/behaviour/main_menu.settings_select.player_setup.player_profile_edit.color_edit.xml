@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.color_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_button_ok">
+		<on event="a" run="emit custom activation event"/>
+		<on event="start" run="emit custom activation event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_list_2" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="color picker menu initialize"/>
+		<on event="deleted" run="color picker menu dispose"/>
+		<on event="custom_activation" run="color picker select color" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_screen" flags="pass_unhandled_to_focused_child pause_game"/>
+</model>

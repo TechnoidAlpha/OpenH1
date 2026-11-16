@@ -149,7 +149,7 @@ enum release_verdict release_check_keys(const char *sums, int sums_size, const c
 		}
 		if (index == key_count)
 		{
-			release_error(error, error_size, "its SHA256SUMS is not signed by OpenH1's release key");
+			release_error(error, error_size, "its SHA256SUMS is not signed by GOAT H1's release key");
 			return _release_refused;
 		}
 		verdict = _release_signed;

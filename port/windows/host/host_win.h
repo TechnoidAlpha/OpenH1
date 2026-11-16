@@ -140,5 +140,8 @@ const char *host_executable_path(void);
 /* the high-resolution sleep of the calling thread, in nanoseconds (the
 guest's nanosleep, and the host's) */
 void host_sleep_nanoseconds(uint64_t nanoseconds);
+/* a sleep until a time of CLOCK_MONOTONIC (nanoseconds), on time: the
+frames' limit's (host_windows_sleep_until) */
+void host_sleep_until_nanoseconds(uint64_t deadline);
 
 #endif

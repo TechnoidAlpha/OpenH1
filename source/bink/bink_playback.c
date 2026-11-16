@@ -383,6 +383,9 @@ static void __stdcall bink_free(
 	void *memory);
 void bink_decompress_audio_frame(
 	void);
+/* port: port/linux/game/menu_pictures_render.c */
+int menu_pictures_exclusive(
+	void);
 static void bink_draw_frame(
 	void);
 static boolean bink_query_analog_controller_buttons(
@@ -516,6 +519,11 @@ void bink_playback_start(
 	if (!bink_globals.initialized)
 		return;
 	if (cache_files_precache_in_progress())
+		return;
+	/* port: nor while the menus' pictures are made (port/linux/game/
+	menu_pictures_render.c): the pass has the texture cache's spare memory,
+	which a movie takes, and the screen, which a movie draws over */
+	if (menu_pictures_exclusive())
 		return;
 
 	match_dassert(

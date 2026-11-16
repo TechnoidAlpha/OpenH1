@@ -1,0 +1,62 @@
+#!/usr/sbin/nft -f
+# net.goath1.com's firewall (installed as /etc/nftables.d/goath1.nft, loaded
+# by /etc/nftables.conf). A table of its own, so that Tailscale's
+# (iptables-nft's "ip filter") and any other program's tables are left
+# alone. The Hetzner Cloud firewall in front lets in the same public ports (1883, 2302, 80, 443);
+# this one also limits each source address.
+
+table inet goath1
+delete table inet goath1
+
+table inet goath1 {
+	# addresses over their rate, and how many connections each has
+	set mqtt_rate { type ipv4_addr; flags dynamic; timeout 2m; }
+	set mqtt6_rate { type ipv6_addr; flags dynamic; timeout 2m; }
+	set mqtt_count { type ipv4_addr; flags dynamic; }
+	set mqtt6_count { type ipv6_addr; flags dynamic; }
+	set https_rate { type ipv4_addr; flags dynamic; timeout 2m; }
+	set https6_rate { type ipv6_addr; flags dynamic; timeout 2m; }
+
+	chain input {
+		type filter hook input priority filter; policy drop;
+
+		iif "lo" accept
+		ct state established,related accept
+		ct state invalid drop
+
+		ip protocol icmp accept
+		ip6 nexthdr ipv6-icmp accept
+		# (DHCP's renewals of the server's addresses)
+		udp dport { 68, 546 } accept
+
+		# Tailscale: its interface, and its own UDP (direct paths to the
+		# tailnet's other machines; tailscaled's iptables-nft tables, ts-input,
+		# accept the same, but a drop here would win)
+		iifname "tailscale0" accept
+		udp dport 41641 accept
+
+		# ssh only over Tailscale (above); never from the internet, which the
+		# Hetzner Cloud firewall closes too
+		tcp dport 22 drop
+
+		# MQTT: a player's game holds one connection, but many players can
+		# share an address (carrier-grade NAT): 30 new a minute, 64 at once
+		tcp dport 1883 ct state new add @mqtt_rate { ip saddr limit rate over 30/minute burst 60 packets } drop
+		tcp dport 1883 ct state new add @mqtt6_rate { ip6 saddr limit rate over 30/minute burst 60 packets } drop
+		tcp dport 1883 ct state new add @mqtt_count { ip saddr ct count over 64 } reject with tcp reset
+		tcp dport 1883 ct state new add @mqtt6_count { ip6 saddr ct count over 64 } reject with tcp reset
+		tcp dport 1883 accept
+
+		# the master server, behind Caddy: HTTPS, and HTTP for the
+		# certificate's challenge and the redirect (60 new a minute from an
+		# address: a dedicated server publishes every 30 seconds, a browser
+		# asks once a minute)
+		tcp dport { 80, 443 } ct state new add @https_rate { ip saddr limit rate over 60/minute burst 120 packets } drop
+		tcp dport { 80, 443 } ct state new add @https6_rate { ip6 saddr limit rate over 60/minute burst 120 packets } drop
+		tcp dport { 80, 443 } accept
+
+		# the relay (halo --relay limits each address itself:
+		# docs/dedicated_server.md, "Relays")
+		udp dport 2302 accept
+	}
+}

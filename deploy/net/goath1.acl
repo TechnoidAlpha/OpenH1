@@ -1,0 +1,15 @@
+# The topics net.goath1.com's broker carries: the game's, and nothing else
+# (installed as /etc/mosquitto/goath1.acl). These lines, before any "user"
+# line, are the anonymous clients'; everything else, "#" and $SYS included,
+# is refused. Each part after hceu/3/ is a hash in hex.
+#
+# signalling (the host's and the joiner's topics of an invite) and parties
+# (p2p_signal.c, p2p_party.c): hceu/3/<HMAC>
+topic readwrite hceu/3/+
+# friends' inboxes and presence (p2p_friends.c): hceu/3/f/<HMAC>
+topic readwrite hceu/3/f/+
+# the server browser (p2p_lobby.c): each host's slot (its retained listing,
+# and the will that clears it), which browsers subscribe to as
+# hceu/3/lobby/s/+, and the browsers' queries
+topic readwrite hceu/3/lobby/s/+
+topic readwrite hceu/3/lobby/q

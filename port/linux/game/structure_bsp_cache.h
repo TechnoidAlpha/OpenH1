@@ -22,6 +22,8 @@ boolean structure_bsp_cache_restore(struct scenario_structure_bsp_reference cons
 	unsigned long region_size);
 /* the bsp where it loads, just read and checked, kept (if there is room) */
 void structure_bsp_cache_keep(struct scenario_structure_bsp_reference const *reference);
+/* how many bytes from where the bsp loads its copy is (0: none kept) */
+long structure_bsp_cache_copy_offset(struct scenario_structure_bsp_reference const *reference);
 /* whether another bsp may be kept */
 boolean structure_bsp_cache_room(void);
 /* each kept bsp's lightmaps' materials, read from its copy (where they are
@@ -29,6 +31,8 @@ in it: their pointers lead into the copy, not where the bsp loads) */
 void structure_bsp_cache_materials(
 	void (*visit)(void *context, struct structure_lightmap const *lightmap, struct structure_material const *material),
 	void *context);
+/* whether a kept bsp has a mirror (a cluster's), read from its copy */
+boolean structure_bsp_cache_has_mirrors(void);
 /* every copy let go of (the map's scenario unloaded) */
 void structure_bsp_cache_dispose(void);
 

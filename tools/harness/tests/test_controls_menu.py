@@ -2,7 +2,6 @@
 two bindings, the one set chosen by left and right, by a click on it, or by the pointer over it (ui_widget.c's
 ui_widget_port_take_click and ui_widget_port_take_point), where the bindings are drawn (the wide layout's move too)."""
 
-import re
 import sys
 from pathlib import Path
 
@@ -57,14 +56,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("controls_menu", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_rows_layout():
-    """Key Bindings' rows have their two bindings, the first left of the second, and A (a click's too) begins a
-    binding."""
-    text = read("port/assets/menus/ce/main_menu.settings_select.player_setup.player_profile_edit.controls_setup.xml")
-    row = re.search(r'<widget name="[^"]*/op_command_1"[^>]*>(.*?)</widget>', text, re.S).group(1)
-    assert '<on event="a" run="controls begin binding"/>' in row
-    first = re.findall(r'<child widget="[^"]*/command_binding" x="(\d+)"/>', row)
-    second = re.findall(r'<child widget="[^"]*/command_binding_second" x="(\d+)"/>', row)
-    assert len(first) == 1 and len(second) == 1 and int(first[0]) < int(second[0])

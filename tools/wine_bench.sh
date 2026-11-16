@@ -59,7 +59,7 @@ else
 	maps=$bench/data/maps
 fi
 custom_maps=${OPENH1_BENCH_CUSTOM_MAPS:-}
-repository=${OPENH1_BENCH_REPO:-OpenH1/OpenH1}
+repository=${OPENH1_BENCH_REPO:-OpenH1/goath1}
 prefix=$bench/prefix
 self=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
 

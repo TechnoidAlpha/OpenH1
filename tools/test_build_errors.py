@@ -156,7 +156,8 @@ def test_windows(repository, tmp_path):
     n = Recorder()
     windows_build.generate_windows_build(n, settings(windows_guest=True))
     guest = {"image": windows_build.BUILD / "halo_guest.elf", "checked": windows_build.BUILD / "halo_guest.checked",
-             "host_table_c": windows_build.BUILD / "host" / "host_import_table.c"}
+             "host_table_c": windows_build.BUILD / "host" / "host_import_table.c",
+             "assets": windows_build.BUILD / "guest" / "gen" / "openh1.assets"}
     if sys.platform != "win32":
         windows_build._generate_host(n, settings(), guest)
     check(n.units, tmp_path, [*GUEST_FOLDERS, "port/windows/host/", "port/windows/src/"])

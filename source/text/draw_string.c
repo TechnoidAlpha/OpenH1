@@ -257,12 +257,179 @@ static struct
 {
 	rectangle2d bounds;
 	struct font_header *last_font_header;
+	/* port: the letters' bounds where they are drawn: the high-res text's
+	glyphs where it draws them (draw_unicode_string_compute_drawn_bounds),
+	and their ink's left and right in fractions of a unit
+	(draw_unicode_string_drawn_span) */
+	boolean drawn;
+	real drawn_left;
+	real drawn_right;
 } text_bounds_globals = { 0 };
+
+/* port: rasterizer_text.c: where the high-res text draws a font tag's
+character whose bitmap is drawn from x0 (from its column x), its ink's left
+and right; FALSE where it does not draw it (it is drawn from the bitmap) */
+boolean rasterizer_text_port_drawn_span(struct parse_string_state const *state, struct font_character const *character,
+	short x0, short x, short *left, short *right);
+boolean rasterizer_text_port_drawn_span_real(struct parse_string_state const *state,
+	struct font_character const *character, short x0, short x, real *left, real *right);
+
+/* port: the line draw_string_partial or draw_unicode_string_partial is
+drawing (its characters first to last), for draw_string_port_run, and the
+run of it last found there */
+enum
+{
+	MAXIMUM_PORT_RUN_CHARACTERS = 256,
+};
+
+static struct
+{
+	void const *string;
+	boolean unicode;
+	short first;
+	short last;
+	long line;
+	long run_line;
+	short run_count;
+	word run_characters[MAXIMUM_PORT_RUN_CHARACTERS];
+	/* (where each of its characters ends in the string) */
+	short run_ends[MAXIMUM_PORT_RUN_CHARACTERS];
+} draw_string_port_line = { 0 };
 
 static struct font_drawing_globals font_drawing_globals = { 0 };
 
 
 /* ---------- public code */
+
+/* port: (draw_string.h) */
+struct font_header *draw_string_port_font(
+	struct parse_string_state const *state)
+{
+	return state->font_header;
+}
+
+/* port: a line about to be drawn: its string, and its characters first to
+last */
+static void draw_string_port_line_begin(
+	void const *string,
+	boolean unicode,
+	short first,
+	short last)
+{
+	draw_string_port_line.string = string;
+	draw_string_port_line.unicode = unicode;
+	draw_string_port_line.first = first;
+	draw_string_port_line.last = last;
+	draw_string_port_line.line++;
+
+	return;
+}
+
+/* port: whether a character ends a run: a tab, a line's end, the string's
+end, or a code of a style or a justification ("|" and a letter) */
+static boolean draw_string_port_run_break(
+	word character)
+{
+	return character == 0 || character == '\t' || character == '\r' || character == '\n' ||
+		(character & 0xFF00) == 0x7C00;
+}
+
+/* port: (draw_string.h) */
+word const *draw_string_port_run(
+	struct parse_string_state const *state,
+	short *count,
+	short *current,
+	long *run)
+{
+	short index;
+
+	if (!state || state->string != draw_string_port_line.string ||
+		state->string_index <= draw_string_port_line.first || state->string_index > draw_string_port_line.last)
+	{
+		return NULL;
+	}
+	/* (the run found for the character before, on the same line) */
+	if (draw_string_port_line.run_line != draw_string_port_line.line || draw_string_port_line.run_count <= 0 ||
+		state->string_index < draw_string_port_line.run_ends[0] ||
+		state->string_index > draw_string_port_line.run_ends[draw_string_port_line.run_count - 1])
+	{
+		short found = 0;
+
+		draw_string_port_line.run_line = draw_string_port_line.line;
+		draw_string_port_line.run_count = 0;
+		if (draw_string_port_line.unicode)
+		{
+			wchar_t const *string = (wchar_t const *)draw_string_port_line.string;
+			short at = (short)(state->string_index - 1);
+			short first = at;
+			short last = (short)(at + 1);
+
+			if (draw_string_port_run_break(string[at]))
+				return NULL;
+			/* (the "|n" of a line's end ends runs too: parse_unicode_string) */
+			while (first > draw_string_port_line.first && !draw_string_port_run_break(string[first - 1]) &&
+				!(string[first - 1] == '|' && string[first] == 'n'))
+			{
+				first--;
+			}
+			while (last < draw_string_port_line.last && !draw_string_port_run_break(string[last]) &&
+				!(string[last] == '|' && string[last + 1] == 'n'))
+			{
+				last++;
+			}
+			if (last - first > MAXIMUM_PORT_RUN_CHARACTERS)
+				return NULL;
+			for (index = first; index < last; index++)
+			{
+				draw_string_port_line.run_characters[index - first] = string[index];
+				draw_string_port_line.run_ends[index - first] = (short)(index + 1);
+			}
+			found = (short)(last - first);
+		}
+		else
+		{
+			byte *string = (byte *)draw_string_port_line.string;
+			boolean inside = FALSE;
+
+			index = draw_string_port_line.first;
+			while (index < draw_string_port_line.last)
+			{
+				word character = get_next_character(string, &index);
+
+				if (draw_string_port_run_break(character))
+				{
+					if (inside)
+						break;
+					found = 0;
+					continue;
+				}
+				if (found >= MAXIMUM_PORT_RUN_CHARACTERS)
+					return NULL;
+				draw_string_port_line.run_characters[found] = character;
+				draw_string_port_line.run_ends[found] = index;
+				found++;
+				if (index == state->string_index)
+					inside = TRUE;
+			}
+			if (!inside)
+				return NULL;
+		}
+		draw_string_port_line.run_count = found;
+		if (found <= 0)
+			return NULL;
+	}
+	for (index = 0; index < draw_string_port_line.run_count &&
+		draw_string_port_line.run_ends[index] != state->string_index; index++)
+		;
+	if (index >= draw_string_port_line.run_count)
+		return NULL;
+	*count = draw_string_port_line.run_count;
+	*current = index;
+	/* (the line, and where the run starts on it) */
+	*run = (draw_string_port_line.line << 16) ^ (draw_string_port_line.run_ends[0] & 0xFFFF);
+
+	return draw_string_port_line.run_characters;
+}
 
 void draw_string_initialize(
 	void)
@@ -322,6 +489,21 @@ static void text_bounds_draw_character(
 	short x1 = (short)(x0 + dx);
 	short y1 = (short)(y0 + dy);
 
+	/* port: where the high-res text draws its glyph, set in its word
+	(rasterizer_text.c's hires_text_glyph_offset), not the tag's bitmap's
+	columns (whose blank ones are not the drawn letter's) */
+	if (text_bounds_globals.drawn)
+	{
+		real left = (real)x0;
+		real right = (real)x1;
+
+		rasterizer_text_port_drawn_span_real(state, character, x0, x, &left, &right);
+		rasterizer_text_port_drawn_span(state, character, x0, x, &x0, &x1);
+		if (left < text_bounds_globals.drawn_left)
+			text_bounds_globals.drawn_left = left;
+		if (right > text_bounds_globals.drawn_right)
+			text_bounds_globals.drawn_right = right;
+	}
 	if (x0 < text_bounds_globals.bounds.x0)
 		text_bounds_globals.bounds.x0 = x0;
 	if (y0 < text_bounds_globals.bounds.y0)
@@ -847,6 +1029,8 @@ static void draw_string_partial(
 			font_drawing_globals.current_style,
 			font_drawing_globals.current_justification,
 			&font_drawing_globals.current_color);
+		/* port: the line, for the high-res text's runs (draw_string_port_run) */
+		draw_string_port_line_begin(string, FALSE, string_index, string_length);
 
 		for (state.string_index = string_index; state.string_index < string_length; )
 		{
@@ -952,6 +1136,8 @@ static void draw_unicode_string_partial(
 			font_drawing_globals.current_style,
 			font_drawing_globals.current_justification,
 			&font_drawing_globals.current_color);
+		/* port: the line, for the high-res text's runs (draw_string_port_run) */
+		draw_string_port_line_begin(string, TRUE, string_index, string_length);
 
 		for (state.string_index = string_index; state.string_index < string_length; )
 		{
@@ -1025,6 +1211,8 @@ void draw_string(
 	/* port: streamer mode's words hidden, in what is drawn and what is measured
 	(port/linux/game/text_filter.c) */
 	string = text_filter_string(string);
+	/* port: debug.render_marks: the text's draws (port/linux/game/render_marks.c) */
+	render_marks_text(string);
 
 	match_assert("c:\\halo\\SOURCE\\text\\draw_string.c", 648, bounds);
 	match_assert("c:\\halo\\SOURCE\\text\\draw_string.c", 649, string);
@@ -1227,6 +1415,7 @@ void draw_unicode_string(
 	/* port: streamer mode's words hidden, in what is drawn and what is measured
 	(port/linux/game/text_filter.c) */
 	string = text_filter_unicode(string);
+	render_marks_unicode_text((unsigned short const *)string); /* port: (as draw_string's) */
 
 	match_assert("c:\\halo\\SOURCE\\text\\draw_string.c", 848, bounds);
 	match_assert("c:\\halo\\SOURCE\\text\\draw_string.c", 849, string);
@@ -1477,6 +1666,75 @@ void draw_unicode_string_compute_bounds(
 	return;
 }
 
+/* port: as draw_unicode_string_compute_bounds, the letters' bounds those of
+their ink as it is drawn: the high-res text's glyphs where it draws them
+(rasterizer_text.c), else the font tag's bitmaps. What is laid out about
+drawn letters (a key's cap about its name, hud_key_prompts.c) is laid out
+with these. */
+void draw_unicode_string_compute_drawn_bounds(
+	rectangle2d const *bounds,
+	wchar_t const *string,
+	rectangle2d *text_bounds,
+	rectangle2d *cursor_bounds)
+{
+	text_bounds_globals.drawn = TRUE;
+	text_bounds_globals.drawn_left = 32767.0f;
+	text_bounds_globals.drawn_right = -32768.0f;
+	draw_unicode_string_compute_bounds(bounds, string, text_bounds, cursor_bounds);
+	text_bounds_globals.drawn = FALSE;
+
+	return;
+}
+
+/* port: the letters' ink as draw_unicode_string_compute_drawn_bounds last
+measured it, in fractions of a unit (its text bounds are whole units, each
+side to the nearest): what is centred on drawn letters (a key's cap,
+hud_key_prompts.c) is centred on these, as far from them either side at any
+resolution. FALSE where it measured no letter */
+boolean draw_unicode_string_drawn_span(
+	real *left,
+	real *right)
+{
+	*left = text_bounds_globals.drawn_left;
+	*right = text_bounds_globals.drawn_right;
+
+	return *left <= *right;
+}
+
+/* port: how many rows the draw mode's font's capitals are tall (its H's
+rows with ink; its ascent where it has no H) */
+short draw_string_capital_height(
+	void)
+{
+	struct font_header *font = styled_font_get(
+		font_drawing_globals.current_font_index,
+		font_drawing_globals.current_style);
+	struct font_character *capital = font ? font_get_character_by_ascii_code(font, 'H') : NULL;
+	short top = NONE;
+	short bottom = NONE;
+	short row;
+
+	if (!font)
+		return 0;
+	for (row = 0; capital && row < capital->bitmap_height; row++)
+	{
+		byte const *pixels = (byte const *)font->pixels.address + capital->pixels_offset + row * capital->bitmap_width;
+		short column;
+
+		for (column = 0; column < capital->bitmap_width; column++)
+		{
+			if (pixels[column])
+			{
+				if (top == NONE)
+					top = row;
+				bottom = row;
+				break;
+			}
+		}
+	}
+	return top == NONE ? font->ascending_height : (short)(bottom - top + 1);
+}
+
 /* port: the middle of a string's capitals as it is drawn in the bounds
 (the draw mode's font: the rows of its H with ink, on the line's baseline),
 for what is drawn beside it, centred on it (voice chat's speakers:
@@ -1593,4 +1851,19 @@ void bitmap_draw_string(
 		string);
 
 	return;
+}
+
+/* port: scoped adornments restore the caller's text formatting and indentation. */
+void draw_string_get_format(short *style, short *justification, unsigned long *flags)
+{
+    *style = font_drawing_globals.current_style;
+    *justification = font_drawing_globals.current_justification;
+    *flags = font_drawing_globals.current_flags;
+}
+
+/* port: see draw_string_get_format. */
+void draw_string_get_indents(short *initial, short *paragraph)
+{
+    *initial = font_drawing_globals.initial_indent;
+    *paragraph = font_drawing_globals.paragraph_indent;
 }

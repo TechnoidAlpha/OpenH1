@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/blueline" box="0 0 192 2" picture="bitmaps/blue"/>
+	<look name="main_menu/current_profile_name" type="text" box="10 446 350 480">
+		<text font="ui\large_ui" color="#FFCCCCCC"/>
+	</look>
+	<look name="main_menu/halo_logo" box="0 0 640 256" picture="ui\shell\main_menu\halo_logo"/>
+	<look name="main_menu/main_menu">
+		<at widget="main_menu/halo_logo" x="0" y="28"/>
+		<at widget="main_menu/main_menu_select_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/main_menu_item_load_camp" type="text" box="0 0 256 33" picture="main_menu/menu_load_campaign">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options" index="1"/>
+	</look>
+	<look name="main_menu/main_menu_item_multiplayer" type="text" box="0 0 256 33" picture="main_menu/menu_multiplayer">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options" index="2"/>
+	</look>
+	<look name="main_menu/main_menu_item_quit_game" type="text" box="0 0 256 33" picture="main_menu/menu_quit"/>
+	<look name="main_menu/main_menu_item_settings" type="text" box="0 0 256 33" picture="main_menu/menu_settings">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options" index="3"/>
+	</look>
+	<look name="main_menu/main_menu_list_ext_desc" box="-1 -1 0 0" picture="bitmaps/white">
+		<text color="#FF0080FF"/>
+	</look>
+	<look name="main_menu/main_menu_select_list" type="column_list">
+		<at widget="main_menu/main_menu_item_training" x="192" y="211"/>
+		<at widget="main_menu/main_menu_item_load_camp" x="194" y="247"/>
+		<at widget="main_menu/main_menu_item_multiplayer" x="192" y="283"/>
+		<at widget="main_menu/main_menu_item_doubles" x="192" y="319"/>
+		<at widget="main_menu/main_menu_item_settings" x="192" y="355"/>
+		<at widget="main_menu/main_menu_item_quit_game" x="192" y="391"/>
+	</look>
+	<look name="main_menu/new_campaign_creating_profile"/>
+	<look name="main_menu/new_campaign_saving_profile">
+		<at widget="error/warning_creating_player_profile_screen" x="0" y="0"/>
+	</look>
+</model>

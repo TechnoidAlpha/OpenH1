@@ -123,6 +123,14 @@ static real_point3d *object_get_origin(long object_index, real_point3d *origin)
 	return origin;
 }
 
+/* the window's player, and its own view drawn from the newest step on foot, carried on from where that step left
+it by so much (render_interpolation.c's) */
+#define MAXIMUM_LOCAL_PLAYERS 4
+static struct { short local_player_index; } render;
+static boolean newest_carried_valid[MAXIMUM_LOCAL_PLAYERS];
+static real_vector3d newest_carried[MAXIMUM_LOCAL_PLAYERS];
+static long player_control_get_unit_index(short local_player_index) { return local_player_index == 0 ? UNIT : NONE; }
+
 /* the point moved with the object's root from where the tick left it to where it is drawn */
 static void render_interpolation_object_point(long object_index, real_point3d *p)
 {
@@ -191,6 +199,12 @@ static void flag_render_proper(struct flag_datum_prefix *flag, struct flag_defin
 	(void)lighting; (void)animation;
 	drawn_corner = flag->vertices[definition->width * definition->height - 1].position;
 	drawn_at_all = TRUE;
+}
+
+/* (no feed of the HUD's Spartan link is drawn: spartan_link.c) */
+static boolean spartan_link_drawing(void)
+{
+	return FALSE;
 }
 
 #include "under_test.inc"
@@ -401,6 +415,37 @@ int main(int argc, char **argv)
 		interpolation_rendering = FALSE;
 		render_interpolation_unit_camera_position(UNIT, &eye);
 		CHECK(distance(&eye, &(real_point3d){ 5.0f, 0.0f, SEAT }) < 1e-5f, "in the tick, not the tick's");
+		return 0;
+	}
+
+	/* the window's own player on foot, its view drawn from the newest step (display.direct_camera): the unit's
+	camera where that view is, the newest step's carried on as the view is, not with the body a tick behind; any
+	other window's, and outside a frame, as before */
+	CASE("camera_view_newest")
+	{
+		real_point3d eye;
+
+		seated = FALSE;
+		unit_tick = point(1.0f, 2.0f, 0.0f);
+		unit_drawn = point(0.6f, 1.8f, 0.0f);
+		newest_carried_valid[0] = TRUE;
+		newest_carried[0].i = 0.05f;
+		newest_carried[0].j = 0.02f;
+		newest_carried[0].k = 0.01f;
+		interpolation_rendering = TRUE;
+		render.local_player_index = 0;
+		render_interpolation_unit_camera_position(UNIT, &eye);
+		CHECK(distance(&eye, &(real_point3d){ 1.05f, 2.02f, EYE + 0.01f }) < 1e-5f, "at (%f %f %f), not the view's",
+			eye.x, eye.y, eye.z);
+		render.local_player_index = 1;
+		render_interpolation_unit_camera_position(UNIT, &eye);
+		CHECK(distance(&eye, &(real_point3d){ 0.6f, 1.8f, EYE }) < 1e-5f, "another window's at (%f %f %f)",
+			eye.x, eye.y, eye.z);
+		render.local_player_index = 0;
+		interpolation_rendering = FALSE;
+		render_interpolation_unit_camera_position(UNIT, &eye);
+		CHECK(distance(&eye, &(real_point3d){ 1.0f, 2.0f, EYE }) < 1e-5f, "outside a frame at (%f %f %f)",
+			eye.x, eye.y, eye.z);
 		return 0;
 	}
 

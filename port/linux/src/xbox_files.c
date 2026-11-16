@@ -31,6 +31,8 @@ matched case-insensitively, like the Xbox's FATX volumes.
 #include "load_trace.h"
 #include "install_layout.h"
 #include "server_mode.h"
+#include "steam_workshop.h"
+#include "mcc_local_package.h"
 
 #ifdef HALO_MACOS
 #include <SDL3/SDL.h>
@@ -42,6 +44,8 @@ matched case-insensitively, like the Xbox's FATX volumes.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/file.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include <time.h>
 
@@ -297,6 +301,54 @@ static BOOL names_match(const char *a, const char *b, unsigned long length)
 	return TRUE;
 }
 
+/* mcc_maps\<Workshop item id>\... where the data root has no such package folder: the item's maps folder in the
+player's Steam library (steam_workshop.h). The rest of the path after the id in rest */
+static int translate_workshop(const char *cursor, char *resolved, unsigned long size, const char **rest)
+{
+	char id[STEAM_WORKSHOP_ID_SIZE], package[1024], data_folder[1100], local_name[256];
+	unsigned long length = 0;
+
+	while (*cursor == '\\' || *cursor == '/')
+		cursor++;
+	/* MCC-owned local layout resolution is independent of Steam discovery. */
+	if (mcc_local_package_path(cursor, platform_data_root(), resolved, size))
+	{
+		*rest = cursor + strlen(cursor);
+		return 1;
+	}
+	if (!names_match(cursor, "mcc_maps", 8) || (cursor[8] != '\\' && cursor[8] != '/'))
+		return 0;
+	cursor += 9;
+	/* MCC-owned resource discovery also serves the virtual fopen path. */
+	if (steam_workshop_resource_path(cursor, platform_data_root(), resolved, size))
+	{
+		*rest = cursor + strlen(cursor);
+		return 1;
+	}
+	while (cursor[length] >= '0' && cursor[length] <= '9' && length + 1 < sizeof(id))
+	{
+		id[length] = cursor[length];
+		length++;
+	}
+	id[length] = 0;
+	if (!length || (cursor[length] && cursor[length] != '\\' && cursor[length] != '/'))
+		return 0;
+	/* a package folder of that name in the data root wins */
+	if (posix_find_entry_case_insensitive(platform_data_root(), "mcc_maps", local_name, sizeof(local_name)))
+	{
+		snprintf(data_folder, sizeof(data_folder), "%s/%s", platform_data_root(), local_name);
+		if (posix_find_entry_case_insensitive(data_folder, id, local_name, sizeof(local_name)))
+			return 0;
+	}
+	if (!steam_workshop_package_folder(id, package, sizeof(package)) ||
+		strlen(package) >= size)
+		return 0;
+	snprintf(resolved, size, "%s", package);
+	trim_separators(resolved);
+	*rest = cursor + length;
+	return 1;
+}
+
 /* the data root's files and folders kept elsewhere when the settings say
 (paths.logs, paths.custom_maps): a read-only data root, a dedicated
 server's maps mounted so. The rest of the path after them in rest */
@@ -309,6 +361,8 @@ static int translate_elsewhere(const char *cursor, char *resolved, unsigned long
 
 	while (*cursor == '\\' || *cursor == '/')
 		cursor++;
+	if (translate_workshop(cursor, resolved, size, rest))
+		return 1;
 	for (index = 0; logs_folder[0] && index < sizeof(logs) / sizeof(logs[0]); index++)
 	{
 		if (names_match(cursor, logs[index], strlen(logs[index]) + 1))
@@ -360,6 +414,11 @@ void platform_translate_path(const char *xbox_path, char *host_path, unsigned lo
 				posix_make_directory(resolved);
 		}
 		cursor += 2;
+	}
+	else
+	{
+		/* (a path without a drive, as the package resources are named) */
+		translate_workshop(cursor, resolved, sizeof(resolved), &cursor);
 	}
 
 	while (*cursor)
@@ -696,7 +755,7 @@ static BOOL read_at(struct platform_file *file, LPVOID buffer, DWORD count, LPDW
 	BOOL positioned, unsigned long long offset)
 {
 	DWORD total = 0;
-	BOOL tracing = config_boolean("debug.load_trace");
+	BOOL tracing = halo_load_trace_enabled();
 	double started = tracing ? load_io_now() : 0.0;
 	double syscall_seconds = 0.0;
 	/* The renderer write-protects guest memory it caches (memory_watch.c),
@@ -763,7 +822,7 @@ static BOOL write_at(struct platform_file *file, LPCVOID buffer, DWORD count, LP
 	BOOL positioned, unsigned long long offset)
 {
 	DWORD total = 0;
-	BOOL tracing = config_boolean("debug.load_trace");
+	BOOL tracing = halo_load_trace_enabled();
 	double started = tracing ? load_io_now() : 0.0;
 
 	while (total < count)
@@ -777,6 +836,16 @@ static BOOL write_at(struct platform_file *file, LPCVOID buffer, DWORD count, LP
 			if (errno == EINTR)
 				continue;
 			platform_set_last_error_from_errno(errno);
+			if (bytes_written)
+				*bytes_written = total;
+			return FALSE;
+		}
+		/* (nothing written of what is left, and no error: tried again it
+		would loop for good, so it fails as a write error, with what was
+		written) */
+		if (result == 0)
+		{
+			platform_set_last_error_from_errno(EIO);
 			if (bytes_written)
 				*bytes_written = total;
 			return FALSE;
@@ -962,6 +1031,21 @@ BOOL WINAPI SetEndOfFile(HANDLE handle)
 	return TRUE;
 }
 
+/* what was written to the file is on the disk (fsync) */
+BOOL WINAPI FlushFileBuffers(HANDLE handle)
+{
+	struct platform_file *file = file_from_handle(handle);
+
+	if (!file)
+		return FALSE;
+	if (fsync(file->descriptor) != 0)
+	{
+		platform_set_last_error_from_errno(errno);
+		return FALSE;
+	}
+	return TRUE;
+}
+
 BOOL WINAPI GetFileTime(HANDLE handle, LPFILETIME creation_time, LPFILETIME last_access_time, LPFILETIME last_write_time)
 {
 	struct platform_file *file = file_from_handle(handle);
@@ -1105,6 +1189,23 @@ BOOL WINAPI MoveFileA(LPCSTR existing_file_name, LPCSTR new_file_name)
 		return FALSE;
 	}
 	if (rename(from, to) != 0)
+	{
+		platform_set_last_error_from_errno(errno);
+		return FALSE;
+	}
+	return TRUE;
+}
+
+/* halo_linux_source_fixups.h's: the file at from put in to's place at once,
+replacing it (rename(2) replaces; the Windows host's renameat is MoveFileEx's
+replace) */
+int platform_replace_file(const char *from, const char *to)
+{
+	char from_path[1024], to_path[1024];
+
+	platform_translate_path(from, from_path, sizeof(from_path));
+	platform_translate_path(to, to_path, sizeof(to_path));
+	if (rename(from_path, to_path) != 0)
 	{
 		platform_set_last_error_from_errno(errno);
 		return FALSE;
@@ -1363,24 +1464,103 @@ from the maps folder, and the game finds a slot by the name in its header.
 The Xbox's disc never changed under it; a maps folder can (a modded map,
 another region's, a corrected file), so the slot's copy remembers the size
 and modification time of the file it came from, in z:\cacheNNN.source, and
-a slot whose map file is not that one any more is not used. */
+a slot whose map file is not that one any more is not used. It remembers
+too when its map was last played (0: never; copied by the menus' pictures'
+pass, or ahead), so that the cache gives up the least useful map first for
+room (cache_files_windows.c's cached_map_files_least_useful), from one run
+to the next.
+
+The file is the slot's mark of a whole copy, too: it is written only once
+the copy has ended with every byte written and the slot's file is on the
+disk (cache_files_precache_map_end), itself put on the disk, and it names
+the map the slot's header names, with its checksum and length. A slot
+without it, or whose header is not the map it names, is no map: a copy
+that failed, was ended, or whose pages a crash or a power cut lost (a
+header written last can reach the disk before the pages before it) is
+copied again, never played. The files of the versions before (1, 2) were
+written after a copy that failed as after one that worked, and before the
+slot was on the disk: their slots are copied again, once.
+
+The slots are one copy of the game's: another running at once (a second
+start, one left running, a server beside a client) would give up, empty and
+copy over the slots the first plays from, under it. The first holds
+z:\cache.lock and keeps the cache; another takes the first z:\cache-N\
+whose lock no copy holds, for a few slots of its own: the Xbox's six cache
+files' room, copied only as it loads a map, never ahead
+(cache_files_windows.c, port/linux/game/map_cache_prefill.c). The next copy
+started beside another takes the same folder again, as it left it. */
 
 /* (cache_files_windows.c's NUMBER_OF_CACHED_MAP_FILES) */
-#define MAXIMUM_CACHE_SLOT_SOURCES 6
+#define MAXIMUM_CACHE_SLOT_SOURCES HALO_PORT_CACHED_MAP_FILES
+/* (the folders z:\, z:\cache-2\ .. a copy of the game takes for its slots) */
+#define MAXIMUM_CACHE_SLOT_FOLDERS 8
+#define CACHE_SLOT_SOURCE_VERSION 3
 
 struct cache_slot_source
 {
 	BOOL known;
 	posix_ulong size_low, size_high, seconds, nanoseconds;
+	unsigned long played;
+	/* the copy's: its header's name, checksum and length */
+	char name[32];
+	unsigned long checksum, file_length;
 };
 
 static struct cache_slot_source cache_slot_sources[MAXIMUM_CACHE_SLOT_SOURCES];
 
+static int cache_slot_folder_number;
+
+const char *cache_slot_folder(void)
+{
+	static char folder[32];
+	int number;
+
+	if (folder[0])
+		return folder;
+	for (number = 1; number <= MAXIMUM_CACHE_SLOT_FOLDERS; number++)
+	{
+		char lock_path[48], path[1024];
+		int descriptor;
+
+		if (number == 1)
+			snprintf(folder, sizeof(folder), "z:\\");
+		else
+		{
+			snprintf(folder, sizeof(folder), "z:\\cache-%d", number);
+			CreateDirectoryA(folder, NULL);
+			strcat(folder, "\\");
+		}
+		snprintf(lock_path, sizeof(lock_path), "%scache.lock", folder);
+		platform_translate_path(lock_path, path, sizeof(path));
+		descriptor = path[0] ? open(path, O_RDWR | O_CREAT | O_CLOEXEC, 0644) : -1;
+		/* (held until the game ends; a system without locks, any folder:
+		the system call itself, which every host has, not the C library's) */
+		if (descriptor >= 0 && (syscall(SYS_flock, descriptor, LOCK_EX | LOCK_NB) == 0 || errno == ENOSYS))
+		{
+			cache_slot_folder_number = number;
+			if (number > 1)
+				platform_log("map cache: another copy of the game holds the cache; this one's is in %s", folder);
+			return folder;
+		}
+		if (descriptor >= 0)
+			close(descriptor);
+	}
+	snprintf(folder, sizeof(folder), "z:\\");
+	platform_log("map cache: every cache folder is another copy of the game's; sharing z:\\");
+	return folder;
+}
+
+int cache_slot_folder_keeps_cache(void)
+{
+	cache_slot_folder();
+	return cache_slot_folder_number <= 1;
+}
+
 static void cache_slot_source_path(short slot, char *path, unsigned long size)
 {
-	char xbox_path[32];
+	char xbox_path[64];
 
-	snprintf(xbox_path, sizeof(xbox_path), "z:\\cache%03d.source", slot);
+	snprintf(xbox_path, sizeof(xbox_path), "%scache%03d.source", cache_slot_folder(), slot);
 	platform_translate_path(xbox_path, path, size);
 }
 
@@ -1404,8 +1584,9 @@ static BOOL cache_slot_source_stat(const char *map_path, struct cache_slot_sourc
 void cache_slot_source_load(short slot)
 {
 	struct cache_slot_source *source;
-	unsigned long size_low, size_high, seconds, nanoseconds;
-	char path[1024];
+	unsigned long size_low, size_high, seconds, nanoseconds, played, checksum, file_length;
+	int version = 0;
+	char path[1024], name[32];
 	FILE *file;
 
 	if (slot < 0 || slot >= MAXIMUM_CACHE_SLOT_SOURCES)
@@ -1416,15 +1597,47 @@ void cache_slot_source_load(short slot)
 	file = fopen(path, "rb");
 	if (!file)
 		return;
-	if (fscanf(file, "openh1-cache-source 1 %lu %lu %lu %lu", &size_low, &size_high, &seconds, &nanoseconds) == 4)
+	if (fscanf(file, "openh1-cache-source %d %lu %lu %lu %lu %lu %lu %lu %31s", &version, &size_low, &size_high,
+			&seconds, &nanoseconds, &played, &checksum, &file_length, name) == 9 &&
+		version == CACHE_SLOT_SOURCE_VERSION)
 	{
 		source->known = TRUE;
 		source->size_low = size_low;
 		source->size_high = size_high;
 		source->seconds = seconds;
 		source->nanoseconds = nanoseconds;
+		source->played = played;
+		source->checksum = checksum;
+		source->file_length = file_length;
+		snprintf(source->name, sizeof(source->name), "%s", name);
 	}
 	fclose(file);
+}
+
+/* (the slot's source known) its file written and on the disk: FALSE if it
+was not */
+static BOOL cache_slot_source_write(short slot)
+{
+	const struct cache_slot_source *source = &cache_slot_sources[slot];
+	char path[1024];
+	BOOL written;
+	FILE *file;
+
+	cache_slot_source_path(slot, path, sizeof(path));
+	file = fopen(path, "wb");
+	if (!file)
+		return FALSE;
+	written = fprintf(file, "openh1-cache-source %d %lu %lu %lu %lu %lu %lu %lu %s\n", CACHE_SLOT_SOURCE_VERSION,
+		(unsigned long)source->size_low, (unsigned long)source->size_high, (unsigned long)source->seconds,
+		(unsigned long)source->nanoseconds, source->played, source->checksum, source->file_length,
+		source->name) >= 0;
+	if (fflush(file) != 0 || fsync(fileno(file)) != 0)
+		written = FALSE;
+	if (fclose(file) != 0)
+		written = FALSE;
+	if (!written)
+		remove(path);
+	return written;
 }
 
 void cache_slot_source_forget(short slot)
@@ -1438,35 +1651,40 @@ void cache_slot_source_forget(short slot)
 	remove(path);
 }
 
-void cache_slot_source_record(short slot, const char *map_path)
+void cache_slot_source_record(short slot, const char *map_path, const char *name, unsigned long checksum,
+	unsigned long file_length)
 {
 	struct cache_slot_source *source;
-	char path[1024];
-	FILE *file;
 
 	if (slot < 0 || slot >= MAXIMUM_CACHE_SLOT_SOURCES)
 		return;
 	cache_slot_source_forget(slot);
 	source = &cache_slot_sources[slot];
-	if (!cache_slot_source_stat(map_path, source))
+	if (!name[0] || strlen(name) >= sizeof(source->name) || !cache_slot_source_stat(map_path, source))
 		return;
-	cache_slot_source_path(slot, path, sizeof(path));
-	file = fopen(path, "wb");
-	if (!file)
-	{
+	snprintf(source->name, sizeof(source->name), "%s", name);
+	source->checksum = checksum;
+	source->file_length = file_length;
+	if (!cache_slot_source_write(slot))
 		source->known = FALSE;
-		return;
-	}
-	if (fprintf(file, "openh1-cache-source 1 %lu %lu %lu %lu\n", (unsigned long)source->size_low,
-		(unsigned long)source->size_high, (unsigned long)source->seconds, (unsigned long)source->nanoseconds) < 0)
-		source->known = FALSE;
-	if (fclose(file) != 0)
-		source->known = FALSE;
-	if (!source->known)
-		remove(path);
 }
 
-int cache_slot_source_matches(short slot, const char *map_path)
+void cache_slot_source_played(short slot)
+{
+	if (slot < 0 || slot >= MAXIMUM_CACHE_SLOT_SOURCES || !cache_slot_sources[slot].known)
+		return;
+	cache_slot_sources[slot].played = (unsigned long)time(NULL);
+	if (!cache_slot_source_write(slot))
+		cache_slot_sources[slot].known = FALSE;
+}
+
+unsigned long cache_slot_source_played_time(short slot)
+{
+	return slot >= 0 && slot < MAXIMUM_CACHE_SLOT_SOURCES ? cache_slot_sources[slot].played : 0;
+}
+
+int cache_slot_source_matches(short slot, const char *map_path, const char *name, unsigned long checksum,
+	unsigned long file_length)
 {
 	struct cache_slot_source now;
 	const struct cache_slot_source *source;
@@ -1474,7 +1692,9 @@ int cache_slot_source_matches(short slot, const char *map_path)
 	if (slot < 0 || slot >= MAXIMUM_CACHE_SLOT_SOURCES)
 		return FALSE;
 	source = &cache_slot_sources[slot];
-	return source->known && cache_slot_source_stat(map_path, &now) && now.size_low == source->size_low &&
+	return source->known && names_match(source->name, name, sizeof(source->name)) && source->checksum == checksum &&
+		source->file_length == file_length &&
+		cache_slot_source_stat(map_path, &now) && now.size_low == source->size_low &&
 		now.size_high == source->size_high && now.seconds == source->seconds &&
 		now.nanoseconds == source->nanoseconds;
 }

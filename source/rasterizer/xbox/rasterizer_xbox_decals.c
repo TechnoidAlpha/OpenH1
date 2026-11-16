@@ -305,10 +305,57 @@ static struct
 	struct decal_vertex const *vertices;
 	short vertex_count;
 	byte color[4];
+	real bounds[6]; /* its vertices' box: x0, x1, y0, y1, z0, z1 */
 } decal_batch[DECAL_BATCH_MAXIMUM_DECALS];
 static short decal_batch_count = 0;
 
 static void rasterizer_decals_draw_batch(void);
+
+/* port: whether a decal of these vertices overlaps one already in the batch.
+A double multiply decal's draw blends in its pixel shader with display.hdr
+(docs/hdr.md: its ceiling at paper white), reading the pixel it draws over,
+and a draw's triangles see one another's writes in order only where the GPU
+orders those reads (Metal's programmable blending does; Vulkan's local reads
+on most desktop GPUs do not). Two such decals one over the other in a draw
+(a Scorpion's scorch over the last one) blended each over the pixel as it was
+before the draw: the one under was lost inside a lighter patch with a quad's
+straight edges, and which one changed from frame to frame. Decals that
+overlap are drawn as the Xbox drew them, one draw after another. Their boxes
+are grown by a margin: two decals on one flat floor lie a little off it,
+each by its own amount. */
+#define DECAL_BATCH_OVERLAP_MARGIN 0.05f
+static boolean rasterizer_decal_batch_overlaps(
+	struct decal_vertex const *vertices,
+	short vertex_count,
+	real bounds[6])
+{
+	short vertex_index, batch_index;
+
+	bounds[0] = bounds[2] = bounds[4] = 1e30f;
+	bounds[1] = bounds[3] = bounds[5] = -1e30f;
+	for (vertex_index = 0; vertex_index < vertex_count; vertex_index++)
+	{
+		real_point3d const *point = &vertices[vertex_index].position;
+
+		bounds[0] = MIN(bounds[0], point->x);
+		bounds[1] = MAX(bounds[1], point->x);
+		bounds[2] = MIN(bounds[2], point->y);
+		bounds[3] = MAX(bounds[3], point->y);
+		bounds[4] = MIN(bounds[4], point->z);
+		bounds[5] = MAX(bounds[5], point->z);
+	}
+	for (batch_index = 0; batch_index < decal_batch_count; batch_index++)
+	{
+		real const *other = decal_batch[batch_index].bounds;
+
+		if (bounds[0] <= other[1] + DECAL_BATCH_OVERLAP_MARGIN && other[0] <= bounds[1] + DECAL_BATCH_OVERLAP_MARGIN &&
+			bounds[2] <= other[3] + DECAL_BATCH_OVERLAP_MARGIN && other[2] <= bounds[3] + DECAL_BATCH_OVERLAP_MARGIN &&
+			bounds[4] <= other[5] + DECAL_BATCH_OVERLAP_MARGIN && other[4] <= bounds[5] + DECAL_BATCH_OVERLAP_MARGIN)
+			return TRUE;
+	}
+
+	return FALSE;
+}
 
 /* port: the order the decals of a cluster are drawn in. Where it makes no
 difference (a run of decals whose blend functions commute: they do not
@@ -887,9 +934,15 @@ void _rasterizer_decals_draw(
 			IDirect3DVertexBuffer8_Lock(local_d3d_vertex_buffer, 0, 0, &vertex_data, D3DLOCK_READONLY);
 			if (vertex_data)
 			{
-				if (decal_batch_count == DECAL_BATCH_MAXIMUM_DECALS)
+				struct decal_vertex const *vertices = (struct decal_vertex const *)(vertex_data + vertex_data_offset);
+				real bounds[6] = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f };
+				boolean overlaps = framebuffer_blend_function == _shader_framebuffer_blend_function_double_multiply &&
+					rasterizer_decal_batch_overlaps(vertices, (short)(4 * decal->quad_count), bounds);
+
+				if (decal_batch_count == DECAL_BATCH_MAXIMUM_DECALS || overlaps)
 					rasterizer_decals_draw_batch();
-				decal_batch[decal_batch_count].vertices = (struct decal_vertex const *)(vertex_data + vertex_data_offset);
+				csmemcpy(decal_batch[decal_batch_count].bounds, bounds, sizeof(bounds));
+				decal_batch[decal_batch_count].vertices = vertices;
 				decal_batch[decal_batch_count].vertex_count = (short)(4 * decal->quad_count);
 				decal_batch[decal_batch_count].color[0] = (byte)(color >> 16);
 				decal_batch[decal_batch_count].color[1] = (byte)(color >> 8);

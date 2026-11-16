@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.crash.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/crash/crash_screen" box="180 160 460 320" picture="bitmaps/alert_bkd">
+		<at widget="main_menu/crash/crash_message" x="0" y="0"/>
+		<at widget="main_menu/crash/button_bar" x="182" y="293"/>
+		<at widget="main_menu/crash/header_crash" x="182" y="164"/>
+	</look>
+	<look name="main_menu/crash/crash_message" type="text" box="194 194 427 288">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" flags="wrap" string_list="main_menu/crash/crash_prompt"/>
+	</look>
+	<look name="main_menu/crash/header_crash" type="text" box="0 0 200 20">
+		<text font="ui\large_ui" color="#FF2896FF" text="CRASH REPORT"/>
+	</look>
+	<look name="main_menu/crash/button_bar" type="column_list" box="0 0 256 20">
+		<at widget="main_menu/crash/button_report" x="0" y="0"/>
+		<at widget="main_menu/crash/button_skip" x="128" y="0"/>
+	</look>
+	<look name="main_menu/crash/button_report" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="REPORT"/>
+	</look>
+	<look name="main_menu/crash/button_skip" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="SKIP"/>
+	</look>
+</model>

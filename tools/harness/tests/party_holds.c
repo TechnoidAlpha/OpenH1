@@ -144,6 +144,13 @@ static void case_team(void)
 	CHECK(party_team_choice(party_counts, team_counts, 15) == NONE, "half of 15 is 8");
 	team_counts[1] = 7;
 	CHECK(party_team_choice(party_counts, team_counts, 15) == 1, "and 7 has room for one");
+	/* Doubles' (4 at most): a party of two's second player on its leader's
+	team, and no third */
+	party_counts[0] = 1, party_counts[1] = 0;
+	team_counts[0] = 1, team_counts[1] = 1;
+	CHECK(party_team_choice(party_counts, team_counts, 4) == 0, "Doubles: its leader's team");
+	team_counts[0] = 2;
+	CHECK(party_team_choice(party_counts, team_counts, 4) == NONE, "Doubles: two on a team at most");
 }
 
 static void case_room(void)

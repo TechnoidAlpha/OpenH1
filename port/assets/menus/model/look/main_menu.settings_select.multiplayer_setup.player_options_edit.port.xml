@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.player_options_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_aim_assist" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/aim_assist_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/aim_assist_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/aim_assist_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/aim_assist_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_aim_assist"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shield_effects" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/shield_effects_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/shield_effects_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/shield_effects_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="9"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/shield_effects_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_shield_effects"/>
+	</look>
+</model>

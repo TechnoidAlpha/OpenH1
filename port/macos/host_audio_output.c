@@ -49,6 +49,10 @@ driver instead. */
 #include <mach/mach_time.h>
 #include <mach/thread_act.h>
 #include <mach/thread_policy.h>
+#include <mach/task.h>
+#include <mach/task_info.h>
+#include <mach/thread_info.h>
+#include <time.h>
 #include <pthread.h>
 #include <stdatomic.h>
 #include <stdint.h>
@@ -798,14 +802,18 @@ thread that does an I/O thread's work, ran dry more under load, not less.) */
 
 /* (the thread running the mix, before each request: host_sdl.c) the thread
 made real-time for the output stream plays on, as it is set up now; *state
-is the thread's own, 0 at first. Nothing for a stream of SDL's driver */
-void host_audio_output_thread(SDL_AudioStream *stream, int *state)
+and *found are the thread's own, 0 and NULL at first: the output, found
+once, so that each request takes no lock the game's threads take (the
+output lives as long as the stream). Nothing for a stream of SDL's driver */
+void host_audio_output_thread(SDL_AudioStream *stream, int *state, void **found)
 {
-	struct audio_output *output = output_of(stream);
+	struct audio_output *output = *found;
 	thread_time_constraint_policy_data_t policy;
 	uint64_t period;
 	int setups, result;
 
+	if (!output)
+		*found = output = output_of(stream);
 	if (!output || !output->format.freq)
 		return;
 	setups = atomic_load(&output->setups);
@@ -823,6 +831,32 @@ void host_audio_output_thread(SDL_AudioStream *stream, int *state)
 		(thread_policy_t)&policy, THREAD_TIME_CONSTRAINT_POLICY_COUNT);
 	if (result != KERN_SUCCESS)
 		host_logf(HOST_LOG_WARN, "sound: the mix's thread is not made real-time (%d)", result);
+}
+
+/* (host_sdl.c's HALO_AUDIO_MIX_TIMES, on the thread running the mix) the
+thread's processor time (ns), the process's page faults, pages read in and
+context switches, and the thread's priority now */
+void host_audio_output_usage(uint64_t *values)
+{
+	task_events_info_data_t events;
+	mach_msg_type_number_t count = TASK_EVENTS_INFO_COUNT;
+	thread_extended_info_data_t thread;
+	mach_msg_type_number_t thread_count = THREAD_EXTENDED_INFO_COUNT;
+	mach_port_t self = pthread_mach_thread_np(pthread_self());
+	/* (mach_task_self's own: <mach/mach.h> declares a host_page_size that
+	is not host.h's) */
+	extern mach_port_t mach_task_self_;
+
+	memset(values, 0, 5 * sizeof(*values));
+	values[0] = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID);
+	if (task_info(mach_task_self_, TASK_EVENTS_INFO, (task_info_t)&events, &count) == KERN_SUCCESS)
+	{
+		values[1] = (uint64_t)(uint32_t)events.faults;
+		values[2] = (uint64_t)(uint32_t)events.pageins;
+		values[3] = (uint64_t)(uint32_t)events.csw;
+	}
+	if (thread_info(self, THREAD_EXTENDED_INFO, (thread_info_t)&thread, &thread_count) == KERN_SUCCESS)
+		values[4] = (uint64_t)thread.pth_curpri;
 }
 
 /* (host_sdl_audio_stream_timing) the output's I/O buffer (frames) and rate,

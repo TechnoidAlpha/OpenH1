@@ -170,6 +170,7 @@ symbols in this file:
 #include "sound/sound_definitions.h"
 #include "tag_files/tag_files.h"
 #include "tag_files/tag_groups.h"
+#include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
 #include "units/bipeds.h"
 #include "units/units.h"
 #undef real_local_random
@@ -692,6 +693,47 @@ void effect_delete(
 	}
 
 	return;
+}
+
+/* port: a client checkpoint boundary retires delayed damage and object
+creation from its discarded prediction. Use the same validated part classes
+as effect_generate_part; the deterministic flag also covers harmless lights. */
+void effects_discard_gameplay(void)
+{
+	long effect_index;
+
+	if (!effect_data || !effect_data->valid)
+		return;
+	for (effect_index = data_next_index(effect_data, NONE);
+		effect_index != NONE;
+		effect_index = data_next_index(effect_data, effect_index))
+	{
+		struct effect_definition *definition = effect_definition_get(effect_get(effect_index)->definition_index);
+		boolean gameplay = FALSE;
+		short event_index;
+
+		for (event_index = 0; event_index < definition->events.count && !gameplay; event_index++)
+		{
+			struct effect_event_definition *event = TAG_BLOCK_GET_ELEMENT(
+				&definition->events, event_index, struct effect_event_definition);
+			short part_index;
+
+			for (part_index = 0; part_index < event->parts.count; part_index++)
+			{
+				struct effect_part_definition *part = TAG_BLOCK_GET_ELEMENT(
+					&event->parts, part_index, struct effect_part_definition);
+
+				if (part->reference.index != NONE && (part->runtime_base_class_tag == OBJECT_DEFINITION_TAG ||
+					part->runtime_base_class_tag == DAMAGE_EFFECT_DEFINITION_TAG))
+				{
+					gameplay = TRUE;
+					break;
+				}
+			}
+		}
+		if (gameplay)
+			effect_delete(effect_index);
+	}
 }
 
 long effect_new_attached_from_markers(
@@ -2265,8 +2307,13 @@ static void effect_update(
 						attachment_index < attachment_count;
 						attachment_index++)
 					{
-						if (object->object.attachment_indices[attachment_index] ==
-							effect_index)
+						/* port: only an effect's slot: another type's
+						index is of another array (a light's, a contrail's:
+						the frames'), and may be the same number */
+						if (object->object.attachment_types[attachment_index] ==
+								_object_attachment_type_effect &&
+							object->object.attachment_indices[attachment_index] ==
+								effect_index)
 						{
 							object->object.attachment_indices[attachment_index] =
 								NONE;
@@ -2387,7 +2434,26 @@ static void effect_update(
 			short next_event_index;
 
 			if (!TEST_FLAG(flags, _effect_invisible_bit))
-				effect_generate_particles(effect);
+			{
+				/* port: at game.sim_rate 60 and 120 the particles' places and
+				motion take the frames' local seed in a tick too, as the
+				particles themselves do (particles.c's particle_new,
+				random_math_port_begin_cosmetic): how many an effect makes at
+				its locations is the frames' (a first-person weapon's are where
+				the frames posed it), and the game's local seed would move
+				with them. At 30 the tick's, as the original's */
+				if (sim_rate_get() > TICKS_PER_SECOND)
+				{
+					boolean ticking = random_math_port_begin_cosmetic();
+
+					effect_generate_particles(effect);
+					random_math_port_end_cosmetic(ticking);
+				}
+				else
+				{
+					effect_generate_particles(effect);
+				}
+			}
 
 			if (!event_completed)
 				continue;

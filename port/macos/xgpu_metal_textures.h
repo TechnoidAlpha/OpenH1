@@ -10,6 +10,7 @@ Called on the render thread.
 #ifndef __HALO_MACOS_XGPU_METAL_TEXTURES_H
 #define __HALO_MACOS_XGPU_METAL_TEXTURES_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 struct xgpu_stream_texture_stage;
@@ -38,5 +39,8 @@ struct xgpu_metal_texture_statistics
 	uint32_t astc_waiting;
 };
 void xgpu_metal_textures_statistics(struct xgpu_metal_texture_statistics *statistics);
+/* the ASTC blocks' cache's folder (HALO_ASTC_CACHE, or the app's caches
+folder's astc), into path; NULL for none */
+const char *xgpu_metal_textures_astc_folder(char *path, size_t size);
 
 #endif

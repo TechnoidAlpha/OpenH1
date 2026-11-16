@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/multiplayer_type_select/friends/friends_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/friends/friends_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="created" run="port friends open"/>
 		<on event="b" back="true"/>
 		<on event="back" back="true"/>
@@ -17,11 +17,11 @@
 		<child widget="main_menu/multiplayer_type_select/friends/touch/friends_panel" platform="touch"/>
 		<child widget="main_menu/multiplayer_type_select/friends/touch/friends_list" platform="touch"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/section_friends" type="text" width="280" height="20" wide="-106 80" bitmap="main_menu/parts/section_280" text="FRIENDS" font="ui\small_ui" color="#FF6F9CD0" text_x="4">
+	<widget name="main_menu/multiplayer_type_select/friends/section_friends" type="text" width="280" height="20" wide="-106 80" bitmap="main_menu/parts/section_280" text="FRIENDS" font="ui\small_ui" color="#FF6F9CD0" text_x="4" source="tools/port_settings.py multiplayer_files/_friends/_section">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/friends_count" type="text" controller="1" left="28" top="82" width="276" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-106 80" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/friends_count" type="text" controller="1" left="28" top="82" width="276" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-106 80" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/friends_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/friends/friends_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" source="tools/port_settings.py multiplayer_files/_friends">
 		<data input="port friends update"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_row_0" x="28" y="102"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_row_1" x="28" y="130"/>
@@ -35,131 +35,131 @@
 		<child widget="main_menu/multiplayer_type_select/friends/fr_row_9" x="28" y="354"/>
 		<child widget="main_menu/multiplayer_type_select/friends/friends_prompts" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_0" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_0" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_0"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_0"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_1" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_1" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_2" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_2" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_2"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_2"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_2" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_3" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_3" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_3"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_3"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_3" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_4" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_4" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_4"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_4"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_4" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_5" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_5" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_5"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_5"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_5" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_6" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_6" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_6"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_6"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_6" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_7" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_7" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_7"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_7" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_8" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_8" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_8"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_8"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_8" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_row_9" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_row_9" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_friends">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_note_9"/>
 		<child widget="main_menu/multiplayer_type_select/friends/fr_live_9"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_note_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_note_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/fr_live_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/fr_live_9" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_friends">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_kind" type="text" controller="1" left="330" top="92" width="268" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_kind" type="text" controller="1" left="330" top="92" width="268" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _friends_panel/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_title" type="text" controller="1" left="330" top="108" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_title" type="text" controller="1" left="330" top="108" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _friends_panel/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_status" type="text" controller="1" left="330" top="136" width="268" height="44" font="ui\large_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_status" type="text" controller="1" left="330" top="136" width="268" height="44" font="ui\large_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _friends_panel/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_detail" type="text" controller="1" left="330" top="184" width="268" height="84" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_detail" type="text" controller="1" left="330" top="184" width="268" height="84" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _friends_panel/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_code_label" type="text" controller="1" left="330" top="304" width="268" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 132" text="YOUR FRIEND CODE" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_code_label" type="text" controller="1" left="330" top="304" width="268" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 132" text="YOUR FRIEND CODE" text_flags="no_focus_test" source="tools/port_settings.py _friends/_friends_panel/text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_code" type="text" controller="1" left="330" top="320" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_code" type="text" controller="1" left="330" top="320" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _friends_panel/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/panel_help" type="text" controller="1" left="330" top="346" width="268" height="44" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/panel_help" type="text" controller="1" left="330" top="346" width="268" height="44" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _friends_panel/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/friends_panel" controller="1" left="316" top="80" width="296" height="320" bitmap="main_menu/parts/panel_296x320" wide="-26 132">
+	<widget name="main_menu/multiplayer_type_select/friends/friends_panel" controller="1" left="316" top="80" width="296" height="320" bitmap="main_menu/parts/panel_296x320" wide="-26 132" source="tools/port_settings.py multiplayer_files/_friends/_friends_panel">
 		<child widget="main_menu/multiplayer_type_select/friends/panel_kind"/>
 		<child widget="main_menu/multiplayer_type_select/friends/panel_title"/>
 		<child widget="main_menu/multiplayer_type_select/friends/panel_status"/>
@@ -168,7 +168,7 @@
 		<child widget="main_menu/multiplayer_type_select/friends/panel_code"/>
 		<child widget="main_menu/multiplayer_type_select/friends/panel_help"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/friends_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/friends/friends_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_copy" x="28" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_join" x="28" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_accept" x="28" y="1"/>
@@ -184,114 +184,114 @@
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_show" x="324" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/friends/prompt_back" x="516" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_copy" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button COPY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_copy" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button COPY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_join" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button JOIN" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_join" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button JOIN" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_accept" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button ACCEPT" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_accept" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button ACCEPT" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_add" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button ADD FRIEND" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_add" type="text" width="147" height="24" wide="-106 0" bitmap="main_menu/parts/item_147x24" text="%a-button ADD FRIEND" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_unblock" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button UNBLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_unblock" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%a-button UNBLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_code" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button ADD BY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_code" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button ADD BY CODE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_invite" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_invite" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_ignore" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button IGNORE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_ignore" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button IGNORE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_cancel" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button CANCEL" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_cancel" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="%x-button CANCEL" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_remove" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button REMOVE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_remove" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button REMOVE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_block" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button BLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_block" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button BLOCK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_hide" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button APPEAR OFFLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_hide" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button APPEAR OFFLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_show" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button APPEAR ONLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_show" type="text" width="164" height="24" wide="106 0" bitmap="main_menu/parts/item_164x24" text="%y-button APPEAR ONLINE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/friends/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py multiplayer_files/_friends/_prompts">
 		<on event="a" run="port friends button"/>
 		<on event="start" run="port friends button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/add_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/friends/add/add_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py _friends/_friends_add/_screen">
 		<on event="b" run="port friends code back"/>
 		<on event="back" run="port friends code back"/>
 		<child widget="main_menu/multiplayer_type_select/friends/add/header_add_friend"/>
 		<child widget="main_menu/multiplayer_type_select/friends/add/options_menu"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/header_add_friend" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/header_multiplayer">
+	<widget name="main_menu/multiplayer_type_select/friends/add/header_add_friend" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/header_multiplayer" source="tools/port_settings.py _friends/_friends_add/_screen">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/help" type="text" controller="1" left="68" top="120" width="482" height="60" string_list="main_menu/multiplayer_type_select/friends/add/help_strings" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="main_menu/multiplayer_type_select/friends/add/help" type="text" controller="1" left="68" top="120" width="482" height="60" string_list="main_menu/multiplayer_type_select/friends/add/help_strings" font="ui\large_ui" color="#FFFFFFFF" source="tools/port_settings.py _friends/_friends_add/_screen">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/friends/add/help">
+	<widget name="main_menu/multiplayer_type_select/friends/add/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/friends/add/help" source="tools/port_settings.py _friends/_friends_add/_screen">
 		<data input="port friends code update"/>
 		<on event="created" run="port friends code init"/>
 		<child widget="main_menu/multiplayer_type_select/friends/add/op_code" x="54" y="73"/>
 		<child widget="main_menu/multiplayer_type_select/friends/add/button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/friends/add/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py _friends/_friends_add/_screen">
 		
 		<child widget="main_menu/multiplayer_type_select/friends/add/button_ok" x="380" y="1"/>
 		<child widget="common_button_cancel" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/op_code" width="512" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/option_bkds" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/friends/add/op_code" width="512" height="26" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/option_row_512x26" color="#FF2896FF" source="tools/port_settings.py _friends_add/_value_row/_option_row">
 		<on event="a" run="port friends code edit"/>
 		<on event="start" run="port friends code edit"/>
 		<on event="b"/>
 		<on event="back"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/friends/add/code_label"/>
-		<child widget="main_menu/multiplayer_type_select/friends/add/code_value" x="230" y="1"/>
+		<child widget="main_menu/multiplayer_type_select/friends/add/code_value" x="286"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/code_label" type="text" controller="1" width="230" height="22" string_list="main_menu/multiplayer_type_select/friends/add/labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/friends/add/code_label" type="text" controller="1" width="280" height="26" string_list="main_menu/multiplayer_type_select/friends/add/labels" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="2" source="tools/port_settings.py _friends_add/_value_row/_option_label">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/code_value" type="text" controller="1" width="280" height="22" font="ui\small_ui" color="#FF2896FF" align="center" text_y="5" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/friends/add/code_value" type="text" controller="1" width="206" height="26" font="ui\large_ui" color="#FF2896FF" align="center" text_y="2" text_flags="no_focus_test" source="tools/port_settings.py _friends_add/_value_row/_option_value">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/add/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py _friends/_friends_add/_button">
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/friends/add/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="SEND REQUEST" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/friends/add/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="SEND REQUEST" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_friends/_friends_add">
 		<on event="a" run="port friends code send"/>
 		<on event="start" run="port friends code send"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

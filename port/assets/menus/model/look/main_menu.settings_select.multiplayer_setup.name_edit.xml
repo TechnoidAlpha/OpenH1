@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.name_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/name_edit/gametype_name_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/name_edit/header_gametype_name" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/name_edit/header_gametype_name" box="35 11 381 70" picture="main_menu/settings_select/multiplayer_setup/name_edit/header_gametype_name"/>
+</model>

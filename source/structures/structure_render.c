@@ -578,6 +578,9 @@ static void structure_render_pass(
 
 			chunk_start = surface_index_cursor;
 			shader = shader_definition_get(material->shader.index);
+			/* port: debug.render_marks: the material's draws
+			(port/linux/game/render_marks.c) */
+			render_marks_structure(material->shader.index, lightmap_index, material_index);
 
 			do
 			{

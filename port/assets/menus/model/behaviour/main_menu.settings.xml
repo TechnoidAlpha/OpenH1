@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings/settings_creating_profile" flags="pass_unhandled_to_focused_child no_history">
+		<on event="deleted" run="new campaign decision" open="main_menu/settings/settings_saving_profile"/>
+	</behaviour>
+	<behaviour name="main_menu/settings/settings_saving_profile" flags="pass_unhandled_to_focused_child no_history">
+		<on event="b" run="NULL"/>
+		<on event="back" run="NULL"/>
+		<on event="deleted" run="NULL" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/settings/search_field">
+		<on event="a" run="port settings search"/>
+		<on event="start" run="port settings search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

@@ -10,7 +10,76 @@ run by tools/test_host_units.py; exits nonzero on a failure.
 
 #include "host.h"
 
+#ifdef __APPLE__
+/* (macOS has no elf.h: the little of it the files made here need) */
+typedef uint16_t Elf32_Half, Elf64_Half;
+typedef uint32_t Elf32_Word, Elf32_Addr, Elf32_Off, Elf64_Word;
+typedef uint64_t Elf64_Addr, Elf64_Off, Elf64_Xword;
+
+#define EI_NIDENT 16
+#define EI_CLASS 4
+#define EI_DATA 5
+#define EI_VERSION 6
+#define ELFMAG "\177ELF"
+#define SELFMAG 4
+#define ELFCLASS32 1
+#define ELFCLASS64 2
+#define ELFDATA2LSB 1
+#define ELFDATA2MSB 2
+#define EV_CURRENT 1
+#define ET_EXEC 2
+#define ET_DYN 3
+#define EM_386 3
+#define EM_X86_64 62
+#define EM_AARCH64 183
+#define PT_LOAD 1
+#define PT_DYNAMIC 2
+#define PT_INTERP 3
+#define PT_GNU_STACK 0x6474e551
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
+
+typedef struct
+{
+	unsigned char e_ident[EI_NIDENT];
+	Elf32_Half e_type, e_machine;
+	Elf32_Word e_version;
+	Elf32_Addr e_entry;
+	Elf32_Off e_phoff, e_shoff;
+	Elf32_Word e_flags;
+	Elf32_Half e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx;
+} Elf32_Ehdr;
+
+typedef struct
+{
+	Elf32_Word p_type;
+	Elf32_Off p_offset;
+	Elf32_Addr p_vaddr, p_paddr;
+	Elf32_Word p_filesz, p_memsz, p_flags, p_align;
+} Elf32_Phdr;
+
+typedef struct
+{
+	unsigned char e_ident[EI_NIDENT];
+	Elf64_Half e_type, e_machine;
+	Elf64_Word e_version;
+	Elf64_Addr e_entry;
+	Elf64_Off e_phoff, e_shoff;
+	Elf64_Word e_flags;
+	Elf64_Half e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx;
+} Elf64_Ehdr;
+
+typedef struct
+{
+	Elf64_Word p_type, p_flags;
+	Elf64_Off p_offset;
+	Elf64_Addr p_vaddr, p_paddr;
+	Elf64_Xword p_filesz, p_memsz, p_align;
+} Elf64_Phdr;
+#else
 #include <elf.h>
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

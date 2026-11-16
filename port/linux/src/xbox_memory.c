@@ -118,7 +118,11 @@ static void custom_edition_tag_cache_reserve(void)
 
 void *halo_custom_edition_tag_cache(void)
 {
+#ifdef HALO_WEB
+	return web_custom_edition_tag_cache();
+#else
 	return custom_edition_tag_cache;
+#endif
 }
 
 /* sysinfo's total, which the guests' hosts give (the Linux kernel's, or the

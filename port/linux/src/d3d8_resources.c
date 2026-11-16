@@ -66,6 +66,11 @@ static unsigned long bytes_per_texel(D3DFORMAT format)
 	return description.pitch; /* width 1 */
 }
 
+/* the textures, surfaces and palettes made, numbered in the order they are
+(d3d8_device.c: a map's preparation keeps them so) */
+void d3d8_resource_created(void *resource);
+void d3d8_resource_freed(void *resource);
+
 /* ---------- surfaces used as the device's own targets */
 
 void d3d8_surface_initialize(D3DSurface *surface, D3DFORMAT format, unsigned long width, unsigned long height)
@@ -121,6 +126,7 @@ ULONG WINAPI D3DResource_Release(D3DResource *resource)
 			free((void *)fields[1]);
 		else if (fields[1])
 			platform_contiguous_free(PLATFORM_PHYSICAL_TO_VIRTUAL(fields[1]));
+		d3d8_resource_freed(resource);
 		free(resource);
 	}
 	return count;
@@ -182,6 +188,7 @@ static HRESULT create_texture(unsigned long width, unsigned long height, unsigne
 		return E_OUTOFMEMORY;
 	}
 	texture->Data = PLATFORM_VIRTUAL_TO_PHYSICAL(memory);
+	d3d8_resource_created(texture);
 	*result = texture;
 	return S_OK;
 }
@@ -322,6 +329,7 @@ HRESULT WINAPI D3DTexture_GetSurfaceLevel(D3DTexture *texture, UINT level, D3DSu
 		(1 << D3DFORMAT_MIPMAP_SHIFT);
 	surface->Size = base->Size;
 	surface->Parent = base;
+	d3d8_resource_created(surface);
 	*result = surface;
 	return S_OK;
 }
@@ -424,6 +432,7 @@ HRESULT WINAPI D3DDevice_CreatePalette(D3DPALETTESIZE size, D3DPalette **result)
 	}
 	palette->Common = D3DCOMMON_TYPE_PALETTE | D3DCOMMON_D3DCREATED | 1 | ((DWORD)size << D3DPALETTE_COMMON_PALETTESIZE_SHIFT);
 	palette->Data = PLATFORM_VIRTUAL_TO_PHYSICAL(memory);
+	d3d8_resource_created(palette);
 	*result = palette;
 	return S_OK;
 }

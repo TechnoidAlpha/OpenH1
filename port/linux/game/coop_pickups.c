@@ -291,6 +291,17 @@ void coop_pickups_new_game(void)
 		(short)PIN(config_integer("network.coop_enemies_multiplier"), 2, 32) : 0;
 }
 
+void *coop_pickups_port_demo_state(short part, long *size)
+{
+	switch (part)
+	{
+	case 0: *size = sizeof(pickups_enabled); return &pickups_enabled;
+	case 1: *size = sizeof(pickups_percent); return &pickups_percent;
+	case 2: *size = sizeof(pickups_multiplier); return &pickups_multiplier;
+	}
+	return NULL;
+}
+
 void coop_pickups_register(long object_index, struct scenario_object_datum const *source, struct tag_block *palette)
 {
 	struct item_datum *item;

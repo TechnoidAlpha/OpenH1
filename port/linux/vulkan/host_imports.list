@@ -2,3 +2,4 @@
 # guest's (port/linux/host/host_imports.list): declared in guest_vulkan.c,
 # defined in host_vulkan.c. tools/android_imports.py generates the stubs.
 host_vulkan_window_open
+host_vulkan_vrr

@@ -47,6 +47,10 @@ short cache_copy_get_status(
 	real *progress);
 void cache_copy_end(
 	void);
+/* port: the copy that ended wrote every byte of its map and its header
+last, each put on the disk first */
+boolean cache_copy_written(
+	void);
 void cache_copy_initialize(
 	void);
 struct cache_copy_read_request *acquire_read_request(

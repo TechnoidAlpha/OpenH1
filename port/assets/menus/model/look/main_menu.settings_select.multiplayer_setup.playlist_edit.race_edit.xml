@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.race_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_laps_to_win"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_laps_to_win" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/laps_to_win_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_race_type" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_team_play" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_play_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_play_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_team_scoring" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_help" type="text" box="68 321 550 400">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/cap_race"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_menu" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_team_scoring" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_race_type" x="54" y="103"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_laps_to_win" x="54" y="133"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/op_team_play" x="54" y="163"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_time_limit" x="54" y="193"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_type_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_race_type"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_play_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_play_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_team_play"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_labels"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/team_scoring_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/var_team_scoring"/>
+	</look>
+</model>

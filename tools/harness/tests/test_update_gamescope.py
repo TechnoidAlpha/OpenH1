@@ -75,7 +75,7 @@ def generated(fault=None):
         "void p2p_sha256_add(struct p2p_sha256 *context, const void *data, int size);\n"
         "void p2p_sha256_end(struct p2p_sha256 *context, unsigned char *digest);\n#endif\n",
         # (update_gamescope.c's fakes are declared before under_test.inc)
-        "SDL3/SDL.h": "", "platform.h": "", "install_layout.h": "", "port_config.h": "",
+        "SDL3/SDL.h": "", "platform.h": "", "install_layout.h": "", "port_config.h": "", "report.h": "",
     }
 
 
@@ -185,15 +185,15 @@ def test_update(tmp_path, tmp_path_factory):
     """UPDATE at the main menu: the release downloaded in the background, then the question in the game's menus at
     the main menu (not before), then the new version put in place and started in the same process"""
     output = check_update(build(tmp_path_factory), tmp_path, player="update")
-    lines_in_order(output, "test: started", "test: download https://api.github.com/repos/OpenH1/OpenH1/releases/latest",
-                   f"test: download https://github.com/OpenH1/OpenH1/releases/download/build-{BUILD + 1}/{ASSET}",
+    lines_in_order(output, "test: started", "test: download https://api.github.com/repos/OpenH1/goath1/releases/latest",
                    "test: asked for SHA256SUMS", "test: asked for SHA256SUMS.sig",
+                   f"test: download https://github.com/OpenH1/goath1/releases/download/build-{BUILD + 1}/{ASSET}",
                    f"test: release check of {ASSET}: sums 0, signature 0, required 1: unsigned",
                    f"update: build {BUILD + 1} is downloaded",
                    "test: the update question opened over the main menu",
                    f"update: asking about build {BUILD + 1} at the main menu", "test: UPDATE",
                    f"update: updating to build {BUILD + 1} (UPDATE)", f"update: starting build {BUILD + 1}")
-    assert output.count("UPDATE)") == 1, output
+    assert output.count("UPDATE)") == 1 and "GitHub's API" not in output, output
 
 
 def test_refused(tmp_path, tmp_path_factory):

@@ -5,7 +5,8 @@ be; by score where there are scores), the teams' colours kept for the most playe
 (nothing in co-op, a restart its own game), the playlist past entries that can no longer be played (each tried once),
 a playlist kept whole within its text, the console's ban line (a quoted name, its length and reason), a saved
 gametype's key, and a change of map alone (MAPS' CURRENT, the console's host_map without a gametype) keeping the
-lobby's gametype, score, time and rules while a gametype named is built, MAPS' gametype found by the game's name.
+lobby's gametype, score, time and rules while a gametype named is built, MAPS' gametype found by the game's name; and
+co-op's level after a won one, the host's change in the campaign's next one's place.
 Each check has a fault that it must catch."""
 
 import sys
@@ -17,11 +18,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run  # noqa: E402
 
 SOURCE = "port/linux/game/network_host_game.c"
-CASES = ["playlist", "duration", "shuffle", "balance", "takes", "try", "fits", "ban", "saved", "kept", "find"]
+CASES = ["playlist", "duration", "shuffle", "balance", "takes", "try", "fits", "ban", "saved", "kept", "find", "coop_after"]
 PURE = ("network_host_game_playlist_after", "network_host_game_duration_parse", "network_host_game_teams_plan",
         "network_host_game_lobby_takes", "network_host_game_playlist_try", "network_host_game_playlist_fits",
         "network_host_game_ban_parse", "network_host_game_entry_keeps", "network_host_game_variant_kept",
-        "network_host_game_gametype_find")
+        "network_host_game_gametype_find", "network_host_game_cooperative_level_after")
 GAMETYPES = "port/linux/game/server_gametypes.c"
 
 # a fault in the code, and the case that must catch it
@@ -59,6 +60,9 @@ NEGATIVE_CONTROLS = {
     "map-alone-is-slayer": ("return text && !strchr(text, ':');", "return FALSE;", "kept"),
     "named-gametype-kept": ("\tif (entry->gametype[0] || !game)", "\tif (!game)", "kept"),
     "kept-score-lost": ("\t*variant = game->variant;", "\t(void)variant;", "kept"),
+    # (co-op's level asked for after this one lost, or at the game's difficulty)
+    "coop-asked-lost": ("\tif (!asked || !asked_level || !asked_level[0])", "\tif (TRUE)", "coop_after"),
+    "coop-asked-difficulty-lost": ("\t*difficulty = asked_difficulty;", "\t;", "coop_after"),
     # (MAPS' selector on the list's first whatever the game plays, or on a name the game's begins with)
     "find-the-first": ("\t\t\treturn index;\n\t}\n\treturn NONE;", "\t\t\treturn 0;\n\t}\n\treturn 0;", "find"),
     "find-a-prefix": (": listed[at] == shown[at])", ": !listed[at])", "find"),

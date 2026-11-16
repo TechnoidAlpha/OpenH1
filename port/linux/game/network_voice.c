@@ -30,10 +30,11 @@ decodes, and a machine's own voice never comes back to it.
 Each machine decides only for itself: whether it talks (audio.voice_chat:
 push to talk, open mic, or not), how loud the others are
 (audio.voice_volume), and whom it mutes (the scoreboard's menu,
-game_engine.c: their voice and their text chat lines), which it does not
-tell anyone. The host's mute for everyone (the scoreboard's, or the chat's
-/mute: network_chat.c) is the host's alone: it relays none of a muted
-player's voice.
+game_engine.c: their voice, their text chat lines and their pings,
+network_markers.c), which it does not tell anyone. The host's mute for
+everyone (the scoreboard's, or the chat's /mute: network_chat.c) is the
+host's alone: it relays none of a muted player's voice (and takes none of
+their pings).
 */
 
 #include "cseries.h"
@@ -475,6 +476,7 @@ static void voice_fill_header(
 	header->type = type;
 	header->count = 1;
 	header->game_time = game_in_progress() ? game_time_get() : 0;
+	header->checkpoint_epoch = 0; /* Voice continues across checkpoint restores. */
 }
 
 /* ---------- the host */
@@ -794,6 +796,10 @@ void network_voice_handle_message(
 			return;
 		csmemcpy(&config, entries, sizeof(config));
 		voice_key = config.key;
+		/* (debug.txt says when the host turns the lobby's voice on or off) */
+		if (!voice_settings_heard || voice_settings.lobby != TEST_FLAG(config.flags, _voice_config_lobby_bit))
+			error(_error_log, "voice: the host has the lobby's voice %s",
+				TEST_FLAG(config.flags, _voice_config_lobby_bit) ? "on" : "off");
 		voice_settings.lobby = TEST_FLAG(config.flags, _voice_config_lobby_bit);
 		voice_settings.mode = config.mode < NUMBER_OF_VOICE_MODES ? config.mode : _voice_mode_off;
 		voice_settings.kbps = (short)PIN(config.kbps, VOICE_MINIMUM_KBPS, VOICE_MAXIMUM_KBPS);
@@ -903,16 +909,30 @@ static void voice_end_session(
 void network_voice_update(
 	void)
 {
-	char const *chat = config_string("audio.voice_chat");
-	boolean open_mic = chat && !csstrcmp(chat, "open_mic");
-	boolean push_to_talk = chat && !csstrcmp(chat, "push_to_talk");
+	/* (audio.voice_chat and audio.voice_volume, read again as the settings
+	change: config_changes) */
+	static boolean settings_read;
+	static unsigned long settings_read_at;
+	static boolean open_mic, push_to_talk;
+	static float volume;
 	boolean held;
 	unsigned long now = system_milliseconds();
 	float frame[VOICE_FRAME_SAMPLES];
 	short local_machine = network_game_client_get_local_machine_index();
 	long index;
 
-	voice_audio_set_volume((float)PIN(config_real("audio.voice_volume"), 0.0, 2.0));
+	if (!settings_read || settings_read_at != config_changes())
+	{
+		char const *chat;
+
+		settings_read_at = config_changes();
+		settings_read = TRUE;
+		chat = config_string("audio.voice_chat");
+		open_mic = chat && !csstrcmp(chat, "open_mic");
+		push_to_talk = chat && !csstrcmp(chat, "push_to_talk");
+		volume = (float)PIN(config_real("audio.voice_volume"), 0.0, 2.0);
+	}
+	voice_audio_set_volume(volume);
 	/* (a network game: the host's, or one joined) */
 	if (!voice_network_game() || local_machine == NONE)
 	{

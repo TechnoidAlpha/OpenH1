@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Profile Color (docs/menu_screens.md), in place of Settings' COLOR
+screen (color_edit/color_select_screen). The tall layout, as Select
+Profile's: its title in the band at the top and the profile being edited at
+the band's right; the colors in the table at the left, each its swatch and
+its name in its color, the PC version's picker's 18 and Random after them
+(a new profile's: each game gives the player a color no one else has); and
+in the panel beside it the focused color's name, its Spartan in that color
+(drawn by the game in a view of its own; its original picture where it
+cannot be; Random's cycling through the colors), Current color while it is
+the profile's own (its place kept, so the Spartan stays put), and what it
+does; the tall layout's background in place of the generated screen's
+gradient.
+BACK at the bar's left, SELECT at its right. The colors and what A does are
+menu_functions.c's (the row source profile.colors, the color.* bindings,
+the action profile color): A chooses the row's color for the profile being
+edited and goes back, B goes back without one. -->
+<screen name="profile_color" background="tall">
+	<header title="PROFILE COLOR" detail="PROFILE: {color.profile}"/>
+	<table source="profile.colors" do="profile color">
+		<column id="swatch" kind="swatch" width="16" gap="2" touch="12 18 16 0 0"/>
+		<column id="name" label="COLOR" kind="strong" width="374" grow="144" touch="40 14 312 0 144"/>
+	</table>
+	<panel>
+		<heading text="{color.title}"/>
+		<text text="{color.current}"/>
+		<spartan height="210" touch-height="150" color="color.spartan"/>
+		<text text="{color.about}" lines="2" touch-lines="2"/>
+	</panel>
+	<buttons>
+		<button key="back" label="BACK"/>
+		<button key="accept" label="SELECT" side="right"/>
+	</buttons>
+</screen>

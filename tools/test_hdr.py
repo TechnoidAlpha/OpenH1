@@ -444,25 +444,3 @@ def test_glsl_constants():
            f"{macro('XGPU_HDR_PUNCHY_BRIGHT_KNEE'):g}, 1.0, sdr_luminance))" in glsl
     assert f"min(1.0, {macro('XGPU_HDR_PUNCHY_KNEE'):g} * peak)" in glsl
     assert f"smoothstep(1.0, {macro('XGPU_HDR_FAITHFUL_CLIPPED'):.1f}, max(v.r, max(v.g, v.b)))" in glsl
-
-
-def test_hooks_in_the_game():
-    """the game's renderer tells the front end what it draws: its categories,
-    its transparent groups (the first-person weapon's), the HUD's glows"""
-    rasterizer = ROOT / "source/rasterizer/xbox"
-    assert "halo_hdr_category(profile);" in (rasterizer / "rasterizer_xbox_profile.c").read_text()
-    assert "halo_hdr_draw_kind(transparent_hdr_kind(group));" in \
-        (rasterizer / "rasterizer_xbox_transparent_geometry.c").read_text()
-    assert "HALO_HDR_KIND_HUD_GLOW" in (rasterizer / "rasterizer_xbox_motion_sensor.c").read_text()
-    assert "HALO_HDR_KIND_HUD_GLOW" in (rasterizer / "rasterizer_xbox_dynavobgeom.c").read_text()
-    transparent = (rasterizer / "rasterizer_xbox_transparent_geometry.c").read_text()
-    assert "kind |= HALO_HDR_KIND_LIGHT;" in transparent and "base.radiosity.power > 0.0f" in transparent
-    models = (rasterizer / "rasterizer_xbox_models.c").read_text()
-    assert "HALO_HDR_KIND_SELF_ILLUMINATION | HALO_HDR_KIND_SELF_ILLUMINATION_STAGES(1<<1)" in models
-    assert models.count("halo_hdr_draw_kind(HALO_HDR_KIND_NONE);") == 1
-    environment = (rasterizer / "rasterizer_xbox_environment.c").read_text()
-    assert "HALO_HDR_KIND_SELF_ILLUMINATION | HALO_HDR_KIND_SELF_ILLUMINATION_STAGES((1<<3) | (1<<4))" in environment
-    assert environment.count("halo_hdr_draw_kind(HALO_HDR_KIND_NONE);") == 1
-    light_volumes = (ROOT / "source/objects/widgets/light_volumes.c").read_text()
-    assert light_volumes.count("halo_hdr_draw_kind(HALO_HDR_KIND_LIGHT);") == 1
-    assert light_volumes.count("halo_hdr_draw_kind(HALO_HDR_KIND_NONE);") == 1

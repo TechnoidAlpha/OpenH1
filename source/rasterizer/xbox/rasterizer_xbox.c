@@ -419,6 +419,7 @@ symbols in this file:
 #include "rasterizer/xbox/rasterizer_xbox_pixel_shader.h"
 #include "rasterizer_xbox_internal.h"
 #include "rasterizer_xbox_vertex_shaders.h"
+#include "mcc_cache.h" /* port: port/linux/game/mcc_cache.c */
 
 /* ---------- constants */
 
@@ -860,6 +861,9 @@ void _rasterizer_windows_begin(
 	return;
 }
 
+/* port: (_rasterizer_window_set_fog's fog, as given) */
+static struct render_fog rasterizer_window_fog_given;
+
 void _rasterizer_window_get_fog(
 	struct render_fog *fog)
 {
@@ -885,6 +889,9 @@ void _rasterizer_window_set_fog(
 		"c:\\halo\\SOURCE\\rasterizer\\xbox\\rasterizer_xbox.c",
 		1452,
 		fog);
+	/* port: (the fog as given, which rasterizer_view_end gives the window
+back: what it is made into below is not given again as it was) */
+	rasterizer_window_fog_given = *fog;
 	global_window_parameters.fog = *fog;
 	if (global_window_parameters.fog.atmospheric_maximum_density <= 0.0f)
 		global_window_parameters.fog.atmospheric_maximum_density = 1.0f;
@@ -1355,6 +1362,13 @@ void rasterizer_model_part_skinning(
 	if (!many_node_matrices)
 		return;
 	node_count = custom_edition_part_palette(vertex_buffer, &nodes);
+	/* port: and an MCC map's part's (mcc_cache.c) */
+	{
+		short mcc_count = mcc_cache_part_palette(vertex_buffer, &nodes);
+
+		if (mcc_count)
+			node_count = mcc_count;
+	}
 	for (node_index = 0; node_index < node_count && node_index < RASTERIZER_MAXIMUM_NODES_PER_MODEL - 1; node_index++)
 	{
 		node_matrix_constants(vsh_constants__nodematrices[node_index],
@@ -1874,6 +1888,56 @@ void _rasterizer_window_end(
 	}
 	rasterizer_profile_window_end();
 	return;
+}
+
+/* port: a view of its own drawn in a rectangle of the window, among the
+window's other draws (the menus' Spartan among the menus' widgets:
+port/linux/game/menu_spartan.c): its camera and frustum, its viewport the
+camera's, its depth and stencil cleared there, no fog. Its draws are the
+window's otherwise (its target, its states); rasterizer_view_end gives the
+window back its camera, frustum, fog and viewport. */
+static struct rasterizer_window_begin_parameters rasterizer_view_window;
+static struct render_fog rasterizer_view_window_fog;
+
+static void rasterizer_view_viewport(
+	rectangle2d const *bounds)
+{
+	D3DVIEWPORT8 viewport;
+
+	viewport.X = bounds->x0;
+	viewport.Y = bounds->y0;
+	viewport.Width = bounds->x1 - bounds->x0;
+	viewport.Height = bounds->y1 - bounds->y0;
+	viewport.MinZ = 0.0f;
+	viewport.MaxZ = 1.0f;
+	IDirect3DDevice8_SetViewport(global_d3d_device, &viewport);
+}
+
+void rasterizer_view_begin(
+	struct render_camera const *camera,
+	struct render_frustum const *frustum)
+{
+	struct render_fog fog;
+
+	rasterizer_view_window = global_window_parameters;
+	rasterizer_view_window_fog = rasterizer_window_fog_given;
+	global_window_parameters.camera = *camera;
+	global_window_parameters.frustum = *frustum;
+	rasterizer_view_viewport(&camera->viewport_bounds);
+	IDirect3DDevice8_Clear(global_d3d_device, 0, NULL, D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL, 0, 1.0f, 0);
+	rasterizer_set_stencil_mode(RASTERIZER_STENCIL_MODE_NONE);
+	csmemset(&fog, 0, sizeof(fog));
+	_rasterizer_window_set_fog(&fog);
+	rasterizer_set_frustum_z(-1.0f, -1.0f);
+}
+
+void rasterizer_view_end(
+	void)
+{
+	global_window_parameters = rasterizer_view_window;
+	_rasterizer_window_set_fog(&rasterizer_view_window_fog);
+	rasterizer_set_frustum_z(-1.0f, -1.0f);
+	rasterizer_view_viewport(&global_window_parameters.camera.viewport_bounds);
 }
 
 boolean rasterizer_preinitialize__fill_you_up_with_the_devils_cock(

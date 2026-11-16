@@ -12,7 +12,7 @@
 # not, so a branch that adds one builds with it before master publishes
 # the image that has it.
 FROM ubuntu:22.04
-LABEL org.opencontainers.image.source=https://github.com/OpenH1/OpenH1
+LABEL org.opencontainers.image.source=https://github.com/OpenH1/goath1
 LABEL org.opencontainers.image.description="OpenH1's Linux CI builds: Ubuntu 22.04 with their packages"
 ARG ARCH
 COPY packages*.txt /tmp/ci-image/

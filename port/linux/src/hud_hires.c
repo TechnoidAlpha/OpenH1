@@ -6,7 +6,7 @@ uploaded, and each one's image (xgpu_images.h).
 
 Which bitmap is at an address the game knows (from the loaded map's tags:
 port/linux/game/hud_hires_tags.c). Each texture is decoded from its PNG when
-first drawn and kept: up to 77 of the HUD's, about 232 MB with their mip
+first drawn and kept: up to 84 of the HUD's, about 79 MB with their mip
 levels, though a game draws only some (the scopes' only when zoomed), and
 the titles of the menus shown, about 3 MB each (11 MB for the carnage
 report's, a whole panel), and their button icons, about 0.3 MB each (5.3
@@ -30,6 +30,7 @@ zlib (port/third_party/zlib).
 #include "xgpu_images.h"
 
 #include "zlib_prefixed.h"
+#include "embedded_assets.h"
 
 #ifndef HALO_ANDROID
 #define HUD_HIRES_DECODE_AHEAD
@@ -251,6 +252,30 @@ static struct
 	long asset;
 } placeholders[MAXIMUM_PLACEHOLDERS];
 static long placeholder_count = 0;
+/* a bit of 1024 for each placeholder's Data (placeholder_filter_bit): a
+texture whose bit is clear is no placeholder, found without searching
+them, as the renderer asks for each texture it binds */
+static unsigned char placeholder_filter[128];
+
+static unsigned long placeholder_filter_bit(unsigned long data)
+{
+	return (unsigned long)((data * 2654435761UL) & 0xFFFFFFFFUL) >> 22;
+}
+
+/* (after a placeholder's Data has changed) */
+static void placeholder_filter_build(void)
+{
+	long index;
+
+	memset(placeholder_filter, 0, sizeof(placeholder_filter));
+	for (index = 0; index < placeholder_count; index++)
+	{
+		unsigned long bit = placeholder_filter_bit(placeholders[index].data);
+
+		if (placeholders[index].data)
+			placeholder_filter[bit >> 3] |= (unsigned char)(1 << (bit & 7));
+	}
+}
 
 /* the sequences whose sprites the texture is drawn for (hud_hires.h), or 0 */
 unsigned long hud_hires_asset_sprites(long asset)
@@ -374,13 +399,18 @@ void hud_hires_register_placeholder(long asset, const unsigned long *texture)
 	{
 		placeholders[index].data = texture ? texture[1] : 0;
 		placeholders[index].asset = asset;
+		xgpu_texture_replacements_changed();
 	}
+	placeholder_filter_build();
 }
 
 unsigned int hud_hires_placeholder_texture(unsigned long data, unsigned long *levels)
 {
+	unsigned long bit = placeholder_filter_bit(data);
 	long index;
 
+	if (!(placeholder_filter[bit >> 3] & 1 << (bit & 7)))
+		return 0;
 	for (index = 0; data && index < placeholder_count; index++)
 	{
 		if (placeholders[index].data == data)
@@ -471,6 +501,13 @@ unsigned char *hud_hires_upscale_pixels(const unsigned char *bgra, unsigned long
 static unsigned char *png_decode(const unsigned char *data, unsigned long size,
 	unsigned long *png_width, unsigned long *png_height);
 
+/* a texture's PNG, in the assets' file (embedded_assets.h); NULL where it is
+missing */
+static const unsigned char *embedded_png(const struct hud_hires_embedded *embedded)
+{
+	return (const unsigned char *)embedded_assets_data(embedded->png_offset, embedded->png_size);
+}
+
 /* The background's old icon otherwise draws over the existing high-res meter
  * contour. Only the five known Xbox sheets get this matching contour; their
  * text, and customized sheets, retain their original pixels and layout. */
@@ -506,7 +543,7 @@ static void upscale_outline(unsigned char *pixels, const unsigned char *bgra,
 
 		if (strcmp(embedded->tag, name))
 			continue;
-		outline = png_decode((const unsigned char *)embedded->png, embedded->png_size, &png_width, &png_height);
+		outline = png_decode(embedded_png(embedded), embedded_png(embedded) ? embedded->png_size : 0, &png_width, &png_height);
 		if (outline && png_width == width * 4 && png_height == height * 4)
 			for (row = top * 4; row < bottom * 4; row++)
 				memcpy(pixels + (row * width * 4 + left * 4) * 4,
@@ -516,20 +553,35 @@ static void upscale_outline(unsigned char *pixels, const unsigned char *bgra,
 	}
 }
 
-unsigned int hud_hires_upscale_texture(const unsigned char *bgra, unsigned long width,
-	unsigned long height, long kind, unsigned long *levels)
+unsigned char *hud_hires_upscale_kind_pixels(const unsigned char *bgra, unsigned long width,
+	unsigned long height, long kind)
 {
 	unsigned char *pixels = kind == 4 ? upscale_pixels(bgra, width, height, 512) :
 		hud_hires_upscale_pixels(bgra, width, height);
+
+	if (pixels)
+		upscale_outline(pixels, bgra, width, height, kind);
+	return pixels;
+}
+
+unsigned int hud_hires_upscaled_texture(unsigned char *pixels, unsigned long width, unsigned long height,
+	unsigned long *levels)
+{
 	unsigned long largest;
 
 	if (!pixels)
 		return 0;
-	upscale_outline(pixels, bgra, width, height, kind);
 	*levels = 1;
 	for (largest = (width > height ? width : height) * 4; largest > 1; largest >>= 1)
 		(*levels)++;
 	return xgpu_image_create(pixels, width * 4, height * 4, *levels, XGPU_IMAGE_RGBA, TRUE);
+}
+
+unsigned int hud_hires_upscale_texture(const unsigned char *bgra, unsigned long width,
+	unsigned long height, long kind, unsigned long *levels)
+{
+	return hud_hires_upscaled_texture(hud_hires_upscale_kind_pixels(bgra, width, height, kind), width, height,
+		levels);
 }
 
 static unsigned long big_endian_long(const unsigned char *bytes)
@@ -677,6 +729,12 @@ unsigned char *hud_hires_png_pixels(const void *png, unsigned long size, unsigne
 	return png_decode(png, size, width, height);
 }
 
+unsigned int hud_hires_pixels_texture(unsigned char *pixels, unsigned long width, unsigned long height,
+	unsigned long *levels)
+{
+	return png_pixels_texture(pixels, width, height, levels);
+}
+
 unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned long *levels)
 {
 	unsigned long width = 0, height = 0;
@@ -719,7 +777,7 @@ unsigned int hud_hires_override_texture(long asset, unsigned long *levels)
 		pthread_mutex_unlock(&decode_lock);
 #endif
 		if (!decoded)
-			pixels = png_decode((const unsigned char *)embedded->png, embedded->png_size, &width, &height);
+			pixels = png_decode(embedded_png(embedded), embedded_png(embedded) ? embedded->png_size : 0, &width, &height);
 		textures[asset].texture = png_pixels_texture(pixels, width, height, &textures[asset].levels);
 	}
 	if (!textures[asset].texture)
@@ -759,7 +817,7 @@ static void *decode_thread_main(void *unused)
 		}
 		textures[asset].decode_state = _decode_decoding;
 		pthread_mutex_unlock(&decode_lock);
-		pixels = png_decode((const unsigned char *)embedded->png, embedded->png_size, &width, &height);
+		pixels = png_decode(embedded_png(embedded), embedded_png(embedded) ? embedded->png_size : 0, &width, &height);
 		pthread_mutex_lock(&decode_lock);
 		textures[asset].pixels = pixels;
 		textures[asset].width = width;

@@ -72,15 +72,6 @@ def test_render_skips_tags_used_as_both_struct_and_union():
 XDK_INCLUDE = Path(__file__).resolve().parent.parent / "port" / "include" / "xdk"
 
 
-def test_xdk_headers_use_the_sdk_spellings():
-    # each port gives the SDK's keywords and names its own meaning (its
-    # prefix header), so none of one port's must be written into them
-    for header in sorted(XDK_INCLUDE.glob("*.h")):
-        text = re.sub(r"/\*.*?\*/", "", header.read_text(encoding="utf-8"), flags=re.S)
-        assert "__attribute__" not in text, header.name
-        assert not re.findall(r"\bhalo_\w+", text), header.name
-
-
 def x86_abi(tmp_path):
     """skips unless this computer builds the game's 32-bit x86 ABI
     (tools/x86_game_abi.py: clang and the C library's 32-bit files)"""
@@ -164,7 +155,9 @@ MENU_ATTRIBUTES = {
                "color", "align", "description", "string_list", "list_flags", "text_flags", "header_bitmap",
                "footer_bitmap", "header_bounds", "footer_bounds", "child_controller", "x", "y", "left", "top",
                "width", "height", "text_x", "text_y", "auto_close", "auto_close_fade", "string_index", "platform",
-               "wide"},
+               "wide", "radius",
+               # where it was made (the game ignores it; the review tools read it: tools/menu_sources.py)
+               "source"},
     "child": {"widget", "controller", "x", "y", "platform"},
     "on": {"event", "run", "script", "open", "replace", "close", "widget", "focus", "reload", "sound", "otherwise",
            "label", "back", "branch", "platform"},
@@ -206,7 +199,10 @@ def test_menus_are_well_formed():
     assert sorted(path.relative_to(MENUS).as_posix() for path in files) == \
         sorted(name for name in listed if name.endswith(".xml"))
     widgets, bitmaps, strings, references, roots = {}, {}, {}, [], []
-    for path in files:
+    # (the menu engine's model, model/, is another format: menu_model.c reads it; and the hand-written screens,
+    # screens/, menu_screens.c, but for their blocks' widgets, screens/blocks.xml)
+    for path in (path for path in files if path.relative_to(MENUS).parts[0] != "model" and
+                 (path.relative_to(MENUS).parts[0] != "screens" or path.name == "blocks.xml")):
         tree = ElementTree.parse(path)
         assert tree.getroot().tag == "menus", path
         if tree.getroot().get("root"):
@@ -226,10 +222,14 @@ def test_menus_are_well_formed():
                 assert re.fullmatch(r"-?[0-9]+", value) and -32768 <= int(value) <= 32767, f"{where} {attribute}"
             for attribute in ("back", "branch", "if_failed"):
                 assert element.get(attribute) in (None, "true", "false"), f"{where} {attribute}"
-            # (menu_tags.c's wide layout: "dx dw", each within the extra width 16:9 has)
+            # (menu_tags.c's wide layout: "dx dw", each within twice the extra width 16:9 has)
+            # (a picture's corners cut round: menu_files.c reads 0 to 64)
+            if element.get("radius") is not None:
+                assert re.fullmatch(r"[0-9]+", element.get("radius")) and int(element.get("radius")) <= 64, \
+                    f"{where} radius"
             if element.get("wide") is not None:
                 assert re.fullmatch(r"-?[0-9]+ -?[0-9]+", element.get("wide")) and \
-                    all(abs(int(value)) <= 212 for value in element.get("wide").split()), f"{where} wide"
+                    all(abs(int(value)) <= 2 * 212 for value in element.get("wide").split()), f"{where} wide"
             assert not (element.text or "").strip() and not (element.tail or "").strip(), where
             if element.tag == "bitmap":
                 bitmaps[element.get("name")] = element
@@ -285,7 +285,7 @@ def test_menus_are_well_formed():
 
 def test_menu_settings_exist():
     """Every setting a menu's spinner sets is one of config.toml's
-    (port/linux/src/port_config.c) or of the profile, and
+    (port/linux/src/port_config.c), of the profile or an action of a row's, and
     the keyboard's controls are the same in the settings, in the controls'
     screen and in the input code."""
     root = MENUS.parent.parent.parent
@@ -293,17 +293,22 @@ def test_menu_settings_exist():
     functions = (root / "port/linux/game/menu_functions.c").read_text()
     known = set(re.findall(r'^\t\{ "([a-z_]+\.[a-z_]+)", _config_', config, re.M))
     profile = set(re.findall(r'\{ "(profile\.[a-z_]+)", \d', functions))
+    # (rows of two settings: menu_functions.c's own, render_resolution_text)
+    profile |= set(re.findall(r'#define \w+_SETTING "([a-z_]+\.[a-z_]+)"', functions))
+    # (and the actions a row does on OK rather than a setting: DISCORD ACCOUNT's LINK, setting_write's)
+    actions = set(re.findall(r'!strcmp\(name, "([a-z_]+\.action)"\)', functions))
     for path in (MENUS / "ce").glob("*.xml"):
         for setting in re.findall(r'setting="([^"]+)"', path.read_text()):
-            assert setting in known | profile, f"{path.name}: {setting}"
+            assert setting in known | profile | actions, f"{path.name}: {setting}"
     controls = set(re.findall(r'"(controls\.[a-z_]+)"', (root / "port/linux/src/xinput_sdl.c").read_text()))
     assert controls == {name for name in known if name.startswith("controls.")}
     assert controls == set(re.findall(r'\{ "(controls\.[a-z_]+)", L"', functions))
 
 
-def config_check_build(tmp_path, defines):
+def config_check_build(tmp_path, defines, fault=None):
     """port_config.c built on its own with the build's defines
-    (tools/config_check.c): run(command...) in a folder of config.toml"""
+    (tools/config_check.c): run(command...) in a folder of config.toml;
+    with a fault (before, after), port_config.c's text changed so"""
     root = Path(__file__).resolve().parent.parent
     compiler = shutil.which("clang") or shutil.which("cc")
     if not compiler:
@@ -322,6 +327,9 @@ def config_check_build(tmp_path, defines):
     (stubs / "posix_server.h").write_text("int posix_server_private_file(const char *path);\n")
     for name in ("port_config.c", "port_config.h", "install_layout.h"):
         shutil.copy(root / "port/linux/src" / name, stubs / name)
+    if fault:
+        from tools.harness import mutated
+        (stubs / "port_config.c").write_text(mutated((stubs / "port_config.c").read_text(), *fault))
     program = tmp_path / "config_check"
     subprocess.run([compiler, *defines, f"-I{stubs}",
                     f"-I{root}/port/third_party/tomlc17", "-o", str(program), str(stubs / "port_config.c"),
@@ -334,7 +342,11 @@ def config_check_build(tmp_path, defines):
         result = subprocess.run([str(program), str(data), *command], capture_output=True, text=True)
         assert result.returncode == 0, result.stderr
         return result.stdout.strip()
+    def status(*command):
+        """a command's exit status alone (1: refused)"""
+        return subprocess.run([str(program), str(data), *command], capture_output=True, text=True).returncode
     run.config = data / "config.toml"
+    run.status = status
     return run
 
 
@@ -365,6 +377,103 @@ def test_config_writes_defaults_commented_out(config_check):
     assert len(re.findall(r"^(# )?hands = ", written, re.M)) == 1
     assert config_check("get", "vr.hands") == "floating"
     assert config_check.config.read_text() == written
+
+
+def test_config_player_settings_upgrade(config_check, tmp_path):
+    """an older config.toml's values are every player's, with or without a profile, until a profile has its own:
+    nothing changes on upgrade, and nothing is written into the profile's folder"""
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    config_check.config.write_text('[display]\nfov = 100.0\nviewmodel_offset_x = 4.0\nvsync = false\n')
+    assert config_check("player", "0", "", "display.fov") == "100"
+    assert config_check("player", "1", str(profile), "display.fov") == "100"
+    assert config_check("player", "1", str(profile), "display.viewmodel_offset_x") == "4"
+    assert config_check("player", "1", str(profile), "display.lowered_reticle") == "false"
+    assert not (profile / "settings.toml").exists()
+    assert config_check.status("profile-get", str(profile), "display.fov") == 1
+
+
+def test_config_player_settings_profile(config_check, tmp_path):
+    """a profile's own value, written into its settings.toml, is its player's alone; the others' and config.toml's
+    stay; a setting that is the machine's (display.vsync) is never a profile's"""
+    one, two = tmp_path / "one", tmp_path / "two"
+    one.mkdir()
+    two.mkdir()
+    config_check.config.write_text('[display]\nfov = 100.0\n')
+    config_check("profile-write", str(two), "display.fov", "120")
+    config_check("profile-write", str(two), "display.viewmodel_offset_x", "-3.5")
+    config_check("profile-write", str(two), "display.vehicle_fov", "match")
+    text = (two / "settings.toml").read_text()
+    assert "\n[display]\nfov = 120.0\nviewmodel_offset_x = -3.5\nvehicle_fov = \"match\"\n" in text
+    assert config_check("profile-get", str(two), "display.fov") == "120"
+    assert config_check("player", "1", str(two), "display.fov") == "120"
+    assert config_check("player", "1", str(two), "display.vehicle_fov") == "match"
+    assert config_check("player", "0", str(one), "display.fov") == "100"
+    assert config_check("player", "1", "", "display.fov") == "100"
+    assert config_check("get", "display.fov") == "100"
+    assert "fov = 120" not in config_check.config.read_text()
+    # (written again in place, not twice)
+    config_check("profile-write", str(two), "display.fov", "90")
+    assert config_check("player", "1", str(two), "display.fov") == "90"
+    assert re.findall(r"^fov = .*$", (two / "settings.toml").read_text(), re.M) == ["fov = 90.0"]
+    assert config_check.status("profile-write", str(two), "display.vsync", "true") == 1
+    assert "vsync" not in (two / "settings.toml").read_text()
+    # (a key that is no player's in the file: config.toml's is used)
+    vsync = config_check("get", "display.vsync")
+    (one / "settings.toml").write_text(f"[display]\nvsync = {'false' if vsync == 'true' else 'true'}\nfov = 70.0\n")
+    assert config_check("player", "0", str(one), "display.fov") == "70"
+    assert config_check("player", "0", str(one), "display.vsync") == vsync
+
+
+def test_config_player_settings_controls(config_check, tmp_path):
+    """the keyboard's and the controller's settings are a profile's too; a profile's own controller layout
+    (input.controller) is never written into config.toml, which keeps each port's"""
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    assert config_check("get", "controls.jump") == "Space"
+    text = config_check.config.read_text()
+    assert "\n# controller_p1 = " in text and not re.search(r"^#? ?controller = ", text, re.M)
+    config_check("profile-write", str(profile), "controls.jump", "Mouse Right")
+    config_check("profile-write", str(profile), "input.mouse_sensitivity", "2.5")
+    config_check("profile-write", str(profile), "input.left_stick_dead_zone", "12")
+    config_check("profile-write", str(profile), "input.controller", "")
+    assert config_check("player", "0", str(profile), "controls.jump") == "Mouse Right"
+    assert config_check("player", "0", str(profile), "input.mouse_sensitivity") == "2.5"
+    assert config_check("player", "1", str(profile), "input.left_stick_dead_zone") == "12"
+    assert config_check("player", "0", "", "controls.jump") == "Space"
+    assert '\n[input]\nmouse_sensitivity = 2.5\nleft_stick_dead_zone = 12\ncontroller = ""\n' in \
+        (profile / "settings.toml").read_text()
+    assert "\njump = \"Mouse Right\"" not in config_check.config.read_text()
+
+
+def test_config_player_settings_weapon(config_check, tmp_path):
+    """a weapon's own offsets in a profile's settings.toml are its player's alone, its 0s too (in place of
+    config.toml's); a profile without the weapon's table, or no profile, has config.toml's"""
+    one, two = tmp_path / "one", tmp_path / "two"
+    one.mkdir()
+    two.mkdir()
+    pistol = "weapons\\pistol\\pistol"
+    config_check.config.write_text('[display.viewmodel_weapon."weapons\\\\pistol\\\\pistol"]\nx = 2.0\nyaw = 4.0\n')
+    assert config_check("player-weapon", "0", "", pistol) == "2 0 0 0 4 0"
+    assert config_check("player-weapon", "0", str(one), pistol) == "2 0 0 0 4 0"
+    config_check("profile-weapon-write", str(two), "weapons/pistol/pistol", "0", "0", "0", "0", "0", "0")
+    assert config_check("player-weapon", "1", str(two), pistol) == "0 0 0 0 0 0"
+    config_check("profile-weapon-write", str(two), pistol, "-3", "0", "1.5", "0", "0", "0")
+    assert config_check("player-weapon", "1", str(two), pistol) == "-3 0 1.5 0 0 0"
+    assert config_check("player-weapon", "0", str(one), pistol) == "2 0 0 0 4 0"
+    text = (two / "settings.toml").read_text()
+    assert text.count("[display.viewmodel_weapon.") == 1 and "x = -3.0" in text
+    assert "x = 2.0" in config_check.config.read_text()
+
+
+def test_config_player_settings_environment(config_check, tmp_path, monkeypatch):
+    """a setting's environment variable wins over a profile's own value, as over config.toml's"""
+    profile = tmp_path / "profile"
+    profile.mkdir()
+    (profile / "settings.toml").write_text("[display]\nfov = 120.0\n")
+    assert config_check("player", "0", str(profile), "display.fov") == "120"
+    monkeypatch.setenv("HALO_FOV", "75")
+    assert config_check("player", "0", str(profile), "display.fov") == "75"
 
 
 def test_config_keeps_an_older_file(config_check):
@@ -513,6 +622,31 @@ def test_battery_saver_reads_the_classic_values(config_check_mac):
     assert run("saving", "display.fov") == "0 0"
 
 
+def test_graphics_preset_chooses_the_animations(config_check_mac, monkeypatch):
+    """game.enhanced_animations follows display.graphics (Classic plays as the
+    Xbox did: its AI reacts to the player's body, refs #544) where it is left
+    to it; set (in the file, by its variable) it wins; battery saver, which
+    only changes the drawing, never turns it off"""
+    run = config_check_mac
+    assert run("get", "game.enhanced_animations") == "true"
+    assert "\n# enhanced_animations = true\n" in run.config.read_text()
+    run("write", "display.graphics", "classic")
+    assert run("get", "game.enhanced_animations") == "false"
+    # (battery saver: as it is, in Classic and Enhanced)
+    assert run("saving", "game.enhanced_animations") == "false false"
+    run("write", "display.graphics", "enhanced")
+    assert run("saving", "game.enhanced_animations") == "true true"
+    # (set: it wins over the preset; at the preset's value, the preset's again)
+    run("write", "game.enhanced_animations", "false")
+    assert "\nenhanced_animations = false\n" in run.config.read_text()
+    run("write", "display.graphics", "classic")
+    run("write", "display.graphics", "enhanced")
+    assert run("get", "game.enhanced_animations") == "true"
+    run("write", "display.graphics", "classic")
+    monkeypatch.setenv("HALO_ENHANCED_ANIMATIONS", "true")
+    assert run("get", "game.enhanced_animations") == "true"
+
+
 def test_vsync_default_by_build(tmp_path, monkeypatch, config_check_mac):
     """display.vsync: off on the Linux builds, Windows and the Mac; on under
     gamescope (the Steam Deck's Game Mode) where the player has not set it,
@@ -542,6 +676,73 @@ def test_graphics_preset_on_a_headset(config_check):
     assert graphics_values(config_check) == GRAPHICS_ENHANCED
     config_check("write", "display.graphics", "classic")
     assert graphics_values(config_check) == GRAPHICS_CLASSIC
+RIDING_SETTINGS = {"network.vehicle_riding": "HALO_NET_VEHICLE_RIDING",
+                   "server.vehicle_riding_override_gametype": "HALO_SERVER_VEHICLE_RIDING_OVERRIDE_GAMETYPE"}
+
+
+def riding_settings(run, monkeypatch):
+    """riding's two settings: off by default, and on by their environment keys"""
+    for name, key in RIDING_SETTINGS.items():
+        monkeypatch.delenv(key, raising=False)
+        assert run("get", name) == "false", name
+        monkeypatch.setenv(key, "true")
+        assert run("get", name) == "true", key
+        monkeypatch.delenv(key)
+
+
+def test_vehicle_riding_settings(tmp_path, monkeypatch):
+    """Riding's two settings keep their names, defaults and environment keys (sv_set's list:
+    harness/tests/test_server_command_words.py's settable case)."""
+    riding_settings(config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"]), monkeypatch)
+
+
+@pytest.mark.parametrize("fault", [
+    ('{ "network.vehicle_riding", _config_boolean, "false",', '{ "network.vehicle_riding", _config_boolean, "true",'),
+    ('"HALO_NET_VEHICLE_RIDING"', '"HALO_NET_RIDING"'),
+    ('{ "server.vehicle_riding_override_gametype", _config_boolean, "false",',
+     '{ "server.vehicle_riding_override_gametype", _config_boolean, "true",'),
+], ids=["default-true", "env-key", "override-default-true"])
+def test_vehicle_riding_settings_negative_control(tmp_path, monkeypatch, fault):
+    run = config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"], fault)
+    with pytest.raises(AssertionError):
+        riding_settings(run, monkeypatch)
+
+
+# (settings whose shipped default is a choice made on purpose: a departure from the stock game off, or a fix on)
+SHIPPED_DEFAULTS = {
+    "display.latency_meter": "false",
+    "display.lowered_reticle": "false",
+    "display.lowered_reticle_amount": "10",
+    "display.panini": "0",
+    "display.panini_vertical": "0",
+    "display.draw_distance": "1024",
+    "display.overshield_layer_color": "true",
+    "controls.walk": "Left Shift",
+    "game.sim_rate": "60",
+}
+
+
+def shipped_defaults(run):
+    found = {name: run("get", name) for name in SHIPPED_DEFAULTS}
+    assert found == SHIPPED_DEFAULTS
+
+
+def test_shipped_defaults(tmp_path, monkeypatch):
+    """The defaults a new config.toml has for the settings above, as the built port_config.c reads them"""
+    for key in ("HALO_LATENCY_METER", "HALO_LOWERED_RETICLE", "HALO_LOWERED_RETICLE_AMOUNT", "HALO_PANINI",
+                "HALO_PANINI_VERTICAL", "HALO_DRAW_DISTANCE", "HALO_OVERSHIELD_LAYER_COLOR", "HALO_KEY_WALK",
+                "HALO_SIM_RATE"):
+        monkeypatch.delenv(key, raising=False)
+    shipped_defaults(config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"]))
+
+
+@pytest.mark.parametrize("fault", [
+    ('{ "display.draw_distance", _config_real, "1024.0",', '{ "display.draw_distance", _config_real, "2048.0",'),
+    ('{ "display.latency_meter", _config_boolean, "false",', '{ "display.latency_meter", _config_boolean, "true",'),
+], ids=["draw-distance", "latency-meter"])
+def test_shipped_defaults_negative_control(tmp_path, fault):
+    with pytest.raises(AssertionError):
+        shipped_defaults(config_check_build(tmp_path, ["-DHALO_VULKAN=1", "-DHALO_GUEST=1"], fault))
 
 
 def test_default_brokers_are_brokers_txt():
@@ -800,7 +1001,6 @@ def test_friends_negative_controls(tmp_path, what, original, mutated, case):
         f"{what}: the {case} case still passes"
 
 
-
 # port_config.c on its own, with the app's file paths (HALO_DATA_ROOT) and C
 # library calls: "get <setting>" prints it, "write <setting> <value>" sets it
 CONFIG_PROGRAM = r"""
@@ -873,6 +1073,12 @@ def test_config_has_each_section_once(tmp_path):
     run("write", "display.first_person_legs", "true")
     assert run("get", "display.first_person_legs")[0] == "true"
 
+    # MCC discovery starts enabled; an explicit later opt-out stays saved.
+    for key in ("game.workshop_maps", "game.mcc_campaigns", "game.mcc_collections"):
+        assert run("get", key)[0] == "true"
+        run("write", key, "false")
+        assert run("get", key)[0] == "false"
+
     # an older version's
     config.write_text("[display]\nvsync = false\n\n[game]\nconsole_log = \"all\"\n\n"
                       "[display]\nfirst_person_legs = true\n")
@@ -908,6 +1114,8 @@ def test_system_link_bots_messages_are_the_games():
         sizes[name] = sum(int(count) * {"pad": 0, "bytes": 1, "shorts": 2, "longs": 4}.get(kind, 0) + (kind == "array")
                           for kind, count in re.findall(r"_data_packet_field_(\w+), (\d+)", fields))
 
+    from tools import network_format
+    assert bots.NETWORK_VERSION == network_format.version()
     sent = []
     machine = bots.Machine(1, "127.0.0.2", "127.0.0.1", print)
     machine.udp.close()

@@ -4,6 +4,10 @@ from pathlib import Path
 import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from harness import build,read,run,function,structure,constant,mutated,CHECK_FAILED
+from harness import needs_32_bit_abi
+
+# (every case checks first that the checkpoint's object list header is the game's 12 bytes)
+pytestmark=needs_32_bit_abi("the checkpoint's object list header is the game's 12 bytes, with its 32-bit longs")
 
 def generated(fault=None):
     lists=read('source/hs/object_lists.c')

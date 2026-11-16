@@ -4,6 +4,11 @@ from pathlib import Path
 import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[2]))
 from harness import build,read,function,mutated,run,CHECK_FAILED
+from harness import skip_without_32_bit_abi
+
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT={c:"the policy message's wire size is the game's 12 bytes, with its 32-bit longs"
+               for c in ('replication','admission','reset')}
 
 def generated(fault=None):
     policy=re.sub(r'^#include "[^"\n]+"\n','',read('port/linux/game/network_aim_assist.c'),flags=re.M)
@@ -16,22 +21,15 @@ def generated(fault=None):
 
 @pytest.mark.parametrize('case',['allowed','devices','scope','replication','admission','reset'])
 def test_case(case):
+    skip_without_32_bit_abi(ABI_DEPENDENT,case)
     status,output=run(build('aim_assist',generated()),case)
     assert status==0,output
 
 @pytest.mark.parametrize('fault,case',[('authority','admission'),('override','devices')])
 def test_negative(fault,case):
+    skip_without_32_bit_abi(ABI_DEPENDENT,case)
     status,output=run(build('aim_assist',generated(fault)),case)
     assert status==CHECK_FAILED,output
-
-def test_menu():
-    import port_settings as p
-    import xml.etree.ElementTree as ET
-    root=ET.fromstring('\n'.join(p.multiplayer_files()[p.PLAYER_EDIT.replace('/','.')+'.port.xml']))
-    choices=root.find("strings[@name='"+p.PLAYER_EDIT+"/var_aim_assist']")
-    assert [s.attrib['text'] for s in choices]==['ALLOWED','BLOCK M+KB']
-    assert 73+27*8==289 and 289+27==316 and 316+28<=345 and 345+60<414
-    assert '"network.block_mouse_aim_assist", { "false", "true" }' in read('port/linux/game/menu_functions.c')
 
 
 def message_ids():

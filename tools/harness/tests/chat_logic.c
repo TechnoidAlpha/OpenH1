@@ -19,6 +19,8 @@ code (under_test.inc).
 #define csstrlen strlen
 #define csstrcmp strcmp
 #define csstrncpy strncpy
+#define csstrncmp strncmp
+#define MAXIMUM_LOCAL_PLAYERS 4
 
 #include "config.inc"
 #include "under_test.inc"
@@ -520,6 +522,62 @@ int main(int argc, char **argv)
 			"the space key: %d %d", row, column);
 		CHECK(!chat_keyboard_key_at(-0.01f, 0.5f, &row, &column) && !chat_keyboard_key_at(0.5f, 1.0f, &row, &column),
 			"a tap outside taken");
+	}
+
+	/* each local player's channel read from network.chat_channels, a word
+	for each in turn: everyone past the list's end, for a word not known
+	(one a channel's begins too) and for none */
+	CASE("channel-remembered")
+	{
+		CHECK(chat_channel_remembered("team", 0) == _chat_channel_team, "first");
+		CHECK(chat_channel_remembered("team", 1) == _chat_channel_everyone, "past the end");
+		CHECK(chat_channel_remembered("all,vehicle,team", 1) == _chat_channel_vehicle, "second");
+		CHECK(chat_channel_remembered("all,vehicle,team", 2) == _chat_channel_team, "third");
+		CHECK(chat_channel_remembered("tea,teams", 0) == _chat_channel_everyone, "a word begun");
+		CHECK(chat_channel_remembered("tea,teams", 1) == _chat_channel_everyone, "a word longer");
+		CHECK(chat_channel_remembered(",team", 1) == _chat_channel_team, "after an empty word");
+		CHECK(chat_channel_remembered("", 0) == _chat_channel_everyone, "empty");
+		CHECK(chat_channel_remembered(NULL, 0) == _chat_channel_everyone, "none");
+	}
+
+	/* a local player's channel set in the list, the others' kept, the
+	"all"s at its end dropped but the first, and never past its size */
+	CASE("channel-list-set")
+	{
+		char list[CHAT_CHANNELS_TEXT_SIZE];
+
+		CHECK(chat_channel_list_set(list, sizeof(list), "all", 0, _chat_channel_team) && !strcmp(list, "team"),
+			"'%s'", list);
+		CHECK(chat_channel_list_set(list, sizeof(list), "team", 2, _chat_channel_vehicle) &&
+			!strcmp(list, "team,all,vehicle"), "'%s'", list);
+		CHECK(chat_channel_list_set(list, sizeof(list), "team,all,vehicle", 2, _chat_channel_everyone) &&
+			!strcmp(list, "team"), "'%s'", list);
+		CHECK(chat_channel_list_set(list, sizeof(list), "team", 0, _chat_channel_everyone) && !strcmp(list, "all"),
+			"'%s'", list);
+		CHECK(chat_channel_list_set(list, sizeof(list), "bogus,team", 0, _chat_channel_vehicle) &&
+			!strcmp(list, "vehicle,team"), "'%s'", list);
+		CHECK(chat_channel_list_set(list, sizeof(list), "vehicle,vehicle,vehicle", 3, _chat_channel_vehicle) &&
+			!strcmp(list, "vehicle,vehicle,vehicle,vehicle"), "the longest: '%s'", list);
+		CHECK(chat_channel_remembered(list, 3) == _chat_channel_vehicle, "read back");
+		CHECK(!chat_channel_list_set(list, 10, "vehicle,vehicle", 2, _chat_channel_team), "past its size");
+		CHECK(!chat_channel_list_set(list, sizeof(list), "all", 4, _chat_channel_team), "no such player");
+		CHECK(!chat_channel_list_set(list, sizeof(list), "all", 0, NUMBER_OF_CHAT_CHANNELS), "no such channel");
+	}
+
+	/* the channel the chat opens on: the one chosen last where it applies;
+	a team's in a game without teams everyone's, a vehicle's on foot the
+	team's (everyone's without teams) */
+	CASE("channel-opened")
+	{
+		CHECK(chat_channel_opened(_chat_channel_everyone, TRUE, TRUE) == _chat_channel_everyone, "all");
+		CHECK(chat_channel_opened(_chat_channel_team, TRUE, FALSE) == _chat_channel_team, "team");
+		CHECK(chat_channel_opened(_chat_channel_team, FALSE, TRUE) == _chat_channel_everyone, "team, no teams");
+		CHECK(chat_channel_opened(_chat_channel_vehicle, TRUE, TRUE) == _chat_channel_vehicle, "vehicle");
+		CHECK(chat_channel_opened(_chat_channel_vehicle, TRUE, FALSE) == _chat_channel_team, "vehicle on foot");
+		CHECK(chat_channel_opened(_chat_channel_vehicle, FALSE, FALSE) == _chat_channel_everyone,
+			"vehicle on foot, no teams");
+		CHECK(chat_channel_opened(_chat_channel_vehicle, FALSE, TRUE) == _chat_channel_vehicle, "vehicle, no teams");
+		CHECK(chat_channel_opened(NONE, TRUE, TRUE) == _chat_channel_everyone, "out of range");
 	}
 
 	return 0;

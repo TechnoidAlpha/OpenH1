@@ -41,6 +41,7 @@ void xgpu_stream_pixel_key_describe(const struct nv2a_pixel_shader_key *key, str
 	wire->source_blend = key->source_blend;
 	wire->dynamic_lights = key->dynamic_lights;
 	wire->vr_effect = key->vr_effect;
+	wire->ambient_occlusion = key->ambient_occlusion;
 	wire->hdr = key->hdr;
 }
 
@@ -98,6 +99,7 @@ void xgpu_stream_pixel_program_describe(const struct xgpu_pixel_program *program
 	wire->dynamic_lights = program->dynamic_lights;
 	wire->multiview = program->multiview;
 	wire->source_blend = program->source_blend;
+	wire->ambient_occlusion = program->ambient_occlusion;
 	wire->hdr = program->hdr;
 }
 
@@ -124,5 +126,6 @@ void xgpu_stream_pixel_key_restore(const struct xgpu_stream_pixel_key *wire, str
 	key->source_blend = wire->source_blend;
 	key->dynamic_lights = wire->dynamic_lights;
 	key->vr_effect = wire->vr_effect;
+	key->ambient_occlusion = wire->ambient_occlusion;
 	key->hdr = wire->hdr;
 }

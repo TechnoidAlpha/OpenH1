@@ -298,6 +298,21 @@ boolean tag_validate_tags(
 	long file_length,
 	char const *map_name);
 
+/* tags laid out as a map's that are not the map's (tag_data_size bytes at
+tag_header, their data in a file of file_length bytes: menu_models.c's),
+checked as tag_validate_tags checks a map's, the map's own validation kept
+as it was (its structure bsps are checked against it as they load) in
+saved, tag_validate_apart_size bytes of the caller's, and the corrections
+made counted in *corrections */
+unsigned long tag_validate_apart_size(
+	void);
+boolean tag_validate_tags_apart(
+	void *tag_header,
+	long tag_data_size,
+	long file_length,
+	char const *name,
+	void *saved,
+	long *corrections);
 /* the tags of a Custom Edition map, as custom_edition_cache_load loaded and
 custom_edition_cache_convert converted them (loaded_size bytes at
 tag_header, the start of a tag cache of tag_cache_size bytes), whose bitmap

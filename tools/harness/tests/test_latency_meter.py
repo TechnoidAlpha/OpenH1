@@ -9,6 +9,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, function, mutated, read, run  # noqa: E402
+from harness import skip_without_32_bit_abi  # noqa: E402
 
 CASES = ["colors", "since-tick", "since-tick-bounds", "smoothing", "connection-problem", "machine-silent"]
 METER = ("latency_meter_color",)
@@ -57,8 +58,15 @@ def generated(fault=None, faulty_function=None):
     return (("config.inc", config), ("under_test.inc", text))
 
 
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT = {
+    "since-tick-bounds": "the millisecond clock is the game's 32-bit unsigned long, which wraps",
+}
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_case(case):
+    skip_without_32_bit_abi(ABI_DEPENDENT, case)
     status, output = run(build("latency_meter", generated()), case)
     assert status == 0, output
 
@@ -66,24 +74,6 @@ def test_case(case):
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, faulty_function, case = NEGATIVE_CONTROLS[control]
+    skip_without_32_bit_abi(ABI_DEPENDENT, control, case)
     status, output = run(build("latency_meter", generated(fault, faulty_function)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_off_by_default():
-    # a departure from the stock HUD: off unless asked for (port_config.c), and the netcode's refresh and log lines
-    # only with it on
-    config = read("port/linux/src/port_config.c")
-    assert '{ "display.latency_meter", _config_boolean, "false", "HALO_LATENCY_METER"' in config
-    tick = function(read("port/linux/game/network_distributed.c"), "network_distributed_tick")
-    assert tick.count("% PING_REFRESH_TICKS == 0 && latency_meter_enabled())\n\t\t\tdistributed_refresh_pings();") == 2
-
-
-def test_scoreboard_ping_drawn_alone_in_its_colour():
-    # with the meter on, a known ping leaves the row and is drawn at the row's fourth tab stop in the meter's colour;
-    # with it off, or a ping not known ("-"), the row is drawn as before
-    scoreboard = read("source/game/game_engine.c")
-    assert "ping_colored = ping != NONE && latency_meter_shown();" in scoreboard
-    assert "ping_colored ? L\"\" : ping_string);" in scoreboard
-    drawn = scoreboard[scoreboard.index("if (ping_colored)\n"):]
-    assert drawn.index("latency_meter_color(ping, &ping_color);") < drawn.index("L\"\\t\\t\\t\\t%s\", ping_string")

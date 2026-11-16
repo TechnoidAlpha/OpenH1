@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.campaign_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/campaign_select/campaign_menu" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/campaign_select/campaign_menu_select_list" flags="pass_unhandled_to_focused_child up_down_tabs_items">
+		<on event="created" run="campaign menu init" branch="true"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign_select/load_level_select_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/campaign_select/load_level_select_button_delete">
+		<on event="a" run="mouse emit x event"/>
+		<on event="start" run="mouse emit x event"/>
+		<on event="left_mouse" run="mouse emit x event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign_select/load_level_select_list" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="load game menu init"/>
+		<on event="deleted" run="load game menu dispose"/>
+		<on event="custom_activation" run="load game menu activated"/>
+		<on event="x" run="load game menu delete request" open="error/confirm_delete_savegame_modal_fullscreen"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign_select/load_level_select_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/campaign_select/menu_item_back">
+		<on event="a" back="true"/>
+		<on event="start" back="true"/>
+		<on event="left_mouse" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign_select/menu_item_continue">
+		<on event="a" run="campaign menu continue"/>
+		<on event="start" run="campaign menu continue"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign_select/menu_item_load_game">
+		<on event="a" open="main_menu/campaign_select/load_level_select_screen"/>
+		<on event="start" open="main_menu/campaign_select/load_level_select_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/campaign_select/menu_item_new_campaign">
+		<on event="a" open="main_menu/solo_level_select/solo_level_select_screen"/>
+		<on event="start" open="main_menu/solo_level_select/solo_level_select_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

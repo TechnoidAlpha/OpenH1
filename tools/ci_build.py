@@ -21,9 +21,9 @@ and is skipped with an older one; the guests' compiler is the pinned LLVM
 22 that configure.py downloads, tools/guest_toolchain.py). A profile build is a debug build with
 configure.py --profile, so that the profiling build is built too. CI_COMPILER_LAUNCHER (ccache, say) is
 passed on as --compiler-launcher, CI_GUEST_LLVM_CACHE as --guest-llvm-cache, and CI_GUEST_ASM_CACHE as
---guest-asm-cache. A build of the master branch gets the run's
-number (HALO_BUILD_NUMBER), which its release is named after and the
-self-updater compares.
+--guest-asm-cache. A release's build gets its number (CI_BUILD_NUMBER, as
+HALO_BUILD_NUMBER), which its release is named after and the self-updater
+compares.
 
 --vr builds the VR mode in (configure.py --vr; "VR" in port/linux/README.md).
 For linux_x86_64, into dist/halo-linux-x86_64-vr-<config>/, a build of its
@@ -56,6 +56,15 @@ The iOS build is the app (ninja ios), signed ad hoc (tools/ios_app.py: a
 device refuses it, a sideloading tool such as AltStore signs it again), as
 an .ipa (Payload/OpenH1.app, zipped), alone in dist/halo-ios-<config>/. The
 release does not publish it yet (port/ios/README.md).
+
+Each guest build (all but Windows, whose symbols folder has PDBs too, below)
+also leaves its guest image with its source lines, halo_guest.debug.elf, in
+dist/<its folder>-symbols/ (halo-macos-release-symbols...), taken as soon as
+the build is made (the next build in the same folder links another), and
+only when its loaded segments are those of the image the build carries
+(and, Android's, the APK's): the release publishes it as
+OpenH1-<machine>[-debug]-symbols.zip (tools/release_names.py), for
+tools/symbolize_crash.py. A build without one warns, and is not stopped.
 """
 
 import argparse
@@ -69,6 +78,9 @@ from pathlib import Path
 import linux_package
 
 ROOT = Path(__file__).resolve().parent.parent
+
+# the Windows release's goath1 (runs the halo.exe beside it)
+WINDOWS_COMMAND = ROOT / "port/assets/windows/goath1.cmd"
 
 # what each port's build leaves, and what goes into dist/
 OUTPUTS = {
@@ -153,6 +165,67 @@ def check_guest_image(platform: str) -> None:
         print(f"{executable.relative_to(ROOT)} carries {image.relative_to(ROOT)}", flush=True)
 
 
+def loaded_segments(data: bytes) -> list:
+    """an ELF file's loadable segments: (vaddr, memsz, flags, the file's bytes of it)"""
+    import struct
+
+    if data[:4] != b"\x7fELF" or data[4] not in (1, 2):
+        raise ValueError("not an ELF file")
+    if data[4] == 2:
+        phoff, = struct.unpack_from("<Q", data, 32)
+        phentsize, phnum = struct.unpack_from("<HH", data, 54)
+    else:
+        phoff, = struct.unpack_from("<I", data, 28)
+        phentsize, phnum = struct.unpack_from("<HH", data, 42)
+    segments = []
+    for index in range(phnum):
+        at = phoff + index * phentsize
+        if data[4] == 2:
+            kind, flags, offset, vaddr, _, filesz, memsz = struct.unpack_from("<IIQQQQQ", data, at)
+        else:
+            kind, offset, vaddr, _, filesz, memsz, flags = struct.unpack_from("<IIIIIII", data, at)
+        if kind == 1:  # PT_LOAD
+            segments.append((vaddr, memsz, flags, data[offset:offset + filesz]))
+    if not segments:
+        raise ValueError("no loadable segments")
+    return segments
+
+
+def warn(message: str) -> None:
+    """a warning, which the workflow's page shows (::warning::)"""
+    print(f"::warning::{message}", flush=True)
+
+
+def collect_symbols(platform: str, folder: str) -> None:
+    """the guest image with its source lines (halo_guest.debug.elf, linked
+    beside halo_guest.elf from the same objects: tools/android_build.py)
+    into dist/<folder>-symbols/, when it is the image the build carries;
+    else a warning, and no folder: symbols missing do not stop a build"""
+    build = ROOT / "build" / platform
+    image, debug_image = build / "halo_guest.elf", build / "halo_guest.debug.elf"
+    symbols = ROOT / "dist" / f"{folder}-symbols"
+    if symbols.exists():
+        shutil.rmtree(symbols)
+    try:
+        carried = image.read_bytes()
+        if platform == "android":
+            # (the APK's copy, which the phone runs)
+            import zipfile
+
+            with zipfile.ZipFile(ROOT / APKS["release" if folder.endswith("-release") else "debug"]) as apk:
+                if apk.read("assets/halo_guest.elf") != carried:
+                    raise ValueError(f"the APK's assets/halo_guest.elf is not {image.relative_to(ROOT)}")
+        if loaded_segments(debug_image.read_bytes()) != loaded_segments(carried):
+            raise ValueError(f"its loaded segments are not those of {image.relative_to(ROOT)}")
+    except (OSError, KeyError, ValueError) as error:
+        warn(f"no symbols for {folder}: {debug_image.relative_to(ROOT)}: {error}")
+        return
+    symbols.mkdir(parents=True)
+    shutil.copy2(debug_image, symbols)
+    print(f"{debug_image.relative_to(ROOT)} -> {symbols.relative_to(ROOT)} "
+          f"({debug_image.stat().st_size} bytes, the image of {image.relative_to(ROOT)})", flush=True)
+
+
 def main() -> int:
     if sys.argv[1:] == ["notes"]:
         sys.stdout.write(release_notes_versions())
@@ -188,12 +261,14 @@ def main() -> int:
     asm_cache = os.environ.get("CI_GUEST_ASM_CACHE")
     if asm_cache:
         configure += ["--guest-asm-cache", asm_cache]
-    # a build of master knows its number, which names its release (build-<n>),
-    # for the self-updater (port/linux/src/updater.c, and the Android app);
-    # other builds have none, and never look for updates
-    if os.environ.get("GITHUB_REF") == "refs/heads/master" and os.environ.get("GITHUB_RUN_NUMBER", "").isdigit():
-        os.environ["HALO_BUILD_NUMBER"] = os.environ["GITHUB_RUN_NUMBER"]
-        print(f"build number {os.environ['HALO_BUILD_NUMBER']}", flush=True)
+    # a release's build knows its number, CI_BUILD_NUMBER (the workflow's,
+    # from the tag build-<n> or the version of a run started by hand), which
+    # names its release, for the self-updater (port/linux/src/updater.c, and
+    # the Android app); other builds have none, and never look for updates
+    number = os.environ.get("CI_BUILD_NUMBER", "")
+    if number.isdigit() and int(number) > 0:
+        os.environ["HALO_BUILD_NUMBER"] = number
+        print(f"build number {number}", flush=True)
     run(configure)
 
     if args.platform == "ios":
@@ -201,6 +276,7 @@ def main() -> int:
         # (ditto), which the workflow's artifacts would lose
         run(["ninja", "ios"])
         check_guest_image(args.platform)
+        collect_symbols(args.platform, f"halo-ios-{args.config}")
         dist = ROOT / "dist" / f"halo-ios-{args.config}"
         if dist.exists():
             shutil.rmtree(dist)
@@ -221,9 +297,16 @@ def main() -> int:
         outputs = [APKS[variant]]
     else:
         target = "macos_dmg" if args.platform == "macos" else args.platform
-        run(["ninja", target])
+        # (and the command stream's replay, built to keep it building: the
+        # releases do not carry it; not the VR builds')
+        replay = ["macos_replay"] if args.platform == "macos" else \
+            [f"{args.platform}_replay"] if (args.platform.startswith("linux") or args.platform == "windows") \
+            and not args.vr else []
+        run(["ninja", target, *replay])
         outputs = OUTPUTS[args.platform]
         check_guest_image(args.platform)
+    if args.platform != "windows":
+        collect_symbols(args.platform, dist_name(args.platform, args.config, args.vr))
 
     if args.platform == "linux_arm64" and args.vr:
         # the Steam Frame's package (tools/frame_package.py: the game, its
@@ -262,6 +345,11 @@ def main() -> int:
         shutil.copy2(ROOT / output, dist)
         print(f"{output} -> {dist.relative_to(ROOT)}", flush=True)
     if args.platform == "windows":
+        # goath1, the command players type (goath1 bots status), beside
+        # halo.exe (port/linux/src/cli_install.c)
+        shutil.copy2(WINDOWS_COMMAND, dist)
+        print(f"{WINDOWS_COMMAND.relative_to(ROOT)} -> {dist.relative_to(ROOT)}", flush=True)
+    if args.platform == "windows":
         # the symbols of halo.exe and SDL3.dll, and the guest image, apart
         # (players do not need them): the workflow uploads them to Sentry,
         # which turns the crash reports' minidumps into function names and
@@ -271,7 +359,7 @@ def main() -> int:
         if symbols.exists():
             shutil.rmtree(symbols)
         symbols.mkdir(parents=True)
-        for pdb in [ROOT / "build/windows/halo.pdb", ROOT / "build/windows/halo_guest.elf",
+        for pdb in [ROOT / "build/windows/halo.pdb", ROOT / "build/windows/halo_guest.debug.elf",
                     *sorted((ROOT / "build/windows/third_party").glob("SDL3-*/lib/x64/SDL3.pdb"))]:
             shutil.copy2(pdb, symbols)
             print(f"{pdb.relative_to(ROOT)} -> {symbols.relative_to(ROOT)}", flush=True)
@@ -294,8 +382,12 @@ def main() -> int:
     # docs/dedicated_server.md)
     shutil.copy2(ROOT / "port/assets/network/masters.txt", dist / "masters.txt")
     # ... and the relays a machine offers when a direct connection fails
-    # (network.relays_file, server.relays_file: none in it)
+    # (network.relays_file, server.relays_file: the project's relay)
     shutil.copy2(ROOT / "port/assets/network/relays.txt", dist / "relays.txt")
+    # ... and the stock maps' preparations' records (port/linux/src/prepared_shipped.h)
+    shutil.copy2(ROOT / "port/assets/prepared/prepared.records", dist / "prepared.records")
+    # ... and the textures', fonts' and menus' bytes (port/linux/src/embedded_assets.h)
+    shutil.copy2(ROOT / "build/windows/openh1.assets", dist / "openh1.assets")
     return 0
 
 

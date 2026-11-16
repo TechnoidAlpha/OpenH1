@@ -10,7 +10,9 @@ overlay needs to know: whether it is in a game with no menu or cinematic up
 and the input.touch_controls setting (host_touch_scene), the profile's
 button mapping, which names the buttons (host_touch_bindings), and how hard
 port 0 rumbles; and the overlay tells the game where it wants the picture
-in a portrait window (host_touch_picture_top).
+in a portrait window (host_touch_picture_top). The overlay also says
+whether the device has a touchscreen and a controller (host_touch_devices),
+for the game's own touchscreen buttons.
 
 The iOS app's overlay (port/ios/touch_controls.m, a UIKit view over SDL's)
 hands its state over through the same functions, host_touch.h's, without
@@ -26,6 +28,11 @@ JNI.
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
+
+#ifdef __ANDROID__
+/* host_main.c: the fraction of the screen's pixels the game draws at */
+float host_app_render_scale(void);
+#endif
 
 /* a press shorter than this still reaches the game: it reads the
 controller once a frame and acts at 30 ticks a second, and a quick tap can
@@ -54,6 +61,13 @@ static volatile int touch_scene;
 /* where the overlay wants the picture's top in a portrait window, in the
 window's pixels, plus 1 (0: it has not said) */
 static volatile int touch_picture_top;
+#ifdef __ANDROID__
+/* the overlay's devices (host_touch_devices): a touchscreen, a game
+controller (a stick or a hat, not a phone's few gamepad keys) */
+#define HOST_TOUCH_DEVICE_TOUCHSCREEN 1
+#define HOST_TOUCH_DEVICE_CONTROLLER 2
+static volatile int touch_devices;
+#endif
 /* the game control on each controller button (-1: none), and a count of
 its changes, which the overlay polls */
 #define TOUCH_BUTTONS 16
@@ -221,10 +235,17 @@ void host_touch_set_picture_top(int top)
 
 /* the guest's, every frame (port/linux/src/d3d8_device.c's picture_top_in):
 where the overlay wants the picture's top in a portrait window, in the
-window's pixels, or -1 if it has not said */
+game's pixels, or -1 if it has not said */
 int host_touch_picture_top(void)
 {
+#ifdef __ANDROID__
+	/* (in the game's pixels: display.render_scale's, host_main.c) */
+	int top = touch_picture_top - 1;
+
+	return top < 0 ? top : (int)(top * host_app_render_scale() + 0.5f);
+#else
 	return touch_picture_top - 1;
+#endif
 }
 
 #ifdef __ANDROID__
@@ -284,6 +305,24 @@ JNIEXPORT jint JNICALL Java_com_halo_decomp_TouchControls_nativeBindings(JNIEnv 
 	if (controls && (*env)->GetArrayLength(env, controls) >= TOUCH_BUTTONS)
 		(*env)->SetIntArrayRegion(env, controls, 0, TOUCH_BUTTONS, (const jint *)copy);
 	return serial;
+}
+
+/* the overlay's devices, as it last found them (TouchControls'
+refreshInputDevices) */
+JNIEXPORT void JNICALL Java_com_halo_decomp_TouchControls_nativeDevices(JNIEnv *env, jclass cls,
+	jboolean touchscreen, jboolean controller)
+{
+	(void)env;
+	(void)cls;
+	touch_devices = (touchscreen ? HOST_TOUCH_DEVICE_TOUCHSCREEN : 0) |
+		(controller ? HOST_TOUCH_DEVICE_CONTROLLER : 0);
+}
+
+/* the guest's: the overlay's devices as HOST_TOUCH_DEVICE_* bits; 0 until it
+has looked */
+int host_touch_devices(void)
+{
+	return touch_devices;
 }
 
 /* 0 until the game has read its controller once */

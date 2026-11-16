@@ -932,6 +932,65 @@ int host_crash_dump(void *exception_pointers)
 	return result == WAIT_OBJECT_0;
 }
 
+/* ---------- the crash record's file
+
+The guest's reports\.crash.txt (host_common.c's crash record, report.c's
+path): its whole path made as the guest names it, when nothing has crashed,
+so that a crash only opens and writes it */
+
+static wchar_t crash_file_path[1024];
+
+void host_crash_file_name(const char *path)
+{
+	wchar_t relative[1024];
+	wchar_t *at;
+	DWORD length;
+
+	crash_file_path[0] = 0;
+	if (!path || !path[0] || !MultiByteToWideChar(CP_UTF8, 0, path, -1, relative, 1024))
+		return;
+	/* (the guest's '/' is Windows's '\', as host_syscall_win.c makes it) */
+	for (at = relative; *at; at++)
+	{
+		if (*at == L'/')
+			*at = L'\\';
+	}
+	length = GetFullPathNameW(relative, 1024, crash_file_path, NULL);
+	if (!length || length >= 1024)
+		crash_file_path[0] = 0;
+}
+
+void *host_crash_file_create(void)
+{
+	HANDLE file;
+
+	if (!crash_file_path[0])
+		return NULL;
+	file = CreateFileW(crash_file_path, GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
+		NULL);
+	return file == INVALID_HANDLE_VALUE ? NULL : file;
+}
+
+void host_crash_file_write(void *file, const char *text, size_t length)
+{
+	DWORD written;
+
+	while (length)
+	{
+		DWORD part = length > 0x10000000 ? 0x10000000 : (DWORD)length;
+
+		if (!WriteFile((HANDLE)file, text, part, &written, NULL) || !written)
+			return;
+		text += written;
+		length -= written;
+	}
+}
+
+void host_crash_file_close(void *file)
+{
+	CloseHandle((HANDLE)file);
+}
+
 /* abort() and a bad argument to the C runtime end the process at once
 (__fastfail), past the handlers: an exception of their own first */
 static void crash_abort(int signal_number)

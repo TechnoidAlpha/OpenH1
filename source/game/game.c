@@ -135,6 +135,7 @@ struct game_options;
 #include "effects/contrails.h"
 #include "effects/decals.h"
 #include "effects/effects.h"
+#include "effects/material_effects.h"
 #include "effects/particle_systems.h"
 #include "effects/particles.h"
 #include "effects/player_effects.h"
@@ -158,6 +159,7 @@ struct game_options;
 #include "items/projectiles.h"
 #include "main/main.h"
 #include "menu_pictures.h" /* port: port/linux/game/menu_pictures_render.c */
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 #include "main/console.h"
 #include "math/real_math.h"
 #include "memory/data.h"
@@ -184,13 +186,16 @@ struct game_options;
 #include "structures/structures.h"
 #include "units/units.h"
 #include "units/vehicles.h"
+#include "units/bipeds.h" /* port: bipeds_riding_latch */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
+#include "mcc_loading.h" /* port: port/linux/game/mcc_loading.c */
 #ifdef HALO_PROFILE
 #include "profile_console.h" /* port: port/linux/game/profile_console.c */
 #endif
 #include "profile_sections.h" /* port: port/linux/include/profile_sections.h */
 #include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
 #include "basic_training.h" /* port: port/linux/game/basic_training.c */
+#include "demo.h" /* port: port/linux/game/demo.c */
 
 /* network_game_globals.c's */
 boolean network_game_distributed_client(void);
@@ -355,6 +360,9 @@ static void game_tick_macro_step(
 	lights_port_recover();
 	/* port: the rate this tick simulates at (game.sim_rate) */
 	sim_rate_tick_begin();
+	/* port: the cameras as the tick begins, which its fast phase decides
+	material effects by (material_effects.c) */
+	material_effects_tick_begin();
 
 	/* port: a client of another's game, the host's rules (its own cheats and
 	game speed, set before it joined too, put back) */
@@ -376,7 +384,11 @@ static void game_tick_macro_step(
 	/* port: an OpenH1 game's client: the other players' controls of their
 	later sub-steps, as they ran, where they are later than the input just
 	given (port/linux/game/network_substeps.c) */
+	/* port: (what it puts in from the other machines, for the demo:
+	port/linux/game/demo.c) */
+	demo_foreign_begin();
 	network_substeps_actions_given();
+	demo_foreign_end();
 
 	seconds_per_tick = game_globals->players_are_double_speed
 		? 1.0f / (2 * TICKS_PER_SECOND)
@@ -391,10 +403,26 @@ static void game_tick_macro_step(
 	/* ... and so is a flag's cloth (flags.c): stepped a frame at a time, its
 	pulls come several times a tick and it thrashes */
 	flags_tick(seconds_per_tick);
+	/* port: at game.sim_rate 60 and 120 the first-person weapons (only
+	seen: the frames' allocation, which the frames move as they pose it at
+	the camera) take the frames' local seed in the tick too, as the
+	particles do (random_math_port_begin_cosmetic): when an idle weapon
+	draws its next pose is the frames', and the game's local seed would move
+	with them. At 30 the tick's, as the original's */
 	profile_scope(game_tick_first_person_section,
 		lock_global_random_seed();
 		rumble_update();
-		first_person_weapons_update();
+		if (sim_rate_get() > TICKS_PER_SECOND)
+		{
+			boolean ticking = random_math_port_begin_cosmetic();
+
+			first_person_weapons_update();
+			random_math_port_end_cosmetic(ticking);
+		}
+		else
+		{
+			first_person_weapons_update();
+		}
 		unlock_global_random_seed();)
 	profile_scope(game_tick_game_engine_section, game_engine_update();)
 	/* port: Basic Training's steps and chapters (port/linux/game/basic_training.c) */
@@ -406,6 +434,12 @@ static void game_tick_macro_step(
 	if (!(network_game_distributed_client() && network_coop_active()))
 		profile_scope(game_tick_hs_section, hs_update();)
 	profile_scope(game_tick_recorded_animations_section, recorded_animations_update();)
+	/* port: the vehicle hijacks under way (port/linux/game/vehicle_hijack.c):
+	the vault's place, the blow, the throw and the seat taken, before the
+	objects' update poses the units there (and their nodes are kept for the
+	frames between the ticks: render_interpolation.c) and the tick's
+	sub-steps move them on, as any unit's movement */
+	vehicle_hijack_tick();
 	profile_scope(game_tick_objects_section, objects_update();)
 
 	return;
@@ -486,6 +520,11 @@ void game_initial_pulse(
 	void)
 {
 	struct data_iterator iterator;
+
+	/* port: the map's declared value before scripts run; a load must not read
+	it again (vehicle_riding.c) */
+	vehicle_riding_map_start();
+	bipeds_riding_latch();
 
 	data_iterator_new(&iterator, player_data);
 	while (data_iterator_next(&iterator))
@@ -694,12 +733,14 @@ boolean game_load(
 		game_options_verify(options));
 
 	random_seed_debug_log(TRUE);
+	mcc_loading_begin(options->map_name); /* port: no-op for Xbox/CE loads */
 	csmemcpy(&game_globals->options, options, sizeof(*options));
 	if (scenario_load(options->map_name))
 	{
 		game_globals->map_loaded = TRUE;
 	}
 
+	mcc_loading_end(game_globals->map_loaded); /* port: includes failed MCC loads */
 	return game_globals->map_loaded;
 }
 
@@ -719,6 +760,8 @@ void game_initialize_for_new_map(
 		!game_globals->active);
 
 	halo_load_trace("initialize.begin", NULL); /* port: loading measurement */
+	/* port: the demo being recorded ends with its map (port/linux/game/demo.c) */
+	demo_note_new_map();
 	set_random_seed(game_globals->options.random_seed);
 	/* port: and the local seeds from the game's too (the ticks' and the
 	frames', random_math.c). It was the clock's at startup, with whatever the
@@ -773,6 +816,8 @@ void game_initialize_for_new_map(
 	hs_initialize_for_new_map();
 	recorded_animations_initialize_for_new_map();
 	cheats_initialize_for_new_map();
+	/* port: no hijack under way (port/linux/game/vehicle_hijack.c) */
+	vehicle_hijack_reset();
 
 	game_globals->active = TRUE;
 	halo_load_trace("objects.begin", NULL); /* port: loading measurement */
@@ -884,9 +929,13 @@ void game_dispose(
 	return;
 }
 
-void game_precache_new_map(
+/* port: a map's precache that may fail (game_precache_new_map_refusable):
+its failure returned, not the Xbox's damaged disc (display_error_damaged_media),
+whose error stops the game for good */
+static boolean game_precache_map(
 	char *map_name,
-	boolean blocking)
+	boolean blocking,
+	boolean refusable)
 {
 	long map_status;
 
@@ -910,12 +959,18 @@ void game_precache_new_map(
 		}
 
 		if (!cache_files_precache_in_progress() &&
-			!cache_files_precache_map_begin(map_name, blocking))
+			!cache_files_precache_map_begin(map_name, blocking && !refusable))
 		{
 			error(
 				_error_silent,
 				"shouldn't be here... map '%s' doesn't exist",
 				map_name);
+			/* port: (refused, the game as it was) */
+			if (blocking && refusable)
+			{
+				halo_loading_end();
+				return FALSE;
+			}
 			if (blocking)
 			{
 				match_vassert(
@@ -959,6 +1014,18 @@ void game_precache_new_map(
 
 			progress_bar_end();
 			ui_widgets_close_all();
+			/* port: (refused, its copy ended: the cache file emptied,
+			cache_files_precache_map_mark) */
+			if (map_status == _cached_map_file_failed && refusable)
+			{
+				error(_error_silent, "the copy of map '%s' into the cache failed", map_name);
+				cache_files_precache_map_end();
+				globals = game_globals;
+				globals->map_load_in_progress = FALSE;
+				globals->loading_progress = 0.0f;
+				halo_loading_end();
+				return FALSE;
+			}
 			if (map_status == _cached_map_file_failed)
 				display_error_damaged_media();
 			cache_files_precache_map_end();
@@ -987,7 +1054,24 @@ void game_precache_new_map(
 	}
 
 	halo_load_trace("precache.end", map_name); /* port: loading measurement */
+	return TRUE;
+}
+
+void game_precache_new_map(
+	char *map_name,
+	boolean blocking)
+{
+	game_precache_map(map_name, blocking, FALSE);
 	return;
+}
+
+/* port: a map precached, blocking, as game_precache_new_map does, but a map
+that cannot be copied into the cache (a damaged map file) returned FALSE,
+with nothing of the current game disposed of (main_change_map_name) */
+boolean game_precache_new_map_refusable(
+	char *map_name)
+{
+	return game_precache_map(map_name, TRUE, TRUE);
 }
 
 void game_dispose_from_old_map(
@@ -1039,9 +1123,15 @@ void game_frame(
 	real dt)
 {
 	real frame_dt;
+	/* port: the game time of the Xbox's shortest frame, for the particles: it
+	drew at most 30 frames a second, two vertical blanks each (main.c) */
+	real xbox_frame_dt = game_time_get_speed() / (real)TICKS_PER_SECOND;
 
 	if (game_globals->players_are_double_speed)
+	{
 		frame_dt = dt * 0.5f;
+		xbox_frame_dt *= 0.5f;
+	}
 	else
 		frame_dt = dt;
 
@@ -1051,7 +1141,7 @@ void game_frame(
 		game_globals->active);
 
 	collision_log_begin_period(1);
-	particles_update(frame_dt);
+	particles_update(frame_dt, xbox_frame_dt);
 	contrails_update(frame_dt);
 	particle_systems_update(frame_dt);
 	widgets_update(frame_dt);

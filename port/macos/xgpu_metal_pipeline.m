@@ -44,6 +44,12 @@ static const struct xgpu_metal_format_information formats[XGPU_METAL_FORMAT_COUN
 	[XGPU_METAL_FORMAT_COVERAGE] = { MTLPixelFormatR8Unorm, 1, 0, 0, 0, SWIZZLE(One, One, One, Red), 1 },
 	[XGPU_METAL_FORMAT_RGBA16F] = { MTLPixelFormatRGBA16Float, 8, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
 	[XGPU_METAL_FORMAT_ASTC] = { MTLPixelFormatASTC_4x4_LDR, 16, 1, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
+	[XGPU_METAL_FORMAT_R8_SNORM] = { MTLPixelFormatR8Snorm, 1, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
+	[XGPU_METAL_FORMAT_R8] = { MTLPixelFormatR8Unorm, 1, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
+	[XGPU_METAL_FORMAT_RG8] = { MTLPixelFormatRG8Unorm, 2, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
+	[XGPU_METAL_FORMAT_RGBA32UI] = { MTLPixelFormatRGBA32Uint, 16, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
+	[XGPU_METAL_FORMAT_RGBA32F] = { MTLPixelFormatRGBA32Float, 16, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
+	[XGPU_METAL_FORMAT_RG8_SNORM] = { MTLPixelFormatRG8Snorm, 2, 0, 0, 0, SWIZZLE(Red, Green, Blue, Alpha), 0 },
 };
 
 const struct xgpu_metal_format_information *xgpu_metal_format_information(uint32_t format)
@@ -285,7 +291,8 @@ NSString *const xgpu_metal_fixed_source =
 static uint8_t target_format(uint8_t format)
 {
 	return format == 1 ? XGPU_METAL_FORMAT_BGRA8 : format == 2 ? XGPU_METAL_FORMAT_D24S8 :
-		format == 3 ? XGPU_METAL_FORMAT_RGBA16F : XGPU_METAL_FORMAT_NONE;
+		format == 3 ? XGPU_METAL_FORMAT_RGBA16F :
+		format == XGPU_STREAM_FORMAT_WORLD_AO_INPUTS ? XGPU_METAL_FORMAT_RGBA32UI : XGPU_METAL_FORMAT_NONE;
 }
 
 void xgpu_metal_pipeline_from_key(const struct xgpu_stream_pipeline_key *key, struct xgpu_metal_pipeline *pipeline)
@@ -382,32 +389,42 @@ uint32_t xgpu_metal_layout_immediate(uint32_t written, struct xgpu_metal_vertex_
 	return count;
 }
 
-/* XGPU_SOURCE_NONE; _xgpu_sampler_cube, _2d_layered (xgpu.h) */
+/* XGPU_SOURCE_NONE; _xgpu_sampler_3d, _cube, _2d_layered (xgpu.h) */
 enum
 {
 	_source_none = 0,
+	_sampler_3d = 2,
 	_sampler_cube = 3,
 	_sampler_2d_layered = 4,
 };
 
-int xgpu_metal_border_metal(uint32_t color)
-{
-	return color == 0 || color == 0xff000000u || color == 0xffffffffu;
-}
+_Static_assert(XGPU_METAL_ADDRESS_REGION == 5, "XGPU_ADDRESS_REGION's number");
 
 uint8_t xgpu_metal_border_axes(uint8_t source, uint8_t sampler_type, const struct xgpu_stream_sampler *sampler)
 {
 	uint8_t axes = 0;
 	int axis;
 
-	/* (the shader draws the border of a 2D or 3D texture's sampler) */
-	if (source == _source_none || sampler_type == _sampler_cube || sampler_type == _sampler_2d_layered ||
-		xgpu_metal_border_metal(sampler->border_color))
+	/* (the shader draws the border of a 2D or 3D texture's sampler, whatever
+	its colour, the uniforms': the pipeline is the same for every colour. A
+	draw's border colour is the texture stage's as the draw before left it
+	where the game's code sets none, so that a pipeline told apart by it,
+	Metal's own three colours drawn by the sampler and the others by the
+	shader, was made as the map was prepared for one and missed in play for
+	the other: a10's screen effects, prepared with 0x05050505 and drawn
+	with 0) */
+	if (source == _source_none || sampler_type == _sampler_cube || sampler_type == _sampler_2d_layered)
 		return 0;
 	for (axis = 0; axis < 3; axis++)
 	{
 		if (sampler->address[axis] == XGPU_METAL_ADDRESS_BORDER)
 			axes |= (uint8_t)(1u << axis);
 	}
+	/* (a region of a 2D texture: its border on u and v, the shader's) */
+	if (sampler->address[0] == XGPU_METAL_ADDRESS_REGION && sampler_type != _sampler_3d)
+		axes = 3 | XGPU_METAL_BORDER_REGION;
+	/* (the high-res text's distance fields, a 2D texture's: the shader's) */
+	if (sampler->address[2] == XGPU_METAL_ADDRESS_MSDF && sampler_type != _sampler_3d)
+		axes |= XGPU_METAL_BORDER_MSDF;
 	return axes;
 }

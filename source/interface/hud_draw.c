@@ -91,6 +91,8 @@ symbols in this file:
 #include "bitmaps/bitmaps_inlines.h"
 #include "bitmaps/bitmap_utilities.h"
 #include "cache/texture_cache.h"
+#include "mcc_cache.h" /* port: port/linux/game/mcc_cache.h */
+#include "mcc_hud_draw.h" /* port: port/linux/game/mcc_hud_draw.h */
 #include "effects/particles.h"
 #include "game/game.h"
 #include "game/players.h"
@@ -746,6 +748,13 @@ static void hud_draw_multitexture_overlay(
 			}
 
 			parameters.map_offset[map_index] = &texture_offset[map_index];
+			/* port: an MCC map's linear bitmaps are addressed in texels */
+			if (mcc_cache_tags_loaded())
+			{
+				boolean mcc_linear = TEST_FLAG(parameters.map[map_index]->flags, _bitmap_linear_bit);
+				parameters.map_texture_scale[map_index].i = mcc_linear ? (real)parameters.map[map_index]->width : 1.0f;
+				parameters.map_texture_scale[map_index].j = mcc_linear ? (real)parameters.map[map_index]->height : 1.0f;
+			}
 			parameters.map_scale[map_index].i = scale_x;
 			parameters.map_scale[map_index].j = scale_y;
 			parameters.map_wrapped[map_index] = (boolean)overlay->map_clamp[map_index];
@@ -799,6 +808,9 @@ static void hud_draw_multitexture_overlay(
 	reticle added its whole square) */
 	parameters.alpha_weighted = custom_edition_cache_tags_loaded() &&
 		parameters.framebuffer_blend_function == _shader_framebuffer_blend_function_add;
+	/* port: and an MCC map's, as Custom Edition's */
+	if (mcc_cache_tags_loaded())
+		parameters.alpha_weighted = parameters.framebuffer_blend_function == _shader_framebuffer_blend_function_add;
 
 	for (function_index = 0;
 		function_index < overlay->functions.count;
@@ -820,16 +832,12 @@ static void hud_draw_multitexture_overlay(
 		{
 		case _hud_multitexture_overlay_effector_source_player_pitch:
 			{
-				long unit_index = local_player_get_player_index(local_player_index) == NONE ?
-					NONE :
-					player_get(local_player_get_player_index(local_player_index))->unit_index;
-				real_vector3d direction = *global_forward3d;
+				/* port: the scope's ticks follow the view. The unit's aim
+				changes once a tick, so the ticks stepped across the picture
+				(and there is no unit in render_enumerate.c's pass). */
 				real_euler_angles2d angles;
 
-				/* port: (nor aim: render_enumerate.c) */
-				if (unit_index != NONE)
-					unit_get_aiming_vector(unit_index, &direction);
-				euler_angles2d_from_vector3d(&angles, &direction);
+				euler_angles2d_from_vector3d(&angles, &render.camera.forward);
 				source_value = angles.pitch;
 			}
 			break;
@@ -1058,6 +1066,11 @@ void hud_calculate_point(
 		"c:\\halo\\SOURCE\\interface\\hud_draw.c",
 		127,
 		placement);
+
+	/* port: MCC edge-center anchors use the current player's viewport. */
+	if (mcc_hud_anchor_point(absolute_placement->corner, placement, bitmap_data,
+		scale, &render.camera.window_bounds, &render.camera.viewport_bounds, result))
+		return;
 
 	corner = absolute_placement->corner;
 #ifdef HALO_VR
@@ -1679,6 +1692,8 @@ static void hud_draw_bitmap_with_meter(
 	/* port: a reticle at the centre keeps to its aim (view_fov.c), the view
 	drawn through display.panini's projection too (panini.c) */
 	real reticle_scale;
+	/* port: (passenger_camera_reticle_offset) */
+	real_vector2d reticle_rest;
 
 	csmemset(stack_buffer, 0x62, sizeof(stack_buffer));
 
@@ -1724,12 +1739,22 @@ static void hud_draw_bitmap_with_meter(
 		point.y += vr_render_crosshair_offset[1];
 	}
 #endif
-	reticle_scale = is_crosshair_bitmap && absolute_placement->corner == _hud_anchor_center ?
-		render_fov_reticle_scale(render.local_player_index) * panini_center_scale() : 1.0f;
+	/* (the weapon's reticle one size through a zoom, display.fov's; a
+	scope's own pieces with the view, as its picture is) */
+	reticle_scale = 1.0f;
+	if (is_crosshair_bitmap && absolute_placement->corner == _hud_anchor_center)
+	{
+		/* port: a scope's piece keeps to its picture (render_fov_scope_piece_scale) */
+		reticle_scale = is_crosshair_bitmap == HUD_CROSSHAIR_SCOPE_PIECE ?
+			render_fov_scope_piece_scale(render.local_player_index) * panini_center_scale() :
+			render_fov_reticle_size(render.local_player_index);
+	}
 	/* port: the crosshairs_draw scope moves only the weapon's reticle: to
 	the passenger's shot, or to where the aim lands below the middle
 	(display.lowered_reticle) */
-	if (is_crosshair_bitmap && !passenger_camera_reticle_offset(&point))
+	reticle_rest.i = 0.0f;
+	reticle_rest.j = 0.0f;
+	if (is_crosshair_bitmap && !passenger_camera_reticle_offset(&point, reticle_scale, &reticle_rest))
 		lowered_reticle_offset_point(&point, reticle_scale);
 	hud_calculate_bitmap_bounds(
 		bitmap,
@@ -1737,6 +1762,9 @@ static void hud_draw_bitmap_with_meter(
 		clip,
 		&bounds,
 		is_interface_bitmap);
+	/* port: (the passenger's reticle where the shot is, not the unit short
+	of it: rasterizer_screen_offset_set) */
+	rasterizer_screen_offset_set(reticle_rest.i, reticle_rest.j);
 	hud_draw_bitmap_internal(
 		meter_parameters,
 		bitmap,
@@ -1747,6 +1775,7 @@ static void hud_draw_bitmap_with_meter(
 		theta,
 		color,
 		reticle_scale);
+	rasterizer_screen_offset_set(0.0f, 0.0f);
 
 	match_assert_stack_frame("c:\\halo\\SOURCE\\interface\\hud_draw.c", 814);
 
@@ -1809,6 +1838,10 @@ static void hud_calculate_bitmap_bounds(
 
 	width = (clip->x1-clip->x0)*(is_interface_bitmap ? 1 : bitmap->width);
 	height = (clip->y1-clip->y0)*(is_interface_bitmap ? 1 : bitmap->height);
+
+	/* port: MCC-only bounds for its additional HUD anchors. */
+	if (mcc_hud_anchor_bounds(placement_type, width, height, bounds))
+		return;
 
 	switch (placement_type)
 	{
@@ -1912,6 +1945,30 @@ void hud_draw_bitmap_direct(
 		1.0f);
 
 	match_assert_stack_frame("c:\\halo\\SOURCE\\interface\\hud_draw.c", 856);
+
+	return;
+}
+
+/* port: (hud_draw.h) */
+void hud_draw_mark_begin(
+	real x,
+	real y,
+	point2d *whole)
+{
+	real whole_x = (real)floor(x);
+	real whole_y = (real)floor(y);
+
+	whole->x = (short)whole_x;
+	whole->y = (short)whole_y;
+	rasterizer_screen_offset_set(x - whole_x, y - whole_y);
+
+	return;
+}
+
+void hud_draw_mark_end(
+	void)
+{
+	rasterizer_screen_offset_set(0.0f, 0.0f);
 
 	return;
 }
@@ -2139,6 +2196,9 @@ void hud_draw_numbers(
 			digit_scale = TEST_FLAG(numbers->placement.multiplayer_scaling_flags, _hud_use_high_resolution_scale_bit) ||
 				TEST_FLAG(bitmap_group->flags, _bitmap_group_half_hud_scale_bit) ?
 				scale*0.5f : scale;
+			/* port: an MCC map's HUD canvas (mcc_hud.c) */
+			if (mcc_cache_tags_loaded())
+				digit_scale *= mcc_hud_canvas_scale();
 
 			if (TEST_FLAG(numbers->number_flags, _hud_number_show_trailing_m_bit))
 			{
@@ -2160,6 +2220,10 @@ void hud_draw_numbers(
 				0.0f,
 				&origin);
 
+			/* port: MCC edge-center number alignment; native anchors keep their cases. */
+			if (!mcc_hud_anchor_number(absolute_placement->corner,
+				((digit_count-1.0f)*hud_number->screen_width+decimal_point_width)*scale,
+				origin.x, &cursor.x))
 			switch (absolute_placement->corner)
 			{
 			case _hud_anchor_top_left:

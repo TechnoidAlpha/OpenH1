@@ -11,7 +11,10 @@ Overshield, display.overshield_effect; off, the game's own):
   nothing); from any other shield, 2. Meanwhile the shield's own flares
   (its hits, its recharge) are not drawn over it.
 - The flare's energy moves at 30% of its speed, in the overshield's own
-  color (the powerup's), whatever shield color its player chose.
+  color, whatever shield color its player chose: the color of the layer the
+  HUD's shield meter shows on top (hud_unit.c's), green while the second
+  layer lasts and red, the powerup's, once only the first is left
+  (display.overshield_layer_color; false: red, the powerup's, throughout).
 - On the first-person arms (with display.viewmodel_shield) it comes up as
   the rise reaches them, and stays.
 - A hit on it plays what a hit on an Elite's shield plays (the hitting
@@ -75,8 +78,16 @@ from a down one (the charge's own times: 2 and 3 of shield a second) */
 definition's flags (its enum is effects.c's own) */
 #define EFFECT_MUST_BE_DETERMINISTIC_BIT 1
 
-/* the overshield's color: the powerup's */
-static real_rgb_color const overshield_effect_rgb = { 0.992f, 0.306f, 0.455f }; /* (253, 78, 116) */
+/* the overshield's colors, by the layer of it on top, as the HUD's shield
+meter has them (hud_unit.c's: red, green, yellow, purple): the first the
+powerup's, the rest at its brightness */
+static real_rgb_color const overshield_effect_layer_rgb[] =
+{
+	{ 0.992f, 0.306f, 0.455f }, /* (253, 78, 116) */
+	{ 0.306f, 0.992f, 0.455f }, /* (78, 253, 116) */
+	{ 0.992f, 0.992f, 0.306f }, /* (253, 253, 78) */
+	{ 0.651f, 0.306f, 0.992f }, /* (166, 78, 253) */
+};
 
 /* the plasma shader's fields after its header (rasterizer_xbox_plasma_energy.c's) */
 struct overshield_effect_plasma
@@ -141,6 +152,48 @@ static boolean overshield_effect_enabled(
 		enabled = config_boolean("display.overshield_effect") != 0;
 	}
 	return enabled;
+}
+
+/* display.overshield_layer_color */
+static boolean overshield_effect_layers_enabled(
+	void)
+{
+	static unsigned long changes = (unsigned long)-1;
+	static boolean enabled = TRUE;
+
+	if (changes != config_changes())
+	{
+		changes = config_changes();
+		enabled = config_boolean("display.overshield_layer_color") != 0;
+	}
+	return enabled;
+}
+
+/* the overshield's color with a shield of this vitality: the layer on top's
+(the HUD's: layer n, from 1, drawn while the shield is past n), or the
+first's without layers */
+static real_rgb_color const *overshield_effect_layer_color(
+	real shield_vitality,
+	boolean layers)
+{
+	short layer = 0;
+
+	while (layers && layer + 1 < (short)NUMBEROF(overshield_effect_layer_rgb) &&
+		shield_vitality > (real)(layer + 2))
+	{
+		layer++;
+	}
+	return &overshield_effect_layer_rgb[layer];
+}
+
+/* a unit's overshield's color, now */
+static real_rgb_color const *overshield_effect_unit_color(
+	long unit_index)
+{
+	struct unit_datum *unit = unit_try_and_get(unit_index);
+
+	return overshield_effect_layer_color(unit ? unit->object.shield_vitality : 0.f,
+		overshield_effect_layers_enabled());
 }
 
 static boolean overshield_effect_model_heights(
@@ -344,6 +397,25 @@ real const *overshield_effect_values(
 	return copy;
 }
 
+/* the overshield whose values (overshield_effect_values's) these are;
+NULL for values not from one */
+static struct overshield_effect const *overshield_effect_of_values(
+	real const *values)
+{
+	short index;
+
+	if (!values)
+		return NULL;
+	for (index = 0; index < OVERSHIELD_EFFECT_MAXIMUM; index++)
+	{
+		struct overshield_effect const *effect = &overshield_effects[index];
+
+		if (effect->unit_index != NONE && (values == effect->body_values || values == effect->arms_values))
+			return effect;
+	}
+	return NULL;
+}
+
 /* a plasma shader drawn with values from overshield_effect_values: the
 speed its energy moves at, and the height it fades above on its model (the
 fade's inverse softness and height: 0 and 0 for none); FALSE for values not
@@ -354,31 +426,23 @@ boolean overshield_effect_draw(
 	real *inverse_softness,
 	real *height)
 {
-	short index;
+	struct overshield_effect const *effect = overshield_effect_of_values(values);
 
-	if (!values)
+	if (!effect)
 		return FALSE;
-	for (index = 0; index < OVERSHIELD_EFFECT_MAXIMUM; index++)
+	*energy_speed = OVERSHIELD_EFFECT_ENERGY_SPEED;
+	*inverse_softness = 0.f;
+	*height = 0.f;
+	if (values == effect->body_values && effect->top > effect->bottom && effect->progress < 1.f)
 	{
-		struct overshield_effect const *effect = &overshield_effects[index];
+		real edge = OVERSHIELD_EFFECT_EDGE * (effect->top - effect->bottom);
 
-		if (effect->unit_index == NONE || (values != effect->body_values && values != effect->arms_values))
-			continue;
-		*energy_speed = OVERSHIELD_EFFECT_ENERGY_SPEED;
-		*inverse_softness = 0.f;
-		*height = 0.f;
-		if (values == effect->body_values && effect->top > effect->bottom && effect->progress < 1.f)
-		{
-			real edge = OVERSHIELD_EFFECT_EDGE * (effect->top - effect->bottom);
-
-			/* (from all of the edge below the feet to all of it above the
-			head) */
-			*inverse_softness = 1.f / edge;
-			*height = effect->bottom + (effect->top - effect->bottom + edge) * effect->progress;
-		}
-		return TRUE;
+		/* (from all of the edge below the feet to all of it above the
+		head) */
+		*inverse_softness = 1.f / edge;
+		*height = effect->bottom + (effect->top - effect->bottom + edge) * effect->progress;
 	}
-	return FALSE;
+	return TRUE;
 }
 
 /* the unit's overshield's flare, for its glow (shield_glow.c): 0..1, or
@@ -431,22 +495,22 @@ boolean overshield_effect_hit_effect_allowed(
 }
 
 /* the color a plasma shader drawn with values from overshield_effect_values
-is drawn in, the overshield's own; FALSE for values not from it */
+is drawn in, the overshield's own, its layer's; FALSE for values not from it */
 boolean overshield_effect_color(
 	real const *values,
 	real_rgb_color *color)
 {
-	real energy_speed, inverse_softness, height;
+	struct overshield_effect const *effect = overshield_effect_of_values(values);
 
-	if (!overshield_effect_draw(values, &energy_speed, &inverse_softness, &height))
+	if (!effect)
 		return FALSE;
-	*color = overshield_effect_rgb;
+	*color = *overshield_effect_unit_color(effect->unit_index);
 	return TRUE;
 }
 
-/* the overshield's color, for its glow */
+/* the unit's overshield's color, for its glow */
 real_rgb_color const *overshield_effect_glow_color(
-	void)
+	long unit_index)
 {
-	return &overshield_effect_rgb;
+	return overshield_effect_unit_color(unit_index);
 }

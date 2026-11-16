@@ -27,6 +27,7 @@ static struct
 	boolean quickstart_local, client_started;
 } bss_004566dc;
 static char network_game_server_cooperative_next_map[128];
+static short network_game_server_cooperative_next_difficulty;
 static boolean network_game_server_memory_do_not_use_directly_in_use;
 static struct network_message message;
 static struct network_game_server *disposing;
@@ -35,6 +36,9 @@ static int slept, messages, broadcasts, handled, closed, terminated, errors;
 static int new_servers, clients_closed, joins_cleared, variants_cleared;
 static short expected_message;
 static boolean message_fails, send_fails, machines_fail;
+
+/* These legacy teardown cases have no pending MCC restart. */
+static void mcc_ui_network_server_dispose(struct network_game_server *server) { (void)server; }
 
 static void note(char event)
 {
@@ -61,6 +65,7 @@ static boolean network_game_server_handle_client_machines(struct network_game_se
 	CHECK(server == disposing && !server->time_of_first_client_loading_completion && !server->sent_start_game_message &&
 		!TEST_FLAG(server->flags, _network_game_server_game_open_bit), "teardown could start another game or accept clients");
 	CHECK(!network_game_server_cooperative_next_map[0], "next co-op map survived teardown");
+	CHECK(network_game_server_cooperative_next_difficulty == NONE, "next co-op difficulty survived teardown");
 	handled++; note('H'); return !machines_fail;
 }
 static void network_connection_delete(struct network_connection *connection)
@@ -114,6 +119,7 @@ int main(int argc, char **argv)
 	bss_004566dc.quickstart_local = bss_004566dc.client_started = TRUE;
 	network_game_server_memory_do_not_use_directly_in_use = TRUE;
 	strcpy(network_game_server_cooperative_next_map, "next-level");
+	network_game_server_cooperative_next_difficulty = 2;
 	expected_message = _message_server_graceful_game_exit_pregame;
 	boolean back = !strcmp(case_name, "back"), reopen = !strcmp(case_name, "reopen");
 	CASE("postgame") { host.state = _network_game_server_state_postgame; expected_message = _message_server_graceful_game_exit_postgame; }

@@ -4,3 +4,4 @@
 # in host_windows.c. tools/android_imports.py generates the stubs and, with
 # --host-abi sysv, the host's thunks.
 host_windows_hardware_id
+host_windows_sleep_until

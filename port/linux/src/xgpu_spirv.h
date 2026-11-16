@@ -35,7 +35,8 @@ The conventions (SPIR-V 1.3, Vulkan 1.1):
   (xgpu_spirv_options border);
 - the stages hand on, at locations XGPU_SPIRV_LOCATION_*: the colors, the
   texture coordinates, fog, and with lighting the world normal, position,
-  binormal and tangent;
+  binormal and tangent (or, lit for each vertex with the ambient occlusion,
+  the ambient and the point lights' light);
 - the VR mode uses Vulkan multiview, with ViewIndex relative to the
   attachment view's first layer. A draw of one eye uses that eye's layer
   (its two layers when foveated) as the attachment view. The eyes and all
@@ -57,6 +58,47 @@ The conventions (SPIR-V 1.3, Vulkan 1.1):
 XGPU_HDR_SHADER_BLENDS, xgpu_hdr.h), the colour attachment read as input
 attachment 0 at binding 0 (VK_KHR_dynamic_rendering_local_read) */
 #define XGPU_SPIRV_SET_INPUT 2
+/* (its binding of the colour target as a storage image, for the draws the
+interlock orders: xgpu_spirv_options interlock) */
+#define XGPU_SPIRV_BINDING_STORE 1
+/* display.ambient_occlusion "world" (xgpu_stream.h): in a set of its own
+(binding 0 unused), the structure's distance field, its atlas of bricks (a
+combined image sampler, 3D, linear, clamped to its edge) and its table of
+cells (3D, RGBA8, read with texelFetch), and the window's block (a uniform
+buffer) */
+#define XGPU_SPIRV_SET_OCCLUSION 3
+#define XGPU_SPIRV_BINDING_WORLD_SDF 1
+#define XGPU_SPIRV_BINDING_WORLD_AO 2
+#define XGPU_SPIRV_BINDING_WORLD_SDF_TABLE 3
+/* (the static scenery's pages of the level's occlusion: a 2D array of
+bytes, sampled at the lightmap pass's lightmap coordinates) */
+#define XGPU_SPIRV_BINDING_WORLD_AO_SCENERY 4
+/* (the vehicles' occlusion fields' atlas: a 3D image of four halves, t
+and v.xyz, sampled at a field's voxels' place) */
+#define XGPU_SPIRV_BINDING_WORLD_AO_OBJECTS 5
+/* (found once a pixel: the occlusion's texture, a float a pixel, read with
+texelFetch at the pixel by the draws with
+XGPU_AMBIENT_OCCLUSION_WORLD_SAMPLED) */
+#define XGPU_SPIRV_BINDING_WORLD_AO_PIXELS 6
+/* the passes after the pre-pass (xgpu_spirv_world_ao_pass), drawn as the
+backend's own draws: the pass's struct xgpu_world_ao_pass at the start of
+the uniforms (XGPU_SPIRV_SET_DRAW, XGPU_SPIRV_BINDING_UNIFORMS); the
+pre-pass's inputs (an unsigned 2D image, read with texelFetch) at this
+binding of XGPU_SPIRV_SET_TEXTURES; set XGPU_SPIRV_SET_OCCLUSION as the
+surfaces have it */
+#define XGPU_SPIRV_WORLD_AO_PASS_INPUTS 0
+/* (and the window's previous frame's occlusion, a 2D float image read with
+texelFetch, and the distance-field scene's cascades, a 3D RG8 snorm one,
+linear, clamped: the dynamic objects' rays step through them) */
+#define XGPU_SPIRV_WORLD_AO_PASS_HISTORY 1
+#define XGPU_SPIRV_WORLD_AO_PASS_CASCADES 2
+/* (the distance-field scene's cascades: a 3D RG8 snorm image, linear,
+clamped: xgpu.h's XGPU_WORLD_CASCADE*) */
+#define XGPU_SPIRV_BINDING_WORLD_CASCADES 7
+/* (display.ambient_occlusion "ray_traced": the ray-traced scene's top-level
+acceleration structure, which the occlusion's pass made with ray queries
+reads: xgpu_stream.h's WORLD_AO_MESH, _INSTANCES) */
+#define XGPU_SPIRV_BINDING_WORLD_AO_SCENE 8
 
 /* the locations of what the vertex shader hands the pixel shader */
 enum
@@ -66,6 +108,9 @@ enum
 	XGPU_SPIRV_LOCATION_FOG,
 	XGPU_SPIRV_LOCATION_WORLD_NORMAL, XGPU_SPIRV_LOCATION_WORLD_POSITION,
 	XGPU_SPIRV_LOCATION_WORLD_BINORMAL, XGPU_SPIRV_LOCATION_WORLD_TANGENT,
+	/* (a model lit for each vertex, its ambient light apart: xgpu.h's
+	XGPU_AMBIENT_OCCLUSION_LIGHT_VERTEX) */
+	XGPU_SPIRV_LOCATION_LIGHT_AMBIENT, XGPU_SPIRV_LOCATION_LIGHT_POINT,
 };
 
 /* the draw's values both stages read, laid out alike in C and in the
@@ -113,6 +158,16 @@ struct xgpu_spirv_uniforms
 	xgpu_vulkan_effects.h) */
 	float effect_unproject[4][4][4];
 	float effect_eye[4][4];
+	/* display.ambient_occlusion "world" (xgpu.h): the draw's object, its
+	owner slot among the window's proxies (-1 none) and its reference, then
+	two spare; declared in the pixel shaders that read it alone, past the
+	others, so that their words are as they were */
+	float world_ao[4];
+	/* display.dynamic_lights "enhanced": the lights' tint in the
+	structure's lightmap pass, ps_final_c0's color in linear light (to the
+	2.2), which the backend works out; declared (past world_ao) in those
+	pixel shaders alone */
+	float dynamic_light_tint[4];
 };
 
 /* what the SPIR-V is written for (xgpu_spirv.c):
@@ -140,6 +195,8 @@ struct xgpu_spirv_uniforms
   correction's rows) and add the uniforms' depth_bias, a z-sprite writes
   its depth reversed, the glows and the VR mode's effects read the scene's
   depth and their own reversed (their unprojections stay the game's). */
+enum { XGPU_SPIRV_INTERLOCK_NONE, XGPU_SPIRV_INTERLOCK_PIXEL, XGPU_SPIRV_INTERLOCK_SAMPLE };
+
 struct xgpu_spirv_options
 {
 	BOOL count_samples;
@@ -149,7 +206,30 @@ struct xgpu_spirv_options
 	BOOL foveated;
 	int effect, effect_fade;
 	int input_samples;
+	/* how a display.hdr draw that blends in its shader is ordered with the
+	draw's own triangles over the same pixel (XGPU_SPIRV_INTERLOCK_*): by
+	the device's fragment shader interlock (SPV_EXT_fragment_shader_
+	interlock), the pixel's (PIXEL) or, with sample shading, each sample's
+	(SAMPLE): the target read and written as a storage image
+	(XGPU_SPIRV_BINDING_STORE) in the triangles' order, the channels of
+	interlock_mask (the pipeline's colour mask, bit n channel n) written,
+	the depth and stencil tests early (the draw must write neither, nor
+	replace its depth), and the pipeline writing no colour itself; NONE as
+	an input attachment, where the device orders the reads itself
+	(rasterization order) or cannot */
+	int interlock, interlock_mask;
 	BOOL reversed_depth;
+	/* the device's subgroups have their bitwise operations in pixel shaders
+	(Vulkan 1.1's subgroup arithmetic in the fragment stage):
+	display.ambient_occlusion "world"'s proxies walked a subgroup at a time
+	(world_proxies_occlusion), each shape's place and kind then the same for
+	all of its pixels */
+	BOOL subgroups;
+	/* display.ambient_occlusion "ray_traced": the occlusion's pass traces
+	the dynamic objects' rays by the device's ray queries (SPV_KHR_ray_query:
+	xgpu_spirv_world_ao_pass) through the scene at
+	XGPU_SPIRV_BINDING_WORLD_AO_SCENE */
+	BOOL ray_queries;
 };
 
 /* ---------- the VR mode's effects
@@ -210,11 +290,14 @@ struct xgpu_pixel_program;
 /* the program can be drawn as an effect (above) */
 BOOL xgpu_spirv_effect_possible(const struct xgpu_pixel_program *program);
 
-/* a module's words (SPIR-V's own: 32 bits each), malloc'd, count of them */
+/* a module's words (SPIR-V's own: 32 bits each), malloc'd, count of them;
+the vertex constants it reads (bit n of word n / 64: c[n], counted from
+c[-96]), every one where it indexes them with a0 */
 struct xgpu_spirv_module
 {
 	unsigned int *words;
 	unsigned long count;
+	unsigned long long constants_read[3];
 };
 
 /* the vertex program (xgpu_shader.h) as a vertex shader, entry point
@@ -235,6 +318,21 @@ unsigned long xgpu_spirv_vertex_inputs(const struct xgpu_vertex_program *program
 "main". FALSE if out of memory. */
 BOOL xgpu_spirv_pixel_shader(const struct xgpu_pixel_program *program, const struct xgpu_spirv_options *options,
 	struct xgpu_spirv_module *module);
+
+/* display.ambient_occlusion "world" found once a pixel (xgpu_stream.h's
+WORLD_AO_PREPASS): the passes after the pre-pass, entry point "main": the
+vertex shader covering the viewport with one triangle (pass 0) and the
+occlusion (1: a vec4 a texel, each 2x2 block's nearest pixel's at a quarter
+of the pixels: the occlusion, the distance, the normal octahedral). Their bindings:
+XGPU_SPIRV_WORLD_AO_PASS_*. options: subgroups and ray_queries alone (the
+occlusion's rays through the ray-traced scene: the pass's history[3] 2).
+FALSE if out of memory. */
+enum
+{
+	XGPU_SPIRV_WORLD_AO_VERTEX,
+	XGPU_SPIRV_WORLD_AO_OCCLUSION,
+};
+BOOL xgpu_spirv_world_ao_pass(int pass, const struct xgpu_spirv_options *options, struct xgpu_spirv_module *module);
 
 /* the enhanced dynamic lights' glows (xgpu_backend.h's
 xgpu_backend_dynamic_lights_halos):
@@ -284,5 +382,14 @@ enum
 
 BOOL xgpu_spirv_halo_vertex_shader(const struct xgpu_spirv_options *options, struct xgpu_spirv_module *module);
 BOOL xgpu_spirv_halo_pixel_shader(const struct xgpu_spirv_options *options, struct xgpu_spirv_module *module);
+
+/* the distance-field scene's ray step (port/linux/include/world_cascades.h's
+world_trace_ray) alone, for tools/test_world_trace.py: a fragment shader,
+entry point "main", tracing its ray from its inputs (location 0 the origin,
+1 the direction, 2 t_max and the mask, 3 to 6 the cascades' vec4s) through
+the cascades' texture (XGPU_SPIRV_SET_OCCLUSION,
+XGPU_SPIRV_BINDING_WORLD_CASCADES), writing the hit (1 or 0), t and kind.
+FALSE if out of memory. */
+BOOL xgpu_spirv_world_trace_test(struct xgpu_spirv_module *module);
 
 #endif

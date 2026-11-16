@@ -22,6 +22,9 @@ static unsigned long port_mods_scans(void) { return scans; }
 static long port_mods_scan(void) { scans++; return mods_played; }
 static long port_mods_played(void) { return mods_played; }
 static void texture_cache_size_for_map(void) { sized++; }
+/* (the maps here are the game's own: an MCC map's tags are its converter's,
+which no mod plays over) */
+static boolean mcc_level_name(char const *name) { (void)name; return FALSE; }
 
 #include "globals.inc"
 

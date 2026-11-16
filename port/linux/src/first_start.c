@@ -41,6 +41,7 @@ maps, and the installer has the same ones.
 
 #include "port_config.h"
 #include "xiso.h"
+#include "map_unpack.h"
 #include "ce_installer.h"
 #include "game_data_scan.h"
 #include "map_import.h"
@@ -179,11 +180,11 @@ static SDL_Window *first_start_window(BOOL gamescope)
 		int width = desktop && desktop->w >= 640 ? desktop->w : 1280;
 		int height = desktop && desktop->h >= 400 ? desktop->h : 800;
 
-		return SDL_CreateWindow("OpenH1", width, height, SDL_WINDOW_HIGH_PIXEL_DENSITY);
+		return SDL_CreateWindow("GOAT H1", width, height, SDL_WINDOW_HIGH_PIXEL_DENSITY);
 	}
 	if (fullscreen)
 		flags |= SDL_WINDOW_FULLSCREEN;
-	return SDL_CreateWindow("OpenH1", 1024, 640, flags);
+	return SDL_CreateWindow("GOAT H1", 1024, 640, flags);
 }
 
 /* ---------- text */
@@ -378,7 +379,7 @@ static float draw_heading(float left, float width, const char *headline, SDL_Col
 	int unit = chooser.unit;
 	float y = (float)chooser.height * 0.07f;
 
-	text(left, y, unit * 2, colour_accent, "OpenH1");
+	text(left, y, unit * 2, colour_accent, "GOAT H1");
 	y += GLYPH * unit * 2 + unit * 6;
 	fill(left, y, width, (float)unit, colour_bar);
 	y += unit * 12;
@@ -521,7 +522,7 @@ static void draw_list(float left, float width)
 			first->kind == _game_data_image ? "Your Halo disc image was found" :
 			"Your Halo maps folder was found", colour_text);
 		snprintf(explanation, sizeof(explanation),
-			"%sOpenH1 plays the maps of your own Halo: Combat Evolved for the Xbox. Choosing %s copies "
+			"%sGOAT H1 plays the maps of your own Halo: Combat Evolved for the Xbox. Choosing %s copies "
 			"the maps (about 2 GB) to %s.%s", missing, one ? "it" : "one", destination,
 			installer_count() ? " Custom Edition's installer adds its multiplayer maps too (optional)." : "");
 	}
@@ -530,13 +531,13 @@ static void draw_list(float left, float width)
 		y = draw_heading(left, width, "Halo's Xbox maps were not found", colour_text);
 		snprintf(explanation, sizeof(explanation),
 #ifdef HALO_MACOS
-			"%sOpenH1 plays the maps of your own Halo: Combat Evolved for the Xbox. Choose Browse to pick its "
+			"%sGOAT H1 plays the maps of your own Halo: Combat Evolved for the Xbox. Choose Browse to pick its "
 			"disc image (.iso or .xiso) or its maps folder, or put either in Downloads and choose Look again. "
 			"The maps (about 2 GB) are copied to %s.\n\n"
 			"%sLooked in %s.",
 			missing, destination,
 #else
-			"%sOpenH1 plays the maps of your own Halo: Combat Evolved for the Xbox. Put your disc image (.iso) "
+			"%sGOAT H1 plays the maps of your own Halo: Combat Evolved for the Xbox. Put your disc image (.iso) "
 			"in Downloads or on your SD card, then press A to look again.\n\n"
 			"%sLooked in %s.",
 			missing,
@@ -726,6 +727,10 @@ static void *copy_thread(void *context)
 	{
 		succeeded = xiso_extract_maps(copy->source.path, copy->destination, copy_progress, copy, error,
 			sizeof(error)) != 0;
+		/* (and the stock maps unpacked into the cache's slots, on the
+		same bar: a failure leaves only slots copied again later) */
+		if (succeeded)
+			map_unpack_after_extraction(copy->destination, copy_progress, copy);
 	}
 	else
 	{
@@ -833,7 +838,7 @@ static void browse(void)
 		chooser.browse = FALSE;
 		snprintf(message, sizeof(message),
 			"This system has no file picker (it needs the desktop portal or zenity). That is fine: put your "
-			"disc image (.iso) in Downloads or on your SD card and choose Look again, and OpenH1 finds it.");
+			"disc image (.iso) in Downloads or on your SD card and choose Look again, and GOAT H1 finds it.");
 		show_error("No file picker here", message);
 		return;
 	}
@@ -1144,7 +1149,7 @@ BOOL platform_offer_game_data(const char *destination, const char *missing)
 				/* (the Xbox maps are still needed: back to the list) */
 				game_data_short_path(&chooser.places, chooser.copy.folder, folder, (int)sizeof(folder));
 				snprintf(message, sizeof(message), "%s %s. They show in the map lists' CUSTOM MULTIPLAYER.\n\n"
-					"OpenH1 still needs the maps of your Xbox disc to start: choose Continue, then its disc image.",
+					"GOAT H1 still needs the maps of your Xbox disc to start: choose Continue, then its disc image.",
 					written ? "Custom Edition's maps are in" : "Custom Edition's maps were already in", folder);
 				platform_log("first start: added Custom Edition's maps");
 				show_notice(written ? "Custom Edition's maps were added" : "Nothing to add", message);

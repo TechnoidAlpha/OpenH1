@@ -10,6 +10,7 @@ xbox_textures.c for what an Xbox texture is.
 */
 
 #include "xgpu.h"
+#include "xgpu_coverage.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -526,4 +527,45 @@ void xgpu_texture_decode_dxt(const struct xgpu_texture_description *description,
 			}
 		}
 	}
+}
+
+/* ---------- an alpha test's coverage (xgpu_coverage.h) */
+
+float xgpu_texture_alpha_coverage(unsigned int format_word, unsigned int size_word, const unsigned char *texels,
+	unsigned int reference, unsigned long largest)
+{
+	struct xgpu_texture_description description;
+	unsigned long level = 0, width, height, texel, drawn = 0;
+	const unsigned char *source;
+	DWORD *decoded;
+
+	xgpu_texture_describe((DWORD)format_word, (DWORD)size_word, &description);
+	if (!texels || description.cube_map || description.depth > 1 || !description.width || !description.height ||
+		format_information(description.format).kind == _texel_unknown)
+	{
+		return 1.0f;
+	}
+	while (level + 1 < description.levels && (xgpu_texture_level_dimension(description.width, level) > largest ||
+		xgpu_texture_level_dimension(description.height, level) > largest))
+	{
+		level++;
+	}
+	width = xgpu_texture_level_dimension(description.width, level);
+	height = xgpu_texture_level_dimension(description.height, level);
+	source = texels + xgpu_texture_level_offset(&description, level);
+	decoded = malloc(width * height * sizeof(*decoded));
+	if (!decoded)
+		return 1.0f;
+	if (description.compressed)
+		xgpu_texture_decode_dxt(&description, level, source, decoded);
+	else if (!xgpu_texture_decode_level(&description, level, source, NULL, decoded))
+	{
+		free(decoded);
+		return 1.0f;
+	}
+	/* (ARGB words) */
+	for (texel = 0; texel < width * height; texel++)
+		drawn += ((decoded[texel] >> 24) & 0xFFu) > reference;
+	free(decoded);
+	return (float)drawn / (float)(width * height);
 }

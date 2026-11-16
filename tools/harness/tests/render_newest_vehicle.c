@@ -38,6 +38,7 @@ enum { _object_type_biped, _object_type_vehicle, _object_type_weapon, _object_ty
 #define _object_mask_projectile FLAG(_object_type_projectile)
 #define _object_mask_all 0xFF
 enum { _object_lane_macro, _object_lane_micro };
+enum { _object_dead_bit = 1 };
 enum { _director_perspective_first_person, _director_perspective_third_person, _director_perspective_scripted };
 
 struct _object
@@ -53,6 +54,7 @@ struct _object
 	real outgoing_function_values[NUMBER_OF_OUTGOING_OBJECT_FUNCTIONS];
 	real_rgb_color outgoing_change_colors[NUMBER_OF_OBJECT_CHANGE_COLORS];
 	short type;
+	unsigned long damage_flags;
 };
 struct object_datum { long definition_index; struct _object object; };
 struct unit_datum { long definition_index; struct _object object; struct { real active_camouflage, active_camouflage_super_amount; } unit; };
@@ -152,17 +154,25 @@ static short sim_substep_count(void) { return fake_substep_count; }
 /* the open tick's next sub-step (the world's, below) */
 static short sim_substep_next(void);
 static real game_time_get_tick_fraction(void) { return fake_fraction; }
+/* (the clock's time since its newest step, in ticks: the frame's part of a sub-step past it) */
+static real game_time_get_step_age(void) { return fake_fraction - (real)sim_substep_next() / (real)fake_substep_count; }
 static short director_get_perspective(short local_player_index) { return perspective; }
 static boolean director_inhibited_facing(short local_player_index) { return FALSE; }
 static long scripted_camera_object_relative_to(void) { return NONE; }
 static boolean scripted_camera_object_is_first_person_camera(long index) { return FALSE; }
 static boolean cinematic_in_progress(void) { return FALSE; }
 static int config_boolean(char const *name) { return direct_camera; }
+/* (no host's word against it: network_standard.c's, instant_aim_rule.c's) */
+static boolean network_standard_direct_camera_allowed(void) { return TRUE; }
 static unsigned long config_changes_count;
 static unsigned long config_changes(void) { return config_changes_count; }
 /* the player's unit (NONE while dead) */
 static long fake_player_unit = RIDER;
 static long player_control_get_unit_index(short local_player_index) { return fake_player_unit; }
+/* vehicle_riding.c's: no player rides a deck here, so no turn is kept */
+static real vehicle_riding_kept_dyaw(short local_player_index) { (void)local_player_index; return 0.0f; }
+static void vehicle_riding_turn_vector(real_vector3d *vector, real angle) { (void)vector; (void)angle; }
+static real render_interpolation_fraction(void) { return fake_fraction; }
 static long local_player_get_player_index(short local_player_index) { return 0; }
 static struct player_control *player_control_get(short local_player_index) { return &control; }
 static real_euler_angles2d const *player_control_get_facing_angles(short local_player_index) { return &facing; }
@@ -175,6 +185,13 @@ static int halo_linux_mouse_look_late(short gamepad_index, float *yaw, float *pi
 	return late_yaw != 0.0f || late_pitch != 0.0f;
 }
 static boolean player_control_touch_look_late(short local_player_index, real *yaw, real *pitch)
+{
+	*yaw = 0.0f;
+	*pitch = 0.0f;
+	return FALSE;
+}
+/* (a controller's gyroscope: none here) */
+static boolean player_control_gyro_look_late(short local_player_index, real *yaw, real *pitch)
 {
 	*yaw = 0.0f;
 	*pitch = 0.0f;
@@ -1159,6 +1176,88 @@ static void as_before_case(boolean gun_view)
 	seat_gun_view = FALSE;
 }
 
+/* The player on foot turns an A-D strafe at 30 (a Legacy game's rate): each step changes its velocity by a strafe's
+acceleration (speeding up and slowing a tick at a time, as bipeds.c's physics does), its place moved by the new
+velocity. The view drawn from the newest step, carried on by the velocity, would meet each step past or short of
+where it puts the player: it moves on from where it was drawn, never stepping back while the player keeps going
+one way (a step back of more than a tenth of a tick's change), and between the turns never further from the
+player's path than one and a half ticks' change. A start from standing is drawn at once (case_start's rule, here at the second
+pass) */
+static void case_foot_strafe(void)
+{
+	real const top = 0.066f;
+	real const change = 0.011f;
+	real_point3d place = { 10.0f, 20.0f, 1.0f };
+	real velocity_now = 0.0f;
+	real direction = 1.0f;
+	real last_x = 0.0f;
+	real last_move = 0.0f;
+	real worst_back = 0.0f;
+	long frame;
+	long steps = 0;
+	boolean has_last = FALSE;
+
+	world_new(1, TRUE, _director_perspective_first_person);
+	object_get(RIDER)->object.parent_object_index = NONE;
+	object_get(VEHICLE)->object.first_child_object_index = NONE;
+	for (frame = 0; frame < 5 * 160; frame++)
+	{
+		struct observer_result observer;
+		struct observer_result const *drawn;
+		real move;
+
+		if (frame % 5 == 0)
+		{
+			/* (the step: the strafe sped up toward its way, turned at the top) */
+			velocity_now += direction * change;
+			if (velocity_now > top || velocity_now < -top)
+			{
+				velocity_now = direction * top;
+				direction = -direction;
+			}
+			place.x += velocity_now;
+			object_get(RIDER)->object.position = place;
+			object_get(RIDER)->object.translational_velocity.i = velocity_now;
+			object_get(RIDER)->object.translational_velocity.j = 0.0f;
+			object_get(RIDER)->object.translational_velocity.k = 0.0f;
+			world_nodes[absolute(RIDER)][0].position = place;
+			world_nodes[absolute(RIDER)][1].position = place;
+			render_interpolation_register();
+			slot_procedure(0, 1, 1.0f / 30.0f);
+			ticks_ended++;
+			render_interpolation_tick();
+			steps++;
+		}
+		if (ticks_ended < 3)
+			continue;
+		frame_begin((real)(frame % 5) / 5.0f + 0.05f);
+		memset(&observer, 0, sizeof(observer));
+		observer.position = place;
+		vector3d_from_euler_angles2d(&observer.forward, &facing);
+		observer_up_from_forward(&observer.forward, &observer.up);
+		observer.field_of_view = 1.2f;
+		drawn = render_interpolation_camera(0, &observer);
+		CHECK(drawn, "no view drawn");
+		move = drawn->position.x - last_x;
+		/* (a step back: a move against the one before, the player's velocity well off standing still) */
+		if (has_last && move * last_move < 0.0f && fabs(velocity_now) > 2.0f * change && fabs(move) > worst_back)
+			worst_back = (real)fabs(move);
+		CHECK(fabs(drawn->position.x - (place.x + velocity_now * fake_fraction)) <= 1.5f * change,
+			"frame %ld: the view %f from the player's path carried on (a tick's change %f)", frame,
+			drawn->position.x - (place.x + velocity_now * fake_fraction), change);
+		if (has_last && fabs(move) > 1e-6f)
+			last_move = move;
+		else if (!has_last)
+			last_move = 0.0f;
+		last_x = drawn->position.x;
+		has_last = TRUE;
+		render_interpolation_frame_end();
+	}
+	CHECK(steps > 100, "too few steps");
+	CHECK(worst_back <= 0.1f * change, "the view stepped back %f while the player kept going one way (a tick's "
+		"change %f)", worst_back, change);
+}
+
 int main(int argc, char **argv)
 {
 	CHECK(argc == 2, "usage: %s <case>", argv[0]);
@@ -1230,6 +1329,8 @@ int main(int argc, char **argv)
 		as_before_case(FALSE);
 	else if (!strcmp(argv[1], "gun_view"))
 		as_before_case(TRUE);
+	else if (!strcmp(argv[1], "foot_strafe_30"))
+		case_foot_strafe();
 	else
 		CHECK(0, "no case %s", argv[1]);
 	return 0;

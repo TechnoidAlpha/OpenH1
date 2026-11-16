@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.friends.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/friends/friends_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="port friends open"/>
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<on event="x" run="port friends x"/>
+		<on event="y" run="port friends y"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/friends_list" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_0">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_1">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_2">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_3">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_4">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_5">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_6">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_7">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_8">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/fr_row_9">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/friends_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_copy">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_join">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_accept">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_add">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_unblock">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_code">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_invite">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_ignore">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_cancel">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_remove">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_block">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_hide">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_show">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/prompt_back">
+		<on event="a" run="port friends button"/>
+		<on event="start" run="port friends button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/add/add_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" run="port friends code back"/>
+		<on event="back" run="port friends code back"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/add/options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="port friends code init"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/add/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/friends/add/op_code" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port friends code edit"/>
+		<on event="start" run="port friends code edit"/>
+		<on event="b"/>
+		<on event="back"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/add/button_defaults">
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/friends/add/button_ok">
+		<on event="a" run="port friends code send"/>
+		<on event="start" run="port friends code send"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

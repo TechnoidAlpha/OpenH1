@@ -114,10 +114,10 @@ were written */
 uint32_t xgpu_metal_layout_immediate(uint32_t written, struct xgpu_metal_vertex_attribute attributes[16],
 	uint16_t strides[XGPU_METAL_STREAM_COUNT]);
 /* a texture stage's axes (bit 0 u, 1 v, 2 w) whose border colour the
-pixel shader draws: the stage's source (XGPU_SOURCE_*), the shader's
-sampler type (_xgpu_sampler_*) and the sampler */
+pixel shader draws (every axis addressed by the border, of a 2D or 3D
+texture: whatever the colour, which the uniforms hold): the stage's source
+(XGPU_SOURCE_*), the shader's sampler type (_xgpu_sampler_*) and the
+sampler */
 uint8_t xgpu_metal_border_axes(uint8_t source, uint8_t sampler_type, const struct xgpu_stream_sampler *sampler);
-/* a border colour Metal's samplers have (ARGB) */
-int xgpu_metal_border_metal(uint32_t color);
 
 #endif

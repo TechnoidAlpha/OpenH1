@@ -12,5 +12,8 @@ struct tag_block;
 void coop_pickups_new_game(void);
 void coop_pickups_register(long object_index, struct scenario_object_datum const *source, struct tag_block *palette);
 void coop_pickups_update(void);
+/* the host's choices as the game began, by part, for the demos (demo.c's G
+records: network_coop_port_demo_state); NULL past the last */
+void *coop_pickups_port_demo_state(short part, long *size);
 
 #endif

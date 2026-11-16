@@ -78,6 +78,33 @@ boolean bots_objectives_carrying(long player_index);
 /* the point is in a hill now */
 boolean bots_objectives_in_hill(real_point3d const *point);
 
+/* Capture the Flag's flag of the team (the one it defends), as this tick
+found it: its object, where it is, the player carrying it (NONE), and
+whether it is at its place; FALSE for none in play (another game) */
+boolean bots_objectives_flag(short team, long *object_index, real_point3d *position, long *carrier,
+	boolean *at_home);
+
+/* a ball of Oddball (Juggernaut's juggernaut), as this tick found it: the
+ball lying free (its object, where; carrier NONE), or the player holding
+one (carrier: their datum; object NONE, where they stand) */
+struct bots_objectives_ball
+{
+	long object_index;
+	long carrier;
+	real_point3d position;
+};
+
+/* the balls in play and their holders this tick (at most maximum), how
+many; 0 in another game */
+short bots_objectives_balls(struct bots_objectives_ball *balls, short maximum);
+/* the hills in play this tick (King of the Hill), their centres (at most
+maximum), how many */
+short bots_objectives_hills(real_point3d *centers, short maximum);
+/* the ticks until Capture the Flag's dropped flag of the team returns on
+its own (the game's 17 seconds untouched), NONE if it lies at home, is
+carried or there is none */
+long bots_objectives_flag_return_ticks(short team);
+
 /* the minute line's part (empty in a Slayer game) */
 void bots_objectives_report(char *line, long size);
 

@@ -137,6 +137,12 @@ static int config_boolean(const char *name)
 	return !strcmp(name, "network.online") && online;
 }
 
+/* (moves as the setting changes, as config.toml's count does) */
+static unsigned long config_changes(void)
+{
+	return (unsigned long)online;
+}
+
 static unsigned long system_milliseconds(void)
 {
 	return now;
@@ -418,6 +424,35 @@ static long network_game_server_port_bots_humans(struct network_game_server *ser
 	if (maximum)
 		*maximum = host_game.maximum_players;
 	return host_game.player_count;
+}
+
+/* the game's record (the lobby's players, for the host's list of their
+friend codes by their slots): none here, the players' datums the test's */
+struct network_player
+{
+	wchar_t name[12];
+	short primary_color_index;
+	short icon_index;
+	char machine_index;
+	char controller_index;
+	char team_index;
+	char player_list_index;
+};
+
+struct network_game
+{
+	struct network_player players[HALO_PORT_MAXIMUM_NETWORK_PLAYERS];
+};
+
+static struct network_game *network_game_server_get_game(struct network_game_server *server)
+{
+	(void)server;
+	return NULL;
+}
+
+static boolean network_player_is_valid(struct network_player const *player)
+{
+	return player && player->name[0];
 }
 
 static unsigned long network_game_server_machine_address(long machine_index)
@@ -1412,8 +1447,14 @@ static void case_friends(void)
 		CHECK(!party_globals.codes[OTHER_PLAYER].has, "not from a datagram");
 		client_hears_codes(2, listed, machines, FRIEND_FORMAT, TRUE, -1);
 		CHECK(!party_globals.codes[OTHER_PLAYER].has, "nor of another size");
-		client_hears_codes(2, listed, machines, FRIEND_FORMAT + 1, TRUE, 0);
-		CHECK(!party_globals.codes[OTHER_PLAYER].has, "an entry of another format is let go");
+		client_hears_codes(2, listed, machines, FRIEND_FORMAT + 2, TRUE, 0);
+		CHECK(!party_globals.codes[OTHER_PLAYER].has && !party_globals.slot_codes[OTHER_PLAYER].has,
+			"an entry of another format is let go");
+		/* (the lobby's: its players by their slots of the game's record, not
+		as the game's datums) */
+		client_hears_codes(2, listed, machines, FRIEND_FORMAT_LOBBY, TRUE, 0);
+		CHECK(!party_globals.codes[OTHER_PLAYER].has && party_globals.slot_codes[OTHER_PLAYER].has,
+			"the lobby's list taken by slots");
 		client_hears_codes(2, listed, machines, FRIEND_FORMAT, TRUE, 0);
 		CHECK(party_globals.codes[OTHER_PLAYER].has && party_globals.codes[HOST_PLAYER].has, "the host's list taken");
 		CHECK(network_party_player_actions(datum(OTHER_PLAYER)) & add, "Add friend on a client too");

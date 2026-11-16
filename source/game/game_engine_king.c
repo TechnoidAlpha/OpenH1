@@ -1476,3 +1476,37 @@ boolean game_engine_king_read_network_state(
 		game_engine_play_multiplayer_sound(_multiplayer_sound_hill_move);
 	return TRUE;
 }
+
+/* port: the game type's state kept outside the game state, part by part
+(NULL past the last), for a demo (port/linux/game/demo.c) */
+void *game_engine_king_port_demo_state(
+	short part,
+	long *size)
+{
+	switch (part)
+	{
+	case 0:
+		*size = (long)sizeof(king_globals);
+		return &king_globals;
+	case 1:
+		*size = (long)sizeof(king_hills);
+		return &king_hills;
+	}
+	return NULL;
+}
+
+/* port: the ticks until the hill moves (a moving hill's, the game's own
+timer, which every player hears count down by the hill's move), NONE for a
+hill that stays (port/linux/game/bots_command.c's knowledge) */
+long game_engine_king_port_hill_move_ticks(
+	void)
+{
+	struct game_variant *variant = game_engine_running() ? game_engine_get_variant() : NULL;
+
+	if (!variant || variant->game_engine_index != game_engine_king ||
+		!variant->game_engine_variant.king.moving_hill)
+	{
+		return NONE;
+	}
+	return king_globals.hill_timer;
+}

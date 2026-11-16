@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.host_controls.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/host_controls/host_controls_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="port host back" back="true"/>
+		<on event="back" run="port host back" back="true"/>
+		<on event="white" run="port host tab previous"/>
+		<on event="black" run="port host tab next"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_list" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="port host init"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_tabs" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/host_controls/tab_players">
+		<on event="a" run="port host tab"/>
+		<on event="start" run="port host tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/tab_game">
+		<on event="a" run="port host tab"/>
+		<on event="start" run="port host tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/tab_maps">
+		<on event="a" run="port host tab"/>
+		<on event="start" run="port host tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/tab_playlist">
+		<on event="a" run="port host tab"/>
+		<on event="start" run="port host tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/tab_bans">
+		<on event="a" run="port host tab"/>
+		<on event="start" run="port host tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/tab_bots">
+		<on event="a" run="port host tab"/>
+		<on event="start" run="port host tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_1">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_2">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_3">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_4">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_5">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_6">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_7">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_8">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_9">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_10">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_11">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_12">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_13">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_item_14">
+		<on event="a" run="port host row"/>
+		<on event="start" run="port host row"/>
+		<on event="left" run="port host left"/>
+		<on event="right" run="port host right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_action_0">
+		<on event="a" run="port host action"/>
+		<on event="start" run="port host action"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_action_1">
+		<on event="a" run="port host action"/>
+		<on event="start" run="port host action"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_action_2">
+		<on event="a" run="port host action"/>
+		<on event="start" run="port host action"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_action_3">
+		<on event="a" run="port host action"/>
+		<on event="start" run="port host action"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/host_controls/host_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/host_controls/prompt_back">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

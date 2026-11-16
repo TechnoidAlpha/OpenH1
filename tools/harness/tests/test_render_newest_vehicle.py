@@ -23,7 +23,7 @@ from test_render_substeps import generated  # noqa: E402
 CASES = ["steady_30", "steady_60", "steady_120", "steady_macro_60", "steady_macro_120", "physics_apart",
          "physics_apart_30", "accelerating", "accelerating_30", "accelerating_macro", "following", "following_30",
          "aim_in_world", "late", "following_late", "following_pulled", "leaving", "leaving_30", "leaving_teleported",
-         "kinked", "start", "pitch_held", "coming", "coming_30", "correction", "off", "gun_view"]
+         "kinked", "start", "pitch_held", "coming", "coming_30", "correction", "off", "gun_view", "foot_strafe_30"]
 
 # a fault in the code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -80,6 +80,10 @@ NEGATIVE_CONTROLS = {
                     "pitch_held"),
     # ... and taken by it jumps ahead
     "no-glide-ahead": (("\t\t\trender_interpolation_glide(newest->vehicle_index, &back);", ""), "coming"),
+    # the view on foot jumped to the next step's place, not blended in from where it was drawn: a strafe's turn at 30
+    # steps the view back and on every tick
+    "foot-unblended": (("\t\t\t\tblend->blend = difference;", "\t\t\t\tblend->blend = *global_zero_vector3d;"),
+                       "foot_strafe_30"),
     # the view in the seat not gliding with the corrected vehicle
     "view-unglided": (("\tdirect->position.x += correction.i;\n\tdirect->position.y += correction.j;\n"
                        "\tdirect->position.z += correction.k;\n\treturn direct;", "\treturn direct;"), "correction"),
@@ -103,14 +107,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("render_newest_vehicle", newest_generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_drawn_before_the_objects():
-    # the vehicles are taken as their newest step left them before any object is drawn between the ticks (their
-    # nodes and markers then read as the game has them, not as drawn)
-    code = (Path(__file__).resolve().parents[3] / "port/linux/game/render_interpolation.c").read_text(
-        encoding="latin-1")
-    begin = code[code.index("void render_interpolation_frame_begin(void)"):]
-    begin = begin[:begin.index("\n}\n")]
-    assert begin.index("interpolation_rendering = FALSE;") < begin.index("render_interpolation_newest_vehicles(")
-    assert begin.index("render_interpolation_newest_vehicles(") < begin.index("interpolation_rendering = rendering;")

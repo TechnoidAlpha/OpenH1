@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.connected.4way_profile_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/connected/4way_profile_select/qtr_screen_profile_color_pic" box="18 22 130 158" picture="ui\shell\bitmaps\colors_sm"/>
+</model>

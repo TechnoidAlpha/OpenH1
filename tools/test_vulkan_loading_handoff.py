@@ -29,12 +29,27 @@ def test_held_frames_retire_without_acquiring_or_presenting(tmp_path):
 struct xgpu_vulkan_image { int value; } image;
 struct query { unsigned counter_count; uint64_t serial; } query;
 static struct {
-    int gpu_time_armed;
+    int gpu_time_armed, frame_timing, frame_ending, deferred, gpu_time_failed;
     struct query *queries;
-    uint64_t frame;
-    struct { unsigned frames; } statistics;
+    uint64_t frame, gpu_nanoseconds;
+    double frame_ended;
+    struct { unsigned frames, gpu_frames, frames_timed; double gpu_milliseconds, frame_seconds; } statistics;
+    struct { int gpu_timestamps; } capabilities;
     int interval, present_mode;
 } vk;
+/* (debug.frame_timing's GPU times and the draws' times: off here) */
+static struct { int pending; uint64_t serial; } draw_times;
+static void draw_times_frame_end(void) {}
+static void draw_times_collect(void) {}
+static struct { int pending; uint64_t serial; } pass_times;
+static void pass_times_frame_end(void) {}
+static void pass_times_collect(void) {}
+/* (the replay's cost timing: off here) */
+static void timing_frame_end(void) {}
+static void xgpu_vulkan_gpu_time_end(void) { assert(0); }
+static void xgpu_vulkan_gpu_time_begin(void) { assert(0); }
+static int xgpu_vulkan_gpu_time_read(double *milliseconds) { (void)milliseconds; assert(0); return 0; }
+static double seconds_now(void) { return 0.0; }
 static unsigned acquisitions, presentations, blank, submissions, recordings;
 static unsigned barriers, completions, garbage, texture_frames;
 static uint64_t next_serial, published_frame;
@@ -52,6 +67,7 @@ static uint64_t present(struct xgpu_vulkan_image *shown, int frame)
 }
 static unsigned paced_updates, unshown;
 static void frame_pacing_update(void) { paced_updates++; }
+static void frames_ahead_update(int present_window) { (void)present_window; }
 static void xgpu_vulkan_pacing_unshown(void) { unshown++; }
 static void recording_begin(void) { recordings++; }
 static uint64_t submit(int acquired, int shown)
@@ -61,12 +77,23 @@ static void completed_serial(void) { completions++; }
 static void garbage_collect(void) { garbage++; }
 ''' + core + r'''
 struct stream_target { struct xgpu_vulkan_image *image; } target = { &image };
-static struct { uint32_t back_buffer; } stream;
+struct xgpu_vulkan_texture_statistics { unsigned made, remade, misses; uint64_t bytes; };
+static struct {
+    uint32_t back_buffer;
+    int trace_frames, after_frames;
+    struct xgpu_vulkan_texture_statistics after_textures;
+    unsigned pipeline_misses;
+} stream;
+static struct { int twins_made; } prepass;
+static void host_load_trace(const char *name, const char *format, ...) { (void)name; (void)format; assert(0); }
+static void xgpu_vulkan_textures_statistics_peek(struct xgpu_vulkan_texture_statistics *value) { (void)value; }
+static void host_render_stream_gpu_time(uint64_t nanoseconds) { (void)nanoseconds; assert(0); }
 static int host_render_stream_loading_holds(void) { return held; }
 static struct stream_target *target_get(uint32_t number)
 { assert(number <= 1); return number ? &target : NULL; }
 static void target_resolve(struct stream_target *value) { (void)value; }
 static void xgpu_vulkan_textures_frame_end(void) { texture_frames++; }
+static void world_make_some(void) {}
 ''' + stream + r'''
 int main(void)
 {

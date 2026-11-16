@@ -42,7 +42,7 @@ def game(tmp_path_factory) -> Path:
     if sys.platform != "darwin" and not shutil.which("xvfb-run"):
         pytest.skip("needs xvfb-run")
     copy = tmp_path_factory.mktemp("game")
-    for name in ("halo", "libSDL3.0.dylib", "libSDL3.so.0", "shaders.metallib"):
+    for name in ("halo", "libSDL3.0.dylib", "libSDL3.so.0", "shaders.metallib", "openh1.assets"):
         if (folder / name).is_file():
             shutil.copy2(folder / name, copy / name)
     return copy / "halo"

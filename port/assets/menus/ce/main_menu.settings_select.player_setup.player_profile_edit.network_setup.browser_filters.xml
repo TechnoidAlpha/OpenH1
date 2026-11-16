@@ -1,150 +1,131 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="b" run="port settings page cancel" back="true"/>
 		<on event="back" run="port settings page cancel" back="true"/>
+		<on event="y" run="port settings search"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/header_browser_filters"/>
+		<child widget="main_menu/settings/profile"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/options_menu"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/header_browser_filters" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/join_game/filters/header_filters" wide="-106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/header_browser_filters" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/join_game/filters/header_filters" wide="-106 0" source="tools/port_settings.py settings_files/_settings_page">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/page_panel">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/page_panel" source="tools/port_settings.py settings_files/_settings_page">
 		<data input="port settings page"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_0" x="28" y="80"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_full" x="28" y="100"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_empty" x="28" y="121"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_password" x="28" y="142"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_ping" x="28" y="163"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_search" x="28" y="184"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_6" x="28" y="211"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_ctf" x="28" y="231"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_slayer" x="28" y="252"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_oddball" x="28" y="273"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_king" x="28" y="294"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_race" x="28" y="315"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_5" x="28" y="190"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_tick" x="28" y="210"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_game_type" x="28" y="231"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_defaults" x="24" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_ok" x="358" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_cancel" x="488" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="-106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="-106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
 		<on event="a" run="port settings defaults"/>
 		<on event="start" run="port settings defaults"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
 		<on event="a" run="port settings keep" back="true"/>
 		<on event="start" run="port settings keep" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
 		<on event="a" run="port settings page cancel" back="true"/>
 		<on event="start" run="port settings page cancel" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_0" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_0" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_0_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_0_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_0_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_full" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_full" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="network.browser_show_full" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="YES" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="NO" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_full_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="network.browser_show_full" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_empty" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_empty" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="network.browser_show_empty" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="YES" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="NO" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_empty_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="network.browser_show_empty" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_password" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_password" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="3" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="3" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="network.browser_show_password" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="YES" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="NO" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_password_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="network.browser_show_password" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_ping" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_ping" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_ping_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_ping_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_ping_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_ping_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_ping_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ANY|UNDER 300 MS|UNDER 250 MS|UNDER 150 MS|UNDER 100 MS|UNDER 50 MS" setting="network.browser_ping" values="0|300|250|150|100|50" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_ping_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ANY|UNDER 300 MS|UNDER 250 MS|UNDER 150 MS|UNDER 100 MS|UNDER 50 MS" setting="network.browser_ping" values="0|300|250|150|100|50" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_search" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<on event="a" run="port browser search"/>
-		<on event="start" run="port browser search"/>
-		<on event="left_mouse" run="mouse emit accept event"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_search_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_search_value" x="188" y="2"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_5" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_5_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_search_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="5" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_5_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="5" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_search_value" type="text" controller="1" width="140" height="16" color="#FF2896FF" align="center" text_y="-1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_tick" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_tick_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_tick_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_6" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_6_title"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_tick_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/section_6_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="6" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_ctf" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_ctf_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_ctf_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_ctf_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_ctf_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_ctf" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_tick_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ANY|GOAT H1 30|GOAT H1 60|GOAT H1 120|LEGACY" setting="network.browser_tick" values="any|30|60|120|legacy" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_slayer" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_slayer_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_slayer_spinner" x="188"/>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_game_type" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_game_type_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_game_type_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_slayer_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_game_type_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_slayer_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_slayer" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_oddball" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_oddball_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_oddball_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_oddball_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="9" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_oddball_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_oddball" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_king" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_king_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_king_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_king_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_king_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_king" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
-		<on event="created" run="port setting load"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/op_browser_show_race" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_race_label"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_race_spinner" x="188"/>
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_race_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
-	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_show_race_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="SHOW|HIDE" setting="network.browser_show_race" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_game_type_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ANY|SLAYER|TEAM SLAYER|CAPTURE THE FLAG|ODDBALL|KING OF THE HILL|RACE|SWAT|INFECTION|GUN GAME|CO-OP|PRO 2V2" setting="network.browser_game_type" values="any|slayer|team_slayer|ctf|oddball|king|race|swat|infection|gun_game|coop|pro_2v2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/labels">
@@ -153,13 +134,9 @@
 		<string text="SHOW EMPTY GAMES"/>
 		<string text="SHOW PASSWORD GAMES"/>
 		<string text="PING"/>
-		<string text="SEARCH"/>
-		<string text="GAME TYPES"/>
-		<string text="CAPTURE THE FLAG"/>
-		<string text="SLAYER"/>
-		<string text="ODDBALL"/>
-		<string text="KING OF THE HILL"/>
-		<string text="RACE"/>
+		<string text="GAME"/>
+		<string text="TICK RATE"/>
+		<string text="GAME TYPE"/>
 	</strings>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/help_strings">
 		<string text=""/>
@@ -168,12 +145,8 @@
 		<string text="Lists the games that no one is playing yet."/>
 		<string text="Lists the games that need a password to join."/>
 		<string text="Lists only the games whose ping is under this.|A game whose ping is not known is listed: a local network game's, a dedicated server's, one still being timed."/>
-		<string text="Lists only the games whose server name or map has these words. Select it and type; Enter keeps them. Empty them to list every game."/>
 		<string text=""/>
-		<string text="Lists Capture the Flag games, OpenCE's kinds of it too."/>
-		<string text="Lists Slayer games, OpenCE's kinds of it too (SWAT, Infection, Gun Game)."/>
-		<string text="Lists Oddball games."/>
-		<string text="Lists King of the Hill games."/>
-		<string text="Lists Race games."/>
+		<string text="Lists only the games of this tick rate.|GOAT H1 games play at 30, 60 or 120 ticks a second; Legacy games are OpenCE's netcode."/>
+		<string text="Lists only the games of this type.|Slayer is free for all; SWAT, Infection and Gun Game are GOAT H1's. Pro 2v2 is PRO 2V2's games."/>
 	</strings>
 </menus>

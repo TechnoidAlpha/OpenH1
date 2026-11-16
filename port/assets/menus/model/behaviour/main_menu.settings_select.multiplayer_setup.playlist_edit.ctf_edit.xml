@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.ctf_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/assault_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/captures_to_win_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_button_ok">
+		<on event="a" run="mp profile set ctf rules" back="true"/>
+		<on event="start" run="mp profile set ctf rules" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="mp profile init ctf rules"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="NULL"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_at_home_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/flag_must_reset_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_assault" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_captures_to_win" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_flag_at_home" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_flag_must_reset" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_single_flag" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_time_limit" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/single_flag_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/time_limit_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+</model>

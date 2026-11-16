@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.network_setup.discord_account.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/discord_account_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/header_discord_account" x="0" y="0"/>
+		<at widget="main_menu/settings/profile" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/header_discord_account" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/settings/tall_titles" index="18" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_0" x="28" y="50"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_status" x="28" y="72"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_unlink" x="28" y="97"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_3" x="28" y="128"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_1" x="28" y="150"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_2" x="28" y="175"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_3" x="28" y="200"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_4" x="28" y="225"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_8" x="28" y="256"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_share" x="28" y="278"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_bar" x="0" y="448"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_defaults" x="24" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_cancel" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_defaults" type="text" box="0 0 128 24" wide="-106 0" past="-143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_cancel" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_0" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_0_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_0_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/labels" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_status" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_status_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_status_value" x="188" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_status_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/labels" index="1" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_status_value" type="text" box="0 0 140 16" wide="40 120" past="60 60">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_unlink" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_unlink_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_unlink_value" x="188" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_unlink_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_unlink_value" type="text" box="0 0 140 16" wide="40 120" past="60 60">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_3" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_3_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_3_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/labels" index="3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_1" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_1_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_1_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_1_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_1_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_2" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_2_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_2_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_2_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_2_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_3" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_3_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_3_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_3_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_3_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_4" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_4_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_4_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_4_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_master_4_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_8" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_8_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/section_8_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/labels" index="8" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_share" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_seg1" x="310" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_seg2" x="395" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/labels" index="9" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_seg0" type="text" box="0 0 118 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="WHEN ASKED" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_seg1" type="text" box="0 0 81 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ALWAYS" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_seg2" type="text" box="0 0 64 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="NEVER" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="WHEN ASKED|ALWAYS|NEVER" scale="1 1.2"/>
+	</look>
+</model>

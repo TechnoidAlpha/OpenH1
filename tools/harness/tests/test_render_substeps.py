@@ -3,7 +3,7 @@ sim_substep_blend): an object of the micro lane, and the first-person view of a 
 the poses its sub-steps left (a frame in sub-step j of the tick drawn: between the end of j - 1, or of the tick
 before, and the end of j), what it carries with it; at 30 the frames are the line between the ticks' snapshots, as
 they were. A projectile is drawn from its newest sub-steps: its head start and hold from half a tick's motion back,
-and the VR mode's grenade let go of in a sub-step from the hand, with no dart and no pop. In a network game another machine's
+turning between its sub-steps' rotations as it moves between their places, and the VR mode's grenade let go of in a sub-step from the hand, with no dart and no pop. In a network game another machine's
 player is drawn between its two newest sub-steps (the open tick's), not a tick behind, gliding to the tick drawn's
 path and back when that is let go of and taken again; at 30 it is drawn as before."""
 
@@ -16,8 +16,10 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run, structure  # noqa: E402
 
-CASES = ["classic", "substeps", "substeps_60", "carried", "camera_slow", "projectile", "projectile_late", "vr_release",
-         "respawn", "respawn_120", "lead", "lead_60", "lead_glide", "lead_classic"]
+CASES = ["classic", "substeps", "substeps_60", "carried", "camera_slow", "projectile", "projectile_late",
+         "projectile_turning", "vr_release", "respawn", "respawn_120", "scripted_camera", "scripted_camera_120",
+         "scripted_camera_fast", "scripted_camera_fast_120", "scripted_camera_cut", "steady_part", "lead",
+         "lead_60", "lead_glide", "lead_classic"]
 
 # a fault in the code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -43,6 +45,9 @@ NEGATIVE_CONTROLS = {
     "projectile-a-tick-behind": (("\tif ((pending = render_interpolation_projectile_nodes(object_index)) != NULL)",
                                   "\tif ((pending = NULL) != NULL)"), "projectile"),
     # ... from where its head start put it at once: it darts out and waits
+    # a projectile turned as its newest sub-step left it, a step each sub-step, not between the two drawn
+    "projectile-turns-in-steps": (("\trotated = rotated && now.is_rotation;", "\trotated = FALSE;"),
+                                  "projectile_turning"),
     "head-start-drawn": (("\tif (to_step - substeps->made_step < count &&", "\tif (0 &&"), "projectile"),
     # ... and the hold drawn from the eye, a whole tick back
     "from-the-eye": (("\t\t\t\t\t1.0f : 0.5f;", "\t\t\t\t\t1.0f : 1.0f;"), "projectile_late"),
@@ -56,6 +61,38 @@ NEGATIVE_CONTROLS = {
                         "\t\tcamera->has_previous = camera->valid;"), "respawn"),
     "respawn-glides-120": (("\t\tcamera->has_previous = camera->valid && camera->unit_index == unit_index;",
                             "\t\tcamera->has_previous = camera->valid;"), "respawn_120"),
+    # a scripted camera's snapshots blended as if each were taken at its tick's end: it lurches at each tick (#805)
+    "scripted-camera-untimed": (("\t\tcamera->latest_time = timed ? now : (double)interpolation_tick;",
+                                 "\t\tcamera->latest_time = (double)interpolation_tick;"), "scripted_camera"),
+    "scripted-camera-untimed-120": (("\t\tcamera->latest_time = timed ? now : (double)interpolation_tick;",
+                                     "\t\tcamera->latest_time = (double)interpolation_tick;"), "scripted_camera_120"),
+    # ... or the snapshot before the previous one not taken when the frame's moment falls before the previous
+    "scripted-camera-no-before": (("\t\tif (drawn_time < from_time && camera->has_before)",
+                                   "\t\tif (0)"), "scripted_camera"),
+    # ... a fast one's snapshots judged a cut when further apart than a cut's distance, as the player's views are: drawn
+    # from the latest a tick ahead at random ticks (#805)
+    "scripted-camera-fast-cuts": (("\t\t(camera->timed ? camera->cut_to_latest : observer_cut(&camera->previous, "
+                                   "&camera->latest)))",
+                                   "\t\tobserver_cut(&camera->previous, &camera->latest))"), "scripted_camera_fast"),
+    "scripted-camera-fast-cuts-120": (("\t\t(camera->timed ? camera->cut_to_latest : observer_cut(&camera->previous, "
+                                       "&camera->latest)))",
+                                       "\t\tobserver_cut(&camera->previous, &camera->latest))"),
+                                      "scripted_camera_fast_120"),
+    # ... or a cut to another point taken for the fast move it is not: glided through
+    "scripted-camera-cut-glides": (("\treturn !(distance_squared(&expected, &b->position) <= CAMERA_CUT_DISTANCE * "
+                                    "CAMERA_CUT_DISTANCE);",
+                                    "\treturn FALSE;"), "scripted_camera_cut"),
+    # ... or a fast camera's first move after a cut (faster than a cut's distance a tick, with no move since the cut to
+    # carry on) taken for another cut: drawn from the latest, a tick ahead
+    "scripted-camera-cut-twice": (("\t\treach += speed * ticks;", "\t\treach += 0.0f * ticks;"),
+                                  "scripted_camera_cut"),
+    # a part moving steadily further than a limb moves in a tick taken for a new pose each tick: drawn stepping
+    "steady-part-snaps": (("NODE_SNAP_DISTANCE + (steady ? NODE_STEADY_GROWTH * moves_before[node_index] : 0.0f)",
+                           "NODE_SNAP_DISTANCE"), "steady_part"),
+    # ... or any node's jump allowed: a new pose blended
+    "new-pose-blended": (("\t\t\tif (!(moved <= NODE_SNAP_DISTANCE + (steady ? NODE_STEADY_GROWTH * "
+                          "moves_before[node_index] : 0.0f)))",
+                          "\t\t\tif (0)"), "steady_part"),
     # another's player drawn from the tick drawn's sub-steps, a tick behind, not its newest
     "lead-a-tick-behind": (("\treturn (short)(interpolation_substep_index + interpolation_substep_count - 1);",
                             "\treturn interpolation_substep_index;"), "lead"),
@@ -78,7 +115,8 @@ NEWEST = ("vector_turned", "render_interpolation_newest_step", "rotation_turn", 
           "newest_blend_left", "newest_blends_left",
           "render_interpolation_newest_blend", "render_interpolation_direct",
           "render_interpolation_look_late", "render_interpolation_direct_camera",
-          "render_interpolation_newest_camera", "render_interpolation_newest_vehicle", "render_interpolation_glide",
+          "newest_camera_blend", "render_interpolation_newest_camera", "render_interpolation_newest_vehicle",
+          "render_interpolation_glide",
           "render_interpolation_newest_among", "render_interpolation_vehicle_continues",
           "render_interpolation_newest_vehicles",
           "render_interpolation_newest_correction", "render_interpolation_newest_frame",
@@ -128,6 +166,8 @@ def generated(fault=None, newest=False):
     # sim_substep_blend, on the test's clock
     text += function(clock, "sim_substep_blend").replace("sim_rate_globals.substep_count", "fake_substep_count") + "\n"
     text += "static void render_interpolation_substep(short substep_index, short substep_count, real seconds);\n"
+    text += ("static void render_interpolation_substep_rotation(long object_index, struct object_datum const *object,"
+             " struct interpolated_substeps *substeps, short buffer, short substep_index);\n")
     text += "static void render_interpolation_camera_anchors(void);\n"
     if newest:
         enum_start = code.index("/* the views display.direct_camera takes")
@@ -137,25 +177,32 @@ def generated(fault=None, newest=False):
         text += "static void render_interpolation_newest_vehicles(boolean rendering);\n"
         text += ("static boolean render_interpolation_newest_frame(long object_index, real_matrix4x3 const **frames, "
                  "real_matrix4x3 const **drawn, real_vector3d *correction);\n")
+        # (no lift carries a rider here: render_interpolation_rider_carry's machines are not in the fake world)
+        text += ("static boolean render_interpolation_rider_carry(long unit_index, real_vector3d *carry)\n"
+                 "{\n\t(void)unit_index; (void)carry;\n\treturn FALSE;\n}\n")
     else:
         text += NEWEST_STUBS
     text += LEAD_STUB
     for name in ("lerp", "point_lerp", "vector_length", "vector_nlerp", "basis_is_rotation", "quaternion_from_basis",
-                 "basis_from_quaternion", "rotation_from_matrix", "matrix_blend_rotations", "correction_significant",
+                 "basis_from_quaternion", "rotation_from_matrix", "quaternion_multiply", "quaternion_nlerp",
+                 "vector_turned_by", "matrix_blend_rotations", "correction_significant",
                  "correction_advance", "correction_drawn", "correction_add", "distance_squared", "vector_in_frame",
                  "vector_from_frame", "point_in_frame", "point_from_frame", "matrix_in_frame", "matrix_from_frame",
                  "frame_blend", "render_interpolation_previous_values", "render_interpolation_register",
                  "render_interpolation_tick",
                  "render_interpolation_object_from", "render_interpolation_substep",
+                 "render_interpolation_substep_rotation",
                  "render_interpolation_lead_weight", "render_interpolation_lead_step",
                  "render_interpolation_lead_newest", "render_interpolation_kept_position",
+                 "render_interpolation_kept_rotation",
                  "render_interpolation_lead_to_step", "render_interpolation_projectile_lead",
                  "render_interpolation_projectile_nodes", "render_interpolation_ghost_part",
                  "render_interpolation_lead_frame",
                  "render_interpolation_substep_offset", "render_interpolation_substep_frame",
                  "render_interpolation_frame_begin", "render_interpolation_frame_end",
                  "render_interpolation_pending_from", "render_interpolation_blend_in_frame",
-                 "render_interpolation_object_node_matrices", "observer_blend", "observer_cut",
+                 "render_interpolation_object_node_matrices", "observer_blend", "observer_cut", "observer_timed_cut",
+                 "render_interpolation_camera_timed",
                  "render_interpolation_camera_substep_unit", "render_interpolation_camera_at_tick",
                  "render_interpolation_camera_anchors", "render_interpolation_camera_substep_vehicle",
                  "render_interpolation_camera_at_tick_in_vehicle", "render_interpolation_camera_vehicle_offset",
@@ -178,17 +225,28 @@ def test_case(case):
     assert status == 0, output
 
 
+# the cases whose frames come at times drawn from a seed, run from many seeds (the test's own generator: the same
+# frames on every system), so that a rare frame timing cannot pass on one machine and fail on another
+SEEDED = ["scripted_camera", "scripted_camera_120", "scripted_camera_fast", "scripted_camera_fast_120",
+          "scripted_camera_cut"]
+SEEDS = 200
+
+
+@pytest.mark.parametrize("case", SEEDED)
+def test_case_seeds(case):
+    executable = build("render_substeps", generated())
+    for seed in range(1, SEEDS + 1):
+        status, output = run(executable, f"{case}@{seed}")
+        assert status == 0, f"seed {seed}: {output}"
+
+
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
-    status, output = run(build("render_substeps", generated(fault)), case)
-    assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_registered_last():
-    # the poses are kept after every slot that moves anything, and the frames read only render-side tables
-    header = read("port/linux/game/sim_rate.h")
-    for slot in ("_sim_substep_bipeds,", "_sim_substep_items,", "_sim_substep_projectiles,", "_sim_substep_vr,"):
-        assert header.index(slot) < header.index("_sim_substep_render_interpolation,")
-    code = read("port/linux/game/render_interpolation.c")
-    assert "sim_substep_register(_sim_substep_render_interpolation, render_interpolation_substep);" in code
+    executable = build("render_substeps", generated(fault))
+    # (a seeded case's fault seen from any of its seeds: some faults show only at some frames' timings)
+    for name in [f"{case}@{seed}" for seed in range(1, SEEDS + 1)] if case in SEEDED else [case]:
+        status, output = run(executable, name)
+        if status == CHECK_FAILED:
+            return
+    assert False, f"the code with a fault ({control}) passed '{case}': the test cannot see it"

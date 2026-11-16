@@ -1511,7 +1511,7 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 	if ([layout_export(&layout, sensitivity) writeToFile:[self layoutFile] atomically:YES
 		encoding:NSUTF8StringEncoding error:&error])
 	{
-		[self message:@"Layout exported" text:@"It is touch-layout.txt in OpenH1's folder (the Files app, On My "
+		[self message:@"Layout exported" text:@"It is touch-layout.txt in GOAT H1's folder (the Files app, On My "
 			"iPhone). Import reads it from there."];
 	}
 	else
@@ -1529,7 +1529,7 @@ static BOOL inside(float x, float y, float cx, float cy, float radius)
 	[self resetFingers];
 	if (!text)
 	{
-		[self message:@"No layout to import" text:@"Put a layout file, touch-layout.txt, in OpenH1's folder (the "
+		[self message:@"No layout to import" text:@"Put a layout file, touch-layout.txt, in GOAT H1's folder (the "
 			"Files app, On My iPhone), and import again."];
 		return;
 	}

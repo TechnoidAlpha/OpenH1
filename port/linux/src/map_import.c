@@ -37,9 +37,9 @@ Only maps the folder lacks are written, so a map the player has already
 #include <string.h>
 
 const char map_import_cd_image_text[] =
-	"This is a CD image, not an Xbox disc image of Halo. If it is Halo PC's CD: OpenH1 does not play Halo PC's "
+	"This is a CD image, not an Xbox disc image of Halo. If it is Halo PC's CD: GOAT H1 does not play Halo PC's "
 	"own maps, but Custom Edition's installer (halocesetup_en_1.00.exe) has the same multiplayer maps in the "
-	"form OpenH1 plays. Choose the installer instead.";
+	"form GOAT H1 plays. Choose the installer instead.";
 
 int map_import_kind(const char *path)
 {

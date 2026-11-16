@@ -202,6 +202,12 @@ long network_standard_agreed_rate(void)
 	return 0;
 }
 
+/* (port/linux/game/demo.c: no demo plays) */
+long demo_playback_sim_rate(void)
+{
+	return 0;
+}
+
 static real square_root(real x)
 {
 	return (real)sqrt(x);

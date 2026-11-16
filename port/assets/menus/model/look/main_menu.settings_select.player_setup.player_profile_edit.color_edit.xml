@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.color_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_right_item" box="406 75 568 401" picture="bitmaps/spinner_list_3_wide_item_background">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_right_name" x="415" y="85"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_right_pic" x="421" y="106"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_right_name" type="text" box="0 0 147 22">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/player_setup/player_profile_edit/color_edit/colors_list" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_right_pic" box="0 0 143 294" picture="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\color_edit\player_color_marine_large"/>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_button_ok" x="380" y="1"/>
+		<at widget="common_button_back" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_extended_desc">
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_right_item" x="22" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_list_2" type="column_list">
+		<at widget="main_menu/new_select/list_item_0" x="20" y="73"/>
+		<at widget="main_menu/new_select/list_item_1" x="20" y="103"/>
+		<at widget="main_menu/new_select/list_item_2" x="20" y="133"/>
+		<at widget="main_menu/new_select/list_item_3" x="20" y="163"/>
+		<at widget="main_menu/new_select/list_item_4" x="20" y="193"/>
+		<at widget="main_menu/new_select/list_item_5" x="20" y="223"/>
+		<at widget="main_menu/new_select/list_item_6" x="20" y="253"/>
+		<at widget="main_menu/new_select/list_item_7" x="20" y="283"/>
+		<at widget="main_menu/new_select/list_item_8" x="20" y="313"/>
+		<at widget="main_menu/new_select/list_item_9" x="20" y="343"/>
+		<at widget="main_menu/new_select/list_item_10" x="20" y="373"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/color_select_list_2" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_edit/header_profile_color" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_edit/header_profile_color" box="35 11 640 70" picture="main_menu/settings_select/player_setup/player_profile_edit/color_edit/header_profile_color"/>
+</model>

@@ -39,6 +39,14 @@ static short connection = _game_connection_local;
 static boolean unit_animation_enhanced(long index) { return enhanced; }
 static boolean unit_animation_enhanced_unit(long index) { return TRUE; }
 static short game_connection(void) { return connection; }
+/* (the host's word in a network game, the game's own rule in a game of
+one machine, its setting: network_standard_turns_with_aim) */
+static boolean host_turns = TRUE;
+static boolean network_standard_turns_with_aim(long player_index)
+{
+	return connection == _game_connection_local ? enhanced : host_turns;
+}
+static struct biped_datum *unit_get(long index) { return biped_get(index); }
 #include "turns_with_aim.inc"
 static void biped_verify_object_vectors(long index, const char *where) { }
 static void biped_snap_facing(long index) { CHECK(0, "snapped as a flying biped"); }
@@ -136,6 +144,17 @@ int main(int argc, char **argv)
 		for (tick = 0; tick < 13; tick++)
 			biped_update_turning(3, &animation);
 		CHECK(fabsf(yaw() - 150.f) < 0.01f, "a client with the setting off at %f, not the aim's 150", yaw());
+	}
+	CASE("network_classic")
+	{
+		/* a network game whose host has it off (Classic): no machine turns
+		the player, whatever its own setting */
+		enhanced = TRUE;
+		host_turns = FALSE;
+		connection = _game_connection_network_client;
+		for (tick = 0; tick < 20; tick++)
+			biped_update_turning(3, &animation);
+		CHECK(yaw() == 0.f, "a client of a Classic host turned to %f", yaw());
 	}
 	CASE("actor")
 	{

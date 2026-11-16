@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.party.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/multiplayer_button_party">
+		<on event="a" open="main_menu/multiplayer_type_select/party/party_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/party/party_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/party_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="port party open"/>
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<on event="x" run="port party x"/>
+		<on event="y" run="port party y"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/party_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/multiplayer_type_select/party/party_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_make">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_copy">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_paste">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_follow">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_end">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_leave">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/prompt_back">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

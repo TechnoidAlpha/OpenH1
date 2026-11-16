@@ -55,7 +55,7 @@
             <meta-data
                 android:name="android.app.category"
                 android:value="game" />
-            <!-- the app icon's long-press menu: Back up saves -->
+            <!-- the app icon's long-press menu: Back up saves, Import MCC maps -->
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
@@ -75,6 +75,12 @@
                 <data android:scheme="openh1" android:host="party" />
             </intent-filter>
         </activity>
+
+        <!-- imports MCC maps; the app icon's shortcut (res/xml/shortcuts.xml) starts it
+             as this app, so other apps need not reach it -->
+        <activity android:name=".MccImportActivity" android:exported="false"
+            android:launchMode="singleTask" android:label="@string/mcc_import_label"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode" />
 
         <!-- in a process of its own, with a fresh Java heap (HaloApplication);
              resizeable: in split screen, a pop-up window, Samsung DeX, or

@@ -44,9 +44,9 @@ a tick where the tick left it. A projectile deleted in a tick (at
 what it hit) is drawn a tick longer, from its last snapshot to where it was
 deleted, as the effects it made there are drawn from the start of the tick:
 a ghost, drawn only here, which nothing of the game sees. At 60 and 120 a
-projectile is drawn from its newest sub-steps instead (below), its head
-start and hold from half a tick back, and its ghost through the sub-step it
-was deleted in.
+projectile is drawn from its newest sub-steps instead (below), placed and
+turned between two of them, its head start and hold from half a tick back,
+and its ghost through the sub-step it was deleted in.
 
 An object the distributed netcode moves to where the host has it
 (port/linux/game/network_objects.c) is drawn gliding there over a few ticks
@@ -105,7 +105,7 @@ moved with that point onto the vehicle's path.
 
 The local player's own view (display.direct_camera) is drawn from the
 newest step instead, not a tick behind: on foot, where the newest step left
-the player, carried on by the player's velocity; in a vehicle's seat, the
+the player, carried on by the player's velocity and the lift they ride; in a vehicle's seat, the
 vehicle and what it carries are drawn as the vehicle's newest step left it,
 carried on as that step moved and turned it, and the view from the seat with
 it (render_interpolation_newest_vehicles). Each aims where the player aims as
@@ -130,8 +130,14 @@ the frame takes its view.
 #include "units/units.h"
 #include "units/unit_definitions.h"
 #include "units/bipeds.h"
+#include "devices/devices.h"
+#include "devices/device_machines.h"
+#include "devices/device_definitions.h"
 #include "passenger_camera.h"
 #include "sim_rate.h"
+#include "demo.h"
+#include "network_standard.h"
+#include "vehicle_riding.h" /* port: port/linux/game/vehicle_riding.c */
 
 /* port/linux/src/port_config.c */
 int config_boolean(const char *name);
@@ -144,6 +150,9 @@ struct player_control *player_control_get(short local_player_index);
 took them, as radians of the player's facing (the drawn view's own late
 reading) */
 boolean player_control_touch_look_late(short local_player_index, real *yaw, real *pitch);
+/* ... and a controller's gyroscope's (port/linux/src/xinput_sdl.c), zoomed
+as the input turns the player by it */
+boolean player_control_gyro_look_late(short local_player_index, real *yaw, real *pitch);
 /* view_fov.c: the mouse's turn zoomed (input.zoom_sensitivity) */
 real mouse_zoom_look_scale(short local_player_index, long unit_index, short zoom_level);
 /* port/linux/src/xinput_sdl.c: the mouse's motion come since the frame's
@@ -177,6 +186,9 @@ that the whole object turning moves nothing: measured in the world, a fast
 turn swung the head and weapon far enough to snap, and characters moved
 like robots.) */
 #define NODE_SNAP_DISTANCE 0.4f
+/* ... or, a node moving steadily (render_interpolation_object_node_matrices),
+further than it moved the tick before by this part of that move */
+#define NODE_STEADY_GROWTH 1.5f
 /* ... a first-person node may move relative to the camera */
 #define FIRST_PERSON_SNAP_DISTANCE 0.25f
 /* a correction's difference left drawn after each tick (of 1) */
@@ -294,6 +306,16 @@ struct interpolated_object
 	(as made: a tick's motion back, or render_interpolation_object_from's) */
 	real_point3d position;
 	real_point3d previous_position;
+	/* its facing at each snapshot, by snapshot (for a body drawn turned to
+	the view: render_interpolation_view_body) */
+	real_vector3d facing[2];
+	/* how far each node moved in the root's frame between the snapshots
+	drawn, by the parity of the tick drawn ([tick & 1] node_capacity
+	each), and the tick each holds (NONE: none): how much further a node
+	may move the next tick and be moving, not posed anew
+	(render_interpolation_object_node_matrices) */
+	real *node_moves;
+	long node_moves_tick[2];
 };
 
 /* an object of the micro lane, by itself (not carried): where it was after
@@ -314,6 +336,11 @@ struct interpolated_substeps
 	boolean framed[2];
 	real_point3d frame_positions[2][MAXIMUM_SIM_SUBSTEPS];
 	struct interpolation_quaternion frame_rotations[2][MAXIMUM_SIM_SUBSTEPS];
+	/* a projectile's root node's rotation after each, a bit each for those
+	kept (one whose basis is a rotation): it turns in the sub-steps (falling,
+	guided to a target), and is drawn turning between them */
+	byte rotated[2];
+	struct interpolation_quaternion rotations[2][MAXIMUM_SIM_SUBSTEPS];
 	/* where it is drawn this frame, between two of the drawn tick's */
 	long drawn_frame;
 	boolean drawn_valid;
@@ -365,6 +392,22 @@ struct interpolated_camera
 	long anchor_tick;
 	long anchor_vehicle_index;
 	real_point3d anchor;
+	/* a view that moves in the frames' time (render_interpolation_camera_
+	timed): when each snapshot was taken (ticks, as interpolation_tick
+	counts them, and the fraction of the frame that took it), and the
+	snapshot before the previous one */
+	boolean timed;
+	boolean has_before;
+	struct observer_result before;
+	double before_time;
+	double previous_time;
+	double latest_time;
+	/* ... a cut from the snapshot before to each of the last two
+	(observer_timed_cut), and how far a tick the view last moved between
+	two snapshots with no cut between them (0: not since it began) */
+	boolean cut_to_previous;
+	boolean cut_to_latest;
+	real speed;
 };
 
 /* a local player's vehicle's last three steps (render_interpolation_newest_
@@ -510,6 +553,23 @@ static struct interpolated_camera interpolated_cameras[MAXIMUM_LOCAL_PLAYERS];
 static struct newest_vehicle newest_vehicles[MAXIMUM_LOCAL_PLAYERS];
 /* ... and its last steps */
 static struct newest_history newest_histories[MAXIMUM_LOCAL_PLAYERS];
+/* each local player's view on foot drawn from its newest step
+(render_interpolation_newest_camera): that step's place and motion, carried
+on until the next, and the difference blended away where the next met it */
+static struct newest_camera_blend
+{
+	boolean valid;
+	long unit_index;
+	long step;
+	double frame_time;
+	real_point3d position;
+	real_vector3d velocity;
+	/* (and how fast the step before it went: a turn through standing still
+	is not a start from it) */
+	real speed_earlier;
+	real_vector3d blend;
+	real blend_age;
+} newest_camera_blends[MAXIMUM_LOCAL_PLAYERS];
 static struct interpolated_first_person interpolated_first_person[MAXIMUM_LOCAL_PLAYERS];
 /* an object to be drawn from a place of this tick's choosing rather than
 from where it was the tick before (render_interpolation_object_from) */
@@ -522,6 +582,10 @@ static long interpolation_tick;
 static long interpolation_frame;
 static boolean interpolation_rendering;
 static real interpolation_fraction = 1.0f;
+/* how long ago the clock's newest step fell due, in ticks
+(game_time_get_step_age): what is drawn from the newest step is carried on
+by this much */
+static real interpolation_step_age;
 static struct later_particle later_particles[MAXIMUM_LATER_PARTICLES];
 static short later_particle_count;
 static struct interpolation_ghost ghosts[MAXIMUM_GHOSTS];
@@ -663,6 +727,67 @@ static void rotation_from_matrix(real_matrix4x3 const *matrix, struct interpolat
 	rotation->is_rotation = basis_is_rotation(matrix);
 	if (rotation->is_rotation)
 		quaternion_from_basis(matrix, &rotation->quaternion);
+}
+
+/* a times b: b's rotation, then a's */
+static void quaternion_multiply(
+	struct interpolation_quaternion const *a,
+	struct interpolation_quaternion const *b,
+	struct interpolation_quaternion *result)
+{
+	struct interpolation_quaternion q;
+
+	q.w = a->w * b->w - a->i * b->i - a->j * b->j - a->k * b->k;
+	q.i = a->w * b->i + a->i * b->w + a->j * b->k - a->k * b->j;
+	q.j = a->w * b->j - a->i * b->k + a->j * b->w + a->k * b->i;
+	q.k = a->w * b->k + a->i * b->j - a->j * b->i + a->k * b->w;
+	*result = q;
+}
+
+/* the rotation a fraction t of the way from a to b, the shorter way round
+(b where the two cancel) */
+static void quaternion_nlerp(
+	struct interpolation_quaternion const *a,
+	struct interpolation_quaternion const *b,
+	real t,
+	struct interpolation_quaternion *result)
+{
+	struct interpolation_quaternion qb = *b, q;
+	real length;
+
+	if (a->i * qb.i + a->j * qb.j + a->k * qb.k + a->w * qb.w < 0.0f)
+	{
+		qb.i = -qb.i;
+		qb.j = -qb.j;
+		qb.k = -qb.k;
+		qb.w = -qb.w;
+	}
+	q.i = lerp(a->i, qb.i, t);
+	q.j = lerp(a->j, qb.j, t);
+	q.k = lerp(a->k, qb.k, t);
+	q.w = lerp(a->w, qb.w, t);
+	length = (real)sqrt(q.i * q.i + q.j * q.j + q.k * q.k + q.w * q.w);
+	if (length > 1e-6f)
+	{
+		result->i = q.i / length;
+		result->j = q.j / length;
+		result->k = q.k / length;
+		result->w = q.w / length;
+	}
+	else
+	{
+		*result = *b;
+	}
+}
+
+/* the vector turned by a rotation's basis (basis_from_quaternion's) */
+static void vector_turned_by(real_matrix4x3 const *basis, real_vector3d const *vector, real_vector3d *result)
+{
+	real_vector3d v = *vector;
+
+	result->i = basis->forward.i * v.i + basis->left.i * v.j + basis->up.i * v.k;
+	result->j = basis->forward.j * v.i + basis->left.j * v.j + basis->up.j * v.k;
+	result->k = basis->forward.k * v.i + basis->left.k * v.j + basis->up.k * v.k;
 }
 
 /* a matrix a fraction t of the way from a to b, their rotations found */
@@ -887,10 +1012,13 @@ static void render_interpolation_previous_values(struct interpolated_object *rec
 		sizeof(record->change_colors[0]));
 	memcpy(record->camouflage[record->latest ^ 1], record->camouflage[record->latest],
 		sizeof(record->camouflage[0]));
+	record->facing[record->latest ^ 1] = record->facing[record->latest];
 	record->has_previous = TRUE;
 }
 
 static void render_interpolation_substep(short substep_index, short substep_count, real seconds);
+static void render_interpolation_substep_rotation(long object_index, struct object_datum const *object,
+	struct interpolated_substeps *substeps, short buffer, short substep_index);
 static void render_interpolation_camera_anchors(void);
 
 /* the fast phase's slot (sim_rate.h), at every map's start and every tick
@@ -959,6 +1087,7 @@ void render_interpolation_tick(void)
 		{
 			real_matrix4x3 *nodes = realloc(record->nodes, 3 * node_count * sizeof(real_matrix4x3));
 			struct interpolation_rotation *rotations;
+			real *node_moves;
 
 			if (!nodes)
 			{
@@ -973,6 +1102,13 @@ void render_interpolation_tick(void)
 				continue;
 			}
 			record->rotations = rotations;
+			node_moves = realloc(record->node_moves, 2 * node_count * sizeof(real));
+			if (!node_moves)
+			{
+				record->object_index = NONE;
+				continue;
+			}
+			record->node_moves = node_moves;
 			record->node_capacity = node_count;
 			record->object_index = NONE; /* the old snapshots moved */
 		}
@@ -988,6 +1124,8 @@ void render_interpolation_tick(void)
 		{
 			record->correction = *global_zero_vector3d;
 			record->correction_pending = *global_zero_vector3d;
+			record->node_moves_tick[0] = NONE;
+			record->node_moves_tick[1] = NONE;
 		}
 		memcpy(
 			record->nodes + record->latest * record->node_capacity,
@@ -1013,6 +1151,9 @@ void render_interpolation_tick(void)
 			record->camouflage[record->latest][1] = unit->unit.active_camouflage_super_amount;
 		}
 		record->values_blended_frame = NONE;
+		record->facing[record->latest] = object->object.forward;
+		if (!continuing)
+			record->facing[record->latest ^ 1] = object->object.forward;
 		record->previous_position = continuing ? record->position : object->object.position;
 		record->position = object->object.position;
 		/* the tick's last sub-step's pose kept: where the tick left it (what
@@ -1025,6 +1166,8 @@ void render_interpolation_tick(void)
 			if (substeps->object_index == iterator.index && substeps->tick[buffer] == interpolation_tick)
 			{
 				substeps->positions[buffer][substeps->count[buffer] - 1] = object->object.position;
+				render_interpolation_substep_rotation(iterator.index, object, substeps, buffer,
+					(short)(substeps->count[buffer] - 1));
 				/* (and a vehicle's frame: its snapshot's root node) */
 				if (substeps->framed[buffer])
 				{
@@ -1133,6 +1276,7 @@ void render_interpolation_reset(void)
 	/* (and nothing of the last map's to glide from, or carry on) */
 	memset(newest_vehicles, 0, sizeof(newest_vehicles));
 	memset(newest_histories, 0, sizeof(newest_histories));
+	memset(newest_camera_blends, 0, sizeof(newest_camera_blends));
 	/* (the particles held back and the ghosts are the last map's) */
 	later_particle_count = 0;
 	for (index = 0; index < MAXIMUM_GHOSTS; index++)
@@ -1222,6 +1366,7 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 				substeps->tick[buffer] = tick;
 				substeps->count[buffer] = substep_count;
 				substeps->recorded[buffer] = 0;
+				substeps->rotated[buffer] = 0;
 				substeps->continuing[buffer] = FALSE;
 				substeps->framed[buffer] = FALSE;
 			}
@@ -1237,6 +1382,7 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 			substeps->tick[buffer] = tick;
 			substeps->count[buffer] = substep_count;
 			substeps->recorded[buffer] = 0;
+			substeps->rotated[buffer] = 0;
 			substeps->framed[buffer] = TEST_FLAG(_object_mask_vehicle, object->object.type) &&
 				object->object.node_matrices.size >= (short)sizeof(real_matrix4x3);
 		}
@@ -1246,6 +1392,7 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 		}
 		substeps->positions[buffer][substep_index] = object->object.position;
 		substeps->recorded[buffer] |= (byte)FLAG(substep_index);
+		render_interpolation_substep_rotation(iterator.index, object, substeps, buffer, substep_index);
 		/* a vehicle's frame: its root node, as the sub-step posed it
 		(vehicles.c's vehicle_substep_pose) */
 		if (substeps->framed[buffer])
@@ -1261,6 +1408,30 @@ static void render_interpolation_substep(short substep_index, short substep_coun
 				substeps->frame_rotations[buffer][substep_index] = rotation.quaternion;
 			}
 		}
+	}
+}
+
+/* (render_interpolation_substep, and the tick's end) a projectile's root
+node's rotation as the sub-step left it, kept beside where it is */
+static void render_interpolation_substep_rotation(long object_index, struct object_datum const *object,
+	struct interpolated_substeps *substeps, short buffer, short substep_index)
+{
+	struct interpolation_rotation rotation;
+
+	if (object->object.type != _object_type_projectile ||
+		object->object.node_matrices.size < (short)sizeof(real_matrix4x3))
+	{
+		return;
+	}
+	rotation_from_matrix(object_get_node_matrices(object_index), &rotation);
+	if (rotation.is_rotation)
+	{
+		substeps->rotations[buffer][substep_index] = rotation.quaternion;
+		substeps->rotated[buffer] |= (byte)FLAG(substep_index);
+	}
+	else
+	{
+		substeps->rotated[buffer] &= (byte)~FLAG(substep_index);
 	}
 }
 
@@ -1455,6 +1626,31 @@ static boolean render_interpolation_kept_position(
 	return TRUE;
 }
 
+/* ... and a projectile's root node's rotation then (FALSE for one not kept,
+or not a rotation) */
+static boolean render_interpolation_kept_rotation(
+	struct interpolated_substeps const *substeps,
+	long step,
+	short count,
+	struct interpolation_quaternion *rotation)
+{
+	long tick;
+	short buffer, index;
+
+	if (step < 0 || count <= 1)
+		return FALSE;
+	tick = step / count;
+	buffer = (short)(tick & 1);
+	index = (short)(step % count);
+	if (substeps->tick[buffer] != tick || substeps->count[buffer] != count ||
+		!TEST_FLAG(substeps->recorded[buffer], index) || !TEST_FLAG(substeps->rotated[buffer], index))
+	{
+		return FALSE;
+	}
+	*rotation = substeps->rotations[buffer][index];
+	return TRUE;
+}
+
 /* the newer of the two sub-steps a frame is drawn between from the newest
 (render_interpolation_lead_newest), as render_interpolation_kept_position
 counts them */
@@ -1477,9 +1673,14 @@ let go of (render_interpolation_object_from), to there over the tick it
 holds, and on its sub-steps from then: never past a sub-step the
 simulation ran, and never further than where it was deleted
 (render_interpolation_object_deleted). Its pose is its newest, moved
-there. FALSE when it is drawn otherwise (one sub-step a tick, carried, in a
-cinematic, none kept) */
-static boolean render_interpolation_projectile_lead(long object_index, real_point3d *drawn)
+there, and turned (rotated, when both its sub-steps' rotations were kept)
+to the rotation between those of the sub-steps it is drawn between: its
+newest alone turned in steps as each sub-step turned it (a mortar's arc, a
+bolt guided to its target), 60 or 120 times a second whatever the frame
+rate, where at 30 it turns between the ticks. FALSE when it is drawn
+otherwise (one sub-step a tick, carried, in a cinematic, none kept) */
+static boolean render_interpolation_projectile_lead(long object_index, real_point3d *drawn,
+	struct interpolation_quaternion *rotation, boolean *rotated)
 {
 	struct object_datum *object = object_get(object_index);
 	struct interpolated_substeps const *substeps;
@@ -1487,8 +1688,10 @@ static boolean render_interpolation_projectile_lead(long object_index, real_poin
 	short count = interpolation_substep_count;
 	long to_step;
 	real_point3d from, to;
+	struct interpolation_quaternion from_rotation, to_rotation;
 	boolean has_from, has_to;
 
+	*rotated = FALSE;
 	if (count <= 1 || !interpolated_substeps || object->object.type != _object_type_projectile ||
 		object->object.parent_object_index != NONE || absolute_index >= MAXIMUM_INTERPOLATED_OBJECTS ||
 		cinematic_in_progress())
@@ -1507,20 +1710,38 @@ static boolean render_interpolation_projectile_lead(long object_index, real_poin
 		real part = ((real)(to_step - substeps->made_step) + interpolation_substep_fraction) / (real)count;
 
 		point_lerp(&substeps->made_from, &to, part > 0.0f ? part : 0.0f, drawn);
+		/* (turned as its first sub-step left it) */
+		*rotated = render_interpolation_kept_rotation(substeps, substeps->made_step, count, rotation);
 		return TRUE;
 	}
 	has_from = render_interpolation_kept_position(substeps, to_step - 1, count, &from);
 	has_to = render_interpolation_kept_position(substeps, to_step, count, &to);
 	/* (so written that a position not a number is a jump) */
 	if (has_from && has_to && distance_squared(&from, &to) <= OBJECT_SNAP_DISTANCE * OBJECT_SNAP_DISTANCE)
+	{
 		point_lerp(&from, &to, interpolation_substep_fraction, drawn);
+		if (render_interpolation_kept_rotation(substeps, to_step - 1, count, &from_rotation) &&
+			render_interpolation_kept_rotation(substeps, to_step, count, &to_rotation))
+		{
+			quaternion_nlerp(&from_rotation, &to_rotation, interpolation_substep_fraction, rotation);
+			*rotated = TRUE;
+		}
+	}
 	else if (has_to)
+	{
 		*drawn = to;
+		*rotated = render_interpolation_kept_rotation(substeps, to_step, count, rotation);
+	}
 	/* (the newer not run yet: where the last left it) */
 	else if (has_from)
+	{
 		*drawn = from;
+		*rotated = render_interpolation_kept_rotation(substeps, to_step - 1, count, rotation);
+	}
 	else
+	{
 		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -1533,10 +1754,14 @@ static real_matrix4x3 *render_interpolation_projectile_nodes(long object_index)
 	struct lead_projectile *lead;
 	real_matrix4x3 const *current;
 	real_point3d drawn;
+	struct interpolation_quaternion rotation;
+	boolean rotated;
+	struct interpolation_rotation now;
+	real_matrix4x3 turn;
 	short node_count;
 	short node_index;
 
-	if (!render_interpolation_projectile_lead(object_index, &drawn))
+	if (!render_interpolation_projectile_lead(object_index, &drawn, &rotation, &rotated))
 		return NULL;
 	lead = &lead_projectiles[DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index) % MAXIMUM_LEAD_PROJECTILES];
 	if (lead->frame == interpolation_frame)
@@ -1548,12 +1773,38 @@ static real_matrix4x3 *render_interpolation_projectile_nodes(long object_index)
 	/* (as it is now: object_get_node_matrices gives the drawn pose while a
 	frame is drawn) */
 	current = (real_matrix4x3 const *)object_header_block_get(object_index, &object->object.node_matrices);
+	/* (the turn from its root node's rotation now to the one drawn, about
+	where it is) */
+	rotation_from_matrix(&current[0], &now);
+	rotated = rotated && now.is_rotation;
+	if (rotated)
+	{
+		struct interpolation_quaternion inverse = now.quaternion, delta;
+
+		inverse.i = -inverse.i;
+		inverse.j = -inverse.j;
+		inverse.k = -inverse.k;
+		quaternion_multiply(&rotation, &inverse, &delta);
+		basis_from_quaternion(&delta, &turn);
+	}
 	for (node_index = 0; node_index < node_count; node_index++)
 	{
+		real_vector3d offset;
+
 		lead->nodes[node_index] = current[node_index];
-		lead->nodes[node_index].position.x += drawn.x - object->object.position.x;
-		lead->nodes[node_index].position.y += drawn.y - object->object.position.y;
-		lead->nodes[node_index].position.z += drawn.z - object->object.position.z;
+		offset.i = current[node_index].position.x - object->object.position.x;
+		offset.j = current[node_index].position.y - object->object.position.y;
+		offset.k = current[node_index].position.z - object->object.position.z;
+		if (rotated)
+		{
+			vector_turned_by(&turn, &offset, &offset);
+			vector_turned_by(&turn, &current[node_index].forward, &lead->nodes[node_index].forward);
+			vector_turned_by(&turn, &current[node_index].left, &lead->nodes[node_index].left);
+			vector_turned_by(&turn, &current[node_index].up, &lead->nodes[node_index].up);
+		}
+		lead->nodes[node_index].position.x = drawn.x + offset.i;
+		lead->nodes[node_index].position.y = drawn.y + offset.j;
+		lead->nodes[node_index].position.z = drawn.z + offset.k;
 	}
 	lead->object_index = object_index;
 	lead->frame = interpolation_frame;
@@ -1979,6 +2230,7 @@ void render_interpolation_frame_begin(void)
 	interpolation_rendering = FALSE;
 	interpolation_frame++;
 	interpolation_fraction = game_time_get_tick_fraction();
+	interpolation_step_age = game_time_get_step_age();
 	/* (the sub-step drawn: at 30 the tick's one, as far as the fraction) */
 	interpolation_substep_count = sim_substep_count();
 	sim_substep_blend(interpolation_fraction, &interpolation_substep_index, &interpolation_substep_fraction);
@@ -2125,17 +2377,33 @@ real_matrix4x3 *render_interpolation_object_node_matrices(long object_index)
 		real_matrix4x3 const *frames[2];
 		real_matrix4x3 const *frame;
 
-		/* a node moved further in the root's frame than a tick allows: the
+		/* A node moved further in the root's frame than a tick allows: the
 		two snapshots are different poses, not one moving (so written that
-		a position not a number snaps) */
-		for (node_index = 1; !snap && node_index < record->node_count; node_index++)
+		a position not a number snaps). A node that moved the tick before
+		may move half as far again besides: a part an animation carries
+		away from the root faster each tick (a30's lifepod, whose body drops
+		from its root in the opening, its camera with it) was taken for a
+		new pose each tick and drawn stepping from tick to tick, a jolt each
+		tick at high frame rates (#805), where a new pose moves a node at
+		once from still or slower */
+		real *moves = record->node_moves + (interpolation_tick & 1) * record->node_capacity;
+		real const *moves_before = record->node_moves + ((interpolation_tick - 1) & 1) * record->node_capacity;
+		boolean steady = record->node_moves_tick[(interpolation_tick - 1) & 1] == interpolation_tick - 1;
+
+		for (node_index = 1; node_index < record->node_count; node_index++)
 		{
 			real_point3d previous_local, latest_local;
+			real moved;
 
 			matrix4x3_inverse_transform_point(&previous[0], &previous[node_index].position, &previous_local);
 			matrix4x3_inverse_transform_point(&latest[0], &latest[node_index].position, &latest_local);
-			snap = !(distance_squared(&previous_local, &latest_local) <= NODE_SNAP_DISTANCE * NODE_SNAP_DISTANCE);
+			moved = (real)sqrt(distance_squared(&previous_local, &latest_local));
+			if (!(moved <= NODE_SNAP_DISTANCE + (steady ? NODE_STEADY_GROWTH * moves_before[node_index] : 0.0f)))
+				snap = TRUE;
+			/* (no further than an object may move in a tick) */
+			moves[node_index] = moved < OBJECT_SNAP_DISTANCE ? moved : OBJECT_SNAP_DISTANCE;
 		}
+		record->node_moves_tick[interpolation_tick & 1] = interpolation_tick;
 		newest = !jumped && render_interpolation_newest_frame(object_index, frames, &frame, &newest_correction);
 		/* a local player's vehicle, or what it carries, with their view
 		from its seat drawn from its newest step: posed in its frame as
@@ -2335,15 +2603,30 @@ void render_interpolation_object_origin(long object_index, real_point3d *origin)
 	render_interpolation_object_point(object_index, origin);
 }
 
+static boolean render_interpolation_view_carried(long unit_index, real_vector3d *carried);
+
 /* the unit's camera (unit_get_camera_position) where it is drawn: what a
-waypoint's distance, and the motion tracker's centre, are measured from */
+waypoint's distance, and the motion tracker's centre, are measured from.
+The window's own player's on foot, whose view is drawn from the newest step
+(display.direct_camera), is where that view is drawn: as the newest step
+left it, carried on as the view is (render_interpolation_view_carried), not
+a tick behind with the body, so that a waypoint's distance is the view's
+from what it marks in every frame */
 void render_interpolation_unit_camera_position(long unit_index, real_point3d *position)
 {
 	boolean rendering = interpolation_rendering;
+	real_vector3d carried;
 
 	interpolation_rendering = FALSE;
 	unit_get_camera_position(unit_index, position);
 	interpolation_rendering = rendering;
+	if (render_interpolation_view_carried(unit_index, &carried))
+	{
+		position->x += carried.i;
+		position->y += carried.j;
+		position->z += carried.k;
+		return;
+	}
 	render_interpolation_object_point(unit_index, position);
 }
 
@@ -2666,6 +2949,29 @@ static struct observer_result direct_cameras[MAXIMUM_LOCAL_PLAYERS];
 /* each local player's view drawn last from the newest step
 (render_interpolation_view_newest) */
 static boolean newest_views[MAXIMUM_LOCAL_PLAYERS];
+/* each local player's view drawn last from the newest step on foot, and how
+far it is carried on from where that step left it (the observer's place:
+render_interpolation_newest_camera), for render_interpolation_view_carried */
+static boolean newest_carried_valid[MAXIMUM_LOCAL_PLAYERS];
+static real_vector3d newest_carried[MAXIMUM_LOCAL_PLAYERS];
+/* each local player's view between the ticks (which goes with the body
+drawn) and the view drawn, this frame (render_interpolation_view_flashlight) */
+static struct observer_result blended_views[MAXIMUM_LOCAL_PLAYERS];
+static struct observer_result drawn_views[MAXIMUM_LOCAL_PLAYERS];
+static boolean drawn_views_valid[MAXIMUM_LOCAL_PLAYERS];
+
+/* where the last frame drew the local player's view from, if it drew one
+(debug.network_test_elevator logs it) */
+boolean render_interpolation_drawn_view_position(short local_player_index, real_point3d *position)
+{
+	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
+		!drawn_views_valid[local_player_index])
+	{
+		return FALSE;
+	}
+	*position = drawn_views[local_player_index].position;
+	return TRUE;
+}
 
 /* the views display.direct_camera takes (render_interpolation_direct) */
 enum
@@ -2703,7 +3009,9 @@ static short render_interpolation_direct(
 		enabled = config_boolean("display.direct_camera");
 	}
 	perspective = director_get_perspective(local_player_index);
-	if (!enabled ||
+	/* (off in a game whose host says so, a 2V2 Classic game's, whatever the
+	setting: network_standard_direct_camera_allowed) */
+	if (!enabled || !network_standard_direct_camera_allowed() ||
 		(perspective != _director_perspective_first_person && perspective != _director_perspective_third_person) ||
 		director_inhibited_facing(local_player_index) ||
 		cinematic_in_progress())
@@ -2726,9 +3034,10 @@ static short render_interpolation_direct(
 
 /* The aim's motion come since the frame's input took it, which the view
 drawn takes as late as it can: the mouse's (halo_linux_mouse_look_late, the
-first player's, as the input turns it: by the zoom's scale) and the touch
+first player's, as the input turns it: by the zoom's scale), the touch
 controls' swipe and gyroscope (player_control_touch_look_late, as the input
-turns them), read as the frame takes its view rather than at its start.
+turns them) and a controller's gyroscope (player_control_gyro_look_late),
+read as the frame takes its view rather than at its start.
 Only the view drawn takes it: the next frame's input turns the player by it
 (none in the VR mode, whose head aims). FALSE for none. Once a frame */
 static boolean render_interpolation_look_late(
@@ -2768,6 +3077,12 @@ static boolean render_interpolation_look_late(
 		*pitch += touch_pitch;
 		turned = TRUE;
 	}
+	if (player_control_gyro_look_late(local_player_index, &touch_yaw, &touch_pitch))
+	{
+		*yaw += touch_yaw;
+		*pitch += touch_pitch;
+		turned = TRUE;
+	}
 	return turned;
 }
 
@@ -2798,20 +3113,160 @@ static struct observer_result const *render_interpolation_direct_camera(
 		angles.pitch = PIN(angles.pitch + pitch, control->pitch_minimum, control->pitch_maximum);
 	}
 	player_aiming_vector_from_facing(local_player_get_player_index(local_player_index), &direct->forward, &angles);
+	/* (a dead player's unit keeps its last turn: its ticks no longer reset it) */
+	{
+		long unit_index = player_control_get_unit_index(local_player_index);
+
+		if (unit_index != NONE && !TEST_FLAG(object_get(unit_index)->object.damage_flags, _object_dead_bit))
+		{
+			/* (the facing holds this tick's whole turn by the vehicle the
+			player stands on, which is drawn only part of the way into the
+			tick; vehicle_riding.c) */
+			real kept_dyaw = vehicle_riding_kept_dyaw(local_player_index);
+
+			/* (no turn kept: the rotation by zero is skipped, for the frame's camera only) */
+			if (kept_dyaw != 0.f)
+				vehicle_riding_turn_vector(&direct->forward, -(1.0f - render_interpolation_fraction())*kept_dyaw);
+		}
+	}
 	observer_up_from_forward(&direct->forward, &direct->up);
 	return direct;
+}
+
+/* how far a lift carries the unit in a tick (world units a tick), if one
+carries it (device_machines.c's machine_move_elevator_riders, and at 60 and
+120 objects.c's lanes, a share each sub-step): its platform's movement
+between the last two ticks' snapshots, which the carry of the tick to come
+(at 30) or under way (at 60 and 120, a tick behind the lift) is, but at a
+start or a stop. The unit's own velocity has none of it: the carry moves it
+where it is */
+static boolean render_interpolation_rider_carry(long unit_index, real_vector3d *carry)
+{
+	struct biped_datum *biped = (struct biped_datum *)object_try_and_get_and_verify_type(unit_index, _object_mask_biped);
+	struct interpolated_object const *record;
+	struct machine_datum *machine;
+	real_matrix4x3 const *previous, *latest;
+	long machine_index;
+	long absolute_index;
+	short node;
+
+	if (!biped || !interpolated_objects)
+		return FALSE;
+	machine_index = biped->biped.elevator_object_index;
+	if (machine_index == NONE || !machine_carries_rider(machine_index, unit_index))
+		return FALSE;
+	machine = machine_get(machine_index);
+	node = machine_definition_get(machine->definition_index)->machine.elevator_node_index;
+	absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(machine_index);
+	if (absolute_index >= MAXIMUM_INTERPOLATED_OBJECTS)
+		return FALSE;
+	record = &interpolated_objects[absolute_index];
+	if (record->object_index != machine_index || record->tick != interpolation_tick || !record->has_previous ||
+		node < 0 || node >= record->node_count)
+	{
+		return FALSE;
+	}
+	previous = record->nodes + (record->latest ^ 1) * record->node_capacity;
+	latest = record->nodes + record->latest * record->node_capacity;
+	carry->i = latest[node].position.x - previous[node].position.x;
+	carry->j = latest[node].position.y - previous[node].position.y;
+	carry->k = latest[node].position.z - previous[node].position.z;
+	return TRUE;
 }
 
 /* The player's own view on foot (display.direct_camera, while frames are
 drawn between the ticks, and not in the VR mode, whose eyes stay as they
 were) stands where the newest step left the unit, not where the blend of the
 last two ticks has it a tick behind: the observer (taken after the frame's
-steps, the open tick's sub-steps too) moved on by the unit's own velocity for
-the time since that step, and its eye by its crouch's change
+steps, the open tick's sub-steps too) moved on by the unit's own velocity (and
+the lift's carry, render_interpolation_rider_carry) for the time since that
+step, and its eye by its crouch's change
 (bipeds.c's biped_eye_rise_ahead), so that it moves every frame at 30 as at
 60. The first-person weapon, posed from it, goes with it (render_interpolation_
 first_person). What the netcode glides (correction) is kept. Everything else
-is drawn as before. */
+is drawn as before.
+
+Carried on by its velocity, the view meets the next step short of or past
+where that step leaves it whenever the step changed the velocity: at 30 (a
+Legacy game) a strafe's turn, the player speeding up or slowing a tick at a
+time, put the view past the next step and back every tick, the view stepping
+back and on about a hundredth of a world unit at 30 Hz while the player
+turned (an A-D strafe stuttered). As the local player's vehicle is
+(render_interpolation_newest_blend), the difference is blended away over a
+tick from where the view was drawn (newest_camera_blend), but not from
+standing (a start is drawn at once; a strafe's turn passes through it) nor
+one larger than the steps' acceleration could misjudge (a teleport, a respawn, a correction, which glides
+as before); across only, so that a jump, a landing and a fall show at once. */
+static real newest_blend_left(real age);
+
+static void newest_camera_blend(
+	short local_player_index,
+	long unit_index,
+	real_point3d const *position,
+	real_vector3d const *velocity,
+	real since,
+	real_vector3d *left)
+{
+	struct newest_camera_blend *blend = &newest_camera_blends[local_player_index];
+	double frame_time = (double)interpolation_tick + (double)interpolation_fraction;
+	long step = interpolation_tick * interpolation_substep_count + sim_substep_next();
+	real remaining;
+
+	if (!blend->valid || blend->unit_index != unit_index || !(frame_time >= blend->frame_time) ||
+		frame_time - blend->frame_time > NEWEST_HISTORY_GAP || step < blend->step)
+	{
+		blend->blend = *global_zero_vector3d;
+		blend->blend_age = NEWEST_BLEND_TIME;
+	}
+	else
+	{
+		blend->blend_age += (real)(frame_time - blend->frame_time);
+		if (step != blend->step)
+		{
+			/* (the step before carried on to now, with what was left of its blend, against the new step) */
+			real since_before = since + (real)(step - blend->step) / (real)interpolation_substep_count;
+			real before_left = newest_blend_left(blend->blend_age);
+			real_vector3d difference;
+			real speed_before = (real)sqrt(blend->velocity.i * blend->velocity.i +
+				blend->velocity.j * blend->velocity.j);
+			real most = NEWEST_ACCELERATION_MAXIMUM * since_before;
+
+			difference.i = blend->position.x + blend->velocity.i * since_before + blend->blend.i * before_left -
+				(position->x + velocity->i * since);
+			difference.j = blend->position.y + blend->velocity.j * since_before + blend->blend.j * before_left -
+				(position->y + velocity->j * since);
+			/* (across only: a jump's start, a landing and a fall are drawn at once, as before) */
+			difference.k = 0.0f;
+			/* (so written that a difference not a number is none) */
+			if ((speed_before >= NEWEST_STANDING || blend->speed_earlier >= NEWEST_STANDING) &&
+				difference.i * difference.i + difference.j * difference.j <= most * most)
+			{
+				blend->blend = difference;
+			}
+			else
+			{
+				blend->blend = *global_zero_vector3d;
+			}
+			blend->blend_age = 0.0f;
+		}
+	}
+	remaining = newest_blend_left(blend->blend_age);
+	left->i = blend->blend.i * remaining;
+	left->j = blend->blend.j * remaining;
+	left->k = blend->blend.k * remaining;
+	if (!blend->valid || blend->step != step || blend->unit_index != unit_index)
+	{
+		blend->speed_earlier = blend->valid && blend->unit_index == unit_index ? (real)sqrt(
+			blend->velocity.i * blend->velocity.i + blend->velocity.j * blend->velocity.j) : 0.0f;
+		blend->position = *position;
+		blend->velocity = *velocity;
+	}
+	blend->valid = TRUE;
+	blend->unit_index = unit_index;
+	blend->step = step;
+	blend->frame_time = frame_time;
+}
+
 static void render_interpolation_newest_camera(
 	short local_player_index,
 	struct observer_result const *observer,
@@ -2819,18 +3274,39 @@ static void render_interpolation_newest_camera(
 {
 	struct interpolated_camera *camera = &interpolated_cameras[local_player_index];
 	long unit_index = player_control_get_unit_index(local_player_index);
-	real_vector3d const *velocity = &object_get(unit_index)->object.translational_velocity;
-	real steps = interpolation_fraction * (real)interpolation_substep_count;
-	/* (the time since the newest step, in ticks: past the last whole sub-step) */
-	real since = (steps - (real)floor(steps)) / (real)interpolation_substep_count;
+	real_vector3d velocity = object_get(unit_index)->object.translational_velocity;
+	real_vector3d carry;
+	/* (the time since the newest step, in ticks: the clock's, not the
+	fraction's part past its last whole sub-step, which is a sub-step short
+	while a step's time has come and it has not run: OpenH1 #706) */
+	real since = interpolation_step_age;
 
+	/* (and by the lift it rides: carried by its velocity alone, the view
+	held still between the steps on a moving lift, a step at a time) */
+	if (render_interpolation_rider_carry(unit_index, &carry))
+	{
+		velocity.i += carry.i;
+		velocity.j += carry.j;
+		velocity.k += carry.k;
+	}
 	drawn->position = observer->position;
-	if (velocity->i * velocity->i + velocity->j * velocity->j + velocity->k * velocity->k <=
+	if (velocity.i * velocity.i + velocity.j * velocity.j + velocity.k * velocity.k <=
 		CAMERA_CUT_DISTANCE * CAMERA_CUT_DISTANCE)
 	{
-		drawn->position.x += velocity->i * since;
-		drawn->position.y += velocity->j * since;
-		drawn->position.z += velocity->k * since;
+		real_vector3d left;
+
+		drawn->position.x += velocity.i * since;
+		drawn->position.y += velocity.j * since;
+		drawn->position.z += velocity.k * since;
+		/* (from where the view was drawn as the step came) */
+		newest_camera_blend(local_player_index, unit_index, &observer->position, &velocity, since, &left);
+		drawn->position.x += left.i;
+		drawn->position.y += left.j;
+		drawn->position.z += left.k;
+	}
+	else
+	{
+		newest_camera_blends[local_player_index].valid = FALSE;
 	}
 	/* (and its eye on with its crouch, which goes down or up a step at a
 	time as the unit's place does) */
@@ -3321,8 +3797,8 @@ static boolean render_interpolation_newest_vehicle(
 		return FALSE;
 	/* (the frame's time, from the newest step's end, in ticks) */
 	step = render_interpolation_newest_step(vehicle_index);
-	since = (interpolation_fraction * (real)interpolation_substep_count -
-		(real)(step - interpolation_tick * interpolation_substep_count)) / (real)interpolation_substep_count;
+	since = interpolation_step_age - (real)(step - (interpolation_tick * interpolation_substep_count +
+		sim_substep_next())) / (real)interpolation_substep_count;
 	render_interpolation_newest_history(history, vehicle_index, step, root);
 	render_interpolation_newest_motion(history, vehicle, &motion);
 	newest_motion_carried(&motion, since, &shift, &turn);
@@ -3829,6 +4305,8 @@ struct observer_result const *render_interpolation_camera(
 	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS)
 		return observer;
 	blended = render_interpolation_blended_camera(local_player_index, observer);
+	drawn_views_valid[local_player_index] = FALSE;
+	newest_carried_valid[local_player_index] = FALSE;
 	/* (in a seat of the player's vehicle drawn from its newest step) */
 	direct = render_interpolation_seat_camera(local_player_index, observer, blended);
 	if (direct)
@@ -3843,8 +4321,232 @@ struct observer_result const *render_interpolation_camera(
 		newest_views[local_player_index] = FALSE;
 #endif
 	if (newest_views[local_player_index])
+	{
+		struct observer_result const *drawn = &direct_cameras[local_player_index];
+
 		render_interpolation_newest_camera(local_player_index, observer, &direct_cameras[local_player_index]);
+		newest_carried[local_player_index].i = drawn->position.x - observer->position.x;
+		newest_carried[local_player_index].j = drawn->position.y - observer->position.y;
+		newest_carried[local_player_index].k = drawn->position.z - observer->position.z;
+		newest_carried_valid[local_player_index] = TRUE;
+	}
+	if (blended && direct)
+	{
+		blended_views[local_player_index] = *blended;
+		drawn_views[local_player_index] = *direct;
+		drawn_views_valid[local_player_index] = TRUE;
+	}
 	return direct;
+}
+
+/* The local player's own flashlight in the first person on foot, when the
+first-person weapon does not carry it (none in hand, or zoomed: it is on the
+weapon's marker otherwise, which is posed from the view): the game lights it
+from the body's marker, on the head that the first person does not draw.
+That marker turns with the head, whose look trails the aim through a turn
+and catches up with it, and is drawn between the ticks, a tick behind the
+view drawn from the newest step (display.direct_camera); so the pool of
+light slid about the screen and jumped back as the player turned (#589).
+Here it shines along the view drawn, its aim (up as the view's), from where
+the body has it: as far along, across and up from the view drawn as it is
+from the view between the ticks, which goes with the body. FALSE (and
+nothing moved) for any other unit, view or window, and in the VR mode,
+whose view is the head's */
+boolean render_interpolation_view_flashlight(
+	long unit_index,
+	real_point3d *position,
+	real_vector3d *forward,
+	real_vector3d *up)
+{
+	short local_player_index = render.local_player_index;
+	struct observer_result const *from, *to;
+	real_vector3d from_left, to_left, offset;
+	real along, across, height;
+
+	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
+		!drawn_views_valid[local_player_index] || unit_index == NONE ||
+		player_control_get_unit_index(local_player_index) != unit_index ||
+		director_get_perspective(local_player_index) != _director_perspective_first_person ||
+		director_inhibited_facing(local_player_index) || cinematic_in_progress() ||
+		object_get(unit_index)->object.parent_object_index != NONE)
+	{
+		return FALSE;
+	}
+#ifdef HALO_VR
+	if (halo_vr_running())
+		return FALSE;
+#endif
+	from = &blended_views[local_player_index];
+	to = &drawn_views[local_player_index];
+	cross_product3d(&from->up, &from->forward, &from_left);
+	cross_product3d(&to->up, &to->forward, &to_left);
+	offset.i = position->x - from->position.x;
+	offset.j = position->y - from->position.y;
+	offset.k = position->z - from->position.z;
+	along = dot_product3d(&offset, &from->forward);
+	across = dot_product3d(&offset, &from_left);
+	height = dot_product3d(&offset, &from->up);
+	position->x = to->position.x + to->forward.i * along + to_left.i * across + to->up.i * height;
+	position->y = to->position.y + to->forward.j * along + to_left.j * across + to->up.j * height;
+	position->z = to->position.z + to->forward.k * along + to_left.k * across + to->up.k * height;
+	*forward = to->forward;
+	*up = to->up;
+	return TRUE;
+}
+
+/* a view's heading, level: its forward along the ground (FALSE: it looks
+straight up or down, and has none) */
+static boolean view_heading(
+	struct observer_result const *view,
+	real *i,
+	real *j)
+{
+	real length = (real)sqrt(view->forward.i * view->forward.i + view->forward.j * view->forward.j);
+
+	if (length < 1e-4f)
+		return FALSE;
+	*i = view->forward.i / length;
+	*j = view->forward.j / length;
+	return TRUE;
+}
+
+/* the unit's facing, level, as its body is drawn this frame: the blend of
+its facing at the two ticks drawn between, as its pose is (FALSE: none, or
+level it has none) */
+static boolean render_interpolation_body_heading(
+	long unit_index,
+	real *i,
+	real *j)
+{
+	struct interpolated_object const *record = NULL;
+	real_vector3d const *forward = &object_get(unit_index)->object.forward;
+	real length;
+	long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(unit_index);
+
+	*i = forward->i;
+	*j = forward->j;
+	if (interpolation_rendering && interpolated_objects && absolute_index < MAXIMUM_INTERPOLATED_OBJECTS)
+		record = &interpolated_objects[absolute_index];
+	if (record && record->object_index == unit_index && record->tick == interpolation_tick && record->has_previous)
+	{
+		real_vector3d const *a = &record->facing[record->latest ^ 1];
+		real_vector3d const *b = &record->facing[record->latest];
+
+		*i = lerp(a->i, b->i, interpolation_fraction);
+		*j = lerp(a->j, b->j, interpolation_fraction);
+	}
+	length = (real)sqrt(*i * *i + *j * *j);
+	if (!(length >= 1e-4f))
+		return FALSE;
+	*i /= length;
+	*j /= length;
+	return TRUE;
+}
+
+/* The local player's own body in the first person on foot, drawn below the
+view as its legs (display.first_person_legs: first_person_legs.c). The body
+is drawn between the ticks, a tick behind, as the view between the ticks is;
+the view drawn is the newest step's (display.direct_camera), a tick's motion
+on, and points where the player aims in the frame. Drawn where the body has
+them, the legs trailed the view by a tick's motion, and by more or less as
+each step's speed and each frame's aim came: they slid under the view and
+stepped against it (#697). And the body faces where the player aimed only
+after the aim has turned far enough from it, then turns after it a tick at
+a time: looking down while turning, the legs swung away from the view, came
+back with a jerk each tick and swung away again (#826). Here the move that
+takes the body to the view drawn, level: turned about the vertical from the
+body's heading as it is drawn to the view drawn's heading (*heading), and
+moved from the view between the ticks' place to the view drawn's (the body
+stands upright, whatever the pitch). So the legs are posed about the eye as
+the view is, at its yaw, place and time this frame, as the first-person
+weapon is: still under the view as it turns, moving only as the body's
+animation moves them. FALSE (and the move none, *heading the body's) for any
+other unit, view or window, and in the VR mode, whose body has its own
+place */
+boolean render_interpolation_view_body(
+	long unit_index,
+	real_matrix4x3 *move,
+	real_vector3d *heading)
+{
+	short local_player_index = render.local_player_index;
+	struct observer_result const *from, *to;
+	real from_i, from_j, to_i, to_j, c = 1.0f, s = 0.0f;
+	boolean turned;
+
+	move->scale = 1.0f;
+	move->forward.i = 1.0f;
+	move->forward.j = 0.0f;
+	move->forward.k = 0.0f;
+	move->left.i = 0.0f;
+	move->left.j = 1.0f;
+	move->left.k = 0.0f;
+	move->up.i = 0.0f;
+	move->up.j = 0.0f;
+	move->up.k = 1.0f;
+	move->position.x = 0.0f;
+	move->position.y = 0.0f;
+	move->position.z = 0.0f;
+	if (unit_index != NONE && object_try_and_get(unit_index))
+		*heading = object_get(unit_index)->object.forward;
+	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
+		!drawn_views_valid[local_player_index] || unit_index == NONE ||
+		player_control_get_unit_index(local_player_index) != unit_index ||
+		director_get_perspective(local_player_index) != _director_perspective_first_person ||
+		director_inhibited_facing(local_player_index) || cinematic_in_progress() ||
+		object_get(unit_index)->object.parent_object_index != NONE)
+	{
+		return FALSE;
+	}
+#ifdef HALO_VR
+	if (halo_vr_running())
+		return FALSE;
+#endif
+	from = &blended_views[local_player_index];
+	to = &drawn_views[local_player_index];
+	/* (the turn from the body's heading to the view's: none if either has
+	none) */
+	turned = render_interpolation_body_heading(unit_index, &from_i, &from_j) && view_heading(to, &to_i, &to_j);
+	if (turned)
+	{
+		c = from_i * to_i + from_j * to_j;
+		s = from_i * to_j - from_j * to_i;
+		heading->i = to_i;
+		heading->j = to_j;
+		heading->k = 0.0f;
+	}
+	move->forward.i = c;
+	move->forward.j = s;
+	move->left.i = -s;
+	move->left.j = c;
+	/* (turned about the view between the ticks' place, onto the view
+	drawn's) */
+	move->position.x = to->position.x - (c * from->position.x - s * from->position.y);
+	move->position.y = to->position.y - (s * from->position.x + c * from->position.y);
+	move->position.z = to->position.z - from->position.z;
+	return TRUE;
+}
+
+/* The window's own player's unit on foot, its view drawn from the newest
+step (render_interpolation_newest_camera): how far the view drawn is carried
+on from where the newest step left it, which the unit's camera point (the
+game's, the newest step's) is carried on by as well to be where the view is.
+FALSE for any other unit, view or window: one drawn between the ticks, a
+seat's (the vehicle drawn from its newest step carries its riders and the
+view from the seat with it: render_interpolation_object_point), and the VR
+mode's */
+static boolean render_interpolation_view_carried(long unit_index, real_vector3d *carried)
+{
+	short local_player_index = render.local_player_index;
+
+	if (!interpolation_rendering || unit_index == NONE ||
+		local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS ||
+		!newest_carried_valid[local_player_index] ||
+		player_control_get_unit_index(local_player_index) != unit_index)
+	{
+		return FALSE;
+	}
+	*carried = newest_carried[local_player_index];
+	return TRUE;
 }
 
 boolean render_interpolation_view_newest(
@@ -3894,6 +4596,78 @@ static boolean observer_cut(
 {
 	return !(distance_squared(&a->position, &b->position) <= CAMERA_CUT_DISTANCE * CAMERA_CUT_DISTANCE) ||
 		!(a->forward.i * b->forward.i + a->forward.j * b->forward.j + a->forward.k * b->forward.k >= CAMERA_CUT_COSINE);
+}
+
+/* A cut between two snapshots of a view that moves in the frames' time
+(render_interpolation_camera_timed), taken at their times (ticks). Its
+snapshots are as far apart as the frames that took them, a tick or more,
+and a cutscene's fast camera (d40's flight after the Longsword, c40's)
+moves nearly the distance of a cut in a tick, or further: judged as the
+player's views are, two snapshots a little more than a tick apart were a
+cut, drawn from the latest, a tick ahead of the world, and the next not,
+so that the camera jumped ahead a tick's flight and back at random ticks
+uncapped, and after any long frame (#805). It is a cut if it turned as
+far as a cut does; or if it moved further than a cut's distance a tick
+and, from the snapshot before (earlier, when no cut came between them),
+further than a cut's distance from where its last move carried on would
+have put it, or, with no such move to carry on (the first after a cut),
+further than the view's last speed takes it besides: a camera set to
+another point, or a cut from a moving camera, is still one, and a fast
+camera's first move after a cut is not */
+static boolean observer_timed_cut(
+	struct observer_result const *earlier,
+	double earlier_time,
+	real speed,
+	struct observer_result const *a,
+	double a_time,
+	struct observer_result const *b,
+	double b_time)
+{
+	double apart = b_time - a_time;
+	real ticks = (real)(apart > 1.0 ? apart : 1.0);
+	real reach = CAMERA_CUT_DISTANCE * ticks;
+	real_point3d expected;
+	real carried;
+
+	if (!(a->forward.i * b->forward.i + a->forward.j * b->forward.j + a->forward.k * b->forward.k >= CAMERA_CUT_COSINE))
+		return TRUE;
+	/* (so written that a position not a number cuts) */
+	if (distance_squared(&a->position, &b->position) <= reach * reach)
+		return FALSE;
+	if (!earlier || !(a_time > earlier_time))
+	{
+		reach += speed * ticks;
+		return !(distance_squared(&a->position, &b->position) <= reach * reach);
+	}
+	carried = (real)(apart / (a_time - earlier_time));
+	expected.x = a->position.x + (a->position.x - earlier->position.x) * carried;
+	expected.y = a->position.y + (a->position.y - earlier->position.y) * carried;
+	expected.z = a->position.z + (a->position.z - earlier->position.z) * carried;
+	return !(distance_squared(&expected, &b->position) <= CAMERA_CUT_DISTANCE * CAMERA_CUT_DISTANCE);
+}
+
+/* A view that moves in the frames' time, not the ticks': a scripted camera
+(a cutscene's camera point and its transition, a camera animation, the dead
+camera), which the director and the observer move once a frame by the
+frame's time (main.c: director_update, observer_update), so that the
+observer as a frame leaves it is where the camera is at that frame's moment.
+Not a scripted first-person camera, which looks from its unit as the tick
+left it, as the player's own view does. The first frame after a tick (whose
+snapshot is taken) comes any part of a tick after it: at 30 a steady part,
+at other rates a part that changes from tick to tick (and more after a long
+frame), so that blended as if each snapshot were the tick's, the camera
+lurched at each tick, ahead and back by as much as a tick's motion, in every
+cutscene's slow move (#805). Its snapshots are kept with their times, and
+the view is drawn where they place it a tick before the frame's moment, as
+the objects are drawn */
+static boolean render_interpolation_camera_timed(short local_player_index)
+{
+	long relative_object_index;
+
+	if (director_get_perspective(local_player_index) != _director_perspective_scripted)
+		return FALSE;
+	relative_object_index = scripted_camera_object_relative_to();
+	return relative_object_index == NONE || !scripted_camera_object_is_first_person_camera(relative_object_index);
 }
 
 /* The first-person view of a unit of the micro lane (a player's biped on
@@ -4106,12 +4880,16 @@ static struct observer_result const *render_interpolation_blended_camera(
 	long substep_unit_index;
 	long substep_vehicle_index;
 	real_vector3d offset;
+	/* (the frame's moment, in ticks as interpolation_tick counts them) */
+	double now = (double)interpolation_tick + (double)interpolation_fraction;
+	boolean timed;
 
 	if (!interpolation_rendering || !observer)
 	{
 		return observer;
 	}
 	camera = &interpolated_cameras[local_player_index];
+	timed = render_interpolation_camera_timed(local_player_index);
 	substep_unit_index = render_interpolation_camera_substep_unit(local_player_index);
 	substep_vehicle_index = render_interpolation_camera_substep_vehicle(local_player_index);
 	/* A scripted camera that moves with an object (a cinematic's camera
@@ -4170,10 +4948,28 @@ static struct observer_result const *render_interpolation_blended_camera(
 		dead camera 2 to 6 units above the body, a spawn point near it; or
 		network co-op's spectating, 3.5 units behind the teammate a dead
 		player respawns beside) */
+		camera->has_before = camera->has_previous;
 		camera->has_previous = camera->valid && camera->unit_index == unit_index;
+		camera->has_before = camera->has_before && camera->has_previous;
 		camera->unit_index = unit_index;
+		camera->before = camera->previous;
+		camera->before_time = camera->previous_time;
 		camera->previous = camera->latest;
+		camera->previous_time = camera->latest_time;
 		camera->latest = *observer;
+		camera->latest_time = timed ? now : (double)interpolation_tick;
+		camera->timed = timed;
+		camera->cut_to_previous = camera->cut_to_latest;
+		if (!camera->has_previous)
+			camera->speed = 0.0f;
+		camera->cut_to_latest = camera->has_previous && observer_timed_cut(
+			camera->has_before && !camera->cut_to_previous ? &camera->before : NULL, camera->before_time,
+			camera->speed, &camera->previous, camera->previous_time, &camera->latest, camera->latest_time);
+		if (camera->has_previous && !camera->cut_to_latest && camera->latest_time > camera->previous_time)
+		{
+			camera->speed = (real)sqrt(distance_squared(&camera->previous.position, &camera->latest.position)) /
+				(real)(camera->latest_time - camera->previous_time);
+		}
 		if (substep_unit_index != NONE)
 			render_interpolation_camera_at_tick(substep_unit_index, &camera->latest);
 		if (substep_vehicle_index != NONE)
@@ -4184,7 +4980,7 @@ static struct observer_result const *render_interpolation_blended_camera(
 		snapshot tells. (Blended across all the ticks since, the camera
 		moved further each frame than the world it is in, out through a
 		Pelican's hull for a frame.) A cut stays a cut. */
-		if (camera->has_previous && interpolation_tick - camera->tick > 1 &&
+		if (!timed && camera->has_previous && interpolation_tick - camera->tick > 1 &&
 			!observer_cut(&camera->previous, &camera->latest))
 		{
 			real ticks = (real)(interpolation_tick - camera->tick);
@@ -4195,12 +4991,65 @@ static struct observer_result const *render_interpolation_blended_camera(
 		camera->tick = interpolation_tick;
 		camera->valid = TRUE;
 	}
-	if (!camera->has_previous || observer_cut(&camera->previous, &camera->latest))
+	if (!camera->has_previous ||
+		(camera->timed ? camera->cut_to_latest : observer_cut(&camera->previous, &camera->latest)))
 	{
 		return observer;
 	}
 
-	observer_blend(&camera->previous, &camera->latest, t, &camera->blended);
+	if (camera->timed)
+	{
+		/* a tick before the frame's moment, between the two snapshots taken
+		either side of it: the last two, or (the previous one taken later in
+		its tick than the latest in its) the two before; a cut between those
+		two drawn from the later */
+		double drawn_time = now - 1.0;
+		struct observer_result const *from = &camera->previous;
+		struct observer_result const *to = &camera->latest;
+		double from_time = camera->previous_time;
+		double to_time = camera->latest_time;
+
+		if (drawn_time < from_time && camera->has_before)
+		{
+			/* (after a cut, the shot cut to, carried back along its first
+			move from the snapshot after the cut to the moment drawn, no
+			further back than a tick, nor than the snapshot before the
+			cut, after which the cut came: not held still at that
+			snapshot until the moment drawn reaches it, a long frame's
+			stall) */
+			if (camera->cut_to_previous)
+			{
+				double back_to = drawn_time > camera->before_time ? drawn_time : camera->before_time;
+
+				if (back_to < camera->previous_time - 1.0)
+					back_to = camera->previous_time - 1.0;
+
+				camera->blended = camera->previous;
+				if (camera->latest_time > camera->previous_time)
+				{
+					observer_blend(&camera->previous, &camera->latest,
+						(real)((back_to - camera->previous_time) / (camera->latest_time - camera->previous_time)),
+						&camera->blended);
+				}
+				return &camera->blended;
+			}
+			from = &camera->before;
+			to = &camera->previous;
+			from_time = camera->before_time;
+			to_time = camera->previous_time;
+		}
+		t = to_time > from_time ? (real)((drawn_time - from_time) / (to_time - from_time)) : 1.0f;
+		/* (so written that a part not a number is none) */
+		if (!(t > 0.0f))
+			t = 0.0f;
+		else if (t > 1.0f)
+			t = 1.0f;
+		observer_blend(from, to, t, &camera->blended);
+	}
+	else
+	{
+		observer_blend(&camera->previous, &camera->latest, t, &camera->blended);
+	}
 	if (correction_significant(&camera->correction) || correction_significant(&camera->correction_pending))
 	{
 		real_vector3d drawn;
@@ -4260,6 +5109,42 @@ real render_interpolation_first_person_phase(short local_player_index)
 	if (game_time_get_paused())
 		return 0.0f;
 	phase = (double)game_time_get() + (double)interpolation_fraction - first_person_updated_time;
+	return phase < 0.0 ? 0.0f : phase > 1.0 ? 1.0f : (real)phase;
+}
+
+/* A Spartan link feed's first-person weapon (spartan_link.c; its slot's
+animations are first_person_weapons.c's feeds', advanced with the players'):
+sampled at the frame's time as the player's own view drawn from the newest
+step is, so that it moves every frame however seldom the feed is drawn (one
+feed a frame, in turn), which a blend between the poses drawn at the last
+two ticks (render_interpolation_first_person) could not: a feed drawn every
+other frame or less has none at the tick before. Its world is drawn between
+the ticks, a tick behind the weapon, which is posed at the feed's camera
+and so moves with nothing of the world's. -1 with the frames' interpolation
+off, drawn by the tick as before */
+real render_interpolation_first_person_feed_phase(void)
+{
+	double phase;
+
+	if (!interpolation_rendering)
+		return -1.0f;
+	if (game_time_get_paused())
+		return 0.0f;
+	phase = (double)game_time_get() + (double)interpolation_fraction - first_person_updated_time;
+	return phase < 0.0 ? 0.0f : phase > 1.0 ? 1.0f : (real)phase;
+}
+
+/* The phase (render_interpolation_first_person_phase) of the step running
+now, at its end, where the frames after it go on from: a state's change made
+in it (a shot of a sub-step, a message of the tick's own work) is blended
+from the pose there (first_person_weapons.c). The tick's own work before its
+fast phase ends with its first sub-step, as the first-person weapons'
+update in it does: 1 before that update, 0 after it */
+real render_interpolation_first_person_step_phase(void)
+{
+	real end = sim_substep_in_macro_step() ? 1.0f / (real)sim_substep_count() : sim_substep_end_fraction();
+	double phase = (double)game_time_get() + (double)end - first_person_updated_time;
+
 	return phase < 0.0 ? 0.0f : phase > 1.0 ? 1.0f : (real)phase;
 }
 
@@ -4359,23 +5244,33 @@ boolean render_interpolation_particle_later(
 	short node_index,
 	real fraction)
 {
-	struct interpolated_object *record;
+	struct interpolated_object *record = NULL;
 	struct later_particle *later;
 	long absolute_index;
+	boolean possible;
 
-	if (!halo_interpolation_enabled() || !interpolated_objects || object_index == NONE ||
-		!(fraction > 0.0f && fraction < 1.0f) || later_particle_count >= MAXIMUM_LATER_PARTICLES)
-	{
+	if (object_index == NONE || !(fraction > 0.0f && fraction < 1.0f))
 		return FALSE;
-	}
 	absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(object_index);
-	if (absolute_index >= MAXIMUM_INTERPOLATED_OBJECTS)
+	if (interpolated_objects && absolute_index < MAXIMUM_INTERPOLATED_OBJECTS)
+		record = &interpolated_objects[absolute_index];
+	possible = halo_interpolation_enabled() && record && later_particle_count < MAXIMUM_LATER_PARTICLES &&
+		record->object_index == object_index && record->has_previous && node_index >= 0 &&
+		node_index < record->node_count;
+	/* (whether it can wait is the frames' (its emitter's snapshots here),
+	and a particle made now takes the tick's local seed: a demo's playback
+	has the recording's choice, demo.c; one the recording held back that
+	cannot be here is made now on the frames' seed, as the recording's
+	frames made it) */
+	if (!demo_decide_frames(possible))
 		return FALSE;
-	record = &interpolated_objects[absolute_index];
-	if (record->object_index != object_index || !record->has_previous ||
-		node_index < 0 || node_index >= record->node_count)
+	if (!possible)
 	{
-		return FALSE;
+		boolean ticking = random_math_port_begin_cosmetic();
+
+		particle_new(data);
+		random_math_port_end_cosmetic(ticking);
+		return TRUE;
 	}
 	later = &later_particles[later_particle_count++];
 	later->data = *data;

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.opence_options_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence" type="text" box="35 11 398 70">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="13 16" text="GOAT H1 OPTIONS"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_help" type="text" box="68 341 550 420">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/cap_opence"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_mode" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_hardcore" x="54" y="103"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_zombies" x="54" y="133"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_speed" x="54" y="163"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_damage" x="54" y="193"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_respawn" x="54" y="223"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_countdown" x="54" y="253"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_shields" x="54" y="283"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_order" x="54" y="313"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_melee" x="54" y="343"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_mode" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_oce_mode"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_hardcore" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_oce_hardcore"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_zombies" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_inf_zombies"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_speed" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_inf_speed"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_damage" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_inf_damage"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_respawn" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_inf_respawn"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_countdown" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_inf_countdown"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_shields" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_inf_shields"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_order" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_gg_order"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_melee" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_labels" index="9"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_spinner" type="spinner" box="0 2 206 24" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="213 7 219 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" string_list="main_menu/settings_select/multiplayer_setup/opence_options_edit/var_gg_melee"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_opence_item" type="text" box="51 309 283 341" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" text="GOAT H1 OPTIONS"/>
+	</look>
+</model>

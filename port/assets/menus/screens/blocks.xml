@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The hand-written screens' building blocks (docs/menu_screens.md): the
+widgets the menu engine makes a screen of (port/linux/game/menu_screen.c),
+written by hand, in the menus' own format (port/assets/menus/README.md).
+Each is drawn and takes its events as the game's widgets do, from its
+definition here, not the model. A block's words, place and action are the
+screen file's, set on each widget as the screen is made. -->
+<menus>
+	<!-- a hand-written screen of its own (not one that takes a generated
+	screen's place): the screen the game opens, which the engine fills from its
+	file (menu_screen.c's screen_places) -->
+	<!-- (on a touchscreen, drawn from background_tall_touch: its footer's line raised, as the tall screens' are,
+	menu_tags.c's widget_build) -->
+	<widget name="screens/campaign" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<!-- co-op's (screens/coop.xml, coop_who.xml, coop_join.xml: menu_functions.c's coop_menu.inc); the co-op
+	list's runs the server browser's model on its co-op list while it is open -->
+	<widget name="screens/coop" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<widget name="screens/coop_who" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<widget name="screens/coop_join" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall">
+		<on event="created" run="port coop join init"/>
+		<on event="deleted" run="port coop join dispose"/>
+	</widget>
+	<!-- Add Player's (screens/add_player.xml: menu_functions.c), as the lobby's and a game under way's ADD PLAYER
+	and another controller's START open it -->
+	<widget name="screens/add_player" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/background_tall"/>
+	<!-- a header's title in the tall layout's band, as Settings' and the browsers' titles (port_settings.py's tall_title) -->
+	<widget name="screens/header_text" type="text" left="24" width="592" height="40" font="heading" color="#FF2995FD" text_y="9" wide="-106 0" text_flags="no_focus_test"/>
+	<!-- an inner screen's header: its lettered picture (the file's picture=), where the campaign menu's is -->
+	<widget name="screens/header" left="35" top="11" width="363" height="59" bitmap="main_menu/campaign/header_campaign" wide="-106 0"/>
+	<!-- a tall screen's button in its band (the server browser's HOST & MORE), in a bar of its own: its words
+	and key, and a click or a tap does its action (wider than its picture: the controller's View cap and its words) -->
+	<widget name="screens/button" type="text" width="172" height="24" flags="keep_ends" bitmap="main_menu/parts/button_148x24" font="ui\small_ui" color="#FFFFFFFF" text_x="8" text_y="3">
+		<on event="a" run="port screen do"/>
+		<on event="left_mouse" run="port screen do"/>
+	</widget>
+	<!-- Halo's title art, as the main menu has it -->
+	<widget name="screens/title_art" width="640" height="256" bitmap="ui\shell\main_menu\halo_logo"/>
+	<!-- a list: the d-pad, the stick and the wheel step its items -->
+	<widget name="screens/list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<!-- an item: its label, white while focused (menu_screen.c); A, Start and a click do its action -->
+	<widget name="screens/item" type="text" width="256" height="38" font="ui\large_ui" color="#FF4584C8" align="center">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a color of the profile's (<colors>): its name in its color, white while focused (menu_screen.c); A, Start
+	and a click choose it -->
+	<widget name="screens/color" type="text" width="200" height="19" font="ui\large_ui" color="#FF4584C8">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- where a <spartan> is drawn without one (no Spartan from the player's maps, random, no profile): the original
+	picture of the color, a frame a color and the last random (menu_screen.c sets its frame) -->
+	<widget name="screens/spartan" width="143" height="294" bitmap="ui\shell\main_menu\settings_select\player_setup\player_profile_edit\color_edit\player_color_marine_large"/>
+	<!-- a panel's <picture>: a map's (mp_map_grafix) or a mission's (sp_levels) picture, the frame's 140 by 114 at its
+	top left drawn whole over the box (menu_screen.c sets its box, bitmap and frame; the menus' sharp pictures, where
+	they are made, in the originals' place: menu_pictures.h) -->
+	<widget name="screens/picture" width="140" height="114" bitmap="ui\shell\bitmaps\mp_map_grafix" radius="5"/>
+	<!-- cards side by side: the d-pad, the stick and the wheel step them -->
+	<widget name="screens/cards" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<!-- a card, as the campaign's mission cards: its frame lit while focused;
+	its picture, title and subtitle (in this order: menu_screen.c sets them) -->
+	<widget name="screens/card" width="158" height="240" bitmap="main_menu/campaign/card_158x240">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="screens/card_art"/>
+		<child widget="screens/card_title"/>
+		<child widget="screens/card_subtitle"/>
+	</widget>
+	<widget name="screens/card_art" left="6" top="6" width="146" height="119" bitmap="main_menu/campaign/art_146x119" radius="5"/>
+	<widget name="screens/card_title" type="text" left="6" top="132" width="146" height="34" font="ui\large_ui" color="#FF8DB6E6" align="center"/>
+	<widget name="screens/card_subtitle" type="text" left="10" top="172" width="138" height="60" font="ui\small_ui" color="#FF6F9CD0" align="center" text_flags="no_focus_test wrap"/>
+	<!-- the focused item's hint, under it -->
+	<widget name="screens/hint" type="text" width="440" height="16" font="ui\small_ui" color="#FF6F9CD0" align="center" text_flags="no_focus_test"/>
+	<!-- the button bar at the foot of the screen: each button a prompt, its
+	key's picture and its word, as the tall layout's footer's (Choose
+	Mission's, port_settings.py's _missions and _prompts): lit while it has
+	the focus, and A, Start, a click or a tap press its key (menu_screen.c's
+	menu_screen_key); raised above a phone's safe area on a touchscreen
+	(foot). The bar a list of them, as Choose Mission's footer: the pointer
+	over one gives it the focus. BACK's at the left, the rest's at the right -->
+	<widget name="screens/prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items foot"/>
+	<widget name="screens/prompt_left" type="text" width="96" height="24" wide="-106 0" bitmap="main_menu/parts/item_96x24" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="port screen key"/>
+		<on event="start" run="port screen key"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/prompt" type="text" width="124" height="24" wide="106 0" bitmap="main_menu/parts/item_124x24" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="port screen key"/>
+		<on event="start" run="port screen key"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+
+	<!-- The blocks of a screen of the tall layout (a <table>'s: the band,
+	tabs, the table with its panel beside it, the bar). Their places, widths
+	and pictures' sizes are menu_screen.c's, set on each widget as it is made
+	and drawn (a picture of the menus' parts of the size, its ends kept);
+	their words' colours too, where a row's cell says. -->
+	<!-- the screen's focusable blocks, top to bottom: the d-pad, the stick
+	and the wheel step from one to the next (the tabs, the columns' titles,
+	the rows, the panel's button, the bar) -->
+	<!-- the screen's parts that take no focus, under the body (the panel's
+picture, the line, the words for no rows) -->
+	<widget name="screens/layer" width="640" height="480"/>
+	<!-- the tall layout's background (its band's line, its footer's), for a screen that takes the place of one
+	without its own (on a touchscreen, background_tall_touch: menu_tags.c's widget_build) -->
+	<widget name="screens/background" width="640" height="480" bitmap="main_menu/parts/background_tall"/>
+	<widget name="screens/body" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<!-- a bar of one or more buttons in the body (the panel's, a table's) -->
+	<widget name="screens/bar" type="column_list" width="640" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<!-- the band's detail, at its right (on a touchscreen, under the title's left) -->
+	<widget name="screens/header_detail" type="text" width="312" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_flags="no_focus_test"/>
+	<widget name="screens/header_detail_left" type="text" width="300" height="16" font="ui\small_ui" color="#FF6F9CD0" text_flags="no_focus_test"/>
+	<!-- tabs: a strip, each tab framed (its picture's frames: the current
+	one's, and the one with the focus outlined), A or a click does its do;
+	the keys that step them either side; on a touchscreen, chips -->
+	<widget name="screens/tabs" type="column_list" width="640" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<widget name="screens/tab" type="text" width="86" height="22" flags="keep_ends" bitmap="main_menu/parts/tab" font="ui\small_ui" color="#FF2896FF" align="center" text_y="2">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/chip" type="text" width="92" height="52" bitmap="main_menu/parts/chip_92x52" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/tab_key" type="text" width="30" height="22" font="ui\small_ui" color="#FF2896FF" text_x="2" text_y="2" text_flags="no_focus_test"/>
+	<!-- a table's columns' titles: a click, a tap or A sorts by one (its
+	arrow after it); a column's search, its magnifying glass, the field
+	typed into in the title's place, and its X -->
+	<widget name="screens/titles" type="column_list" width="640" height="16" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<widget name="screens/title" type="text" width="76" height="16" font="ui\small_ui" color="#FF6F9CD0">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/title_right" type="text" width="76" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/sort_up" width="16" height="16" bitmap="bitmaps/arrow_sm_up"/>
+	<widget name="screens/sort_down" width="16" height="16" bitmap="bitmaps/arrow_sm_down"/>
+	<widget name="screens/search_icon" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/search_icon">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/search_field" type="text" width="92" height="16" flags="keep_ends" bitmap="main_menu/parts/outline_92x16" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="-1" text_flags="no_focus_test">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/search_clear" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/search_clear">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a search of its own (a touchscreen's, at the top's right): its bar,
+	the field typed into in its place, the X -->
+	<widget name="screens/touch_search" type="text" width="176" height="52" flags="keep_ends" bitmap="main_menu/parts/touch_field_176x52" font="ui\small_ui" color="#FF6F9CD0" text_x="52" text_y="19">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/touch_search_field" type="text" width="176" height="52" flags="keep_ends" bitmap="main_menu/parts/touch_field_176x52" font="ui\large_ui" color="#FFFFFFFF" text_x="52" text_y="16" text_flags="no_focus_test">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/touch_search_clear" width="52" height="52" bitmap="main_menu/parts/touch_button_52x52">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/touch_search_glass" width="20" height="20" bitmap="main_menu/multiplayer_type_select/join_game/touch/search_icon"/>
+	<widget name="screens/touch_search_cross" width="20" height="20" bitmap="main_menu/multiplayer_type_select/join_game/touch/search_clear"/>
+	<!-- the line under the titles -->
+	<widget name="screens/table_line" width="404" height="4" flags="keep_ends" bitmap="main_menu/parts/line_404"/>
+	<!-- a row: its picture's frames normal, focused and chosen; A, Start, a
+	click or a double click does the table's do (a click on a cell of a
+	column with its own do, that) -->
+	<widget name="screens/row" width="404" height="24" flags="keep_ends" bitmap="main_menu/parts/row_404x24">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="port screen do"/>
+	</widget>
+	<widget name="screens/touch_row" width="364" height="52" flags="keep_ends" bitmap="main_menu/parts/touch_row_364x52">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a row's cells: words (in a row of one line, or a touchscreen's
+	first and second lines), a pill after them, a lock, a ping's bars, a
+	star -->
+	<widget name="screens/cell" type="text" width="110" height="24" font="ui\small_ui" color="#FFC9DCF7" text_y="3" text_flags="no_focus_test"/>
+	<widget name="screens/cell_right" type="text" width="56" height="24" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test"/>
+	<widget name="screens/touch_cell" type="text" width="120" height="16" font="ui\small_ui" color="#FFC9DCF7" text_flags="no_focus_test"/>
+	<widget name="screens/touch_cell_right" type="text" width="80" height="16" font="ui\small_ui" color="#FFC9DCF7" align="right" text_flags="no_focus_test"/>
+	<widget name="screens/touch_cell_large" type="text" width="220" height="20" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test"/>
+	<widget name="screens/touch_cell_large_right" type="text" width="80" height="20" font="ui\large_ui" color="#FFC9DCF7" align="right" text_flags="no_focus_test"/>
+	<widget name="screens/cell_badge" type="text" width="30" height="16" bitmap="main_menu/parts/pill_30" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="-1" text_flags="no_focus_test"/>
+	<widget name="screens/cell_lock" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/locked_icon"/>
+	<widget name="screens/cell_bars" width="24" height="16" bitmap="main_menu/multiplayer_type_select/ping_bars"/>
+	<widget name="screens/cell_star" width="16" height="18" bitmap="main_menu/multiplayer_type_select/join_game/favorite_star"/>
+	<!-- a dot of a colour, by its frame: red's, blue's, and a game without teams' (the lobby's players) -->
+	<widget name="screens/cell_dot" width="8" height="8" bitmap="main_menu/parts/dot_8"/>
+	<!-- a swatch of a profile color, by its frame: the 18 colors' in their list's order, then random's (Profile
+	Color's rows) -->
+	<widget name="screens/cell_swatch" width="16" height="16" bitmap="main_menu/parts/swatch_16"/>
+	<!-- a table's lanes (lanes="2": the lobby's teams' columns): each lane's panel (a team's edge by its frame, or
+	the panel across them all), its title (in its tone's colour) and its detail; a lane's row, framed when it is
+	marked as its own and the brighter with the focus (its picture's four frames), left and right its table's -->
+	<widget name="screens/lane" width="196" height="362" flags="keep_ends" bitmap="main_menu/parts/team_panel_196x362"/>
+	<widget name="screens/lane_title" type="text" width="120" height="22" font="ui\large_ui" color="#FF2896FF" text_flags="no_focus_test"/>
+	<widget name="screens/lane_detail" type="text" width="90" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" text_flags="no_focus_test"/>
+	<widget name="screens/lane_row" width="180" height="18" flags="keep_ends" bitmap="main_menu/parts/lane_row_180x18">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left" run="port screen left"/>
+		<on event="right" run="port screen right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="port screen do"/>
+	</widget>
+	<!-- a table's words while it has no rows -->
+	<widget name="screens/table_empty" type="text" width="356" height="80" font="ui\large_ui" color="#FF2896FF" align="center" text_flags="no_focus_test"/>
+	<!-- a table's button under its words (CLEAR SEARCH) -->
+	<widget name="screens/table_button" type="text" width="164" height="24" flags="keep_ends" bitmap="main_menu/parts/item_164x24" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a panel: its picture, its heading (large, white), its lines (small,
+	blue), its pills, its label and value pairs, its button -->
+	<widget name="screens/panel" width="172" height="362" flags="keep_ends" bitmap="main_menu/parts/panel_172x362"/>
+	<widget name="screens/panel_heading" type="text" width="148" height="48" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test"/>
+	<widget name="screens/panel_text" type="text" width="148" height="44" font="ui\small_ui" color="#FF2896FF" text_flags="no_focus_test"/>
+	<widget name="screens/pair_label" type="text" width="70" height="20" font="ui\small_ui" color="#FF6F9CD0" text_flags="no_focus_test"/>
+	<widget name="screens/pair_value" type="text" width="148" height="24" font="ui\large_ui" color="#FFFFFFFF" align="right" text_flags="no_focus_test"/>
+	<widget name="screens/pill" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="-1" text_flags="no_focus_test"/>
+	<widget name="screens/panel_button" type="text" width="148" height="24" flags="keep_ends" bitmap="main_menu/parts/button_148x24" font="ui\small_ui" color="#FFFFFFFF" text_x="6" text_y="3">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a panel's button over its last: outlined, filled while it has the focus, its words alone in its middle (the
+	lobby's HOST CONTROLS and GAME SETTINGS) -->
+	<widget name="screens/panel_button_outline" type="text" width="148" height="24" flags="keep_ends" bitmap="main_menu/parts/outline_148x24" font="ui\small_ui" color="#FFCFE3FF" align="center" text_y="3">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a chat (<chat>, the lobby's) under a table: its panel, each line's name (in its colour) and words, and the
+	line typed's place (lit while it has the focus, or a line is typed: A, a click or a tap its do; on a
+	touchscreen a finger's height) -->
+	<widget name="screens/chat" width="404" height="79" flags="keep_ends" bitmap="main_menu/parts/panel_404x79"/>
+	<widget name="screens/chat_name" type="text" width="120" height="15" font="ui\small_ui" color="#FF5AA9FF" text_y="-2" text_flags="no_focus_test"/>
+	<!-- a lineup's place's name (a tall screen's own <spartan>'s names), centred under its Spartan's feet, in its
+	team's colour or white (menu_screen.c sets its place, width and colour) -->
+	<widget name="screens/lineup_name" type="text" width="80" height="14" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="-3" text_flags="no_focus_test"/>
+	<widget name="screens/chat_text" type="text" width="380" height="15" font="ui\small_ui" color="#FFDCE8F8" text_y="-2" text_flags="no_focus_test"/>
+	<widget name="screens/chat_input" type="text" width="392" height="20" flags="keep_ends" bitmap="main_menu/parts/item_392x20" font="ui\small_ui" color="#FF6F9CD0" text_x="8" text_y="1">
+		<on event="a" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/chat_input_touch" type="text" width="352" height="40" flags="keep_ends" bitmap="main_menu/parts/item_352x40" font="ui\small_ui" color="#FF6F9CD0" text_x="12" text_y="11">
+		<on event="a" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a panel's choice: its row (lit while it has the focus), its label, its value between its arrows; left and
+	right step it, A steps it right, a click or a tap on its left half left, on its right half right -->
+	<widget name="screens/choice" width="148" height="22" flags="keep_ends" bitmap="main_menu/parts/item_148x22">
+		<on event="a" run="port screen do"/>
+		<on event="left" run="port screen left"/>
+		<on event="right" run="port screen right"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/choice_label" type="text" width="58" height="16" font="ui\small_ui" color="#FF2896FF" text_flags="no_focus_test"/>
+	<widget name="screens/choice_value" type="text" width="86" height="16" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test"/>
+	<widget name="screens/choice_left" width="6" height="12" bitmap="bitmaps/arrow_sm_left"/>
+	<widget name="screens/choice_right" width="6" height="12" bitmap="bitmaps/arrow_sm_right"/>
+	<!-- a footer of prompts each as wide as its words, spread across the
+	bar (a table's screen's) -->
+	<widget name="screens/prompt_spread" type="text" width="96" height="24" flags="keep_ends" bitmap="main_menu/parts/item_96x24" font="ui\small_ui" color="#FFCFE3FF" text_x="5" text_y="3">
+		<on event="a" run="port screen key"/>
+		<on event="start" run="port screen key"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a touchscreen's buttons: the footer's, a table's and its panel's
+	(their words without the key's picture) -->
+	<widget name="screens/touch_button" type="text" width="136" height="52" flags="keep_ends" bitmap="main_menu/parts/touch_button_136x52" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+		<on event="a" run="port screen key"/>
+		<on event="start" run="port screen key"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/touch_button_large" type="text" width="188" height="52" flags="keep_ends" bitmap="main_menu/parts/touch_button_188x52" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="16">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="screens/touch_button_do" type="text" width="200" height="52" flags="keep_ends" bitmap="main_menu/parts/touch_button_200x52" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- The pause menu's blocks (screens/pause.xml, screens/pause_campaign.xml): a framed box (<box>) of
+	the Xbox's pause menu, its rows and its legend under them, and the mission objectives' box beside it
+	(<objectives>), drawn as the Xbox's widgets draw them (menu_screen.c places them). -->
+	<!-- the screens the pause menu opens as, in place of the game's own (menu_screen_pause_name): a
+	campaign's, or a multiplayer game's; pausing the game, as a single player's pause menu does, or not,
+	as a network game's (the dim, as the Xbox's: menu_view.c spreads it over the player's view) -->
+	<widget name="screens/pause" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="ui\shell\bitmaps\semi_transparent_grey"/>
+	<widget name="screens/pause_live" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="ui\shell\bitmaps\semi_transparent_grey"/>
+	<widget name="screens/pause_campaign" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="ui\shell\bitmaps\semi_transparent_grey"/>
+	<widget name="screens/pause_campaign_live" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="ui\shell\bitmaps\semi_transparent_grey"/>
+	<!-- a box's frame, the port's rounded box (tools/port_settings.py's pause pictures): its left, its
+	middle (as wide as menu_screen.c makes it) and its right, a frame for each number of rows from 3 -->
+	<bitmap name="screens/box_left" frames="ce/port/pause/pausebox_left__0.png ce/port/pause/pausebox_left__1.png ce/port/pause/pausebox_left__2.png ce/port/pause/pausebox_left__3.png ce/port/pause/pausebox_left__4.png" width="16" height="256"/>
+	<bitmap name="screens/box_center" frames="ce/port/pause/pausebox_center__0.png ce/port/pause/pausebox_center__1.png ce/port/pause/pausebox_center__2.png ce/port/pause/pausebox_center__3.png ce/port/pause/pausebox_center__4.png" width="4" height="256"/>
+	<bitmap name="screens/box_right" frames="ce/port/pause/pausebox_right__0.png ce/port/pause/pausebox_right__1.png ce/port/pause/pausebox_right__2.png ce/port/pause/pausebox_right__3.png ce/port/pause/pausebox_right__4.png" width="16" height="256"/>
+	<widget name="screens/box_left" width="16" height="256" bitmap="screens/box_left"/>
+	<widget name="screens/box_center" width="194" height="256" bitmap="screens/box_center"/>
+	<widget name="screens/box_right" width="16" height="256" bitmap="screens/box_right"/>
+	<!-- a box's list and its rows, the Xbox's pause menu's: framed while focused (the game map's menu_bkds'
+	frames, which menu_screen.c gives them: ui.map has none), its words white -->
+	<widget name="screens/box_list" type="column_list" width="202" height="240" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<widget name="screens/box_item" type="text" width="202" height="27" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<!-- a box's legend row (<legend>): the game map's B = CANCEL, A = SELECT (button_key_sm, the keyboard's
+	keys in place of the controller's buttons while it plays), which menu_screen.c puts in it: ui.map,
+	which these files are made on too, has none -->
+	<widget name="screens/legend" width="200" height="20"/>
+	<!-- the objectives' box beside a box (<objectives>): its frame (a frame for 5, 6 and 7 rows), its
+	title and the mission's objectives, the game's, a line each -->
+	<bitmap name="screens/objectives_left" frames="ce/port/pause/objectives_left__0.png ce/port/pause/objectives_left__1.png ce/port/pause/objectives_left__2.png" width="16" height="256"/>
+	<bitmap name="screens/objectives_center" frames="ce/port/pause/objectives_center__0.png ce/port/pause/objectives_center__1.png ce/port/pause/objectives_center__2.png" width="4" height="256"/>
+	<bitmap name="screens/objectives_right" frames="ce/port/pause/objectives_right__0.png ce/port/pause/objectives_right__1.png ce/port/pause/objectives_right__2.png" width="16" height="256"/>
+	<widget name="screens/objectives_left" width="16" height="256" bitmap="screens/objectives_left"/>
+	<widget name="screens/objectives_center" width="253" height="256" bitmap="screens/objectives_center"/>
+	<widget name="screens/objectives_right" width="16" height="256" bitmap="screens/objectives_right"/>
+	<widget name="screens/objectives_title" type="text" width="204" height="22" font="ui\large_ui" color="#FF2896FF"/>
+	<widget name="screens/objectives_text" type="text" width="270" height="94" font="ui\small_ui" color="#FF0080FF">
+		<data input="solo game objective text"/>
+	</widget>
+	<!-- A pop-up's blocks (<dialog>: screens/quit.xml, screens/save_changes.xml): the Quit question's box
+	in the middle of the screen, as the PC version's quit_screen draws it (its alert_bkd, its blue border and
+	bands), its title in the top band, its words under it and its choices side by side in the bottom band, each
+	a button of Quit's OK and BACK (menu_screen.c places them, and makes the box as wide as its choices need,
+	its ends kept). -->
+	<!-- the screens a pop-up of its own opens as (menu_screen.c's screen_places): over the menus' scene, as
+	Quit's question is -->
+	<widget name="screens/save_changes" width="640" height="480" flags="pass_unhandled_to_focused_child"/>
+	<!-- the screen it was opened from, behind it (an editor's), dimmed -->
+	<widget name="screens/dialog_dim" width="640" height="480" bitmap="ui\shell\bitmaps\semi_transparent_grey"/>
+	<!-- the box, cut above its bottom band (as tall as its words need), and its foot, that band (tools/port_settings.py's
+	dialog_foot_svg, from alert_bkd's) -->
+	<widget name="screens/dialog" width="280" height="128" flags="keep_ends" bitmap="bitmaps/alert_bkd"/>
+	<widget name="screens/dialog_foot" width="280" height="32" flags="keep_ends" bitmap="dialog/dialog_foot"/>
+	<widget name="screens/dialog_title" type="text" width="245" height="20" font="ui\large_ui" color="#FF2896FF" text_flags="no_focus_test"/>
+	<widget name="screens/dialog_text" type="text" width="245" height="94" font="ui\large_ui" color="#FFCCCCCC" align="center" text_flags="no_focus_test wrap"/>
+	<!-- its choices: left and right step them, the pointer over one gives it the focus; A, Start, a click or a
+	tap does its do -->
+	<widget name="screens/dialog_list" type="column_list" width="640" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<widget name="screens/dialog_choice" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+		<on event="a" run="port screen do"/>
+		<on event="start" run="port screen do"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+</menus>

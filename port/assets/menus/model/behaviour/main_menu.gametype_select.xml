@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.gametype_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/gametype_select/gametype_select_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/gametype_select/gametype_select_button_ok">
+		<on event="a" run="emit custom activation event"/>
+		<on event="start" run="emit custom activation event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/gametype_select/gametype_select_list_2" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="mp profiles list initialize"/>
+		<on event="deleted" run="mp profiles list dispose"/>
+		<on event="custom_activation" run="mp profile set for game" open="main_menu/multiplayer_type_select/server_settings/server_settings_screen"/>
+	</behaviour>
+	<behaviour name="main_menu/gametype_select/gametype_select_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="net server defer start"/>
+	</behaviour>
+	<behaviour name="main_menu/gametype_select/list_item_0_chooser" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/gametype_select/list_item_0_chooser_spinner" flags="left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+</model>

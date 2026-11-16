@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.gamepad_setup.button_remapping.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_remapping_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/header_button_remapping" x="0" y="0"/>
+		<at widget="main_menu/settings/profile" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/header_button_remapping" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/settings/tall_titles" index="9" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_0" x="28" y="50"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_remap_player" x="28" y="72"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_remap_group" x="28" y="97"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_3" x="28" y="128"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_1" x="28" y="150"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_2" x="28" y="175"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_3" x="28" y="200"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_4" x="28" y="225"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_5" x="28" y="250"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_6" x="28" y="275"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_10" x="28" y="306"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_controller_buttons" x="28" y="328"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_bar" x="0" y="448"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_defaults" x="24" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_cancel" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_defaults" type="text" box="0 0 128 24" wide="-106 0" past="-143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/button_cancel" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_0" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_0_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_0_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_remap_player" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_value" x="188" y="2"/>
+		<at widget="main_menu/settings/stepped_left" x="182" y="6"/>
+		<at widget="main_menu/settings/stepped_right" x="328" y="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" index="1" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_player_value" type="text" box="0 0 140 16" wide="40 120" past="60 60">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_remap_group" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_value" x="188" y="2"/>
+		<at widget="main_menu/settings/stepped_left" x="182" y="6"/>
+		<at widget="main_menu/settings/stepped_right" x="328" y="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/remap_group_value" type="text" box="0 0 140 16" wide="40 120" past="60 60">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_3" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_3_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_3_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" index="3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_1" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_1_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_1_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_1_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_1_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_2" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_2_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_2_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_2_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_2_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_3" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_3_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_3_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_3_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_3_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_4" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_4_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_4_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_4_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_4_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_5" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_5_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_5_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_5_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_5_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_pad_6" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_6_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_6_value" x="218" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_6_label" type="text" box="0 0 214 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/pad_6_value" type="text" box="0 0 110 16" wide="244 0" past="193 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="right" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_10" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_10_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/section_10_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" index="10" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/op_controller_buttons" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/controller_buttons_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/button_remapping/labels" index="11" scale="1 1.2"/>
+	</look>
+</model>

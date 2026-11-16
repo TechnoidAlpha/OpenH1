@@ -480,7 +480,11 @@ static inline void xgpu_hdr_sdr_pixel(const float rgba[4], unsigned char bgra[4]
 	float rgb[3] = { rgba[0], rgba[1], rgba[2] };
 	int channel;
 
-	xgpu_hdr_tone_map(rgb, XGPU_HDR_MODE_FAITHFUL, 1.0f);
+	/* (Faithful leaves a pixel no channel of which is past white as it is:
+	most of a frame, whose six powf a pixel took a 4K frame more than a
+	second on the render thread) */
+	if (rgb[0] > 1.0f || rgb[1] > 1.0f || rgb[2] > 1.0f)
+		xgpu_hdr_tone_map(rgb, XGPU_HDR_MODE_FAITHFUL, 1.0f);
 	for (channel = 0; channel < 4; channel++)
 	{
 		float value = channel == 3 ? rgba[3] : rgb[channel];

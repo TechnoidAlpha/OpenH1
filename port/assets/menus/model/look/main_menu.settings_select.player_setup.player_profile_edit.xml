@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/about_item" type="text" box="51 310 283 342" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="9"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings_profile_item" type="text" box="51 210 283 242" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/color_profile_item" type="text" box="51 277 283 309" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/controller_setup_profile_item" type="text" box="51 111 283 143" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/gamepads_profile_item" type="text" box="51 144 283 176" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/header_profile_settings" box="35 11 640 70" picture="main_menu/settings_select/player_setup/player_profile_edit/header_edit_profile_settings"/>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings_profile_item" type="text" box="51 177 283 209" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/name_profile_item" type="text" box="51 78 283 110" picture="bitmaps/list_item_bkd_top">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/network_settings_profile_item" type="text" box="51 277 283 309" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/player_profile_edit_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/header_profile_settings" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_select_list" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_label" x="293" y="375"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_extended_desc_pic" box="288 85 567 287" picture="main_menu/settings_select/player_setup/player_profile_edit/profile_options"/>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_extended_desc_text" type="text" box="294 290 590 400">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_descriptions" replace="__BUILD__ build_number|__PID__ pid"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_extended_description" box="275 78 595 440" picture="bitmaps/list_field">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_extended_desc_text" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_extended_desc_pic" x="4" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_select_list" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/name_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/controller_setup_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/gamepads_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/network_settings_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/color_profile_item" x="0" y="32"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/about_item" x="0" y="32"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_setup_profile_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_label" type="text" box="0 0 400 22">
+		<text font="ui\large_ui" color="#FFFFFFFF"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings_profile_item" type="text" box="51 243 283 275" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_edit_options" index="5"/>
+	</look>
+</model>

@@ -41,6 +41,7 @@ executable's symbols, name it); a run of one site is <site>*<count>.
 #include "memory/data.h"
 #include "memory/memory_pool.h"
 #include "objects/objects.h"
+#include "tag_files/tag_groups.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -261,13 +262,33 @@ static unsigned long determinism_hash(
 	return hash;
 }
 
+/* whether an object's attachment of this type is a datum of the frames'
+allocations (tools/determinism_compare.py's FRAME_ALLOCATIONS): a light, a
+looping sound, a contrail or a particle system. The tick makes it with the
+object (objects.c's attachments_new), but in a slot of an array the frames
+free slots of too (a contrail whose points have run out, a light's fade, a
+sound the mixer let go), so the index the object keeps is the frames' as
+much as the slot is: two runs of one game whose lobbies differed in length
+kept a projectile's tracer, a contrail, at index 0 and at 1. Nothing of the
+ticks but the frames' own work goes by the index (an effect's, the
+simulation's, is compared) */
+static boolean determinism_frames_attachment(
+	char type)
+{
+	return type == _object_attachment_type_light ||
+		type == _object_attachment_type_looping_sound ||
+		type == _object_attachment_type_contrail ||
+		type == _object_attachment_type_particle_system;
+}
+
 /* the objects' memory pool: its header and its blocks, but for each
 object's magic number, the collision tests' mark (objects.c's
 object_mark_function), which the tests of the frames (the sounds'
 obstruction, the camera's) leave as well as the ticks', and which means
-nothing between two tests, and its cached render state's index, which the
-renderer gives it as it draws it; and not the free space after the last
-block, which holds what deleted objects left there */
+nothing between two tests, the indices of its attachments that are the
+frames' (above), and its cached render state's index, which the renderer
+gives it as it draws it; and not the free space after the last block,
+which holds what deleted objects left there */
 static unsigned long determinism_hash_objects(
 	struct memory_pool const *pool,
 	long size,
@@ -282,32 +303,53 @@ static unsigned long determinism_hash_objects(
 	while (block && (byte const *)block >= start && (byte const *)(block + 1) <= end && blocks++ < size)
 	{
 		struct object_datum const *object = (struct object_datum const *)(block + 1);
-		byte const *magic = (byte const *)&object->object.magic_number;
-		byte const *render_state = (byte const *)&object->object.cached_render_state_index;
+		byte const *block_end = (byte const *)block + block->size;
+		/* (the fields left out, in their order in the object) */
+		byte const *skipped[2 + MAXIMUM_NUMBER_OF_ATTACHMENTS_PER_OBJECT];
+		short skipped_count = 0;
+		short index;
 
-		if (magic + sizeof(object->object.magic_number) > end || block->size < (long)sizeof(*block) ||
-			(byte const *)block + block->size > end)
+		if ((byte const *)(&object->object.magic_number + 1) > end || block->size < (long)sizeof(*block) ||
+			block_end > end)
 		{
 			break;
 		}
-		hash = determinism_hash(start, (long)(magic - start), hash);
-		start = magic + sizeof(object->object.magic_number);
-		if (render_state + sizeof(object->object.cached_render_state_index) <= (byte const *)block + block->size)
+		skipped[skipped_count++] = (byte const *)&object->object.magic_number;
+		if ((byte const *)(&object->object.attachment_indices[MAXIMUM_NUMBER_OF_ATTACHMENTS_PER_OBJECT]) <= block_end)
 		{
-			hash = determinism_hash(start, (long)(render_state - start), hash);
-			start = render_state + sizeof(object->object.cached_render_state_index);
+			/* (the attachments attachments_new made, the definition's count:
+			the slots past it are as the object was made) */
+			short attachment_count = (short)MIN(
+				object_definition_get(object->definition_index)->object.attachments.count,
+				MAXIMUM_NUMBER_OF_ATTACHMENTS_PER_OBJECT);
+
+			for (index = 0; index < attachment_count; index++)
+			{
+				if (determinism_frames_attachment(object->object.attachment_types[index]))
+					skipped[skipped_count++] = (byte const *)&object->object.attachment_indices[index];
+			}
 		}
-		last_end = (byte const *)block + block->size;
+		if ((byte const *)(&object->object.cached_render_state_index + 1) <= block_end)
+			skipped[skipped_count++] = (byte const *)&object->object.cached_render_state_index;
+		for (index = 0; index < skipped_count; index++)
+		{
+			/* (each a long) */
+			hash = determinism_hash(start, (long)(skipped[index] - start), hash);
+			start = skipped[index] + sizeof(long);
+		}
+		last_end = block_end;
 		block = block->next_block;
 	}
 
 	return determinism_hash(start, (long)(last_end > start ? last_end - start : 0), hash);
 }
 
-/* with debug.fresh_memory_fill, a data array: its header and its datums in
-use, not its free slots, which hold the fill (or what a deleted datum
-left), so that a zero and a pattern run differ only where something read
-the fill */
+/* a data array: its header and its datums in use, not its free slots,
+which hold the fill (or what a deleted datum left), so that a zero and a
+pattern run differ only where something read the fill (debug.fresh_memory_
+fill), and a demo's playback does not differ from its recording where its
+frames, not the ticks, made a datum and deleted it again (each tick's u
+line) */
 static unsigned long determinism_hash_data_array(
 	struct data_array const *data,
 	long size,
@@ -398,6 +440,24 @@ void determinism_log_tick_end(
 
 		fprintf(file, " %08lx", allocation_hash);
 		hash = (hash ^ allocation_hash) * 16777619UL;
+	}
+	fputc('\n', file);
+	/* (each allocation's hash again, its data arrays' of their datums in use
+	only: what the ticks can read of them, determinism_compare.py's
+	--simulation) */
+	fputc('u', file);
+	for (index = 0; index < determinism_log.allocation_count; index++)
+	{
+		struct determinism_allocation const *allocation = &determinism_log.allocations[index];
+
+		if (allocation->size >= (long)sizeof(struct data_array) &&
+			((struct data_array const *)allocation->address)->signature == 'd@t@' &&
+			((struct data_array const *)allocation->address)->data == (struct data_array const *)allocation->address + 1)
+		{
+			fprintf(file, " %08lx", determinism_hash_data_array(allocation->address, allocation->size, 2166136261UL));
+		}
+		else
+			fputs(" =", file);
 	}
 	fputc('\n', file);
 	if (determinism_log.rate != sim_rate_get())

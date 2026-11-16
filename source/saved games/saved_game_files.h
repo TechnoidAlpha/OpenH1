@@ -109,6 +109,9 @@ word saved_game_file_get_type(
 	long profile_index);
 void enumerate_memory_units_test(
 	void);
+/* port: whether this run's enumeration has written the mapfile */
+boolean saved_game_files_enumerated(
+	void);
 
 /* ---------- globals */
 

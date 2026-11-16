@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_empty" type="text" controller="1" left="52" top="230" width="316" height="80" font="ui\large_ui" color="#FF2896FF" align="center" wide="-106 144" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_empty" type="text" controller="1" left="52" top="230" width="316" height="80" font="ui\large_ui" color="#FF2896FF" align="center" wide="-106 144" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/join_game_items_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/join_game/touch/browser_panel">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_counts" type="text" controller="1" left="66" top="4" width="300" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="-106 0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser/_part_text">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/join_game_items_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/join_game/touch/browser_panel" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<data input="gamespy screen update"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/join_game_header" y="18"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/browser_tabs" y="76"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_1" x="28" y="134"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_2" x="28" y="190"/>
@@ -12,9 +15,45 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_4" x="28" y="302"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_5" x="28" y="358"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/browser_join_bar" y="348"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/browser_clear_bar" y="316"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/join_game_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_tabs" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/join_game_header" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_touch_browser">
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/op_search_any" x="380"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/op_search_field_any" x="380"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/op_search_clear_any" x="560"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/op_search_any" type="text" width="176" height="52" wide="-102 208" bitmap="main_menu/parts/touch_field_176x52" text="SEARCH" font="ui\small_ui" color="#FF6F9CD0" text_x="52" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser">
+		<on event="a" run="port browser search"/>
+		<on event="start" run="port browser search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/search_glass" x="16" y="16"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/op_search_field_any" type="text" width="176" height="52" wide="-102 208" bitmap="main_menu/parts/touch_field_176x52" font="ui\large_ui" color="#FFFFFFFF" text_x="52" text_y="16" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser">
+		<on event="a" run="port browser search"/>
+		<on event="start" run="port browser search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/search_glass" x="16" y="16"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/op_search_clear_any" width="52" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_52x52" source="tools/port_settings.py multiplayer_files/_touch_browser">
+		<on event="a" run="port browser search clear"/>
+		<on event="start" run="port browser search clear"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/search_cross" x="16" y="16"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/search_glass" width="20" height="20" bitmap="main_menu/multiplayer_type_select/join_game/touch/search_icon" source="tools/port_settings.py multiplayer_files/_touch_browser">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/search_cross" width="20" height="20" bitmap="main_menu/multiplayer_type_select/join_game/touch/search_clear" source="tools/port_settings.py multiplayer_files/_touch_browser">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_clear_bar" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child" source="tools/port_settings.py multiplayer_files/_touch_browser">
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/button_clear_search" x="110"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/button_clear_search" type="text" width="200" height="52" wide="-34 0" bitmap="main_menu/parts/touch_button_200x52" text="CLEAR SEARCH" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser">
+		<on event="a" run="port browser search clear"/>
+		<on event="start" run="port browser search clear"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_tabs" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/tab_all" x="28"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/tab_dedicated" x="126"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/tab_openh1" x="224"/>
@@ -22,37 +61,37 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/tab_coop" x="420"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/tab_favorites" x="518"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_all" type="text" controller="1" width="92" height="52" wide="-106 35" bitmap="main_menu/parts/chip_92x52" text="ALL" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_all" type="text" controller="1" width="92" height="52" wide="-106 35" bitmap="main_menu/parts/chip_92x52" text="ALL" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<on event="a" run="port browser tab"/>
 		<on event="start" run="port browser tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_dedicated" type="text" controller="1" width="92" height="52" wide="-71 35" bitmap="main_menu/parts/chip_92x52" text="DEDICATED" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_dedicated" type="text" controller="1" width="92" height="52" wide="-71 35" bitmap="main_menu/parts/chip_92x52" text="DEDICATED" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<on event="a" run="port browser tab"/>
 		<on event="start" run="port browser tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_openh1" type="text" controller="1" width="92" height="52" wide="-36 35" bitmap="main_menu/parts/chip_92x52" text="OPENH1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_openh1" type="text" controller="1" width="92" height="52" wide="-36 35" bitmap="main_menu/parts/chip_92x52" text="GOAT H1" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<on event="a" run="port browser tab"/>
 		<on event="start" run="port browser tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_legacy" type="text" controller="1" width="92" height="52" wide="-1 35" bitmap="main_menu/parts/chip_92x52" text="LEGACY" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_legacy" type="text" controller="1" width="92" height="52" wide="-1 35" bitmap="main_menu/parts/chip_92x52" text="LEGACY" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<on event="a" run="port browser tab"/>
 		<on event="start" run="port browser tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_coop" type="text" controller="1" width="92" height="52" wide="34 35" bitmap="main_menu/parts/chip_92x52" text="CO-OP" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_coop" type="text" controller="1" width="92" height="52" wide="34 35" bitmap="main_menu/parts/chip_92x52" text="CO-OP" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<on event="a" run="port browser tab"/>
 		<on event="start" run="port browser tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_favorites" type="text" controller="1" width="92" height="52" wide="69 35" bitmap="main_menu/parts/chip_92x52" text="FAVORITES" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/tab_favorites" type="text" controller="1" width="92" height="52" wide="69 35" bitmap="main_menu/parts/chip_92x52" text="FAVORITES" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_chips">
 		<on event="a" run="port browser tab"/>
 		<on event="start" run="port browser tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_1" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_1" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<on event="a" run="gamespy select item"/>
 		<on event="start" run="gamespy select item"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -65,8 +104,9 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" y="9"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" x="272" y="29"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" x="272" y="30"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_heading" x="32" y="7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_2" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_2" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<on event="a" run="gamespy select item"/>
 		<on event="start" run="gamespy select item"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -79,8 +119,9 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" y="9"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" x="272" y="29"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" x="272" y="30"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_heading" x="32" y="7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_3" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_3" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<on event="a" run="gamespy select item"/>
 		<on event="start" run="gamespy select item"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -93,8 +134,9 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" y="9"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" x="272" y="29"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" x="272" y="30"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_heading" x="32" y="7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_4" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_4" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<on event="a" run="gamespy select item"/>
 		<on event="start" run="gamespy select item"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -107,8 +149,9 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" y="9"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" x="272" y="29"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" x="272" y="30"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_heading" x="32" y="7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_5" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_5" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<on event="a" run="gamespy select item"/>
 		<on event="start" run="gamespy select item"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
@@ -121,30 +164,33 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" y="9"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" x="272" y="29"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" x="272" y="30"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/touch/server_item_heading" x="32" y="7"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_server_name" type="text" width="220" height="20" font="ui\large_ui" color="#FFFFFFFF" wide="0 144">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_heading" type="text" width="300" height="20" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test" wide="0 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_map" type="text" width="120" height="16" font="ui\small_ui" color="#FFC9DCF7" wide="0 72">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_server_name" type="text" width="220" height="20" font="ui\large_ui" color="#FFFFFFFF" wide="0 144" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_type" type="text" width="100" height="16" font="ui\small_ui" color="#FFC9DCF7" wide="72 72">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_map" type="text" width="120" height="16" font="ui\small_ui" color="#FFC9DCF7" wide="0 72" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_players" type="text" width="80" height="20" font="ui\large_ui" color="#FFC9DCF7" align="right" wide="144 0">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_type" type="text" width="100" height="16" font="ui\small_ui" color="#FFC9DCF7" wide="72 72" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_tick" type="text" width="30" height="16" bitmap="main_menu/parts/pill_30" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_players" type="text" width="80" height="20" font="ui\large_ui" color="#FFC9DCF7" align="right" wide="144 0" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/locked_icon">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_tick" type="text" width="30" height="16" bitmap="main_menu/parts/pill_30" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" width="24" height="16" bitmap="main_menu/multiplayer_type_select/ping_bars" wide="144 0">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_locked" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/locked_icon" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" type="text" width="80" height="16" font="ui\small_ui" color="#FFC9DCF7" align="right" text_flags="no_focus_test" wide="144 0">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_ping" width="24" height="16" bitmap="main_menu/multiplayer_type_select/ping_bars" wide="144 0" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/panel_title" type="text" controller="1" width="188" height="44" font="ui\large_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/server_item_ping_ms" type="text" width="80" height="16" font="ui\small_ui" color="#FFC9DCF7" align="right" text_flags="no_focus_test" wide="144 0" source="tools/port_settings.py multiplayer_files/_touch_browser">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/panel_where" type="text" controller="1" width="188" height="30" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/panel_title" type="text" controller="1" width="188" height="44" font="ui\large_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/panel_status" type="text" controller="1" width="188" height="84" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/panel_where" type="text" controller="1" width="188" height="30" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_panel" controller="1" left="400" top="134" width="212" height="276" bitmap="main_menu/parts/panel_212x276" wide="38 68">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/panel_status" type="text" controller="1" width="188" height="84" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_browser/_part_text">
+	</widget>
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_panel" controller="1" left="400" top="134" width="212" height="276" bitmap="main_menu/parts/panel_212x276" wide="38 68" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/panel_title" x="412" y="144"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/panel_where" x="412" y="188"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/panel_status" x="412" y="260"/>
@@ -152,42 +198,42 @@
 		<child widget="main_menu/multiplayer_type_select/join_game/panel_tick" x="480" y="220"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/panel_opence" x="412" y="240"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_join_bar" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/browser_join_bar" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/button_join" x="412"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/button_join" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" text="JOIN GAME" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="16">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/button_join" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" text="JOIN GAME" font="ui\large_ui" color="#FFFFFFFF" align="center" text_y="16" source="tools/port_settings.py multiplayer_files/_touch_browser">
 		<on event="a" run="gamespy select button"/>
 		<on event="start" run="gamespy select button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/join_game_button_bar" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/join_game_button_bar" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_prompts">
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/prompt_favorite" x="28"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/prompt_refresh" x="170"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/prompt_paste" x="170"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/prompt_sort" x="312"/>
 		<child widget="main_menu/multiplayer_type_select/join_game/touch/prompt_back" x="502"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_favorite" type="text" width="136" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_136x52" text="FAVORITE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_favorite" type="text" width="136" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_136x52" text="FAVORITE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_prompts">
 		<on event="a" run="port browser favorite"/>
 		<on event="start" run="port browser favorite"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_refresh" type="text" width="136" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_136x52" text="REFRESH" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_refresh" type="text" width="136" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_136x52" text="REFRESH" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_prompts">
 		<on event="a" run="port browser refresh"/>
 		<on event="start" run="port browser refresh"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_paste" type="text" width="136" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_136x52" text="PASTE LINK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_paste" type="text" width="136" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_136x52" text="PASTE LINK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_prompts">
 		<on event="a" run="port browser refresh"/>
 		<on event="start" run="port browser refresh"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_sort" type="text" width="136" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_136x52" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_sort" type="text" width="136" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_136x52" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_prompts">
 		<on event="a" run="port browser sort"/>
 		<on event="start" run="port browser sort"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_back" type="text" width="110" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_110x52" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/join_game/touch/prompt_back" type="text" width="110" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_110x52" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_browser/_touch_prompts">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

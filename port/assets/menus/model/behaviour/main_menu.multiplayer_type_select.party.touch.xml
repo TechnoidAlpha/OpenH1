@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.party.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/party_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/party_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_make">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_copy">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_paste">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_follow">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_end">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_leave">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/party/touch/prompt_back">
+		<on event="a" run="port party button"/>
+		<on event="start" run="port party button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

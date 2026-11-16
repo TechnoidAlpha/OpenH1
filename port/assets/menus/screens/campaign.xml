@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The campaign: alone, or co-op (docs/menu_screens.md). Opened by the main
+menu's CAMPAIGN; B goes back to it. Full screen, as Settings and the
+browsers: its title in the band at the top, two cards centred in the room
+under it, each a level's still (the campaign's pictures, by level), and the
+button bar at the bottom, BACK left and SELECT right. -->
+<screen name="campaign">
+	<header title="CAMPAIGN"/>
+	<space/>
+	<cards focus="solo">
+		<card id="solo" title="SOLO" subtitle="Play the story on your own" picture="main_menu/campaign/art_146x119" frame="0" do="open solo"/>
+		<card id="coop" title="CO-OP" subtitle="Host, play with friends, or join a public game" picture="main_menu/campaign/art_146x119" frame="3" do="open coop"/>
+	</cards>
+	<space/>
+	<buttons>
+		<button key="accept" label="SELECT"/>
+		<button key="back" label="BACK"/>
+	</buttons>
+</screen>

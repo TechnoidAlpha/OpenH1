@@ -436,6 +436,7 @@ static void render_contrail(
 			}
 			rasterizer_dynamic_triangles_unlock(triangle_buffer_index);
 			rasterizer_dynamic_vertices_unlock(vertex_buffer_index);
+			render_marks_next(RENDER_MARK_CONTRAIL, definition->bitmap.index); /* port: debug.render_marks */
 			rasterizer_dynamic_unlit_geometry_draw(
 				(struct shader const *)shader,
 				bitmap,
@@ -445,6 +446,7 @@ static void render_contrail(
 				triangle_count,
 				&average_position,
 				0);
+			render_marks_next(NONE, NONE); /* port: (made) */
 			rasterizer_dynamic_triangles_delete(triangle_buffer_index);
 			rasterizer_dynamic_vertices_delete(vertex_buffer_index);
 		}

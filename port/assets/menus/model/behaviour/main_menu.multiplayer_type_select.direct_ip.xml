@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.direct_ip.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/direct_ip_button_join">
+		<on event="a" run="direct ip connect go"/>
+		<on event="start" run="direct ip connect go"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/direct_ip_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="direct ip connect init"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/direct_ip_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/op_server_address" flags="pass_unhandled_to_focused_child">
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/op_server_password" flags="pass_unhandled_to_focused_child">
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/server_address_value_label" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="direct ip edit field"/>
+		<on event="start" run="direct ip edit field"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/direct_ip/server_password_value_label" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="direct ip edit field"/>
+		<on event="start" run="direct ip edit field"/>
+	</behaviour>
+</model>

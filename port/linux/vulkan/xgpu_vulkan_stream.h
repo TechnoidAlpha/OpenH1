@@ -28,4 +28,19 @@ struct xgpu_vulkan_image *xgpu_vulkan_stream_target(uint32_t number);
 void xgpu_vulkan_stream_set_vr_target(uint32_t number, struct xgpu_vulkan_image *image);
 void xgpu_vulkan_stream_vr_changed(void);
 
+/* (the render thread) a colour target's pixels as an SDR display shows
+them (display.hdr's tone mapped): BGRA rows from the top, malloc'd; NULL if
+it has none. The shot: them as a PNG at path, nonzero if written
+(host_render_record.h's shooter). */
+unsigned char *xgpu_vulkan_stream_read(uint32_t number, uint32_t *width, uint32_t *height);
+int xgpu_vulkan_stream_shot(uint32_t number, const char *path);
+
+/* (the render thread) the replay's ID buffer (port/tools/replay/
+host_render_replay.h): of the target a frame presents, its draws numbered
+as they come (xgpu_vulkan_inspect_*) */
+int xgpu_vulkan_stream_ids_begin(uint32_t number, uint32_t depth);
+void xgpu_vulkan_stream_ids_draw(uint32_t index);
+uint32_t *xgpu_vulkan_stream_ids_read(uint32_t number, uint32_t *width, uint32_t *height);
+void xgpu_vulkan_stream_ids_end(void);
+
 #endif

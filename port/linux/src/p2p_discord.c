@@ -486,8 +486,13 @@ static int compose(struct activity *activity)
 		snprintf(activity->details, sizeof(activity->details), "In the menus");
 	else
 	{
-		snprintf(activity->details, sizeof(activity->details), "%s%s", discord.game.hosting ? "Hosting " : "",
-			discord.game.description);
+		/* (the description's "OpenH1 <rate> Tick", which friends' machines
+		read as sent, doubles_friend_in_kind, said by the name players know) */
+		const char *description = discord.game.description;
+		int renamed = !strncmp(description, "OpenH1 ", 7);
+
+		snprintf(activity->details, sizeof(activity->details), "%s%s%s", discord.game.hosting ? "Hosting " : "",
+			renamed ? "GOAT H1 " : "", description + (renamed ? 7 : 0));
 	}
 	if (discord.own_art && (party.active || discord.game.hosting))
 	{
@@ -554,7 +559,7 @@ static void send_activity(const struct activity *activity, int shown)
 		}
 		/* (the images uploaded under these names in the application's Rich
 		Presence art assets) */
-		put(&writer, ",\"assets\":{\"large_image\":\"logo\",\"large_text\":\"OpenH1\"");
+		put(&writer, ",\"assets\":{\"large_image\":\"logo\",\"large_text\":\"GOAT H1\"");
 		if (activity->small_image[0])
 		{
 			put(&writer, ",\"small_image\":");
@@ -823,7 +828,7 @@ void p2p_discord_update(void)
 			running; the game then receives the invite once connected */
 			snprintf(scheme, sizeof(scheme), "discord-%s", application);
 			/* (it lets go of the p2p lock while it may wait) */
-			p2p_register_url_scheme(scheme, "OpenH1");
+			p2p_register_url_scheme(scheme, "GOAT H1");
 		}
 	}
 	if (!discord.enabled)

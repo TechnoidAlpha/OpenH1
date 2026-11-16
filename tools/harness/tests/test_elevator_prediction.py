@@ -12,9 +12,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run, structure  # noqa: E402
 
 SOURCE = "port/linux/game/network_distributed.c"
-CASES = ["riding-up", "elevator-at-rest", "on-foot", "jump-at-rest", "left-platform",
+CASES = ["riding-up", "elevator-at-rest", "on-foot", "mcc-host-movement", "jump-at-rest", "left-platform",
          "reversals-100ms", "reversals-200ms"]
-FUNCTIONS = ("distributed_supported_elevator", "distributed_riding_elevator", "distributed_take_prediction")
+FUNCTIONS = ("distributed_supported_elevator", "distributed_riding_elevator", "distributed_air_part_vehicle",
+             "distributed_take_prediction")
 
 # a fault in network_distributed.c, the function it is in, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -23,6 +24,9 @@ NEGATIVE_CONTROLS = {
     "stopped-floor-not-protected": (("distributed_supported_elevator(unit_index) != NONE",
                                     "FALSE"), "distributed_riding_elevator",
                                "elevator-at-rest"),
+    # (riding taken before the MCC guard: the host's movement is overridden by the client's riding)
+    "riding-before-mcc-guard": (("\tif (mcc_script_effects_host_movement())\n\t\treturn;\n", ""),
+                                "distributed_take_prediction", "mcc-host-movement"),
     "airborne-is-supported": (("TEST_FLAG(biped->biped.flags, _biped_airborne_bit)", "FALSE"),
                               "distributed_supported_elevator", "jump-at-rest"),
 }

@@ -13,6 +13,9 @@ host's half is host_windows.c; host_imports.list here lists them.
 /* p2p.c's hardware id: the SMBIOS system UUID, else the registry's
 MachineGuid, as text into text (size bytes); 0 if neither */
 int host_windows_hardware_id(char *text, int size);
+/* sdl_platform.c's frames' limit: sleeps until a time of CLOCK_MONOTONIC
+(nanoseconds), on time (the timer, then a spin) */
+void host_windows_sleep_until(unsigned long long when);
 
 /* ---------- what the platform layer calls */
 

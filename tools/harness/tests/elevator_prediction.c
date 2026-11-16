@@ -19,6 +19,12 @@ unit there.
 
 #include "harness.h"
 
+/* Legacy movement: the MCC authority hook is inactive, but for the case that sets it
+(an MCC map's movement effects, which stay the host's: no client word taken, riding's neither) */
+static boolean mcc_host_movement;
+static long riding_reads;
+static boolean mcc_script_effects_host_movement(void) { return mcc_host_movement; }
+
 #include <limits.h>
 #include <math.h>
 
@@ -36,6 +42,7 @@ struct fake_object
 	struct
 	{
 		real_point3d position;
+		real_vector3d translational_velocity;
 	} object;
 	struct
 	{
@@ -75,6 +82,8 @@ static long game_time;
 struct distributed_unit_state
 {
 	real_point3d position;
+	boolean deck_present;
+	struct { short ticks; long vehicle_index; short node_index; } deck;
 };
 
 #define MIN(a,b) ((a)<(b)?(a):(b))
@@ -103,6 +112,12 @@ static struct
 	real_point3d position;
 	long taken_host_time;
 	real_point3d taken_host_position;
+	long vehicle_index;
+	short node_index;
+	long transition_until;
+	long transition_leash_time;
+	long taken_air_unit_index;
+	long taken_air_vehicle;
 } distributed_accepted[MAXIMUM_TRACKED_PLAYERS];
 static struct
 {
@@ -124,7 +139,25 @@ static boolean apply(long unit_index, real_point3d const *position)
 	objects[unit_index].object.position = *position;
 	return TRUE;
 }
-#define distributed_apply_state(unit_index, state, position, tolerance, blend, speed, fall) apply(unit_index, position)
+#define distributed_apply_state(unit_index, state, position, velocity, tolerance, blend, speed, fall) apply(unit_index, position)
+
+/* (this fixture has no vehicle window: keep the elevator's original path) */
+struct vehicle_riding_state { long unused; long ticks; long object_index; };
+struct vehicle_riding_vehicle { long unused; };
+enum { _vehicle_riding_host_world, _vehicle_riding_host_deck };
+#define biped_riding_get_state(index, state) (riding_reads++, FALSE)
+#define vehicle_riding_host_path(host, present, deck, transition) _vehicle_riding_host_world
+#define vehicle_riding_is_riding(host) FALSE
+#define vehicle_riding_deck_valid(deck, nodes) FALSE
+#define biped_riding_vehicle(index, node, vehicle) FALSE
+#define distributed_take_riding(player, unit, bound, deck_part) FALSE
+#define csmemset memset
+#define RIDING_TICKS 60
+#define distributed_riding_transition(player, unit, host) ((void)0)
+#define vehicle_riding_host_leash(client, host, leash) FALSE
+#define vehicle_riding_transition_leash() 0.f
+#define vehicle_riding_host_target(path, client_node, host_node, host_base, deck, client_base, base) ((void)0)
+#define biped_get_physics_pill(unit, base, height, width) ((void)0)
 
 #include "under_test.inc"
 
@@ -155,7 +188,7 @@ static void ride(long elevator_index, real rise, long round_trip)
 	bound.rise = 1000.0f;
 	objects[UNIT].mask = _object_mask_biped;
 	objects[UNIT].biped.elevator_object_index = elevator_index;
-	objects[UNIT].biped.support_surface_index = 1;
+	objects[UNIT].biped.support_surface_index = NONE;
 	objects[UNIT].biped.elevator_ticks = 60;
 	objects[UNIT].object.position.z = floor;
 	objects[ELEVATOR].mask = _object_mask_device;
@@ -190,7 +223,7 @@ static real taken_height(long elevator_index, real velocity, real client_z)
 	bound.rise = 1000.0f;
 	objects[UNIT].mask = _object_mask_biped;
 	objects[UNIT].biped.elevator_object_index = elevator_index;
-	objects[UNIT].biped.support_surface_index = 1;
+	objects[UNIT].biped.support_surface_index = NONE;
 	objects[UNIT].biped.elevator_ticks = 60;
 	objects[UNIT].object.position.z = 10.0f;
 	objects[ELEVATOR].mask = _object_mask_device;
@@ -228,6 +261,17 @@ int main(int argc, char **argv)
 		real height = taken_height(NONE, 0.0f, 10.4f);
 
 		CHECK(height == 10.4f, "on foot, the client's height 10.4 not taken: %f", height);
+		return 0;
+	}
+	/* an MCC map's movement effects: the host keeps its own copy where it is, and riding is never asked */
+	CASE("mcc-host-movement")
+	{
+		real height;
+
+		mcc_host_movement = TRUE;
+		height = taken_height(NONE, 0.0f, 10.4f);
+		CHECK(height == 10.0f, "the client's height %f taken while the host moves the player", height);
+		CHECK(riding_reads == 0, "riding read %ld times while the host moves the player", riding_reads);
 		return 0;
 	}
 	CASE("jump-at-rest")

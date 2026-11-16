@@ -3,7 +3,8 @@ SHIELD_COLOR.C
 
 Your energy shield's color, as this machine draws it (Video Setup > FOV and
 Viewmodels > Shield Color): the flare in one of the multiplayer armor colors
-instead of the shield's own, whatever color the armor is. The shield's own
+instead of the shield's own, whatever color the armor is; each local
+player's own (their profile's: player_settings.c), on their own unit. The shield's own
 shader is drawn, only its two colors are replaced, keeping their brightness:
 no new assets. Others see your shield as their own settings draw it.
 
@@ -17,11 +18,9 @@ Only the drawing is changed; the shield itself is the game's.
 #include "game/players.h"
 #include "saved games/player_profile.h"
 
-#include <string.h>
+#include "player_settings.h"
 
-/* port/linux/src/port_config.c */
-const char *config_string(const char *name);
-unsigned long config_changes(void);
+#include <string.h>
 
 /* the multiplayer armor colors, in the profile's order (player_profile.c) */
 static char const *const shield_color_names[] =
@@ -31,23 +30,28 @@ static char const *const shield_color_names[] =
 };
 
 static unsigned long shield_color_changes = (unsigned long)-1;
-static short shield_color_index = NONE;
+/* each local player's color (NONE: the shield's own) */
+static short shield_color_indices[MAXIMUM_NUMBER_OF_LOCAL_PLAYERS];
 
 static void shield_color_update(
 	void)
 {
-	char const *value;
-	short index;
+	short local_player_index;
 
 	if (shield_color_changes == config_changes())
 		return;
 	shield_color_changes = config_changes();
-	shield_color_index = NONE;
-	value = config_string("display.shield_color");
-	for (index = 0; value && index < (short)NUMBEROF(shield_color_names); index++)
+	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
 	{
-		if (!strcmp(value, shield_color_names[index]))
-			shield_color_index = index;
+		char const *value = config_player_string(local_player_index, "display.shield_color");
+		short index;
+
+		shield_color_indices[local_player_index] = NONE;
+		for (index = 0; value && index < (short)NUMBEROF(shield_color_names); index++)
+		{
+			if (!strcmp(value, shield_color_names[index]))
+				shield_color_indices[local_player_index] = index;
+		}
 	}
 }
 
@@ -63,13 +67,14 @@ real_rgb_color const *shield_color_colors(
 	short local_player_index;
 
 	shield_color_update();
-	if (shield_color_index == NONE || !colors)
+	if (!colors)
 		return colors;
 	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
 	{
 		long player_index = local_player_get_player_index(local_player_index);
 
-		if (player_index != NONE && player_get(player_index)->unit_index == unit_index)
+		if (shield_color_indices[local_player_index] != NONE && player_index != NONE &&
+			player_get(player_index)->unit_index == unit_index)
 		{
 			csmemcpy(shield_color_marker[local_player_index], colors, sizeof(shield_color_marker[local_player_index]));
 			return shield_color_marker[local_player_index];
@@ -86,13 +91,13 @@ boolean shield_color_override(
 {
 	short local_player_index;
 
-	if (!colors || shield_color_index == NONE)
+	if (!colors)
 		return FALSE;
 	for (local_player_index = 0; local_player_index < MAXIMUM_NUMBER_OF_LOCAL_PLAYERS; local_player_index++)
 	{
-		if (colors == shield_color_marker[local_player_index])
+		if (colors == shield_color_marker[local_player_index] && shield_color_indices[local_player_index] != NONE)
 		{
-			*chosen = player_profile_get_rgb_color(shield_color_index);
+			*chosen = player_profile_get_rgb_color(shield_color_indices[local_player_index]);
 			return TRUE;
 		}
 	}

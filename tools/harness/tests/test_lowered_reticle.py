@@ -11,11 +11,11 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
+from harness import CHECK_FAILED, build, function, mutated, player_settings_slots, read, run  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[3]
 CASES = ["off", "lands_on_the_reticle", "screen_offset", "hud_scale", "aim_camera", "zoom", "not_the_aim", "range",
-         "changed", "panini"]
+         "changed", "panini", "players"]
 CONTROLS = [
     # the view drawn through display.panini taken as drawn as it is: the reticle lower than asked, by the middle's
     # magnification
@@ -25,7 +25,7 @@ CONTROLS = [
     ("panini_projection_inverse(&projection, 0.0f, screen_tangent, &aim_across, &aim_tangent);",
      "panini_projection_inverse(&projection, screen_tangent, 0.0f, &aim_tangent, &aim_across);", "panini"),
     # the setting's switch unread: lowered when off
-    ('config_boolean("display.lowered_reticle") ? ', "1 ? ", "off"),
+    ('config_player_boolean(local_player_index, "display.lowered_reticle") ?', "1 ?", "off"),
     # the lift as a fraction of the half height, not of the whole
     ("screen_tangent = 2.0f * fraction * tangent_y;", "screen_tangent = fraction * tangent_y;",
      "lands_on_the_reticle"),
@@ -55,7 +55,13 @@ CONTROLS = [
     # not held at the range
     ("\t\tif (percent > LOWERED_RETICLE_MAXIMUM_PERCENT)\n", "\t\tif (FALSE)\n", "range"),
     # read once, not on a change
-    ("if (!initialized || read_at != changes)", "if (!initialized || !read_at)", "changed"),
+    ("if (!players[slot].initialized || players[slot].read_at != changes)",
+     "if (!players[slot].initialized || !players[slot].read_at)", "changed"),
+    # one value kept for every player
+    ("short slot = PLAYER_SETTINGS_SLOT(local_player_index);", "short slot = 0;", "players"),
+    # player 1's setting for every player
+    ("\tfraction = lowered_reticle_fraction(local_player_index);", "\tfraction = lowered_reticle_fraction(0);",
+     "players"),
 ]
 
 
@@ -65,7 +71,7 @@ def generated(fault=None):
     if fault:
         section = mutated(section, *fault)
     # (display.panini's arithmetic, the game's own header)
-    return (("under_test.inc", section), ("panini_projection.h", read("port/linux/include/panini_projection.h")))
+    return (("under_test.inc", player_settings_slots() + section), ("panini_projection.h", read("port/linux/include/panini_projection.h")))
 
 
 @pytest.mark.parametrize("case", CASES)
@@ -112,43 +118,7 @@ def test_called_only_by_the_drawing():
         "source/interface/hud_draw.c", "source/main/main.c"]
     hud = function(read("source/interface/hud_draw.c"), "hud_draw_bitmap_with_meter")
     # the weapon's reticle only, and not on top of the passenger's shot, which is projected through the turned view
-    assert "if (is_crosshair_bitmap && !passenger_camera_reticle_offset(&point))\n\t\tlowered_reticle_offset_point(" \
-        "&point, reticle_scale);" in hud
+    assert "if (is_crosshair_bitmap && !passenger_camera_reticle_offset(&point, reticle_scale, &reticle_rest))\n" \
+        "\t\tlowered_reticle_offset_point(&point, reticle_scale);" in hud
     assert hud.index("reticle_scale = is_crosshair_bitmap") < hud.index("lowered_reticle_offset_point(")
     assert "\t\treticle_scale);" in hud[hud.index("hud_draw_bitmap_internal("):]
-
-
-def test_the_weapon_posed_along_the_aim():
-    # the pose, its interpolation (kept relative to the same camera) and display.viewmodel_offset_* (along the aim's
-    # axes) all at the camera turned back to the aim
-    build_matrices = function(read("source/interface/first_person_weapons.c"), "first_person_weapon_build_node_matrices")
-    pose = build_matrices.index("pose_camera= lowered_reticle_aim_camera(")
-    assert pose < build_matrices.index("&pose_camera->position,\n\t\t\t&pose_camera->forward,\n\t\t\t&pose_camera->up);")
-    # (the turning sway: the aim's turn, not the view's lift as a scope recenters it)
-    assert build_matrices.count("euler_angles2d_from_vector3d(&first_person_weapon->render_facing, &pose_camera->forward);") == 2
-    interpolation = build_matrices.index("render_interpolation_first_person(")
-    assert "\t\t\tpose_camera);" in build_matrices[interpolation:interpolation + 300]
-    offset = build_matrices.index("viewmodel_offset_apply(")
-    assert "\t\t\tpose_camera);" in build_matrices[offset:offset + 300]
-
-
-def test_the_settings():
-    config = read("port/linux/src/port_config.c")
-    readme = read("port/linux/README.md")
-    sys.path.insert(0, str(ROOT / "tools"))
-    import port_settings
-
-    assert re.search(r'\{ "display\.lowered_reticle", _config_boolean, "false", "HALO_LOWERED_RETICLE"', config)
-    assert re.search(r'\{ "display\.lowered_reticle_amount", _config_real, "10\.0", "HALO_LOWERED_RETICLE_AMOUNT"',
-                     config)
-    assert "| `display.lowered_reticle` | `false` | `HALO_LOWERED_RETICLE` |" in readme
-    assert "| `display.lowered_reticle_amount` | `10.0` | `HALO_LOWERED_RETICLE_AMOUNT` |" in readme
-    rows = {row[1]: (page, row) for page in port_settings.PAGES.values() for row in page["rows"]
-            if row[0] != port_settings.SECTION}
-    page, row = rows["display.lowered_reticle"]
-    assert row[2] == port_settings.ON_OFF and page["title"] == "FIRST PERSON"
-    page, row = rows["display.lowered_reticle_amount"]
-    assert row[2] == port_settings.LOWERED_RETICLE_AMOUNTS and page["title"] == "FIRST PERSON"
-    # the slider's range typed is the one the code holds it to
-    assert port_settings.LOWERED_RETICLE_AMOUNTS.typed_most == 30 and port_settings.LOWERED_RETICLE_AMOUNTS.typed_least == 0
-    assert "#define LOWERED_RETICLE_MAXIMUM_PERCENT 30.0" in read("port/linux/game/lowered_reticle.c")

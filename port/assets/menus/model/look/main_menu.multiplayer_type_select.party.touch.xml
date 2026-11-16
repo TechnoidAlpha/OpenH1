@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.party.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/party/touch/party_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/party/touch/party_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/party_prompts" type="column_list" box="0 0 640 52">
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_make" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_copy" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_paste" x="172" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_follow" x="172" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_end" x="172" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_leave" x="316" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/party/touch/prompt_back" x="502" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_make" type="text" box="0 0 140 52" wide="-106 0" picture="main_menu/parts/touch_button_140x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="MAKE PARTY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_copy" type="text" box="0 0 140 52" wide="-106 0" picture="main_menu/parts/touch_button_140x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="COPY LINK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_paste" type="text" box="0 0 140 52" wide="-106 0" picture="main_menu/parts/touch_button_140x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="PASTE LINK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_follow" type="text" box="0 0 140 52" wide="-106 0" picture="main_menu/parts/touch_button_140x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="JOIN LEADER"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_end" type="text" box="0 0 140 52" wide="-106 0" picture="main_menu/parts/touch_button_140x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="END PARTY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_leave" type="text" box="0 0 140 52" wide="106 0" picture="main_menu/parts/touch_button_140x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="LEAVE PARTY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/party/touch/prompt_back" type="text" box="0 0 110 52" wide="106 0" picture="main_menu/parts/touch_button_110x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="BACK"/>
+	</look>
+</model>

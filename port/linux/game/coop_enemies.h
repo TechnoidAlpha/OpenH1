@@ -14,6 +14,11 @@ void coop_enemies_new_game(
 	void);
 void coop_enemies_reset(
 	void);
+/* the host's extra enemies and choices, by part, for the demos (demo.c's G
+records: network_coop_port_demo_state); NULL past the last */
+void *coop_enemies_port_demo_state(
+	short part,
+	long *size);
 
 /* encounters.c: how many enemies more a squad placed with `count` gets
 (none but on a co-op host, for an encounter of the players' enemies) */
@@ -21,30 +26,30 @@ short coop_enemies_extra_count(
 	long encounter_index,
 	short count);
 
-/* the places coop_enemies_spread_position tries around a starting location */
+/* the places tried on the rings around a starting location */
 #define COOP_ENEMIES_SPREAD_SPOTS 90
 
-/* encounters.c: finds a spot for a squad's `number`th extra enemy
-(counting from 1) around the starting location `origin`, on its floor,
-clear of walls and objects, with room to stand and nobody there. FALSE if
-there's no room. `taken` (COOP_ENEMIES_SPREAD_SPOTS bits, or NULL) marks the
-places found taken, which stay so while the squad's enemies are placed: they
-aren't tried again. */
-boolean coop_enemies_spread_position(
-	real_point3d const *origin,
-	short number,
-	long *taken,
-	real_point3d *position);
-/* encounters.c: where the `number`th extra enemy (counting from 1) goes
-when no starting location has room: a place on rings around `origin` with
-the way open and ground below, whoever stands there (as extra enemies were
-placed before free ground was looked for), so the squad still gets every
-enemy the setting asks for. FALSE if none (the starting location itself
-then) */
-boolean coop_enemies_fallback_position(
-	real_point3d const *origin,
-	short number,
-	real_point3d *position);
+/* encounters.c: where a squad's `extra_number`th extra enemy (counting
+from 1, its starting location `starting_location_index`) goes: the
+starting location in `location`, its position moved to free ground around
+it (or around the squad's others), else to the nearest free firing
+position of the encounter, its facing turned a little. FALSE if there is
+no room: the enemy is not placed. A squad's extra enemies are placed in
+one tick, one after another. */
+boolean coop_enemies_extra_location(
+	long encounter_index,
+	short squad_index,
+	short starting_location_index,
+	short extra_number,
+	struct actor_starting_location *location);
+/* units.c: a unit's idle animation begun (from `old_state`, its animation
+state before). In network co-op with extra enemies, an AI's biped's
+begins at a point of its own, but for one only turning on the spot (the
+host's and the clients' copies alike), so that a squad, and the extra
+enemies placed with it, don't breathe and turn in step. */
+void coop_enemies_idle_started(
+	long unit_index,
+	short old_state);
 
 /* units.c's vehicle_scripting_load_magic: a rider seated, and one left
 without a seat (the vehicle's seats taken: an extra enemy), which is kept,

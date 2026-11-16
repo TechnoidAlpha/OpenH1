@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.direct_ip.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/direct_ip/direct_ip_button_join" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/direct_ip_button_join" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/multiplayer_type_select/server_settings/server_settings_options" index="4"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/direct_ip_help" box="68 321 550 400">
+		<text color="#FFFFFFFF"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/direct_ip_help_text" x="0" y="0"/>
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/direct_ip_help_text" type="text" box="68 321 550 400">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/multiplayer_type_select/direct_ip/cap_direct_ip_options"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/direct_ip_menu" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/direct_ip/op_server_address" x="54" y="73"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/op_server_password" x="54" y="103"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/direct_ip_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/direct_ip_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/multiplayer_type_select/direct_ip/header_direct_ip" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/direct_ip_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/header_direct_ip" box="35 11 640 70" picture="main_menu/multiplayer_type_select/direct_ip/header_direct_ip"/>
+	<look name="main_menu/multiplayer_type_select/direct_ip/op_server_address" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/server_address_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/server_address_value_label" x="255" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/op_server_password" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/server_password_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/direct_ip/server_password_value_label" x="255" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/server_address_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/multiplayer_type_select/direct_ip/direct_ip_options"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/server_address_value_label" type="text" box="0 0 230 22" header_box="-6 7 0 19" footer_box="190 7 196 19">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="13 2"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/server_password_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/multiplayer_type_select/server_settings/server_settings_options" index="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/direct_ip/server_password_value_label" type="text" box="0 0 230 22" header_box="-6 7 0 19" footer_box="190 7 196 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="13 2"/>
+	</look>
+</model>

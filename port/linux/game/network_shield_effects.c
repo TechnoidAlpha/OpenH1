@@ -15,6 +15,7 @@ when it changes; until it arrives, a client draws the stock game's. */
 #include "network_distributed.h"
 #include "network_shield_effects.h"
 #include "network_coop.h"
+#include "network_standard.h"
 #include <string.h>
 
 char const *config_string(char const *name);
@@ -57,6 +58,14 @@ static short host_effects(void)
 	return effects;
 }
 
+/* the effects the game hosted here plays: the host's choice, but the stock
+game's in a Pro 2v2 game (network_standard_pro_hosting), whatever the host's
+network.shield_effects: no overshield flare, no glow, the same for all */
+static short network_shield_effects_hosted(void)
+{
+	return network_standard_pro_hosting() ? _shield_effects_stock : host_effects();
+}
+
 void network_shield_effects_reset(void)
 {
 	client_effects = _shield_effects_stock;
@@ -73,7 +82,7 @@ short network_shield_effects(void)
 	if (network_coop_active())
 		return NONE;
 	if (game_connection() == _game_connection_network_server)
-		effects = host_effects();
+		effects = network_shield_effects_hosted();
 	else if (game_connection() == _game_connection_network_client)
 		effects = client_effects;
 	return effects == _shield_effects_players ? NONE : effects;
@@ -91,7 +100,7 @@ void network_shield_effects_send(long machine_index)
 
 	if (game_connection() != _game_connection_network_server)
 		return;
-	shield_effects_message_make(&message, host_effects());
+	shield_effects_message_make(&message, network_shield_effects_hosted());
 	distributed_send_to_machine_reliably(machine_index, &message, _distributed_message_shield_effects, 1,
 		sizeof(message));
 }
@@ -103,7 +112,7 @@ void network_shield_effects_update(void)
 
 	if (!game_in_progress() || main_menu_is_active() || game_connection() != _game_connection_network_server)
 		return;
-	effects = host_effects();
+	effects = network_shield_effects_hosted();
 	if (sent_effects == effects)
 		return;
 	sent_effects = effects;

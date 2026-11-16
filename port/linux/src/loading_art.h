@@ -100,6 +100,13 @@ then takes to fade out, in nanoseconds */
 #define LOADING_ART_HD_BUDGET (1920u * 1080u)
 #endif
 
+/* The words of the supplied picture ("LOADING..."), bright blue over its
+ * darker ring: their coverage in the box they are drawn in. */
+#define LOADING_ART_TEXT_LEFT 232
+#define LOADING_ART_TEXT_TOP 220
+#define LOADING_ART_TEXT_RIGHT 408
+#define LOADING_ART_TEXT_BOTTOM 256
+
 struct loading_art_axis
 {
 	uint16_t index[3], weight[3];
@@ -170,6 +177,9 @@ struct loading_art_hd
 	left as the load completes (loading_art_hd_compose's), the sweep's
 	brightness (of 65536) */
 	unsigned int fraction, base, completion, light_scale, phase;
+	/* where the sweep's mask is across the 480 rows' columns: a column's
+	place in it is the column plus this */
+	float shift;
 	/* the threads drawing its rows (loading_art_hd_pool) */
 	struct loading_art_hd_pool *pool;
 };
@@ -205,10 +215,34 @@ struct loading_art
 	phase of the last two steps, for the sharp frame between them */
 	unsigned int follow;
 	float smoothed, wobble, phases[2];
-	/* a line under the words (loading_art_caption): its coverage, at four
-	times the 480 lines' size */
+	/* a line under the words (loading_art_caption): its coverage, at
+	LOADING_PRESENTATION_CAPTION_SCALE times the 480 lines' size */
 	uint8_t *caption;
 	unsigned int caption_width, caption_height;
+	/* and at the screen's pixels (loading_art_caption_shown): its coverage
+	for a frame shown caption_rows high, that coverage's size, its pixels
+	over the frame's (their memory), and how much of it is left as the load
+	completes (of 256: the last render's) */
+	uint8_t *caption_coverage, *caption_tile;
+	unsigned int caption_rows, caption_shown_width, caption_shown_height, caption_completion;
+	size_t caption_tile_capacity;
+	/* and at the 480 rows, where the sweep lights it as it lights the words
+	(loading_art_caption_layer): its coverage in the frame, the frame's
+	width it was laid out for (0: none), and each row's colour, the words'
+	(loading_art_caption_rgb) */
+	uint8_t caption_text[LOADING_ART_FRAME_MAXIMUM_PIXELS];
+	uint8_t caption_row_rgb[LOADING_ART_FRAME_HEIGHT][3];
+	unsigned int caption_text_width;
+	/* the words' colour down their capitals, a row of the picture's box
+	each (where the words cover it: their rows from word_first to
+	word_last, none without), and the caption's capitals' top and bottom,
+	in the 480 lines */
+	uint8_t word_rgb[LOADING_ART_TEXT_BOTTOM - LOADING_ART_TEXT_TOP][3];
+	unsigned int word_rows, word_first, word_last;
+	float caption_ink_top, caption_ink_bottom;
+	/* the last render's: between its steps (of 256), and the scene's share
+	between the sweeps (of 65536; 0 without a scene) */
+	unsigned int caption_fraction, caption_base;
 	uint64_t progress_epoch, completed_ns;
 	unsigned int text_valid, stereo, eyes_valid, composed;
 	/* the feedback's rows blurred across (loading_art_row) */
@@ -375,11 +409,7 @@ static inline void loading_art_axes(struct loading_art *art)
 }
 
 /* The words of the supplied picture ("LOADING..."), bright blue over its
- * darker ring: their coverage in the box they are drawn in. */
-#define LOADING_ART_TEXT_LEFT 232
-#define LOADING_ART_TEXT_TOP 220
-#define LOADING_ART_TEXT_RIGHT 408
-#define LOADING_ART_TEXT_BOTTOM 256
+ * darker ring: their coverage in the box they are drawn in (above). */
 
 /* how far right of the frame's left the picture's 640 columns' middle part
  * lies: the words' place */
@@ -479,14 +509,20 @@ static inline void loading_art_set(struct loading_art *art, const uint8_t *rgba)
 	unsigned int stereo = art->stereo, width = art->width;
 	struct loading_ring ring = art->ring;
 	struct loading_art_hd hd = art->hd;
-	uint8_t *caption = art->caption;
+	uint8_t *caption = art->caption, *caption_coverage = art->caption_coverage, *caption_tile = art->caption_tile;
 	unsigned int caption_width = art->caption_width, caption_height = art->caption_height, follow = art->follow;
+	size_t caption_tile_capacity = art->caption_tile_capacity;
 	memset(art, 0, sizeof(*art));
 	art->ring = ring;
 	art->hd = hd;
 	art->caption = caption;
 	art->caption_width = caption_width;
 	art->caption_height = caption_height;
+	/* (its coverage at the screen's made again) */
+	free(caption_coverage);
+	art->caption_tile = caption_tile;
+	art->caption_tile_capacity = caption_tile_capacity;
+	art->caption_completion = 256;
 	art->follow = follow;
 	art->hd.built = 0;
 	art->stereo = stereo;
@@ -777,14 +813,17 @@ static inline void loading_art_follow(struct loading_art *art, unsigned int foll
 }
 
 /* A line under the words (a wait's: what is being done), its coverage
- * `width` by `height`, set at four times the 480 lines' size (copied);
- * NULL: none. */
+ * `width` by `height`, set at LOADING_PRESENTATION_CAPTION_SCALE times the
+ * 480 lines' size (copied); NULL: none. */
 static inline void loading_art_caption(struct loading_art *art, const uint8_t *coverage, unsigned int width,
 	unsigned int height)
 {
 	free(art->caption);
 	art->caption = NULL;
 	art->caption_width = art->caption_height = 0;
+	free(art->caption_coverage);
+	art->caption_coverage = NULL;
+	art->caption_rows = art->caption_shown_width = art->caption_shown_height = 0;
 	if (!coverage || !width || !height || width > 8192 || height > 512)
 		return;
 	art->caption = malloc((size_t)width * height);
@@ -795,54 +834,222 @@ static inline void loading_art_caption(struct loading_art *art, const uint8_t *c
 	art->caption_height = height;
 }
 
-/* the caption's colour: the words' pale blue */
-#define LOADING_ART_CAPTION_RED 150
-#define LOADING_ART_CAPTION_GREEN 190
-#define LOADING_ART_CAPTION_BLUE 255
-/* its top, in the 480 lines (under the words) */
-#define LOADING_ART_CAPTION_TOP 268
+/* the caption's colour where the picture has no words: the supplied
+picture's words' blue (as their capitals have it, loading_art_word_rgb) */
+#define LOADING_ART_CAPTION_RED 60
+#define LOADING_ART_CAPTION_GREEN 133
+#define LOADING_ART_CAPTION_BLUE 239
+/* its line's top, in the 480 lines (under the words, its capitals a dozen
+lines below theirs) */
+#define LOADING_ART_CAPTION_TOP 258
 
-/* The caption drawn into a frame's pixels (RGBA, `width` by `height`, 480
- * lines its height), in its middle under the words, each pixel its
- * caption's pixels' average, as much of it as `completion` (of 256) has
- * left. */
-static inline void loading_art_caption_draw(const struct loading_art *art, uint8_t *pixels, unsigned int width,
-	unsigned int height, unsigned int completion)
+/* The average of the values (`count` of them, each `stride` apart, each a
+ * pixel's place) under the box from index * step to (index + 1) * step, in
+ * 65536ths of a place: each weighted by how much of its place the box
+ * covers, nothing past the last. */
+static inline uint32_t loading_art_caption_box(const uint32_t *values, size_t stride, unsigned int count,
+	unsigned int index, uint32_t step)
 {
-	/* (the frame's pixels a caption's pixel is, of 1024) */
-	unsigned int scale = (unsigned int)((uint64_t)height * 1024 / (LOADING_ART_FRAME_HEIGHT * 4));
-	unsigned int drawn_width, drawn_height, left, top, x, y;
-	if (!art->caption || !scale)
-		return;
-	drawn_width = (unsigned int)((uint64_t)art->caption_width * scale / 1024);
-	drawn_height = (unsigned int)((uint64_t)art->caption_height * scale / 1024);
-	if (!drawn_width || !drawn_height || drawn_width > width)
-		return;
-	left = (width - drawn_width) / 2;
-	top = (unsigned int)((uint64_t)LOADING_ART_CAPTION_TOP * height / LOADING_ART_FRAME_HEIGHT);
-	for (y = 0; y < drawn_height && top + y < height; y++)
+	uint64_t start = (uint64_t)index * step, end = start + step, sum = 0, place;
+	for (place = start >> 16; place < count && place << 16 < end; place++)
 	{
-		unsigned int y0 = (unsigned int)((uint64_t)y * 1024 / scale);
-		unsigned int y1 = (unsigned int)(((uint64_t)(y + 1) * 1024 + scale - 1) / scale);
-		y1 = y1 > y0 ? (y1 < art->caption_height ? y1 : art->caption_height) : y0 + 1;
-		for (x = 0; x < drawn_width; x++)
-		{
-			unsigned int x0 = (unsigned int)((uint64_t)x * 1024 / scale);
-			unsigned int x1 = (unsigned int)(((uint64_t)(x + 1) * 1024 + scale - 1) / scale);
-			unsigned int sum = 0, count = 0, sx, sy, coverage;
-			uint8_t *out = pixels + ((size_t)(top + y) * width + left + x) * 4;
-			x1 = x1 > x0 ? (x1 < art->caption_width ? x1 : art->caption_width) : x0 + 1;
-			for (sy = y0; sy < y1 && sy < art->caption_height; sy++)
-				for (sx = x0; sx < x1 && sx < art->caption_width; sx++, count++)
-					sum += art->caption[sy * art->caption_width + sx];
-			coverage = count ? sum / count * completion >> 8 : 0;
-			if (!coverage)
-				continue;
-			out[0] = (uint8_t)(out[0] + ((int)LOADING_ART_CAPTION_RED - out[0]) * (int)coverage / 255);
-			out[1] = (uint8_t)(out[1] + ((int)LOADING_ART_CAPTION_GREEN - out[1]) * (int)coverage / 255);
-			out[2] = (uint8_t)(out[2] + ((int)LOADING_ART_CAPTION_BLUE - out[2]) * (int)coverage / 255);
-		}
+		uint64_t from = place << 16 > start ? place << 16 : start;
+		uint64_t to = (place + 1) << 16 < end ? (place + 1) << 16 : end;
+		sum += (uint64_t)values[place * stride] * (to - from);
 	}
+	return (uint32_t)((sum + step / 2) / step);
+}
+
+/* The caption's coverage for a frame `rows` high (480 lines its height),
+ * `*width` by `*height` (allocated): each pixel the caption's under it,
+ * averaged; NULL without a caption, or the memory. */
+static inline uint8_t *loading_art_caption_resample(const struct loading_art *art, unsigned int rows,
+	unsigned int *width_out, unsigned int *height_out)
+{
+	/* (the caption's pixels a frame's pixel is, in 65536ths) */
+	uint32_t step;
+	uint32_t *values, *across;
+	uint8_t *coverage;
+	unsigned int width, height, x, y;
+	*width_out = *height_out = 0;
+	if (!art->caption || !rows || rows > 16384)
+		return NULL;
+	step = (uint32_t)(((uint64_t)LOADING_ART_FRAME_HEIGHT * LOADING_PRESENTATION_CAPTION_SCALE << 16) / rows);
+	if (!step)
+		return NULL;
+	width = (unsigned int)((((uint64_t)art->caption_width << 16) + step - 1) / step);
+	height = (unsigned int)((((uint64_t)art->caption_height << 16) + step - 1) / step);
+	values = malloc((size_t)art->caption_width * sizeof(uint32_t));
+	across = malloc((size_t)width * art->caption_height * sizeof(uint32_t));
+	coverage = malloc((size_t)width * height);
+	if (!values || !across || !coverage)
+	{
+		free(values);
+		free(across);
+		free(coverage);
+		return NULL;
+	}
+	/* (across each of the caption's rows, then down: in 256ths of a
+	pixel's coverage between them) */
+	for (y = 0; y < art->caption_height; y++)
+	{
+		for (x = 0; x < art->caption_width; x++)
+			values[x] = (uint32_t)art->caption[y * art->caption_width + x] << 8;
+		for (x = 0; x < width; x++)
+			across[y * width + x] = loading_art_caption_box(values, 1, art->caption_width, x, step);
+	}
+	for (y = 0; y < height; y++)
+		for (x = 0; x < width; x++)
+		{
+			uint32_t value = (loading_art_caption_box(across + x, width, art->caption_height, y, step) + 128) >> 8;
+			coverage[y * width + x] = (uint8_t)(value < 255 ? value : 255);
+		}
+	free(values);
+	free(across);
+	*width_out = width;
+	*height_out = height;
+	return coverage;
+}
+
+/* The caption's coverage for a frame `rows` high, art->caption_coverage,
+ * caption_shown_width by caption_shown_height (kept until the caption or
+ * the rows change); 0 without a caption, or the memory. */
+static inline int loading_art_caption_scaled(struct loading_art *art, unsigned int rows)
+{
+	if (!art->caption || !rows || rows > 16384)
+		return 0;
+	if (art->caption_coverage && art->caption_rows == rows)
+		return 1;
+	free(art->caption_coverage);
+	art->caption_rows = 0;
+	art->caption_coverage = loading_art_caption_resample(art, rows, &art->caption_shown_width,
+		&art->caption_shown_height);
+	if (!art->caption_coverage)
+		return 0;
+	art->caption_rows = rows;
+	return 1;
+}
+
+/* The words' colour down their capitals, from the picture: in each row of
+ * their box, the average of the pixels they wholly cover (as
+ * loading_art_text has them), where they cover a few; a row between with
+ * fewer, the row's above. */
+static inline void loading_art_word_rgb(struct loading_art *art)
+{
+	unsigned int x, y, channel, found = 0;
+	art->word_rows = 0;
+	if (!art->valid)
+		return;
+	for (y = 0; y < LOADING_ART_TEXT_BOTTOM - LOADING_ART_TEXT_TOP; y++)
+	{
+		uint32_t sum[3] = { 0, 0, 0 }, count = 0;
+		for (x = LOADING_ART_TEXT_LEFT; x < LOADING_ART_TEXT_RIGHT; x++)
+		{
+			const uint8_t *p = art->picture + ((y + LOADING_ART_TEXT_TOP) * LOADING_ART_WIDTH + x) * 4;
+			if (p[2] < 210)
+				continue;
+			for (channel = 0; channel < 3; channel++)
+				sum[channel] += p[channel];
+			count++;
+		}
+		if (count < 8)
+		{
+			if (found)
+				memcpy(art->word_rgb[y], art->word_rgb[y - 1], 3);
+			continue;
+		}
+		for (channel = 0; channel < 3; channel++)
+			art->word_rgb[y][channel] = (uint8_t)((sum[channel] + count / 2) / count);
+		if (!found)
+			art->word_first = y;
+		found = 1;
+		art->word_last = y;
+	}
+	art->word_rows = found ? art->word_last - art->word_first + 1 : 0;
+}
+
+/* The caption's colour at a height (in the 480 lines): the words' at the
+ * same height of their capitals, as the caption's capitals are to theirs
+ * (loading_art_caption_layer's), or LOADING_ART_CAPTION_RED's without. */
+static inline void loading_art_caption_rgb(const struct loading_art *art, float y, uint8_t *rgb)
+{
+	float place, part;
+	unsigned int row, next, channel;
+	if (!art->word_rows || art->caption_ink_bottom <= art->caption_ink_top)
+	{
+		rgb[0] = LOADING_ART_CAPTION_RED;
+		rgb[1] = LOADING_ART_CAPTION_GREEN;
+		rgb[2] = LOADING_ART_CAPTION_BLUE;
+		return;
+	}
+	place = (y - art->caption_ink_top) / (art->caption_ink_bottom - art->caption_ink_top);
+	place = place < 0.0f ? 0.0f : place > 1.0f ? 1.0f : place;
+	place = (float)art->word_first + place * (float)(art->word_last - art->word_first);
+	row = (unsigned int)place;
+	part = place - (float)row;
+	next = row < art->word_last ? row + 1 : row;
+	for (channel = 0; channel < 3; channel++)
+		rgb[channel] = (uint8_t)((float)art->word_rgb[row][channel] * (1.0f - part) +
+			(float)art->word_rgb[next][channel] * part + 0.5f);
+}
+
+/* The caption in the 480 rows, for the sweep to light as it lights the
+ * words (loading_art_step_rows feeds it, VR's scene has it as it has the
+ * words): laid out for the frame's width, in its middle at
+ * LOADING_ART_CAPTION_TOP, where the presenter shows it, each row in the
+ * words' colour (loading_art_caption_rgb); again as the caption, the
+ * picture or the frame's width changes. */
+static inline void loading_art_caption_layer(struct loading_art *art)
+{
+	uint8_t *coverage;
+	unsigned int width, height, x, y, left, first = ~0u, last = 0;
+	if (!art->caption)
+	{
+		art->caption_text_width = 0;
+		return;
+	}
+	if (art->caption_text_width == art->width)
+		return;
+	art->caption_text_width = 0;
+	coverage = loading_art_caption_resample(art, LOADING_ART_FRAME_HEIGHT, &width, &height);
+	if (!coverage)
+		return;
+	if (width > art->width)
+	{
+		free(coverage);
+		return;
+	}
+	/* (its capitals' top and bottom: its first and last rows with ink) */
+	for (y = 0; y < art->caption_height; y++)
+		for (x = 0; x < art->caption_width; x++)
+			if (art->caption[y * art->caption_width + x] >= 128)
+			{
+				first = y < first ? y : first;
+				last = y;
+				break;
+			}
+	art->caption_ink_top = art->caption_ink_bottom = (float)LOADING_ART_CAPTION_TOP;
+	if (first != ~0u)
+	{
+		art->caption_ink_top += (float)first / (float)LOADING_PRESENTATION_CAPTION_SCALE;
+		art->caption_ink_bottom += (float)(last + 1) / (float)LOADING_PRESENTATION_CAPTION_SCALE;
+	}
+	loading_art_word_rgb(art);
+	memset(art->caption_text, 0, (size_t)art->width * LOADING_ART_FRAME_HEIGHT);
+	left = (art->width - width) / 2;
+	for (y = 0; y < height && LOADING_ART_CAPTION_TOP + y < LOADING_ART_FRAME_HEIGHT; y++)
+		memcpy(art->caption_text + (size_t)(LOADING_ART_CAPTION_TOP + y) * art->width + left,
+			coverage + (size_t)y * width, width);
+	for (y = 0; y < LOADING_ART_FRAME_HEIGHT; y++)
+		loading_art_caption_rgb(art, (float)y + 0.5f, art->caption_row_rgb[y]);
+	free(coverage);
+	art->caption_text_width = art->width;
+}
+
+/* The 480 rows' caption layer, where it is laid out for this frame */
+static inline const uint8_t *loading_art_caption_text(const struct loading_art *art)
+{
+	return art->caption && art->caption_text_width == art->width ? art->caption_text : NULL;
 }
 
 /* How much of the picture is left as the load completes, of 256. */
@@ -906,6 +1113,7 @@ static inline int loading_art_scene_draw(struct loading_art *art, float seconds,
 	uint8_t *scene, uint8_t *feed)
 {
 	const uint32_t *pixels;
+	const uint8_t *caption = loading_art_caption_text(art);
 	unsigned int width = art->width, middle = loading_art_middle(art);
 	unsigned int x, y;
 	/* (the ring is still, from the menu's camera: after its first picture
@@ -997,6 +1205,13 @@ static inline int loading_art_scene_draw(struct loading_art *art, float seconds,
 						feed[pixel * 3 + channel] = (uint8_t)(feed[pixel * 3 + channel] +
 							(rgb[channel] - feed[pixel * 3 + channel]) * coverage / 255);
 				}
+			/* (and an eye's, VR's window, the caption under them as the
+			words are, there being no screen's pixels for it: the feed has
+			it from loading_art_step_rows) */
+			if (eye && caption && caption[pixel])
+				for (channel = 0; channel < 3; channel++)
+					scene[pixel * 3 + channel] = (uint8_t)(scene[pixel * 3 + channel] +
+						(art->caption_row_rgb[y][channel] - scene[pixel * 3 + channel]) * caption[pixel] / 255);
 		}
 	art->still_valid = !eye;
 	return 1;
@@ -1058,6 +1273,8 @@ static inline void loading_art_step_rows(struct loading_art *art, unsigned int p
 	unsigned int fx, fy, mask, upper, lower, pixel, value, sum[3], weight;
 	const struct loading_art_axis *ay;
 	const uint8_t *source = art->ring.valid ? art->feed : art->color;
+	/* (and the caption, which the sweep lights as it lights the words) */
+	const uint8_t *caption = loading_art_caption_text(art);
 	const uint32_t *rows[3];
 	/* (the trail before the light is added, for the sharp frame) */
 	uint8_t *trail = art->hd.built ? art->hd.trail[art->current ^ 1] : NULL;
@@ -1106,9 +1323,13 @@ static inline void loading_art_step_rows(struct loading_art *art, unsigned int p
 				 * not use the near-white diffuse RGB supplied by the draw. */
 				value = (unsigned int)(((uint64_t)sum[channel] * fade + UINT64_C(503316480)) /
 					UINT64_C(1006632960));
+				unsigned int fed = source[pixel * 3 + channel];
 				if (trail)
 					trail[pixel * 3 + channel] = (uint8_t)(value < 255 ? value : 255);
-				value += (source[pixel * 3 + channel] * brightness * mask + 32512) / 65025;
+				if (caption && caption[pixel])
+					fed = (unsigned int)((int)fed + ((int)art->caption_row_rgb[y][channel] - (int)fed) *
+						(int)caption[pixel] / 255);
+				value += (fed * brightness * mask + 32512) / 65025;
 				output[pixel * 4 + channel] = (uint8_t)(value < 255 ? value : 255);
 			}
 			output[pixel * 4 + 3] = 255;
@@ -1565,6 +1786,7 @@ static inline void loading_art_hd_compose(struct loading_art *art, unsigned int 
 	of the 480 rows' pixels wide, crossing from 128 left of the frame past
 	its right edge, as loading_art_step's */
 	shift = 128.0f - phase * (float)(art->width + 128) / 240.0f;
+	hd->shift = shift;
 	for (x = 0; x < width; x++)
 	{
 		float column = ((float)x + 0.5f) * across - 0.5f + shift, whole = floorf(column);
@@ -1644,6 +1866,8 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 		return NULL;
 	if (art->width < LOADING_ART_WIDTH || art->width > LOADING_ART_FRAME_MAXIMUM_WIDTH)
 		loading_art_width(art, LOADING_ART_WIDTH, LOADING_ART_FRAME_HEIGHT);
+	/* (the caption where the sweep lights it, laid out for this width) */
+	loading_art_caption_layer(art);
 	target = (frame->elapsed_ns / UINT64_C(1000000000)) * 60 +
 		(frame->elapsed_ns % UINT64_C(1000000000)) * 60 / UINT64_C(1000000000);
 	reset = !art->started || art->epoch != frame->epoch || target < art->step;
@@ -1735,13 +1959,16 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 		UINT64_C(1000000000)) * 256 / UINT64_C(1000000000));
 	base = frame->elapsed_ns >= LOADING_ART_SCENE_FADE_NS ? LOADING_ART_SCENE_BASE * 256u :
 		(unsigned int)(LOADING_ART_SCENE_BASE * 256u * frame->elapsed_ns / LOADING_ART_SCENE_FADE_NS);
+	/* (for the caption at the screen's pixels, loading_art_caption_shown) */
+	art->caption_fraction = fraction;
+	art->caption_base = art->ring.valid ? base : 0;
+	art->caption_completion = completion;
 	/* (the sharp frame, where there is one) */
 	if (art->hd.built && art->hd.width && !stereo)
 	{
 		loading_art_hd_compose(art, fraction, base, completion);
 		art->output_width = art->hd.width;
 		art->output_height = art->hd.height;
-		loading_art_caption_draw(art, art->hd.output, art->hd.width, art->hd.height, completion);
 		return art->hd.output;
 	}
 	art->output_width = art->width;
@@ -1763,11 +1990,188 @@ static inline const uint8_t *loading_art_render(struct loading_art *art,
 						(uint8_t)(art->output_right[pixel * 4 + channel] * completion >> 8);
 			}
 	}
-	/* (the caption, under the words: on both eyes' windows in VR) */
-	loading_art_caption_draw(art, art->output, art->width, LOADING_ART_FRAME_HEIGHT, completion);
-	if (stereo)
-		loading_art_caption_draw(art, art->output_right, LOADING_ART_FRAME_WIDTH, LOADING_ART_FRAME_HEIGHT, completion);
+	/* (the caption, under the words: in VR's frame, as they are; else at
+	the screen's pixels, the presenter's, loading_art_caption_shown) */
 	return art->output;
+}
+
+/* A place in a frame `size` pixels across shown `shown` pixels across,
+ * from a shown pixel's middle: the frame's pixel there, the next, and the
+ * second's share (of 256), as a bilinear filter reads it (from the frame's
+ * pixels' middles, clamped at its edges). */
+static inline void loading_art_caption_sample(unsigned int pixel, unsigned int shown, unsigned int size,
+	unsigned int *first, unsigned int *second, unsigned int *share)
+{
+	int64_t place = ((int64_t)(2 * pixel + 1) * size * 128) / shown - 128;
+	int64_t last = ((int64_t)size - 1) * 256;
+	place = place < 0 ? 0 : place > last ? last : place;
+	*first = (unsigned int)(place >> 8);
+	*share = (unsigned int)(place & 255);
+	*second = *first + 1 < size ? *first + 1 : *first;
+}
+
+/* A history's or trail's colour at a place of the 480 rows (`stride`
+ * bytes a pixel), between its pixels, from x0, y0 toward the next by fx, fy
+ * (of 256). */
+static inline unsigned int loading_art_caption_bilinear(const uint8_t *image, unsigned int width, unsigned int stride,
+	unsigned int x0, unsigned int x1, unsigned int y0, unsigned int y1, unsigned int fx, unsigned int fy,
+	unsigned int channel)
+{
+	unsigned int upper = image[((size_t)y0 * width + x0) * stride + channel] * (256 - fx) +
+		image[((size_t)y0 * width + x1) * stride + channel] * fx;
+	unsigned int lower = image[((size_t)y1 * width + x0) * stride + channel] * (256 - fx) +
+		image[((size_t)y1 * width + x1) * stride + channel] * fx;
+	return (upper * (256 - fy) + lower * fy + 32768) >> 16;
+}
+
+/* The words' pixel at a place of the last render's frame (`x`, `y` in the
+ * 480 rows' pixels, their middles at whole numbers) were the words there,
+ * coloured `word`: lit as loading_art_hd_rows lights the words, the 480
+ * rows' trail there (between the last two steps), the sweep's light on
+ * them (its brightness and its band's mask at the place), the word dimly
+ * between the sweeps (with a scene, `caption_base`), kept in the picture's
+ * blues, as much as is left as the load completes. Without the sharp
+ * frame, as loading_art_compose shows them: the history there (the sweep's
+ * light in it already) and the word dimly between the sweeps. */
+static inline void loading_art_caption_lit(const struct loading_art *art, int sharp, float x, float y,
+	const uint8_t *word, uint8_t *rgb)
+{
+	unsigned int width = art->width, x0, x1, y0, y1, fx, fy, channel, value[3], scale = 0;
+	unsigned int fraction = art->caption_fraction, completion = art->caption_completion;
+	x = x < 0.0f ? 0.0f : x > (float)(width - 1) ? (float)(width - 1) : x;
+	y = y < 0.0f ? 0.0f : y > (float)(LOADING_ART_FRAME_HEIGHT - 1) ? (float)(LOADING_ART_FRAME_HEIGHT - 1) : y;
+	x0 = (unsigned int)x;
+	y0 = (unsigned int)y;
+	fx = (unsigned int)((x - (float)x0) * 256.0f);
+	fy = (unsigned int)((y - (float)y0) * 256.0f);
+	x1 = x0 + 1 < width ? x0 + 1 : x0;
+	y1 = y0 + 1 < LOADING_ART_FRAME_HEIGHT ? y0 + 1 : y0;
+	if (sharp)
+	{
+		/* the sweep's mask at the place (loading_art_hd_compose's and
+		loading_art_hd_rows'), its brightness */
+		float column = x + art->hd.shift, whole = floorf(column);
+		int ix = (int)(whole < -1.0f ? -1.0f : whole > 128.0f ? 128.0f : whole);
+		unsigned int across = (unsigned int)((column - whole) * 256.0f), iy, down, upper, lower, mask;
+		int row = (int)((y + 0.5f) * 16.0f * 256.0f / (float)LOADING_ART_FRAME_HEIGHT) - 128;
+		row = row < 0 ? 0 : row > 15 * 256 ? 15 * 256 : row;
+		iy = (unsigned int)row >> 8;
+		down = (unsigned int)row & 255;
+		upper = loading_art_mask(ix, iy) * (256 - across) + loading_art_mask(ix + 1, iy) * across;
+		lower = loading_art_mask(ix, iy < 15 ? iy + 1 : 15) * (256 - across) +
+			loading_art_mask(ix + 1, iy < 15 ? iy + 1 : 15) * across;
+		mask = (upper * (256 - down) + lower * down + 32768) >> 16;
+		scale = (art->hd.light_scale * mask + 128) >> 8;
+	}
+	for (channel = 0; channel < 3; channel++)
+	{
+		unsigned int before, after;
+		if (sharp)
+		{
+			before = loading_art_caption_bilinear(art->hd.trail[art->current ^ 1], width, 3, x0, x1, y0, y1, fx, fy, channel);
+			after = loading_art_caption_bilinear(art->hd.trail[art->current], width, 3, x0, x1, y0, y1, fx, fy, channel);
+		}
+		else
+		{
+			before = loading_art_caption_bilinear(art->history[art->current ^ 1], width, 4, x0, x1, y0, y1, fx, fy, channel);
+			after = loading_art_caption_bilinear(art->history[art->current], width, 4, x0, x1, y0, y1, fx, fy, channel);
+		}
+		value[channel] = (before * (256 - fraction) + after * fraction + 128) >> 8;
+		if (sharp)
+			value[channel] += (word[channel] * scale + 32512) / 65025;
+		value[channel] += word[channel] * art->caption_base >> 16;
+		value[channel] = value[channel] < 255 ? value[channel] : 255;
+	}
+	/* (kept in the picture's blues, with a scene, as the words are) */
+	if (art->ring.valid)
+	{
+		unsigned int limit = value[2] * LOADING_ART_GREY_RED >> 8;
+		value[0] = value[0] < limit ? value[0] : limit;
+		limit = value[2] * LOADING_ART_GREY_GREEN >> 8;
+		value[1] = value[1] < limit ? value[1] : limit;
+	}
+	for (channel = 0; channel < 3; channel++)
+		rgb[channel] = (uint8_t)(completion < 256 ? value[channel] * completion >> 8 : value[channel]);
+}
+
+/* The caption at the screen's own pixels, for a presenter that shows the
+ * last render's frame (`frame`, loading_art_output_width by _height) scaled
+ * to `shown_width` by `shown_height` pixels with a bilinear filter: its box
+ * in those pixels, from the shown frame's top left, and its pixels (RGBA,
+ * `*width` by `*height`), the frame's as the filter shows them, and where
+ * the caption's letters are, the words' light (loading_art_caption_lit) at
+ * the screen's pixels, for the presenter to draw over the frame as they
+ * are. The frame has the caption's glow already: the sweep lit it in the
+ * 480 rows (loading_art_caption_layer). NULL: no caption, or no memory for
+ * it (VR's pair has it in the frame). */
+static inline const uint8_t *loading_art_caption_shown(struct loading_art *art, const uint8_t *frame,
+	unsigned int shown_width, unsigned int shown_height, unsigned int *left, unsigned int *top,
+	unsigned int *width, unsigned int *height)
+{
+	unsigned int frame_width = loading_art_output_width(art), frame_height = loading_art_output_height(art);
+	unsigned int x, y, drawn_height;
+	int sharp;
+	size_t bytes;
+	*left = *top = *width = *height = 0;
+	if (!frame || art->stereo || !shown_width || !shown_height || !frame_width || !frame_height ||
+		!loading_art_caption_scaled(art, shown_height) || art->caption_shown_width > shown_width)
+		return NULL;
+	/* (its colours, and the frame the render drew: the sharp one's, or the
+	480 rows') */
+	loading_art_caption_layer(art);
+	sharp = art->hd.built && art->hd.width && frame_width == art->hd.width && frame_height == art->hd.height;
+	*left = (shown_width - art->caption_shown_width) / 2;
+	*top = (unsigned int)((uint64_t)LOADING_ART_CAPTION_TOP * shown_height / LOADING_ART_FRAME_HEIGHT);
+	drawn_height = shown_height - *top < art->caption_shown_height ? shown_height - *top : art->caption_shown_height;
+	if (!drawn_height)
+		return NULL;
+	bytes = (size_t)art->caption_shown_width * drawn_height * 4;
+	if (bytes > art->caption_tile_capacity)
+	{
+		free(art->caption_tile);
+		art->caption_tile = malloc(bytes);
+		art->caption_tile_capacity = art->caption_tile ? bytes : 0;
+		if (!art->caption_tile)
+			return NULL;
+	}
+	for (y = 0; y < drawn_height; y++)
+	{
+		unsigned int row0, row1, down;
+		const uint8_t *upper, *lower;
+		/* (the 480 rows' place of the screen's row, and the words' colour
+		there) */
+		float place_y = ((float)(*top + y) + 0.5f) * (float)LOADING_ART_FRAME_HEIGHT / (float)shown_height - 0.5f;
+		uint8_t word[3];
+		loading_art_caption_rgb(art, place_y + 0.5f, word);
+		loading_art_caption_sample(*top + y, shown_height, frame_height, &row0, &row1, &down);
+		upper = frame + (size_t)row0 * frame_width * 4;
+		lower = frame + (size_t)row1 * frame_width * 4;
+		for (x = 0; x < art->caption_shown_width; x++)
+		{
+			uint8_t *out = art->caption_tile + ((size_t)y * art->caption_shown_width + x) * 4;
+			unsigned int column0, column1, across, channel, coverage;
+			loading_art_caption_sample(*left + x, shown_width, frame_width, &column0, &column1, &across);
+			for (channel = 0; channel < 3; channel++)
+			{
+				unsigned int above = upper[column0 * 4 + channel] * (256 - across) + upper[column1 * 4 + channel] * across;
+				unsigned int below = lower[column0 * 4 + channel] * (256 - across) + lower[column1 * 4 + channel] * across;
+				out[channel] = (uint8_t)((above * (256 - down) + below * down + 32768) >> 16);
+			}
+			out[3] = 255;
+			coverage = art->caption_coverage[y * art->caption_shown_width + x];
+			if (coverage)
+			{
+				uint8_t lit[3];
+				float place_x = ((float)(*left + x) + 0.5f) * (float)art->width / (float)shown_width - 0.5f;
+				loading_art_caption_lit(art, sharp, place_x, place_y, word, lit);
+				for (channel = 0; channel < 3; channel++)
+					out[channel] = (uint8_t)(out[channel] + ((int)lit[channel] - (int)out[channel]) * (int)coverage / 255);
+			}
+		}
+	}
+	*width = art->caption_shown_width;
+	*height = drawn_height;
+	return art->caption_tile;
 }
 
 #endif

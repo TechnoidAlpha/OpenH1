@@ -28,12 +28,17 @@ int halo_fresh_memory_fill(void);
 /* sets a setting from its value as text ("true", "60", "1.5", "all"), and
 writes it into config.toml (only its line changes); 1 on success */
 int config_write(const char *name, const char *value);
+/* sets a setting for this run alone, from its value as text, config.toml
+left as it is (the menu studio's input and window: menu_studio.c) */
+int config_set_for_run(const char *name, const char *value);
 int config_write_boolean(const char *name, int value);
 /* a setting's value as text ("true", "60", "1.5", "all"); 0 if there is no
 such setting */
 int config_text(const char *name, char *text, size_t size);
 /* the folder config.toml is in, with its separator */
 void config_folder(char *path, size_t size);
+/* whether the command line has the argument ("--bot-control") */
+int config_command_line_flag(const char *name);
 /* a whole file (a UTF-8 path), NUL terminated, or NULL; free() it (the Android
 guest has no SDL_LoadFile) */
 char *config_file_read(const char *path, size_t *size);
@@ -78,9 +83,58 @@ struct config_setting_info
 };
 int config_setting_info(int index, struct config_setting_info *info);
 
+/* each weapon's own first-person offsets, by its tag's path ("weapons\\pistol\\pistol",
+any case, / for \\): config.toml's [display.viewmodel_weapon."<path>"] tables,
+x, y and z in centimeters and pitch, yaw and roll in degrees, added to the
+global ones (view_fov.c). config_viewmodel_weapon gives them (0 and 0 if the
+weapon has none); config_viewmodel_weapon_write sets them, for now and in
+config.toml (all 0: the weapon's table taken out), 1 on success.
+config_changes moves with a write */
+#define CONFIG_WEAPON_VALUES 6
+int config_viewmodel_weapon(const char *path, double values[CONFIG_WEAPON_VALUES]);
+int config_viewmodel_weapon_write(const char *path, const double values[CONFIG_WEAPON_VALUES]);
+
+/* each local player's own settings (port_config.c's table marks them
+_scope_player: the field of view, the first-person view's): a player
+profile's own values, in its folder's settings.toml, else config.toml's.
+config_player_profile says which profile's folder (a path of this machine;
+NULL or "": none) local player 0 to 3 plays with (port/linux/game/
+player_settings.c); config_player_boolean and the rest read a setting as
+that player sees it (config.toml's for a local player out of range, a
+setting that is the machine's, one its environment variable sets, or the
+menus' pictures' stock view). config_profile_text gives a profile's own
+value (0: it has none, so config.toml's is its), config_profile_write sets
+it, for now and in the file. config_changes moves with each */
+int config_per_player(const char *name);
+void config_player_profile(int local_player, const char *folder);
+int config_player_boolean(int local_player, const char *name);
+long config_player_integer(int local_player, const char *name);
+double config_player_real(int local_player, const char *name);
+/* never NULL */
+const char *config_player_string(int local_player, const char *name);
+int config_profile_text(const char *folder, const char *name, char *text, size_t size);
+int config_profile_write(const char *folder, const char *name, const char *value);
+/* whether local player 0 to 3's profile has a value of its own of the
+setting (not one its environment variable sets); and whether a setting's
+environment variable sets it for this run */
+int config_player_has(int local_player, const char *name);
+int config_pinned_by_environment(const char *name);
+/* whether a setting is each player's of the keyboard and mouse, which only
+player 1 plays with: player 1's profile's */
+int config_keyboard_setting(const char *name);
+/* each weapon's own offsets (config_viewmodel_weapon's, below) as a local
+player sees them: their profile's table of the weapon, else config.toml's;
+a profile's own (0: it has none), and set in it (its 0s kept, in place of
+config.toml's) */
+int config_player_viewmodel_weapon(int local_player, const char *path, double values[CONFIG_WEAPON_VALUES]);
+int config_profile_viewmodel_weapon(const char *folder, const char *path, double values[CONFIG_WEAPON_VALUES]);
+int config_profile_viewmodel_weapon_write(const char *folder, const char *path,
+	const double values[CONFIG_WEAPON_VALUES]);
+
 /* the settings whose names begin with prefix ("server.") read from
 config.toml again, but for those their environment variables set; 1 on
 success (a file that cannot be read leaves them as they were) */
 int config_reload(const char *prefix);
+
 
 #endif

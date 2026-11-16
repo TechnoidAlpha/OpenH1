@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.ctf_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_score" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_per_capture" flags="pass_unhandled_to_focused_child"/>
+</model>

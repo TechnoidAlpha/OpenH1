@@ -3,6 +3,7 @@
 #include "cseries.h"
 #include "memory/data.h"
 #include "controller_remap.h"
+#include "controller_buttons.h"
 #include "input/input_abstraction.h"
 #include "game/game.h"
 #include "game/players.h"
@@ -129,5 +130,26 @@ void controller_remap_prompt(short port, struct game_input_preferences *preferen
     if (player != NONE) port = player_get(player)->local_player_index;
     if (!controller_remap_read(port, buttons)) return;
     for (i = 0; i < CONTROLLER_REMAP_GAME_ACTIONS; i++)
-        preferences->game_control_to_xbox_buttons[controller_remap_controls[i]] = buttons[i];
+        preferences->game_control_to_xbox_buttons[controller_remap_controls[i]] =
+            buttons[i] != CONTROLLER_REMAP_UNBOUND && buttons[i] >= CONTROLLER_REMAP_PADDLE ?
+                (unsigned char)(CONTROLLER_REMAP_PROMPT_PADDLE + buttons[i] - CONTROLLER_REMAP_PADDLE) : buttons[i];
+}
+
+wchar_t const *controller_remap_prompt_text(short port, int button)
+{
+    static wchar_t text[32];
+    struct controller_device device;
+    char const *name;
+    long player;
+    int i;
+    if (button == CONTROLLER_REMAP_UNBOUND) return L"UNBOUND";
+    if (button < CONTROLLER_REMAP_PROMPT_PADDLE || button > CONTROLLER_REMAP_PROMPT_PADDLE + 3) return NULL;
+    if (port >= 0 && port < 4 && (player = local_player_get_player_index(port)) != NONE)
+        port = player_get(player)->local_player_index;
+    controller_device_get(port, &device);
+    name = controller_remap_button_name(CONTROLLER_REMAP_PADDLE + button - CONTROLLER_REMAP_PROMPT_PADDLE,
+        device.family);
+    for (i = 0; name[i] && i < (int)(sizeof(text) / sizeof(text[0])) - 1; i++) text[i] = (wchar_t)(unsigned char)name[i];
+    text[i] = 0;
+    return text;
 }

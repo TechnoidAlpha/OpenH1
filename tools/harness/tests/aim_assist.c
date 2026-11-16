@@ -16,13 +16,17 @@ static int game_connection(void){return connection;}
 static int game_in_progress(void){return playing;}
 static int main_menu_is_active(void){return menu;}
 int config_boolean(char const *name){return !strcmp(name,"input.mouse_aim_assist")?preference:block;}
-static unsigned long config_changes(void){return changes;}
+int config_player_boolean(int local_player,char const *name){(void)local_player;return config_boolean(name);}
+/* (moves as either setting changes, as config.toml's count does) */
+static unsigned long config_changes(void){return changes*4+block*2+preference;}
 #define pthread_mutex_lock(p) ((void)(p))
 #define pthread_mutex_unlock(p) ((void)(p))
 static void distributed_send(void *data,byte type,int count,word size,int destination){
  memcpy(wire,data,size);struct distributed_message_header *h=(void*)wire;h->header=8;h->type=type;h->count=count;wire_size=size;sends++;
 }
 static void distributed_send_to_machine_reliably(long machine,void *data,byte type,int count,word size){distributed_send(data,type,count,size,0);}
+/* (no Pro 2v2 game: test_pro_rules.py's) */
+static boolean network_standard_pro_hosting(void) { return FALSE; }
 #include "policy.inc"
 #include "input.inc"
 static void receive(int from,int value,int count,int size){

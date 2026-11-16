@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.host_controls.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/host_controls/touch/header_label" type="text" box="40 128 204 144" wide="-106 84">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/header_team" type="text" box="208 128 256 144" wide="-22 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/header_score" type="text" box="258 128 308 144" wide="-2 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/header_ping" type="text" box="312 128 378 144" wide="18 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/header_value" type="text" box="208 128 378 144" wide="-22 60">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_empty" type="text" box="52 230 368 310" wide="-106 144">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_list" type="column_list">
+		<at widget="main_menu/host_controls/touch/host_tabs" x="0" y="76"/>
+		<at widget="main_menu/host_controls/touch/host_item_1" x="28" y="142"/>
+		<at widget="main_menu/host_controls/touch/host_item_2" x="28" y="196"/>
+		<at widget="main_menu/host_controls/touch/host_item_3" x="28" y="250"/>
+		<at widget="main_menu/host_controls/touch/host_item_4" x="28" y="304"/>
+		<at widget="main_menu/host_controls/touch/host_item_5" x="28" y="358"/>
+		<at widget="main_menu/host_controls/touch/host_action_0" x="412" y="188"/>
+		<at widget="main_menu/host_controls/touch/host_action_1" x="412" y="242"/>
+		<at widget="main_menu/host_controls/touch/host_action_2" x="412" y="296"/>
+		<at widget="main_menu/host_controls/touch/host_action_3" x="412" y="350"/>
+		<at widget="main_menu/host_controls/touch/host_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_tabs" type="column_list" box="0 0 640 52">
+		<at widget="main_menu/host_controls/touch/tab_players" x="28" y="0"/>
+		<at widget="main_menu/host_controls/touch/tab_game" x="108" y="0"/>
+		<at widget="main_menu/host_controls/touch/tab_maps" x="166" y="0"/>
+		<at widget="main_menu/host_controls/touch/tab_playlist" x="224" y="0"/>
+		<at widget="main_menu/host_controls/touch/tab_bans" x="282" y="0"/>
+		<at widget="main_menu/host_controls/touch/tab_bots" x="340" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/touch/tab_players" type="text" box="0 0 74 52" wide="-106 22" picture="main_menu/parts/chip_74x52">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 19" text="PLAYERS"/>
+	</look>
+	<look name="main_menu/host_controls/touch/tab_game" type="text" box="0 0 52 52" wide="-84 22" picture="main_menu/parts/chip_52x52">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 19" text="GAME"/>
+	</look>
+	<look name="main_menu/host_controls/touch/tab_maps" type="text" box="0 0 52 52" wide="-62 22" picture="main_menu/parts/chip_52x52">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 19" text="MAPS"/>
+	</look>
+	<look name="main_menu/host_controls/touch/tab_playlist" type="text" box="0 0 52 52" wide="-40 22" picture="main_menu/parts/chip_52x52">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 19" text="NEXT"/>
+	</look>
+	<look name="main_menu/host_controls/touch/tab_bans" type="text" box="0 0 52 52" wide="-18 22" picture="main_menu/parts/chip_52x52">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 19" text="BANS"/>
+	</look>
+	<look name="main_menu/host_controls/touch/tab_bots" type="text" box="0 0 52 52" wide="4 22" picture="main_menu/parts/chip_52x52">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 19" text="BOTS"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_prompts" type="column_list" box="0 0 640 52">
+		<at widget="main_menu/host_controls/touch/prompt_back" x="502" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/touch/prompt_back" type="text" box="0 0 110 52" wide="106 0" picture="main_menu/parts/touch_button_110x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="BACK"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_1" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<at widget="main_menu/host_controls/touch/host_item_label" x="12" y="9"/>
+		<at widget="main_menu/host_controls/touch/host_item_team" x="180" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_score" x="230" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
+		<at widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_2" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<at widget="main_menu/host_controls/touch/host_item_label" x="12" y="9"/>
+		<at widget="main_menu/host_controls/touch/host_item_team" x="180" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_score" x="230" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
+		<at widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_3" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<at widget="main_menu/host_controls/touch/host_item_label" x="12" y="9"/>
+		<at widget="main_menu/host_controls/touch/host_item_team" x="180" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_score" x="230" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
+		<at widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_4" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<at widget="main_menu/host_controls/touch/host_item_label" x="12" y="9"/>
+		<at widget="main_menu/host_controls/touch/host_item_team" x="180" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_score" x="230" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
+		<at widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_5" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<at widget="main_menu/host_controls/touch/host_item_label" x="12" y="9"/>
+		<at widget="main_menu/host_controls/touch/host_item_team" x="180" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_score" x="230" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
+		<at widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
+		<at widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_label" type="text" box="0 0 164 20" wide="0 84">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="0 0"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_team" type="text" box="0 0 48 20" wide="84 20">
+		<text font="ui\small_ui" color="#FFC9DCF7" at="0 3" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_score" type="text" box="0 0 50 20" wide="104 20">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 3" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_ping" type="text" box="0 0 66 20" wide="124 20">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 3" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_tag" type="text" box="0 0 64 16" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_item_value" type="text" box="0 0 170 20" wide="84 60">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 3" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/panel_title" type="text" box="0 0 188 22" wide="0 68">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/panel_where" type="text" box="0 0 188 28" wide="0 68">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/panel_status" type="text" box="0 0 188 48" wide="0 68">
+		<text font="ui\small_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_panel" box="400 76 612 410" wide="38 68" picture="main_menu/parts/panel_212x334">
+		<at widget="main_menu/host_controls/touch/panel_title" x="412" y="84"/>
+		<at widget="main_menu/host_controls/touch/panel_where" x="412" y="108"/>
+		<at widget="main_menu/host_controls/touch/panel_status" x="412" y="138"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_action_0" type="text" box="0 0 188 52" wide="38 68" picture="main_menu/parts/touch_button_188x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_action_1" type="text" box="0 0 188 52" wide="38 68" picture="main_menu/parts/touch_button_188x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_action_2" type="text" box="0 0 188 52" wide="38 68" picture="main_menu/parts/touch_button_188x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19"/>
+	</look>
+	<look name="main_menu/host_controls/touch/host_action_3" type="text" box="0 0 188 52" wide="38 68" picture="main_menu/parts/touch_button_188x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19"/>
+	</look>
+</model>

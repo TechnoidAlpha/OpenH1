@@ -28,6 +28,13 @@ Windows executable (port/windows/host; port/windows/README.md):
   package, which the host loads only once it has reserved the guest's memory
   (a delay-loaded DLL);
 - build/windows/brokers.txt, internet play's brokers.
+- build/windows/prepared.records, the stock maps' preparations' records.
+- build/windows/openh1.assets, the textures', fonts' and menus' bytes.
+- build/windows/halo_replay.exe, ``ninja windows_replay``: the command
+  stream's replay (port/linux/vulkan/tools/halo_replay.c, with the replays'
+  shared part, port/tools/replay, and its Windows functions,
+  host_render_replay_win.c): the host's renderer and render stream, without
+  the guest or the window.
 """
 
 import hashlib
@@ -42,8 +49,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .android_build import TOML_DIR, fetch_third_party, generate_guest_image
-from .build_common import (MINIUPNPC_DIR, OPTIMISATION, OWN_CODE_ERRORS, compile_launcher, configuration_defines,
-                           miniupnpc_sources, updater_defines)
+from .build_common import (MINIUPNPC_DIR, OPTIMISATION, OWN_CODE_ERRORS, REPLAY_DIR, compile_launcher,
+                           configuration_defines, miniupnpc_sources, replay_build_label, updater_defines)
 from .guest_arch import X32
 from .guest_toolchain import LLVM_VERSION, GuestToolchain, guest_toolchain
 from .ninja_syntax import Writer
@@ -82,7 +89,7 @@ WINDOWS_GUEST_DEFINES = ["-DHALO_WINDOWS=1", "-DHALO_VULKAN=1", "-mno-red-zone",
 # memory below 4 GB, threads on low stacks, Windows's system calls, the
 # exception handlers, the entry point)
 SHARED_HOST_SOURCES = ["host_audio_route.c", "host_common.c", "host_https.c", "host_loader.c", "host_memory_watch.c",
-                       "host_render_record.c", "host_render_stream.c", "host_screenshot.c", "host_sdl.c",
+                       "host_render_record.c", "host_render_stream.c", "host_screenshot.c", "host_sdl.c", "host_stall.c",
                        "host_watch_hash.c"]
 # the posix.h and update.h functions the guest's platform layer calls, on
 # Windows (port/windows/src)
@@ -308,6 +315,10 @@ def _generate_host(n: Writer, sln: Any, guest: Dict[str, Path]) -> None:
         if name == "win32_upnp.c":
             cflags = f"{win32_cflags} {miniupnpc_include}"
         add(WINDOWS_DIR / "src" / name, cflags)
+    # the MCC packages' previews and sharing (posix.h's posix_mcc_*), whose
+    # files have Windows's paths of their own
+    for name in ("posix_mcc_preview.c", "posix_mcc_share.c"):
+        add(LINUX_DIR / "src" / name, win32_cflags)
     for source in miniupnpc_sources():
         add(source, " ".join([*base_cflags, miniupnpc_include, f"-I{MINIUPNPC_DIR / 'src'}", "-w"]),
             name=f"miniupnpc_{source.name}.o")
@@ -367,5 +378,33 @@ def _generate_host(n: Writer, sln: Any, guest: Dict[str, Path]) -> None:
     # ... and the relays offered when a direct connection fails (network.relays_file)
     relays = BUILD / "relays.txt"
     n.build(outputs=relays, rule="windows_copy", inputs=Path("port/assets/network/relays.txt"))
-    n.build(outputs="windows", rule="phony", inputs=[output, sdl_dll, brokers, masters, relays])
+    # ... and the stock maps' preparations' records (port/linux/src/prepared_shipped.h)
+    records = BUILD / "prepared.records"
+    n.build(outputs=records, rule="windows_copy", inputs=Path("port/assets/prepared/prepared.records"))
+    # ... and the textures', fonts' and menus' bytes (port/linux/src/embedded_assets.h)
+    assets = BUILD / "openh1.assets"
+    n.build(outputs=assets, rule="windows_copy", inputs=guest["assets"])
+    n.build(outputs="windows", rule="phony", inputs=[output, sdl_dll, brokers, masters, relays, records, assets])
+
+    # the command stream's replay: the renderer and the render stream of the
+    # host, with the POSIX functions they use, offscreen
+    shared_dir = BUILD / "host" / "shared"
+    replay_cflags = (f"-I{shared_dir} -I{VULKAN_DIR} -I{VULKAN_HEADERS_DIR} -I{REPLAY_DIR} {host_cflags} "
+                     f"-DHALO_REPLAY_BUILD=\\\"{replay_build_label()}\\\"")
+    replay_objects: List[Path] = []
+    for source in (VULKAN_DIR / "tools" / "halo_replay.c", REPLAY_DIR / "host_render_replay.c",
+                   REPLAY_DIR / "host_render_replay_win.c"):
+        obj = host_obj_dir / "replay" / (source.name + ".o")
+        n.build(outputs=obj, rule="windows_host_cc", inputs=source, order_only=[shared_dir / "platform.h"],
+                variables={"cflags": replay_cflags})
+        replay_objects.append(obj)
+    replay_host = {"host_render_stream.c.o", "host_render_record.c.o", "host_screenshot.c.o", "host_posix_win.c.o"}
+    replay_objects += [obj for obj in objects if obj.name in replay_host]
+    replay_objects += [obj for obj in objects if obj.parent.name == "vulkan" and obj.name != "host_vulkan.c.o"]
+    replay_ldflags = ["--target=x86_64-pc-windows-msvc", "-fuse-ld=lld", "-g", "-Wl,/DYNAMICBASE",
+                      "-Wl,/HIGHENTROPYVA", "-Wl,/LARGEADDRESSAWARE", "-Wl,/SUBSYSTEM:CONSOLE"]
+    replay = BUILD / "halo_replay.exe"
+    n.build(outputs=replay, rule="windows_link", inputs=replay_objects,
+            variables={"ldflags": " ".join(replay_ldflags), "libs": libs})
+    n.build(outputs="windows_replay", rule="phony", inputs=[replay, sdl_dll])
     n.newline()

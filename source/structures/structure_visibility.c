@@ -2024,6 +2024,19 @@ void structure_visibility_compute(
 	return;
 }
 
+/* port: (structure_visibility.h) */
+unsigned long structure_visibility_port_cluster_size(
+	void)
+{
+	return sizeof(struct structure_visibility_cluster);
+}
+
+long structure_visibility_port_cluster_mirror_count(
+	void const *cluster)
+{
+	return ((struct structure_visibility_cluster const *)cluster)->mirrors.count;
+}
+
 /* port: whether the structure has a mirror (port/linux/game/render_enumerate.c:
 a map's first frame is drawn through a mirror's window too) */
 boolean structure_visibility_port_has_mirrors(

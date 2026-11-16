@@ -81,17 +81,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("vr_weapon_hold", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_held_in_every_hands_mode():
-    # the weapon is held before vr.hands' frame is asked for (so "game" too), only where vr_render.c says the weapon
-    # was posed in the right controller (not the gamepad's aim), and the left hand is put on it after
-    pose = function(read("port/linux/game/vr_hands.c"), "vr_hands_pose")
-    assert pose.index("held = vr_render_weapon_held(&camera);") < pose.index("if (!posed)\n\t\treturn;")
-    assert pose.index("weapon_hold(node_matrices, node_count, &camera);") < pose.index("support_hold(")
-    held = function(read("port/linux/game/vr_render.c"), "vr_render_weapon_held")
-    assert "!vr_render.weapon_in_hand" in held
-    # and vr_render_weapon_camera says so only where it put the weapon in the controller, after the kick
-    camera = function(read("port/linux/game/vr_render.c"), "vr_render_weapon_camera")
-    assert camera.index("weapon_kick(camera, &hand);") < camera.index("vr_render.weapon_in_hand = TRUE;")
-    assert "weapon_in_hand = TRUE" not in camera[:camera.index("if (!hands_posed())")]

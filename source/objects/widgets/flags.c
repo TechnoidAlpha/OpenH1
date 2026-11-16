@@ -78,6 +78,8 @@ symbols in this file:
 #include "shaders/shader_definitions.h"
 #include "shaders/shaders.h"
 #include "tag_files/tag_groups.h"
+/* port: port/linux/game/spartan_link.c: a feed of the HUD's Spartan link is drawn */
+boolean spartan_link_drawing(void);
 
 /* ---------- constants */
 
@@ -332,7 +334,16 @@ void flag_render(
 	object_get(object_index);
 	flag = flag_get(flag_index);
 	definition = flag_definition_get(flag->definition_index);
-	flag->object_index = object_index;
+	/* port: a feed of the HUD's Spartan link draws only a flag the players'
+	own views keep stepping, and changes nothing of it (antenna_render's;
+	port/linux/game/spartan_link.c) */
+	if (spartan_link_drawing() && (flag->object_index != object_index || flag->updates_since_last_render > 5 ||
+		!flag->initialized))
+	{
+		return;
+	}
+	if (!spartan_link_drawing())
+		flag->object_index = object_index;
 
 	if (flag->updates_since_last_render > 5 || !flag->initialized)
 	{
@@ -342,7 +353,8 @@ void flag_render(
 		render_interpolation_shape_forget(FLAG_TAG, flag_index);
 	}
 
-	flag->updates_since_last_render = 0;
+	if (!spartan_link_drawing()) /* port: (above) */
+		flag->updates_since_last_render = 0;
 	if (!flag->noop)
 	{
 		/* port: the frames between the ticks draw the cloth between the

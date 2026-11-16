@@ -3,7 +3,7 @@
 The VR build of the Linux port (`configure.py --vr`, `ninja linux_arm64`:
 64-bit ARM, drawn with Vulkan), packaged
 by `tools/frame_package.py` for a Steam Frame. Each release has it as
-[OpenH1-Steam-Frame.zip](https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1-Steam-Frame.zip)
+[OpenH1-Steam-Frame.zip](https://github.com/OpenH1/goath1/releases/latest/download/OpenH1-Steam-Frame.zip)
 (the package's `halo-vr-frame` folder). Refer to "VR" and "Steam Frame" in
 `port/linux/README.md` of the repository.
 
@@ -31,9 +31,9 @@ contain them, and the install does not touch them.
 ## Install, or update
 
 On the Frame, in its desktop mode: download the latest release's
-[OpenH1-Steam-Frame.zip](https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1-Steam-Frame.zip)
+[OpenH1-Steam-Frame.zip](https://github.com/OpenH1/goath1/releases/latest/download/OpenH1-Steam-Frame.zip)
 (or an older one from the
-[Releases](https://github.com/OpenH1/OpenH1/releases) page), unzip it, and
+[Releases](https://github.com/OpenH1/goath1/releases) page), unzip it, and
 open `install.sh` in its `halo-vr-frame` folder. It installs the package
 into `~/apps/halo-vr/` (as below), in a terminal window that shows what it
 did. At the first install it asks for the maps folder of the game's Xbox

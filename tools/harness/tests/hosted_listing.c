@@ -67,8 +67,20 @@ static int config_boolean(char const *name)
 	return 0;
 }
 
-static boolean config_write(char const *name, char const *value) { (void)name; (void)value; return TRUE; }
-static char const *config_string(char const *name) { (void)name; return ""; }
+/* (co-op's WHO CAN JOIN, network.coop_join: "friends", "anyone", "invite") */
+static char coop_join[16] = "friends";
+
+static boolean config_write(char const *name, char const *value)
+{
+	if (!strcmp(name, "network.coop_join"))
+		snprintf(coop_join, sizeof(coop_join), "%s", value);
+	return TRUE;
+}
+
+static char const *config_string(char const *name)
+{
+	return !strcmp(name, "network.coop_join") ? coop_join : "";
+}
 #define platform_log(...) ((void)0)
 
 /* internet play's side (p2p.c, p2p_lobby.c): hosting from the internet, the
@@ -77,7 +89,13 @@ static struct
 {
 	boolean hosting_allowed, public, has_password;
 	int listings, withdrawals;
+	/* (p2p_friends.c's: friends offered no JOIN, a co-op game's INVITE
+	ONLY) */
+	boolean closed;
 } p2p;
+
+static void p2p_friends_set_game_closed(int closed) { p2p.closed = closed != 0; }
+static int p2p_friends_game_closed(void) { return p2p.closed; }
 
 static void p2p_set_hosting_allowed(int allowed) { p2p.hosting_allowed = allowed != 0; }
 
@@ -105,7 +123,9 @@ static int server_made;
 
 static void *global_network_game_server_get(void) { return server_made ? &game : NULL; }
 static struct network_game *network_game_server_get_game(void *server) { return server; }
-static boolean hosting_cooperative(void) { return FALSE; }
+/* (a co-op game hosted: ONLINE CO-OP's, or co-op's HOST's) */
+static boolean cooperative;
+static boolean hosting_cooperative(void) { return cooperative && server_made; }
 static void network_game_server_port_set_settings(wchar_t const *name, long maximum)
 {
 	(void)name;
@@ -184,6 +204,8 @@ static boolean game_engine_running(void) { return TRUE; }
 static boolean game_engine_has_teams(void) { return FALSE; }
 static boolean game_engine_can_score(void) { return TRUE; }
 static boolean network_standard_hosting(void) { return TRUE; }
+static boolean network_standard_hosting_vehicle_hijack(void) { return FALSE; }
+static boolean network_standard_set_vehicle_hijack(boolean on) { (void)on; return TRUE; }
 static boolean network_host_controls_restarting(void) { return FALSE; }
 static boolean network_host_rules_available(void) { return FALSE; }
 static boolean network_host_controls_end_game(void) { return TRUE; }
@@ -235,6 +257,20 @@ static boolean host_ask(short verb, void const *player, long number, char const 
 	return FALSE;
 }
 static boolean host_next(struct server_entry *entry, boolean *now) { return network_host_game_next(entry, now); }
+/* (a multiplayer game's host: no co-op level to change) */
+#define HOST_GAME_MAP_SIZE 128
+static boolean host_cooperative(void) { return FALSE; }
+static boolean network_host_game_cooperative_next(char *level, long size, short *difficulty, boolean *now)
+{
+	(void)level; (void)size; (void)difficulty;
+	*now = FALSE;
+	return FALSE;
+}
+static void network_host_game_cooperative_text(char const *level, short difficulty, wchar_t *text, short size)
+{
+	(void)level; (void)difficulty; (void)size;
+	text[0] = 0;
+}
 
 /* Host Controls' screen state (host_controls_menu.inc's host_menu) */
 static struct
@@ -242,6 +278,8 @@ static struct
 	short tab, first;
 	/* (MAPS' gametype: CHANGE MAP... opens it on CURRENT) */
 	short gametype;
+	/* (co-op's difficulty, which it opens on too) */
+	short difficulty;
 	boolean focus_first;
 	short game_rows[MAXIMUM_HOST_GAME_ROWS];
 	short game_row_count;
@@ -372,6 +410,39 @@ int main(int argc, char **argv)
 		CHECK(listing_row(value, NUMBEROF(value)) && !wcscmp(value, L"PRIVATE"), "LISTING says %ls", value);
 		listing_changed(0);
 		CHECK(listed(), "LISTING to PUBLIC did not list a private game");
+		return 0;
+	}
+	CASE("coop")
+	{
+		/* co-op hosted for FRIENDS (WHO CAN JOIN's default): not listed for
+		strangers, its friends offered JOIN */
+		cooperative = TRUE;
+		create("multiplayer_type_online_coop_item");
+		server_setup();
+		CHECK(coop_who_kept() == _coop_join_friends, "WHO CAN JOIN's default is %s", coop_join);
+		CHECK(listing_spinner.parameters.list.selected_index == 1 && !listed() && !p2p.closed,
+			"FRIENDS: LISTING %d, listed %d, friends offered no JOIN %d", listing_spinner.parameters.list.selected_index,
+			listed(), p2p.closed);
+		CHECK(server_start() && coop_who_now() == _coop_join_friends, "START GAME, or FRIENDS is not who can join");
+		/* ANYONE (co-op's HOST's card, as coop_host_start keeps and applies
+		it): listed, and Server Setup keeps it so */
+		config_write("network.coop_join", "anyone");
+		coop_who_apply(coop_who_kept());
+		CHECK(listed() && !p2p.closed, "ANYONE is not listed");
+		server_setup();
+		CHECK(listing_spinner.parameters.list.selected_index == 0 && listed() && coop_who_now() == _coop_join_anyone,
+			"Server Setup took a co-op game for ANYONE out of the list");
+		/* INVITE ONLY: not listed, and friends offered no JOIN */
+		config_write("network.coop_join", "invite");
+		server_setup();
+		CHECK(!listed() && p2p.closed && coop_who_now() == _coop_join_invite, "INVITE ONLY: listed %d, closed %d",
+			listed(), p2p.closed);
+		/* Server Setup's LISTING: PUBLIC is ANYONE (friends offered JOIN
+		again), PRIVATE FRIENDS */
+		server_settings_private_set(FALSE);
+		CHECK(!strcmp(coop_join, "anyone") && !p2p.closed, "LISTING to PUBLIC: %s, closed %d", coop_join, p2p.closed);
+		server_settings_private_set(TRUE);
+		CHECK(!strcmp(coop_join, "friends"), "LISTING to PRIVATE: %s", coop_join);
 		return 0;
 	}
 	CASE("lan")

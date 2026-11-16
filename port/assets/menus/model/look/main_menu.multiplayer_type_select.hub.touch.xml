@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.hub.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/hub/touch/section_online" type="text" box="0 0 368 20" wide="-106 80" picture="main_menu/parts/section_368">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="4 0" text="PLAY ONLINE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_join_internet" type="text" box="0 0 182 52" wide="-106 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 9" text="BROWSE GAMES"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/browser_note" x="10" y="31"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_join_lan_item" type="text" box="0 0 182 52" wide="-66 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 9" text="LOCAL GAMES"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/item_note" x="10" y="31"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_join_direct" type="text" box="0 0 182 52" wide="-106 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 9" text="JOIN BY LINK"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/invite_note" x="10" y="31"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_party" type="text" box="0 0 182 52" wide="-66 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 9" text="PARTY"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/party_note" x="10" y="31"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_friends" type="text" box="0 0 182 52" wide="-106 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 9" text="FRIENDS"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/friends_note" x="10" y="31"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/section_host" type="text" box="0 0 368 20" wide="-106 80" picture="main_menu/parts/section_368">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="4 0" text="HOST"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_create" type="text" box="0 0 182 52" wide="-106 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="CREATE GAME ›"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_coop" type="text" box="0 0 182 52" wide="-66 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="CO-OP ›"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_gametypes" type="text" box="0 0 182 52" wide="-106 40" picture="main_menu/parts/tile_182x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="GAMETYPES"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_hint" type="text" box="330 46 612 64" wide="106 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test" text="Tap to choose, tap again to open."/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/hub/touch/section_online" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_join_internet" x="28" y="104"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_join_lan_item" x="214" y="104"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_join_direct" x="28" y="160"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_party" x="214" y="160"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_friends" x="28" y="216"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/section_host" x="28" y="274"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_create" x="28" y="298"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_coop" x="214" y="298"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_gametypes" x="28" y="354"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_hint" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/multiplayer_status" type="text" box="418 94 598 118" wide="0 132">
+		<text font="ui\small_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/multiplayer_status_detail" type="text" box="418 122 598 242" wide="0 132">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_now_label" type="text" box="418 92 618 108">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="ONLINE NOW"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_games_0" box="418 108 444 144" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_games_1" box="444 108 470 144" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_games_2" box="470 108 496 144" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_players_0" box="514 108 540 144" wide="66 0" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_players_1" box="540 108 566 144" wide="66 0" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_players_2" box="566 108 592 144" wide="66 0" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_games_label" type="text" box="418 126 498 144">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/online_players_label" type="text" box="514 126 604 144" wide="66 0">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_label" type="text" box="418 156 618 172">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="BEST FOR YOU"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_0_name" type="text" box="418 174 594 194" wide="0 132">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_0_badge" type="text" box="418 177 482 193" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_0_about" type="text" box="418 193 494 211" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_0_players" type="text" box="498 193 568 213" wide="132 0">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_0_ping" box="574 195 598 211" wide="132 0" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_1_name" type="text" box="418 214 594 234" wide="0 132">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_1_badge" type="text" box="418 217 482 233" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_1_about" type="text" box="418 233 494 251" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_1_players" type="text" box="498 233 568 253" wide="132 0">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_1_ping" box="574 235 598 251" wide="132 0" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_2_name" type="text" box="418 254 594 274" wide="0 132">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_2_badge" type="text" box="418 257 482 273" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_2_about" type="text" box="418 273 494 291" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_2_players" type="text" box="498 273 568 293" wide="132 0">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/best_2_ping" box="574 275 598 291" wide="132 0" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/hub/touch/multiplayer_options_txt" type="text" box="418 304 598 388" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_panel" box="404 80 612 400" wide="-26 132" picture="main_menu/parts/panel_208x320">
+		<at widget="main_menu/multiplayer_type_select/hub/touch/multiplayer_status" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/multiplayer_status_detail" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_now_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_games_0" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_games_1" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_games_2" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_players_0" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_players_1" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_players_2" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_games_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/online_players_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_0_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_0_badge" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_0_about" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_0_players" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_0_ping" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_1_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_1_badge" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_1_about" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_1_players" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_1_ping" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_2_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_2_badge" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_2_about" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_2_players" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/best_2_ping" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/multiplayer_options_txt" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/browser_note" type="text" box="0 0 162 16" wide="0 40">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/item_note" type="text" box="0 0 162 16" wide="0 40">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/invite_note" type="text" box="0 0 162 16" wide="0 40">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/party_note" type="text" box="0 0 162 16" wide="0 40">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/friends_note" type="text" box="0 0 162 16" wide="0 40">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_prompts" type="column_list" box="0 0 640 52">
+		<at widget="main_menu/multiplayer_type_select/hub/touch/prompt_refresh" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/prompt_back" x="502" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/prompt_refresh" type="text" box="0 0 136 52" wide="-106 0" picture="main_menu/parts/touch_button_136x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="REFRESH"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/prompt_back" type="text" box="0 0 110 52" wide="106 0" picture="main_menu/parts/touch_button_110x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="BACK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/page_prompts" type="column_list" box="0 0 640 52">
+		<at widget="main_menu/multiplayer_type_select/hub/touch/prompt_back" x="502" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/section_create" type="text" box="0 0 368 20" wide="-106 80" picture="main_menu/parts/section_368">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="4 0" text="CREATE GAME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_create_inter" type="text" box="0 0 368 52" wide="-106 80" picture="main_menu/parts/tile_368x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="INTERNET"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_create_lan_item" type="text" box="0 0 368 52" wide="-106 80" picture="main_menu/parts/tile_368x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="LOCAL NETWORK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_create_offline" type="text" box="0 0 368 52" wide="-106 80" picture="main_menu/parts/tile_368x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="OFFLINE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/create_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/hub/touch/section_create" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_create_inter" x="28" y="106"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_create_lan_item" x="28" y="162"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_create_offline" x="28" y="218"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/page_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/section_coop" type="text" box="0 0 368 20" wide="-106 80" picture="main_menu/parts/section_368">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="4 0" text="CO-OP CAMPAIGN"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_online_coop" type="text" box="0 0 368 52" wide="-106 80" picture="main_menu/parts/tile_368x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="ONLINE CO-OP"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/hub_split_coop" type="text" box="0 0 368 52" wide="-106 80" picture="main_menu/parts/tile_368x52">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 17" text="SPLIT-SCREEN CO-OP"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/hub/touch/coop_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/hub/touch/section_coop" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_online_coop" x="28" y="106"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_split_coop" x="28" y="162"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/page_prompts" x="0" y="414"/>
+	</look>
+</model>

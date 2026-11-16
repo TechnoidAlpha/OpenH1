@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's Mods screen, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/mods/mods_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+	<widget name="main_menu/mods/mods_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="b" back="true"/>
 		<on event="back" back="true"/>
 		<child widget="main_menu/new_select/sel_list_desc_bkd"/>
 		<child widget="main_menu/mods/mods_list"/>
 		<child widget="main_menu/mods/header_mods"/>
 	</widget>
-	<widget name="main_menu/mods/header_mods" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/mods/header_mods">
+	<widget name="main_menu/mods/header_mods" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/mods/header_mods" source="tools/port_settings.py multiplayer_files/_mods/_header">
 	</widget>
-	<widget name="main_menu/mods/mods_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/mods/mod_details">
+	<widget name="main_menu/mods/mods_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/mods/mod_details" source="tools/port_settings.py multiplayer_files/_mods">
 		<data input="port mods update"/>
 		<on event="created" run="port mods init"/>
 		<on event="deleted" run="port mods close"/>
@@ -27,7 +27,7 @@
 		<child widget="main_menu/mods/op_mod_11" x="20" y="373"/>
 		<child widget="main_menu/mods/button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_1" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd_top" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_1" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd_top" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -36,8 +36,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_2" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_2" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -46,8 +48,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_3" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_3" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -56,8 +60,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_4" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_4" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -66,8 +72,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_5" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_5" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -76,8 +84,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_6" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_6" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -86,8 +96,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_7" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_7" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -96,8 +108,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_8" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_8" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -106,8 +120,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_9" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_9" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -116,8 +132,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_10" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_10" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -126,8 +144,10 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/op_mod_11" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF">
+	<widget name="main_menu/mods/op_mod_11" width="390" height="28" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/sel_list_item_bkd" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 		<on event="a" run="port mods toggle"/>
 		<on event="start" run="port mods toggle"/>
 		<on event="left" run="port mods move up"/>
@@ -136,41 +156,43 @@
 		<child widget="main_menu/mods/mod_status" x="8" y="2"/>
 		<child widget="main_menu/mods/mod_name" x="34"/>
 		<child widget="main_menu/mods/mod_state" x="318"/>
+		<on event="stick_left" run="port mods move up"/>
+		<on event="stick_right" run="port mods move down"/>
 	</widget>
-	<widget name="main_menu/mods/mod_status" controller="1" width="24" height="24" bitmap="mods/status">
+	<widget name="main_menu/mods/mod_status" controller="1" width="24" height="24" bitmap="mods/status" source="tools/port_settings.py multiplayer_files/_mods">
 	</widget>
-	<widget name="main_menu/mods/mod_name" type="text" controller="1" width="284" height="22" font="ui\large_ui" color="#FF2896FF" text_y="4">
+	<widget name="main_menu/mods/mod_name" type="text" controller="1" width="284" height="22" font="ui\large_ui" color="#FF2896FF" text_y="4" source="tools/port_settings.py multiplayer_files/_mods">
 	</widget>
-	<widget name="main_menu/mods/mod_state" type="text" controller="1" width="66" height="22" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" text_flags="no_focus_test">
+	<widget name="main_menu/mods/mod_state" type="text" controller="1" width="66" height="22" font="ui\large_ui" color="#FF2896FF" align="center" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_mods">
 	</widget>
-	<widget name="main_menu/mods/mod_details" width="640" height="480">
+	<widget name="main_menu/mods/mod_details" width="640" height="480" source="tools/port_settings.py multiplayer_files/_mods">
 		<child widget="main_menu/mods/mod_details_name"/>
 		<child widget="main_menu/mods/mod_details_status"/>
 		<child widget="main_menu/mods/mod_details_text"/>
 	</widget>
-	<widget name="main_menu/mods/mod_details_name" type="text" controller="1" left="412" top="84" width="200" height="44" font="ui\large_ui" color="#FFFFFFFF">
+	<widget name="main_menu/mods/mod_details_name" type="text" controller="1" left="412" top="84" width="200" height="44" font="ui\large_ui" color="#FFFFFFFF" source="tools/port_settings.py multiplayer_files/_mods">
 	</widget>
-	<widget name="main_menu/mods/mod_details_status" controller="1" left="411" top="132" width="16" height="16" bitmap="mods/status_small">
+	<widget name="main_menu/mods/mod_details_status" controller="1" left="411" top="132" width="16" height="16" bitmap="mods/status_small" source="tools/port_settings.py multiplayer_files/_mods">
 	</widget>
-	<widget name="main_menu/mods/mod_details_text" type="text" controller="1" left="412" top="130" width="200" height="272" font="ui\small_ui" color="#FF2896FF">
+	<widget name="main_menu/mods/mod_details_text" type="text" controller="1" left="412" top="130" width="200" height="272" font="ui\small_ui" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_mods">
 	</widget>
-	<widget name="main_menu/mods/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/mods/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_mods">
 		<child widget="main_menu/mods/button_up" y="1"/>
 		<child widget="main_menu/mods/button_down" x="130" y="1"/>
 		<child widget="main_menu/mods/button_ok" x="380" y="1"/>
 		<child widget="common_button_cancel" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/mods/button_up" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="MOVE UP" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/mods/button_up" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="MOVE UP" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_mods/_text_button">
 		<on event="a" run="port mods move up"/>
 		<on event="start" run="port mods move up"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/mods/button_down" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="MOVE DOWN" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/mods/button_down" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="MOVE DOWN" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_mods/_text_button">
 		<on event="a" run="port mods move down"/>
 		<on event="start" run="port mods move down"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/mods/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/mods/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_mods/_button">
 		<on event="a" run="port mods save" back="true"/>
 		<on event="start" run="port mods save" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

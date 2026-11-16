@@ -17,3 +17,9 @@ int host_windows_hardware_id(char *text, int size)
 	return posix_hardware_id_source(text, size);
 }
 
+
+/* (sdl_platform.c's frames' limit, on CLOCK_MONOTONIC: host_syscall_win.c) */
+void host_windows_sleep_until(unsigned long long when)
+{
+	host_sleep_until_nanoseconds(when);
+}

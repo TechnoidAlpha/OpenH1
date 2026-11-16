@@ -51,7 +51,7 @@ VULKAN_DIR = Path("port/linux/vulkan")
 # xgpu_vulkan_platform.h), as the macOS build's host does
 # (tools/macos_build.py, SHARED_SOURCES)
 VULKAN_SHARED_SOURCES = ["xgpu.h", "xgpu_backend.h", "loading_presentation.h", "loading_art.h", "loading_art_tables.h", "loading_ring.h", "loading_scene.h", "xgpu_shader.h", "xgpu_spirv.h", "xgpu_spirv.c", "xgpu_hdr.h",
-                         "vr.h", "vr_host.h", "vr_visor.h"]
+                         "xgpu_dynamic_lights_world.h", "xgpu_dynamic_lights_world.c", "vr.h", "vr_host.h", "vr_visor.h"]
 VULKAN_DECODE_SOURCES = ["xbox_texture_decode.c"]
 # the VR mode's: the stream's VR records and late latch (host_vr_stream.h),
 # built beside the same stand-ins, and a stand-in for the guest's settings

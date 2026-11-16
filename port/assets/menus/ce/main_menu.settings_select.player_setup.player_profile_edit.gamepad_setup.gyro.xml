@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="b" run="port settings page cancel" back="true"/>
+		<on event="back" run="port settings page cancel" back="true"/>
+		<on event="y" run="port settings search"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/header_gyro"/>
+		<child widget="main_menu/settings/profile"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/options_menu"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/header_gyro" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/header_gyro" wide="-106 0" source="tools/port_settings.py settings_files/_settings_page">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/page_panel" source="tools/port_settings.py settings_files/_settings_page">
+		<data input="port settings page"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_0" x="28" y="80"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_found" x="28" y="100"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_aim" x="28" y="121"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_button" x="28" y="142"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_sensitivity" x="28" y="163"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_vertical_sensitivity" x="28" y="184"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_space" x="28" y="205"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_smoothing" x="28" y="226"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_calibrate" x="28" y="247"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_9" x="28" y="274"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_aim_style" x="28" y="294"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_modern_aim_acceleration_angle" x="28" y="315"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_modern_aim_acceleration_threshold" x="28" y="336"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_flick_stick" x="28" y="357"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_bar" y="414"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_defaults" x="24" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_ok" x="358" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_cancel" x="488" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="-106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
+		<on event="a" run="port settings defaults"/>
+		<on event="start" run="port settings defaults"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
+		<on event="a" run="port settings keep" back="true"/>
+		<on event="start" run="port settings keep" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
+		<on event="a" run="port settings page cancel" back="true"/>
+		<on event="start" run="port settings page cancel" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_0" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_0_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_0_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_found" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_found_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_found_value" x="188" y="2"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_found_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_found_value" type="text" controller="1" width="140" height="16" color="#FF2896FF" align="center" text_y="-1" text_flags="no_focus_test" wide="20 120" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_aim" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_aim_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_aim_spinner" x="188"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_aim_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_aim_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ALWAYS ON|HOLD TO AIM|HOLD TO PAUSE|THUMB ON STICK" setting="input.gyro_aim" values="off|on|hold|pause|touch" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_button" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_button_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_button_spinner" x="188"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_button_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="3" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_button_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="TOUCHPAD|LEFT PADDLE|RIGHT PADDLE|CAPTURE / SHARE|LEFT BUMPER|RIGHT BUMPER|LEFT TRIGGER|RIGHT TRIGGER|LEFT STICK|RIGHT STICK" setting="input.gyro_button" values="touchpad|left_paddle|right_paddle|misc|left_bumper|right_bumper|left_trigger|right_trigger|left_stick|right_stick" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="left" run="port slider left"/>
+		<on event="right" run="port slider right"/>
+		<on event="a" run="port slider edit"/>
+		<on event="start" run="port slider edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_track" x="188" y="3"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_value" x="252" y="0"/>
+		<on event="stick_left" run="port slider left"/>
+		<on event="stick_right" run="port slider right"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="20 224" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_thumb"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb" source="tools/port_settings.py settings_files/_settings_page">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_sensitivity_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="244 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_vertical_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_vertical_sensitivity_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_vertical_sensitivity_spinner" x="188"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_vertical_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="5" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_vertical_sensitivity_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0.25X|0.5X|0.6X|0.7X|0.75X|0.8X|0.9X|1X|1.1X|1.25X|1.5X|2X" setting="input.gyro_vertical_sensitivity" values="0.25|0.5|0.6|0.7|0.75|0.8|0.9|1|1.1|1.25|1.5|2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_space" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_seg1" x="312" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_seg0" type="text" controller="1" width="120" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="PLAYER SPACE" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_seg1" type="text" controller="1" width="120" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="LOCAL SPACE" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_space_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="PLAYER SPACE|LOCAL SPACE" setting="input.gyro_space" values="player|local" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_smoothing" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_seg1" x="240" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="OFF" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_smoothing_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="input.gyro_smoothing" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_gyro_calibrate" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="a" run="port settings gyro calibrate"/>
+		<on event="start" run="port settings gyro calibrate"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_calibrate_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_calibrate_value" x="188" y="2"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_calibrate_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/gyro_calibrate_value" type="text" controller="1" width="140" height="16" color="#FF2896FF" align="center" text_y="-1" text_flags="no_focus_test" wide="20 120" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_9" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_9_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/section_9_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="9" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_aim_style" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_seg1" x="267" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="10" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_seg0" type="text" controller="1" width="75" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="CLASSIC" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_seg1" type="text" controller="1" width="75" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="MODERN" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/aim_style_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="CLASSIC|MODERN" setting="input.aim_style" values="classic|modern" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_modern_aim_acceleration_angle" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_angle_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_angle_spinner" x="188"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_angle_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_angle_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0|5|10|15|20|25|30|35|40|45" setting="input.modern_aim_acceleration_angle" values="0|5|10|15|20|25|30|35|40|45" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_modern_aim_acceleration_threshold" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_threshold_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_threshold_spinner" x="188"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_threshold_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/modern_aim_acceleration_threshold_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="DEFAULT|50%|55%|60%|65%|70%|75%|80%|85%|90%|95%|100%" setting="input.modern_aim_acceleration_threshold" values="-1|50|55|60|65|70|75|80|85|90|95|100" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/op_flick_stick" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_label"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_seg1" x="240" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="OFF" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/flick_stick_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="input.flick_stick" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</widget>
+	<strings name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/labels">
+		<string text="GYRO AIMING"/>
+		<string text="GYRO"/>
+		<string text="GYRO AIMING"/>
+		<string text="GYRO BUTTON"/>
+		<string text="SENSITIVITY"/>
+		<string text="VERTICAL SENSITIVITY"/>
+		<string text="TURN AXIS"/>
+		<string text="SMOOTHING"/>
+		<string text="CALIBRATE"/>
+		<string text="RIGHT STICK"/>
+		<string text="AIM STYLE"/>
+		<string text="ACCELERATION ANGLE"/>
+		<string text="ACCELERATION START"/>
+		<string text="FLICK STICK"/>
+	</strings>
+	<strings name="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gyro/help_strings">
+		<string text=""/>
+		<string text=""/>
+		<string text="Whether a controller with a gyroscope is connected: a DualSense, a DualShock 4, a Switch Pro Controller or Joy-Cons, a Steam Deck.|With Steam Input, turn it off for GOAT H1."/>
+		<string text="Aim by turning the controller, as a mouse; the stick still works. Hold to Aim: only while the gyro button is held. Hold to Pause: except while it is held, to re-center. Thumb on Stick: while your thumb is on the right stick (Steam Deck, Steam Controller).|No aim assist on the gyro's aim."/>
+		<string text="The button that Hold to Aim and Hold to Pause hold. It still does its own action too: Button Remapping can move that."/>
+		<string text="How far the view turns for each degree you turn the controller: 1 as far, 2 twice as far. Press A, or click the number, to type a value.|Zoomed in: as Zoom Aim Speed sets."/>
+		<string text="How far the view turns up and down, of how far it turns side to side. 1X turns it as far."/>
+		<string text="Player Space turns you as you turn the controller about the up direction, however you hold it: flat, upright or between. Local Space turns you about the controller's own axis, as if held flat."/>
+		<string text="Steadies the smallest motions, your hand's tremor, but never a real turn. Off: every motion as it comes."/>
+		<string text="Put the controller down on something still, then select this: it measures the gyroscope at rest for a second and a half.|It also does so whenever it is held still."/>
+		<string text=""/>
+		<string text="Classic aims as the original: a diagonal turns faster, and can speed up the turn as a full push does. Modern aims as MCC's: the same speed whichever way you push, and only a push straight to the side speeds up the turn.|The mouse and touch controls are not changed."/>
+		<string text="Modern aim: how far from straight to the side, in degrees, a full push still speeds up the turn. Lower keeps more diagonals from speeding it up."/>
+		<string text="Modern aim: how far you push the stick before the turn speeds up. Default is the game's own, as Classic's."/>
+		<string text="Point the right stick and you turn at once to face that way: right, a quarter turn; down, about face. Turn it round its rim and you turn with it. Aim up and down with the gyro.|With the default stick layout."/>
+	</strings>
+</menus>

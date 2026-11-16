@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Makes high-res textures of the menus' controller button icons
-(port/assets/buttons/*.png) from hand-drawn SVG redraws of them
-(port/assets/buttons/svg):
+"""Makes high-res textures of the menus' controller button icons, and of the
+in-game menus' highlight (port/assets/buttons/*.png), from hand-drawn SVG
+redraws of them (port/assets/buttons/svg):
 
     python tools/button_assets.py layout --map assets/maps/ui.map
-    python tools/button_assets.py build
+    python tools/button_assets.py build [--only menu_bkds__1 ...]
     python tools/button_assets.py check --map assets/maps/ui.map --out /tmp/button_check
 
 The icons beside the menus' key labels (A SELECT, B BACK, X DELETE, Y CREATE
@@ -45,6 +45,14 @@ layout: reads each icon's bitmap from the map (its size, format and the CRC
 build: renders the redraws as buttons.json places them into
     port/assets/buttons/*.png (committed; the builds embed them:
     tools/embed_assets.py).
+The pause menus of every map (the campaign's and multiplayer's) mark the row
+chosen with the second frame of ui\\shell\\bitmaps\\menu_bkds, a rounded
+box of 256x32 texels drawn at one texel to a unit of the 480 lines: at 4K
+each texel covered four and a half pixels, its corners in steps. Its
+redraw (MENU_BITMAPS) is drawn in the same texels, at 8x, so it stands for
+that frame wherever a map has it, as the icons do; its first frame is
+empty, and stays the map's.
+
 check: compares each PNG, reduced to its bitmap's size, with the map's
     bitmap and writes side-by-side images into --out.
 
@@ -88,17 +96,32 @@ BUTTONS = {
 MESSAGE_ICONS = "ui\\hud\\bitmaps\\hud_msg_icons_sm"
 MESSAGE_BUTTONS = {0: "a_butn.svg", 1: "b_butn.svg", 2: "x_butn.svg", 3: "y_butn.svg"}
 
+# the in-game menus' pictures that are not buttons, each drawn in its map
+# bitmap's texels (place [1, 0, 0]): the pause menus' highlight, the second
+# frame of menu_bkds (every game map has the same, this CRC; ui.map has none)
+MENU_BITMAPS = [dict(name="menu_bkds__1", tag=BITMAPS + "menu_bkds", bitmap=1, width=256, height=32,
+                     format="dxt3", scale=SCALE, crc=93885396, svg="menu_bkds__1.svg", place=[1, 0, 0])]
+
 # Standalone Xbox faces for gameplay prompts, using the existing redraws.
 HUD_BUTTONS = [dict(name=f"{button}_butn__0", tag=BITMAPS + f"{button}_butn",
                    bitmap=0, width=32, height=32, format="dxt3", scale=8,
                    crc=0, svg=f"{button}_butn.svg", place=[1, 0, 0])
                for button in ("black", "white")]
 
-# Plain gameplay faces use the same hand-drawn oval and letter as the
-# message stencils, with solid colour and no rim or shadow.
+# Plain gameplay faces (the classic style): the Xbox's message icon
+# stencils, each oval with its letter cut out, as the HUD's messages drew them
+# tinted, in each button's colour. Their art is Aerocatia's and Jessie's, from
+# Halo PC Restored's hud_msg_icons_sm (port/assets/hud/art, NOTICE.md there),
+# by its sprites' rectangles on that sheet (sequences 0 to 3, A, B, X and Y,
+# and 13, the plain oval, for Black and White), each fitted to the box of the
+# redraw's oval in the gameplay cell.
+RESTORED_STENCILS = ROOT / "port/assets/hud/art/hud__bitmaps__hud_msg_icons_sm__0.png"
+RESTORED_SPRITES = {"a": [284, 80, 348, 160], "b": [0, 0, 64, 80], "x": [64, 0, 128, 80],
+                      "y": [128, 0, 192, 80], "black": [348, 80, 400, 140], "white": [348, 80, 400, 140]}
 CLASSIC_BUTTONS = [dict(name=f"classic_{button}__0", tag=f"ui\\hud\\buttons\\classic_{button}",
                        bitmap=0, width=32, height=32, format="dxt3", scale=8,
-                       crc=0, svg=f"{button}_butn.svg", place=[1, 0, 0], classic=color)
+                       crc=0, svg=f"{button}_butn.svg", place=[1, 0, 0], classic=color,
+                       restored=RESTORED_SPRITES[button])
                    for button, color in (("a", "#40eb40"), ("b", "#fa5946"),
                                          ("x", "#3998fa"), ("y", "#f9e928"),
                                          ("black", "#000000"), ("white", "#ffffff"))]
@@ -133,6 +156,14 @@ def gameplay_control(entry: dict) -> np.ndarray:
     pixels = np.asarray(image).copy()
     pixels[..., :3] = (pixels[..., :3].astype(np.uint16) * pixels[..., 3:4] + 127) // 255
     return pixels
+
+
+# MCC modern shoulder labels map to the Xbox black/white controls. These
+# redraws are placeholders, not CRC replacements for any native map bitmap.
+MCC_BUTTONS = [dict(name=f"mcc_{button}_butn__0", tag=f"mcc\\buttons\\{button}",
+                    bitmap=0, width=32, height=32, format="dxt3", scale=8,
+                    crc=0, svg=f"{button}_butn.svg", place=[1, 0, 0])
+               for button in ("black", "white")]
 
 
 def document(width: int, height: int, body: str) -> str:
@@ -195,6 +226,28 @@ def classic(svg: str, color: str, letter_move: list = (0, 0)) -> str:
         letter.set("transform", f"translate({letter_move[0]} {letter_move[1]}) {letter.get('transform', '')}")
         body += ElementTree.tostring(letter, encoding="unicode")
     return document(32, 32, body)
+
+
+def classic_restored(entry: dict) -> np.ndarray:
+    """A classic face: the restored stencil in its rectangle (its shape on
+    the sheet), fitted to the box the redraw's oval has in the cell,
+    in the button's colour, its letter transparent."""
+    sheet = np.asarray(Image.open(RESTORED_STENCILS).convert("RGBA"))
+    left, top, right, bottom = entry["restored"]
+    stencil = sheet[top:bottom, left:right]
+    ys, xs = np.nonzero(stencil[..., 3])
+    stencil = stencil[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    oval = render(classic(entry["svg"], entry["classic"]), entry["scale"])[..., 3]
+    ys, xs = np.nonzero(oval)
+    box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
+    colour = [int(entry["classic"][i:i + 2], 16) for i in (1, 3, 5)]
+    shape = np.zeros(stencil.shape, np.uint8)
+    shape[..., :3], shape[..., 3] = colour, stencil[..., 3]
+    shape = np.asarray(Image.fromarray(shape).resize((box[2] - box[0], box[3] - box[1]), Image.LANCZOS))
+    image = np.zeros((entry["height"] * entry["scale"], entry["width"] * entry["scale"], 4), np.uint8)
+    image[box[1]:box[3], box[0]:box[2], 3] = shape[..., 3]
+    image[..., :3] = colour
+    return image
 
 
 def gameplay_gem(entry: dict) -> np.ndarray:
@@ -380,20 +433,24 @@ def layout(arguments) -> None:
     classic_buttons = [dict(entry) for entry in CLASSIC_BUTTONS]
     for entry, sprite in zip(classic_buttons, sprites):
         entry["letter"] = [round(n / sprite["place"][0], 4) for n in sprite["letter"]]
-    LIST.write_text(json.dumps({"assets": entries + HUD_BUTTONS + classic_buttons + GEM_BUTTONS + CONTROL_BUTTONS}, indent=1) + "\n")
+    LIST.write_text(json.dumps({"assets": entries + MCC_BUTTONS + HUD_BUTTONS + classic_buttons + GEM_BUTTONS + CONTROL_BUTTONS + MENU_BITMAPS}, indent=1) + "\n")
 
 
 def build(arguments) -> None:
     description = json.loads(LIST.read_text())
     names = {f"{entry['name']}.png" for entry in description["assets"]}
     for stale in ASSETS.glob("*.png"):
-        if stale.name not in names:
+        if stale.name not in names and not arguments.only:
             stale.unlink()
     for entry in description["assets"]:
+        if arguments.only and entry["name"] not in arguments.only:
+            continue
         if "control_cell" in entry:
             image = gameplay_control(entry)
         elif "source_png" in entry:
             image = gameplay_gem(entry)
+        elif "restored" in entry:
+            image = classic_restored(entry)
         elif "classic" in entry:
             image = bleed(render(classic(entry["svg"], entry["classic"], entry.get("letter", (0, 0))), entry["scale"]))
         elif "sprites" in entry:
@@ -452,7 +509,8 @@ def main() -> None:
     commands = parser.add_subparsers(dest="command", required=True)
     command = commands.add_parser("layout")
     command.add_argument("--map", required=True)
-    commands.add_parser("build")
+    command = commands.add_parser("build")
+    command.add_argument("--only", nargs="+", help="these textures alone (their names), the rest left as they are")
     command = commands.add_parser("check")
     command.add_argument("--map", required=True)
     command.add_argument("--out", required=True)

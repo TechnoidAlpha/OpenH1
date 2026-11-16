@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.name_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/name_edit/profile_name_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="created" run="NULL"/>
+	</behaviour>
+</model>

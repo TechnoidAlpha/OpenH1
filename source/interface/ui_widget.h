@@ -66,6 +66,10 @@ enum
 
 /* ---------- prototypes/UI_WIDGET.C */
 
+/* port: MCC's menu actions name levels of its own catalog (mcc_maps.c) */
+boolean ui_widget_port_mcc_multiplayer_map_choose(char const *level_name);
+boolean ui_widget_port_mcc_cooperative_level_choose(char const *level_name, short difficulty);
+
 boolean event_controller_index_compatible_with_widget(
 	struct event_record const *event,
 	struct widget_instance const *widget);
@@ -222,6 +226,9 @@ void render_ui_widgets_postgame(
 	rectangle2d *window_bounds);
 void render_ui_widgets(
 	short local_player_index,
+	rectangle2d const *window_bounds);
+/* port: (port/linux/game/menu_view.c's menu_view_over_views) */
+void render_ui_widgets_over_views(
 	rectangle2d const *window_bounds);
 struct widget_instance *ui_widget_load_by_name_or_tag(
 	char const *name,

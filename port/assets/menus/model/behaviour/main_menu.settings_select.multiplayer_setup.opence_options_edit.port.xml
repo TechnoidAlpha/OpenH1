@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.opence_options_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="mp profile init opence options"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_ok">
+		<on event="a" run="mp profile set opence options" back="true"/>
+		<on event="start" run="mp profile set opence options" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_mode" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_hardcore" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_zombies" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_speed" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_damage" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_respawn" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_countdown" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_shields" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_order" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_melee" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/playlist_edit_opence_item">
+		<on event="a" open="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen"/>
+		<on event="start" open="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

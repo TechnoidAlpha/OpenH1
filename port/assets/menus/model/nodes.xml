@@ -1,0 +1,418 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The setup screens' nodes, for the menu engine (docs/menu_engine.md; tools/menu_nodes.py, tools/port_settings.py's SETUP_NODE_WHEN) -->
+<model>
+	<screen name="main_menu/multiplayer_type_select/server_settings/server_settings_screen" kind="nodes">
+		<node name="main_menu/multiplayer_type_select/server_settings/server_settings_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/header_server_settings" parent="main_menu/multiplayer_type_select/server_settings/server_settings_screen"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/options_menu" parent="main_menu/multiplayer_type_select/server_settings/server_settings_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_server_name" parent="main_menu/multiplayer_type_select/server_settings/options_menu" run="ss edit server name" focusable="true" initial="true" help_index="1"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/server_name_label" parent="main_menu/multiplayer_type_select/server_settings/op_server_name"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/server_name_value" parent="main_menu/multiplayer_type_select/server_settings/op_server_name"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_max_players" parent="main_menu/multiplayer_type_select/server_settings/options_menu" focusable="true" help_index="2"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/max_players_label" parent="main_menu/multiplayer_type_select/server_settings/op_max_players"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/max_players_spinner" parent="main_menu/multiplayer_type_select/server_settings/op_max_players" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_game_mode" parent="main_menu/multiplayer_type_select/server_settings/options_menu" focusable="true" when="!local" help_index="16" help_choices="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/game_mode_label" parent="main_menu/multiplayer_type_select/server_settings/op_game_mode"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/game_mode_spinner" parent="main_menu/multiplayer_type_select/server_settings/op_game_mode" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_invite" parent="main_menu/multiplayer_type_select/server_settings/options_menu" run="ss copy invite" focusable="true" when="!local" help_index="3"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/invite_label" parent="main_menu/multiplayer_type_select/server_settings/op_invite"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/invite_value" parent="main_menu/multiplayer_type_select/server_settings/op_invite"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_listing" parent="main_menu/multiplayer_type_select/server_settings/options_menu" focusable="true" when="internet_host+online+public_lobby" help_index="10" help_choices="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/listing_label" parent="main_menu/multiplayer_type_select/server_settings/op_listing"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/listing_spinner" parent="main_menu/multiplayer_type_select/server_settings/op_listing" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_password" parent="main_menu/multiplayer_type_select/server_settings/options_menu" run="ss edit server password" focusable="true" when="internet_host+online+public_lobby+!private" help_index="14"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/password_label" parent="main_menu/multiplayer_type_select/server_settings/op_password"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/password_value" parent="main_menu/multiplayer_type_select/server_settings/op_password"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_map_share_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen" focusable="true" when="!local" help_index="15"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_map_share_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_coop_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen" focusable="true" when="cooperative" help_index="12"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_coop_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_voice_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" focusable="true" when="cooperative" help_index="13"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_voice_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_game_type" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen" run="port setup edit" focusable="true" when="!cooperative" help_index="4"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/game_type_label" parent="main_menu/multiplayer_type_select/server_settings/op_game_type"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/game_type_value" parent="main_menu/multiplayer_type_select/server_settings/op_game_type"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_player_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen" run="port setup edit" focusable="true" when="!cooperative" help_index="5"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/player_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_player_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/player_options_value" parent="main_menu/multiplayer_type_select/server_settings/op_player_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_item_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen" run="port setup edit" focusable="true" when="!cooperative" help_index="6"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/item_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_item_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/item_options_value" parent="main_menu/multiplayer_type_select/server_settings/op_item_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_vehicle_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen" run="port setup edit" focusable="true" when="!cooperative" help_index="7"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/vehicle_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_vehicle_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/vehicle_options_value" parent="main_menu/multiplayer_type_select/server_settings/op_vehicle_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_indicator_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen" run="port setup edit" focusable="true" when="!cooperative" help_index="8"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/indicator_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_indicator_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/indicator_options_value" parent="main_menu/multiplayer_type_select/server_settings/op_indicator_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/op_team_options" parent="main_menu/multiplayer_type_select/server_settings/options_menu" open="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" run="port setup edit" focusable="true" when="!cooperative" help_index="9"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/team_options_label" parent="main_menu/multiplayer_type_select/server_settings/op_team_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/team_options_value" parent="main_menu/multiplayer_type_select/server_settings/op_team_options"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/button_bar" parent="main_menu/multiplayer_type_select/server_settings/options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/button_ok" parent="main_menu/multiplayer_type_select/server_settings/button_bar" open="main_menu/multiplayer_type_select/lobby/lobby_screen" run="ss start game" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/multiplayer_type_select/server_settings/button_bar" run="mouse emit back event" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/local_note" parent="main_menu/multiplayer_type_select/server_settings/server_settings_screen" when="local"/>
+	</screen>
+	<screen name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen" kind="nodes">
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/header_coop_options" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true" initial="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_friendly_fire_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_friendly_fire" focusable="true" setting="network.coop_friendly_fire">
+			<choice shown="OFF" value="off"/>
+			<choice shown="ON" value="on"/>
+			<choice shown="SHIELD ONLY" value="shields_only"/>
+			<choice shown="EXPLOSIVES ONLY" value="explosives_only"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_team_wipe_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_team_wipe" focusable="true" setting="network.coop_team_wipe">
+			<choice shown="AUTO" value="auto"/>
+			<choice shown="REVERT CHECKPOINT" value="revert"/>
+			<choice shown="RESPAWN ONLY" value="respawn"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_enemies_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_enemies" focusable="true" setting="network.coop_enemies_mode">
+			<choice shown="PER PLAYER" value="per_player"/>
+			<choice shown="STATIC MULTIPLIER" value="multiplier"/>
+			<choice shown="NONE" value="none"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_pickups_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_pickups" focusable="true" setting="network.coop_pickups">
+			<choice shown="PER PLAYER" value="per_player"/>
+			<choice shown="STATIC MULTIPLIER" value="multiplier"/>
+			<choice shown="NONE" value="none"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_extra_vehicles_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_extra_vehicles" focusable="true" setting="network.coop_vehicles">
+			<choice shown="PER PLAYER" value="per_player"/>
+			<choice shown="STATIC MULTIPLIER" value="multiplier"/>
+			<choice shown="NONE" value="none"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true" when="coop_extra_enemies=1 coop_extra_pickups=1 coop_extra_vehicles=1"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_multiplier_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_multiplier" focusable="true" setting="network.coop_enemies_multiplier">
+			<choice shown="2X" value="2"/>
+			<choice shown="4X" value="4"/>
+			<choice shown="8X" value="8"/>
+			<choice shown="16X" value="16"/>
+			<choice shown="32X" value="32"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true" when="coop_extra_enemies=0 coop_extra_pickups=0 coop_extra_vehicles=0"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_enemies_per_player_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_enemies_per_player" focusable="true" setting="network.coop_enemies">
+			<choice shown="25%" value="25"/>
+			<choice shown="50%" value="50"/>
+			<choice shown="100%" value="100"/>
+			<choice shown="150%" value="150"/>
+			<choice shown="200%" value="200"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_player_collisions_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_player_collisions" focusable="true" setting="network.coop_player_collisions">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_ally_friendly_fire_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_ally_friendly_fire" focusable="true" setting="network.coop_ally_friendly_fire">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_label" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_vehicle_riding_spinner" parent="main_menu/multiplayer_type_select/server_settings/coop_options/op_coop_vehicle_riding" focusable="true" setting="network.vehicle_riding">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_ok" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" run="port setup options save" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/multiplayer_type_select/server_settings/coop_options/coop_options_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+	<screen name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen" kind="nodes">
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/header_item_options" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_infinite_grenades" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true" initial="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_infinite_grenades_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_infinite_grenades"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_infinite_grenades_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_infinite_grenades" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_weapon_set" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true" when="loadout=0"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_weapon_set_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_weapon_set"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_weapon_set_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_weapon_set" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_starting_equipment" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_starting_equipment_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_starting_equipment"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_starting_equipment_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_starting_equipment" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true" when="loadout=1"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true" when="loadout=1"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_bar" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_ok" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_bar" run="mp profile set item options" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/settings_select/multiplayer_setup/item_options_edit/item_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+	<screen name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen" kind="nodes">
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/header_opence" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_mode" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" initial="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_mode"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_mode_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_mode" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_hardcore" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_hardcore"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/oce_hardcore_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_oce_hardcore" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_zombies" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=2"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_zombies"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_zombies_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_zombies" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_speed" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=2"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_speed"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_speed_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_speed" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_damage" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=2"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_damage"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_damage_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_damage" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_respawn" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=2"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_respawn"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_respawn_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_respawn" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_countdown" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=2"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_countdown"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_countdown_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_countdown" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_shields" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=2"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_shields"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/inf_shields_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_inf_shields" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_order" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=3"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_order"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_order_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_order" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_melee" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true" when="oce_mode=3"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_label" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_melee"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/gg_melee_spinner" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/op_gg_melee" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_bar" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_ok" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_bar" run="mp profile set opence options" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/settings_select/multiplayer_setup/opence_options_edit/opence_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+	<screen name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" kind="nodes">
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/header_voice_options" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_mode" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true" initial="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_mode_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_mode"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_mode_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_mode" focusable="true" setting="network.voice_mode">
+			<choice shown="OFF" value="off"/>
+			<choice shown="TEAM NEAR" value="team_proximity"/>
+			<choice shown="ANYONE NEAR" value="team_enemy_proximity"/>
+			<choice shown="TEAM" value="team_global"/>
+			<choice shown="TEAM, ENEMIES NEAR" value="team_global_enemy_proximity"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_lobby" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_lobby_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_lobby"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_lobby_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_lobby" focusable="true" setting="network.voice_lobby">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_kbps" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_kbps_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_kbps"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_kbps_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_kbps" focusable="true" setting="network.voice_kbps">
+			<choice shown="8 KBPS" value="8"/>
+			<choice shown="12 KBPS" value="12"/>
+			<choice shown="16 KBPS" value="16"/>
+			<choice shown="24 KBPS" value="24"/>
+			<choice shown="32 KBPS" value="32"/>
+			<choice shown="48 KBPS" value="48"/>
+			<choice shown="64 KBPS" value="64"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_proximity" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_proximity_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_proximity"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_proximity_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_voice_proximity" focusable="true" setting="network.voice_proximity">
+			<choice shown="15 M" value="5"/>
+			<choice shown="30 M" value="10"/>
+			<choice shown="45 M" value="15"/>
+			<choice shown="60 M" value="20"/>
+			<choice shown="90 M" value="30"/>
+			<choice shown="150 M" value="50"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_votekick" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/votekick_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_votekick"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/votekick_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_votekick" focusable="true" setting="network.votekick">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_text_chat" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/text_chat_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_text_chat"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/text_chat_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_text_chat" focusable="true" setting="network.text_chat">
+			<choice shown="ON" value="on"/>
+			<choice shown="WITH LINKS" value="links"/>
+			<choice shown="OFF" value="off"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/op_pings" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/pings_label" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_pings"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/pings_spinner" parent="main_menu/multiplayer_type_select/server_settings/voice_options/op_pings" focusable="true" setting="network.pings">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_button_bar" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_button_ok" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_button_bar" run="port setup options save" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/multiplayer_type_select/server_settings/voice_options/voice_options_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+	<screen name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen" kind="nodes">
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/header_map_share_options" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_menu" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_screen" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/op_map_share" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_menu" focusable="true" initial="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_label" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/op_map_share"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_spinner" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/op_map_share" focusable="true" setting="network.map_share">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/op_map_share_upload" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_upload_label" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/op_map_share_upload"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_upload_spinner" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/op_map_share_upload" focusable="true" setting="network.map_share_upload">
+			<choice shown="256 KB/S" value="256"/>
+			<choice shown="512 KB/S" value="512"/>
+			<choice shown="1 MB/S" value="1024"/>
+			<choice shown="2 MB/S" value="2048"/>
+			<choice shown="4 MB/S" value="4096"/>
+			<choice shown="8 MB/S" value="8192"/>
+			<choice shown="16 MB/S" value="16384"/>
+			<choice shown="20 MB/S" value="20480"/>
+			<choice shown="50 MB/S" value="51200"/>
+			<choice shown="100 MB/S" value="102400"/>
+			<choice shown="250 MB/S" value="256000"/>
+		</node>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_bar" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_menu" focusable="true"/>
+		<node name="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_ok" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_bar" run="port setup options save" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/multiplayer_type_select/server_settings/map_share_options/map_share_options_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+	<screen name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen" kind="nodes">
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/header_player_options" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_number_of_lives" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true" initial="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/number_of_lives_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_number_of_lives"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/number_of_lives_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_number_of_lives" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_maximum_health" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/maximum_health_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_maximum_health"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/maximum_health_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_maximum_health" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shields" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/shields_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shields"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/shields_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shields" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time_growth" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_growth_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time_growth"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_growth_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time_growth" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_odd_man_out" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/odd_man_out_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_odd_man_out"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/odd_man_out_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_odd_man_out" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_invisible_players" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/invisible_players_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_invisible_players"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/invisible_players_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_invisible_players" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_suicide_penalty" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/suicide_penalty_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_suicide_penalty"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/suicide_penalty_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_suicide_penalty" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_aim_assist" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/aim_assist_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_aim_assist"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/aim_assist_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_aim_assist" focusable="true" setting="network.block_mouse_aim_assist">
+			<choice shown="ALLOWED" value="false"/>
+			<choice shown="BLOCK M+KB" value="true"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shield_effects" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/shield_effects_label" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shield_effects"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/shield_effects_spinner" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shield_effects" focusable="true" setting="network.shield_effects">
+			<choice shown="STOCK" value="stock"/>
+			<choice shown="GLOW" value="glow"/>
+			<choice shown="LIGHT SHOW" value="light_show"/>
+			<choice shown="OVERSHIELD" value="overshield"/>
+			<choice shown="GLOW+OVERSHIELD" value="glow_overshield"/>
+			<choice shown="SHOW+OVERSHIELD" value="light_show_overshield"/>
+			<choice shown="PLAYERS' OWN" value="players"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_bar" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_ok" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_bar" run="mp profile set player options" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+	<screen name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" kind="nodes">
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/header_teamplay_options" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true" initial="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_force_team_spawns" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/force_team_spawns_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_force_team_spawns"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/force_team_spawns_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_force_team_spawns" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_mode" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_mode_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_mode"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_mode_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_mode" focusable="true" setting="network.voice_mode">
+			<choice shown="OFF" value="off"/>
+			<choice shown="TEAM NEAR" value="team_proximity"/>
+			<choice shown="ANYONE NEAR" value="team_enemy_proximity"/>
+			<choice shown="TEAM" value="team_global"/>
+			<choice shown="TEAM, ENEMIES NEAR" value="team_global_enemy_proximity"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_lobby" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_lobby"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_lobby_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_lobby" focusable="true" setting="network.voice_lobby">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_kbps" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_kbps_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_kbps"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_kbps_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_kbps" focusable="true" setting="network.voice_kbps">
+			<choice shown="8 KBPS" value="8"/>
+			<choice shown="12 KBPS" value="12"/>
+			<choice shown="16 KBPS" value="16"/>
+			<choice shown="24 KBPS" value="24"/>
+			<choice shown="32 KBPS" value="32"/>
+			<choice shown="48 KBPS" value="48"/>
+			<choice shown="64 KBPS" value="64"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_proximity" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_proximity_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_proximity"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/voice_proximity_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_voice_proximity" focusable="true" setting="network.voice_proximity">
+			<choice shown="15 M" value="5"/>
+			<choice shown="30 M" value="10"/>
+			<choice shown="45 M" value="15"/>
+			<choice shown="60 M" value="20"/>
+			<choice shown="90 M" value="30"/>
+			<choice shown="150 M" value="50"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_votekick" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/votekick_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_votekick"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/votekick_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_votekick" focusable="true" setting="network.votekick">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_text_chat" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/text_chat_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_text_chat"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/text_chat_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_text_chat" focusable="true" setting="network.text_chat">
+			<choice shown="ON" value="on"/>
+			<choice shown="WITH LINKS" value="links"/>
+			<choice shown="OFF" value="off"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_pings" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/pings_label" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_pings"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/pings_spinner" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_pings" focusable="true" setting="network.pings">
+			<choice shown="ON" value="true"/>
+			<choice shown="OFF" value="false"/>
+		</node>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" focusable="true"/>
+		<node name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_ok" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" run="mp prof save teamplay options" focusable="true"/>
+		<node name="common_button_cancel" parent="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" run="mouse emit back event" focusable="true"/>
+	</screen>
+</model>

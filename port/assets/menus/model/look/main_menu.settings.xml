@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings/header_settings" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/settings/tall_titles" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/settings/profile" type="text" box="372 11 612 29" wide="106 0" past="143 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/settings/tab_panel" box="388 78 612 438" wide="138 -32" past="50 93" place="keep_ends above_foot" picture="main_menu/settings/tab_panel_tall">
+		<at widget="main_menu/settings/panel_name" x="400" y="90"/>
+		<at widget="main_menu/settings/panel_value" x="400" y="104"/>
+		<at widget="main_menu/settings/panel_classic" x="409" y="130"/>
+		<at widget="main_menu/settings/panel_classic_frame" x="409" y="130"/>
+		<at widget="main_menu/settings/panel_classic_caption" x="409" y="187"/>
+		<at widget="main_menu/settings/panel_enhanced" x="503" y="130"/>
+		<at widget="main_menu/settings/panel_enhanced_frame" x="503" y="130"/>
+		<at widget="main_menu/settings/panel_enhanced_caption" x="503" y="187"/>
+		<at widget="main_menu/settings/panel_picture_fov" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_picture_anti_aliasing" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_picture_anti_aliasing_android" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_picture_render_resolution" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_picture_high_res_hud" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_picture_hud_button_style" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_picture_hdr_mode" x="420" y="130"/>
+		<at widget="main_menu/settings/panel_text" x="400" y="130"/>
+		<at widget="main_menu/settings/panel_note" x="400" y="398"/>
+		<at widget="main_menu/settings/panel_facts" x="400" y="398"/>
+		<at widget="main_menu/settings/panel_facts_values" x="400" y="398"/>
+	</look>
+	<look name="main_menu/settings/page_panel" box="388 50 612 438" wide="138 -32" past="50 93" place="keep_ends above_foot" picture="main_menu/settings/page_panel_tall">
+		<at widget="main_menu/settings/panel_name" x="400" y="62"/>
+		<at widget="main_menu/settings/panel_value" x="400" y="76"/>
+		<at widget="main_menu/settings/panel_classic" x="409" y="102"/>
+		<at widget="main_menu/settings/panel_classic_frame" x="409" y="102"/>
+		<at widget="main_menu/settings/panel_classic_caption" x="409" y="159"/>
+		<at widget="main_menu/settings/panel_enhanced" x="503" y="102"/>
+		<at widget="main_menu/settings/panel_enhanced_frame" x="503" y="102"/>
+		<at widget="main_menu/settings/panel_enhanced_caption" x="503" y="159"/>
+		<at widget="main_menu/settings/panel_picture_fov" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_picture_anti_aliasing" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_picture_anti_aliasing_android" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_picture_render_resolution" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_picture_high_res_hud" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_picture_hud_button_style" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_picture_hdr_mode" x="420" y="102"/>
+		<at widget="main_menu/settings/panel_text" x="400" y="102"/>
+		<at widget="main_menu/settings/panel_note" x="400" y="398"/>
+		<at widget="main_menu/settings/panel_facts" x="400" y="398"/>
+		<at widget="main_menu/settings/panel_facts_values" x="400" y="398"/>
+	</look>
+	<look name="main_menu/settings/panel_name" role="panel name" type="text" box="0 0 200 38" wide="0 -32" past="0 93">
+		<text font="ui\small_ui" color="#FF6F9CD0"/>
+	</look>
+	<look name="main_menu/settings/panel_value" role="panel value" type="text" box="0 0 200 180" wide="0 -32" past="0 93">
+		<text font="ui\large_ui" color="#FFFFFFFF"/>
+	</look>
+	<look name="main_menu/settings/panel_text" role="panel text" type="text" box="0 0 200 302" wide="0 -32" past="0 93">
+		<text font="ui\small_ui" color="#FF2896FF"/>
+	</look>
+	<look name="main_menu/settings/panel_note" role="panel note" type="text" box="0 0 200 40" wide="0 -32" past="0 93">
+		<text font="ui\small_ui" color="#FF6F9CD0"/>
+	</look>
+	<look name="main_menu/settings/panel_facts" role="panel facts" type="text" box="0 0 200 40" wide="0 -32" past="0 93">
+		<text font="ui\small_ui" color="#FF6F9CD0"/>
+	</look>
+	<look name="main_menu/settings/panel_facts_values" role="panel facts values" type="text" box="0 0 200 40" wide="0 -32" past="0 93">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="right"/>
+	</look>
+	<look name="main_menu/settings/panel_classic" role="still classic" box="0 0 88 55" wide="-16 0" past="46 0" picture="main_menu/settings/graphics_classic"/>
+	<look name="main_menu/settings/panel_classic_frame" role="still classic frame" box="0 0 88 55" wide="-16 0" past="46 0" picture="main_menu/settings/still_frame"/>
+	<look name="main_menu/settings/panel_classic_caption" role="still classic caption" type="text" box="0 0 88 18" wide="-16 0" past="46 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" string_list="main_menu/settings/still_captions"/>
+	</look>
+	<look name="main_menu/settings/panel_enhanced" role="still enhanced" box="0 0 88 55" wide="-16 0" past="46 0" picture="main_menu/settings/graphics_enhanced"/>
+	<look name="main_menu/settings/panel_enhanced_frame" role="still enhanced frame" box="0 0 88 55" wide="-16 0" past="46 0" picture="main_menu/settings/still_frame"/>
+	<look name="main_menu/settings/panel_enhanced_caption" role="still enhanced caption" type="text" box="0 0 88 18" wide="-16 0" past="46 0">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" string_list="main_menu/settings/still_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings/panel_picture_fov" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_fov"/>
+	<look name="main_menu/settings/panel_picture_anti_aliasing" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_anti_aliasing"/>
+	<look name="main_menu/settings/panel_picture_anti_aliasing_android" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_anti_aliasing_android"/>
+	<look name="main_menu/settings/panel_picture_render_resolution" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_render_resolution"/>
+	<look name="main_menu/settings/panel_picture_high_res_hud" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_high_res_hud"/>
+	<look name="main_menu/settings/panel_picture_hud_button_style" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_hud_button_style"/>
+	<look name="main_menu/settings/panel_picture_hdr_mode" box="0 0 160 100" wide="-16 0" past="46 0" picture="main_menu/settings/pictures_hdr_mode"/>
+	<look name="main_menu/settings/settings_creating_profile"/>
+	<look name="main_menu/settings/settings_saving_profile">
+		<at widget="error/warning_creating_player_profile_screen" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings/tab_prompt_previous" type="text" box="0 0 30 22" wide="-106 0">
+		<text font="ui\small_ui" color="#FF2896FF" at="2 2" text="%white-button"/>
+	</look>
+	<look name="main_menu/settings/tab_prompt_next" type="text" box="0 0 30 22" wide="106 0">
+		<text font="ui\small_ui" color="#FF2896FF" at="2 2" text="%black-button"/>
+	</look>
+	<look name="main_menu/settings/tabs/tab_prompt_previous" type="text" box="0 0 30 22" wide="-106 0" past="-143 0">
+		<text font="ui\small_ui" color="#FF2896FF" at="2 2" text="%white-button"/>
+	</look>
+	<look name="main_menu/settings/tabs/tab_prompt_next" type="text" box="0 0 30 22" wide="106 0" past="143 0">
+		<text font="ui\small_ui" color="#FF2896FF" at="2 2" text="%black-button"/>
+	</look>
+	<look name="main_menu/settings/search_field" role="search field" box="0 0 20 22" wide="-106 110" past="-143 0" place="keep_ends" picture="main_menu/settings/search_field">
+		<at widget="main_menu/settings/search_icon" x="2" y="3"/>
+		<at widget="main_menu/settings/search_prompt" x="0" y="0"/>
+		<at widget="main_menu/settings/search_word" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings/search_icon" role="search icon" box="0 0 16 16" picture="main_menu/multiplayer_type_select/join_game/search_icon"/>
+	<look name="main_menu/settings/search_prompt" role="search prompt" type="text" box="0 0 20 22">
+		<text font="ui\small_ui" color="#FF2896FF" at="3 2" flags="no_focus_test" text="%y-button"/>
+	</look>
+	<look name="main_menu/settings/search_word" role="search word" type="text" box="0 0 20 22" wide="0 110">
+		<text font="ui\small_ui" color="#FF2896FF" at="20 2" flags="no_focus_test" text="SEARCH"/>
+	</look>
+	<look name="main_menu/settings/stepped_left" box="0 0 16 16" wide="40 0" past="60 0" picture="bitmaps/arrow_sm_left"/>
+	<look name="main_menu/settings/stepped_right" box="0 0 16 16" wide="160 0" past="120 0" picture="bitmaps/arrow_sm_right"/>
+</model>

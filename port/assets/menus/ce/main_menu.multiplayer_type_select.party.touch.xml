@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/multiplayer_type_select/party/touch/party_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+	<widget name="main_menu/multiplayer_type_select/party/touch/party_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" source="tools/port_settings.py multiplayer_files/_touch_party">
 		<data input="port party update"/>
 		<child widget="main_menu/multiplayer_type_select/party/touch/party_prompts" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/party_prompts" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/party/touch/party_prompts" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<child widget="main_menu/multiplayer_type_select/party/touch/prompt_make" x="28"/>
 		<child widget="main_menu/multiplayer_type_select/party/touch/prompt_copy" x="28"/>
 		<child widget="main_menu/multiplayer_type_select/party/touch/prompt_paste" x="172"/>
@@ -14,37 +14,37 @@
 		<child widget="main_menu/multiplayer_type_select/party/touch/prompt_leave" x="316"/>
 		<child widget="main_menu/multiplayer_type_select/party/touch/prompt_back" x="502"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_make" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="MAKE PARTY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_make" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="MAKE PARTY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_copy" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="COPY LINK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_copy" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="COPY LINK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_paste" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="PASTE LINK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_paste" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="PASTE LINK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_follow" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="JOIN LEADER" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_follow" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="JOIN LEADER" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_end" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="END PARTY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_end" type="text" width="140" height="52" wide="-106 0" bitmap="main_menu/parts/touch_button_140x52" text="END PARTY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_leave" type="text" width="140" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_140x52" text="LEAVE PARTY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_leave" type="text" width="140" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_140x52" text="LEAVE PARTY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_back" type="text" width="110" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_110x52" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/multiplayer_type_select/party/touch/prompt_back" type="text" width="110" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_110x52" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_party/_touch_prompts">
 		<on event="a" run="port party button"/>
 		<on event="start" run="port party button"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

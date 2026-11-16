@@ -8,7 +8,7 @@ is how we test the maintainers' changes on a real phone, a Galaxy Z Fold7
 
 `dev` is upstream `master` plus a few commits that never go upstream:
 
-- its own app id and name, `com.openh1.openh1.fixtest` and "OpenH1 Dev", so it
+- its own app id and name, `com.openh1.openh1.fixtest` and "GOAT H1 Dev", so it
   installs beside the release build, with an amber icon to tell them apart;
 - `debug.host_environment` in config.toml: `NAME=value` pairs, separated by
   spaces, set in the Android app's environment before the game starts. An

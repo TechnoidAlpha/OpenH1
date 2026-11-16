@@ -1567,7 +1567,13 @@ void rasterizer_lens_flares_port_enumerate(
 		struct tag_iterator iterator;
 		long tag_index;
 		short queued_index = 0;
+		short first_person;
 		port_enumerated_lens_flare_first = local_lens_flare_count;
+		/* (each also as the first-person weapon's: its reflections that
+		test the depth are drawn with the stencil rejecting the weapon's
+		pixels instead, rasterizer_lens_flares_draw) */
+		for (first_person = 0; first_person < 2; first_person++)
+		{
 		tag_iterator_new(&iterator, LENS_FLARE_DEFINITION_TAG);
 		while ((tag_index = tag_iterator_next(&iterator)) != NONE)
 		{
@@ -1586,10 +1592,12 @@ void rasterizer_lens_flares_port_enumerate(
 			parameters.light_identifier = NONE;
 			parameters.light_index = NONE;
 			parameters.lens_flare_index = queued_index;
-			parameters.compressed_window_index = (byte)global_window_parameters.window_index;
+			parameters.compressed_window_index = (byte)(global_window_parameters.window_index |
+				(first_person ? _lens_flare_first_person_weapon_flag : 0));
 			parameters.compressed_light_scale = 0xff;
 			queued_index = (short)((queued_index + 1) % MAXIMUM_QUEUED_LENS_FLARES);
 			rasterizer_lens_flare_submit(&parameters);
+		}
 		}
 		port_enumerated_lens_flare_count = local_lens_flare_count - port_enumerated_lens_flare_first;
 	}

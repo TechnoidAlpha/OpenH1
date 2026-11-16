@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/settings_search_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py settings_files/_settings_search">
+		<on event="b" run="port settings search back" back="true"/>
+		<on event="back" run="port settings search back" back="true"/>
+		<on event="y" run="port settings search"/>
+		<child widget="main_menu/settings/header_settings"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/options_menu"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/tab_panel" source="tools/port_settings.py settings_files/_settings_search">
+		<data input="port settings page"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_field" x="24" y="76"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_1" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_2" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_3" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_4" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_5" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_6" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_7" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_8" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_note" x="28" y="104"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_bar" y="414"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_field" type="text" controller="1" width="592" height="22" flags="keep_ends" bitmap="main_menu/settings/search_field" color="#FFFFFFFF" text_x="20" text_y="2" text_flags="no_focus_test" wide="-106 212" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_search/_settings_text">
+		<on event="a" run="port settings search edit"/>
+		<on event="start" run="port settings search edit"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings/search_icon" x="2" y="3"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_1" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_2" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_3" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_4" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_5" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_6" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_7" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_8" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" type="text" controller="1" width="344" height="18" color="#FF6F9CD0" text_x="2" text_y="1" text_flags="no_focus_test" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_search/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_note" type="text" controller="1" width="344" height="20" color="#FF6F9CD0" text_x="10" text_y="1" text_flags="no_focus_test" wide="-106 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_search/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_search">
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_ok" x="358" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_back" x="488" y="1"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_search/_button">
+		<on event="a" run="port settings keep" back="true"/>
+		<on event="start" run="port settings keep" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_search">
+		<on event="a" run="port settings search back" back="true"/>
+		<on event="start" run="port settings search back" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+</menus>

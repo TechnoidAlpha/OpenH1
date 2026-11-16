@@ -20,6 +20,8 @@ is logcat's, tag "halo".
 */
 
 #include "host.h"
+#include "host_mcc_memory.h"
+#include "tomlc17.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -44,6 +46,8 @@ static void log_to_logcat(int priority, const char *line)
 
 static char data_root[512];
 static char save_root[512];
+/* display.render_scale, as it is used: set once at the start (game_main) */
+static float render_scale = 1.0f;
 
 void host_android_path(int which, char *buffer, uint32_t size)
 {
@@ -118,8 +122,9 @@ void host_gesture_insets(int *insets)
 			(*env)->DeleteLocalRef(env, activity_class);
 		(*env)->DeleteLocalRef(env, activity);
 	}
+	/* (in the game's pixels: display.render_scale's) */
 	for (index = 0; index < 4; index++)
-		insets[index] = (int)values[index];
+		insets[index] = (int)(values[index] * render_scale + 0.5f);
 	if (memcmp(logged, insets, sizeof(logged)))
 	{
 		memcpy(logged, insets, sizeof(logged));
@@ -163,6 +168,48 @@ void host_orientation(int which)
 	host_logf(HOST_LOG_INFO, "orientation %s", names[which]);
 }
 
+/* the system's keyboard for a menu's text field (sdl_platform.c's
+screen_keyboard_update): SDL's text input on the game's window, which the
+activity's keyboard shows, one line (Enter ends the field), a password's
+hidden; what it types arrives as keys */
+static SDL_Window *text_input_window(void)
+{
+	int count = 0;
+	SDL_Window **windows = SDL_GetWindows(&count);
+	SDL_Window *window = windows && count > 0 ? windows[0] : NULL;
+
+	SDL_free(windows);
+	return window;
+}
+
+void host_android_text_input(int show, int password)
+{
+	SDL_Window *window = text_input_window();
+	SDL_PropertiesID properties;
+
+	if (!window)
+		return;
+	if (!show)
+	{
+		SDL_StopTextInput(window);
+		return;
+	}
+	properties = SDL_CreateProperties();
+	SDL_SetBooleanProperty(properties, SDL_PROP_TEXTINPUT_MULTILINE_BOOLEAN, false);
+	SDL_SetNumberProperty(properties, SDL_PROP_TEXTINPUT_TYPE_NUMBER,
+		password ? SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN : SDL_TEXTINPUT_TYPE_TEXT);
+	if (!SDL_StartTextInputWithProperties(window, properties))
+		host_logf(HOST_LOG_WARN, "text input: %s", SDL_GetError());
+	SDL_DestroyProperties(properties);
+}
+
+int host_android_text_input_active(void)
+{
+	SDL_Window *window = text_input_window();
+
+	return window && SDL_TextInputActive(window);
+}
+
 /* Whether the app runs through an ARM translator. The x86 emulator runs the
 app's ARM code through one, which ro.dalvik.vm.native.bridge names; it
 cannot deliver the page faults of the write tracking to the app
@@ -178,6 +225,57 @@ static int native_bridge_active(void)
 /* ---------- main */
 
 #define MAIN_STACK_SIZE (16 * 1024 * 1024)
+
+/* display.render_scale (HALO_RENDER_SCALE): the fraction of the screen's
+pixels the game draws each way, which the display scales up (the swapchain
+is that size, xgpu_vulkan.c's swapchain_make); 0, the device's: 0.8, or
+less where that would still draw more than 1080 of the screen's shorter
+side (1440p's phones and the tablets draw about 1080): a phone's pixels are
+small enough that 0.8 stays sharp, and the GPU's time saved keeps its frames
+steady at 120 Hz. Read from
+config.toml here, before the guest starts, as the window's size and the
+display's density it is given depend on it. */
+static float render_scale_choose(const char *config, int shorter)
+{
+	const char *value = getenv("HALO_RENDER_SCALE");
+	double scale = 0.0;
+
+	if (value && *value)
+	{
+		scale = atof(value);
+	}
+	else
+	{
+		toml_result_t result = toml_parse_file_ex(config);
+
+		if (result.ok)
+		{
+			toml_datum_t setting = toml_seek(result.toptab, "display.render_scale");
+
+			scale = setting.type == TOML_FP64 ? setting.u.fp64 :
+				setting.type == TOML_INT64 ? (double)setting.u.int64 : 0.0;
+			toml_free(result);
+		}
+	}
+	if (scale == 0.0)
+		scale = shorter * 0.8 > 1080.0 ? 1080.0 / shorter : 0.8;
+	if (!(scale >= 0.25 && scale <= 1.0))
+		scale = 1.0;
+	return (float)scale;
+}
+
+/* the host's (host_sdl.c's window size, xgpu_vulkan.c's swapchain) */
+float host_app_render_scale(void)
+{
+	return render_scale;
+}
+
+/* a size in the screen's pixels in the game's (display.render_scale's),
+even as the swapchain's is */
+static int render_scaled(int pixels)
+{
+	return (int)(pixels * render_scale + 0.5f) & ~1;
+}
 
 /* the thread that runs the game: passes the display and its density, the
 time zone and the data and save folders to the guest through its
@@ -216,7 +314,7 @@ static void *game_main(void *unused)
 		/* The guest needs the landscape display's pixel dimensions before
 		its window opens; afterwards it queries the drawable itself. */
 		const SDL_DisplayMode *mode;
-		char width[16], height[16];
+		char width[16], height[16], refresh[16];
 
 		SDL_InitSubSystem(SDL_INIT_VIDEO);
 		mode = SDL_GetDesktopDisplayMode(SDL_GetPrimaryDisplay());
@@ -227,16 +325,26 @@ static void *game_main(void *unused)
 			int longer = pixel_width > pixel_height ? pixel_width : pixel_height;
 			int shorter = pixel_width > pixel_height ? pixel_height : pixel_width;
 
-			snprintf(width, sizeof(width), "%d", longer);
-			snprintf(height, sizeof(height), "%d", shorter);
+			snprintf(path, sizeof(path), "%s/config.toml", data_root);
+			render_scale = render_scale_choose(path, shorter);
+			snprintf(width, sizeof(width), "%d", render_scaled(longer));
+			snprintf(height, sizeof(height), "%d", render_scaled(shorter));
 			host_environment_set(&environment, "HALO_DISPLAY_WIDTH", width);
 			host_environment_set(&environment, "HALO_DISPLAY_HEIGHT", height);
-			host_logf(HOST_LOG_INFO, "display %dx%d: rendering %sx%s", mode->w, mode->h, width, height);
+			host_logf(HOST_LOG_INFO, "display %dx%d: rendering %sx%s (render scale %.2f)", mode->w, mode->h, width,
+				height, render_scale);
+		}
+		if (mode)
+		{
+			/* display.max_fps's "twice the refresh rate" (sdl_platform.c):
+			the guest cannot ask SDL for the display mode */
+			snprintf(refresh, sizeof(refresh), "%g", mode->refresh_rate > 0.0f ? mode->refresh_rate : 60.0f);
+			host_environment_set(&environment, "HALO_DISPLAY_REFRESH", refresh);
 		}
 		{
 			/* dp for the touch controls (port/linux/src/touch_input.c): SDL
-			gives Android's densityDpi / 160 */
-			float density = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay());
+			gives Android's densityDpi / 160, here in the game's pixels */
+			float density = SDL_GetDisplayContentScale(SDL_GetPrimaryDisplay()) * render_scale;
 			char text[16];
 
 			if (density > 0.0f)
@@ -260,6 +368,28 @@ static void *game_main(void *unused)
 		if (!brokers || !SDL_SaveFile(path, brokers, brokers_size))
 			host_logf(HOST_LOG_ERROR, "cannot write %s: %s", path, SDL_GetError());
 		SDL_free(brokers);
+	}
+	/* ...and the stock maps' preparations' records (port/linux/src/
+	prepared_shipped.h), the same way */
+	{
+		size_t records_size = 0;
+		void *records = SDL_LoadFile("prepared.records", &records_size);
+
+		snprintf(path, sizeof(path), "%s/prepared.records", data_root);
+		if (!records || !SDL_SaveFile(path, records, records_size))
+			host_logf(HOST_LOG_ERROR, "cannot write %s: %s", path, SDL_GetError());
+		SDL_free(records);
+	}
+	/* ...and the textures', fonts' and menus' bytes (port/linux/src/
+	embedded_assets.h), the same way */
+	{
+		size_t assets_size = 0;
+		void *assets = SDL_LoadFile("openh1.assets", &assets_size);
+
+		snprintf(path, sizeof(path), "%s/openh1.assets", data_root);
+		if (!assets || !SDL_SaveFile(path, assets, assets_size))
+			host_logf(HOST_LOG_ERROR, "cannot write %s: %s", path, SDL_GetError());
+		SDL_free(assets);
 	}
 	snprintf(path, sizeof(path), "%s/config.toml", data_root);
 
@@ -301,6 +431,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 	/* (before main: what the reservation finds goes to logcat too) */
 	host_log_set_sink(log_to_logcat);
 	host_memory_reserve_early();
+	/* MCC must reserve before the guest and renderer make allocations. */
+	host_mcc_memory_initialize();
 	return JNI_VERSION_1_6;
 }
 

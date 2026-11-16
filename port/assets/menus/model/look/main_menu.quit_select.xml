@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.quit_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/quit_select/quit_button_bar" type="column_list" box="0 0 256 20">
+		<at widget="common_button_back" x="128" y="0"/>
+		<at widget="main_menu/quit_select/quit_button_ok" x="0" y="0"/>
+	</look>
+	<look name="main_menu/quit_select/quit_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/quit_select/quit_screen" type="text" box="180 160 460 320" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="-10 35" string_list="main_menu/quit_select/header_quit_game_prompt"/>
+		<at widget="main_menu/quit_select/quit_button_bar" x="182" y="293"/>
+		<at widget="error/header_are_you_sure" x="182" y="164"/>
+	</look>
+</model>

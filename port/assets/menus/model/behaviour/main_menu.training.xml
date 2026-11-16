@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.training.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/main_menu_item_training">
+		<on event="a" open="main_menu/training/training_screen"/>
+		<on event="start" open="main_menu/training/training_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/training_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/training/chapters_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/training/op_chapter_1" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_2" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_3" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_4" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_5" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_6" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_7" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/op_chapter_8" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port training chapter"/>
+		<on event="start" run="port training chapter"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/training/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+</model>

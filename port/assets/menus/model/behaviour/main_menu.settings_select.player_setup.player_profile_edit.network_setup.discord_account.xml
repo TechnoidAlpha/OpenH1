@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.network_setup.discord_account.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/discord_account_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" run="port settings page cancel" back="true"/>
+		<on event="back" run="port settings page cancel" back="true"/>
+		<on event="y" run="port settings search"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_defaults">
+		<on event="a" run="port settings defaults"/>
+		<on event="start" run="port settings defaults"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_ok">
+		<on event="a" run="port settings keep" back="true"/>
+		<on event="start" run="port settings keep" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/button_cancel">
+		<on event="a" run="port settings page cancel" back="true"/>
+		<on event="start" run="port settings page cancel" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_status" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_unlink" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port discord unlink"/>
+		<on event="start" run="port discord unlink"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_1" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port discord link"/>
+		<on event="start" run="port discord link"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_2" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port discord link"/>
+		<on event="start" run="port discord link"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_3" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port discord link"/>
+		<on event="start" run="port discord link"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_master_4" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port discord link"/>
+		<on event="start" run="port discord link"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/op_link_share" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/discord_account/link_share_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
+	</behaviour>
+</model>

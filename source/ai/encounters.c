@@ -3151,56 +3151,15 @@ static boolean encounter_place_actor(
 		struct scenario *scenario = global_scenario_get();
 
 		/* port: an extra enemy goes on free ground around its starting
-		location, else around the squad's others in turn */
+		location, else around the squad's others, else to a firing position
+		near it; with no room anywhere it is not placed, and where the
+		level's structure is not loaded yet it waits (coop_enemies.c) */
 		if (extra_number > 0)
 		{
-			/* (what was found taken around the starting locations while this
-			squad's extra enemies are placed, not tried again for the rest of
-			them: placing actors only takes room, and each enemy would try
-			every taken place again, and every place of a full location) */
-			static struct
+			if (!coop_enemies_extra_location(encounter_index, squad_index, starting_location_index, extra_number,
+				&spread_location))
 			{
-				long encounter_index;
-				long time;
-				short squad_index;
-				unsigned long full;
-				long taken[32][BIT_VECTOR_SIZE_IN_LONGS(COOP_ENEMIES_SPREAD_SPOTS)];
-			} full_locations = { NONE, NONE, NONE, 0 };
-			short count = squad_definition->starting_locations.count;
-			short tried;
-
-			if (extra_number == 1 || full_locations.encounter_index != encounter_index ||
-				full_locations.squad_index != squad_index || full_locations.time != game_time_get())
-			{
-				full_locations.encounter_index = encounter_index;
-				full_locations.squad_index = squad_index;
-				full_locations.time = game_time_get();
-				full_locations.full = 0;
-				csmemset(full_locations.taken, 0, sizeof(full_locations.taken));
-			}
-			for (tried = 0; tried < count; tried++)
-			{
-				short candidate_index = (short)((starting_location_index + tried) % count);
-				struct actor_starting_location *candidate = TAG_BLOCK_GET_ELEMENT(&squad_definition->starting_locations,
-					candidate_index, struct actor_starting_location);
-
-				if (candidate_index < 32 && TEST_FLAG(full_locations.full, candidate_index))
-					continue;
-				spread_location = *candidate;
-				if (coop_enemies_spread_position(&candidate->position, extra_number,
-					candidate_index < 32 ? full_locations.taken[candidate_index] : NULL, &spread_location.position))
-					break;
-				if (candidate_index < 32)
-					SET_FLAG(full_locations.full, candidate_index, TRUE);
-			}
-			/* (with no room anywhere, as extra enemies were placed before:
-			on rings around the squad's starting location in turn, else on
-			it) */
-			if (tried == count)
-			{
-				spread_location = *starting_location;
-				coop_enemies_fallback_position(&starting_location->position,
-					(short)((extra_number - 1) / MAX(count, 1) + 1), &spread_location.position);
+				return FALSE;
 			}
 			starting_location = &spread_location;
 		}
@@ -3250,6 +3209,16 @@ static boolean encounter_place_actor(
 	}
 
 	return placed;
+}
+
+/* port: one of network co-op's extra enemies placed after its squad, once
+the ground its squad stands on is loaded (coop_enemies.c) */
+boolean encounter_place_extra_actor(
+	long encounter_index,
+	short squad_index,
+	short extra_number)
+{
+	return encounter_place_actor(encounter_index, squad_index, 0, FALSE, extra_number);
 }
 
 static void encounter_update_timers(

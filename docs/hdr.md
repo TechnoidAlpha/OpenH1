@@ -116,11 +116,27 @@ already past white (a decal over a wall a plasma bolt lights) therefore
 does not dim that light, and over a pixel under white it stops where the 8-bit
 target stopped. A float target cannot clamp a blend, so the backend blends
 such a draw in its pixel shader, reading the pixel it draws over (Metal's
-programmable blending; Vulkan's local reads of the colour attachment, in
-rasterization order where the device has it, else after a framebuffer-local
-barrier before the draw), with the key's blend (`XGPU_HDR_BLEND_*`) and its
-fixed-function blending off. One less the destination's colour is never
-below 0 there.
+programmable blending; Vulkan's local reads of the colour attachment), with
+the key's blend (`XGPU_HDR_BLEND_*`) and its fixed-function blending off.
+One less the destination's colour is never below 0 there.
+
+The draw must read the pixel as its own earlier triangles left it: two
+triangles of one draw over the same pixel (batched decals, a text's glyphs,
+a shield's front and back) each blend over the other, in the order they
+were drawn, as fixed-function blending orders them. Metal's programmable
+blending is ordered so. Vulkan orders the reads where the device has
+`VK_EXT_rasterization_order_attachment_access` (tilers); where it has the
+fragment shader interlock instead (NVIDIA's and RADV's desktop GPUs), the
+draw reads and writes its target as a storage image inside the interlock's
+critical section, in the triangles' order, the draws before and after it
+ordered by barriers (`port/linux/vulkan/README.md`, "HDR"); elsewhere only
+draws are ordered, after a framebuffer-local barrier before each, and a
+draw's own triangles over the same pixel blend over the pixel as it was
+before the draw: the second wins, the first is lost under it. Decals that
+overlap are never one draw on any device
+(`rasterizer_decal_batch_overlaps`): without the order, a scorch over a
+scorch in one draw lost the one under it inside a lighter patch with
+straight edges.
 
 **Expansion** brightens a glow where it is bright (its brightest channel
 from 0.6 up; the light of the world's from 0.4, which the game draws
@@ -375,9 +391,11 @@ the stream's ring carries it, written by the host). A backend declares
   draw would cost a full-screen copy per HUD bitmap; a separate pass would
   break the game's order of draws. Where the device also has
   `VK_EXT_rasterization_order_attachment_access`, the reads are ordered as
-  Metal's are; without it, each tagged draw is ordered after those before
-  it by a framebuffer-local barrier, and only two triangles of the same
-  tagged draw over the same pixel are unordered.
+  Metal's are; where it has `VK_EXT_fragment_shader_interlock` instead,
+  the tagged draws that write no depth are interlocked (above, "ceiling");
+  otherwise each tagged draw is ordered after those before it by a
+  framebuffer-local barrier, and only two triangles of the same tagged draw
+  over the same pixel are unordered.
 - **HDR10 on Linux, scRGB where asked or on Windows.** Linux compositors'
   HDR (KDE's, GNOME's, gamescope's) is PQ's; Windows' compositor is scRGB's.
   Both encodings are the shared one; the swapchain takes the one the

@@ -193,6 +193,16 @@ void dynamic_lights_submit(void);
 void dynamic_lights_rank(long *lights, short count,
 	void (*describe)(long light, real_point3d *position, real *radius, real *intensity));
 void dynamic_lights_drawn(long light, real_point3d const *position, real radius, real_rgb_color const *color);
+void dynamic_lights_clusters(long rasterizer_light_index, short count, short const *clusters);
+/* port: port/linux/game/door_portals.c (closed doors shut their portals to
+the lights) */
+void door_portals_update(void);
+short door_portals_clusters_in_sphere(short cluster_index, real_point3d const *position, real radius,
+	short maximum_count, short *clusters);
+void door_portals_light(long rasterizer_light_index, real_point3d const *emitter, real_point3d const *center,
+	real radius);
+boolean door_portals_light_blocked(long rasterizer_light_index, short cluster_index);
+short door_portals_light_filter(long rasterizer_light_index, short count, short *clusters);
 
 /* port: port/linux/src (halo.log) */
 void platform_log(const char *format, ...);
@@ -814,6 +824,68 @@ void lights_dispose_from_old_map(
 	return;
 }
 
+/* port: a view drawn that is not a player's (a feed of the HUD's Spartan
+link, port/linux/game/spartan_link.c): the lights' colors and radii, which
+lights_preprocess_scene sets for those the view sees and the game reads
+(a unit's self illumination, its ambient light), put back as they were once
+it is drawn, so that the view changes nothing the game reads */
+static struct
+{
+	boolean kept;
+	long identifiers[MAXIMUM_LIGHTS_PER_MAP];
+	real_rgb_color colors[MAXIMUM_LIGHTS_PER_MAP];
+	real radii[MAXIMUM_LIGHTS_PER_MAP];
+} lights_port_kept;
+
+void lights_port_keep(
+	boolean keep)
+{
+	long light_index;
+
+	if (!light_data || !light_data->valid)
+	{
+		lights_port_kept.kept = FALSE;
+		return;
+	}
+	if (keep)
+	{
+		for (light_index = 0; light_index < MAXIMUM_LIGHTS_PER_MAP; light_index++)
+			lights_port_kept.identifiers[light_index] = NONE;
+		for (light_index = data_next_index(light_data, NONE);
+			light_index != NONE;
+			light_index = data_next_index(light_data, light_index))
+		{
+			struct light_datum *light = light_get(light_index);
+			long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(light_index);
+
+			if (absolute_index < 0 || absolute_index >= MAXIMUM_LIGHTS_PER_MAP)
+				continue;
+			lights_port_kept.identifiers[absolute_index] = light_index;
+			lights_port_kept.colors[absolute_index] = light->color;
+			lights_port_kept.radii[absolute_index] = light->radius;
+		}
+		lights_port_kept.kept = TRUE;
+		return;
+	}
+	if (!lights_port_kept.kept)
+		return;
+	lights_port_kept.kept = FALSE;
+	for (light_index = data_next_index(light_data, NONE);
+		light_index != NONE;
+		light_index = data_next_index(light_data, light_index))
+	{
+		struct light_datum *light = light_get(light_index);
+		long absolute_index = DATUM_INDEX_TO_ABSOLUTE_INDEX(light_index);
+
+		if (absolute_index >= 0 && absolute_index < MAXIMUM_LIGHTS_PER_MAP &&
+			lights_port_kept.identifiers[absolute_index] == light_index)
+		{
+			light->color = lights_port_kept.colors[absolute_index];
+			light->radius = lights_port_kept.radii[absolute_index];
+		}
+	}
+}
+
 /* port: the lights array out of order in a map (game_state.c's
 game_state_check_data_arrays reports how): Sentry's NATIVE-7 found it made
 for no map, every light lost, and the next light made or looked up crashed.
@@ -1018,6 +1090,7 @@ void lights_preprocess_scene(
 	between ticks: lights_port_recover) */
 	lights_port_recover();
 	shield_glow_update(); /* port: port/linux/game/shield_glow.c */
+	door_portals_update(); /* port: (the portals the closed doors shut) */
 	for (light_index = data_next_index(light_data, NONE);
 		light_index != NONE;
 		light_index = data_next_index(light_data, light_index))
@@ -1330,6 +1403,16 @@ void lights_preprocess_scene(
 							definition->flags,
 							_light_definition_is_first_person_flashlight_bit))
 						{
+							/* port: a local player's own flashlight shines along
+							the view drawn (port/linux/game/render_interpolation.c)
+							where the first-person weapon does not carry it below
+							(none in hand, or zoomed): the body's marker trails the
+							view and turns with the head's look, which jumps */
+							render_interpolation_view_flashlight(
+								light->object_index,
+								&light_parameters.position,
+								&light_parameters.forward,
+								&light_parameters.up);
 							first_person_weapon_center_flashlight(
 								light->object_index,
 								&light_parameters.position,
@@ -1371,6 +1454,22 @@ void lights_preprocess_scene(
 					check of their indices against it) */
 					if (light->rasterizer_light_index != NONE)
 						debug_rasterizer_light_count = (short)(light->rasterizer_light_index + 1);
+					/* port: the clusters it reaches only through a closed
+					door, as the light partition's sphere reaches them, which
+					its structure passes and the objects there are not lit in
+					(port/linux/game/door_portals.c); not a first-person
+					weapon's supersized light, which lights all in view */
+					if (light->rasterizer_light_index != NONE &&
+						!(TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit) &&
+							TEST_FLAG(definition->flags, _light_definition_supersize_in_first_person_bit)))
+					{
+						real_point3d partition_center;
+						real partition_radius;
+
+						light_get_bounding_sphere(scene_light_handle, &partition_center, &partition_radius);
+						door_portals_light(light->rasterizer_light_index, &light->position, &partition_center,
+							partition_radius);
+					}
 					/* port: what the enhanced dynamic lights need of it: its
 					cone (as rasterizer_set_model_lighting_point_light's), a
 					bolt's glow, and whether the structure is lit by the
@@ -1399,6 +1498,33 @@ void lights_preprocess_scene(
 								flags |= HALO_DYNAMIC_LIGHT_HALO;
 						}
 						dynamic_lights_note(light->rasterizer_light_index, flags, cone_scale, cone_offset, &light->position);
+						/* (and the clusters it reaches: those its sphere as drawn
+						floods into through the portals from where it is drawn, as
+						the game gathers its surfaces, or its own clusters where it
+						is drawn in no cluster; every one where the game lights
+						every surface in view with it, a first-person weapon's
+						supersized light) */
+						{
+							short clusters[MAXIMUM_CLUSTERS_PER_LIGHT];
+							short cluster_count = NONE;
+							struct location location;
+
+							if (!(TEST_FLAG(light->flags, _point_light_attached_to_first_person_weapon_bit) &&
+								TEST_FLAG(definition->flags, _light_definition_supersize_in_first_person_bit)))
+							{
+								scenario_location_from_point(&location, &light_parameters.position);
+								/* (through no closed door's portal:
+								port/linux/game/door_portals.c) */
+								cluster_count = location.cluster_index != NONE
+									? door_portals_clusters_in_sphere(location.cluster_index, &light_parameters.position,
+										light_parameters.radius, MAXIMUM_CLUSTERS_PER_LIGHT, clusters)
+									: door_portals_light_filter(light->rasterizer_light_index,
+										light_build_cluster_array(scene_light_handle, MAXIMUM_CLUSTERS_PER_LIGHT, clusters),
+										clusters);
+								cluster_count = MIN(cluster_count, MAXIMUM_CLUSTERS_PER_LIGHT);
+							}
+							dynamic_lights_clusters(light->rasterizer_light_index, cluster_count, clusters);
+						}
 					}
 				}
 			}
@@ -2084,6 +2210,10 @@ void lights_render_diffuse(
 						lights_globals.scene_point_lights[light_index],
 						MAXIMUM_CLUSTERS_PER_LIGHT,
 						cluster_indices);
+					/* port: (not those behind a closed door:
+					port/linux/game/door_portals.c) */
+					cluster_count = door_portals_light_filter(light->rasterizer_light_index, cluster_count,
+						cluster_indices);
 				}
 				light_compute_bounding_sphere(
 					lights_globals.scene_point_lights[light_index],
@@ -2141,6 +2271,10 @@ void lights_render_specular(
 					cluster_count = light_build_cluster_array(
 						lights_globals.scene_point_lights[light_index],
 						MAXIMUM_CLUSTERS_PER_LIGHT,
+						cluster_indices);
+					/* port: (not those behind a closed door:
+					port/linux/game/door_portals.c) */
+					cluster_count = door_portals_light_filter(light->rasterizer_light_index, cluster_count,
 						cluster_indices);
 				}
 				light_compute_bounding_sphere(
@@ -2234,6 +2368,11 @@ void light_reconnect_to_map(
 object's own lights that do not light it are noted (render.h,
 RENDER_LIGHTING_OWN_LIGHT); NULL when none is */
 static struct render_lighting *lights_port_own_lighting;
+/* port: the cluster of the object lights_prepare_for_object_dynamic is
+finding the lights in, whose lights behind a closed door from it are passed
+over (port/linux/game/door_portals.c); NONE when it is not (the units'
+illumination, which the AI sees by, keeps the game's clusters) */
+static short lights_port_door_cluster = NONE;
 
 static void lights_port_own_light(
 	long rasterizer_light_index)
@@ -2272,6 +2411,13 @@ static void find_point_light_for_object(
 	{
 		struct light_datum *light = light_get(light_index);
 
+		/* port: (one behind a closed door from this cluster is passed over,
+		unmarked: the object's other clusters may see it) */
+		if (lights_port_door_cluster != NONE &&
+			door_portals_light_blocked(light->rasterizer_light_index, lights_port_door_cluster))
+		{
+			return;
+		}
 		/* port: (its own light it is not lit by, for the enhanced dynamic
 		lights: lights_port_own_light) */
 		if (light->rasterizer_light_index != NONE
@@ -2582,6 +2728,7 @@ void lights_prepare_for_object_dynamic(
 		cluster_index != NONE;
 		cluster_index = object_get_next_cluster(&iterator, object_index))
 	{
+		lights_port_door_cluster = cluster_index;
 		find_point_lights_for_object_in_cluster(
 			object_index,
 			cluster_index,
@@ -2593,6 +2740,7 @@ void lights_prepare_for_object_dynamic(
 			&lighting->point_light_count,
 			MAXIMUM_RENDERED_POINT_LIGHTS);
 	}
+	lights_port_door_cluster = NONE;
 	light_marker_end();
 	lights_port_own_lighting = NULL;
 	/* (port: and a light the window had no room for, with no rasterizer

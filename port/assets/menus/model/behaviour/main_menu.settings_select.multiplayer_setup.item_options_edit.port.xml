@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+</model>

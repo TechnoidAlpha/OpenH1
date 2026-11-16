@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_screen" width="640" height="480" flags="pass_unhandled_to_focused_child main_menu_if_no_history" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_screen" width="640" height="480" flags="pass_unhandled_to_focused_child main_menu_if_no_history" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="created" run="port lobby open"/>
 		<on event="created" run="net server accept conx"/>
 		<on event="created" run="net server allow start"/>
@@ -52,335 +52,335 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_panel" platform="touch"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/touch/board_list" platform="touch"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_header" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/lobby/header_lobby" wide="-106 0">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_header" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/lobby/header_lobby" wide="-106 0" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_subtitle" type="text" controller="1" left="300" top="50" width="312" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="106 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_subtitle" type="text" controller="1" left="300" top="50" width="312" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="106 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_team_0" controller="1" width="186" height="320" bitmap="main_menu/parts/team_panel_186x320" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_team_0" controller="1" width="186" height="320" bitmap="main_menu/parts/team_panel_186x320" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_title_0" type="text" controller="1" width="100" height="22" text="RED" font="ui\large_ui" color="#FFFF6B5E" wide="-106 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_title_0" type="text" controller="1" width="100" height="22" text="RED" font="ui\large_ui" color="#FFFF6B5E" wide="-106 0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_team_1" controller="1" width="186" height="320" bitmap="main_menu/parts/team_panel_186x320" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_team_1" controller="1" width="186" height="320" bitmap="main_menu/parts/team_panel_186x320" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_title_1" type="text" controller="1" width="100" height="22" text="BLUE" font="ui\large_ui" color="#FF5AA9FF" wide="-36 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_title_1" type="text" controller="1" width="100" height="22" text="BLUE" font="ui\large_ui" color="#FF5AA9FF" wide="-36 0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_all" controller="1" width="384" height="320" bitmap="main_menu/parts/panel_384x320" wide="-106 140">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_all" controller="1" width="384" height="320" bitmap="main_menu/parts/panel_384x320" wide="-106 140" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_title_all" type="text" controller="1" width="100" height="22" text="PLAYERS" font="ui\large_ui" color="#FF2896FF" wide="-106 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_title_all" type="text" controller="1" width="100" height="22" text="PLAYERS" font="ui\large_ui" color="#FF2896FF" wide="-106 0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_count_0" type="text" controller="1" width="90" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-36 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_count_0" type="text" controller="1" width="90" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-36 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_count_1" type="text" controller="1" width="90" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="34 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_count_1" type="text" controller="1" width="90" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="34 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_0" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_0" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_0" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_0" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_0" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_0" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_0" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_0" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_0" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_0" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_0" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_1" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_1" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_1" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_1" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_1" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_1" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_1" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_1" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_1" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_1" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_1" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_2" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_2" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_2" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_2" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_2" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_2" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_2" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_2" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_2" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_2" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_2" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_3" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_3" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_3" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_3" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_3" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_3" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_3" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_3" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_3" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_3" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_3" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_4" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_4" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_4" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_4" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_4" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_4" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_4" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_4" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_4" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_4" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_4" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_5" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_5" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_5" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_5" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_5" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_5" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_5" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_5" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_5" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_5" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_5" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_6" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_6" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_6" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_6" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_6" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_6" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_6" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_6" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_6" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_6" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_6" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_7" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_7" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_7" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_7" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_7" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_7" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_7" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_7" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_7" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_7" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_7" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_8" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_8" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_8" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_8" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_8" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_8" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_8" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_8" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_8" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_8" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_8" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_9" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_9" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_9" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_9" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_9" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_9" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_9" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_9" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_9" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_9" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_9" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_10" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_10" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_10" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_10" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_10" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_10" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_10" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_10" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_10" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_10" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_10" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_11" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_11" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_11" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_11" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_11" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_11" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_11" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_11" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_11" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_11" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_11" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_12" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_0_12" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-106 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_0_12" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_0_12" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_0_12" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_12" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_0_12" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_12" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_0_12" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_12" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_0_12" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_0" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_0" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_0" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_0" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_0" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_0" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_0" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_0" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_0" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_0" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_0" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_1" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_1" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_1" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_1" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_1" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_1" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_1" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_1" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_1" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_1" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_1" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_2" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_2" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_2" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_2" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_2" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_2" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_2" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_2" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_2" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_2" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_2" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_3" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_3" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_3" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_3" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_3" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_3" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_3" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_3" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_3" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_3" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_3" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_4" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_4" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_4" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_4" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_4" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_4" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_4" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_4" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_4" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_4" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_4" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_5" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_5" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_5" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_5" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_5" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_5" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_5" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_5" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_5" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_5" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_5" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_6" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_6" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_6" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_6" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_6" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_6" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_6" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_6" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_6" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_6" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_6" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_7" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_7" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_7" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_7" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_7" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_7" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_7" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_7" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_7" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_7" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_7" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_8" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_8" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_8" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_8" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_8" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_8" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_8" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_8" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_8" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_8" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_8" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_9" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_9" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_9" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_9" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_9" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_9" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_9" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_9" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_9" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_9" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_9" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_10" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_10" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_10" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_10" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_10" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_10" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_10" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_10" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_10" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_10" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_10" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_11" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_11" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_11" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_11" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_11" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_11" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_11" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_11" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_11" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_11" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_11" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_12" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_row_1_12" controller="1" width="170" height="18" bitmap="main_menu/parts/player_row_170x18" wide="-36 70" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_dot_1_12" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_name_1_12" x="22"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_tag_1_12" x="60"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_12" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_dot_1_12" controller="1" width="8" height="8" bitmap="main_menu/parts/dot_8" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_12" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="2" wide="0 70" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_name_1_12" type="text" controller="1" width="80" height="18" font="ui\small_ui" color="#FFFFFFFF" text_y="0" wide="0 70" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_12" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="2" wide="70 0" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tag_1_12" type="text" controller="1" width="100" height="18" font="ui\small_ui" color="#FF6F9CD0" align="right" text_y="0" wide="70 0" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_next_label" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF6F9CD0" text="NEXT GAME" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_next_label" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF6F9CD0" text="NEXT GAME" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_gametype" type="text" controller="1" width="164" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_gametype" type="text" controller="1" width="164" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 72" text_flags="no_focus_test" source="tools/port_settings.py _lobby_board/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_map" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_map" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test" source="tools/port_settings.py _lobby_board/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_limits" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_limits" type="text" controller="1" width="164" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test" source="tools/port_settings.py _lobby_board/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_kind" type="text" controller="1" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_kind" type="text" controller="1" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_tick" type="text" controller="1" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_tick" type="text" controller="1" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_opence" type="text" controller="1" width="132" height="16" bitmap="main_menu/parts/pill_132" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_opence" type="text" controller="1" width="132" height="16" bitmap="main_menu/parts/pill_132" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_after_label" type="text" controller="1" width="42" height="16" font="ui\small_ui" color="#FF6F9CD0" text="THEN" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_after_label" type="text" controller="1" width="42" height="16" font="ui\small_ui" color="#FF6F9CD0" text="THEN" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_after" type="text" controller="1" width="120" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_after" type="text" controller="1" width="120" height="16" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test" source="tools/port_settings.py _lobby/_lobby_board/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_status" type="text" controller="1" width="164" height="38" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_status" type="text" controller="1" width="164" height="38" font="ui\small_ui" color="#FF2896FF" wide="0 72" text_flags="no_focus_test" source="tools/port_settings.py _lobby_board/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_waiting" type="text" controller="1" width="164" height="26" font="ui\large_ui" color="#FF2896FF" align="center" wide="0 72" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_waiting" type="text" controller="1" width="164" height="26" font="ui\large_ui" color="#FF2896FF" align="center" wide="0 72" text_flags="no_focus_test" source="tools/port_settings.py _lobby_board/text/_part_text">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_panel" controller="1" left="420" top="80" width="192" height="320" bitmap="main_menu/parts/panel_192x320" wide="34 72">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_panel" controller="1" left="420" top="80" width="192" height="320" bitmap="main_menu/parts/panel_192x320" wide="34 72" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_next_label" x="434" y="90"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_gametype" x="434" y="104"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_map" x="434" y="126"/>
@@ -393,62 +393,64 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/board_status" x="434" y="282"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_waiting" x="434" y="368"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_players" width="384" height="320" wide="-106 140">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_players" width="384" height="320" wide="-106 140" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="left" run="port lobby team red"/>
 		<on event="right" run="port lobby team blue"/>
 		<on event="a" run="port lobby team click"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port lobby team red"/>
+		<on event="stick_right" run="port lobby team blue"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_count" width="164" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/item_164x22" wide="34 72">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_count" width="164" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/item_164x22" wide="34 72" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_bots_count_label" x="8"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_bots_count_spinner" x="70"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_count_label" type="text" controller="1" width="60" height="22" text="BOTS" font="ui\small_ui" color="#FF2896FF" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_count_label" type="text" controller="1" width="60" height="22" text="BOTS" font="ui\small_ui" color="#FF2896FF" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_count_spinner" type="spinner" top="1" width="84" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|ADD 1|ADD 2|ADD 3|ADD 4|ADD 5|ADD 6|ADD 7|ADD 8|ADD 9|ADD 10|ADD 11|ADD 12|ADD 13|ADD 14|ADD 15|ADD 16|ADD 20|ADD 24|ADD 28|ADD 32|ADD 36|ADD 40|ADD 44|ADD 48|ADD 52|ADD 56|ADD 60|ADD 64|FILL TO 2|FILL TO 3|FILL TO 4|FILL TO 5|FILL TO 6|FILL TO 7|FILL TO 8|FILL TO 9|FILL TO 10|FILL TO 11|FILL TO 12|FILL TO 13|FILL TO 14|FILL TO 15|FILL TO 16|FILL TO 20|FILL TO 24|FILL TO 28|FILL TO 32|FILL TO 36|FILL TO 40|FILL TO 44|FILL TO 48|FILL TO 52|FILL TO 56|FILL TO 60|FILL TO 64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="3" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 87 19 93" wide="72 0">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_count_spinner" type="spinner" top="2" width="84" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="NONE|ADD 1|ADD 2|ADD 3|ADD 4|ADD 5|ADD 6|ADD 7|ADD 8|ADD 9|ADD 10|ADD 11|ADD 12|ADD 13|ADD 14|ADD 15|ADD 16|ADD 20|ADD 24|ADD 28|ADD 32|ADD 36|ADD 40|ADD 44|ADD 48|ADD 52|ADD 56|ADD 60|ADD 64|FILL TO 2|FILL TO 3|FILL TO 4|FILL TO 5|FILL TO 6|FILL TO 7|FILL TO 8|FILL TO 9|FILL TO 10|FILL TO 11|FILL TO 12|FILL TO 13|FILL TO 14|FILL TO 15|FILL TO 16|FILL TO 20|FILL TO 24|FILL TO 28|FILL TO 32|FILL TO 36|FILL TO 40|FILL TO 44|FILL TO 48|FILL TO 52|FILL TO 56|FILL TO 60|FILL TO 64" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -6 17 0" footer_bounds="5 87 17 93" wide="72 0" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="created" run="port lobby bots load"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_skill" width="164" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/item_164x22" wide="34 72">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_skill" width="164" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/item_164x22" wide="34 72" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_bots_skill_label" x="8"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_bots_skill_spinner" x="70"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_skill_label" type="text" controller="1" width="60" height="22" text="SKILL" font="ui\small_ui" color="#FF2896FF" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_skill_label" type="text" controller="1" width="60" height="22" text="SKILL" font="ui\small_ui" color="#FF2896FF" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_skill_spinner" type="spinner" top="1" width="84" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EASY|NORMAL|HEROIC|LEGENDARY" setting="bots.skill" values="easy|normal|heroic|legendary" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="3" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 87 19 93" wide="72 0">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_skill_spinner" type="spinner" top="2" width="84" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EASY|NORMAL|HEROIC|LEGENDARY" setting="bots.skill" values="easy|normal|heroic|legendary" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -6 17 0" footer_bounds="5 87 17 93" wide="72 0" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="created" run="port setting load"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_teams" width="164" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/item_164x22" wide="34 72">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_teams" width="164" height="22" flags="pass_unhandled_to_focused_child" bitmap="main_menu/parts/item_164x22" wide="34 72" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<child widget="main_menu/multiplayer_type_select/lobby/board_bots_teams_label" x="8"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_bots_teams_spinner" x="70"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_teams_label" type="text" controller="1" width="60" height="22" text="TEAMS" font="ui\small_ui" color="#FF2896FF" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_teams_label" type="text" controller="1" width="60" height="22" text="TEAMS" font="ui\small_ui" color="#FF2896FF" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_teams_spinner" type="spinner" top="1" width="84" height="20" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EVEN|AGAINST YOU" setting="bots.teams" values="even|against" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="3" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="7 -6 19 0" footer_bounds="7 87 19 93" wide="72 0">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_bots_teams_spinner" type="spinner" top="2" width="84" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="EVEN|AGAINST YOU" setting="bots.teams" values="even|against" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="5 -6 17 0" footer_bounds="5 87 17 93" wide="72 0" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="created" run="port setting load"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse spinner 1wide click"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_host" type="text" width="164" height="22" bitmap="main_menu/parts/outline_164x22" wide="34 72" text="HOST CONTROLS" font="ui\small_ui" color="#FFCFE3FF" align="center" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_host" type="text" width="164" height="22" bitmap="main_menu/parts/outline_164x22" wide="34 72" text="HOST CONTROLS" font="ui\small_ui" color="#FFCFE3FF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="a" run="port host open" open="main_menu/host_controls/host_controls_screen" branch="true"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_settings" type="text" width="164" height="22" bitmap="main_menu/parts/outline_164x22" wide="34 72" text="GAME SETTINGS" font="ui\small_ui" color="#FFCFE3FF" align="center" text_y="4">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_settings" type="text" width="164" height="22" bitmap="main_menu/parts/outline_164x22" wide="34 72" text="GAME SETTINGS" font="ui\small_ui" color="#FFCFE3FF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="a" run="port lobby settings"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_start" type="text" width="164" height="26" bitmap="main_menu/parts/button_164x26" wide="34 72" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="6">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_start" type="text" width="164" height="26" bitmap="main_menu/parts/button_164x26" wide="34 72" font="ui\small_ui" color="#FFFFFFFF" text_x="12" text_y="4" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="a" run="port lobby start"/>
 		<on event="start" run="port lobby start"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<data input="net splitscreen prejoin players"/>
 		<data input="port lobby board update"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_players" x="28" y="80"/>
@@ -460,69 +462,69 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/board_start" x="434" y="368"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/board_prompts" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/board_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/lobby/board_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py _lobby/_lobby_board/_prompts">
 		<child widget="main_menu/multiplayer_type_select/lobby/prompt_team" x="28" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/prompt_invite" x="176" y="1"/>
-		<child widget="main_menu/multiplayer_type_select/lobby/prompt_add" x="324" y="1"/>
+		<child widget="main_menu/multiplayer_type_select/lobby/prompt_add" x="305" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/prompt_leave" x="516" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/prompt_invite" type="text" width="124" height="24" wide="-106 0" bitmap="main_menu/parts/item_124x24" text="%y-button COPY INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/prompt_invite" type="text" width="128" height="24" wide="-106 0" bitmap="main_menu/parts/item_128x24" text="%y-button COPY INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _lobby/_lobby_board/_prompts">
 		<on event="a" run="port lobby invite"/>
 		<on event="start" run="port lobby invite"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/prompt_add" type="text" width="124" height="24" wide="106 0" bitmap="main_menu/parts/item_124x24" text="%x-button ADD PLAYER" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/prompt_add" type="text" width="143" height="24" wide="106 0" bitmap="main_menu/parts/item_143x24" text="%x-button ADD PLAYER" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _lobby/_lobby_board/_prompts">
 		<on event="a" run="port lobby add player"/>
 		<on event="start" run="port lobby add player"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/prompt_leave" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button LEAVE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/prompt_leave" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button LEAVE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _lobby/_lobby_board/_prompts">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/prompt_team" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="CHANGE TEAM" font="ui\small_ui" color="#FFCFE3FF" text_x="30" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/prompt_team" type="text" width="144" height="24" wide="-106 0" bitmap="main_menu/parts/item_144x24" text="CHANGE TEAM" font="ui\small_ui" color="#FFCFE3FF" text_x="30" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 		<on event="a" run="port lobby team toggle"/>
 		<on event="start" run="port lobby team toggle"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/prompt_team_left" x="8" y="5"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/prompt_team_right" x="18" y="5"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/prompt_team_left" width="6" height="12" bitmap="bitmaps/arrow_sm_left">
+	<widget name="main_menu/multiplayer_type_select/lobby/prompt_team_left" width="6" height="12" bitmap="bitmaps/arrow_sm_left" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/prompt_team_right" width="6" height="12" bitmap="bitmaps/arrow_sm_right">
+	<widget name="main_menu/multiplayer_type_select/lobby/prompt_team_right" width="6" height="12" bitmap="bitmaps/arrow_sm_right" source="tools/port_settings.py multiplayer_files/_lobby/_lobby_board">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/header_lobby" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/lobby/header_lobby">
+	<widget name="main_menu/multiplayer_type_select/lobby/header_lobby" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/lobby/header_lobby" source="tools/port_settings.py multiplayer_files/_lobby/_header">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_join_help" type="text" controller="1" left="355" top="446" width="275" height="24" font="ui\small_ui" color="#FF2896FF" align="right" text_y="5" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_join_help" type="text" controller="1" left="355" top="446" width="275" height="24" font="ui\small_ui" color="#FF2896FF" align="right" text_y="5" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_desc" width="640" height="480">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_desc" width="640" height="480" source="tools/port_settings.py multiplayer_files/_lobby">
 		<child widget="main_menu/current_profile_name"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_right_item" x="22" y="2"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_right_item" controller="1" left="406" top="75" width="162" height="326" bitmap="bitmaps/spinner_list_3_wide_item_background">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_right_item" controller="1" left="406" top="75" width="162" height="326" bitmap="bitmaps/spinner_list_3_wide_item_background" source="tools/port_settings.py multiplayer_files/_lobby">
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_map_pic"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_map_name"/>
 		<child widget="main_menu/solo_level_select/replay_level_right_pic"/>
 		<child widget="main_menu/solo_level_select/replay_level_right_name"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_game_data"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_map_pic" controller="1" left="419" top="87" width="140" height="114" bitmap="ui\shell\bitmaps\mp_map_grafix">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_map_pic" controller="1" left="419" top="87" width="140" height="114" bitmap="ui\shell\bitmaps\mp_map_grafix" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_map_name" type="text" controller="1" left="417" top="204" width="146" height="43" string_list="main_menu/mp_map_list" font="ui\large_ui" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_map_name" type="text" controller="1" left="417" top="204" width="146" height="43" string_list="main_menu/mp_map_list" font="ui\large_ui" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/lobby_game_data" type="text" controller="1" left="417" top="250" width="146" height="144" font="ui\small_ui" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/lobby/lobby_game_data" type="text" controller="1" left="417" top="250" width="146" height="144" font="ui\small_ui" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="b" back="true"/>
 		<on event="back" back="true"/>
 		<child widget="main_menu/new_select/sel_list_desc_bkd"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_list"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_title"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_title" type="text" controller="1" left="30" top="30" width="580" height="36" text="VOTE FOR THE NEXT GAME" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_title" type="text" controller="1" left="30" top="30" width="580" height="36" text="VOTE FOR THE NEXT GAME" font="ui\large_ui" color="#FFFFFFFF" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_desc">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_desc" source="tools/port_settings.py multiplayer_files/_lobby">
 		<data input="port map vote update"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_0" x="20" y="73"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_1" x="20" y="103"/>
@@ -534,84 +536,84 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/list_item_7" x="20" y="283"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_0" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd_top" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_0" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd_top" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_1" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_1" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_2" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_2" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_3" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_3" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_4" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_4" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_5" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_5" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_6" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_6" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_7" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_7" width="390" height="28" bitmap="bitmaps/sel_list_item_bkd" font="ui\large_ui" color="#FF2896FF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port map vote choose"/>
 		<on event="start" run="port map vote choose"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/new_select/list_item_text" x="25"/>
 		<child widget="main_menu/new_select/list_item_arrows"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_desc" width="640" height="480">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_desc" width="640" height="480" source="tools/port_settings.py multiplayer_files/_lobby">
 		<child widget="main_menu/current_profile_name"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_right_item" x="22" y="2"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_lobby">
 		<child widget="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_lobby" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_lobby" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="LOBBY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_lobby" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="LOBBY" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="created" run="net server defer start"/>
 		<child widget="main_menu/new_select/sel_list_desc_bkd"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/player_profile_list"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/header_add_player"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/player_profile_help" x="20" y="416"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/header_add_player" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/lobby/header_add_player">
+	<widget name="main_menu/multiplayer_type_select/lobby/header_add_player" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/multiplayer_type_select/lobby/header_add_player" source="tools/port_settings.py multiplayer_files/_lobby/_header">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/profile_manager/player_profile_extended_desc">
+	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/profile_manager/player_profile_extended_desc" source="tools/port_settings.py multiplayer_files/_lobby">
 		<data input="3wide player profile list update"/>
 		<on event="created" run="port lobby player list initialize"/>
 		<on event="deleted" run="player profile list dispose"/>
@@ -629,9 +631,9 @@
 		<child widget="main_menu/multiplayer_type_select/coop/list_item_10" x="20" y="373"/>
 		<child widget="main_menu/multiplayer_type_select/coop/player_2_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_help" type="text" width="350" height="24" text="The new player's profile." font="ui\small_ui" color="#FF2896FF" text_y="5" text_flags="no_focus_test">
+	<widget name="main_menu/multiplayer_type_select/lobby/player_profile_help" type="text" width="350" height="24" text="The new player's profile." font="ui\small_ui" color="#FF2896FF" text_y="5" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="created" run="port lobby open"/>
 		<on event="b" run="port lobby preview leave" back="true"/>
 		<on event="back" run="port lobby preview leave" back="true"/>
@@ -641,29 +643,29 @@
 		<child widget="main_menu/multiplayer_type_select/lobby/header_lobby"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/lobby_join_help"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/lobby/lobby_desc">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/multiplayer_type_select/lobby/lobby_desc" source="tools/port_settings.py multiplayer_files/_lobby">
 		<data input="port lobby preview update"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_status" x="30" y="75"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_status" type="text" controller="1" width="360" height="300" font="ui\large_ui" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_status" type="text" controller="1" width="360" height="300" font="ui\large_ui" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_lobby">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_lobby">
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_button_join" x="250" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_button_add" x="380" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/lobby/preview_button_back" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_join" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_join" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="JOIN GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port lobby preview join"/>
 		<on event="start" run="port lobby preview join"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_add" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ADD PLAYER" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_add" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="ADD PLAYER" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="port lobby add player"/>
 		<on event="start" run="port lobby add player"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/multiplayer_type_select/lobby/preview_button_back" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_lobby">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

@@ -24,23 +24,24 @@ NEGATIVE_CONTROLS = {
     "opence-player-held": (("if (!network_standard_globals.hosting || network_standard_player_is_opence(player_index))",
                             "if (!network_standard_globals.hosting)"), "host"),
     # (the host's way changed during a game)
-    "read-in-game": (("\tif (in_lobby)\n\t\tnetwork_standard_globals.hosting_hold_to_pick_up",
-                      "\tif (TRUE)\n\t\tnetwork_standard_globals.hosting_hold_to_pick_up"), "host"),
+    "read-in-game": (("\tif (in_lobby)\n\t{\n\t\tnetwork_standard_globals.hosting_hold_to_pick_up",
+                      "\tif (TRUE)\n\t{\n\t\tnetwork_standard_globals.hosting_hold_to_pick_up"), "host"),
     # (an OpenCE machine sent the bit)
-    "opence-sent-the-bit": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
+    "opence-sent-the-bit": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
                              ""), "opence-record"),
     # (a Legacy host's record says hold)
     "legacy-record": (("network_standard_globals.hosting && network_standard_globals.hosting_hold_to_pick_up);",
                        "network_standard_globals.hosting_hold_to_pick_up);"), "legacy-host"),
     # (a client's own setting, not its host's)
-    "client-own-setting": (("return !TEST_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit);",
+    "client-own-setting": (("return !TEST_FLAG(game->standard_flags, _network_game_hold_to_pick_up_bit);",
                             "return config_boolean(\"game.auto_pickup\") != 0;"), "client"),
 }
 
 
 def generated(fault=None):
     standard = read("port/linux/game/network_standard.c")
-    config = enum_with(read("source/networking/network_game_manager.h"), "_network_game_hold_to_pick_up_bit") + "\n"
+    config = enum_with(read("source/networking/network_game_manager.h"), "_network_game_hold_to_pick_up_bit") + "\n" + \
+        enum_with(read("port/linux/game/demo.h"), "_demo_rule_walk_over_pickup_bit") + "\n"
     code = "\n".join([
         function(standard, "network_standard_game_for_machine"),
         function(standard, "network_standard_stamp_game"),

@@ -4,8 +4,9 @@ OBJECT_MESH.H
 An object's drawn surface, as the game draws it (port/linux/game/object_mesh.c):
 the triangles of its model's most detailed opaque geometry, in the
 permutations the object shows, in the model's own space, each vertex bound
-to the nodes that move it as the game draws it. first_person_legs.c finds
-the waist in it.
+to the nodes that move it as the game draws it. first_person_legs.c weighs
+it against the near plane; world_proxies_game.c bounds a model without
+collision geometry by it.
 */
 
 #ifndef __OBJECT_MESH_H
@@ -44,6 +45,11 @@ read). The last one read is kept, until another is asked for: its memory is
 taken the first time one is */
 struct object_mesh const *object_mesh_get(
 	long object_index);
+
+/* a model's mesh in its regions' first permutations (as a definition draws
+before any object picks others), or NULL; kept as object_mesh_get's is */
+struct object_mesh const *object_mesh_get_model(
+	long model_index);
 
 /* forget the mesh kept (a new map) */
 void object_mesh_reset(

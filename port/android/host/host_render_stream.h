@@ -84,16 +84,31 @@ struct host_render_backend
 	/* display.hdr (xgpu_hdr.h): its state, and a 3D view's tone map */
 	void (*hdr)(void *context, const struct xgpu_stream_hdr *record);
 	void (*tone_map)(void *context, const struct xgpu_stream_tone_map *record);
-	/* display.ambient_occlusion over a 3D view (none: not drawn) */
-	void (*ambient_occlusion)(void *context, const struct xgpu_stream_ambient_occlusion *record);
 	/* display.picture_position: the picture n pixels from the top of a
 	taller window (n + 1) or centered (0) */
 	void (*picture_top)(void *context, uint32_t top);
 	/* display.gamma: the setting (a float's bits), from the next present on */
 	void (*gamma)(void *context, uint32_t gamma);
+	/* the game's renderer's category of the draws from now on
+	(XGPU_STREAM_CATEGORY's value), for the GPU's timing */
+	void (*category)(void *context, uint32_t category);
 	/* display.panini: a 3D view drawn again through the Panini projection
 	(none: not drawn) */
 	void (*panini)(void *context, const struct xgpu_stream_panini *record);
+	/* display.ambient_occlusion "world" (docs/world-ao.md): the block the
+	opaque surfaces' ambient light reads from here on, and slices of the
+	field (its bytes: host_pointer(record->data)); none: not drawn */
+	void (*world_ao_window)(void *context, const struct xgpu_stream_world_ao_window *record);
+	void (*world_ao_field)(void *context, const struct xgpu_stream_world_ao_field *record);
+	/* ... found once a pixel (xgpu_stream.h's WORLD_AO_PREPASS); none: the
+	pre-pass's draws are drawn as the surfaces' (xgpu_stream.h) */
+	void (*world_ao_prepass)(void *context, const struct xgpu_stream_world_ao_prepass *record);
+	void (*world_ao_cascades)(void *context, const struct xgpu_stream_world_ao_cascades *record);
+	/* display.ambient_occlusion "ray_traced" (xgpu_stream.h's WORLD_AO_MESH,
+	_INSTANCES: the decoder has checked their sizes, not the instances'
+	meshes and owners); NULL where the backend has no ray queries */
+	void (*world_ao_mesh)(void *context, const struct xgpu_stream_world_ao_mesh *record);
+	void (*world_ao_instances)(void *context, const struct xgpu_stream_world_ao_instances *record);
 
 	void (*target_create)(void *context, const struct xgpu_stream_target_create *record);
 	void (*target_delete)(void *context, uint32_t target);
@@ -117,6 +132,11 @@ struct host_render_backend
 	/* the pipeline the draws use from now on; nonzero if it is made (its
 	state goes back to the guest: XGPU_STREAM_PIPELINE_*) */
 	int (*pipeline)(void *context, uint32_t id, const struct xgpu_stream_pipeline_define *definition);
+	/* pipeline id's stand-in (0 none; its definition): drawn with until
+	id's is made, and always while a map is prepared (none: id's made as
+	any other's) */
+	void (*pipeline_stand_in)(void *context, uint32_t id, uint32_t stand_in,
+		const struct xgpu_stream_pipeline_define *definition);
 	/* the latest of each, whichever changed */
 	void (*draw_state)(void *context, const struct xgpu_stream_dynamic_state *dynamic,
 		const struct xgpu_stream_draw_uniforms *uniforms, uint32_t uniforms_serial);
@@ -157,7 +177,11 @@ struct host_render_backend
 	/* nonzero if the block and cells are made */
 	int (*dynamic_lights_prepare)(void *context);
 	void (*dynamic_lights_upload)(void *context, const struct xgpu_stream_dynamic_lights_upload *record);
+	/* checked: the changed bytes inside the cells and the stream */
+	void (*dynamic_lights_change)(void *context, const struct xgpu_stream_dynamic_lights_change *record);
 	void (*dynamic_lights_halos)(void *context, const struct xgpu_stream_dynamic_lights_halos *record);
+	/* the world (xgpu.h), checked: its texels inside the stream */
+	void (*dynamic_lights_world)(void *context, const struct xgpu_stream_dynamic_lights_world *record);
 
 	int (*vr_supported)(void *context);
 	/* PREPARED: waits until the shaders and pipelines of the draws so far are
@@ -195,6 +219,9 @@ struct host_render_backend
 the guest starts (macOS: the Metal backend). Without one,
 host_render_stream_open fails and the guest keeps its own renderer. */
 void host_render_stream_set_backend(const struct host_render_backend *backend);
+/* the backend set (NULL none): the replay's, which puts a table of its own
+in front of it (port/tools/replay/host_render_replay.c) */
+const struct host_render_backend *host_render_stream_backend(void);
 
 /* the screenshot key's file (XGPU_STREAM_SCREENSHOT): writes the pixels
 (BGRA rows from the top) as a PNG in directory (made if it is missing), and
@@ -244,6 +271,10 @@ void host_render_stream_call(void (*function)(void *argument), void *argument);
 statistics, for the host's logs (read as they are, racing with their
 writers) */
 const struct xgpu_stream_ring *host_render_stream_ring(void);
+/* the backend's GPU time on the frames so far, in nanoseconds (a running
+total; at a frame's end, on the render thread): written into the ring for
+the guest (gpu_microseconds: a report's) */
+void host_render_stream_gpu_time(uint64_t nanoseconds);
 
 /* ---------- pacing by the display (frame_pacing.h)
 
@@ -252,11 +283,22 @@ the game by it: host_render_stream_display_paced(1), and then, for each
 frame it ends, once, host_render_stream_frame_taken when its display takes
 it (shows it, or drops it; at once for a frame it has nothing to show of).
 The game then starts a frame only while at most FRAME_PACING_QUEUED of its
-frames wait for the display. host_render_stream_frame_shown gives the time
+frames wait for the display. HOST_RENDER_DISPLAY_BOUNDED in place of 1
+keeps that bound alone: the frames are started as soon as it lets them, not
+just in time for their refresh. host_render_stream_frame_shown gives the time
 the frame reached the screen with its input time
 (host_render_stream_frame_input, while the backend ends it), for
 host_render_stream_latency: nanoseconds of CLOCK_MONOTONIC, the game's. */
+#define HOST_RENDER_DISPLAY_PACED 1
+#define HOST_RENDER_DISPLAY_BOUNDED 2
 void host_render_stream_display_paced(int paced);
+/* (any thread) the most frames whose work (the GPU's included) may be
+unfinished, besides the one the game has just given, when it starts the
+next: 0 for a display that queues the frames presented (vsync's FIFO), so
+that the game starts a frame only once the one before is done, and is never
+more than a frame ahead of the display, whatever the display says; -1, the
+ring's frames_in_flight (the guest's) */
+void host_render_stream_frames_ahead(int frames);
 /* display.hdr: the display shows HDR (xgpu_hdr.h's XGPU_HDR_DISPLAY_HEADROOM),
 its headroom (1 for none: now, or the display's potential, its peak), and
 its SDR white in nits (the system's,

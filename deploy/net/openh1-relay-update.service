@@ -1,0 +1,9 @@
+# /etc/systemd/system/openh1-relay-update.service: update-relay.sh, by its timer
+[Unit]
+Description=Install OpenH1's latest release as the relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/update-relay.sh

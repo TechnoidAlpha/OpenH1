@@ -495,7 +495,15 @@ static void friends_panel_text(struct p2p_friend const *entry, char const *own_c
 	}
 	p2p_friend_code_format(entry->code, code_text, sizeof(code_text));
 	friends_wide(code_text, code, NUMBEROF(code));
-	friends_wide_utf8(entry->game, game, NUMBEROF(game));
+	/* (a game's "OpenH1 <rate> Tick", as every build sends and reads it:
+	doubles_friend_in_kind, said by the name players know) */
+	if (!strncmp(entry->game, "OpenH1 ", 7))
+	{
+		usnprintf(game, NUMBEROF(game) - 1, L"GOAT H1 ");
+		friends_wide_utf8(entry->game + 7, game + 8, NUMBEROF(game) - 8);
+	}
+	else
+		friends_wide_utf8(entry->game, game, NUMBEROF(game));
 	switch (entry->kind)
 	{
 	case _p2p_friend_online:
@@ -547,7 +555,7 @@ static void friends_panel_text(struct p2p_friend const *entry, char const *own_c
 		{
 			usnprintf(detail, detail_size - 1, entry->opence ?
 				L"An OpenCE player: OpenCE has no friend codes, so they can't be added." :
-				L"No friend code: they played on an older version of OpenH1 or Halo, so they can't be added.");
+				L"No friend code: they played on an older version of GOAT H1 or Halo, so they can't be added.");
 		}
 		else if (entry->relation == _p2p_friend_online)
 			usnprintf(detail, detail_size - 1, L"Already your friend. %s", game);

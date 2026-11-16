@@ -42,7 +42,19 @@ Every download is checked before it is unpacked (updater_verify): against
 the release's SHA256SUMS and that file's signature by OpenH1's release key,
 SHA256SUMS.sig (release_signature.h says what is refused: a signature that
 is not the key's always; a release with none once
-RELEASE_SIGNATURE_REQUIRED is 1).
+RELEASE_SIGNATURE_REQUIRED is 1). SHA256SUMS and its signature are had
+before the player is asked about the release, who is not while they cannot
+be.
+
+Each download is tried again a few times while GitHub does not answer or
+answers with its own trouble (a 5xx, 408, 425, 429), and a release's file
+that its link (github.com/.../releases/download/...) cannot give is asked of
+GitHub's API (api.github.com/.../releases/assets/<id>, the ids from its
+answer about the release), which serves the same bytes when the links'
+servers fail: only where the bytes come from changes, never their checks.
+A failure that is an outage (updater_unreachable) is logged, with no
+dialog: the game goes on, and looks again at the next start. A download
+refused, or an install that failed, is said.
 
 On Linux the release is a tree (bin/openh1, lib/openh1, share/...:
 install_layout.c, tools/linux_package.py), OpenH1-Linux[-debug].zip or
@@ -89,7 +101,10 @@ test's release server, debug.update_url).
 #include "platform.h"
 #include "install_layout.h"
 #include "port_config.h"
+#include "report.h"
 #include "update.h"
+
+#include <stdio.h>
 
 /* the release's build that this one updates to (UPDATE_NAME[-debug].zip,
 as tools/release_names.py names the release's files; on Linux, the release's
@@ -125,6 +140,42 @@ build */
 #define UPDATE_NAME "OpenH1-Linux"
 #endif
 
+/* (given for this file by the build: tools/android_build.py's
+generate_guest_image, windows_build.py; the commit, CI's) */
+#ifndef HALO_BUILD_NUMBER
+#define HALO_BUILD_NUMBER 0
+#endif
+#ifndef HALO_BUILD_FLAVOR
+#define HALO_BUILD_FLAVOR "release"
+#endif
+#ifndef HALO_BUILD_COMMIT
+#define HALO_BUILD_COMMIT ""
+#endif
+
+/* the build in a few words (report.c's report.txt): its release, its
+flavour and commit */
+void updater_build_text(char *text, size_t size)
+{
+	if (HALO_BUILD_NUMBER > 0)
+		snprintf(text, size, "build-%d (%s%s%s)", HALO_BUILD_NUMBER, HALO_BUILD_FLAVOR,
+			HALO_BUILD_COMMIT[0] ? ", commit " : "", HALO_BUILD_COMMIT);
+	else
+		snprintf(text, size, "a local build, not a release (%s%s%s)", HALO_BUILD_FLAVOR,
+			HALO_BUILD_COMMIT[0] ? ", commit " : "", HALO_BUILD_COMMIT);
+}
+
+/* which build this is, first in the log as the game starts (updater_start):
+its release (build-1314), and the commit it was made from */
+static void updater_log_build(void)
+{
+	if (HALO_BUILD_NUMBER > 0)
+		platform_log("build: build-%d (%s%s%s)", HALO_BUILD_NUMBER, HALO_BUILD_FLAVOR,
+			HALO_BUILD_COMMIT[0] ? ", commit " : "", HALO_BUILD_COMMIT);
+	else
+		platform_log("build: a local build, not a release (%s%s%s)", HALO_BUILD_FLAVOR,
+			HALO_BUILD_COMMIT[0] ? ", commit " : "", HALO_BUILD_COMMIT);
+}
+
 #ifdef UPDATE_PLATFORM
 
 #include "p2p_internal.h"
@@ -136,16 +187,7 @@ build */
 #include <stdlib.h>
 #include <string.h>
 
-/* (given for this file by the build: tools/android_build.py's
-generate_guest_image, windows_build.py) */
-#ifndef HALO_BUILD_NUMBER
-#define HALO_BUILD_NUMBER 0
-#endif
-#ifndef HALO_BUILD_FLAVOR
-#define HALO_BUILD_FLAVOR "release"
-#endif
-
-#define UPDATE_REPOSITORY "OpenH1/OpenH1"
+#define UPDATE_REPOSITORY "OpenH1/goath1"
 #ifdef HALO_WINDOWS
 #define PATH_SEPARATOR "\\"
 #else
@@ -510,7 +552,42 @@ done:
 	return succeeded;
 }
 
-/* ---------- checking */
+/* ---------- downloads: tried again, and from GitHub's API when the release's links fail */
+
+/* what a download came to */
+enum
+{
+	/* no answer, or one of trouble at the server's end (a 5xx, 408, 425,
+	429) after every try: an outage, to be tried again at the next start */
+	_updater_fetch_unreachable = -2,
+	/* any other failure */
+	_updater_fetch_failed = -1,
+	/* the server has no such file (404) */
+	_updater_fetch_none = 0,
+	_updater_fetch_got = 1,
+};
+
+/* tries of each address, and the waits between them */
+#define UPDATER_FETCH_TRIES 3
+static const Uint32 updater_fetch_waits[UPDATER_FETCH_TRIES - 1] = { 1000, 3000 };
+/* the most a redirect's address may be (GitHub's file host's are signed,
+some 900 characters) */
+#define UPDATER_LOCATION_SIZE 2048
+/* a release's file in GitHub's API: /releases/assets/<id>, the bytes
+asked for (application/octet-stream), not its description */
+#define UPDATE_ASSETS_PATH "/repos/" UPDATE_REPOSITORY "/releases/assets"
+#define UPDATE_ASSET_ACCEPT "Accept: application/octet-stream\r\n"
+
+/* the ids in GitHub's API of the latest release's files that the updater
+downloads (updater_asset_index's), from its answer about the release
+(updater_latest_release); 0 for one it does not list */
+#define UPDATER_ASSET_COUNT 3
+static unsigned long long updater_release_asset_ids[UPDATER_ASSET_COUNT];
+/* ... and those of updater_latest_build, kept with it */
+static unsigned long long updater_asset_ids[UPDATER_ASSET_COUNT];
+/* whether the last update's failure was an outage (_updater_fetch_unreachable):
+the game, which looked by itself, says nothing of it and goes on */
+static int updater_unreachable;
 
 /* a release's file, the asset of build */
 static void updater_asset_url(char *url, size_t size, long build, const char *asset)
@@ -520,39 +597,428 @@ static void updater_asset_url(char *url, size_t size, long build, const char *as
 	snprintf(url, size, "%s" UPDATE_RELEASE_PATH "/build-%ld/%s", test[0] ? test : UPDATE_DOWNLOADS, build, asset);
 }
 
-/* url's file (GitHub's, over HTTPS; a test's release server's, debug.update_url,
-plain http:// on this machine, which update_https_request alone fetches)
-at path, no larger than maximum; 1 when it is there, else 0 and why */
-static int updater_fetch(const char *url, const char *path, unsigned long long maximum, update_progress_proc progress,
-	void *context, char *error, size_t error_size)
+/* whether a status is the server's trouble, which passes (or no answer, 0) */
+static int updater_status_transient(int status)
+{
+	return status == 0 || status == 408 || status == 425 || status == 429 || (status >= 500 && status <= 599);
+}
+
+static int updater_lower(int character)
+{
+	return character >= 'A' && character <= 'Z' ? character - 'A' + 'a' : character;
+}
+
+/* a redirect's address (its Location header, in an update_response's
+headers) into location: https://, or a path on url's host; 1 when there is
+one that fits and has no spaces or control characters */
+static int updater_location(const char *headers, const char *url, char *location, size_t size)
+{
+	static const char name[] = "location:";
+	const char *line = headers;
+
+	while (*line)
+	{
+		size_t length = strcspn(line, "\n"), index;
+
+		if (length >= sizeof(name) - 1)
+		{
+			for (index = 0; index < sizeof(name) - 1 && updater_lower((unsigned char)line[index]) == name[index]; index++)
+			{
+			}
+			if (index == sizeof(name) - 1)
+			{
+				const char *value = line + index;
+				size_t value_length, origin_length = 0;
+
+				value += strspn(value, " \t");
+				value_length = (size_t)(line + length - value);
+				while (value_length && (value[value_length - 1] == '\r' || value[value_length - 1] == ' ' ||
+					value[value_length - 1] == '\t'))
+				{
+					value_length--;
+				}
+				for (index = 0; index < value_length; index++)
+				{
+					if ((unsigned char)value[index] <= ' ' || (unsigned char)value[index] >= 127)
+						return 0;
+				}
+				/* (a path on the same host: url's scheme and host before it) */
+				if (value_length && value[0] == '/' && (value_length < 2 || value[1] != '/'))
+				{
+					const char *host = strstr(url, "://");
+					const char *slash = host ? strchr(host + 3, '/') : NULL;
+
+					if (!host)
+						return 0;
+					origin_length = slash ? (size_t)(slash - url) : strlen(url);
+				}
+				if (!value_length || origin_length + value_length >= size)
+					return 0;
+				memcpy(location, url, origin_length);
+				memcpy(location + origin_length, value, value_length);
+				location[origin_length + value_length] = 0;
+				return !strncmp(location, "https://", 8);
+			}
+		}
+		line += length;
+		if (*line)
+			line++;
+	}
+	return 0;
+}
+
+/* what update_download's failure (its error) was: no such file (a 404),
+the server's trouble or no answer (_updater_fetch_unreachable), or this
+computer's or the download's (_updater_fetch_failed) */
+static int updater_download_failure(const char *error)
+{
+	static const char answered[] = "the server answered ";
+	const char *status = strstr(error, answered);
+
+	if (!strncmp(error, "could not write", 15) || strstr(error, "larger than expected"))
+		return _updater_fetch_failed;
+	if (status)
+	{
+		int code = atoi(status + sizeof(answered) - 1);
+
+		return code == 404 ? _updater_fetch_none : updater_status_transient(code) ? _updater_fetch_unreachable :
+			_updater_fetch_failed;
+	}
+	return _updater_fetch_unreachable;
+}
+
+/* the most of an answer had in memory (update_https_request's, which a
+guest's host makes into a buffer of this size: guest_https.c), not
+streamed to its file */
+#define UPDATER_IN_MEMORY_MAXIMUM (64ULL * 1024 * 1024)
+
+/* one try of url (with extra header lines, or NULL) into the file at path,
+no larger than maximum: GitHub's https:// addresses without headers
+streamed by update_download, which follows their redirects (a release's
+links, to GitHub's file host); a test's release server's (debug.update_url,
+plain http:// on this machine), or one with headers (GitHub's API's copy of
+a file, application/octet-stream), asked with update_https_request, its
+answer written or its redirect followed by update_download. What it came
+to (_updater_fetch_*), why in error */
+static int updater_get_once(const char *url, const char *headers, const char *path, unsigned long long maximum,
+	update_progress_proc progress, void *context, char *error, size_t error_size)
 {
 	struct update_response response;
-	SDL_IOStream *file = NULL;
-	int succeeded = 0;
+	char location[UPDATER_LOCATION_SIZE];
+	SDL_IOStream *file;
+	unsigned long long in_memory = maximum < UPDATER_IN_MEMORY_MAXIMUM ? maximum : UPDATER_IN_MEMORY_MAXIMUM;
+	int result = _updater_fetch_failed;
 
-	if (strncmp(url, "http://", 7))
-		return update_download(url, path, maximum, progress, context, error, (int)error_size);
-	if (!update_https_request("GET", url, NULL, NULL, 0, 16UL * 1024 * 1024, &response, error, (int)error_size))
-		return 0;
-	if (response.status != 200)
+	if (!headers && !strncmp(url, "https://", 8))
 	{
-		snprintf(error, error_size, "the server answered %d", response.status);
+		if (update_download(url, path, maximum, progress, context, error, (int)error_size))
+			return _updater_fetch_got;
+		return updater_download_failure(error);
 	}
-	else if ((unsigned long long)response.body_size > maximum || !(file = SDL_IOFromFile(path, "wb")))
+	memset(&response, 0, sizeof(response));
+	if (!update_https_request("GET", url, headers, NULL, 0, (unsigned long)in_memory, &response, error,
+		(int)error_size))
 	{
-		snprintf(error, error_size, "could not write %s", path);
+		return _updater_fetch_unreachable;
+	}
+	if (response.status == 200)
+	{
+		if ((unsigned long long)response.body_size > in_memory || !response.body)
+		{
+			snprintf(error, error_size, "the answer is larger than %llu bytes", in_memory);
+		}
+		else if (!(file = SDL_IOFromFile(path, "wb")))
+		{
+			snprintf(error, error_size, "could not write %s", path);
+		}
+		else
+		{
+			int written = SDL_WriteIO(file, response.body, response.body_size) == response.body_size;
+
+			if (!SDL_CloseIO(file))
+				written = 0;
+			if (written)
+				result = _updater_fetch_got;
+			else
+				snprintf(error, error_size, "could not write %s", path);
+		}
+	}
+	else if (response.status >= 300 && response.status <= 399)
+	{
+		if (!updater_location(response.headers, url, location, sizeof(location)))
+			snprintf(error, error_size, "the server answered %d, with no https:// address to follow", response.status);
+		else if (update_download(location, path, maximum, progress, context, error, (int)error_size))
+			result = _updater_fetch_got;
+		else
+			result = updater_download_failure(error);
 	}
 	else
 	{
-		succeeded = SDL_WriteIO(file, response.body, response.body_size) == response.body_size;
-		if (!SDL_CloseIO(file))
-			succeeded = 0;
-		if (!succeeded)
-			snprintf(error, error_size, "could not write %s", path);
+		snprintf(error, error_size, "the server answered %d", response.status);
+		result = response.status == 404 ? _updater_fetch_none :
+			updater_status_transient(response.status) ? _updater_fetch_unreachable : _updater_fetch_failed;
 	}
 	free(response.body);
-	return succeeded;
+	return result;
 }
+
+/* url into the file at path (updater_get_once), tried again after a short
+wait while the server is in trouble or does not answer; what it came to
+(_updater_fetch_*), why in error, and the file deleted unless it is there */
+static int updater_get(const char *url, const char *headers, const char *path, unsigned long long maximum,
+	update_progress_proc progress, void *context, char *error, size_t error_size)
+{
+	int attempt, result = _updater_fetch_failed;
+
+	for (attempt = 0; attempt < UPDATER_FETCH_TRIES; attempt++)
+	{
+		if (attempt)
+		{
+			platform_log("update: %s: %s; trying again in %u ms", url, error, (unsigned)updater_fetch_waits[attempt - 1]);
+			SDL_Delay(updater_fetch_waits[attempt - 1]);
+		}
+		if (error_size)
+			error[0] = 0;
+		result = updater_get_once(url, headers, path, maximum, progress, context, error, error_size);
+		if (result != _updater_fetch_unreachable)
+			break;
+	}
+	if (result != _updater_fetch_got)
+		update_delete_file(path);
+	return result;
+}
+
+/* the release's files whose ids updater_asset_ids keeps, by index */
+static const char *updater_asset_name(int index)
+{
+	return index == 0 ? "SHA256SUMS" : index == 1 ? "SHA256SUMS.sig" : UPDATE_ASSET;
+}
+
+/* the index in updater_asset_ids of a release's file, -1 for another */
+static int updater_asset_index(const char *name)
+{
+	int index;
+
+	for (index = 0; index < UPDATER_ASSET_COUNT; index++)
+	{
+		if (!strcmp(name, updater_asset_name(index)))
+			return index;
+	}
+	return -1;
+}
+
+/* the latest release's file (name) into the file at path, no larger than
+maximum: from the release's link (github.com's, whose file host GitHub
+redirects it to), tried again while GitHub is in trouble, and if it cannot
+be had there, from GitHub's API (api.github.com's /releases/assets/<id>,
+which serves the same file when the links do not). Only where the bytes
+come from changes: they are checked as any are (updater_verify). What it
+came to (_updater_fetch_*), why in error */
+static int updater_download_asset(const char *name, const char *path, unsigned long long maximum,
+	update_progress_proc progress, void *context, char *error, size_t error_size)
+{
+	char url[512], first[300];
+	const char *test = config_string("debug.update_url");
+	int index = updater_asset_index(name);
+	unsigned long long id = index >= 0 ? updater_asset_ids[index] : 0;
+	int result, fallback;
+
+	updater_asset_url(url, sizeof(url), updater_latest_build, name);
+	result = updater_get(url, NULL, path, maximum, progress, context, error, error_size);
+	if (result == _updater_fetch_got)
+		return result;
+	snprintf(first, sizeof(first), "%s", error);
+	/* (a file the release does not list is not there: a 404 says so) */
+	if (!id)
+	{
+		snprintf(error, error_size, "%s could not be had: %s", name, first);
+		return result;
+	}
+	platform_log("update: %s could not be had from the release's link (%s): asking GitHub's API for it", name, first);
+	snprintf(url, sizeof(url), "%s" UPDATE_ASSETS_PATH "/%llu", test[0] ? test : UPDATE_API, id);
+	fallback = updater_get(url, UPDATE_ASSET_ACCEPT, path, maximum, progress, context, error, error_size);
+	if (fallback == _updater_fetch_got)
+	{
+		platform_log("update: %s came from GitHub's API", name);
+		return fallback;
+	}
+	{
+		char second[300];
+
+		snprintf(second, sizeof(second), "%s", error);
+		snprintf(error, error_size, "%s could not be had: %s (its link), %s (GitHub's API)", name, first, second);
+	}
+	if (result == _updater_fetch_none && fallback == _updater_fetch_none)
+		return _updater_fetch_none;
+	return result == _updater_fetch_unreachable || fallback == _updater_fetch_unreachable ? _updater_fetch_unreachable :
+		_updater_fetch_failed;
+}
+
+/* ---------- GitHub's answer about a release (JSON), read within its bytes */
+
+static const char *updater_json_space(const char *at, const char *end)
+{
+	while (at < end && (*at == ' ' || *at == '\t' || *at == '\r' || *at == '\n'))
+		at++;
+	return at;
+}
+
+/* the end of the string whose quote is at at, past its closing quote; NULL
+if it does not end before end */
+static const char *updater_json_string_end(const char *at, const char *end)
+{
+	for (at++; at < end; at++)
+	{
+		if (*at == '\\')
+		{
+			if (end - at < 2)
+				return NULL;
+			at++;
+		}
+		else if (*at == '"')
+		{
+			return at + 1;
+		}
+	}
+	return NULL;
+}
+
+/* the end of the value at at (a string, an object or array with all in it,
+or a number or word); NULL if it does not end before end */
+static const char *updater_json_value_end(const char *at, const char *end)
+{
+	const char *start = at;
+	long depth = 0;
+
+	if (at >= end)
+		return NULL;
+	if (*at == '"')
+		return updater_json_string_end(at, end);
+	if (*at != '{' && *at != '[')
+	{
+		while (at < end && *at && !strchr(",}] \t\r\n", *at))
+			at++;
+		return at > start ? at : NULL;
+	}
+	while (at < end)
+	{
+		if (*at == '"')
+		{
+			at = updater_json_string_end(at, end);
+			if (!at)
+				return NULL;
+			continue;
+		}
+		if (*at == '{' || *at == '[')
+			depth++;
+		else if ((*at == '}' || *at == ']') && --depth == 0)
+			return at + 1;
+		at++;
+	}
+	return NULL;
+}
+
+/* whether the string from at to string_end (its quotes) is text exactly */
+static int updater_json_string_is(const char *at, const char *string_end, const char *text)
+{
+	size_t length = strlen(text);
+
+	return *at == '"' && (size_t)(string_end - at) == length + 2 && !memcmp(at + 1, text, length);
+}
+
+/* the next member of an object, from *cursor (past its '{', or the member
+before): its key's string and its value, *cursor past it; 1, 0 at the
+object's end (*cursor past its '}'), -1 if it is not JSON */
+static int updater_json_member(const char **cursor, const char *end, const char **key, const char **key_end,
+	const char **value, const char **value_end)
+{
+	const char *at = updater_json_space(*cursor, end);
+
+	if (at < end && *at == ',')
+		at = updater_json_space(at + 1, end);
+	if (at < end && *at == '}')
+	{
+		*cursor = at + 1;
+		return 0;
+	}
+	if (at >= end || *at != '"' || !(*key_end = updater_json_string_end(at, end)))
+		return -1;
+	*key = at;
+	at = updater_json_space(*key_end, end);
+	if (at >= end || *at != ':')
+		return -1;
+	*value = updater_json_space(at + 1, end);
+	*value_end = updater_json_value_end(*value, end);
+	if (!*value_end)
+		return -1;
+	*cursor = *value_end;
+	return 1;
+}
+
+/* the id of the release's file name in GitHub's answer about a release
+(text, size bytes: an object whose "assets" are objects with an "id" and a
+"name"); 0 if it lists none, or the answer is not one */
+static unsigned long long updater_json_asset_id(const char *text, size_t size, const char *name)
+{
+	const char *end = text + size, *at = updater_json_space(text, end);
+	const char *key, *key_end, *value, *value_end;
+
+	if (at >= end || *at != '{')
+		return 0;
+	at++;
+	while (updater_json_member(&at, end, &key, &key_end, &value, &value_end) == 1)
+	{
+		const char *element;
+
+		if (!updater_json_string_is(key, key_end, "assets") || *value != '[')
+			continue;
+		/* (each of the assets, an object; their own objects, the uploader's,
+		are values skipped whole) */
+		element = value + 1;
+		for (;;)
+		{
+			const char *member, *member_key, *member_key_end, *member_value, *member_value_end;
+			unsigned long long id = 0;
+			int named = 0, found;
+
+			element = updater_json_space(element, value_end);
+			if (element < value_end && *element == ',')
+				element = updater_json_space(element + 1, value_end);
+			if (element >= value_end || *element != '{')
+				return 0;
+			member = element + 1;
+			while ((found = updater_json_member(&member, value_end, &member_key, &member_key_end, &member_value,
+				&member_value_end)) == 1)
+			{
+				if (updater_json_string_is(member_key, member_key_end, "name"))
+				{
+					named = updater_json_string_is(member_value, member_value_end, name);
+				}
+				else if (updater_json_string_is(member_key, member_key_end, "id"))
+				{
+					const char *digit;
+
+					/* (digits alone, few enough for any id GitHub gives) */
+					id = 0;
+					if (member_value_end - member_value > 15)
+						continue;
+					for (digit = member_value; digit < member_value_end && *digit >= '0' && *digit <= '9'; digit++)
+						id = id * 10 + (unsigned long long)(*digit - '0');
+					if (digit != member_value_end)
+						id = 0;
+				}
+			}
+			if (found < 0)
+				return 0;
+			if (named)
+				return id;
+			element = member;
+		}
+	}
+	return 0;
+}
+
+/* ---------- checking */
 
 /* the number after the last key in text (a release's notes in GitHub's
 answer), 0 if there is none */
@@ -580,10 +1046,12 @@ static long updater_latest_release(void)
 	const char *tag;
 	const char *test = config_string("debug.update_url");
 	long build = 0;
+	int index;
 
 	updater_path(path, sizeof(path), updater_check_name);
 	snprintf(url, sizeof(url), "%s" UPDATE_LATEST_PATH, test[0] ? test : UPDATE_API);
-	if (!updater_fetch(url, path, MAXIMUM_CHECK_SIZE, NULL, NULL, error, sizeof(error)))
+	memset(updater_release_asset_ids, 0, sizeof(updater_release_asset_ids));
+	if (updater_get(url, NULL, path, MAXIMUM_CHECK_SIZE, NULL, NULL, error, sizeof(error)) != _updater_fetch_got)
 	{
 		platform_log("update: could not check for a new version: %s", error);
 		return 0;
@@ -604,6 +1072,9 @@ static long updater_latest_release(void)
 	after the commit's subject) */
 	updater_release_network_version = updater_notes_number(text, "Network version: ");
 	updater_release_standard_version = updater_notes_number(text, "Standard network version: ");
+	/* (its files' ids, for GitHub's API's copies of them) */
+	for (index = 0; index < UPDATER_ASSET_COUNT; index++)
+		updater_release_asset_ids[index] = updater_json_asset_id(text, size, updater_asset_name(index));
 	SDL_free(text);
 	return build;
 }
@@ -612,38 +1083,21 @@ static long updater_latest_release(void)
 
 /* the latest release's file (SHA256SUMS or SHA256SUMS.sig) into memory
 (SDL_free'd by the caller): 1 when it is there, 0 when the release has none
-(GitHub answers 404), -1 when it could not be had (why in error) */
+(GitHub answers 404 for it, and its API lists none), else
+_updater_fetch_failed or _updater_fetch_unreachable (why in error) */
 static int updater_release_file(const char *name, int maximum, char **text, int *size, char *error,
 	size_t error_size)
 {
-	struct update_response response;
-	char url[512], path[1200];
+	char path[1200];
 	size_t loaded = 0;
+	int result;
 
 	*text = NULL;
 	*size = 0;
-	updater_asset_url(url, sizeof(url), updater_latest_build, name);
-	/* (whether there is one: GitHub redirects a release's file to its
-	storage, which update_https_request does not follow) */
-	memset(&response, 0, sizeof(response));
-	if (!update_https_request("GET", url, NULL, NULL, 0, (unsigned long)maximum, &response, error, (int)error_size))
-		return -1;
-	free(response.body);
-	if (response.status == 404)
-		return 0;
-	if (response.status != 200 && (response.status < 300 || response.status > 399))
-	{
-		snprintf(error, error_size, "GitHub answered %d for %s", response.status, name);
-		return -1;
-	}
-	/* (fetched as the release's zip is: a test's release server,
-	debug.update_url, answers with the file itself) */
 	updater_partial_path(path, sizeof(path), name);
-	if (!updater_fetch(url, path, (unsigned long long)maximum, NULL, NULL, error, error_size))
-	{
-		update_delete_file(path);
-		return -1;
-	}
+	result = updater_download_asset(name, path, (unsigned long long)maximum, NULL, NULL, error, error_size);
+	if (result != _updater_fetch_got)
+		return result;
 	*text = SDL_LoadFile(path, &loaded);
 	update_delete_file(path);
 	if (!*text || loaded > (size_t)maximum)
@@ -651,9 +1105,56 @@ static int updater_release_file(const char *name, int maximum, char **text, int 
 		SDL_free(*text);
 		*text = NULL;
 		snprintf(error, error_size, "could not read %s", name);
-		return -1;
+		return _updater_fetch_failed;
 	}
 	*size = (int)loaded;
+	return 1;
+}
+
+/* the latest release's SHA256SUMS and SHA256SUMS.sig, had before the
+player is asked about it (updater_prefetch_signature), for updater_verify:
+whether they are (for updater_signature_build), and each one's
+updater_release_file's result */
+static long updater_signature_build;
+static int updater_has_sums, updater_has_signature;
+static char *updater_sums, *updater_signature;
+static int updater_sums_size, updater_signature_size;
+
+static void updater_forget_signature(void)
+{
+	SDL_free(updater_sums);
+	SDL_free(updater_signature);
+	updater_sums = updater_signature = NULL;
+	updater_sums_size = updater_signature_size = 0;
+	updater_signature_build = 0;
+}
+
+/* the latest release's SHA256SUMS and SHA256SUMS.sig (updater_release_file):
+1 when each is had (or is not there), else _updater_fetch_failed or
+_updater_fetch_unreachable and why in error */
+static int updater_fetch_signature(char *error, size_t error_size)
+{
+	char partial[1200];
+
+	/* (into the update's folder, which may not be there yet: one left
+	empty is deleted after) */
+	updater_forget_signature();
+	updater_path(partial, sizeof(partial), updater_partial);
+	update_make_directory(partial);
+	updater_has_sums = updater_release_file("SHA256SUMS", RELEASE_SUMS_MAXIMUM_SIZE, &updater_sums, &updater_sums_size,
+		error, error_size);
+	updater_has_signature = updater_has_sums < 0 ? updater_has_sums :
+		updater_release_file("SHA256SUMS.sig", RELEASE_SIGNATURE_MAXIMUM_SIZE, &updater_signature,
+			&updater_signature_size, error, error_size);
+	update_delete_file(partial);
+	if (updater_has_sums < 0 || updater_has_signature < 0)
+	{
+		int result = updater_has_sums < 0 ? updater_has_sums : updater_has_signature;
+
+		updater_forget_signature();
+		return result;
+	}
+	updater_signature_build = updater_latest_build;
 	return 1;
 }
 
@@ -688,24 +1189,21 @@ static int updater_file_digest(const char *path, unsigned char *digest)
 
 /* the release's download (zip_path, UPDATE_ASSET) checked against its
 SHA256SUMS and their signature by the release key (release_signature.h:
-what is refused, and RELEASE_SIGNATURE_REQUIRED); 1 when it may be
-installed, else 0, the download deleted and why in error */
+what is refused, and RELEASE_SIGNATURE_REQUIRED), had before (updater_fetch_signature)
+or now; 1 when it may be installed, else 0, the download deleted, why in
+error, and updater_unreachable set when they could not be had for an outage */
 static int updater_verify(const char *zip_path, char *error, size_t error_size)
 {
 	unsigned char digest[RELEASE_DIGEST_SIZE];
-	char *sums = NULL, *signature = NULL;
-	int sums_size = 0, signature_size = 0, has_sums, has_signature;
 	char reason[300] = "";
+	int had = updater_signature_build == updater_latest_build ? 1 : updater_fetch_signature(error, error_size);
 	enum release_verdict verdict = _release_refused;
 
-	has_sums = updater_release_file("SHA256SUMS", RELEASE_SUMS_MAXIMUM_SIZE, &sums, &sums_size, error, error_size);
-	has_signature = has_sums < 0 ? -1 :
-		updater_release_file("SHA256SUMS.sig", RELEASE_SIGNATURE_MAXIMUM_SIZE, &signature, &signature_size, error,
-			error_size);
-	if (has_sums < 0 || has_signature < 0)
+	if (had < 0)
 	{
 		/* (one that is there but could not be had is never taken for one
 		that is not) */
+		updater_unreachable = had == _updater_fetch_unreachable;
 		snprintf(reason, sizeof(reason), "%s", error);
 		snprintf(error, error_size, "could not check build %ld's signature: %s", updater_latest_build, reason);
 	}
@@ -719,8 +1217,9 @@ static int updater_verify(const char *zip_path, char *error, size_t error_size)
 		release server, debug.update_url: never for GitHub's releases) */
 		const char *test_key = config_string("debug.update_url")[0] ? config_string("debug.update_key") : NULL;
 
-		verdict = release_check(has_sums ? sums : NULL, sums_size, has_signature ? signature : NULL, signature_size,
-			UPDATE_ASSET, digest, RELEASE_SIGNATURE_REQUIRED, test_key, reason, sizeof(reason));
+		verdict = release_check(updater_has_sums ? updater_sums : NULL, updater_sums_size,
+			updater_has_signature ? updater_signature : NULL, updater_signature_size, UPDATE_ASSET, digest,
+			RELEASE_SIGNATURE_REQUIRED, test_key, reason, sizeof(reason));
 		if (verdict == _release_refused)
 			snprintf(error, error_size, "build %ld was refused: %s", updater_latest_build, reason);
 		else if (verdict == _release_unsigned)
@@ -729,8 +1228,7 @@ static int updater_verify(const char *zip_path, char *error, size_t error_size)
 			platform_log("update: build %ld is signed by OpenH1's release key, and its download checks",
 				updater_latest_build);
 	}
-	SDL_free(sums);
-	SDL_free(signature);
+	updater_forget_signature();
 	if (verdict == _release_refused)
 		update_delete_file(zip_path);
 	return verdict != _release_refused;
@@ -759,7 +1257,7 @@ stand over the game there), into update.partial/, where updater_update
 unpacks it once the player chose to update; 1 when it is there */
 static int updater_download_background(void)
 {
-	char partial[1200], zip_path[1200], url[512], error[512] = "";
+	char partial[1200], zip_path[1200], error[512] = "";
 
 	updater_path(partial, sizeof(partial), updater_partial);
 	if (!update_make_directory(partial))
@@ -768,9 +1266,9 @@ static int updater_download_background(void)
 		return 0;
 	}
 	updater_partial_path(zip_path, sizeof(zip_path), UPDATE_ASSET);
-	updater_asset_url(url, sizeof(url), updater_latest_build, UPDATE_ASSET);
 	platform_log("update: downloading build %ld (%s) in the background", updater_latest_build, UPDATE_ASSET);
-	if (!updater_fetch(url, zip_path, MAXIMUM_UPDATE_SIZE, NULL, NULL, error, sizeof(error)))
+	if (updater_download_asset(UPDATE_ASSET, zip_path, MAXIMUM_UPDATE_SIZE, NULL, NULL, error, sizeof(error)) !=
+		_updater_fetch_got)
 	{
 		platform_log("update: could not download build %ld: %s", updater_latest_build, error);
 		update_delete_file(zip_path);
@@ -798,7 +1296,7 @@ static int updater_prepare_package(void)
 {
 	static char names[MAXIMUM_UPDATE_FILES][256];
 	static const char *const needed[] = { "install.sh", "SHA256SUMS", "halo-vr.sh", "halo" };
-	char partial[1200], zip_path[1200], url[512], error[512] = "";
+	char partial[1200], zip_path[1200], error[512] = "";
 	const char *local_zip = config_string("debug.update_from");
 	int name_count = 0;
 	size_t index;
@@ -816,9 +1314,9 @@ static int updater_prepare_package(void)
 	else
 	{
 		updater_partial_path(zip_path, sizeof(zip_path), UPDATE_ASSET);
-		updater_asset_url(url, sizeof(url), updater_latest_build, UPDATE_ASSET);
 		platform_log("update: downloading build %ld (%s)", updater_latest_build, UPDATE_ASSET);
-		if (!updater_fetch(url, zip_path, MAXIMUM_UPDATE_SIZE, NULL, NULL, error, sizeof(error)))
+		if (updater_download_asset(UPDATE_ASSET, zip_path, MAXIMUM_UPDATE_SIZE, NULL, NULL, error, sizeof(error)) !=
+			_updater_fetch_got)
 		{
 			platform_log("update: could not download build %ld: %s", updater_latest_build, error);
 			update_delete_file(zip_path);
@@ -866,6 +1364,24 @@ static int SDLCALL updater_check_thread(void *context)
 		updater_latest_build = latest;
 		updater_latest_network_version = updater_release_network_version;
 		updater_latest_standard_version = updater_release_standard_version;
+		memcpy(updater_asset_ids, updater_release_asset_ids, sizeof(updater_asset_ids));
+		/* (its signature had before the player is asked, who is not while
+		it cannot be: an outage of GitHub's is only logged, and the next
+		start looks again; a test's zip, debug.update_from, is not checked) */
+		if (!config_string("debug.update_from")[0])
+		{
+			char error[512] = "";
+			int had = updater_fetch_signature(error, sizeof(error));
+
+			if (had < 0)
+			{
+				platform_log("update: build %ld's signature could not be had (%s): %s", latest, error,
+					had == _updater_fetch_unreachable ? "GitHub is not answering; the next start looks again" :
+					"not asked about");
+				SDL_SetAtomicInt(&updater_state, _updater_handled);
+				return 0;
+			}
+		}
 #ifdef UPDATER_PACKAGE
 		/* (the Frame's: asked about once it is ready to install) */
 		if (!updater_prepare_package())
@@ -904,10 +1420,10 @@ launcher installs) */
 struct updater_download
 {
 	SDL_Mutex *lock;
-	char url[512];
 	char zip_path[1200];
 	unsigned long long received, total;
-	int finished, succeeded;
+	/* (updater_download_asset's result) */
+	int finished, result;
 	char error[512];
 };
 
@@ -925,11 +1441,11 @@ static int SDLCALL updater_download_thread(void *context)
 {
 	struct updater_download *download = context;
 	char error[512] = "";
-	int succeeded = updater_fetch(download->url, download->zip_path, MAXIMUM_UPDATE_SIZE, updater_download_progress,
-		download, error, sizeof(error));
+	int result = updater_download_asset(UPDATE_ASSET, download->zip_path, MAXIMUM_UPDATE_SIZE,
+		updater_download_progress, download, error, sizeof(error));
 
 	SDL_LockMutex(download->lock);
-	download->succeeded = succeeded;
+	download->result = result;
 	snprintf(download->error, sizeof(download->error), "%s", error);
 	download->finished = 1;
 	SDL_UnlockMutex(download->lock);
@@ -948,7 +1464,6 @@ static int updater_download_zip(const char *zip_path, char *error, size_t error_
 
 	memset(&download, 0, sizeof(download));
 	download.lock = SDL_CreateMutex();
-	updater_asset_url(download.url, sizeof(download.url), updater_latest_build, UPDATE_ASSET);
 	snprintf(download.zip_path, sizeof(download.zip_path), "%s", zip_path);
 	thread = SDL_CreateThread(updater_download_thread, "update download", &download);
 	if (!thread)
@@ -1004,9 +1519,11 @@ static int updater_download_zip(const char *zip_path, char *error, size_t error_
 	if (window)
 		SDL_DestroyWindow(window);
 	SDL_DestroyMutex(download.lock);
-	if (!download.succeeded)
-		snprintf(error, error_size, "%s", download.error);
-	return download.succeeded;
+	if (download.result == _updater_fetch_got)
+		return 1;
+	updater_unreachable = download.result == _updater_fetch_unreachable;
+	snprintf(error, error_size, "%s", download.error);
+	return 0;
 }
 
 /* a file replaced, <name>.old, into update-old.txt */
@@ -1114,11 +1631,12 @@ static int updater_install(int windowed, char *error, size_t error_size)
 {
 	/* (not on the stack of the server's install thread) */
 	static char names[MAXIMUM_UPDATE_FILES][256];
-	char zip_path[1200], partial[1200], list_path[1200], url[512];
+	char zip_path[1200], partial[1200], list_path[1200];
 	const char *local_zip = windowed ? config_string("debug.update_from") : "";
 	SDL_IOStream *old_list;
 	int name_count = 0, index;
 
+	updater_unreachable = 0;
 	updater_path(partial, sizeof(partial), updater_partial);
 	if (local_zip[0])
 		snprintf(zip_path, sizeof(zip_path), "%s", local_zip);
@@ -1144,9 +1662,12 @@ static int updater_install(int windowed, char *error, size_t error_size)
 		}
 		else
 		{
-			updater_asset_url(url, sizeof(url), updater_latest_build, UPDATE_ASSET);
-			if (!updater_fetch(url, zip_path, MAXIMUM_UPDATE_SIZE, NULL, NULL, error, error_size))
+			int result = updater_download_asset(UPDATE_ASSET, zip_path, MAXIMUM_UPDATE_SIZE, NULL, NULL, error,
+				error_size);
+
+			if (result != _updater_fetch_got)
 			{
+				updater_unreachable = result == _updater_fetch_unreachable;
 				update_delete_file(zip_path);
 				update_delete_file(partial);
 				return 0;
@@ -1210,6 +1731,10 @@ static void updater_update(void)
 		updater_path(launch, sizeof(launch), "bin/" INSTALL_NAME);
 #endif
 		platform_log("update: starting build %ld", updater_latest_build);
+		/* (this session ended first, as an exit ends it: the new build,
+		started before this one has quit or in its place, finds no session
+		that did not exit, which it would take for a crash: report.c) */
+		report_session_handover(1);
 #ifndef HALO_WINDOWS
 		/* (under gamescope, in this process, which Steam started and waits
 		for: it never quits, and the new game's window is this process's,
@@ -1220,18 +1745,28 @@ static void updater_update(void)
 			update_restart(launch);
 			platform_log("update: the new version is in place, but could not be started in this process: "
 				"quitting");
+			report_session_handover(0);
 			platform_request_quit();
 			return;
 		}
 #endif
 		if (update_launch(launch))
 			exit(EXIT_SUCCESS);
+		report_session_handover(0);
 		snprintf(error, sizeof(error), "the new version is in place, but could not be started: start it again");
 	}
 	platform_log("update: failed: %s", error);
 	/* (no dialog under gamescope: the game goes on as it was) */
 	if (updater_in_game)
 		return;
+	/* (nor for an outage of GitHub's: the game, which looked by itself, goes
+	on, and looks again at the next start; a download that was had but
+	refused, or an install that failed, is said) */
+	if (updater_unreachable)
+	{
+		platform_log("update: GitHub could not be reached: the game goes on, and looks again at the next start");
+		return;
+	}
 	{
 		char message[800];
 
@@ -1315,6 +1850,7 @@ void updater_start(void)
 	char *slash;
 	int updated;
 
+	updater_log_build();
 	if (!update_executable_path(updater_executable, sizeof(updater_executable)))
 		return;
 #ifdef HALO_WINDOWS
@@ -1419,11 +1955,12 @@ void updater_start(void)
 the game's menus once the new version is ready to install */
 void updater_poll(SDL_Window *window)
 {
-	const char *test_answer = config_string("debug.update_answer");
+	const char *test_answer;
 
 	(void)window;
 	if (SDL_GetAtomicInt(&updater_state) != _updater_available)
 		return;
+	test_answer = config_string("debug.update_answer");
 	/* (an automated test's answer: debug.update_answer) */
 	if (test_answer[0])
 	{
@@ -1483,10 +2020,11 @@ void updater_poll(SDL_Window *window)
 	char message[400];
 	int answer = 0;
 	int fullscreen;
-	const char *test_answer = config_string("debug.update_answer");
+	const char *test_answer;
 
 	if (SDL_GetAtomicInt(&updater_state) != _updater_available)
 		return;
+	test_answer = config_string("debug.update_answer");
 	/* (an automated test's answer: debug.update_answer) */
 	if (test_answer[0])
 	{
@@ -1653,6 +2191,7 @@ static int SDLCALL updater_server_check_thread(void *context)
 		updater_latest_build = latest;
 		updater_latest_network_version = updater_release_network_version;
 		updater_latest_standard_version = updater_release_standard_version;
+		memcpy(updater_asset_ids, updater_release_asset_ids, sizeof(updater_asset_ids));
 		SDL_SetAtomicInt(&updater_state, _updater_available);
 	}
 	else
@@ -1810,6 +2349,7 @@ int updater_server_install_poll(char *error, int size)
 
 void updater_start(void)
 {
+	updater_log_build();
 }
 
 /* (the Frame's alone: menu_functions.c's "port update now") */

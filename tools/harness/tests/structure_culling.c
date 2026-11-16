@@ -12,6 +12,7 @@ typedef byte boolean;
 #include <float.h>
 #include <limits.h>
 #include <ctype.h>
+#include <pthread.h>
 #define NUMBEROF(array) (sizeof(array)/sizeof((array)[0]))
 #define csstrcmp strcmp
 
@@ -55,10 +56,11 @@ static struct {
     unsigned long environment_surface_flags[4096];
     long environment_surface_count;
     long frame_index;
+    short local_player_index;
 } render;
 static struct { real far_clip_distance; } rasterizer_globals;
 /* (port/linux/game/far_clip.c: the game's own far clip, display.draw_distance at its default) */
-static real render_far_clip_distance(void) { return rasterizer_globals.far_clip_distance; }
+static real render_far_clip_distance(short local_player_index) { (void)local_player_index; return rasterizer_globals.far_clip_distance; }
 static boolean structures_use_pvs_for_vs;
 #define rendered_cluster_get(index) (&render.rendered_clusters[index])
 static struct structure_bsp fixture_bsp;
@@ -116,6 +118,9 @@ static void fixture_free(void *data) { CHECK(data!=NULL,"engine debug_free rejec
 #define malloc fixture_malloc
 #define realloc fixture_realloc
 #define free fixture_free
+/* (the map's preparation's walk: not walking) */
+static boolean render_enumerating;
+
 #include "under_test.inc"
 #undef malloc
 #undef realloc
@@ -159,6 +164,49 @@ static void fixture_load(boolean subclusters)
         for(i=0;i<4;++i) fixture_indices[i+3]=i;
     }
     structure_culling_structure_bsp_loaded();
+}
+
+/* the fixture's bsp copied as one block, each part at the same offset from
+where it is (as structure_bsp_cache.c's copy is from where the bsp loads);
+the parts where it is cleared or put back */
+static struct { void *address; size_t size; } fixture_parts[] = {
+    {&fixture_bsp, sizeof(fixture_bsp)}, {fixture_clusters, sizeof(fixture_clusters)},
+    {fixture_subclusters, sizeof(fixture_subclusters)}, {fixture_surfaces, sizeof(fixture_surfaces)},
+    {fixture_materials, sizeof(fixture_materials)}, {fixture_lightmaps, sizeof(fixture_lightmaps)},
+    {fixture_vertices, sizeof(fixture_vertices)}, {fixture_indices, sizeof(fixture_indices)}};
+static byte *fixture_copy_bytes;
+static long fixture_copy(void)
+{
+    byte *first = (byte *)-1, *end = NULL;
+    size_t i;
+    for (i = 0; i < NUMBEROF(fixture_parts); ++i)
+    {
+        first = MIN(first, (byte *)fixture_parts[i].address);
+        end = MAX(end, (byte *)fixture_parts[i].address + fixture_parts[i].size);
+    }
+    CHECK(end - first < (1L << 24), "the fixture's parts lie together");
+    fixture_copy_bytes = calloc(1, end - first);
+    for (i = 0; i < NUMBEROF(fixture_parts); ++i)
+        memcpy(fixture_copy_bytes + ((byte *)fixture_parts[i].address - first), fixture_parts[i].address, fixture_parts[i].size);
+    return (long)(fixture_copy_bytes - first);
+}
+static void fixture_parts_set(long offset, boolean cleared)
+{
+    size_t i;
+    for (i = 0; i < NUMBEROF(fixture_parts); ++i)
+    {
+        if (cleared) memset(fixture_parts[i].address, 0, fixture_parts[i].size);
+        else memcpy(fixture_parts[i].address, (byte *)fixture_parts[i].address + offset, fixture_parts[i].size);
+    }
+}
+static boolean fixture_same_buckets(struct structure_culling_data const *a, struct structure_culling_data const *b)
+{
+    return a->allocation && b->allocation && a->bytes == b->bytes && !memcmp(a->allocation, b->allocation, a->bytes) &&
+        a->bucket_count == b->bucket_count && a->pairing_count == b->pairing_count &&
+        a->material_count == b->material_count && a->structure == b->structure &&
+        a->surface_address == b->surface_address && a->surface_count == b->surface_count &&
+        a->split_count == b->split_count && a->triangle_count == b->triangle_count &&
+        a->from_subclusters == b->from_subclusters;
 }
 
 /* side walls at +/-1, near at 1, GPU far at 10 (fog may end at 4) */
@@ -346,7 +394,7 @@ int main(int argc, char **argv)
         fixture_fail_malloc_call=2; fixture_load(FALSE);
         CHECK(fixture_malloc_calls==2 && structure_culling_data_matches(&fixture_bsp) && structure_culling.pairing_count==3,"failed compact malloc keeps valid build cache");
         CHECK(structure_culling.bytes==fixture_malloc_size,"fallback reports actual retained build bytes");
-        structure_culling_pairing_points(&fixture_bsp,structure_culling.pairings,points);
+        structure_culling_pairing_points(&fixture_bsp,structure_culling.materials,0,structure_culling.pairings,points);
         CHECK(points[1].x==1,"fallback cache pointers remain usable");
         fixture_fail_malloc_call=0; fixture_malloc_size=0; structure_culling_structure_bsp_loaded();
         CHECK(fixture_malloc_calls==4 && structure_culling.bytes<fixture_malloc_size,"successful compaction allocates smaller cache");
@@ -416,11 +464,68 @@ int main(int argc, char **argv)
         CHECK(structure_culling.allocation && fixture_malloc_calls>calls && !structure_culling_kept[0].allocation,"the same bsp loaded again is built again");
         ++fixture_bsp.surfaces.count; global_structure_bsp_index=1; calls=fixture_malloc_calls; structure_culling_structure_bsp_loaded();
         CHECK(fixture_malloc_calls>calls && !structure_culling_kept[1].allocation,"kept buckets of a bsp that changed are let go of");
-        global_structure_bsp_index=2; structure_culling_structure_bsp_read(&fixture_bsp,2);
+        global_structure_bsp_index=2; structure_culling_structure_bsp_read(&fixture_bsp,2,0);
         CHECK(structure_culling_kept[2].allocation && structure_culling.structure_bsp_index==1,"a bsp read ahead is kept, the loaded one's left");
         structure_culling_dispose();
         for(i=0;i<STRUCTURE_CULLING_KEPT_BSPS;++i) CHECK(!structure_culling_kept[i].allocation,"disposal lets every kept bsp go");
         global_structure_bsp_index=0;
+        return 0;
+    }
+    CASE("copy-build")
+    {
+        /* built from a copy (the bsp where it loads cleared meanwhile, as the
+        next bsp read there clears it), the buckets are the ones built where it
+        loads, their pointers to where it loads */
+        boolean subclusters;
+        for (subclusters = FALSE; subclusters <= TRUE; ++subclusters)
+        {
+            struct structure_culling_data built, copied;
+            struct structure_culling_workspace work;
+            size_t size;
+            long offset;
+            fixture_load(subclusters); structure_culling_dispose();
+            memset(&structure_culling, 0, sizeof(structure_culling));
+            structure_culling_build(&fixture_bsp, 0);
+            built = structure_culling;
+            CHECK(built.allocation && built.bucket_count && built.pairing_count, "built where it loads");
+            memset(&structure_culling, 0, sizeof(structure_culling));
+            offset = fixture_copy();
+            memset(&copied, 0, sizeof(copied));
+            CHECK(structure_culling_build_begin(&fixture_bsp, 0, &copied, &work, &size), "begun where it loads");
+            work.offset = offset;
+            fixture_parts_set(0, TRUE);
+            structure_culling_build_lists((struct structure_bsp *)((byte *)&fixture_bsp + offset), &work, NULL);
+            fixture_parts_set(offset, FALSE);
+            structure_culling_build_end(&copied, size, 0);
+            CHECK(fixture_same_buckets(&built, &copied), "the buckets built from the copy differ (%s)",
+                subclusters ? "subclusters" : "surface lists");
+            if (subclusters)
+                CHECK(copied.buckets[0].source_bounds == &fixture_subclusters[0].world_bounds, "bounds where the bsp loads");
+            free(built.allocation); free(copied.allocation); free(fixture_copy_bytes);
+        }
+        return 0;
+    }
+    CASE("copy-thread")
+    {
+        /* read ahead with a copy: built on the builder's thread, kept once waited for */
+        struct structure_culling_data built;
+        long offset;
+        fixture_load(TRUE); structure_culling_dispose();
+        memset(&structure_culling, 0, sizeof(structure_culling));
+        structure_culling_build(&fixture_bsp, 3);
+        built = structure_culling;
+        memset(&structure_culling, 0, sizeof(structure_culling));
+        offset = fixture_copy();
+        global_structure_bsp_index = 3;
+        structure_culling_structure_bsp_read(&fixture_bsp, 3, offset);
+        structure_culling_structure_bsp_read(&fixture_bsp, 3, offset);
+        CHECK(structure_culling_builder.pending == 1, "one build queued (%d)", structure_culling_builder.pending);
+        /* (the switch to it waits for its build, and takes it) */
+        structure_culling_structure_bsp_loaded();
+        CHECK(!structure_culling_builder.pending && !structure_culling_kept[3].allocation &&
+            fixture_same_buckets(&built, &structure_culling), "the switch takes the thread's buckets, as built where it loads");
+        structure_culling_dispose(); free(built.allocation); free(fixture_copy_bytes);
+        global_structure_bsp_index = 0;
         return 0;
     }
     CASE("dispose-empty")

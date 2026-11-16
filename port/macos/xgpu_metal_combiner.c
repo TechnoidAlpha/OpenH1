@@ -19,8 +19,8 @@ _Static_assert(sizeof(struct xgpu_metal_combiner) == 160, "the combiner's config
 
 int xgpu_metal_combiner_draws(const struct xgpu_pixel_program *program)
 {
-	return !program->per_pixel_lighting && !program->dynamic_lights && !program->alpha_test_samples &&
-		!program->multiview && !program->hdr;
+	return !program->per_pixel_lighting && !program->dynamic_lights && !program->ambient_occlusion &&
+		!program->alpha_test_samples && !program->multiview && !program->hdr;
 }
 
 static uint32_t input_bits(const struct xgpu_combiner_input *input)
@@ -46,7 +46,7 @@ void xgpu_metal_combiner_configure(const struct xgpu_pixel_program *program, con
 			((uint32_t)(texture->input & 3) << 8) | ((uint32_t)((texture->previous + 1) & 3) << 10) |
 			((uint32_t)(texture->dot_mapping & 7) << 12) | ((uint32_t)(texture->compare & 15) << 15) |
 			((uint32_t)(texture->color_sign & 15) << 19) | ((uint32_t)(texture->alpha_kill != 0) << 23) |
-			((uint32_t)(border[stage] & 7) << 24);
+			((uint32_t)(border[stage] & 31) << 24);
 	}
 	combiner->flags = (uint32_t)(program->combiner_count & 15) | ((uint32_t)(program->mux_msb != 0) << 4) |
 		((uint32_t)(program->fog != 0) << 5) | ((uint32_t)(program->fog_mode & 7) << 6) |
@@ -245,6 +245,23 @@ const char xgpu_metal_combiner_source[] =
 	"\t}\n"
 	"\treturn mix(color, texel, float4(inside));\n"
 	"}\n"
+	"/* a region of the texture (the emitter's region_sample) */\n"
+	"static inline float4 region_sample(texture2d<float> t, sampler s, float2 r, float4 region, float lod_bias, float4 color,\n"
+	"\tfloat linear)\n"
+	"{\n"
+	"\tfloat2 size = float2(float(t.get_width()), float(t.get_height())) * region.xy;\n"
+	"\tfloat2 half_texel = 0.5 / size;\n"
+	"\tfloat4 texel = t.sample(s, region.zw + clamp(r, half_texel, 1.0 - half_texel) * region.xy, bias(lod_bias));\n"
+	"\treturn border_mix(texel, float3(r, 0.5), float3(size, 1.0), 3u, color, linear);\n"
+	"}\n"
+	"/* the high-res text's distance fields (the emitter's msdf_coverage) */\n"
+	"static inline float4 msdf_coverage(float4 texel, float2 uv, float2 size)\n"
+	"{\n"
+	"\tfloat distance = max(min(texel.r, texel.g), min(max(texel.r, texel.g), texel.b));\n"
+	"\tfloat2 texels = fwidth(uv * size);\n"
+	"\tfloat pixels = max(" XGPU_MSDF_RANGE_TEXT " * 0.5 * (1.0 / max(texels.x, 1e-6) + 1.0 / max(texels.y, 1e-6)), 1.0);\n"
+	"\treturn float4(1.0, 1.0, 1.0, saturate((distance - 0.5) * pixels + 0.5));\n"
+	"}\n"
 	"/* the texture stages' texels and dot products (t0-t3, dot0-dot3) */\n"
 	"struct xgpu_stages\n"
 	"{\n"
@@ -281,10 +298,15 @@ const char xgpu_metal_combiner_source[] =
 	"\t}\n"
 	"\tif (type == 3u)\n"
 	"\t\treturn tcube[S].sample(samplers[S], coordinates.xyz, bias(bias_value));\n"
+	"\tif ((border & 8u) != 0u && type != 4u)\n"
+	"\t\treturn region_sample(t2d[S], samplers[S], coordinates.xy, u.texture_scale[S], bias_value, u.texture_border[S],\n"
+	"\t\t\tu.texture_border_linear[S]);\n"
 	"\tfloat2 uv = coordinates.xy * u.texture_scale[S].xy;\n"
 	"\tif (type == 4u)\n"
 	"\t\treturn tarray[S].sample(samplers[S], uv, 0, bias(bias_value));\n"
 	"\tfloat4 texel = t2d[S].sample(samplers[S], uv, bias(bias_value));\n"
+	"\tif ((border & 16u) != 0u)\n"
+	"\t\treturn msdf_coverage(texel, uv, float2(float(t2d[S].get_width()), float(t2d[S].get_height())));\n"
 	"\tif ((border & 3u) != 0u)\n"
 	"\t\ttexel = border_mix(texel, float3(uv, 0.5), float3(float(t2d[S].get_width()), float(t2d[S].get_height()), 1.0),\n"
 	"\t\t\tborder & 3u, u.texture_border[S], u.texture_border_linear[S]);\n"
@@ -302,7 +324,7 @@ const char xgpu_metal_combiner_source[] =
 	"\tif (mode == 0u)\n"
 	"\t\treturn;\n"
 	"\tuint type = (c >> 5) & 7u, input = (c >> 8) & 3u, previous = min(((c >> 10) & 3u) - 1u, 3u);\n"
-	"\tuint mapping = (c >> 12) & 7u, compare = (c >> 15) & 15u, sign = (c >> 19) & 15u, border = (c >> 24) & 7u;\n"
+	"\tuint mapping = (c >> 12) & 7u, compare = (c >> 15) & 15u, sign = (c >> 19) & 15u, border = (c >> 24) & 31u;\n"
 	"\tfloat previous_dot = S == 0u ? 0.0 : S == 1u ? s.d0 : S == 2u ? s.d1 : s.d2;\n"
 	"\tswitch (mode)\n"
 	"\t{\n"

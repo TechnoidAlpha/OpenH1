@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.new_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/new_select/list_item_0">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_1">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_10">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_2">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_3">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_4">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_5">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_6">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_7">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_8">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/new_select/list_item_9">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

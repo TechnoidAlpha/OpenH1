@@ -209,6 +209,29 @@ void random_math_port_seeds(
 	*local_seed= random_math_globals.global_local_random_seed;
 }
 
+/* port: the frames' local seed, for a demo's event the frames' code
+made (port/linux/game/demo.c) */
+unsigned long random_math_port_frame_seed(
+	void)
+{
+	return frame_local_random_seed;
+}
+
+void random_math_port_set_frame_seed(
+	unsigned long seed)
+{
+	frame_local_random_seed= seed;
+}
+
+/* port: the seeds as a demo has them (port/linux/game/demo.c) */
+void random_math_port_set_seeds(
+	unsigned long global_seed,
+	unsigned long local_seed)
+{
+	random_math_globals.global_random_seed= global_seed;
+	random_math_globals.global_local_random_seed= local_seed;
+}
+
 void
 random_seed_debug_log(
 	boolean log)

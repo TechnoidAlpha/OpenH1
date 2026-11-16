@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/header_multiplayer" box="35 11 640 70" wide="-106 0" place="anchor_left" picture="main_menu/multiplayer_type_select/header_multiplayer"/>
+	<look name="main_menu/multiplayer_type_select/multiplayer_options_pic" box="288 82 595 326" picture="main_menu/multiplayer_type_select/mp_options"/>
+	<look name="main_menu/multiplayer_type_select/multiplayer_options_txt" type="text" box="290 285 580 390">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/multiplayer_type_select/multiplayer_option_descriptions"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_button_bar" type="column_list" box="0 0 640 28" place="anchor_right">
+		<at widget="main_menu/multiplayer_type_select/multiplayer_button_party" x="250" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_button_refresh" x="380" y="1"/>
+		<at widget="common_button_back" x="510" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_create_internet_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="2"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_create_item" type="text" box="51 0 283 32" place="anchor_left">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_create_lan_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_gametypes_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="5"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_join_direct_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="4"/>
+		<at widget="main_menu/multiplayer_type_select/invite_note" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_join_internet_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="6"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_join_item" type="text" box="51 0 283 32" place="anchor_left">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_join_lan_item" type="text" box="51 0 283 32" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/multiplayer_type_select/multiplayer_options" index="3"/>
+		<at widget="main_menu/multiplayer_type_select/item_note" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_list_ext_desc" box="275 78 595 400" picture="bitmaps/list_field">
+		<text color="#FF0080FF"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_options_pic" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_options_txt" x="0" y="37"/>
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_status" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_status_detail" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_now_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_games_0" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_games_1" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_games_2" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_players_0" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_players_1" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_players_2" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_games_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/online_players_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_0_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_0_about" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_0_players" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_0_ping" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_1_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_1_about" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_1_players" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_1_ping" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_2_name" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_2_about" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_2_players" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/best_2_ping" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_select_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_join_item" x="-32" y="78"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_join_internet_item" x="0" y="106"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_join_lan_item" x="0" y="134"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_join_direct_item" x="0" y="162"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_create_item" x="-32" y="190"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_create_internet_item" x="0" y="218"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_create_lan_item" x="0" y="246"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_online_coop_item" x="0" y="274"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_coop_item" x="0" y="302"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_create_bots_item" x="0" y="330"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_gametypes_item" x="0" y="370"/>
+		<at widget="main_menu/multiplayer_type_select/multiplayer_type_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_type_select_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/multiplayer_type_select/header_multiplayer" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/hub_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/hub/hub_divider" x="28" y="375"/>
+		<at widget="main_menu/multiplayer_type_select/hub/touch/hub_list" x="0" y="0"/>
+	</look>
+</model>

@@ -21,6 +21,7 @@ high-res HUD's are (hud_hires.c).
 #include "halo_menus.h"
 #include "hud_hires.h"
 #include "menu_files.h"
+#include "embedded_assets.h"
 #include "platform.h"
 #include "port_config.h"
 /* (the renderer's backend is on the host: the pictures are images) */
@@ -33,6 +34,7 @@ high-res HUD's are (hud_hires.c).
 
 #include <SDL3/SDL.h>
 #include <errno.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -150,8 +152,16 @@ static void files_gather(void)
 	unsigned int index;
 	char path[1200];
 
-	config_folder(folder, sizeof(folder));
-	snprintf(folder + strlen(folder), sizeof(folder) - strlen(folder), "menus");
+	/* (or debug.menu_files' folder: a source tree's, for the menu studio) */
+	if (config_string("debug.menu_files")[0])
+	{
+		snprintf(folder, sizeof(folder), "%s", config_string("debug.menu_files"));
+	}
+	else
+	{
+		config_folder(folder, sizeof(folder));
+		snprintf(folder + strlen(folder), sizeof(folder) - strlen(folder), "menus");
+	}
 	for (index = 0; index < menu_files_embedded_count; index++)
 	{
 		const struct menu_file_embedded *embedded = &menu_files_embedded[index];
@@ -167,7 +177,12 @@ static void files_gather(void)
 		}
 		else
 		{
-			file_add(embedded->path, (const unsigned char *)embedded->data, embedded->size, 0);
+			/* (the game's own, in the assets' file: embedded_assets.h) */
+			const unsigned char *own = (const unsigned char *)embedded_assets_data(embedded->data_offset,
+				embedded->size);
+
+			if (own)
+				file_add(embedded->path, own, embedded->size, 0);
 		}
 	}
 #ifndef HALO_ANDROID
@@ -355,7 +370,8 @@ static int parse_long(struct reader *reader, const char *name, const char *text,
 }
 
 /* the element's attributes into the table's fields; one not in the table
-(but platform, which for_this_platform reads) is an error */
+(but platform, which for_this_platform reads, and source, which only a
+widget keeps) is an error */
 static void read_attributes(struct reader *reader, const char *element, const XML_Char **attributes,
 	const struct attribute *table, size_t count)
 {
@@ -382,7 +398,10 @@ static void read_attributes(struct reader *reader, const char *element, const XM
 				*table[field].given = 1;
 			break;
 		}
-		if (field == count)
+		/* (source, where a generator says it made the element, for the
+		menu review tools, tools/menu_review.py, and debug.render_marks: a
+		widget's is kept, any other's is not read) */
+		if (field == count && strcmp(name, "source"))
 			reader_error(reader, "<%s> has no attribute %s", element, name);
 	}
 }
@@ -408,11 +427,41 @@ apps, or debug.touch_menus): the menus' "touch" platform, the others'
 #define MENU_TOUCH config_boolean("debug.touch_menus")
 #endif
 
+/* whether a platform of the menus' is this one (1, 0; -1 not a platform's
+name): "vr" the VR build, playing in the headset; "hdr" a renderer that
+draws display.hdr: xgpu_backend.h; "touch" the touchscreen's builds,
+"pointer" the rest: MENU_TOUCH; "computer" the desktop's builds but iOS's,
+whose phone has no window to size nor mouse */
+int halo_menus_platform(const char *name, unsigned long length)
+{
+	if ((length != 7 || strncmp(name, "desktop", 7)) && (length != 7 || strncmp(name, "android", 7)) &&
+		(length != 2 || strncmp(name, "vr", 2)) && (length != 3 || strncmp(name, "hdr", 3)) &&
+		(length != 5 || strncmp(name, "touch", 5)) && (length != 7 || strncmp(name, "pointer", 7)) &&
+		(length != 8 || strncmp(name, "computer", 8)))
+	{
+		return -1;
+	}
+#if !defined(HALO_ANDROID) && !defined(HALO_IOS)
+	if (length == 8 && !strncmp(name, "computer", 8))
+		return 1;
+#endif
+	if (length == 5 && !strncmp(name, "touch", 5) && MENU_TOUCH)
+		return 1;
+	if (length == 7 && !strncmp(name, "pointer", 7) && !MENU_TOUCH)
+		return 1;
+	if (length == 3 && !strncmp(name, "hdr", 3) && xgpu_backend_capabilities.hdr)
+		return 1;
+	if (length == strlen(MENU_PLATFORM) && !strncmp(name, MENU_PLATFORM, length))
+		return 1;
+#ifdef HALO_VR
+	if (length == 2 && !strncmp(name, "vr", 2) && halo_vr_running())
+		return 1;
+#endif
+	return 0;
+}
+
 /* whether the element is for this platform (its platform attribute: the
-platforms it is for, separated by spaces; "vr" the VR build, playing in the
-headset; "hdr" a renderer that draws display.hdr: xgpu_backend.h; "touch"
-the touchscreen's builds, "pointer" the rest: MENU_TOUCH; "computer" the
-desktop's builds but iOS's, whose phone has no window to size nor mouse) */
+platforms it is for, separated by spaces) */
 static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 {
 	int index;
@@ -430,31 +479,16 @@ static int for_this_platform(struct reader *reader, const XML_Char **attributes)
 
 				if (length)
 				{
-					if ((length != 7 || strncmp(name, "desktop", 7)) && (length != 7 || strncmp(name, "android", 7)) &&
-						(length != 2 || strncmp(name, "vr", 2)) && (length != 3 || strncmp(name, "hdr", 3)) &&
-						(length != 5 || strncmp(name, "touch", 5)) && (length != 7 || strncmp(name, "pointer", 7)) &&
-						(length != 8 || strncmp(name, "computer", 8)))
+					int platform = halo_menus_platform(name, length);
+
+					if (platform < 0)
 					{
 						reader_error(reader, "platform=\"%s\" names one that is not desktop, android, vr, hdr, "
 							"touch, pointer or computer", attributes[index + 1]);
 						return 1;
 					}
-#if !defined(HALO_ANDROID) && !defined(HALO_IOS)
-					if (length == 8 && !strncmp(name, "computer", 8))
+					if (platform)
 						found = 1;
-#endif
-					if (length == 5 && !strncmp(name, "touch", 5) && MENU_TOUCH)
-						found = 1;
-					if (length == 7 && !strncmp(name, "pointer", 7) && !MENU_TOUCH)
-						found = 1;
-					if (length == 3 && !strncmp(name, "hdr", 3) && xgpu_backend_capabilities.hdr)
-						found = 1;
-					if (length == strlen(MENU_PLATFORM) && !strncmp(name, MENU_PLATFORM, length))
-						found = 1;
-#ifdef HALO_VR
-					if (length == 2 && !strncmp(name, "vr", 2) && halo_vr_running())
-						found = 1;
-#endif
 				}
 				name += length;
 				while (*name == ' ')
@@ -683,6 +717,7 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 		{ "height", NULL, &widget.height, &widget.has_height }, { "text_x", NULL, &widget.text_x },
 		{ "text_y", NULL, &widget.text_y }, { "auto_close", NULL, &widget.auto_close },
 		{ "auto_close_fade", NULL, &widget.auto_close_fade }, { "string_index", NULL, &widget.string_index },
+		{ "radius", NULL, &widget.radius }, { "source", &widget.source },
 	};
 
 	memset(&widget, 0, sizeof(widget));
@@ -694,6 +729,8 @@ static void read_widget(struct reader *reader, const XML_Char **attributes, long
 	read_attributes(reader, "widget", attributes, table, sizeof(table) / sizeof(*table));
 	if (!reader->failed && !widget.name)
 		reader_error(reader, "a <widget> needs a name");
+	else if (!reader->failed && (widget.radius < 0 || widget.radius > 64))
+		reader_error(reader, "a <widget>'s radius is 0 to 64");
 	GROW(reader, menus->widgets, index);
 	menus->widgets[index] = widget;
 	menus->widget_count++;
@@ -980,24 +1017,35 @@ static int read_file(struct reader *reader, const struct menu_file *file)
 
 /* ---------- public code */
 
-struct halo_menus const *halo_menus_load(void)
+/* The files are read once, on a thread of their own from the renderer's
+start (halo_menus_read_ahead, once xgpu_backend_capabilities and the VR mode
+that for_this_platform reads are set), so that the first map's load (the main
+menu's) does not wait the 24 ms Expat takes over them: halo_menus_load waits
+for that thread, and nothing else reads the files before it. */
+static struct halo_menus menus;
+static int menus_succeeded;
+static int menus_read;
+static pthread_t menus_reader;
+static int menus_reading;
+
+static void menus_files_read(void)
 {
-	static int read;
-	static struct halo_menus menus;
-	static int succeeded;
 	struct reader reader;
 	long index;
 
-	if (read)
-		return succeeded ? &menus : NULL;
-	read = 1;
+	menus_read = 1;
 	files_gather();
 	memset(&reader, 0, sizeof(reader));
 	for (index = 0; index < file_count && !reader.failed; index++)
 	{
 		size_t length = strlen(files[index].path);
 
-		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml"))
+		/* (but the menu engine's model, menu_model.c, and the hand-written
+		screens, menu_screens.c: their building blocks' widgets are read
+		here) */
+		if (length > 4 && !strcmp(files[index].path + length - 4, ".xml") &&
+			strncmp(files[index].path, HALO_MENU_MODEL_FOLDER, strlen(HALO_MENU_MODEL_FOLDER)) &&
+			(strncmp(files[index].path, "screens/", 8) || !strcmp(files[index].path, "screens/blocks.xml")))
 			read_file(&reader, &files[index]);
 	}
 	free(reader.last_child);
@@ -1009,13 +1057,167 @@ struct halo_menus const *halo_menus_load(void)
 	{
 		if (reader.failed)
 			platform_log("menus: the files have a problem; using the game's own menus");
-		return NULL;
+		return;
 	}
 	if (!reader.menus.root)
 		reader.menus.root = "main_menu";
 	menus = reader.menus;
-	succeeded = 1;
-	return &menus;
+	menus_succeeded = 1;
+}
+
+static void *menus_files_reader(void *unused)
+{
+	(void)unused;
+	menus_files_read();
+	return NULL;
+}
+
+void halo_menus_read_ahead(void)
+{
+	if (!menus_read && !menus_reading && !pthread_create(&menus_reader, NULL, menus_files_reader, NULL))
+		menus_reading = 1;
+}
+
+struct halo_menus const *halo_menus_load(void)
+{
+	if (menus_reading)
+	{
+		pthread_join(menus_reader, NULL);
+		menus_reading = 0;
+	}
+	if (!menus_read)
+		menus_files_read();
+	return menus_succeeded ? &menus : NULL;
+}
+
+/* a file gathered (halo_menus_load's): its path and data, FALSE past the
+last (the menu engine's model: menu_model.c) */
+int halo_menus_file_at(long index, char const **path, unsigned char const **data, unsigned long *size)
+{
+	if (index < 0 || index >= file_count)
+		return 0;
+	*path = files[index].path;
+	*data = files[index].data;
+	*size = files[index].size;
+	return 1;
+}
+
+/* the files read again by the next halo_menus_load (the menu studio's
+reload: port/linux/game/menu_studio.c, after the menus' tags are let go).
+What the last reading made is kept, not freed: the description points into
+it, and a reload is a tool's, a few times a minute */
+void halo_menus_reload(void)
+{
+	if (menus_reading)
+	{
+		pthread_join(menus_reader, NULL);
+		menus_reading = 0;
+	}
+	files = NULL;
+	file_count = 0;
+	memset(&menus, 0, sizeof(menus));
+	menus_succeeded = 0;
+	menus_read = 0;
+	halo_menus_model_forget();
+}
+
+/* the menu studio's notes file and pictures' folder (debug.menu_notes, else
+<tree>/build/menu_notes.jsonl where debug.menu_files is <tree>'s
+port/assets/menus, else menu_notes.jsonl beside config.toml), the folder
+made */
+void halo_menus_notes_paths(char *notes, unsigned long notes_size, char *pictures, unsigned long pictures_size)
+{
+	char const *files = config_string("debug.menu_files");
+	char const *tail = "/port/assets/menus";
+	size_t length = strlen(files);
+	char *slash;
+
+	if (config_string("debug.menu_notes")[0])
+	{
+		snprintf(notes, notes_size, "%s", config_string("debug.menu_notes"));
+	}
+	else if (length > strlen(tail) && (!strcmp(files + length - strlen(tail), tail) ||
+		(files[length - 1] == '/' && !strncmp(files + length - strlen(tail) - 1, tail, strlen(tail)))))
+	{
+		snprintf(notes, notes_size, "%.*s/build/menu_notes.jsonl",
+			(int)(length - strlen(tail) - (files[length - 1] == '/')), files);
+	}
+	else
+	{
+		config_folder(notes, notes_size);
+		snprintf(notes + strlen(notes), notes_size - strlen(notes), "menu_notes.jsonl");
+	}
+	snprintf(pictures, pictures_size, "%s", notes);
+	slash = strrchr(pictures, '/');
+	if (slash)
+		snprintf(slash + 1, pictures_size - (unsigned long)(slash + 1 - pictures), "menu_notes");
+}
+
+/* a line added to the notes file (the menu studio's); FALSE if it could not */
+int halo_menus_note_append(char const *path, char const *line)
+{
+	FILE *file = fopen(path, "a");
+	int written;
+
+	if (!file)
+		return 0;
+	written = fputs(line, file) >= 0 && fputc('\n', file) != EOF;
+	return fclose(file) == 0 && written;
+}
+
+/* the notes file read whole (malloc's, the caller's to free), or NULL */
+char *halo_menus_notes_read(char const *path)
+{
+	unsigned long size = 0;
+	unsigned char *data = file_read(path, &size);
+
+	if (data)
+		data[size] = 0;
+	return (char *)data;
+}
+
+/* (the platform layer's allocation: the game's free is its own) */
+void halo_menus_notes_free(char *text)
+{
+	free(text);
+}
+
+/* a number that changes when a menu file of the folder (its own and its
+folders' .xml files) is written, added or removed: their times and sizes */
+unsigned long long halo_menus_files_stamp(void)
+{
+	static const char *const patterns[] = { "*.xml", "*/*.xml" };
+	unsigned long long stamp = 0;
+	char path[1200];
+	int pattern;
+
+#ifdef HALO_ANDROID
+	(void)patterns;
+	(void)path;
+	(void)pattern;
+	return stamp;
+#else
+	if (!folder[0])
+		return 0;
+	for (pattern = 0; pattern < 2; pattern++)
+	{
+		int count = 0;
+		char **names = SDL_GlobDirectory(folder, patterns[pattern], 0, &count);
+		int name;
+
+		for (name = 0; names && name < count; name++)
+		{
+			SDL_PathInfo info;
+
+			snprintf(path, sizeof(path), "%s/%s", folder, names[name]);
+			if (SDL_GetPathInfo(path, &info))
+				stamp = stamp * 1099511628211ULL + (unsigned long long)info.modify_time + info.size;
+		}
+		stamp += (unsigned long long)count;
+		SDL_free(names);
+	}
+	return stamp;
+#endif
 }
 
 long halo_menus_utf16(char const *utf8, unsigned short *out, long capacity)
@@ -1056,7 +1258,25 @@ void halo_menus_log(char const *file, long line, char const *message, char const
 	platform_log("menus: %s:%ld: %s%s%s", file ? file : "?", line, message, detail ? " " : "", detail ? detail : "");
 }
 
-/* ---------- art */
+/* ---------- art
+
+Each bitmap's PNG is decoded on a thread of its own ahead of its first
+draw (halo_menus_art_ahead: those of a screen shown and of the screens it
+opens, menu_tags.c's pc_menu_screen_shown), so that a screen opens without
+decoding its art: the game's thread then only makes the image of the
+pixels. A PNG drawn before its decoding is done waits for it; one never
+asked for is decoded as it is drawn. */
+
+enum
+{
+	_art_decode_none,
+	_art_decode_queued,
+	_art_decode_decoding,
+	_art_decode_done,
+};
+
+/* threads decoding at once */
+#define ART_DECODE_THREADS 2
 
 static struct
 {
@@ -1065,9 +1285,21 @@ static struct
 	unsigned int texture;
 	unsigned long levels;
 	int failed;
+	/* its decoding ahead (art_lock's): the PNG, its pixels once decoded */
+	int decode_state;
+	const unsigned char *decode_png;
+	unsigned long decode_png_size;
+	unsigned char *pixels;
+	unsigned long width, height;
 } art[MAXIMUM_ART];
 static long art_count;
 static unsigned short art_lookup[MAXIMUM_ART * 2];
+/* each slot's texture data, beside it: a draw's texture stages, which are
+seldom menu art, probe these alone, not the entries */
+static unsigned long art_lookup_data[MAXIMUM_ART * 2];
+static pthread_mutex_t art_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t art_decoded = PTHREAD_COND_INITIALIZER;
+static int art_decoders;
 
 /* Most textures are not menu art. Find those without walking every menu
 bitmap for each texture stage of every draw. Entries survive until forget. */
@@ -1079,9 +1311,19 @@ static unsigned long art_slot(unsigned long data)
 	hash *= 0x85ebca6bUL;
 	hash ^= hash >> 13;
 	slot = hash % (MAXIMUM_ART * 2);
-	while (art_lookup[slot] && art[art_lookup[slot] - 1].data != data)
+	while (art_lookup[slot] && art_lookup_data[slot] != data)
 		slot = (slot + 1) % (MAXIMUM_ART * 2);
 	return slot;
+}
+
+/* (art_lock held) an entry's decoding ahead let go: waited for if running */
+static void art_decode_forget(long index)
+{
+	while (art[index].decode_state == _art_decode_decoding)
+		pthread_cond_wait(&art_decoded, &art_lock);
+	free(art[index].pixels);
+	art[index].pixels = NULL;
+	art[index].decode_state = _art_decode_none;
 }
 
 void halo_menus_art_register(void const *texture, char const *png)
@@ -1097,6 +1339,7 @@ void halo_menus_art_register(void const *texture, char const *png)
 			return;
 		}
 		art_lookup[slot] = (unsigned short)(index + 1);
+		art_lookup_data[slot] = data;
 		art_count++;
 	}
 	else if (art[index].png && !strcmp(art[index].png, png))
@@ -1105,6 +1348,9 @@ void halo_menus_art_register(void const *texture, char const *png)
 	}
 	else
 	{
+		pthread_mutex_lock(&art_lock);
+		art_decode_forget(index);
+		pthread_mutex_unlock(&art_lock);
 		free(art[index].png);
 		if (art[index].texture)
 		{
@@ -1114,12 +1360,17 @@ void halo_menus_art_register(void const *texture, char const *png)
 	memset(&art[index], 0, sizeof(art[index]));
 	art[index].data = data;
 	art[index].png = strdup(png);
+	xgpu_texture_replacements_changed();
 }
 
 void halo_menus_art_forget(void)
 {
 	long index;
 
+	pthread_mutex_lock(&art_lock);
+	for (index = 0; index < art_count; index++)
+		art_decode_forget(index);
+	pthread_mutex_unlock(&art_lock);
 	for (index = 0; index < art_count; index++)
 	{
 		free(art[index].png);
@@ -1130,21 +1381,124 @@ void halo_menus_art_forget(void)
 	}
 	art_count = 0;
 	memset(art_lookup, 0, sizeof(art_lookup));
+	memset(art_lookup_data, 0, sizeof(art_lookup_data));
+	xgpu_texture_replacements_changed();
+}
+
+/* a decoding thread: each PNG queued in turn, until none is */
+static void *art_decode_thread(void *unused)
+{
+	(void)unused;
+	pthread_mutex_lock(&art_lock);
+	for (;;)
+	{
+		long index;
+		const unsigned char *png;
+		unsigned long size, width = 0, height = 0;
+		unsigned char *pixels;
+
+		for (index = 0; index < art_count && art[index].decode_state != _art_decode_queued; index++)
+			;
+		if (index == art_count)
+			break;
+		art[index].decode_state = _art_decode_decoding;
+		png = art[index].decode_png;
+		size = art[index].decode_png_size;
+		pthread_mutex_unlock(&art_lock);
+		pixels = hud_hires_png_pixels(png, size, &width, &height);
+		pthread_mutex_lock(&art_lock);
+		art[index].pixels = pixels;
+		art[index].width = width;
+		art[index].height = height;
+		art[index].decode_state = _art_decode_done;
+		pthread_cond_broadcast(&art_decoded);
+	}
+	art_decoders--;
+	pthread_cond_broadcast(&art_decoded);
+	pthread_mutex_unlock(&art_lock);
+	return NULL;
+}
+
+void halo_menus_art_ahead(void const *texture)
+{
+	unsigned long slot = art_slot(((const unsigned long *)texture)[1]);
+	long index = art_lookup[slot] ? art_lookup[slot] - 1 : -1;
+	const unsigned char *png;
+	unsigned long size = 0;
+
+	if (index < 0 || art[index].texture || art[index].failed || !art[index].png ||
+		art[index].decode_state != _art_decode_none)
+	{
+		return;
+	}
+	/* (the PNG found here: the files' table is the game thread's) */
+	png = file_data(art[index].png, &size);
+	if (!png)
+		return;
+	pthread_mutex_lock(&art_lock);
+	art[index].decode_png = png;
+	art[index].decode_png_size = size;
+	art[index].decode_state = _art_decode_queued;
+	if (art_decoders < ART_DECODE_THREADS)
+	{
+		pthread_t thread;
+
+		art_decoders++;
+		if (pthread_create(&thread, NULL, art_decode_thread, NULL) == 0)
+			pthread_detach(thread);
+		else
+		{
+			art_decoders--;
+			/* (none: decoded as it is drawn) */
+			if (!art_decoders)
+				art[index].decode_state = _art_decode_none;
+		}
+	}
+	pthread_mutex_unlock(&art_lock);
 }
 
 unsigned int menu_art_texture(unsigned long data, unsigned long *levels)
 {
-	unsigned long slot = art_slot(data);
-	long index = art_lookup[slot] ? art_lookup[slot] - 1 : art_count;
+	unsigned long slot;
+	long index;
+
+	/* (none registered: in a game whose menus have not been read) */
+	if (!art_count)
+		return 0;
+	slot = art_slot(data);
+	index = art_lookup[slot] ? art_lookup[slot] - 1 : art_count;
 	/* (no png: out of memory registering it) */
 	if (index == art_count || art[index].failed || !art[index].png)
 		return 0;
 	if (!art[index].texture)
 	{
-		unsigned long size = 0;
-		const unsigned char *png = file_data(art[index].png, &size);
+		unsigned char *pixels = NULL;
+		unsigned long width = 0, height = 0;
+		int decoded = 0;
 
-		art[index].texture = png ? hud_hires_png_texture(png, size, &art[index].levels) : 0;
+		/* (decoded ahead, or being decoded: waited for; queued, and
+		not yet begun: decoded here) */
+		pthread_mutex_lock(&art_lock);
+		while (art[index].decode_state == _art_decode_decoding)
+			pthread_cond_wait(&art_decoded, &art_lock);
+		if (art[index].decode_state == _art_decode_done)
+		{
+			pixels = art[index].pixels;
+			width = art[index].width;
+			height = art[index].height;
+			art[index].pixels = NULL;
+			decoded = 1;
+		}
+		art[index].decode_state = _art_decode_none;
+		pthread_mutex_unlock(&art_lock);
+		if (!decoded)
+		{
+			unsigned long size = 0;
+			const unsigned char *png = file_data(art[index].png, &size);
+
+			pixels = png ? hud_hires_png_pixels(png, size, &width, &height) : NULL;
+		}
+		art[index].texture = pixels ? hud_hires_pixels_texture(pixels, width, height, &art[index].levels) : 0;
 		if (!art[index].texture)
 		{
 			platform_log("menus: could not draw %s", art[index].png);

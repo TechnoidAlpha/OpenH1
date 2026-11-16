@@ -206,6 +206,9 @@ struct gamepad_state
 /* ---------- prototypes/INPUT_XBOX.C */
 
 short fix_dead_zone(short value, short dead_range);
+/* port: a gamepad's sticks' dead zones, from its reading (input_xbox.c) */
+void input_port_fix_stick_dead_zones(short gamepad_index, short left_x, short left_y, short right_x, short right_y,
+	point2d *sticks);
 void update_ticks(byte *ticks, boolean down);
 void input_dispose(void);
 void input_activate(void);

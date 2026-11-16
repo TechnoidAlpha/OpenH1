@@ -50,6 +50,11 @@ SDL_Scancode SDL_GetScancodeFromName(const char *name)
 	return (SDL_Scancode)host_sdl_scancode_from_name(name);
 }
 
+SDL_Keycode SDL_GetKeyFromScancode(SDL_Scancode scancode, SDL_Keymod modstate, bool key_event)
+{
+	return (SDL_Keycode)host_sdl_key_from_scancode((int)scancode, (int)modstate, key_event ? 1 : 0);
+}
+
 Uint64 SDL_GetTicks(void)
 {
 	return (Uint64)host_sdl_ticks();
@@ -248,6 +253,24 @@ bool SDL_RumbleGamepad(SDL_Gamepad *gamepad, Uint16 low, Uint16 high, Uint32 mil
 void SDL_CloseGamepad(SDL_Gamepad *gamepad)
 {
 	host_sdl_close_gamepad((unsigned int)gamepad);
+}
+
+/* (gyro aiming: xinput_sdl.c) */
+bool SDL_GamepadHasSensor(SDL_Gamepad *gamepad, SDL_SensorType type)
+{
+	return host_sdl_gamepad_has_sensor((unsigned int)gamepad, (int)type) != 0;
+}
+
+bool SDL_SetGamepadSensorEnabled(SDL_Gamepad *gamepad, SDL_SensorType type, bool enabled)
+{
+	return host_sdl_set_gamepad_sensor_enabled((unsigned int)gamepad, (int)type, enabled ? 1 : 0) != 0;
+}
+
+/* (whether it is Steam Input's virtual controller: the handle itself is not
+wanted) */
+Uint64 SDL_GetGamepadSteamHandle(SDL_Gamepad *gamepad)
+{
+	return host_sdl_gamepad_steam((unsigned int)gamepad) ? 1 : 0;
 }
 
 /* ---------- audio */

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.connected.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper">
+		<at widget="main_menu/multiplayer_type_select/mp_map_select/mp_map_select_screen" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/connected/gametype_select_screen_wrapper">
+		<at widget="main_menu/gametype_select/gametype_select_screen" x="0" y="0"/>
+	</look>
+</model>

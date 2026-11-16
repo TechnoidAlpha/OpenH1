@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.campaign_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/campaign_select/campaign_menu">
+		<at widget="main_menu/halo_logo" x="0" y="28"/>
+		<at widget="main_menu/campaign_select/campaign_menu_select_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign_select/campaign_menu_select_list" type="column_list">
+		<at widget="main_menu/campaign_select/menu_item_continue" x="194" y="283"/>
+		<at widget="main_menu/campaign_select/menu_item_new_campaign" x="192" y="319"/>
+		<at widget="main_menu/campaign_select/menu_item_load_game" x="192" y="355"/>
+		<at widget="main_menu/campaign_select/menu_item_back" x="192" y="391"/>
+	</look>
+	<look name="main_menu/campaign_select/header_load_game" box="35 11 640 70" picture="main_menu/campaign_select/header_load_game"/>
+	<look name="main_menu/campaign_select/load_level_extended_desc">
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+		<at widget="main_menu/campaign_select/load_level_right_item" x="22" y="2"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_right_data" type="text" box="417 258 563 394">
+		<text font="ui\large_ui" color="#FF2896FF"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_right_item" box="406 75 568 401" picture="bitmaps/spinner_list_3_wide_item_background">
+		<at widget="main_menu/campaign_select/load_level_right_name" x="0" y="0"/>
+		<at widget="main_menu/campaign_select/load_level_right_pic" x="0" y="0"/>
+		<at widget="main_menu/campaign_select/load_level_right_data" x="0" y="0"/>
+		<at widget="main_menu/solo_level_select/difficulty_indicator" x="416" y="343"/>
+		<at widget="main_menu/solo_level_select/difficulty_indicator" x="466" y="343"/>
+		<at widget="main_menu/solo_level_select/difficulty_indicator" x="516" y="343"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_right_name" type="text" box="417 204 563 247">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/map_list" index="2"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_right_pic" box="419 87 559 201" picture="ui\shell\bitmaps\sp_levels"/>
+	<look name="main_menu/campaign_select/load_level_select_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/campaign_select/load_level_select_button_delete" x="0" y="1"/>
+		<at widget="main_menu/solo_level_select/solo_level_select_button_ok" x="380" y="1"/>
+		<at widget="common_button_back" x="510" y="1"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_select_button_delete" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="5"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_select_list" type="column_list">
+		<at widget="main_menu/new_select/list_item_0" x="20" y="73"/>
+		<at widget="main_menu/new_select/list_item_1" x="20" y="103"/>
+		<at widget="main_menu/new_select/list_item_2" x="20" y="133"/>
+		<at widget="main_menu/new_select/list_item_3" x="20" y="163"/>
+		<at widget="main_menu/new_select/list_item_4" x="20" y="193"/>
+		<at widget="main_menu/new_select/list_item_5" x="20" y="223"/>
+		<at widget="main_menu/new_select/list_item_6" x="20" y="253"/>
+		<at widget="main_menu/new_select/list_item_7" x="20" y="283"/>
+		<at widget="main_menu/new_select/list_item_8" x="20" y="313"/>
+		<at widget="main_menu/new_select/list_item_9" x="20" y="343"/>
+		<at widget="main_menu/new_select/list_item_10" x="20" y="373"/>
+		<at widget="main_menu/campaign_select/load_level_select_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/campaign_select/load_level_select_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/new_select/sel_list_desc_bkd" x="0" y="0"/>
+		<at widget="main_menu/campaign_select/load_level_select_list" x="0" y="0"/>
+		<at widget="main_menu/campaign_select/header_load_game" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign_select/menu_item_back" type="text" box="0 0 256 33" picture="main_menu/campaign_select/item_back">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options"/>
+	</look>
+	<look name="main_menu/campaign_select/menu_item_continue" type="text" box="0 0 256 33" picture="main_menu/campaign_select/item_continue">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options"/>
+	</look>
+	<look name="main_menu/campaign_select/menu_item_load_game" type="text" box="0 0 256 33" picture="main_menu/campaign_select/item_load_game">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options"/>
+	</look>
+	<look name="main_menu/campaign_select/menu_item_new_campaign" type="text" box="0 0 256 33" picture="main_menu/campaign_select/item_new_campaign">
+		<text font="ui\small_ui" color="#000080FF" string_list="main_menu/main_menu_options" index="1"/>
+	</look>
+</model>

@@ -18,6 +18,7 @@ network_host_controls.c from its constants) and the constants (config.inc).
 
 #include "harness.h"
 
+#include <math.h>
 #include <stdarg.h>
 #include <wchar.h>
 
@@ -29,6 +30,7 @@ typedef unsigned short word;
 #define NUMBEROF(array) ((long)(sizeof(array) / sizeof((array)[0])))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define PIN(x, low, high) MIN(MAX(x, low), high)
 #define VALID_INDEX(index, count) ((index) >= 0 && (index) < (count))
 #define DATUM_INDEX_NEW(absolute_index, identifier) \
 	((long)(((unsigned long)(unsigned short)(identifier) << 16) | (unsigned long)(absolute_index)))
@@ -157,6 +159,21 @@ static struct
 	long countdown;
 	boolean lobby_shown;
 	boolean screen_loaded;
+	/* co-op: the host's teleports (the player moved, and the other), the
+	players away, what a client turned to and showed */
+	boolean coop;
+	boolean away[NUMBER_OF_TEST_PLAYERS];
+	long teleported;
+	long teleported_beside;
+	short teleports_sent;
+	struct distributed_host_teleport_stand_in
+	{
+		byte format, kind, player_index, host_player_index;
+		short facing[3], pad;
+	} teleport_sent;
+	real_vector3d facing_set;
+	short facing_local_player;
+	wchar_t shown[64];
 	/* the host in its lobby (network_host_game.c's), the lobby's players it
 	lists, and a next game waiting for the lobby (taken: how many times, the
 	last a restart's) */
@@ -166,6 +183,8 @@ static struct
 	short taken;
 	boolean taken_restarting;
 	char ban_text[4][HOST_CONTROLS_BAN_LINE_SIZE];
+	/* the machine's first local player (NONE: none, as in the menus) */
+	short first_local_player;
 } world;
 
 static struct data_array *player_data;
@@ -433,6 +452,51 @@ static long distributed_living_unit(struct player_datum const *player)
 	return world.living[index] ? player->unit_index : NONE;
 }
 static void unit_kill_no_statistics(long unit_index) { world.killed_unit = unit_index; }
+/* co-op (network_coop.c's, players.c's): the host may move another
+machine's living player who is not away, its own player alive */
+static boolean network_coop_active(void) { return world.coop; }
+static boolean players_coop_host_can_teleport(long player_index, boolean go_to)
+{
+	struct player_datum *player = player_try_and_get(player_index);
+	short index = (short)DATUM_INDEX_TO_ABSOLUTE_INDEX(player_index);
+
+	(void)go_to;
+	return world.coop && world.connection == _game_connection_network_server && player &&
+		player->local_player_index == NONE && world.living[index] && !world.away[index] && world.living[HOST_PLAYER];
+}
+static long players_coop_host_teleport(long player_index, boolean go_to, long *beside_player_index)
+{
+	long host_player_index = test_player_index(HOST_PLAYER);
+
+	if (!players_coop_host_can_teleport(player_index, go_to))
+		return NONE;
+	world.teleported = go_to ? host_player_index : player_index;
+	world.teleported_beside = *beside_player_index = go_to ? player_index : host_player_index;
+	return world.teleported;
+}
+struct unit_datum { struct { real_vector3d desired_facing_vector; } unit; };
+static struct unit_datum test_unit = { { { 0.f, -1.f, 0.f } } };
+static struct unit_datum *unit_get(long unit_index) { (void)unit_index; return &test_unit; }
+static struct player_datum *player_get(long player_index) { return player_try_and_get(player_index); }
+static void normalize3d(real_vector3d *vector)
+{
+	real length = sqrtf(vector->i * vector->i + vector->j * vector->j + vector->k * vector->k);
+
+	vector->i /= length;
+	vector->j /= length;
+	vector->k /= length;
+}
+static void player_control_set_facing(short local_player_index, real_vector3d const *facing)
+{
+	world.facing_local_player = local_player_index;
+	world.facing_set = *facing;
+}
+static void hud_print_message(short local_player_index, wchar_t const *text)
+{
+	(void)local_player_index;
+	wcsncpy(world.shown, text, 63);
+	world.shown[63] = 0;
+}
 /* (after the code: its entry's structure) */
 static void distributed_send_to_machine_reliably(long machine_index, void *message, byte type, short count,
 	word size);
@@ -456,6 +520,12 @@ static short network_distributed_ban_lines(char (*lines)[HOST_CONTROLS_BAN_LINE_
 	return count;
 }
 static boolean network_distributed_unban(char const *line) { (void)line; return TRUE; }
+/* the machine's local players (players.c): the first alone, which is all the
+host's rows ask */
+static short local_player_get_next(short local_player_index)
+{
+	return local_player_index == NONE ? world.first_local_player : NONE;
+}
 /* a dedicated server's admin's (network_admin.c): this machine is none */
 static boolean network_admin_remote(void) { return FALSE; }
 static boolean network_admin_player(long player_index, struct host_controls_player *player)
@@ -480,6 +550,16 @@ static void distributed_send_to_machine_reliably(long machine_index, void *messa
 		struct distributed_host_team move;
 	} sent;
 
+	if (type == _distributed_message_host_teleport)
+	{
+		CHECK(count == 1 && size == sizeof(struct distributed_message_header) + sizeof(struct distributed_host_teleport),
+			"a teleport of one entry");
+		world.sent_machines[world.sent_count++] = machine_index;
+		world.teleports_sent++;
+		memcpy(&world.teleport_sent, (byte *)message + sizeof(struct distributed_message_header),
+			sizeof(world.teleport_sent));
+		return;
+	}
 	CHECK(type == _distributed_message_host_team && count == 1 && size == sizeof(sent), "a team move of one entry");
 	world.sent_machines[world.sent_count] = machine_index;
 	memcpy(&world.sent[world.sent_count++], (byte *)message + sizeof(struct distributed_message_header), 4);
@@ -507,6 +587,9 @@ static void world_reset(void)
 	world.killed_unit = NONE;
 	world.countdown = NONE;
 	world.countdown_paused = TRUE;
+	world.teleported = world.teleported_beside = NONE;
+	world.facing_local_player = NONE;
+	world.first_local_player = 0;
 	opence_joins = TRUE;
 	if (!player_data)
 		player_data = game_state_data_new("players", 16, sizeof(struct player_datum));
@@ -528,6 +611,7 @@ static void world_reset(void)
 		player->network_player_data.player_list_index = (char)index;
 		player->network_player_data.team_index = (char)(index % 2);
 		server_game.players[index] = client_game.players[index] = player->network_player_data;
+		player->local_player_index = index == HOST_PLAYER ? 0 : NONE;
 		world.living[index] = TRUE;
 	}
 	server_game.player_count = NUMBER_OF_TEST_PLAYERS;
@@ -1165,6 +1249,200 @@ static void case_bot_skill(void)
 		bots_world.count == 7, "host_bots past the limits set");
 }
 
+/* the pause menu's rows after SETTINGS: network co-op's FRIENDLY FIRE on
+every machine, and its host's HOST CONTROLS as a multiplayer game's host
+has them (the maintainer's report: a co-op host had none) */
+static void case_pause(void)
+{
+	struct host_controls_pause_view view = { TRUE, FALSE, FALSE, FALSE, TRUE, TRUE, TRUE };
+	unsigned long friendly_fire = FLAG(_host_controls_pause_friendly_fire);
+	unsigned long host_controls = FLAG(_host_controls_pause_host_controls);
+
+	CHECK(network_host_controls_pause_rows_for(&view) == host_controls, "a network game's host: HOST CONTROLS");
+	view.local = TRUE;
+	CHECK(network_host_controls_pause_rows_for(&view) == FLAG(_host_controls_pause_end_game),
+		"a game of this machine alone's host: END GAME");
+	view.local = FALSE;
+	view.training = TRUE;
+	CHECK(network_host_controls_pause_rows_for(&view) == FLAG(_host_controls_pause_chapters),
+		"Basic Training's: CHAPTERS");
+	view.training = FALSE;
+	view.host = FALSE;
+	CHECK(network_host_controls_pause_rows_for(&view) == 0, "a client: nothing");
+	view.coop = TRUE;
+	CHECK(network_host_controls_pause_rows_for(&view) == friendly_fire, "a co-op client: FRIENDLY FIRE alone");
+	view.host = TRUE;
+	CHECK(network_host_controls_pause_rows_for(&view) == (friendly_fire | host_controls),
+		"a co-op host: FRIENDLY FIRE and HOST CONTROLS");
+	view.training = TRUE;
+	CHECK(network_host_controls_pause_rows_for(&view) == (friendly_fire | host_controls),
+		"a co-op host: no CHAPTERS");
+	view.training = FALSE;
+	view.host_controls_screen = FALSE;
+	CHECK(network_host_controls_pause_rows_for(&view) == friendly_fire,
+		"a co-op host without the screen: no END GAME, which the campaign has not");
+}
+
+/* the pause menu's host's rows by whose pause it is (issue 889): the host
+machine's first local player's alone (split screen's player 1), a dedicated
+server's admin's too; never the other local players', nor a client's */
+static void case_pause_players(void)
+{
+	struct host_controls_pause_view view = { TRUE, FALSE, FALSE, FALSE, TRUE, TRUE, TRUE };
+	unsigned long friendly_fire = FLAG(_host_controls_pause_friendly_fire);
+	unsigned long host_controls = FLAG(_host_controls_pause_host_controls);
+	short player;
+
+	world_reset();
+	for (player = 0; player < 4; player++)
+	{
+		boolean first = player == 0;
+		unsigned long rows;
+
+		view.first_player = network_host_controls_local_player(player);
+		CHECK(view.first_player == first, "only the first local player is the host's");
+		/* (a network game's host) */
+		view.host = TRUE;
+		view.coop = view.local = view.training = FALSE;
+		CHECK(network_host_controls_pause_rows_for(&view) == (first ? host_controls : 0),
+			first ? "host P1: HOST CONTROLS" : "host P2 to P4: no HOST CONTROLS");
+		/* (split screen, this machine alone) */
+		view.local = TRUE;
+		CHECK(network_host_controls_pause_rows_for(&view) == (first ? FLAG(_host_controls_pause_end_game) : 0),
+			first ? "split screen P1: END GAME" : "split screen P2 to P4: no END GAME");
+		view.local = FALSE;
+		/* (Basic Training) */
+		view.training = TRUE;
+		CHECK(network_host_controls_pause_rows_for(&view) == (first ? FLAG(_host_controls_pause_chapters) : 0),
+			first ? "Basic Training P1: CHAPTERS" : "Basic Training P2 to P4: no CHAPTERS");
+		view.training = FALSE;
+		/* (network co-op: FRIENDLY FIRE every player's, this machine's) */
+		view.coop = TRUE;
+		rows = network_host_controls_pause_rows_for(&view);
+		CHECK(rows == (first ? (friendly_fire | host_controls) : friendly_fire),
+			first ? "co-op host P1: FRIENDLY FIRE and HOST CONTROLS" : "co-op host P2 to P4: FRIENDLY FIRE alone");
+		/* (a client: nothing of the host's, P1 or not) */
+		view.coop = FALSE;
+		view.host = FALSE;
+		CHECK(network_host_controls_pause_rows_for(&view) == 0, "a client: nothing");
+	}
+	/* (a dedicated server's admin: host as menu_tags_pause_rows has it, P1's) */
+	view.host = TRUE;
+	view.first_player = network_host_controls_local_player(0);
+	CHECK(network_host_controls_pause_rows_for(&view) == host_controls, "an admin's P1: HOST CONTROLS");
+	view.first_player = network_host_controls_local_player(1);
+	CHECK(network_host_controls_pause_rows_for(&view) == 0, "an admin's P2: none");
+	/* (player 1 left the game: the next local player is the first) */
+	world.first_local_player = 1;
+	CHECK(network_host_controls_local_player(1) && !network_host_controls_local_player(2),
+		"player 1 gone: player 2 the host's");
+	/* (a screen of no one player's, as the lobby's; the menus, no local
+	players) */
+	world.first_local_player = 0;
+	CHECK(network_host_controls_local_player(NONE), "a screen of no one player's: the host's");
+	world.first_local_player = NONE;
+	CHECK(network_host_controls_local_player(0), "no local players (the menus): the host's");
+}
+
+/* co-op's BRING TO ME and GO TO: in co-op alone, for another machine's
+living player who is not away; the move the host's (players.c's), the
+player's OpenH1 machine told, which turns a brought player the host's way
+and says so on their screen */
+static void case_teleports(void)
+{
+	struct host_controls_player_view view = { FALSE, FALSE, FALSE, FALSE, FALSE, TRUE, TRUE, TRUE };
+	unsigned long both = FLAG(_host_controls_bring) | FLAG(_host_controls_go_to);
+	unsigned long actions;
+	long client = NONE;
+
+	CHECK((network_host_controls_actions_for(&view) & both) == both, "co-op: both");
+	view.coop = FALSE;
+	CHECK(!(network_host_controls_actions_for(&view) & both), "versus: neither");
+	view.coop = TRUE;
+	view.own = TRUE;
+	CHECK(!(network_host_controls_actions_for(&view) & both), "the host's own row: neither");
+	view.own = FALSE;
+	view.bring = view.go_to = FALSE;
+	CHECK(!(network_host_controls_actions_for(&view) & both), "a dead or away player: neither");
+	view.bring = TRUE;
+	actions = network_host_controls_actions_for(&view);
+	CHECK(TEST_FLAG(actions, _host_controls_bring) && !TEST_FLAG(actions, _host_controls_go_to),
+		"one outside the level: brought, never gone to");
+
+	/* (in the world) */
+	world_reset();
+	world.teams = FALSE;
+	CHECK(!(network_host_controls_player_actions(test_player_index(OPENH1_PLAYER)) & both), "versus: neither");
+	CHECK(!network_host_controls_teleport(test_player_index(OPENH1_PLAYER), FALSE) && world.teleported == NONE,
+		"no teleport in versus");
+	world.coop = TRUE;
+	CHECK((network_host_controls_player_actions(test_player_index(OPENH1_PLAYER)) & both) == both, "co-op: both");
+	CHECK(!(network_host_controls_player_actions(test_player_index(HOST_PLAYER)) & both), "the host's own: neither");
+	world.living[OPENH1_PLAYER] = FALSE;
+	CHECK(!(network_host_controls_player_actions(test_player_index(OPENH1_PLAYER)) & both), "a dead player: neither");
+	world.living[OPENH1_PLAYER] = TRUE;
+	world.away[OPENH1_PLAYER] = TRUE;
+	CHECK(!(network_host_controls_player_actions(test_player_index(OPENH1_PLAYER)) & both), "one away: neither");
+	world.away[OPENH1_PLAYER] = FALSE;
+
+	/* BRING TO ME: the player moved, its machine told to turn the host's way */
+	CHECK(network_host_controls_teleport(test_player_index(OPENH1_PLAYER), FALSE) &&
+		world.teleported == test_player_index(OPENH1_PLAYER) &&
+		world.teleported_beside == test_player_index(HOST_PLAYER), "brought beside the host's player");
+	CHECK(world.teleports_sent == 1 && world.sent_machines[0] == OPENH1_MACHINE &&
+		world.teleport_sent.kind == 0 && world.teleport_sent.player_index == OPENH1_PLAYER &&
+		world.teleport_sent.host_player_index == HOST_PLAYER && world.teleport_sent.facing[1] == -32767,
+		"the brought player's machine told, with the host's facing");
+	/* GO TO: the host's player moved, the player's machine told */
+	CHECK(network_host_controls_teleport(test_player_index(OPENH1_PLAYER), TRUE) &&
+		world.teleported == test_player_index(HOST_PLAYER) &&
+		world.teleported_beside == test_player_index(OPENH1_PLAYER), "the host's player beside them");
+	CHECK(world.teleports_sent == 2 && world.teleport_sent.kind == 1, "the joined player's machine told");
+
+	/* the client: from the host's stream alone, its own player */
+	{
+		struct
+		{
+			struct distributed_message_header header;
+			struct distributed_host_teleport teleport;
+		} message;
+		struct player_datum *player;
+		word size = (word)(sizeof(message.header) + sizeof(message.teleport));
+
+		memset(&message, 0, sizeof(message));
+		message.header.type = _distributed_message_host_teleport;
+		message.header.count = 1;
+		message.teleport.format = 1;
+		message.teleport.kind = 0;
+		message.teleport.player_index = OPENH1_PLAYER;
+		message.teleport.host_player_index = HOST_PLAYER;
+		message.teleport.facing[0] = 32767;
+		world.connection = _game_connection_network_client;
+		player = player_try_and_get(test_player_index(OPENH1_PLAYER));
+		player->local_player_index = 0;
+		player_try_and_get(test_player_index(HOST_PLAYER))->local_player_index = NONE;
+		client = test_player_index(OPENH1_PLAYER);
+		CHECK(network_host_controls_handles_message((word const *)&message, size), "the client hears it");
+		network_host_controls_handle_message(OPENH1_MACHINE, (word const *)&message, size, TRUE);
+		CHECK(world.facing_local_player == NONE && !world.shown[0], "taken from another client");
+		network_host_controls_handle_message(NONE, (word const *)&message, size, FALSE);
+		CHECK(world.facing_local_player == NONE && !world.shown[0], "taken from a datagram");
+		network_host_controls_handle_message(NONE, (word const *)&message, size, TRUE);
+		CHECK(world.facing_local_player == 0 && world.facing_set.i > 0.99f, "the brought player turned");
+		CHECK(!wcscmp(world.shown, L"Brought to Keyes"), "the brought player told");
+		message.teleport.kind = 1;
+		world.facing_local_player = NONE;
+		network_host_controls_handle_message(NONE, (word const *)&message, size, TRUE);
+		CHECK(world.facing_local_player == NONE && !wcscmp(world.shown, L"Keyes joined you"),
+			"the joined player told, not turned");
+		world.coop = FALSE;
+		world.shown[0] = 0;
+		network_host_controls_handle_message(NONE, (word const *)&message, size, TRUE);
+		CHECK(!world.shown[0], "taken in co-op alone");
+	}
+	(void)client;
+}
+
 int main(int argc, char **argv)
 {
 	char const *case_name = argc > 1 ? argv[1] : "";
@@ -1186,6 +1464,9 @@ int main(int argc, char **argv)
 	else CASE("bots_tab") case_bots_tab();
 	else CASE("bot_count") case_bot_count();
 	else CASE("bot_skill") case_bot_skill();
+	else CASE("pause") case_pause();
+	else CASE("pause_players") case_pause_players();
+	else CASE("teleports") case_teleports();
 	else
 	{
 		fprintf(stderr, "no case %s\n", case_name);

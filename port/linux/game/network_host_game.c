@@ -46,6 +46,7 @@ is tools/harness/tests/test_host_game.py's.
 #include "networking/network_server_manager.h"
 #include "text/unicode.h"
 #include "game/players.h"
+#include "saved games/player_profile.h"
 #include "network_distributed.h"
 #include "network_chat.h"
 #include "network_standard.h"
@@ -122,6 +123,21 @@ static struct
 	short builtin_gametype_count;
 	unsigned long lists_time;
 	boolean lists_read;
+	/* co-op's: a level asked for (its level, its difficulty), now or after
+	this level; one asked for now, ending the level as the host's frame
+	comes (cooperative_ending), and the lobby that starts it
+	(cooperative_started) */
+	boolean cooperative_next;
+	boolean cooperative_now;
+	boolean cooperative_ending;
+	boolean cooperative_started;
+	char cooperative_level[HOST_GAME_MAP_SIZE];
+	short cooperative_difficulty;
+	/* the campaign's levels (co-op's MAPS), and when they were read */
+	struct host_game_map levels[MAXIMUM_HOST_GAME_MAPS];
+	short level_count;
+	unsigned long levels_time;
+	boolean levels_read;
 } host_game = { .index = NONE, .next_index = NONE, .score = NONE, .minutes = NONE };
 
 /* ---------- the pure part */
@@ -491,6 +507,22 @@ short network_host_game_gametype_find(
 	return NONE;
 }
 
+char const *network_host_game_cooperative_level_after(
+	char const *campaign_next,
+	boolean asked,
+	char const *asked_level,
+	short asked_difficulty,
+	short *difficulty)
+{
+	/* (the level the host asked for after this one, at its difficulty; else
+	the campaign's next, at the game's) */
+	*difficulty = NONE;
+	if (!asked || !asked_level || !asked_level[0])
+		return campaign_next;
+	*difficulty = asked_difficulty;
+	return asked_level;
+}
+
 /* ---------- where the host is */
 
 /* a player's host of a network game, co-op's too */
@@ -805,6 +837,12 @@ void network_host_game_cancel(
 	host_game.has_next = FALSE;
 	host_game.next_now = FALSE;
 	host_game.next_index = NONE;
+	/* (co-op's: but a level being ended now, which goes on) */
+	if (!host_game.cooperative_ending)
+	{
+		host_game.cooperative_next = FALSE;
+		host_game.cooperative_now = FALSE;
+	}
 }
 
 /* an entry's map and gametype as shown, in printable ASCII for a notice
@@ -846,7 +884,7 @@ boolean network_host_game_change(
 	if (!network_host_game_hosting())
 	{
 		snprintf(reason, (size_t)reason_size, halo_server_mode() ? "a dedicated server's is sv_map" :
-			host_game_hosting_any() ? "co-op plays the campaign's levels in their order: no map changes" :
+			host_game_hosting_any() ? "co-op changes its level from MAPS' campaign levels" :
 			"only the host of a network game changes its map");
 		return FALSE;
 	}
@@ -910,6 +948,14 @@ boolean network_host_game_lobby_take(
 
 	if (!host_game_hosting_any())
 		return FALSE;
+	/* (co-op's: the level changed now, set up as the lobby was reached
+	(network_game_server_port_cooperative_change), started) */
+	if (network_host_game_cooperative())
+	{
+		applied = host_game.cooperative_started;
+		host_game.cooperative_started = FALSE;
+		return applied;
+	}
 	if (TEST_FLAG(takes, _host_game_take_change))
 	{
 		entry = host_game.next;
@@ -936,6 +982,242 @@ boolean network_host_game_lobby_take(
 		network_host_rules_waiting()))
 		host_game_apply_limits_to_lobby();
 	return applied;
+}
+
+/* ---------- co-op's level */
+
+static char const *const host_game_difficulty_names[] = { "Easy", "Normal", "Heroic", "Legendary" };
+
+/* a level and difficulty as shown, in printable ASCII for a notice ("The
+Silent Cartographer, Heroic") */
+static void host_game_cooperative_notice_text(
+	char const *level,
+	short difficulty,
+	char *text,
+	long size)
+{
+	wchar_t wide[96];
+	long index, length = 0;
+
+	menu_map_shown(level, wide, NUMBEROF(wide));
+	for (index = 0; wide[index] && length < size - 1; index++)
+		text[length++] = wide[index] >= 32 && wide[index] < 127 ? (char)wide[index] : '?';
+	text[length] = 0;
+	if (difficulty >= 0 && difficulty < (short)NUMBEROF(host_game_difficulty_names))
+		snprintf(text + length, (size_t)(size - length), ", %s", host_game_difficulty_names[difficulty]);
+}
+
+/* the campaign's levels (the Xbox's ten whose maps there are, then Custom
+Edition's campaign maps), read again after a while */
+static void host_game_levels_read(
+	void)
+{
+	unsigned long now = system_milliseconds();
+	short level, count, index;
+
+	if (host_game.levels_read && now - host_game.levels_time < HOST_GAME_LISTS_INTERVAL)
+		return;
+	host_game.levels_read = TRUE;
+	host_game.levels_time = now;
+	host_game.level_count = 0;
+	for (level = 0; level < NUMBER_OF_SINGLE_PLAYER_LEVELS; level++)
+	{
+		char const *path = main_get_solo_level_name(level);
+		static struct server_entry entry;
+		char text[SERVER_ENTRY_TEXT_SIZE];
+		struct host_game_map *map;
+
+		/* (as a dedicated server's rotation checks its co-op entries: the
+		maps folder's, and a campaign level) */
+		snprintf(text, sizeof(text), "%s:coop", path ? path : "");
+		if (!path || !server_rotation_parse_entry(text, (int)strlen(text), &entry))
+			continue;
+		server_rotation_resolve(&entry);
+		if (entry.rejected[0])
+			continue;
+		map = &host_game.levels[host_game.level_count++];
+		snprintf(map->name, sizeof(map->name), "%s", entry.map_name);
+		snprintf(map->level, sizeof(map->level), "%s", path);
+		map->custom = FALSE;
+	}
+	count = custom_edition_maps_count(TRUE);
+	for (index = 0; index < count && host_game.level_count < MAXIMUM_HOST_GAME_MAPS; index++)
+	{
+		char const *path = custom_edition_maps_level_name(custom_edition_maps_display_index_of(TRUE, index));
+		char const *name = path;
+		struct host_game_map *map;
+
+		if (!path || !custom_edition_maps_level_campaign(path))
+			continue;
+		if (strrchr(path, '\\'))
+			name = strrchr(path, '\\') + 1;
+		map = &host_game.levels[host_game.level_count++];
+		snprintf(map->name, sizeof(map->name), "%s", name);
+		snprintf(map->level, sizeof(map->level), "%s", path);
+		map->custom = TRUE;
+	}
+}
+
+short network_host_game_levels(
+	struct host_game_map const **levels)
+{
+	host_game_levels_read();
+	*levels = host_game.levels;
+	return host_game.level_count;
+}
+
+short network_host_game_cooperative_difficulty(
+	void)
+{
+	struct network_game_server *server = global_network_game_server_get();
+	struct network_game *game = server ? network_game_server_get_game(server) : NULL;
+
+	return game && game->difficulty >= 0 && game->difficulty < (short)NUMBEROF(host_game_difficulty_names) ?
+		game->difficulty : _game_difficulty_level_normal;
+}
+
+boolean network_host_game_cooperative_change(
+	char const *level,
+	short difficulty,
+	short when,
+	char *reason,
+	long reason_size)
+{
+	struct network_game_server *server = global_network_game_server_get();
+
+	if (!host_game_hosting_any() || !network_host_game_cooperative())
+	{
+		snprintf(reason, (size_t)reason_size, "only the host of a co-op game changes its level");
+		return FALSE;
+	}
+	if (!level || !level[0] || strlen(level) >= sizeof(host_game.cooperative_level) ||
+		!custom_edition_maps_level_campaign(level))
+	{
+		snprintf(reason, (size_t)reason_size, "%s is not a campaign level", level && level[0] ? level : "that");
+		return FALSE;
+	}
+	if (difficulty < 0 || difficulty >= (short)NUMBEROF(host_game_difficulty_names))
+	{
+		snprintf(reason, (size_t)reason_size, "choose a difficulty: easy, normal, heroic or legendary");
+		return FALSE;
+	}
+	if (host_game.cooperative_ending)
+	{
+		snprintf(reason, (size_t)reason_size, "the level is already changing");
+		return FALSE;
+	}
+	/* (in the lobby: at once, as Choose Difficulty sets it up, the game's
+	other settings kept) */
+	if (network_host_game_in_lobby())
+	{
+		network_game_server_port_set_cooperative_level(server, level, difficulty);
+		network_host_game_cancel();
+		error(_error_log, "host: the co-op lobby plays %s on %s", level, host_game_difficulty_names[difficulty]);
+		snprintf(reason, (size_t)reason_size, "set in the lobby");
+		return TRUE;
+	}
+	snprintf(host_game.cooperative_level, sizeof(host_game.cooperative_level), "%s", level);
+	host_game.cooperative_difficulty = difficulty;
+	host_game.cooperative_next = TRUE;
+	host_game.cooperative_now = when == _host_game_now;
+	/* (now: the level ends as the host's next frame comes, as a won one
+	does: network_host_game_update) */
+	if (host_game.cooperative_now)
+	{
+		host_game.cooperative_ending = TRUE;
+		snprintf(reason, (size_t)reason_size, "now: this level ends");
+		return TRUE;
+	}
+	snprintf(reason, (size_t)reason_size, "after this level");
+	return TRUE;
+}
+
+boolean network_host_game_cooperative_next(
+	char *level,
+	long size,
+	short *difficulty,
+	boolean *now)
+{
+	if (!host_game.cooperative_next || !network_host_game_cooperative())
+		return FALSE;
+	snprintf(level, (size_t)size, "%s", host_game.cooperative_level);
+	*difficulty = host_game.cooperative_difficulty;
+	*now = host_game.cooperative_now;
+	return TRUE;
+}
+
+char const *network_host_game_cooperative_won(
+	char const *campaign_next,
+	short *difficulty)
+{
+	static char level[HOST_GAME_MAP_SIZE];
+	char const *next = network_host_game_cooperative_level_after(campaign_next,
+		host_game.cooperative_next && host_game_hosting_any(), host_game.cooperative_level,
+		host_game.cooperative_difficulty, difficulty);
+
+	/* (the change asked for, taken: kept apart from what may ask again) */
+	if (next && next == host_game.cooperative_level)
+	{
+		snprintf(level, sizeof(level), "%s", next);
+		next = level;
+	}
+	host_game.cooperative_next = FALSE;
+	host_game.cooperative_now = FALSE;
+	return next;
+}
+
+/* a level asked for now: ended for everyone, the lobby that sets it up
+starting it (network_host_game_lobby_take) */
+static void host_game_cooperative_end(
+	void)
+{
+	struct network_game_server *server = global_network_game_server_get();
+	char notice[HOST_GAME_NOTICE_SIZE];
+	char shown[96];
+	short difficulty = host_game.cooperative_difficulty;
+	static char level[HOST_GAME_MAP_SIZE];
+
+	host_game.cooperative_ending = FALSE;
+	if (!server || !network_game_server_playing(server) || !host_game.cooperative_next || !network_coop_active())
+	{
+		host_game.cooperative_next = FALSE;
+		host_game.cooperative_now = FALSE;
+		return;
+	}
+	snprintf(level, sizeof(level), "%s", host_game.cooperative_level);
+	host_game.cooperative_next = FALSE;
+	host_game.cooperative_now = FALSE;
+	host_game_cooperative_notice_text(level, difficulty, shown, sizeof(shown));
+	snprintf(notice, sizeof(notice), "The host changed the level: %s", shown);
+	distributed_send_notice(notice);
+	error(_error_log, "host: the co-op level changes now to %s on %s", level, host_game_difficulty_names[difficulty]);
+	host_game.cooperative_started = TRUE;
+	network_game_server_port_cooperative_change(level, difficulty);
+}
+
+void network_host_game_cooperative_text(
+	char const *level,
+	short difficulty,
+	wchar_t *text,
+	short size)
+{
+	wchar_t name[96];
+
+	menu_map_shown(level, name, NUMBEROF(name));
+	if (difficulty >= 0 && difficulty < (short)NUMBEROF(host_game_difficulty_names))
+	{
+		char const *ascii = host_game_difficulty_names[difficulty];
+		wchar_t named[16];
+		short index;
+
+		for (index = 0; ascii[index] && index < (short)NUMBEROF(named) - 1; index++)
+			named[index] = (wchar_t)ascii[index];
+		named[index] = 0;
+		usnprintf(text, size - 1, L"%s \x00B7 %s", name, named);
+	}
+	else
+		usnprintf(text, size - 1, L"%s", name);
+	text[size - 1] = 0;
 }
 
 /* ---------- the limits */
@@ -1526,7 +1808,7 @@ boolean network_host_game_console(
 		*result = moved != NONE;
 		if (moved == NONE)
 		{
-			console_warning("%s: only in a team game you host, in its lobby or (an OpenH1 game without OpenCE "
+			console_warning("%s: only in a team game you host, in its lobby or (a GOAT H1 game without OpenCE "
 				"players) while it plays", how == _host_game_shuffle ? "host_shuffle_teams" : "host_balance_teams");
 		}
 		else
@@ -1612,10 +1894,14 @@ void network_host_game_update(
 
 	if (!global_network_game_server_get())
 	{
+		host_game.cooperative_ending = FALSE;
+		host_game.cooperative_started = FALSE;
 		network_host_game_cancel();
 		host_game.score = NONE;
 		host_game.minutes = NONE;
 	}
+	if (host_game.cooperative_ending)
+		host_game_cooperative_end();
 	if (!postgame)
 	{
 		host_game.over_said = FALSE;
@@ -1741,6 +2027,48 @@ static void host_game_say_playlist(
 	}
 }
 
+/* co-op's host_map (host_map_next): "<level> [difficulty]" ("a30 heroic",
+custom_maps\\name; no difficulty: the game's) of the campaign's levels */
+static boolean host_game_cooperative_command(
+	char const *entry,
+	boolean next,
+	char *reason,
+	long reason_size)
+{
+	struct host_game_map const *levels;
+	short count = network_host_game_levels(&levels);
+	char const *colon = strchr(entry, ':');
+	size_t length = colon ? (size_t)(colon - entry) : strlen(entry);
+	short difficulty = network_host_game_cooperative_difficulty();
+	short index;
+
+	if (colon)
+	{
+		for (difficulty = 0; difficulty < (short)NUMBEROF(host_game_difficulty_names) &&
+			_stricmp(colon + 1, host_game_difficulty_names[difficulty]); difficulty++)
+		{
+		}
+		if (difficulty == (short)NUMBEROF(host_game_difficulty_names))
+		{
+			snprintf(reason, (size_t)reason_size, "\"%s\" is no difficulty: easy, normal, heroic or legendary",
+				colon + 1);
+			return FALSE;
+		}
+	}
+	for (index = 0; index < count; index++)
+	{
+		if ((strlen(levels[index].name) == length && !_strnicmp(levels[index].name, entry, length)) ||
+			(strlen(levels[index].level) == length && !_strnicmp(levels[index].level, entry, length)))
+		{
+			return network_host_game_cooperative_change(levels[index].level, difficulty,
+				next ? _host_game_after : _host_game_now, reason, reason_size);
+		}
+	}
+	snprintf(reason, (size_t)reason_size, "no campaign level %.*s here: a10, a30 ... d40, custom_maps\\name",
+		(int)length, entry);
+	return FALSE;
+}
+
 boolean network_host_game_command(
 	char const *expression,
 	boolean *result)
@@ -1762,8 +2090,12 @@ boolean network_host_game_command(
 			*result = FALSE;
 			return TRUE;
 		}
-		*result = network_host_game_change(entry, next ? _host_game_after : _host_game_now, NONE, reason,
-			sizeof(reason));
+		/* (co-op's: a campaign level, and its difficulty) */
+		if (network_host_game_cooperative())
+			*result = host_game_cooperative_command(entry, next, reason, sizeof(reason));
+		else
+			*result = network_host_game_change(entry, next ? _host_game_after : _host_game_now, NONE, reason,
+				sizeof(reason));
 		if (*result)
 			console_printf(FALSE, "next: %s (%s)", entry, reason);
 		else

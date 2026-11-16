@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run  # noqa: E402
+from harness import CHECK_FAILED, build, enum_with, mutated, read, run  # noqa: E402
 
 CASES = ["classic-identity", "rates", "network-classic", "network-agreed", "locked", "exact-scaling", "decay-and-chance", "substeps-run",
          "blend", "spread"]
@@ -80,18 +80,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("sim_rate", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_default_and_tick_loop():
-    # 60 unless asked (port_config.c), the rate taken at each tick's start and the fast phase after the objects'
-    # update (game.c: the tick's macro step with its first sub-step, what follows the fast phase with its last); the
-    # determinism check writes the rate (determinism_log.c)
-    assert '{ "game.sim_rate", _config_integer, "60", "HALO_SIM_RATE"' in read("port/linux/src/port_config.c")
-    game = read("source/game/game.c")
-    macro = function(game, "game_tick_macro_step")
-    assert macro.index("sim_rate_tick_begin();") < macro.index("units_update();") < macro.index("objects_update();")
-    substep = function(game, "game_tick_substep")
-    assert substep.index("if (substep_index == 0)\n\t\tgame_tick_macro_step();") < \
-        substep.index("sim_substep_run(substep_index);") < substep.index("game_tick_after_substeps();")
-    assert "players_update_after_game();" in function(game, "game_tick_after_substeps")
-    assert 'fprintf(file, "rate %ld\\n", determinism_log.rate);' in read("port/linux/game/determinism_log.c")

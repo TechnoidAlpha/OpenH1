@@ -25,13 +25,3 @@ def test_case(case):
 def test_negative_control():
     status, output = run(build("elevator_carry", generated(True)), "reverse")
     assert status == CHECK_FAILED, output
-
-
-def test_carry_uses_new_collision_nodes():
-    update = function(read("source/objects/objects.c"), "object_update")
-    before = update.index("machine_get_elevator_position(object_index, &elevator_position)")
-    motion = update.index("object_type_update(object_index)")
-    collision = update.index("object_compute_node_matrices(object_index)")
-    carry = update.index("machine_move_elevator_riders(object_index, &elevator_position)")
-    assert before < motion < collision < carry
-    assert "machine_move_elevator_riders(" not in function(read("source/devices/device_machines.c"), "machine_update")

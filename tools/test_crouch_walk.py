@@ -51,6 +51,16 @@ int config_boolean(const char *name)
     assert(!strcmp(name, "input.crouch_walk"));
     return crouch_walk_setting;
 }
+const char *config_player_string(int local_player, const char *name)
+{
+    (void)local_player;
+    return config_string(name);
+}
+int config_player_boolean(int local_player, const char *name)
+{
+    (void)local_player;
+    return config_boolean(name);
+}
 unsigned long config_changes(void)
 {
     return setting_changes;

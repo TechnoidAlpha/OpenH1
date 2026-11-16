@@ -11,8 +11,12 @@ campaign_levels_read), a level started as the PC version's lists start it
   while the profile has a saved game, its mission and difficulty under it
   ("port campaign continue" goes on with it), CHOOSE MISSION, CO-OP (the
   Multiplayer's CO-OP CAMPAIGN page) and BACK, and the panel of the mission
-  CONTINUE plays, else the one Choose Mission opens on, with what the item
-  chosen does.
+  CONTINUE (and RESTART MISSION) plays; CHOOSE MISSION and BACK, which are
+  about no one mission, show the campaign's summary there (how many
+  missions are beaten, on each difficulty, and the one in progress), and
+  CO-OP its own words; and what the item chosen does. RESTART MISSION, under CONTINUE and shown with it, asks first
+  ("port campaign restart ask"), then plays CONTINUE's mission from its
+  start.
 - Choose Mission ("port campaign missions init", "missions update"): HALO's
   ten levels or the custom_maps folder's campaign maps (CUSTOM: LB and RB,
   "tab previous" and "tab next", or a click on a tab, "tab"), three cards at
@@ -28,10 +32,15 @@ campaign_levels_read), a level started as the PC version's lists start it
   picture (ui.map's sp_levels; a Custom Edition map's own, else a title
   card), MISSION 0N, its name, a badge for each difficulty, veiled where it
   is not beaten on it (the profile's flags, as the Xbox's list marks them),
-  NOT YET BEATEN in their place where it is on none, and RESUME on the saved
-  game's. Every mission can be played. A card's A, a second tap on a
+  NOT YET BEATEN in their place where it is on none (on every card), and
+  RESUME on the saved game's. Under them, the chosen one's panel: its name,
+  its objective, and over its badges where the player is with it. Every mission can be played. A card's A, a second tap on a
   touchscreen or SELECT ("choose") opens the difficulties, or goes on with
-  the saved game (RESUME).
+  the saved game (RESUME). On the saved game's card, Y (F on the keyboard)
+  or RESTART ("missions restart") asks first, then plays it from its start.
+- The question before a restart ("restart update"): "Restart <mission>?
+  Your progress in it will be lost.", CANCEL (with the focus, and B) and
+  RESTART ("restart": campaign_restart).
 - Choose Difficulty ("difficulty init", "difficulty update"): four cards,
   the one chosen last focused (game.campaign_difficulty), each its badge,
   its name, the game's words about it and BEATEN where the mission has
@@ -52,8 +61,32 @@ MISSION_CARDS_TOP, MISSION_DOTS, MISSION_DOT_STEP) */
 #define MISSION_SMALL_HEIGHT 211
 #define MISSION_CARD_GAP 10
 #define MISSION_CARDS_TOP 84
+/* the tall layout's cards (the new engine's: port_settings.py's MISSION_TALL,
+MISSION_TALL_TOP): three of one size, the chosen one outlined, each with its
+mission's objective and, at its foot, the hardest difficulty it is beaten on;
+no dots and no panel under them */
+#define MISSION_TALL_WIDTH 158
+#define MISSION_TALL_TOP 78
+#define MISSION_TALL_HEIGHT 326
+/* the tall layout's CONTINUE over the cards, with a saved game
+(port_settings.py's MISSION_RESUME_TOP, MISSION_RESUME_CARDS_TOP): the cards
+under it (on a touchscreen, both moved up by parts of the footer's lift,
+mission_resume_raise); and the
+row's arrows' height (MISSION_ARROW) */
+#define MISSION_RESUME_TOP 48
+#define MISSION_RESUME_CARDS_TOP 108
+#define MISSION_ARROW_HEIGHT 64
+#define MISSION_TALL_OBJECTIVE_LINES 5
+/* (a badge of a difficulty the mission is not beaten on, at a tall card's foot) */
+#define MISSION_TALL_BADGE_FAINT 0.3f
+/* (a name's line, which the objective moves up by under a name of one line) */
+#define MISSION_TALL_NAME_LINE 23
 #define MISSION_DOTS 16
 #define MISSION_DOT_STEP 20
+/* the chosen mission's objective, under its name in the panel: wrapped to
+this many lines (port_settings.py's MISSION_OBJECTIVE_LINES, which its box
+is as tall as) */
+#define MISSION_OBJECTIVE_LINES 2
 /* the card's frames (port_settings.py's mission_card: its third unused) */
 #define MISSION_CARD_RESTING 0
 #define MISSION_CARD_CHOSEN 1
@@ -67,8 +100,10 @@ CAMPAIGN_CONTINUE, HUB_ITEM) */
 #define CAMPAIGN_ITEMS_TOP 92
 #define CAMPAIGN_CONTINUE_HEIGHT 46
 #define CAMPAIGN_ITEM_HEIGHT 26
-/* CO-OP's words in the panel: up from a mission's name's place to its top */
+/* the panel's words without a mission (CO-OP's, the summary's): up from a
+mission's name's place to its top, on so many lines at most */
 #define CAMPAIGN_PANEL_COOP_RISE 158
+#define CAMPAIGN_PANEL_WORDS_LINES 3
 #define NUMBER_OF_DIFFICULTIES 4
 /* a card beside the chosen one, a badge not earned (a card's, the panel's):
 their opacity */
@@ -93,15 +128,25 @@ static struct
 	short difficulty_display_index;
 	/* the difficulty chosen on its screen */
 	short difficulty;
-	/* the mission chosen on Choose Mission last, if it has been open */
-	boolean viewed;
-	short viewed_level;
 	/* the row as it was laid out last (NONE: not yet), and its slide: from
 	how far, since when */
 	short shown_first;
 	real slide_from;
 	unsigned long slide_start;
-} campaign_cards = { FALSE, 0, 0, 0, NONE, NONE, 1, FALSE, 0, NONE, 0.0f, 0 };
+	/* the tall layout's CONTINUE to have the focus as the screen opens */
+	boolean resume_focus;
+} campaign_cards = { FALSE, 0, 0, 0, NONE, NONE, 1, NONE, 0.0f, 0, FALSE };
+
+/* the mission the question asks about (the saved game's), else NONE */
+static short campaign_restart_level = NONE;
+
+/* whether RESTART is offered: with a saved game (saved_level, else NONE),
+on the Campaign menu (chosen NONE), or on Choose Mission on its mission's
+card (HALO's: CUSTOM's maps have no saved game) */
+static boolean campaign_restart_offered(short saved_level, boolean custom, short chosen)
+{
+	return saved_level != NONE && (chosen == NONE || (!custom && chosen == saved_level));
+}
 
 /* ---------- the row's layout (tools/harness/tests/campaign_cards.c) */
 
@@ -112,6 +157,20 @@ static short mission_cards_first(short chosen, short count)
 	if (count <= MISSION_SLOTS)
 		return 0;
 	return (short)PIN(chosen - MISSION_SLOTS / 2, 0, count - MISSION_SLOTS);
+}
+
+/* the tall layout's first of the cards shown: the row kept where it is while
+the chosen card is one of those shown, moved by as little as brings it in
+(the pointer choosing the card it passes over never moves the row under it) */
+static short mission_cards_window(short first, short chosen, short count)
+{
+	if (count <= MISSION_SLOTS)
+		return 0;
+	if (chosen < first)
+		first = chosen;
+	else if (chosen > first + MISSION_SLOTS - 1)
+		first = (short)(chosen - (MISSION_SLOTS - 1));
+	return (short)PIN(first, 0, count - MISSION_SLOTS);
 }
 
 /* each slot's left in the menus' 640 for shown cards (a wide screen's
@@ -391,42 +450,101 @@ static void campaign_panel_show(struct widget_instance *panel, short level)
 	menu_text_box_wrap(named(panel, "panel_objective", 0), text, 3);
 }
 
-/* the mission CHOOSE MISSION's panel shows: the one chosen there last,
-else the first not yet beaten on any difficulty */
-static short campaign_menu_mission(void)
+/* the panel without a mission (CO-OP's, the campaign's summary): a
+mission's picture and number hidden, its title, the line under it (none:
+NULL) and its words at its top, where the picture is; else (title NULL) as
+a mission's */
+static void campaign_panel_words(struct widget_instance *panel, wchar_t const *title, wchar_t const *status,
+	wchar_t const *words)
 {
-	short level;
+	boolean shown = title != NULL;
+	struct widget_instance *box;
 
-	if (campaign_cards.viewed)
-		return campaign_cards.viewed_level;
-	for (level = 0; level < NUMBER_OF_SINGLE_PLAYER_LEVELS; level++)
-	{
-		if (!campaign.levels[level].beaten)
-			return level;
-	}
-	return campaign_cards.opening_level;
+	visible_set(named(panel, "panel_art", 0), !shown);
+	visible_set(named(panel, "panel_art_back", 0), !shown);
+	visible_set(named(panel, "panel_number", 0), !shown);
+	visible_set(named(panel, "panel_status", 0), !shown || status);
+	/* (the words at the panel's top, where the picture is; without a line
+	under the title, right under it) */
+	if ((box = named(panel, "panel_title", 0)) != NULL)
+		box->vertical_offset = (short)(shown ? -CAMPAIGN_PANEL_COOP_RISE : 0);
+	if ((box = named(panel, "panel_status", 0)) != NULL)
+		box->vertical_offset = (short)(shown ? -CAMPAIGN_PANEL_COOP_RISE : 0);
+	if ((box = named(panel, "panel_objective", 0)) != NULL)
+		box->vertical_offset = (short)(shown ? -CAMPAIGN_PANEL_COOP_RISE - (status ? 0 : 16) : 0);
+	if (!shown)
+		return;
+	menu_text_box_fit(named(panel, "panel_title", 0), title, 0);
+	if (status)
+		menu_text_box_fit(named(panel, "panel_status", 0), status, 0);
+	menu_text_box_wrap(named(panel, "panel_objective", 0), words, CAMPAIGN_PANEL_WORDS_LINES);
 }
 
-/* the panel as CO-OP's (a mission's parts hidden, its words), or as a
-mission's */
-static void campaign_panel_coop(struct widget_instance *panel, boolean coop)
+/* text and a number after it ("Easy 3") */
+static void campaign_text_number(wchar_t *text, short size, wchar_t const *words, long number)
 {
-	visible_set(named(panel, "panel_art", 0), !coop);
-	visible_set(named(panel, "panel_art_back", 0), !coop);
-	visible_set(named(panel, "panel_art_corners", 0), !coop);
-	visible_set(named(panel, "panel_number", 0), !coop);
-	visible_set(named(panel, "panel_status", 0), !coop);
-	/* (CO-OP's words at the panel's top, where the picture is) */
-	if (named(panel, "panel_title", 0))
-		named(panel, "panel_title", 0)->vertical_offset = (short)(coop ? -CAMPAIGN_PANEL_COOP_RISE : 0);
-	if (named(panel, "panel_objective", 0))
-		named(panel, "panel_objective", 0)->vertical_offset = (short)(coop ? -CAMPAIGN_PANEL_COOP_RISE - 16 : 0);
-	if (coop)
+	char digits[16];
+	wchar_t wide[16];
+
+	ustrncat(text, words, (long)(size - 1 - (short)ustrlen(text)));
+	snprintf(digits, sizeof(digits), " %ld", number);
+	campaign_widen(digits, wide, (short)NUMBEROF(wide));
+	ustrncat(text, wide, (long)(size - 1 - (short)ustrlen(text)));
+}
+
+/* the campaign's summary, which CHOOSE MISSION and BACK show in the panel (it
+is about no one mission, issue 687): how many of the ten missions are
+beaten, how many on each difficulty, and the mission in progress, if one is
+(its title, the line under it, its words) */
+static void campaign_summary(wchar_t *status, wchar_t *words, short size)
+{
+	wchar_t name[ROW_TEXT_LENGTH];
+	short level, difficulty, beaten = 0;
+	char line[64];
+
+	for (level = 0; level < NUMBER_OF_SINGLE_PLAYER_LEVELS; level++)
 	{
-		menu_text_box_fit(named(panel, "panel_title", 0), L"Co-op", 0);
-		menu_text_box_wrap(named(panel, "panel_objective", 0),
-			L"Play the campaign with a friend: online with your invite link, or split screen with a controller "
-			L"for player 2.", 3);
+		if (campaign.levels[level].beaten)
+			beaten++;
+	}
+	if (!beaten)
+		snprintf(line, sizeof(line), "No mission beaten yet, of %d.", NUMBER_OF_SINGLE_PLAYER_LEVELS);
+	else if (beaten == NUMBER_OF_SINGLE_PLAYER_LEVELS)
+		snprintf(line, sizeof(line), "All %d missions beaten.", NUMBER_OF_SINGLE_PLAYER_LEVELS);
+	else
+		snprintf(line, sizeof(line), "%d of %d missions beaten.", beaten, NUMBER_OF_SINGLE_PLAYER_LEVELS);
+	campaign_widen(line, status, size);
+	/* (each difficulty's count, "Beaten on Easy 3, Normal 1, Heroic 0,
+	Legendary 0.") */
+	campaign_widen("Beaten on ", words, size);
+	for (difficulty = 0; difficulty < NUMBER_OF_DIFFICULTIES; difficulty++)
+	{
+		short count = 0;
+
+		for (level = 0; level < NUMBER_OF_SINGLE_PLAYER_LEVELS; level++)
+		{
+			if (campaign.levels[level].beaten & (1 << difficulty))
+				count++;
+		}
+		campaign_difficulty_name(difficulty, name, ROW_TEXT_LENGTH);
+		if (difficulty)
+			ustrncat(words, L", ", (long)(size - 1 - (short)ustrlen(words)));
+		campaign_text_number(words, size, name, count);
+	}
+	ustrncat(words, L".", (long)(size - 1 - (short)ustrlen(words)));
+	/* (and the saved game's mission, "In progress: Halo, on Easy.") */
+	if (campaign.saved_level != NONE)
+	{
+		ustrncat(words, L" In progress: ", (long)(size - 1 - (short)ustrlen(words)));
+		campaign_level_title(campaign.saved_level, TRUE, name, ROW_TEXT_LENGTH);
+		ustrncat(words, name, (long)(size - 1 - (short)ustrlen(words)));
+		if (campaign.saved_difficulty != NONE)
+		{
+			ustrncat(words, L", on ", (long)(size - 1 - (short)ustrlen(words)));
+			campaign_difficulty_name(campaign.saved_difficulty, name, ROW_TEXT_LENGTH);
+			ustrncat(words, name, (long)(size - 1 - (short)ustrlen(words)));
+		}
+		ustrncat(words, L".", (long)(size - 1 - (short)ustrlen(words)));
 	}
 }
 
@@ -437,23 +555,27 @@ static void campaign_screen_update(struct widget_instance *list)
 {
 	struct widget_instance *panel = list->parameters.list.extended_description;
 	struct widget_instance *item = named(list, "item_continue", 0);
+	struct widget_instance *restart = named(list, "item_restart", 0);
 	boolean saved = campaign.saved_level != NONE;
 	wchar_t text[MISSION_TEXT_LENGTH], difficulty_name[ROW_TEXT_LENGTH];
 	short index, hint = 0;
 	struct widget_instance *child;
 
 	visible_set(item, saved);
-	if (item && !saved && list->focused_child == item)
+	/* (RESTART MISSION with CONTINUE: campaign_restart_offered) */
+	visible_set(restart, campaign_restart_offered(campaign.saved_level, FALSE, NONE));
+	if (!saved && list->focused_child && (list->focused_child == item || list->focused_child == restart))
 	{
 		struct widget_instance *missions = named(list, "item_missions", 0);
 
 		if (missions)
 			list->focused_child = missions;
 	}
-	/* (the items under CONTINUE, up in its place without it) */
+	/* (the items under CONTINUE, up in its place without it; RESTART
+	MISSION's, without it, theirs) */
 	for (child = list->child, index = 0; child; child = child->next)
 	{
-		if (!strncmp(child->name, "item_", 5) && child != item)
+		if (!strncmp(child->name, "item_", 5) && child != item && child->visible)
 		{
 			child->vertical_offset = (short)(CAMPAIGN_ITEMS_TOP + (saved ? CAMPAIGN_CONTINUE_HEIGHT + 4 : 0) +
 				index * (CAMPAIGN_ITEM_HEIGHT + 2));
@@ -462,7 +584,7 @@ static void campaign_screen_update(struct widget_instance *list)
 		if (child == list->focused_child)
 		{
 			hint = !strcmp(child->name, "item_continue") ? 0 : !strcmp(child->name, "item_missions") ? 1 :
-				!strcmp(child->name, "item_coop") ? 2 : 3;
+				!strcmp(child->name, "item_coop") ? 2 : !strcmp(child->name, "item_restart") ? 4 : 3;
 		}
 	}
 	if (saved)
@@ -477,15 +599,28 @@ static void campaign_screen_update(struct widget_instance *list)
 		menu_text_box_fit(named(item, "continue_note", 0), text, 0);
 		if (named(item, "continue_art", 0))
 			named(item, "continue_art", 0)->animation.current_frame_index = campaign.saved_level;
-		/* (its picture's corners CONTINUE's fill, focused or not) */
-		if (named(item, "continue_corners", 0))
-			named(item, "continue_corners", 0)->animation.current_frame_index = list->focused_child == item ? 1 : 0;
 	}
-	/* (CONTINUE's mission; CHOOSE MISSION's the one chosen there last, else
-	the first not yet beaten; CO-OP's its own words) */
-	campaign_panel_coop(panel, hint == 2);
-	if (hint != 2)
-		campaign_panel_show(panel, hint == 0 && saved ? campaign.saved_level : campaign_menu_mission());
+	/* (CONTINUE's and RESTART MISSION's mission; CO-OP's its own words;
+	CHOOSE MISSION's and BACK's, which are about no one mission, the
+	campaign's summary: issue 687) */
+	if (hint == 2)
+	{
+		campaign_panel_words(panel, L"Co-op", NULL,
+			L"Play the campaign with a friend: online with your invite link, or split screen with a controller "
+			L"for player 2.");
+	}
+	else if (hint == 1 || hint == 3 || !saved)
+	{
+		wchar_t status[MISSION_TEXT_LENGTH];
+
+		campaign_summary(status, text, MISSION_TEXT_LENGTH);
+		campaign_panel_words(panel, L"Campaign", status, text);
+	}
+	else
+	{
+		campaign_panel_words(panel, NULL, NULL, NULL);
+		campaign_panel_show(panel, campaign.saved_level);
+	}
 	string_get("pc\\main_menu\\campaign\\hints", hint, text);
 	menu_text_box_wrap(named(panel, "panel_hint", 0), text, 2);
 	profile_name_show(screen_of(list));
@@ -507,6 +642,8 @@ static boolean campaign_missions_initialize(struct widget_instance *list, short 
 	campaign_cards.chosen = campaign_cards.opening_level;
 	campaign_cards.first = mission_cards_first(campaign_cards.chosen, campaign_mission_count());
 	list->focused_child = NULL;
+	/* (the tall layout's CONTINUE, with a saved game: the focus on it first) */
+	campaign_cards.resume_focus = TRUE;
 	return TRUE;
 }
 
@@ -545,6 +682,43 @@ static struct widget_instance *mission_card(struct widget_instance *list, short 
 	return named(list, name, 0);
 }
 
+/* the tall layout's card's foot: the four difficulties' badges in a row (the
+map's own, ui.map's difficulty_options_small, drawn from it), each lit where
+the mission is beaten on it, the rest faint; without the map's badges, their
+outlines and the hardest it is beaten on in words (BEATEN ON <it>) */
+static void mission_card_foot_show(struct widget_instance *card, char const *kind, byte beaten)
+{
+	boolean have_badges = tag_loaded('bitm', MISSION_BADGES) != NONE;
+	wchar_t text[MISSION_TEXT_LENGTH], name_text[ROW_TEXT_LENGTH];
+	char badge_name[48], shape_name[48], name[48];
+	short difficulty, hardest = NONE, index;
+
+	snprintf(badge_name, sizeof(badge_name), "card_badge_%s", kind);
+	snprintf(shape_name, sizeof(shape_name), "card_badge_shape_%s", kind);
+	campaign_badges_show(card, badge_name, shape_name, MISSION_TALL_BADGE_FAINT, beaten, TRUE);
+	for (difficulty = 0; difficulty < NUMBER_OF_DIFFICULTIES; difficulty++)
+	{
+		if (beaten & (1 << difficulty))
+			hardest = difficulty;
+	}
+	text[0] = 0;
+	if (!have_badges && hardest != NONE)
+	{
+		campaign_difficulty_name(hardest, name_text, ROW_TEXT_LENGTH);
+		usnprintf(text, MISSION_TEXT_LENGTH - 1, L"BEATEN ON %s", name_text);
+		text[MISSION_TEXT_LENGTH - 1] = 0;
+		for (index = 0; text[index]; index++)
+		{
+			if (text[index] >= L'a' && text[index] <= L'z')
+				text[index] = (wchar_t)(text[index] - L'a' + L'A');
+		}
+	}
+	snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
+	visible_set(named(card, name, 0), text[0] != 0);
+	if (text[0])
+		menu_text_box_fit(named(card, name, 0), text, 0);
+}
+
 /* a card's parts for a mission: its picture (a title card for a Custom
 Edition map without one), number, name, badges and RESUME */
 static void mission_card_show(struct widget_instance *card, short mission, boolean chosen)
@@ -556,6 +730,8 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		named(card, "card_custom_art_big", 0) : named(card, "card_custom_art_small", 0);
 	char const *kind = named(card, "card_art_big", 0) ? "big" : "small";
 	char name[48];
+	boolean one_line = TRUE;
+	wchar_t const *letter;
 	boolean reached = TRUE;
 
 	if (campaign_cards.custom)
@@ -594,6 +770,16 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		}
 		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
 		visible_set(named(card, name, 0), FALSE);
+		/* (the tall layout's: the map's description under its name, no badges) */
+		snprintf(name, sizeof(name), "card_objective_%s", kind);
+		visible_set(named(card, name, 0), menu_engine_looks());
+		if (menu_engine_looks())
+		{
+			wchar_t const *words = custom_edition_maps_description(display_index);
+
+			menu_text_box_wrap(named(card, name, 0), words ? words : L"", MISSION_TALL_OBJECTIVE_LINES);
+			mission_card_foot_show(card, kind, 0);
+		}
 		card->animation.current_frame_index = chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
 		return;
 	}
@@ -619,8 +805,26 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 	snprintf(name, sizeof(name), "card_title_%s", kind);
 	campaign_level_title(mission, reached, text, MISSION_TEXT_LENGTH);
 	menu_text_box_wrap(named(card, name, 0), text, 2);
+	/* (the tall layout's: its objective right under its name, of one line or two) */
+	snprintf(name, sizeof(name), "card_title_%s", kind);
+	for (letter = named(card, name, 0) ? named(card, name, 0)->parameters.text_box.text : NULL; letter && *letter;
+		letter++)
+	{
+		if (*letter == L'\n')
+			one_line = FALSE;
+	}
+	snprintf(name, sizeof(name), "card_objective_%s", kind);
+	visible_set(named(card, name, 0), menu_engine_looks());
+	if (named(card, name, 0))
+		named(card, name, 0)->vertical_offset = (short)(menu_engine_looks() && one_line ? -MISSION_TALL_NAME_LINE : 0);
+	if (menu_engine_looks())
+	{
+		campaign_string("pc\\main_menu\\solo_level_select\\map_data", reached ? mission : LEVEL_UNAVAILABLE, text,
+			MISSION_TEXT_LENGTH);
+		menu_text_box_wrap(named(card, name, 0), text, MISSION_TALL_OBJECTIVE_LINES);
+	}
 	snprintf(name, sizeof(name), "card_resume_%s", kind);
-	visible_set(named(card, name, 0), mission == campaign.saved_level);
+	visible_set(named(card, name, 0), mission == campaign.saved_level && !menu_engine_looks());
 	{
 		char badge[48], shape[48];
 		byte beaten = campaign.levels[mission].beaten;
@@ -631,22 +835,21 @@ static void mission_card_show(struct widget_instance *card, short mission, boole
 		campaign_badges_show(card, badge, shape, MISSION_BADGE_FAINT, beaten, beaten != 0);
 		snprintf(name, sizeof(name), "card_unbeaten_%s", kind);
 		visible_set(named(card, name, 0), beaten == 0);
+		/* (the same words on every card, the panel's chosen one's and those
+		beside it: their box across the card, which they fit in small_ui) */
 		if (beaten == 0)
-		{
-			static char const *const wordings[] = { "NOT YET BEATEN", "NOT BEATEN", "UNBEATEN" };
-
-			campaign_label_fit(named(card, name, 0), wordings, NUMBEROF(wordings));
-		}
+			menu_text_box_fit(named(card, name, 0), L"NOT YET BEATEN", 0);
+		/* (the tall layout: no badges; nothing where it is beaten on none,
+		else the hardest it is beaten on at the card's foot) */
+		if (menu_engine_looks())
+			mission_card_foot_show(card, kind, beaten);
 	}
 	card->animation.current_frame_index = chosen ? MISSION_CARD_CHOSEN : MISSION_CARD_RESTING;
-	/* (its picture's corners the card's fill, resting or chosen) */
-	snprintf(name, sizeof(name), "card_art_corners_%s", kind);
-	if (named(card, name, 0))
-		named(card, name, 0)->animation.current_frame_index = chosen ? 1 : 0;
 }
 
-/* the panel under the cards: the chosen mission's name, objective, where
-the player is with it, and BEATEN ON's badges */
+/* the panel under the cards: the chosen mission's name and objective (on
+MISSION_OBJECTIVE_LINES lines), and where the player is with it over the
+badges of the difficulties it has been finished on */
 static void mission_panel_show(struct widget_instance *panel, short mission, short count)
 {
 	wchar_t text[MISSION_TEXT_LENGTH];
@@ -662,8 +865,8 @@ static void mission_panel_show(struct widget_instance *panel, short mission, sho
 
 		menu_text_box_fit(named(panel, "detail_title", 0), words ? words : L"", 0);
 		words = custom_edition_maps_description(display_index);
-		menu_text_box_wrap(named(panel, "detail_objective", 0), words ? words : L"", 1);
-		campaign_text_set_ascii(named(panel, "detail_status", 0), "A campaign map of your custom_maps folder.");
+		menu_text_box_wrap(named(panel, "detail_objective", 0), words ? words : L"", MISSION_OBJECTIVE_LINES);
+		menu_text_box_fit(named(panel, "detail_status", 0), L"From your custom_maps folder.", 0);
 		visible_set(named(panel, "detail_status", 0), TRUE);
 		visible_set(named(panel, "detail_status_new", 0), FALSE);
 		campaign_badges_show(panel, "detail_badge", "detail_badge_shape", MISSION_PANEL_BADGE_FAINT, 0, TRUE);
@@ -678,9 +881,10 @@ static void mission_panel_show(struct widget_instance *panel, short mission, sho
 		menu_text_box_fit(named(panel, "detail_title", 0), text, 0);
 		campaign_string("pc\\main_menu\\solo_level_select\\map_data", reached ? mission : LEVEL_UNAVAILABLE, text,
 			MISSION_TEXT_LENGTH);
-		menu_text_box_wrap(named(panel, "detail_objective", 0), text, 1);
+		menu_text_box_wrap(named(panel, "detail_objective", 0), text, MISSION_OBJECTIVE_LINES);
 		campaign_level_status(mission, text, MISSION_TEXT_LENGTH);
-		/* (NOT YET BEATEN in its own colour, which the eye finds at once) */
+		/* (over the badges, which it is about; NOT YET BEATEN in its own
+		colour, which the eye finds at once) */
 		menu_text_box_fit(named(panel, beaten || saved ? "detail_status" : "detail_status_new", 0), text, 0);
 		visible_set(named(panel, "detail_status", 0), beaten || saved);
 		visible_set(named(panel, "detail_status_new", 0), !beaten && !saved);
@@ -696,12 +900,30 @@ static void mission_panel_show(struct widget_instance *panel, short mission, sho
 /* "port campaign missions update", the row's list's: the chosen mission
 (one the pointer passed over, or tapped), the row laid out about it, the
 cards, the dots, the panel and the footer's SELECT or RESUME */
+/* how far up CONTINUE (cards: and the cards under it) are moved, with the
+tall layout's footer raised on a touchscreen (ui_widget_port_foot_lift):
+the room above, between and under them shared, the cards' foot above the
+footer's line (only CONTINUE's cards reach so low) */
+static short mission_resume_raise(boolean cards)
+{
+	short lift = ui_widget_port_foot_lift();
+
+	return (short)(cards ? 2 * lift / 3 : lift / 3);
+}
+
 static void campaign_missions_update(struct widget_instance *list)
 {
 	struct widget_instance *screen = screen_of(list);
 	short count = campaign_mission_count();
 	short slot_x[MISSION_SLOTS];
 	short focused_slot = mission_card_slot(list->focused_child);
+	/* (the new engine's tall layout: port_settings.py's _missions_tall_widgets) */
+	boolean tall = menu_engine_looks();
+	boolean resume_shown = !campaign_cards.custom && campaign.saved_level != NONE && count > 0;
+	short cards_top = resume_shown ? (short)(MISSION_RESUME_CARDS_TOP - mission_resume_raise(TRUE)) :
+		MISSION_TALL_TOP;
+	/* (CONTINUE, shown, has the focus: set with it, below) */
+	boolean resume_focused = FALSE;
 	/* (a card the pointer passes over: lit, and kept the focus, but not
 	chosen) */
 	boolean hovered = focused_slot != NONE && ui_widget_port_hover_focused();
@@ -711,21 +933,40 @@ static void campaign_missions_update(struct widget_instance *list)
 	short shown, slot, index;
 	wchar_t text[MISSION_TEXT_LENGTH];
 
-	if (mission_card_focus_chooses(focused_slot, hovered) && list->focused_child->visible &&
-		campaign_cards.first + focused_slot < count)
+	/* (the tall layout's: the card the pointer passes over is chosen and has
+	the focus, lit as the keys light it, the row kept where it is under the
+	pointer: mission_cards_window; one look for a card that has the focus) */
+	if (tall && focused_slot != NONE)
+	{
+		hovered = FALSE;
+		focus_on_card = TRUE;
+	}
+	if ((tall ? focused_slot != NONE : mission_card_focus_chooses(focused_slot, hovered)) &&
+		list->focused_child->visible && campaign_cards.first + focused_slot < count)
 	{
 		campaign_cards.chosen = (short)(campaign_cards.first + focused_slot);
 	}
 	campaign_cards.chosen = (short)PIN(campaign_cards.chosen, 0, MAX(count - 1, 0));
-	campaign_cards.first = mission_cards_first(campaign_cards.chosen, count);
+	campaign_cards.first = tall ? mission_cards_window(campaign_cards.first, campaign_cards.chosen, count) :
+		mission_cards_first(campaign_cards.chosen, count);
 	shown = (short)MIN(count, MISSION_SLOTS);
 	mission_cards_place(shown, (short)(campaign_cards.chosen - campaign_cards.first), ui_widget_port_wide_extra(),
 		slot_x);
+	/* (the tall layout's cards, all of one size) */
+	if (tall)
+	{
+		short gap = (short)(MISSION_CARD_GAP + ui_widget_port_wide_extra() / 8);
+		short left = (short)(320 - (shown * MISSION_TALL_WIDTH + (shown - 1) * gap) / 2);
+
+		for (slot = 0; slot < shown; slot++)
+			slot_x[slot] = (short)(left + slot * (MISSION_TALL_WIDTH + gap));
+	}
 	/* (a row moved slides there, from where it is drawn now: a press
 	during a slide carries it on) */
 	{
 		unsigned long now = system_milliseconds();
-		real pitch = (real)(MISSION_SMALL_WIDTH + MISSION_CARD_GAP + ui_widget_port_wide_extra() / 8);
+		real pitch = (real)((tall ? MISSION_TALL_WIDTH : MISSION_SMALL_WIDTH) + MISSION_CARD_GAP +
+			ui_widget_port_wide_extra() / 8);
 		real shift = mission_cards_slide(campaign_cards.slide_from, now - campaign_cards.slide_start);
 
 		if (campaign_cards.shown_first != NONE && campaign_cards.first != campaign_cards.shown_first)
@@ -752,20 +993,52 @@ static void campaign_missions_update(struct widget_instance *list)
 		if (big)
 		{
 			big->horizontal_offset = slot_x[slot];
-			big->vertical_offset = MISSION_CARDS_TOP;
+			big->vertical_offset = tall ? cards_top : MISSION_CARDS_TOP;
 		}
 		if (small)
 		{
 			small->horizontal_offset = slot_x[slot];
-			small->vertical_offset = (short)(MISSION_CARDS_TOP + (MISSION_BIG_HEIGHT - MISSION_SMALL_HEIGHT) / 2);
+			small->vertical_offset = tall ? cards_top :
+				(short)(MISSION_CARDS_TOP + (MISSION_BIG_HEIGHT - MISSION_SMALL_HEIGHT) / 2);
 		}
 		mission_card_show(chosen ? big : small, mission, chosen);
 		/* (fainter beside the chosen one, but the one the pointer lights) */
 		if (small)
-			small->alpha_modifier = hovered && list->focused_child == small ? 1.0f : MISSION_CARD_FAINT;
+			small->alpha_modifier = tall || (hovered && list->focused_child == small) ? 1.0f : MISSION_CARD_FAINT;
 		/* (the focus on the chosen card, which is the larger one) */
 		if (chosen && focus_on_card && big)
 			list->focused_child = big;
+	}
+	/* (the tall layout's arrows on the middle of its cards, wherever they
+	are; each lit while it has the focus, the chosen card then resting: one
+	thing lit) */
+	if (tall)
+	{
+		struct widget_instance *arrows[2];
+		short arrow;
+
+		arrows[0] = named(list, "arrow_previous", 0);
+		arrows[1] = named(list, "arrow_next", 0);
+		for (arrow = 0; arrow < 2; arrow++)
+		{
+			if (!arrows[arrow])
+				continue;
+			arrows[arrow]->animation.current_frame_index = list->focused_child == arrows[arrow] ? 1 : 0;
+			if (list->focused_child == arrows[arrow])
+			{
+				for (slot = 0; slot < MISSION_SLOTS; slot++)
+				{
+					if (mission_card(list, slot, TRUE))
+						mission_card(list, slot, TRUE)->animation.current_frame_index = MISSION_CARD_RESTING;
+				}
+			}
+		}
+		if (named(list, "arrow_previous", 0))
+			named(list, "arrow_previous", 0)->vertical_offset =
+				(short)(cards_top + (MISSION_TALL_HEIGHT - MISSION_ARROW_HEIGHT) / 2);
+		if (named(list, "arrow_next", 0))
+			named(list, "arrow_next", 0)->vertical_offset =
+				(short)(cards_top + (MISSION_TALL_HEIGHT - MISSION_ARROW_HEIGHT) / 2);
 	}
 	visible_set(named(list, "arrow_previous", 0), campaign_cards.chosen > 0);
 	visible_set(named(list, "arrow_next", 0), campaign_cards.chosen < count - 1);
@@ -776,7 +1049,7 @@ static void campaign_missions_update(struct widget_instance *list)
 
 		snprintf(name, sizeof(name), "mission_dot_%d", index);
 		dot = named(screen, name, 0);
-		visible_set(dot, count > 1 && count <= MISSION_DOTS && index < count);
+		visible_set(dot, !tall && count > 1 && count <= MISSION_DOTS && index < count);
 		if (dot)
 		{
 			dot->animation.current_frame_index = index == campaign_cards.chosen ? 1 : 0;
@@ -784,11 +1057,9 @@ static void campaign_missions_update(struct widget_instance *list)
 		}
 	}
 	mission_panel_show(list->parameters.list.extended_description, campaign_cards.chosen, count);
-	if (!campaign_cards.custom && count > 0)
-	{
-		campaign_cards.viewed = TRUE;
-		campaign_cards.viewed_level = campaign_cards.chosen;
-	}
+	/* (the tall layout's cards have their details: no panel) */
+	if (tall)
+		visible_set(list->parameters.list.extended_description, FALSE);
 	if (count <= 0)
 	{
 		campaign_widen("Put Custom Edition campaign maps in your custom_maps folder to play them here.", text,
@@ -797,8 +1068,66 @@ static void campaign_missions_update(struct widget_instance *list)
 	}
 	visible_set(named(screen, "mission_empty", 0), count <= 0);
 	menu_tabs_show(named(screen, "source_tabs", 0), campaign_cards.custom ? 1 : 0);
+	/* (the tall layout's CONTINUE over the row, with a saved game: its
+	picture, mission and difficulty; the cards under it lower; the focus on it
+	as the screen opens; lit while it has the focus) */
+	{
+		struct widget_instance *row = named(screen, "mission_resume_row", 0);
+		struct widget_instance *resume = named(screen, "mission_resume", 0);
+		boolean shown = tall && resume_shown && row && resume;
+
+		visible_set(row, shown);
+		if (shown)
+		{
+			row->vertical_offset = (short)(MISSION_RESUME_TOP - mission_resume_raise(FALSE));
+			if (campaign_cards.resume_focus)
+				screen->focused_child = row;
+			row->focused_child = resume;
+			campaign_level_title(campaign.saved_level, TRUE, text, MISSION_TEXT_LENGTH);
+			menu_text_box_fit(named(resume, "resume_title", 0), text, 0);
+			{
+				char label[32];
+
+				snprintf(label, sizeof(label), "CONTINUE  \xB7  MISSION %02d", campaign.saved_level + 1);
+				campaign_widen(label, text, MISSION_TEXT_LENGTH);
+				menu_text_box_fit(named(resume, "resume_label", 0), text, 0);
+			}
+			if (named(resume, "resume_art", 0))
+				named(resume, "resume_art", 0)->animation.current_frame_index = campaign.saved_level;
+			if (campaign.saved_difficulty != NONE)
+			{
+				campaign_difficulty_name(campaign.saved_difficulty, text, MISSION_TEXT_LENGTH);
+				menu_text_box_fit(named(resume, "resume_difficulty", 0), text, 0);
+			}
+			visible_set(named(resume, "resume_badge", 0), campaign.saved_difficulty != NONE &&
+				tag_loaded('bitm', MISSION_BADGES) != NONE);
+			if (named(resume, "resume_badge", 0))
+				named(resume, "resume_badge", 0)->animation.current_frame_index =
+					(short)MAX(campaign.saved_difficulty, 0);
+			resume_focused = screen->focused_child == row;
+			resume->animation.current_frame_index = resume_focused ? 1 : 0;
+			/* (one thing lit: the chosen card resting while CONTINUE has the focus) */
+			if (screen->focused_child == row)
+			{
+				for (slot = 0; slot < MISSION_SLOTS; slot++)
+				{
+					struct widget_instance *big = mission_card(list, slot, TRUE);
+
+					if (big)
+						big->animation.current_frame_index = MISSION_CARD_RESTING;
+				}
+			}
+		}
+		else if (row && screen->focused_child == row)
+			screen->focused_child = list;
+		campaign_cards.resume_focus = FALSE;
+	}
+	/* (RESTART on the saved game's card; in the tall layout, while CONTINUE
+	has the focus, the saved game's to restart, and on no card) */
+	visible_set(named(screen, "prompt_restart", 0), count > 0 && (tall ? resume_focused :
+		campaign_restart_offered(campaign.saved_level, campaign_cards.custom, campaign_cards.chosen)));
 	campaign_text_set_ascii(named(screen, "prompt_select", 0),
-		!campaign_cards.custom && count > 0 && campaign_cards.chosen == campaign.saved_level ?
+		!campaign_cards.custom && count > 0 && (tall ? resume_focused : campaign_cards.chosen == campaign.saved_level) ?
 		"%a-button RESUME" : "%a-button SELECT");
 	profile_name_show(screen);
 }
@@ -812,13 +1141,32 @@ static boolean campaign_missions_step(struct widget_instance *widget, short step
 
 	while (list && strcmp(list->name, "mission_cards"))
 		list = list->parent;
+	/* (the screen's own left and right: its row, the focus given back to it
+	from the footer's prompts or the tabs the pointer passed over) */
+	if (!list && (list = named(screen_of(widget), "mission_cards", 0)) != NULL && list->parent)
+		list->parent->focused_child = list;
 	if (chosen == campaign_cards.chosen)
 		return TRUE;
 	campaign_cards.chosen = chosen;
-	campaign_cards.first = mission_cards_first(chosen, count);
+	campaign_cards.first = menu_engine_looks() ? mission_cards_window(campaign_cards.first, chosen, count) :
+		mission_cards_first(chosen, count);
 	/* (a card focused moves to the chosen one: the update) */
 	if (list && mission_card_slot(list->focused_child) != NONE)
 		list->focused_child = NULL;
+	ui_play_audio_feedback_sound(SOUND_CURSOR);
+	return TRUE;
+}
+
+/* "port campaign up", "down": Choose Mission's CONTINUE (up, while it is
+shown) or the cards (down) given the focus */
+static boolean campaign_missions_up_down(struct widget_instance *widget, boolean up)
+{
+	struct widget_instance *screen = screen_of(widget);
+	struct widget_instance *target = named(screen, up ? "mission_resume_row" : "mission_cards", 0);
+
+	if (!target || !target->visible || screen->focused_child == target)
+		return TRUE;
+	screen->focused_child = target;
 	ui_play_audio_feedback_sound(SOUND_CURSOR);
 	return TRUE;
 }
@@ -849,7 +1197,7 @@ static boolean campaign_missions_choose(struct widget_instance *widget, short co
 
 	/* (a card beside the chosen one: chosen, slid to the middle, not
 	opened; failing, so that its screen does not open) */
-	if (mission_card_click_chooses(campaign_cards.first, slot, campaign_cards.chosen, count))
+	if (!menu_engine_looks() && mission_card_click_chooses(campaign_cards.first, slot, campaign_cards.chosen, count))
 	{
 		struct widget_instance *list = widget->parent;
 
@@ -879,7 +1227,9 @@ static boolean campaign_missions_choose(struct widget_instance *widget, short co
 		ui_play_audio_feedback_sound(SOUND_FORWARD);
 		return TRUE;
 	}
-	if (mission == campaign.saved_level)
+	/* (the saved game's mission goes on with it; but in the tall layout,
+	whose CONTINUE does that, its card is a mission to start, as any other) */
+	if (mission == campaign.saved_level && !menu_engine_looks())
 	{
 		campaign_continue(controller);
 		return FALSE;
@@ -917,6 +1267,38 @@ static boolean campaign_difficulty_initialize(struct widget_instance *list, shor
 		list->focused_child = card;
 		list->parameters.list.selected_index = campaign_cards.difficulty;
 	}
+	return TRUE;
+}
+
+/* "port campaign difficulty previous" and "next", the screen's left and
+right (the arrows, the D-pad, the stick): the card before or after the
+focused one, at the row's ends none, the focus given back to the cards from
+the footer's prompts the pointer passed over */
+static boolean campaign_difficulty_step(struct widget_instance *widget, short step)
+{
+	struct widget_instance *list = named(screen_of(widget), "difficulty_list", 0);
+	struct widget_instance *card;
+	short focused = NONE, index;
+	char name[24];
+
+	if (!list)
+		return TRUE;
+	for (index = 0; index < NUMBER_OF_DIFFICULTIES; index++)
+	{
+		snprintf(name, sizeof(name), "difficulty_%d", index);
+		if (list->focused_child && list->focused_child == named(list, name, 0))
+			focused = index;
+	}
+	if (list->parent)
+		list->parent->focused_child = list;
+	index = (short)PIN((focused == NONE ? campaign_cards.difficulty : focused) + step, 0, NUMBER_OF_DIFFICULTIES - 1);
+	snprintf(name, sizeof(name), "difficulty_%d", index);
+	card = named(list, name, 0);
+	if (!card || index == focused)
+		return TRUE;
+	ui_widget_port_give_focus(list, card);
+	list->parameters.list.selected_index = index;
+	ui_play_audio_feedback_sound(SOUND_CURSOR);
 	return TRUE;
 }
 
@@ -960,6 +1342,9 @@ static void campaign_difficulty_update(struct widget_instance *list)
 			break;
 		if (child == list->focused_child)
 			campaign_cards.difficulty = index;
+		/* (lit while it has the focus, set each frame: the pointer's focus too,
+		which no event follows) */
+		child->animation.current_frame_index = child == list->focused_child ? 1 : 0;
 		if ((widget = named(child, "difficulty_badge", 0)) != NULL)
 		{
 			widget->animation.current_frame_index = index;
@@ -1003,6 +1388,70 @@ static boolean campaign_difficulty_play(struct widget_instance *widget, short co
 	return difficulty_start(difficulty, controller);
 }
 
+/* ---------- a mission in progress started again */
+
+/* "port campaign restart ask" (the Campaign menu's RESTART MISSION, chosen
+NONE), "missions restart" (Choose Mission's Y and RESTART, its chosen
+card): the question opens for the saved game's mission (TRUE); else it
+does not (FALSE) */
+static boolean campaign_restart_ask(short chosen)
+{
+	if (!campaign_restart_offered(campaign.saved_level, campaign_cards.custom, chosen))
+	{
+		campaign_restart_level = NONE;
+		return FALSE;
+	}
+	campaign_restart_level = campaign.saved_level;
+	ui_play_audio_feedback_sound(SOUND_FORWARD);
+	return TRUE;
+}
+
+/* "port campaign restart" (the question's RESTART): the mission asked
+about from its start, at the saved game's difficulty, as the next level
+after one won starts: main.c's main_new_map loads no saved game
+(main_disallow_persistent_storage). The saved game's file is kept until a
+checkpoint of the new start takes its place (game_state.c's
+game_state_save_to_persistent_storage writes none before the first).
+Nothing starts (FALSE) if the saved game is no longer the one asked about */
+static boolean campaign_restart(short controller)
+{
+	struct player_profile profile;
+	char const *map_name;
+	short level, difficulty;
+
+	if (campaign_restart_level == NONE || !campaign_profile(controller, &profile) ||
+		!ui_widget_port_saved_game(&map_name, &level, &difficulty) || level != campaign_restart_level)
+	{
+		campaign_restart_level = NONE;
+		return campaign_fail();
+	}
+	campaign_start(map_name, difficulty, controller);
+	main_disallow_persistent_storage();
+	return TRUE;
+}
+
+/* "port campaign restart cancel" (CANCEL, B): back, nothing changed */
+static boolean campaign_restart_cancel(void)
+{
+	campaign_restart_level = NONE;
+	return TRUE;
+}
+
+/* "port campaign restart update": the question, of the mission asked about
+(kept while the mission loads: the question is shown until it has) */
+static void campaign_restart_update(struct widget_instance *screen)
+{
+	wchar_t text[MISSION_TEXT_LENGTH], title[MISSION_TEXT_LENGTH];
+
+	if (campaign_restart_level == NONE)
+		return;
+	campaign_level_title(campaign_restart_level, TRUE, title, MISSION_TEXT_LENGTH);
+	campaign_widen("Restart ", text, MISSION_TEXT_LENGTH);
+	ustrncat(text, title, MISSION_TEXT_LENGTH - 1 - (long)ustrlen(text));
+	ustrncat(text, L"?\r\nYour progress in it will be lost.", MISSION_TEXT_LENGTH - 1 - (long)ustrlen(text));
+	text_set_length(screen, text, MISSION_TEXT_LENGTH);
+}
+
 /* ---------- the functions */
 
 static boolean campaign_menu_event(struct widget_instance *widget, char const *name, short controller)
@@ -1025,8 +1474,33 @@ static boolean campaign_menu_event(struct widget_instance *widget, char const *n
 		return campaign_missions_choose(widget, controller);
 	if (!strcmp(name, "difficulty init"))
 		return campaign_difficulty_initialize(widget, controller);
+	if (!strcmp(name, "up") || !strcmp(name, "down"))
+		return campaign_missions_up_down(widget, !strcmp(name, "up"));
+	if (!strcmp(name, "difficulty previous"))
+		return campaign_difficulty_step(widget, -1);
+	if (!strcmp(name, "difficulty next"))
+		return campaign_difficulty_step(widget, 1);
 	if (!strcmp(name, "play"))
 		return campaign_difficulty_play(widget, controller);
+	if (!strcmp(name, "restart ask"))
+		return campaign_restart_ask(NONE);
+	if (!strcmp(name, "missions restart"))
+	{
+		/* (the tall layout's: CONTINUE's, its saved game's, while it has
+		the focus; none on the cards) */
+		if (menu_engine_looks())
+		{
+			struct widget_instance *screen = screen_of(widget);
+
+			return screen && screen->focused_child && screen->focused_child == named(screen, "mission_resume_row", 0) &&
+				screen->focused_child->visible ? campaign_restart_ask(NONE) : FALSE;
+		}
+		return campaign_restart_ask(campaign_cards.chosen);
+	}
+	if (!strcmp(name, "restart"))
+		return campaign_restart(controller);
+	if (!strcmp(name, "restart cancel"))
+		return campaign_restart_cancel();
 	return FALSE;
 }
 
@@ -1038,4 +1512,6 @@ static void campaign_menu_update(struct widget_instance *widget, char const *nam
 		campaign_missions_update(widget);
 	else if (!strcmp(name, "difficulty update"))
 		campaign_difficulty_update(widget);
+	else if (!strcmp(name, "restart update"))
+		campaign_restart_update(widget);
 }

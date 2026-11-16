@@ -1,0 +1,786 @@
+#!/usr/bin/env python3
+"""goat-rig: the shared build and test kit of the Linux test machines (tools/rig/README.md).
+
+    goat-rig build <branch|sha|pr/N> [targets...]   the mirror fetched, its worktree built with the cache
+    goat-rig path <branch|sha|pr/N>                  the binary a build left (no build)
+    goat-rig run <label> [options] [-- VAR=... [-- VAR=...]]   1 to 4 hidden, muted games on loopback
+    goat-rig exec <branch> -- <command...>           a tree's own tool in its worktree (identity.py --repeat)
+    goat-rig fetch [<host>:]<label> <dest>          a run's pictures, videos and logs copied to <dest>
+    goat-rig clean [--older-than DAYS] [--builds]    old runs (and builds) removed
+    goat-rig status                                  locks, disk, cache
+    goat-rig @<host> <command...>                    the command run on omarchy or 5900x over ssh (from a Mac)
+
+Everything lives in ~/goat-rig of the machine (GOAT_RIG overrides): repo.git (a bare clone of GitHub's
+OpenH1/goath1), builds/<name> (one worktree per branch, its build/ in it), ccache, runs/<label>, locks.
+"""
+
+import argparse
+import contextlib
+import fcntl
+import json
+import os
+import re
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+HOME = Path.home()
+RIG = Path(os.environ.get("GOAT_RIG", HOME / "goat-rig"))
+KIT = Path(__file__).resolve().parent
+REPO = RIG / "repo.git"
+BUILDS = RIG / "builds"
+RUNS = RIG / "runs"
+LOCKS = RIG / "locks"
+GITHUB = "https://github.com/OpenH1/goath1.git"
+LAUNCHER = RIG / "bin" / "rig-ccache"
+OPENCE = RIG / "opence-359"
+MCC = RIG / "mcc-maps" / "mcc_maps"
+MAPS = RIG / "maps"
+# the machine owner's own game (installed in ~/Applications/OpenH1): never start one while it runs, stop ours if it
+# starts
+OWNER_GAME = f"^{HOME}/Applications/OpenH1/bin/openh1"
+
+
+def hosts():
+    """the machines' ssh targets: <name>.fabric, or ~/.config/goat-rig/hosts's "<name> <user@host>" lines"""
+    table = {"omarchy": "omarchy.fabric", "5900x": "5900x.fabric"}
+    with contextlib.suppress(OSError):
+        for line in (HOME / ".config/goat-rig/hosts").read_text().splitlines():
+            if len(line.split()) == 2 and not line.startswith("#"):
+                table[line.split()[0]] = line.split()[1]
+    return table
+
+
+DEFAULT_TARGETS = ["build/linux_x86_64/halo", "build/linux_x86_64/openh1.assets"]
+BUILD_SLOTS = 2
+# the multiplayer maps' scenario names (--map bloodgulch)
+STOCK_MAPS = {name: f"levels\\test\\{name}\\{name}" for name in (
+    "beavercreek", "bloodgulch", "boardingaction", "carousel", "chillout", "damnation", "dangercanyon",
+    "deathisland", "gephyrophobia", "hangemhigh", "icefields", "infinity", "longest", "prisoner", "putput",
+    "ratrace", "sidewinder", "timberland", "wizard")}
+STOCK_MAPS.update({name: f"levels\\{name}\\{name}" for name in (
+    "a10", "a30", "a50", "b30", "b40", "c10", "c20", "c40", "d20", "d40")})
+PORT = 25150
+
+
+def say(*words):
+    print("goat-rig:", *words, flush=True)
+
+
+def die(*words, status=2):
+    print("goat-rig:", *words, file=sys.stderr, flush=True)
+    sys.exit(status)
+
+
+@contextlib.contextmanager
+def locked(name, note="", wait_note=None):
+    LOCKS.mkdir(parents=True, exist_ok=True)
+    path = LOCKS / name
+    with open(path, "a+") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            handle.seek(0)
+            if wait_note:
+                say(wait_note, "(held by:", (handle.read().strip() or "another run") + ")")
+            fcntl.flock(handle, fcntl.LOCK_EX)
+        handle.seek(0)
+        handle.truncate()
+        handle.write(f"{note} pid {os.getpid()} since {time.strftime('%H:%M:%S')}\n")
+        handle.flush()
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            handle.truncate()
+
+
+def git(*arguments, check=True, capture=True, cwd=None):
+    command = ["git", "--git-dir", str(REPO)] if cwd is None else ["git", "-C", str(cwd)]
+    result = subprocess.run(command + list(arguments), capture_output=capture, text=True)
+    if check and result.returncode:
+        die("git", " ".join(arguments), "failed:", (result.stderr or "").strip())
+    return (result.stdout or "").strip()
+
+
+def owner_playing():
+    result = subprocess.run(["pgrep", "-fa", OWNER_GAME], capture_output=True, text=True)
+    return result.stdout.strip()
+
+
+# ---------- build
+
+
+def build_name(ref):
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", ref).strip("-") or "unnamed"
+
+
+def resolve(ref, fetch=True):
+    """the commit of a branch (GitHub's), a branch pushed to the mirror (refs/heads), pr/N or a sha"""
+    if not REPO.is_dir():
+        die(f"no mirror at {REPO}: run tools/rig/install.sh <host> from a checkout first")
+    if fetch:
+        with locked("mirror.lock", "fetch", "waiting for the mirror"):
+            git("fetch", "--quiet", "--prune", "origin", "+refs/heads/*:refs/remotes/origin/*")
+            pr = re.fullmatch(r"pr/(\d+)", ref)
+            if pr:
+                git("fetch", "--quiet", "origin", f"+refs/pull/{pr.group(1)}/head:refs/remotes/pr/{pr.group(1)}")
+    for candidate in (f"refs/remotes/origin/{ref}", f"refs/heads/{ref}", f"refs/remotes/{ref}", ref):
+        sha = git("rev-parse", "--verify", "--quiet", candidate + "^{commit}", check=False)
+        if sha:
+            return sha, candidate.startswith("refs/") or not re.fullmatch(r"[0-9a-f]{7,40}", ref)
+    if fetch and re.fullmatch(r"[0-9a-f]{7,40}", ref):
+        with locked("mirror.lock", "fetch", "waiting for the mirror"):
+            git("fetch", "--quiet", "origin", ref, check=False)
+        sha = git("rev-parse", "--verify", "--quiet", ref + "^{commit}", check=False)
+        if sha:
+            return sha, False
+    die(f"{ref}: no such branch or commit on GitHub or in the mirror")
+
+
+def tree_of(ref, sha, named):
+    return BUILDS / (build_name(ref) if named else "sha-" + sha[:10])
+
+
+def cores():
+    return max(1, (os.cpu_count() or 4) - 2)
+
+
+def build_env():
+    env = dict(os.environ)
+    env["PATH"] = os.pathsep.join([str(RIG / "venv" / "bin"), str(RIG / "bin"), env.get("PATH", "/usr/bin:/bin")])
+    return env
+
+
+def cmd_build(argv):
+    parser = argparse.ArgumentParser(prog="goat-rig build")
+    parser.add_argument("ref", help="a branch, a branch pushed to the mirror, pr/N or a sha")
+    parser.add_argument("targets", nargs="*", help=f"ninja targets (default: {' '.join(DEFAULT_TARGETS)})")
+    parser.add_argument("--release", action="store_true", help="configure.py --release")
+    parser.add_argument("--configure", default="", help="more configure.py options, one string")
+    parser.add_argument("--clean", action="store_true", help="ninja -t clean first (the cache stays)")
+    parser.add_argument("--jobs", type=int, default=cores(), help="ninja -j (default: all cores but 2)")
+    args = parser.parse_args(argv)
+    sha, named = resolve(args.ref)
+    tree = tree_of(args.ref, sha, named)
+    BUILDS.mkdir(parents=True, exist_ok=True)
+    with locked(f"build-{tree.name}.lock", f"build {args.ref}", f"waiting for another build of {tree.name}"):
+        with locked("mirror.lock", "worktree"):
+            if not (tree / ".git").exists():
+                if tree.exists():
+                    shutil.rmtree(tree)
+                git("worktree", "prune")
+                git("worktree", "add", "--quiet", "--detach", "--force", str(tree), sha)
+                seed_third_party(tree)
+        git("checkout", "--quiet", "--detach", "--force", sha, cwd=tree)
+        git("clean", "-fdq", cwd=tree)
+        (tree / ".rig-ref").write_text(f"{args.ref} {sha}\n")
+        options = ["--compiler-launcher", str(LAUNCHER)] + (["--release"] if args.release else [])
+        options += shlex.split(args.configure)
+        configured = tree / "build.ninja"
+        stamp = tree / "build" / ".rig-configure"
+        if not configured.exists() or not stamp.exists() or stamp.read_text() != " ".join(options):
+            say(f"configuring {tree.name}")
+            with open(tree / "configure.log", "w") as log:
+                if subprocess.run([sys.executable, "configure.py", *options], cwd=tree, env=build_env(),
+                                  stdout=log, stderr=subprocess.STDOUT).returncode:
+                    print((tree / "configure.log").read_text()[-3000:])
+                    die(f"configure failed: {tree / 'configure.log'}", status=1)
+            stamp.parent.mkdir(parents=True, exist_ok=True)
+            stamp.write_text(" ".join(options))
+        targets = args.targets or DEFAULT_TARGETS
+        start = time.monotonic()
+        with build_slot():
+            with open(tree / "build.log", "w") as log:
+                if args.clean:
+                    subprocess.run(["ninja", "-t", "clean"], cwd=tree, env=build_env(), stdout=log)
+                status = subprocess.run(["nice", "-n", "10", "ninja", "-j", str(args.jobs), *targets], cwd=tree,
+                                        env=build_env(), stdout=log, stderr=subprocess.STDOUT).returncode
+        seconds = time.monotonic() - start
+        if status:
+            text = (tree / "build.log").read_text(errors="replace").splitlines()
+            print("\n".join([line for line in text if "error:" in line or "FAILED" in line][:40] or text[-30:]))
+            die(f"build of {args.ref} ({sha[:10]}) failed after {seconds:.0f} s: {tree / 'build.log'}", status=1)
+    say(f"built {args.ref} ({sha[:10]}) in {seconds:.0f} s")
+    print(tree / "build" / "linux_x86_64" / "halo")
+
+
+def seed_third_party(tree):
+    """configure.py's downloads (musl, SDL3, FFmpeg, the Vulkan headers: build/*/third_party) copied from
+    another worktree, master's first: configure checks each against its pinned version and SHA-256, and downloads
+    again only what differs"""
+    for other in [BUILDS / "master"] + sorted(BUILDS.glob("*")):
+        found = [] if other == tree else list(other.glob("build/*/third_party"))
+        for folder in found:
+            target = tree / folder.relative_to(other)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["cp", "-a", "--reflink=auto", str(folder), str(target)])
+        if found:
+            return
+
+
+@contextlib.contextmanager
+def build_slot():
+    """at most BUILD_SLOTS builds at a time on this machine"""
+    LOCKS.mkdir(parents=True, exist_ok=True)
+    handles = []
+    try:
+        for slot in range(BUILD_SLOTS):
+            handle = open(LOCKS / f"build-slot-{slot}.lock", "a+")
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                handles.append(handle)
+                break
+            except BlockingIOError:
+                handle.close()
+        if not handles:
+            say(f"waiting for a build slot ({BUILD_SLOTS} builds running)")
+            handle = open(LOCKS / "build-slot-0.lock", "a+")
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            handles.append(handle)
+        yield
+    finally:
+        for handle in handles:
+            handle.close()
+
+
+def cmd_path(argv):
+    parser = argparse.ArgumentParser(prog="goat-rig path")
+    parser.add_argument("ref")
+    args = parser.parse_args(argv)
+    print(game_of(args.ref)[0])
+
+
+def game_of(ref):
+    """(the halo binary, its source tree or None, is OpenCE) of a run's --build: opence, a path, or a ref built"""
+    if ref == "opence":
+        return OPENCE / "halo", None, True
+    path = Path(ref).expanduser()
+    if ref.startswith(("/", "~", ".")) and path.exists():
+        if path.is_dir():
+            for binary in (path / "build/linux_x86_64/halo", path / "linux_x86_64/halo", path / "halo"):
+                if binary.is_file():
+                    tree = path if (path / "port").is_dir() else None
+                    return binary, tree, (binary.parent / "libSDL3.so.0").exists() and tree is None
+            die(f"{ref}: no halo binary in it")
+        return path, None, False
+    tree = BUILDS / build_name(ref)
+    if not (tree / "build/linux_x86_64/halo").is_file():
+        sha, named = resolve(ref, fetch=False) if REPO.is_dir() else ("", True)
+        if sha:
+            tree = tree_of(ref, sha, named)
+    binary = tree / "build/linux_x86_64/halo"
+    if not binary.is_file():
+        die(f"{ref} is not built here: goat-rig build {ref}")
+    return binary, tree, False
+
+
+# ---------- run
+
+
+def split_groups(argv):
+    if "--" not in argv:
+        return argv, []
+    index = argv.index("--")
+    groups, current = [], []
+    for item in argv[index + 1:]:
+        if item == "--":
+            groups.append(current)
+            current = []
+        else:
+            current.append(item)
+    groups.append(current)
+    return argv[:index], groups
+
+
+def parse_shots(text):
+    if not text:
+        return {}
+    if text.startswith("every:"):
+        return {"HALO_SCREENSHOT_EVERY": str(int(text[6:]))}
+    if text.startswith("at:"):
+        moment = text[3:]
+        frames = 1
+        if "+" in moment:
+            moment, more = moment.split("+", 1)
+            frames = 1 + int(more)
+        second = float(moment)
+        # (each frame from that second of the scenario's clock: the first `frames` kept, as tools/capture.py's --at)
+        return {"HALO_SCREENSHOT_EVERY": "1", "HALO_SCREENSHOT_FROM": f"{second}",
+                "HALO_SCREENSHOT_UNTIL": f"{second + 0.5 + frames / 10:.3f}", "_keep_frames": str(frames)}
+    die(f"--shots {text}: every:<frames> or at:<second>[+<more frames>]")
+
+
+def cmd_run(argv):
+    options, groups = split_groups(argv)
+    parser = argparse.ArgumentParser(prog="goat-rig run", description="1 to 4 hidden, muted games on loopback")
+    parser.add_argument("label", help="the run's name: its folder is ~/goat-rig/runs/<label>")
+    parser.add_argument("--build", default="master", help="the build every instance plays: a branch built here, "
+                        "opence, or a path to a tree or a halo binary (default master)")
+    parser.add_argument("--players", "--instances", type=int, default=0, dest="players",
+                        help="game instances (machines), 1 to 4 (split screen players: HALO_NETWORK_TEST_PLAYERS)")
+    parser.add_argument("--pair", nargs=2, metavar=("host:BUILD", "client:BUILD"),
+                        help="a host and a client, each its own build (opence for OpenCE 359)")
+    parser.add_argument("--seconds", type=float, default=60, help="each game quits after this (default 60)")
+    parser.add_argument("--shots", default="", help="every:<frames> or at:<second>[+<more frames>]")
+    parser.add_argument("--video", type=int, default=0, metavar="FPS",
+                        help="the first instance's frames as video.mp4, each frame 1/FPS of game time")
+    parser.add_argument("--video-of", type=int, default=1, metavar="N", help="the instance --video records")
+    parser.add_argument("--fast", action="store_true", help="headless, fixed step (one instance: faster than "
+                        "real time); no GPU lock, no pictures")
+    parser.add_argument("--online", action="store_true",
+                        help="a local MQTT broker and STUN (inside the run's own network) for invites and friends")
+    parser.add_argument("--mcc", choices=("host", "all"), help="omarchy's MCC maps: host = the first instance has "
+                        "them and the others only _shared; all = every instance")
+    parser.add_argument("--map", help="a game of one machine on this map (init.txt's map_name, debug.network_test "
+                        "\"log\"): with --fast, far faster than real time (levels\\a10\\a10, or a stock name)")
+    parser.add_argument("--size", default="1920x1080", help="the window (and the pictures') size")
+    parser.add_argument("--delay", type=float, default=6, help="seconds between starting instances (default 6)")
+    parser.add_argument("--env", action="append", default=[], metavar="VAR=VALUE", help="for every instance")
+    parser.add_argument("--keep", action="store_true", help="keep each instance's home, data and saves")
+    parser.add_argument("--no-netns", action="store_true", help="the machine's own loopback, not a private network")
+    args = parser.parse_args(options)
+
+    if args.pair:
+        sides = {}
+        for item in args.pair:
+            side, _, ref = item.partition(":")
+            if side not in ("host", "client") or not ref:
+                die("--pair host:<build> client:<build>")
+            sides[side] = ref
+        instances = [("host", sides["host"]), ("client", sides["client"])]
+    else:
+        count = args.players or max(1, len(groups))
+        if not 1 <= count <= 4:
+            die("--players: 1 to 4")
+        instances = [(f"p{n}" if count > 1 else "game", args.build) for n in range(1, count + 1)]
+    if len(groups) > len(instances):
+        die(f"{len(groups)} groups of settings after -- for {len(instances)} instance(s)")
+    if args.fast and (args.shots or args.video):
+        die("--fast draws nothing: no --shots or --video")
+    if args.mcc and not MCC.is_dir():
+        die(f"no MCC maps here ({MCC}): MCC runs are omarchy's only")
+    if args.video and not shutil.which("ffmpeg"):
+        die("--video needs ffmpeg")
+
+    who = owner_playing()
+    if who:
+        die("the machine's owner is playing; not starting:", who, status=3)
+
+    folder = RUNS / args.label
+    if folder.exists():
+        shutil.rmtree(folder)
+    folder.mkdir(parents=True)
+    width, height = (int(x) for x in args.size.lower().split("x"))
+    shots = parse_shots(args.shots)
+    opence = any(game_of(ref)[2] for _, ref in instances)
+    netns = not args.no_netns and shutil.which("unshare") and shutil.which("ip")
+    if opence and not netns:
+        die("OpenCE 359 always uses port 5150: it runs only in a private network (unshare)")
+    port = 5150 if opence else PORT
+    if not netns:
+        port = free_port()
+
+    spec = {"folder": str(folder), "seconds": args.seconds, "delay": args.delay, "online": args.online,
+            "netns": bool(netns), "instances": [], "video": args.video, "video_of": args.video_of,
+            "size": [width, height]}
+    for number, (name, ref) in enumerate(instances, start=1):
+        binary, tree, is_opence = game_of(ref)
+        address = f"127.0.0.{199 + number}"
+        peers = [f"127.0.0.{199 + n}" for n in range(1, len(instances) + 1) if n != number]
+        # (the peers too: a socket bound to its own 127.0.0.x hears no datagram sent to 127.255.255.255)
+        env = base_env(folder / name, address, peers, port, args, width, height, tree)
+        if is_opence:
+            env["LD_LIBRARY_PATH"] = str(binary.parent)
+        if opence and not is_opence:
+            env["HALO_NET_ALLOW_OPENCE"] = "true"
+        env.update({k: v for k, v in shots.items()})
+        if args.video and number == args.video_of:
+            env.update({"HALO_SCREENSHOT_EVERY": "1", "HALO_FRAME_TIME": f"{1 / args.video:.10f}",
+                        "HALO_SCREENSHOT_STREAM": str(folder / name / "video.fifo")})
+        files = {}
+        if args.map:
+            map_tag = args.map if "\\" in args.map else STOCK_MAPS.get(args.map, args.map)
+            files["@data/init.txt"] = f"map_name {map_tag}"
+            env["HALO_NETWORK_TEST"] = "log"
+        mcc = args.mcc == "all" or (args.mcc == "host" and number == 1)
+        if args.mcc:
+            env["HALO_MCC_COLLECTIONS"] = "1"
+            files["@copy/mcc_maps" if mcc else "@copy/mcc_maps/_shared"] = str(MCC if mcc else MCC / "_shared")
+        for item in args.env + (groups[number - 1] if number <= len(groups) else []):
+            if item.startswith("@"):
+                key, _, value = item.partition("=")
+                files[key] = value
+            elif item.startswith("-") and "=" not in item:
+                env.pop(item[1:], None)
+            elif "=" in item:
+                key, _, value = item.partition("=")
+                env[key] = value
+            else:
+                die(f"{item}: VAR=VALUE, -VAR (unset), @data/<file>=<text>, @link/<path>=<target> or "
+                    "@copy/<path>=<source>")
+        # ({run:<instance>}: another instance's folder, e.g. "HALO_FRIENDS=3 add @{run:client}/friends.txt")
+        for key, value in env.items():
+            env[key] = re.sub(r"\{run:([A-Za-z0-9]+)\}", lambda m: str(folder / m.group(1)), value)
+        spec["instances"].append({"name": name, "ref": ref, "binary": str(binary), "env": env, "files": files,
+                                  "keep_frames": int(env.pop("_keep_frames", "0"))})
+    (folder / "spec.json").write_text(json.dumps(spec, indent=1))
+
+    started = time.monotonic()
+    if args.fast:
+        status = play(folder)
+    else:
+        with locked("gpu.lock", f"run {args.label}", "waiting for the GPU lock"):
+            who = owner_playing()
+            if who:
+                die("the machine's owner is playing; not starting:", who, status=3)
+            status = play(folder)
+    summary = collect(spec, args.keep)
+    summary.append(f"run {args.label}: {time.monotonic() - started:.0f} s, in {folder}")
+    (folder / "summary.txt").write_text("\n".join(summary) + "\n")
+    print("\n".join(summary))
+    sys.exit(status)
+
+
+def free_port():
+    import socket
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            number = probe.getsockname()[1]
+        if number not in (5150, 2302, 2303) and number > 20000:
+            return number
+
+
+def base_env(run, address, peers, port, args, width, height, tree):
+    home, data = run / "home", run / "data"
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(home), "TMPDIR": str(home),
+        "XDG_CACHE_HOME": str(home / "cache"), "XDG_CONFIG_HOME": str(home / "config"),
+        "XDG_DATA_HOME": str(home / "share"), "XDG_RUNTIME_DIR": str(home),
+        "HALO_DATA_ROOT": str(data), "HALO_SAVE_ROOT": str(run / "saves"), "HALO_CONFIG_FILE": str(run / "config.toml"),
+        # hidden, muted, no clipboard, no updates
+        "HALO_HIDDEN_WINDOW": "1", "SDL_AUDIO_DRIVER": "dummy", "SDL_VIDEO_DRIVER": "offscreen", "HALO_VOLUME": "0",
+        "HALO_NO_CLIPBOARD": "1", "HALO_UPDATE_AUTO": "false", "HALO_PRIORITY": "inherit", "HALO_UPDATE_ANSWER": "no",
+        "HALO_SERVER_AUTO_UPDATE": "false",
+        # loopback only: no public masters, brokers, STUN, Discord, UPnP or lobbies
+        "HALO_NET_ADDRESS": address, "HALO_NET_PORT": str(port),
+        "HALO_NET_BROADCAST": ",".join(["127.255.255.255"] + peers),
+        "HALO_NET_ALLOW_UPNP": "false", "HALO_NET_ONLINE": "false", "HALO_NET_PUBLIC_LOBBY": "false",
+        "HALO_NET_JOIN_FROM_CLIPBOARD": "false", "HALO_NET_MASTERS_FILE": str(run / "masters.txt"),
+        "HALO_NET_BROKERS_FILE": str(run / "brokers.txt"), "HALO_NET_RELAYS_FILE": str(run / "relays.txt"),
+        "HALO_SERVER_MASTERS_FILE": str(run / "masters.txt"), "HALO_SERVER_RELAYS_FILE": str(run / "relays.txt"),
+        "HALO_NET_STUN": "127.0.0.9:3478", "HALO_SERVER_MASTER_PUBLISH": "false", "HALO_DISCORD_APPLICATION": "",
+        # map sharing's caps lifted for tests (the most the settings allow)
+        "HALO_NET_MAP_SHARE_UPLOAD": "20480", "HALO_NET_MAP_SEED_UPLOAD": "20480",
+        "HALO_EXIT_AFTER": f"{args.seconds:g}", "HALO_DISPLAY_MODE": "windowed",
+        "HALO_WINDOW_SIZE": f"{width}x{height}", "HALO_RESOLUTION_SCALING": "native",
+        "HALO_SCREENSHOT_DIR": str(run / "shots"), "HALO_MAP_CACHE_MEGABYTES": "730", "HALO_RANDOM_SEED": "12345",
+    }
+    if tree is not None and (tree / "port/assets/menus").is_dir():
+        env["HALO_MENU_FILES"] = str(tree / "port/assets/menus")
+    if args.fast:
+        env.update({"HALO_NULL_RENDERER": "1", "HALO_FIXED_STEP": "1"})
+    if args.online:
+        env.update({"HALO_NET_ONLINE": "true", "HALO_NET_LISTINGS": "brokers",
+                    "HALO_NET_STUN": "127.0.0.3:3478,127.0.0.4:3478"})
+        env.pop("HALO_NET_PUBLIC_LOBBY")
+    return env
+
+
+def play(folder):
+    """the games played: in a private network of their own (unshare -rn: only its loopback) unless --no-netns"""
+    spec = json.loads((folder / "spec.json").read_text())
+    command = [sys.executable, str(Path(__file__).resolve()), "_inside", str(folder)]
+    if spec["netns"]:
+        command = ["unshare", "-rn"] + command
+    return subprocess.run(command).returncode
+
+
+def prepare(instance, spec):
+    run = Path(spec["folder"]) / instance["name"]
+    for sub in ("home/cache", "data", "saves", "shots"):
+        (run / sub).mkdir(parents=True, exist_ok=True)
+    (run / "data" / "maps").symlink_to(MAPS if MAPS.exists() else HOME / "halo-x86-maps" / "maps")
+    (run / "masters.txt").write_text("# none: local only\n")
+    (run / "relays.txt").write_text("# none: local only\n")
+    (run / "brokers.txt").write_text("127.0.0.3:1883\n" if spec["online"] else "# none: local only\n")
+    for key, value in instance["files"].items():
+        kind, _, path = key[1:].partition("/")
+        target = run / "data" / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if kind == "data":
+            target.write_text(value.replace("\\n", "\n") + "\n")
+        elif kind == "link":
+            target.symlink_to(Path(value).expanduser())
+        elif kind == "copy":
+            subprocess.run(["cp", "-r", "--reflink=auto", str(Path(value).expanduser()), str(target)], check=True)
+        else:
+            raise SystemExit(f"{key}: @data/, @link/ or @copy/")
+    return run
+
+
+def tree_rss(pid):
+    """the resident memory of a process and its children, KiB"""
+    total, stack = 0, [pid]
+    while stack:
+        current = stack.pop()
+        try:
+            for line in open(f"/proc/{current}/status"):
+                if line.startswith("VmRSS:"):
+                    total += int(line.split()[1])
+            for task in os.listdir(f"/proc/{current}/task"):
+                stack += [int(c) for c in open(f"/proc/{current}/task/{task}/children").read().split()]
+        except (OSError, ValueError):
+            pass
+    return total
+
+
+def inside(folder):
+    folder = Path(folder)
+    spec = json.loads((folder / "spec.json").read_text())
+    if spec["netns"]:
+        subprocess.run(["ip", "link", "set", "lo", "up"], check=True)
+    if spec["online"]:
+        sys.path.insert(0, str(KIT.parent))
+        import relay_netns
+        # (never on 127.0.0.1: the game takes a socket there for this computer only, port/linux/src/xnet.c)
+        for address in ("127.0.0.3", "127.0.0.4"):
+            threading.Thread(target=relay_netns.serve_stun, args=(address,), daemon=True).start()
+        threading.Thread(target=relay_netns.serve_broker, args=("127.0.0.3",), daemon=True).start()
+    seconds = spec["seconds"]
+    processes = []
+    encoders = []
+    for number, instance in enumerate(spec["instances"], start=1):
+        if number > 1 and spec["delay"]:
+            time.sleep(spec["delay"])
+        run = prepare(instance, spec)
+        if spec["video"] and number == spec["video_of"]:
+            fifo = run / "video.fifo"
+            os.mkfifo(fifo)
+            width, height = spec["size"]
+            encoders.append(subprocess.Popen(
+                ["ffmpeg", "-loglevel", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgra", "-s",
+                 f"{width}x{height}", "-r", str(spec["video"]), "-i", str(fifo), "-c:v", "libx264", "-preset",
+                 "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(run / "video.mp4")],
+                stdin=subprocess.DEVNULL, stdout=open(run / "video.log", "w"), stderr=subprocess.STDOUT))
+        log = open(run / "halo.log", "w")
+        process = subprocess.Popen(["nice", "-n", "5", instance["binary"]], cwd=run, env=instance["env"],
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT,
+                                   start_new_session=True)
+        processes.append({"process": process, "run": run, "log": log, "peak": 0, "started": time.monotonic(),
+                          "keep": instance["keep_frames"], "status": None})
+    stopped = ""
+    while True:
+        alive = [p for p in processes if p["process"].poll() is None]
+        if not alive:
+            break
+        for entry in alive:
+            entry["peak"] = max(entry["peak"], tree_rss(entry["process"].pid))
+            if time.monotonic() - entry["started"] > seconds + 45:
+                os.killpg(entry["process"].pid, signal.SIGKILL)
+                entry["status"] = "killed after its time"
+            if entry["keep"]:
+                trim_frames(entry["run"] / "shots", entry["keep"])
+        who = owner_playing()
+        if who:
+            stopped = "the machine's owner started playing: stopped"
+            for entry in alive:
+                os.killpg(entry["process"].pid, signal.SIGKILL)
+        time.sleep(1)
+    for entry in processes:
+        entry["log"].close()
+        if entry["keep"]:
+            trim_frames(entry["run"] / "shots", entry["keep"])
+        code = entry["process"].returncode
+        (entry["run"] / "result.json").write_text(json.dumps(
+            {"exit": code, "note": entry["status"] or stopped, "peak_rss_kib": entry["peak"]}))
+    for encoder in encoders:
+        # (a game that never drew left ffmpeg waiting on the pipe: opened once for it to see the end)
+        with contextlib.suppress(OSError):
+            os.close(os.open(str(Path(encoder.args[encoder.args.index("-i") + 1])), os.O_WRONLY | os.O_NONBLOCK))
+        try:
+            encoder.wait(timeout=600)
+        except subprocess.TimeoutExpired:
+            encoder.kill()
+    return 3 if stopped else max((p["process"].returncode or 0) != 0 for p in processes)
+
+
+def trim_frames(shots, keep):
+    frames = sorted(shots.glob("frame*.bmp"))
+    for extra in frames[keep:]:
+        with contextlib.suppress(OSError):
+            extra.unlink()
+
+
+def to_png(path):
+    sys.path.insert(0, str(KIT.parent))
+    import capture
+    target = path.with_suffix(".png")
+    capture.write_png(capture.read_bmp(path), target)
+    path.unlink()
+    return target
+
+
+def collect(spec, keep):
+    """logs, pictures (PNG) and video kept per instance; the rest of its folders removed; the summary"""
+    from concurrent.futures import ProcessPoolExecutor
+    lines = []
+    for instance in spec["instances"]:
+        run = Path(spec["folder"]) / instance["name"]
+        result = json.loads((run / "result.json").read_text()) if (run / "result.json").exists() else {}
+        data = run / "data"
+        if (data / "debug.txt").exists():
+            shutil.copy2(data / "debug.txt", run / "debug.txt")
+        for path in data.rglob("*"):
+            if "maps" in path.relative_to(data).parts[:1] or "mcc_maps" in path.parts:
+                continue
+            if path.is_file() and path.suffix in (".png", ".bmp") and "screenshot" in str(path.parent):
+                shutil.move(str(path), run / "shots" / path.name)
+        bmps = sorted((run / "shots").glob("*.bmp"))
+        if bmps:
+            with ProcessPoolExecutor(cores()) as pool:
+                list(pool.map(to_png, bmps, chunksize=4))
+        (run / "video.fifo").unlink(missing_ok=True)
+        if not keep:
+            for sub in ("home", "saves", "data"):
+                shutil.rmtree(run / sub, ignore_errors=True)
+            for name in ("masters.txt", "relays.txt", "brokers.txt"):
+                (run / name).unlink(missing_ok=True)
+        text = ""
+        for name in ("halo.log", "debug.txt"):
+            if (run / name).exists():
+                text += (run / name).read_text(errors="replace")
+        asserts = re.findall(r"asserts: (\d+) failed, (\d+) warnings", text)
+        fatal = re.findall(r"fatal assert \(debug\.fatal_asserts\): (.*)", text)
+        pictures = len(list((run / "shots").glob("*.png")))
+        video = run / "video.mp4"
+        parts = [f"{instance['name']} ({instance['ref']}): exit {result.get('exit')}",
+                 f"asserts {asserts[-1][0]} failed, {asserts[-1][1]} warnings" if asserts else "no failed asserts",
+                 f"peak RSS {result.get('peak_rss_kib', 0) // 1024} MiB", f"{pictures} pictures"]
+        if video.exists():
+            parts.append(f"video {video.stat().st_size // 1024} KiB")
+        if result.get("note"):
+            parts.append(result["note"])
+        lines.append(", ".join(parts))
+        for line in fatal[:3]:
+            lines.append(f"    fatal assert: {line}")
+        lines.append(f"    {run}")
+    return lines
+
+
+def cmd_exec(argv):
+    """a command run in a build's worktree (the tree's own tools: tools/scorecard/identity.py --repeat), niced,
+    with the rig's PATH, in a private network (loopback only) unless --no-netns; no GPU lock unless --gpu"""
+    options, groups = split_groups(argv)
+    parser = argparse.ArgumentParser(prog="goat-rig exec")
+    parser.add_argument("ref", help="a branch built here (goat-rig build), or a tree's path")
+    parser.add_argument("--gpu", action="store_true", help="hold the GPU lock (a tool that renders)")
+    parser.add_argument("--no-netns", action="store_true")
+    args = parser.parse_args(options)
+    if not groups or not groups[0]:
+        die("goat-rig exec <ref> -- <command...>")
+    _, tree, _ = game_of(args.ref)
+    if tree is None:
+        die(f"{args.ref}: no source tree")
+    who = owner_playing()
+    if who:
+        die("the machine's owner is playing; not starting:", who, status=3)
+    command = ["nice", "-n", "10"] + groups[0]
+    if not args.no_netns and shutil.which("unshare"):
+        command = ["unshare", "-rn", "sh", "-c", 'ip link set lo up && exec "$@"', "sh"] + command
+    with locked("gpu.lock", f"exec {args.ref}", "waiting for the GPU lock") if args.gpu else contextlib.nullcontext():
+        sys.exit(subprocess.run(command, cwd=tree, env=build_env()).returncode)
+
+
+# ---------- fetch, clean, status, remote
+
+
+def cmd_fetch(argv):
+    parser = argparse.ArgumentParser(prog="goat-rig fetch")
+    parser.add_argument("what", help="[<host>:]<label>: omarchy:<label> or 5900x:<label> from a Mac")
+    parser.add_argument("dest", type=Path)
+    args = parser.parse_args(argv)
+    host, _, label = args.what.rpartition(":")
+    args.dest.mkdir(parents=True, exist_ok=True)
+    include = ["--include=*/", "--include=*.png", "--include=*.mp4", "--include=*.txt", "--include=*.log",
+               "--include=*.json", "--exclude=*"]
+    if host:
+        source = f"{hosts().get(host, host)}:goat-rig/runs/{label}/"
+    else:
+        source = f"{RUNS / label}/"
+    status = subprocess.run(["rsync", "-a", "--prune-empty-dirs", *include, source, f"{args.dest}/"]).returncode
+    if status:
+        die(f"rsync failed ({status})", status=1)
+    print(args.dest)
+
+
+def cmd_clean(argv):
+    parser = argparse.ArgumentParser(prog="goat-rig clean")
+    parser.add_argument("--older-than", type=float, default=3, metavar="DAYS", help="default 3")
+    parser.add_argument("--builds", action="store_true", help="also builds not built for that long")
+    args = parser.parse_args(argv)
+    cutoff = time.time() - args.older_than * 86400
+    for run in sorted(RUNS.glob("*")) if RUNS.exists() else []:
+        if run.stat().st_mtime < cutoff:
+            shutil.rmtree(run, ignore_errors=True)
+            say("removed run", run.name)
+    if args.builds:
+        for tree in sorted(BUILDS.glob("*")) if BUILDS.exists() else []:
+            log = tree / "build.log"
+            if (log.stat().st_mtime if log.exists() else tree.stat().st_mtime) < cutoff:
+                with locked(f"build-{tree.name}.lock", "clean"):
+                    git("worktree", "remove", "--force", str(tree), check=False)
+                    shutil.rmtree(tree, ignore_errors=True)
+                say("removed build", tree.name)
+        git("worktree", "prune", check=False)
+
+
+def cmd_status(argv):
+    for lock in sorted(LOCKS.glob("*.lock")) if LOCKS.exists() else []:
+        with open(lock) as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_SH | fcntl.LOCK_NB)
+                continue
+            except BlockingIOError:
+                print(f"{lock.name}: {handle.read().strip() or 'held'}", flush=True)
+    who = owner_playing()
+    print("the owner's game is running" if who else "the owner's game is not running", flush=True)
+    subprocess.run(["df", "-h", str(HOME)])
+    for sub in ("builds", "runs", "ccache"):
+        if (RIG / sub).exists():
+            subprocess.run(["du", "-sh", str(RIG / sub)])
+    subprocess.run([str(LAUNCHER), "-s"])
+
+
+def cmd_remote(host, argv):
+    target = hosts().get(host, host)
+    script = "exec ~/goat-rig/bin/goat-rig " + shlex.join(argv) + "\n"
+    # (to bash on its input: the login shell, fish on the 5900X, reads none of it)
+    sys.exit(subprocess.run(["ssh", target, "bash", "-s"], input=script, text=True).returncode)
+
+
+def main():
+    argv = sys.argv[1:]
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(__doc__)
+        return
+    if argv[0].startswith("@"):
+        cmd_remote(argv[0][1:], argv[1:])
+    command, rest = argv[0], argv[1:]
+    if command == "_inside":
+        sys.exit(inside(rest[0]))
+    commands = {"build": cmd_build, "path": cmd_path, "run": cmd_run, "exec": cmd_exec, "fetch": cmd_fetch,
+                "clean": cmd_clean, "status": cmd_status}
+    if command not in commands:
+        die(f"{command}: build, path, run, exec, fetch, clean or status (goat-rig --help)")
+    commands[command](rest)
+
+
+if __name__ == "__main__":
+    main()

@@ -193,6 +193,19 @@ static void test_numbers(void)
 	CHECK(call(9999, 0, 0, 0, 0, 0) == -ENOSYS);
 	CHECK(warnings == before + 2);
 	CHECK(call(GUEST_SYS_ioctl, 0, 0, 0, 0, 0) == -ENOTTY);
+	/* musl's processor count (sysconf(_SC_NPROCESSORS_ONLN)): each of the
+	host's processors in the mask, never 1 for want of the call */
+	{
+		unsigned char *mask = low_alloc(128);
+		long cpus = sysconf(_SC_NPROCESSORS_ONLN), counted = 0, bit;
+		long long written = call(GUEST_SYS_sched_getaffinity, 0, 128, guest_address(mask), 0, 0);
+
+		CHECK(written == 128);
+		for (bit = 0; bit < 128 * 8; bit++)
+			counted += (mask[bit / 8] >> (bit % 8)) & 1;
+		CHECK(counted == (cpus < 1024 ? cpus : 1024));
+		CHECK(warnings == before + 2);
+	}
 }
 
 static void test_open_flags(void)

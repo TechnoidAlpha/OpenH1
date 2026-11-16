@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.slayer_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_death_bonus"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_kill_in_order"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/var_objectives_on_screen"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kills_to_win_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kills_to_win_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_kills_to_win"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_death_bonus" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/death_bonus_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_in_order" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_in_order_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_penalty" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kill_penalty_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kills_to_win" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kills_to_win_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/kills_to_win_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_team_play" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/team_play_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/team_play_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_help" type="text" box="68 321 550 400">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/cap_slayer"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_menu" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_death_bonus" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_penalty" x="54" y="103"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kill_in_order" x="54" y="133"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_kills_to_win" x="54" y="163"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/op_team_play" x="54" y="193"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_time_limit" x="54" y="223"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/team_play_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/team_play_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/var_team_play"/>
+	</look>
+</model>

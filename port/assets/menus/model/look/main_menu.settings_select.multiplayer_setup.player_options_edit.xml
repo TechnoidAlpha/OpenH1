@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.player_options_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/header_player_options" box="35 11 640 70" picture="main_menu/settings_select/multiplayer_setup/player_options_edit/header_player_options"/>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/invisible_players_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/invisible_players_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_invisible_players"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/maximum_health_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/maximum_health_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_maximum_health"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/number_of_lives_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/number_of_lives_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_number_of_lives"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/odd_man_out_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/odd_man_out_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_odd_man_out"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_invisible_players" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/invisible_players_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/invisible_players_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_maximum_health" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/maximum_health_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/maximum_health_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_number_of_lives" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/number_of_lives_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/number_of_lives_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_odd_man_out" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/odd_man_out_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/odd_man_out_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time_growth" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_growth_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_growth_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shields" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/shields_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/shields_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/op_suicide_penalty" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/suicide_penalty_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/suicide_penalty_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_help" type="text" box="68 345 550 405">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/cap_player_options"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_number_of_lives" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_maximum_health" x="54" y="100"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shields" x="54" y="127"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time" x="54" y="154"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_respawn_time_growth" x="54" y="181"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_odd_man_out" x="54" y="208"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_invisible_players" x="54" y="235"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_suicide_penalty" x="54" y="262"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_aim_assist" x="54" y="289"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/op_shield_effects" x="54" y="316"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/player_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/header_player_options" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_growth_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_growth_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_respawn_time_growh"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/respawn_time_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_respawn_time"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/shields_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/shields_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_shields"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/suicide_penalty_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/player_options_labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/player_options_edit/suicide_penalty_spinner" type="spinner" box="3 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/player_options_edit/var_suicide_penalty"/>
+	</look>
+</model>

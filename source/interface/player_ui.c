@@ -162,6 +162,7 @@ symbols in this file:
 #include "main/main.h"
 #include "tag_files/tag_groups.h"
 #include "player_ui.h"
+#include "mcc_ui.h" /* port: port/linux/game/mcc_ui.c */
 
 /* ---------- constants */
 
@@ -691,6 +692,12 @@ long player_ui_get_player1_last_used_profile_index(
 	sets the path itself */
 	static boolean player1_profile_path_looked_for = FALSE;
 
+	/* port: and not until the profiles are enumerated: the game's thread asks
+	from the start (friends_menu.inc, game_state_persistent_storage_ahead),
+	while the enumeration writes the mapfile on its own thread, whose list
+	the index found then was not of (#888) */
+	if (!player1_profile_path[0] && !player1_profile_path_looked_for && !saved_game_files_enumerated())
+		return NONE;
 	if (!player1_profile_path[0] && !player1_profile_path_looked_for)
 	{
 		player1_profile_path_looked_for = TRUE;
@@ -796,6 +803,8 @@ void player_ui_begin_editing_profile(
 	long type;
 
 	player_ui_globals.edit_profile_index = NONE;
+	/* port: a profile editor opened here is no longer MCC's pause menu's */
+	mcc_ui_settings_profile_released();
 	type = saved_game_file_get_type(profile_index);
 
 	switch (type)
@@ -1387,5 +1396,7 @@ static void clear_profile_edit_data(
 	void)
 {
 	player_ui_globals.edit_profile_index = NONE;
+	/* port: saving or cancelling also ends the editor MCC's pause menu opened */
+	mcc_ui_settings_profile_released();
 	return;
 }

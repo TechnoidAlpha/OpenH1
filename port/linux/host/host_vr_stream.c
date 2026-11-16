@@ -100,6 +100,10 @@ static const struct
 	{ "debug.vr_foveation_show", "HALO_VR_FOVEATION_SHOW", "false" },
 };
 
+/* each setting's value, its variable read once (the screenshots' is asked
+each frame; Windows's getenv locks and scans the environment) */
+static const char *setting_values[sizeof(settings) / sizeof(settings[0])];
+
 const char *config_string(const char *name)
 {
 	size_t index;
@@ -110,8 +114,14 @@ const char *config_string(const char *name)
 
 		if (strcmp(settings[index].name, name))
 			continue;
-		value = getenv(settings[index].variable);
-		return value ? value : settings[index].value;
+		value = __atomic_load_n(&setting_values[index], __ATOMIC_ACQUIRE);
+		if (!value)
+		{
+			value = getenv(settings[index].variable);
+			value = value ? value : settings[index].value;
+			__atomic_store_n(&setting_values[index], value, __ATOMIC_RELEASE);
+		}
+		return value;
 	}
 	host_logf(HOST_LOG_WARN, "vr: no setting %s in the host", name);
 	return "";

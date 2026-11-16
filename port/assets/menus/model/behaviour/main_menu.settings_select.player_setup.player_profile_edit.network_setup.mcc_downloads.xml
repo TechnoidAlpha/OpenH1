@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.player_setup.player_profile_edit.network_setup.mcc_downloads.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/screen" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="port mcc downloads open"/>
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/previous">
+		<on event="a" run="port mcc downloads previous"/>
+		<on event="start" run="port mcc downloads previous"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/next">
+		<on event="a" run="port mcc downloads next"/>
+		<on event="start" run="port mcc downloads next"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/remove">
+		<on event="a" run="port mcc downloads remove"/>
+		<on event="start" run="port mcc downloads remove"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/player_setup/player_profile_edit/network_setup/mcc_downloads/back">
+		<on event="a" back="true"/>
+		<on event="start" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

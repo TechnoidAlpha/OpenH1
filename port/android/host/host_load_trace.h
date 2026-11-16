@@ -11,11 +11,28 @@ Submission and swap events are not proof of physical display presentation. */
 #include <string.h>
 #include <time.h>
 
+/* an environment variable's switch, read once (a getenv a frame was 0.9% of
+the render thread on Windows, whose getenv locks and scans the environment:
+its callers are per present and per wait); -1 until read */
+static inline int host_load_trace_switch(const char *variable, int *cached)
+{
+	int value = __atomic_load_n(cached, __ATOMIC_RELAXED);
+
+	if (value < 0)
+	{
+		const char *text = getenv(variable);
+
+		value = text && *text && strcmp(text, "0") && strcmp(text, "false");
+		__atomic_store_n(cached, value, __ATOMIC_RELAXED);
+	}
+	return value;
+}
+
 static inline int host_load_trace_enabled(void)
 {
-	const char *value = getenv("HALO_LOAD_TRACE");
+	static int enabled = -1;
 
-	return value && *value && strcmp(value, "0") && strcmp(value, "false");
+	return host_load_trace_switch("HALO_LOAD_TRACE", &enabled);
 }
 
 static inline double host_load_trace_clock(clockid_t clock)
@@ -27,9 +44,9 @@ static inline double host_load_trace_clock(clockid_t clock)
 
 static inline int host_load_trace_detail_enabled(void)
 {
-	const char *value = getenv("HALO_LOAD_TRACE_DETAIL");
+	static int detail = -1;
 
-	return host_load_trace_enabled() && value && *value && strcmp(value, "0") && strcmp(value, "false");
+	return host_load_trace_enabled() && host_load_trace_switch("HALO_LOAD_TRACE_DETAIL", &detail);
 }
 
 static inline void host_load_trace(const char *phase, const char *format, ...)

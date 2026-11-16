@@ -38,6 +38,12 @@ static struct pc_menu_setting *pc_menu_setting_get(long definition_index)
 	return definition_index == 7 ? &sim_rate_setting : NULL;
 }
 
+/* (a spinner's setting: the one's, by its definition here) */
+static struct pc_menu_setting *settings_setting_of(struct widget_instance *spinner)
+{
+	return spinner ? pc_menu_setting_get(spinner->definition_tag_index) : NULL;
+}
+
 static boolean sim_rate_locked(void)
 {
 	return locked;

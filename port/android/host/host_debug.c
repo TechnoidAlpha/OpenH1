@@ -7,10 +7,13 @@ config.toml's [debug], every guest thread is interrupted that often and its prog
 counter, link register (none on x86-64) and frame chain are written to the
 log (host_arch.c reads them). The addresses symbolize against the build's
 halo_guest.elf (llvm-symbolizer --obj=build/android/halo_guest.elf 0x...).
+The same signal takes the stall detector's samples (host_stall.c) of the
+game's thread and the render thread, which it keeps for its own lines.
 */
 
 #include "host.h"
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
@@ -77,6 +80,11 @@ void host_debug_thread_exited(void)
 	pthread_mutex_unlock(&threads_lock);
 }
 
+/* the stall detector's threads (host_stall.c), and whether each has been
+asked for a sample */
+static thread_id stall_threads[HOST_STALL_THREADS];
+static int stall_requested[HOST_STALL_THREADS];
+
 /* (a signal handler: it formats into its own buffer, the log's sink
 neither locks nor uses stdio, and the frame walk copies each record without
 faulting, whatever the frame pointer register held: host_arch.c) */
@@ -91,6 +99,20 @@ static void sample_handler(int signal_number, siginfo_t *information, void *cont
 	(void)signal_number;
 	(void)information;
 	host_arch_context(context, &pc, &sp, &fp, &lr);
+	/* (a sample the stall detector asked of this thread: kept for it, not
+	logged) */
+	for (index = 0; index < HOST_STALL_THREADS; index++)
+	{
+		if (stall_threads[index] == current_thread() &&
+			__atomic_exchange_n(&stall_requested[index], 0, __ATOMIC_ACQ_REL))
+		{
+			count = host_arch_walk_frames(fp, host_arch_read_memory, returns,
+				(int)(sizeof(returns) / sizeof(returns[0])));
+			host_stall_record(index, pc, lr, returns, count);
+			errno = saved_errno;
+			return;
+		}
+	}
 	length = snprintf(line, sizeof(line), "sample tid " THREAD_FORMAT ": pc %llx lr %llx",
 		THREAD_VALUE(current_thread()), (unsigned long long)pc, (unsigned long long)lr);
 	count = host_arch_walk_frames(fp, host_arch_read_memory, returns, (int)(sizeof(returns) / sizeof(returns[0])));
@@ -99,6 +121,74 @@ static void sample_handler(int signal_number, siginfo_t *information, void *cont
 	host_log(HOST_LOG_INFO, line);
 	/* (the interrupted code may be between a call and its errno check) */
 	errno = saved_errno;
+}
+
+static void sample_handler_install(void)
+{
+	static int installed;
+	struct sigaction action;
+
+	if (__atomic_exchange_n(&installed, 1, __ATOMIC_ACQ_REL))
+		return;
+	memset(&action, 0, sizeof(action));
+	action.sa_sigaction = sample_handler;
+	action.sa_flags = SA_SIGINFO | SA_RESTART;
+	sigemptyset(&action.sa_mask);
+	sigaction(SAMPLE_SIGNAL, &action, NULL);
+}
+
+void host_debug_stall_thread(int thread)
+{
+	if (thread >= 0 && thread < HOST_STALL_THREADS)
+		stall_threads[thread] = current_thread();
+}
+
+void host_debug_stall_interrupt(int thread)
+{
+	thread_id target;
+
+	if (thread < 0 || thread >= HOST_STALL_THREADS || !(target = stall_threads[thread]))
+		return;
+	/* (one asked for and not yet taken: the thread has the signal blocked,
+	or has not run since; not asked again) */
+	if (__atomic_exchange_n(&stall_requested[thread], 1, __ATOMIC_ACQ_REL))
+		return;
+#ifdef __APPLE__
+	pthread_kill(target, SAMPLE_SIGNAL);
+#else
+	syscall(SYS_tgkill, getpid(), target, SAMPLE_SIGNAL);
+#endif
+}
+
+void host_debug_stall_prepare(void)
+{
+	sample_handler_install();
+}
+
+void host_debug_describe_address(uint64_t address, char *buffer, size_t size)
+{
+	static Dl_info own;
+	Dl_info information;
+	const char *file;
+
+	memset(&information, 0, sizeof(information));
+	if (!dladdr((const void *)(uintptr_t)address, &information) || !information.dli_fname)
+	{
+		snprintf(buffer, size, "%llx", (unsigned long long)address);
+		return;
+	}
+	file = strrchr(information.dli_fname, '/');
+	file = file ? file + 1 : information.dli_fname;
+	/* (the host's own functions are mostly not exported, so the nearest
+	exported name may be another's: their offset, which the build's symbols
+	name; a library's, its symbol) */
+	if (!own.dli_fbase)
+		dladdr((const void *)(uintptr_t)host_debug_describe_address, &own);
+	if (information.dli_sname && information.dli_saddr && information.dli_fbase != own.dli_fbase)
+		snprintf(buffer, size, "%s`%s+%llu", file, information.dli_sname,
+			(unsigned long long)(address - (uintptr_t)information.dli_saddr));
+	else
+		snprintf(buffer, size, "%s+%llx", file, (unsigned long long)(address - (uintptr_t)information.dli_fbase));
 }
 
 /* the time between samples */
@@ -133,7 +223,6 @@ static void *sampler(void *context)
 
 void host_debug_start_sampler(const char *setting)
 {
-	struct sigaction action;
 	pthread_t thread;
 	/* (a real number of seconds, as the setting is: 0.5 is twice a second) */
 	double seconds = setting ? strtod(setting, NULL) : 0.0;
@@ -147,11 +236,7 @@ void host_debug_start_sampler(const char *setting)
 		seconds = 86400.0;
 	sample_interval.tv_sec = (time_t)seconds;
 	sample_interval.tv_nsec = (long)((seconds - (double)sample_interval.tv_sec) * 1e9);
-	memset(&action, 0, sizeof(action));
-	action.sa_sigaction = sample_handler;
-	action.sa_flags = SA_SIGINFO | SA_RESTART;
-	sigemptyset(&action.sa_mask);
-	sigaction(SAMPLE_SIGNAL, &action, NULL);
+	sample_handler_install();
 	if (pthread_create(&thread, NULL, sampler, NULL) == 0)
 		pthread_detach(thread);
 	host_logf(HOST_LOG_INFO, "sampling guest threads every %g s", seconds);

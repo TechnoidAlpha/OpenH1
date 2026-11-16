@@ -1,5 +1,6 @@
 """Asset-free probes of the production preparation cache and compiler worker."""
 from pathlib import Path
+import re
 import subprocess
 
 from test_load_trace import build
@@ -25,6 +26,7 @@ static uint64_t monotonic_nanoseconds(void) { return clock_now; }
 static void host_load_trace(const char *phase, const char *format, ...) {
     (void)phase; (void)format;
 }
+static void host_stall_loading(int active) { (void)active; }
 static uint64_t callback(void *context, const struct loading_presentation_frame *frame) {
     (void)context;
     if (frame->active && !frame->ready) { clock_now += duration; calls++; }
@@ -82,7 +84,10 @@ int main(void) {
 def test_loading_retirement_repeats_inside_one_epoch(tmp_path):
     text = (ROOT / "port/linux/src/sdl_platform.c").read_text()
     functions = text[text.index("void halo_loading_begin(void)"):text.index("static struct platform_input_state input_state;")]
-    source = r'''
+    # (the caption's size, as loading_presentation.h sets it)
+    scale = re.search(r"#define LOADING_PRESENTATION_CAPTION_SCALE (\d+)",
+                      (ROOT / "port/linux/src/loading_presentation.h").read_text()).group(1)
+    source = f"#define LOADING_PRESENTATION_CAPTION_SCALE {scale}\n" + r'''
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -279,6 +284,8 @@ static struct {
 } device;
 static int consumed, checkpointed;
 static void xgpu_backend_consume(void) { consumed++; }
+/* (the settings a draw is journaled under alike: none here) */
+static void journal_settings_blind(unsigned long words[3]) { words[0] = words[1] = words[2] = 0; }
 static void checkpoint(void *const *textures)
 {
     assert(consumed == checkpointed + 1);
@@ -368,7 +375,7 @@ def test_pipeline_worker_presents_during_compile_and_joins(tmp_path):
     code = text[text.index("/* Preparation queues owned native descriptions."):
                 text.index("\n}\n", text.index("static void pipeline_compiler_stop(")) + 3]
     entries = text[text.index("struct pipeline_entry\n"):text.index("struct shader_entry\n")]
-    accessors = text[text.index("static struct pipeline_entry *pipeline_find("):
+    accessors = text[text.index("static struct pipeline_entry *pipeline_find_apart("):
                      text.index("uint64_t xgpu_vulkan_pipeline_count(")]
     source = r'''
 #include <assert.h>
@@ -634,11 +641,19 @@ static int rasterizer_widget_set_texture(int stage, long map, short sequence) {
     assert(stage == 0 && sequence == (map == NONE ? 0 : map-9)); return map == 11;
 }
 static void rasterizer_widget_batch_sprites(int enabled) { batch = enabled; }
+static int category, kind;
 static void rasterizer_widget_draw_sprite3d(const real_point3d *p, float radius, void *scale, float rotation, unsigned color) {
     assert(depth && batch && p->z == 2.0f && radius > 0 && color == 0x80ffffff);
+    assert(category == 7 && kind == 3);
     assert(!scale && rotation == 0); draws++;
 }
 static void rasterizer_widget_end(void) { assert(!batch); ends++; }
+/* (each drawn as a light among the queued transparents, display.hdr's kind) */
+#define _rasterizer_profile_queued_transparents 7
+#define HALO_HDR_KIND_NONE 0
+#define HALO_HDR_KIND_LIGHT 3
+static void halo_hdr_category(int c) { category = c; }
+static void halo_hdr_draw_kind(int k) { kind = k; }
 ''' + function + r'''
 int main(void) {
     render.camera.forward.z = 1;
@@ -646,6 +661,7 @@ int main(void) {
     reject = 1;
     light_volumes_draw();
     assert(begins == 6 && ends == 6 && draws == 4);
+    assert(category == NONE && kind == HALO_HDR_KIND_NONE);
     return 0;
 }
 '''

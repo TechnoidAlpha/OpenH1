@@ -32,7 +32,10 @@ def test_info_plist_asks_for_game_mode_and_names_the_build():
     assert plist["NSHighResolutionCapable"] is True
     assert plist["LSMinimumSystemVersion"] == MACOS_MINIMUM
     assert plist["CFBundleShortVersionString"] == plist["CFBundleVersion"] == "1234"
-    assert plist["CFBundleExecutable"] == "halo" and plist["CFBundleName"] == "OpenH1"
+    assert plist["CFBundleExecutable"] == "halo"
+    # (the name GOAT H1; the bundle ID, which Sparkle and the system's permissions know the app by, OpenH1's)
+    assert plist["CFBundleName"] == plist["CFBundleDisplayName"] == "GOAT H1"
+    assert plist["CFBundleIdentifier"] == MACOS_BUNDLE_ID == "com.openh1.openh1"
     assert plist["NSMicrophoneUsageDescription"] and plist["NSLocalNetworkUsageDescription"]
     assert "not endorsed" in plist["NSHumanReadableCopyright"]
 
@@ -77,7 +80,7 @@ def test_entitlements_are_the_narrowest():
 def test_app_contents():
     contents = APP / "Contents"
     for path in ("MacOS/halo", "Frameworks/libSDL3.0.dylib", "Resources/openh1-icon.icns",
-                 "Resources/brokers.txt", "Info.plist"):
+                 "Resources/brokers.txt", "Resources/prepared.records", "Resources/openh1.assets", "Info.plist"):
         assert (contents / path).is_file(), path
     with open(contents / "Info.plist", "rb") as file:
         plist = plistlib.load(file)

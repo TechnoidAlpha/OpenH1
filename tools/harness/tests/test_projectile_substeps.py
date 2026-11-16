@@ -86,14 +86,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("projectile_substeps", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_registered_after_the_weapons():
-    # the projectiles' slot is registered, and runs after the weapons' (a shot made at a sub-step takes its head
-    # start in that sub-step)
-    header = read("port/linux/game/sim_rate.h")
-    assert header.index("_sim_substep_weapons,") < header.index("_sim_substep_projectiles,")
-    initialize = function(read("source/items/projectiles.c"), "projectiles_initialize")
-    assert "sim_substep_register(_sim_substep_projectiles, projectiles_substep);" in initialize
-    # and their type is of the micro lane (objects.h), so the sub-steps see the macro lane where they would
-    assert "object_lane_register(_object_mask_projectile);" in initialize

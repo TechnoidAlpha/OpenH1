@@ -53,6 +53,7 @@ texture with a thickness is not let go while the guest keeps its texels.
 #include "xgpu_backend.h"
 #include "xgpu_stream.h"
 #include "host.h"
+#include "host_render_record.h"
 #include "xgpu_vulkan.h"
 #include "xgpu_vulkan_effects.h"
 #include "xgpu_vulkan_textures.h"
@@ -689,6 +690,13 @@ static struct entry *xbox_entry_current(const struct xgpu_stream_texture_stage *
 		*palette_out = palette;
 	if (!readable(stage->resource, 5 * sizeof(uint32_t)))
 		return NULL;
+	/* (what is read of the guest's memory, for a recording) */
+	if (host_render_record_active)
+	{
+		host_render_record_note(stage->resource, 5 * sizeof(uint32_t));
+		if (palette && ((stage->resource_format & D3DFORMAT_FORMAT_MASK) >> D3DFORMAT_FORMAT_SHIFT) == FORMAT_PALETTIZED)
+			host_render_record_note(stage->palette, 256 * sizeof(D3DCOLOR));
+	}
 	entry = xbox_entry_find(stage, palette);
 	if (!entry || !entry->image)
 		return NULL;
@@ -706,6 +714,8 @@ static struct entry *xbox_entry_current(const struct xgpu_stream_texture_stage *
 		entry->generation = host_memory_watch_generation(entry->address, entry->size);
 		if (!entry->generation)
 			entry->generation = 1;
+		if (host_render_record_active)
+			host_render_record_note(entry->address, entry->size);
 		xbox_texture_upload(entry, palette);
 	}
 	entry->watched_serial = serial;
@@ -797,20 +807,14 @@ uint32_t xgpu_vulkan_textures_thickness_epoch(void)
 
 /* ---------- images */
 
-/* XGPU_IMAGE_* (xgpu_images.h) */
-enum
-{
-	_image_rgba,
-	_image_coverage,
-};
-
 static struct xgpu_vulkan_image *image_get(const struct xgpu_stream_texture_stage *stage)
 {
 	struct entry **bucket = &cache.buckets[bucket_index(stage->resource, 0, 1)];
 	struct entry *entry;
 	const void *pixels = host_pointer(stage->data);
 	uint32_t width = stage->width, height = stage->height;
-	uint32_t texel = stage->resource_format == _image_coverage ? 1 : 4;
+	/* (XGPU_IMAGE_RGBA, xgpu_images.h: 4 bytes a pixel) */
+	uint32_t texel = 4;
 
 	if (!pixels || !width || !height || width > 16384 || height > 16384 || !readable(stage->data, width * height * texel))
 		return NULL;
@@ -843,7 +847,7 @@ static struct xgpu_vulkan_image *image_get(const struct xgpu_stream_texture_stag
 			xgpu_vulkan_image_destroy(entry->image);
 		memset(&made, 0, sizeof(made));
 		made.type = XGPU_VULKAN_IMAGE_2D;
-		made.format = stage->resource_format == _image_coverage ? XGPU_VULKAN_FORMAT_COVERAGE : XGPU_VULKAN_FORMAT_RGBA8;
+		made.format = XGPU_VULKAN_FORMAT_RGBA8;
 		made.usage = XGPU_VULKAN_USAGE_SAMPLED;
 		made.width = width;
 		made.height = height;
@@ -858,6 +862,8 @@ static struct xgpu_vulkan_image *image_get(const struct xgpu_stream_texture_stag
 			return NULL;
 	}
 	entry->format_word = stage->resource_size;
+	if (host_render_record_active)
+		host_render_record_note(stage->data, width * height * texel);
 	xgpu_vulkan_image_upload(entry->image, 0, 0, 0, 0, 0, width, height, 1, pixels, width * texel, 0);
 	if (stage->levels > 1)
 		xgpu_vulkan_image_make_levels(entry->image, 1);

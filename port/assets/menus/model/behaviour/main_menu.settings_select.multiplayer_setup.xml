@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/create_and_edit_new_gametype_screen" flags="pass_unhandled_to_focused_child"/>
+</model>

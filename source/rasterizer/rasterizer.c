@@ -317,6 +317,7 @@ symbols in this file:
 #include "render/render_debug.h"
 #include "saved games/game_state.h"
 #include "tag_files/tag_groups.h"
+#include "world_ao.h" /* port: port/linux/game/world_ao.c */
 
 /* ---------- constants */
 
@@ -1156,6 +1157,9 @@ void rasterizer_environment_lightmap_begin(
 	struct bitmap_data const *lightmap_bitmap)
 {
 	_rasterizer_environment_lightmap_begin(lightmap_bitmap);
+	/* port: display.ambient_occlusion "world": the page drawn with next, for
+	its static scenery's occlusion (port/linux/game/world_ao.c) */
+	world_ao_lightmap_begin(lightmap_bitmap);
 	return;
 }
 
@@ -1625,10 +1629,49 @@ void rasterizer_dynamic_unlit_geometry_draw(
 	return;
 }
 
+/* port: how far what is drawn on the screen is moved, in the screen's units
+(of its 480 lines), past the whole units the game places it at: a mark over
+the world (a waypoint, a teammate's triangle, a player's name) is drawn where
+its point projects, not at the unit short of it (rasterizer_screen_offset_set) */
+static real_vector2d rasterizer_screen_offset;
+
+void rasterizer_screen_offset_set(
+	real i,
+	real j)
+{
+	rasterizer_screen_offset.i = i;
+	rasterizer_screen_offset.j = j;
+
+	return;
+}
+
+void rasterizer_screen_offset_get(
+	real_vector2d *offset)
+{
+	*offset = rasterizer_screen_offset;
+
+	return;
+}
+
 void rasterizer_psuedo_dynamic_screen_quad_draw(
 	struct rasterizer_dynamic_screen_geometry_parameters *parameters,
 	struct dynamic_screen_vertex *vertices)
 {
+	/* port: (rasterizer_screen_offset) */
+	if (rasterizer_screen_offset.i != 0.0f || rasterizer_screen_offset.j != 0.0f)
+	{
+		struct dynamic_screen_vertex moved[4];
+		short vertex_index;
+
+		for (vertex_index = 0; vertex_index < 4; vertex_index++)
+		{
+			moved[vertex_index] = vertices[vertex_index];
+			moved[vertex_index].position.x += rasterizer_screen_offset.i;
+			moved[vertex_index].position.y += rasterizer_screen_offset.j;
+		}
+		_rasterizer_psuedo_dynamic_screen_quad_draw(parameters, moved);
+		return;
+	}
 	_rasterizer_psuedo_dynamic_screen_quad_draw(parameters, vertices);
 	return;
 }

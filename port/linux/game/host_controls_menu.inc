@@ -24,14 +24,22 @@ network_host_game.c's, by the host's own ways: this file only shows it.
   game's), Password (typed: a public internet game's, at once), Lock teams,
   Allow votekick, Listing (an internet game's), Max players (left and
   right: never fewer than are in it), Allow OpenCE players (an OpenH1
-  game's).
+  game's), Lobby text chat and Lobby voice chat (network.lobby_text_chat,
+  network.voice_lobby: on or off for everyone, the host's settings reaching
+  every machine as the chat's and the voice's do).
 - MAPS: the gametype (left and right: first CURRENT, the game's own with
   its score, time and rules, then the gametypes), then the multiplayer maps, the
   Xbox's and Custom Edition's; for the map chosen the panel's PLAY NOW
   (pressed twice in a game: it ends), AFTER THIS GAME and ADD TO PLAYLIST.
+  In co-op: the difficulty (left and right, from the game's), then the
+  campaign's levels (the Xbox's, Custom Edition's campaign maps); for the
+  level chosen PLAY NOW (pressed twice in a level: it ends for everyone, as
+  a won one does, and the lobby starts the new one) and AFTER THIS LEVEL (in
+  the campaign's next one's place: network_host_game.c's co-op part).
 - PLAYLIST: a change asked for, then network.host_playlist's games, the next
   marked; for the one chosen PLAY NOW, PLAY NEXT, REMOVE and CLEAR PLAYLIST
-  (pressed twice), or a change's CANCEL.
+  (pressed twice), or a change's CANCEL. In co-op, which has no playlist, the
+  level asked for after this one alone, and its CANCEL.
 - BANS: bans.txt's lines (read again each second), and the panel's UNBAN.
 - RULES (GAME's CHANGE RULES..., in GAME's place on the strip; B goes back
   to GAME): the gametype's rules (network_host_rules_rows: the vehicles,
@@ -64,6 +72,9 @@ seconds.
 HOST_ACTIONS) */
 #define HOST_CONTROLS_ROWS 14
 #define HOST_CONTROLS_ACTIONS 4
+/* the room the confirm key's picture and its space take before a button's
+words (the menus' A, about 20 units, and a space) */
+#define HOST_CONTROLS_KEY_ROOM 24
 /* milliseconds a second press confirms in, a notice shows, the bans are
 read again after */
 #define HOST_CONTROLS_CONFIRM_TIME 5000
@@ -110,6 +121,14 @@ enum
 	_host_game_listing,
 	_host_game_maximum_players,
 	_host_game_opence,
+	/* the players' Halo 2 boarding (game.vehicle_hijack: vehicle_hijack.c),
+	an OpenH1 game's, at once for everyone */
+	_host_game_vehicle_hijack,
+	/* the lobby's chats: its text (network.lobby_text_chat, network_chat.c)
+	and its voice (network.voice_lobby, network_voice.c), on or off for
+	everyone in it, the host's settings reaching each machine as they do */
+	_host_game_lobby_text_chat,
+	_host_game_lobby_voice_chat,
 	NUMBER_OF_HOST_GAME_ROWS,
 	MAXIMUM_HOST_GAME_ROWS = NUMBER_OF_HOST_GAME_ROWS,
 };
@@ -129,6 +148,9 @@ enum
 	_host_button_mute_day,
 	_host_button_unmute,
 	_host_button_cancel,
+	/* (co-op's: BRING TO ME and GO TO, the player's _host_controls_bring and
+	_go_to, chosen after it, as a ban's lengths are) */
+	_host_button_teleport,
 	/* (a map's) */
 	_host_button_map_now,
 	_host_button_map_after,
@@ -156,6 +178,8 @@ enum
 static long const host_score_steps[] = { 1, 2, 3, 4, 5, 7, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 250, 500,
 	999 };
 static short const host_time_steps[] = { 0, 5, 10, 15, 20, 25, 30, 45, 60, 90, 120 };
+/* co-op's difficulties (_game_difficulty_level_*, easy to legendary) */
+#define HOST_DIFFICULTIES 4
 /* a ban's lengths (seconds; 0: for ever) and a mute's (minutes), as the
 buttons have them */
 #define HOST_BAN_HOUR (60L * 60)
@@ -192,8 +216,9 @@ static struct
 	short choosing;
 	char reason[HOST_CONTROLS_REASON_LENGTH + 1];
 	/* the gametype the maps play (network_host_game_gametypes' index; NONE:
-	CURRENT, the game's own kept) */
+	CURRENT, the game's own kept); co-op's difficulty (NONE: the game's) */
 	short gametype;
+	short difficulty;
 	/* the press a second confirms, and when it was asked */
 	short confirm;
 	unsigned long confirm_time;
@@ -346,7 +371,7 @@ static wchar_t const *host_tag_name(short tag)
 	case _host_controls_tag_bot:
 		return L"BOT";
 	case _host_controls_tag_openh1:
-		return L"OPENH1";
+		return L"GOAT H1";
 	case _host_controls_tag_opence:
 		return L"OPENCE";
 	default:
@@ -414,6 +439,12 @@ static boolean host_lobby(void)
 	return host_remote() ? host_flag(_network_admin_flag_lobby) : network_host_controls_in_lobby();
 }
 
+/* whether this machine hosts a co-op game (its MAPS the campaign's levels) */
+static boolean host_cooperative(void)
+{
+	return !host_remote() && network_host_game_cooperative();
+}
+
 /* a request to the server (its answer, if it refuses, in the panel) */
 static boolean host_ask(short verb, struct host_controls_player const *player, long number, char const *text)
 {
@@ -425,9 +456,10 @@ static boolean host_ask(short verb, struct host_controls_player const *player, l
 	return TRUE;
 }
 
+/* the playlist and its next, the server's (an admin's) or this host's */
 static struct server_rotation const *host_playlist(void)
 {
-	return host_remote() ? network_admin_rotation() : host_playlist();
+	return host_remote() ? network_admin_rotation() : network_host_game_playlist();
 }
 
 static long host_playlist_index(void)
@@ -436,7 +468,7 @@ static long host_playlist_index(void)
 
 	if (network_admin_remote_state(&state))
 		return state.rotation_index;
-	return host_playlist_index();
+	return network_host_game_playlist_index();
 }
 
 static short host_gametypes(struct host_game_gametype const **gametypes)
@@ -495,6 +527,13 @@ static boolean host_move(struct host_controls_player const *player)
 	if (host_remote())
 		return host_ask(_network_admin_move_team, player, 0, NULL);
 	return network_host_game_move_player(player);
+}
+
+/* (co-op's host: never an admin's, whose actions have neither) */
+static boolean host_teleport(struct host_controls_player const *player, boolean go_to)
+{
+	return !host_remote() && player->player_index != NONE &&
+		network_host_controls_teleport(player->player_index, go_to);
 }
 
 /* ---- the game's rows */
@@ -572,7 +611,7 @@ static void host_game_rows_read(void)
 			shown = playing && game_engine_can_score() && !network_host_controls_restarting();
 			break;
 		case _host_game_change_map:
-			shown = network_host_game_hosting();
+			shown = network_host_game_hosting() || host_cooperative();
 			break;
 		case _host_game_change_rules:
 			shown = network_host_rules_available();
@@ -598,6 +637,10 @@ static void host_game_rows_read(void)
 				(index == _host_game_listing || !server_settings_private());
 			break;
 		case _host_game_opence:
+			shown = network_standard_hosting();
+			break;
+		/* (an OpenH1 game's: a Legacy game's machines never hijack) */
+		case _host_game_vehicle_hijack:
 			shown = network_standard_hosting();
 			break;
 		default:
@@ -656,6 +699,18 @@ static void host_game_row_text(short row, wchar_t *label, wchar_t *value, wchar_
 		struct server_entry next;
 		boolean now;
 
+		if (host_cooperative())
+		{
+			char level[HOST_GAME_MAP_SIZE];
+			short difficulty;
+
+			usnprintf(label, size - 1, L"CHANGE LEVEL...");
+			if (network_host_game_cooperative_next(level, sizeof(level), &difficulty, &now))
+				network_host_game_cooperative_text(level, difficulty, value, size);
+			usnprintf(help, size - 1, lobby ? L"Pick the level and difficulty this lobby plays." :
+				L"Pick another level and difficulty: now, or after this level.");
+			break;
+		}
 		usnprintf(label, size - 1, L"CHANGE MAP...");
 		if (host_next(&next, &now))
 			network_host_game_entry_shown(&next, value, size);
@@ -742,6 +797,24 @@ static void host_game_row_text(short row, wchar_t *label, wchar_t *value, wchar_
 		usnprintf(value, size - 1, network_host_controls_opence_joins() ? L"ON" : L"OFF");
 		usnprintf(help, size - 1, L"Players of OpenCE may join from now on, playing at 30 ticks. Those in "
 			L"the game stay.");
+		break;
+	case _host_game_vehicle_hijack:
+		usnprintf(label, size - 1, L"VEHICLE HIJACKING");
+		usnprintf(value, size - 1, network_standard_hosting_vehicle_hijack() ? L"ON" : L"OFF");
+		usnprintf(help, size - 1, L"Players hold the action button beside an enemy's Ghost, Warthog or landed "
+			L"Banshee to throw the rider out and take it. Changes at once, for everyone.");
+		break;
+	case _host_game_lobby_text_chat:
+		usnprintf(label, size - 1, L"LOBBY TEXT CHAT");
+		usnprintf(value, size - 1, config_boolean("network.lobby_text_chat") ? L"ON" : L"OFF");
+		usnprintf(help, size - 1, L"Everyone in the lobby can type to everyone, before and after a game. "
+			L"Changes at once, for everyone.");
+		break;
+	case _host_game_lobby_voice_chat:
+		usnprintf(label, size - 1, L"LOBBY VOICE CHAT");
+		usnprintf(value, size - 1, config_boolean("network.voice_lobby") ? L"ON" : L"OFF");
+		usnprintf(help, size - 1, L"Everyone in the lobby can hear everyone, before and after a game. "
+			L"Changes at once, for everyone.");
 		break;
 	default:
 		break;
@@ -901,6 +974,7 @@ static void host_game_row_change(struct widget_instance *row_widget, short row, 
 			return;
 		host_menu.tab = row == _host_game_change_map ? _host_tab_maps : _host_tab_rules;
 		host_menu.gametype = NONE;
+		host_menu.difficulty = NONE;
 		host_menu.first = 0;
 		host_menu.confirm = _host_confirm_none;
 		host_menu.focus_first = TRUE;
@@ -1003,6 +1077,32 @@ static void host_game_row_change(struct widget_instance *row_widget, short row, 
 	case _host_game_opence:
 		network_host_controls_set_opence_joins(!network_host_controls_opence_joins());
 		break;
+	/* (the host's rule at once, its clients told, and config.toml's for the
+	next game hosted: network_standard.c) */
+	case _host_game_vehicle_hijack:
+	{
+		boolean on = !network_standard_hosting_vehicle_hijack();
+
+		if (!network_standard_set_vehicle_hijack(on))
+		{
+			ui_play_audio_feedback_sound(SOUND_ERROR);
+			return;
+		}
+		if (!config_write("game.vehicle_hijack", on ? "true" : "false"))
+			platform_log("menus: could not write game.vehicle_hijack to config.toml");
+		break;
+	}
+	/* (written to config.toml, which the host's chat and voice read again
+	at once and tell every machine: network_chat.c, network_voice.c) */
+	case _host_game_lobby_text_chat:
+	case _host_game_lobby_voice_chat:
+	{
+		char const *setting = row == _host_game_lobby_text_chat ? "network.lobby_text_chat" : "network.voice_lobby";
+
+		if (!config_write(setting, config_boolean(setting) ? "false" : "true"))
+			platform_log("menus: could not write %s to config.toml", setting);
+		break;
+	}
 	default:
 		break;
 	}
@@ -1149,6 +1249,22 @@ static void host_gametype_shown(wchar_t *text, short size)
 	text[size - 1] = 0;
 }
 
+/* co-op's difficulty MAPS plays its levels at (the game's, until stepped),
+and its name */
+static short host_difficulty(void)
+{
+	if (host_menu.difficulty < 0 || host_menu.difficulty >= HOST_DIFFICULTIES)
+		host_menu.difficulty = network_host_game_cooperative_difficulty();
+	return host_menu.difficulty;
+}
+
+static wchar_t const *host_difficulty_name(short difficulty)
+{
+	static wchar_t const *const names[HOST_DIFFICULTIES] = { L"Easy", L"Normal", L"Heroic", L"Legendary" };
+
+	return difficulty >= 0 && difficulty < HOST_DIFFICULTIES ? names[difficulty] : L"";
+}
+
 /* the map chosen with the gametype, as an entry's text: CURRENT's the map
 alone (the game's gametype, score, time and rules kept: network_host_game_
 change), but a playlist's names the list's gametype the game's is (FALSE:
@@ -1222,6 +1338,14 @@ static boolean host_change_asked(struct server_entry *entry)
 	/* (an admin's: the server's rotation alone, its next marked) */
 	if (host_remote())
 		return FALSE;
+	/* (co-op's: the level asked for after this one) */
+	if (host_cooperative())
+	{
+		char level[HOST_GAME_MAP_SIZE];
+		short difficulty;
+
+		return network_host_game_cooperative_next(level, sizeof(level), &difficulty, &now);
+	}
 	if (!network_host_game_next(entry, &now))
 		return FALSE;
 	return next == NONE || !entry->gametype[0] || strcmp(entry->text, playlist->entries[next].text) || now;
@@ -1231,6 +1355,9 @@ static short host_playlist_entries(void)
 {
 	struct server_entry change;
 
+	/* (co-op has no playlist: the change alone) */
+	if (host_cooperative())
+		return (short)(host_change_asked(&change) ? 1 : 0);
 	return (short)(host_playlist()->count + (host_change_asked(&change) ? 1 : 0));
 }
 
@@ -1290,7 +1417,10 @@ static void host_tab_set(short tab)
 		tab = _host_tab_players;
 	/* (MAPS: CURRENT, the game's own gametype) */
 	if (tab == _host_tab_maps && host_menu.tab != _host_tab_maps)
+	{
 		host_menu.gametype = NONE;
+		host_menu.difficulty = NONE;
+	}
 	host_menu.tab = tab;
 	host_menu.first = 0;
 	host_menu.confirm = _host_confirm_none;
@@ -1309,6 +1439,7 @@ static boolean host_controls_initialize(void)
 	host_menu.chosen_game_row = NONE;
 	host_menu.chosen_map[0] = 0;
 	host_menu.gametype = NONE;
+	host_menu.difficulty = NONE;
 	host_menu.chosen_entry = NONE;
 	host_menu.chosen_ban[0] = 0;
 	host_menu.chosen_bot_row = NONE;
@@ -1327,10 +1458,11 @@ static boolean host_controls_initialize(void)
 }
 
 /* "port host open" (the pause menu's and the lobby's HOST CONTROLS): the
-host's alone */
-static boolean host_controls_open(void)
+host's alone, or an admin's, and of their machine's first local player's
+screen (a split screen's player 1: host_rows_player) */
+static boolean host_controls_open(struct widget_instance *widget)
 {
-	if (!host_available())
+	if (!host_available() || !host_rows_player(widget))
 	{
 		ui_play_audio_feedback_sound(SOUND_ERROR);
 		return FALSE;
@@ -1396,7 +1528,10 @@ static void host_entries_read(void)
 	host_menu.rule_row_count = host_menu.tab == _host_tab_rules ?
 		network_host_rules_rows(host_menu.rule_rows, NUMBEROF(host_menu.rule_rows)) : 0;
 	if (host_menu.tab == _host_tab_maps)
-		host_menu.map_count = network_host_game_maps(&host_menu.maps);
+	{
+		host_menu.map_count = host_cooperative() ? network_host_game_levels(&host_menu.maps) :
+			network_host_game_maps(&host_menu.maps);
+	}
 	if (host_menu.tab == _host_tab_bans && (!host_menu.bans_read || now - host_menu.bans_time >= HOST_CONTROLS_BANS_INTERVAL))
 	{
 		host_menu.ban_count = network_host_controls_bans(host_menu.bans, host_menu.ban_lines,
@@ -1513,7 +1648,13 @@ static void host_headers_show(struct widget_instance *screen)
 	short index;
 
 	for (index = 0; index < 5; index++)
-		text_set(named(screen, names[index], 0), headers[host_menu.tab][index]);
+	{
+		/* (co-op's MAPS and PLAYLIST: its levels) */
+		text_set(named(screen, names[index], 0), index == 0 && host_cooperative() &&
+			(host_menu.tab == _host_tab_maps || host_menu.tab == _host_tab_playlist) ? L"LEVEL" :
+			index == 4 && host_cooperative() && host_menu.tab == _host_tab_playlist ? L"DIFFICULTY" :
+			headers[host_menu.tab][index]);
+	}
 }
 
 /* a row's texts (an entry of the tab), its team's colour, its tag's pill */
@@ -1612,7 +1753,12 @@ static void host_row_show(struct widget_instance *row, short row_index, short en
 		}
 		break;
 	case _host_tab_maps:
-		if (entry == 0)
+		if (entry == 0 && host_cooperative())
+		{
+			usnprintf(label, NUMBEROF(label) - 1, L"DIFFICULTY");
+			usnprintf(value, NUMBEROF(value) - 1, L"\x2039 %s \x203A", host_difficulty_name(host_difficulty()));
+		}
+		else if (entry == 0)
 		{
 			wchar_t gametype[HOST_CONTROLS_TEXT_LENGTH];
 
@@ -1639,6 +1785,20 @@ static void host_row_show(struct widget_instance *row, short row_index, short en
 		wchar_t text[HOST_CONTROLS_TEXT_LENGTH];
 		wchar_t *dot;
 
+		if (index == HOST_PLAYLIST_CHANGE && host_cooperative())
+		{
+			char level[HOST_GAME_MAP_SIZE];
+			short difficulty;
+			boolean now;
+
+			if (network_host_game_cooperative_next(level, sizeof(level), &difficulty, &now))
+			{
+				lobby_board_map_text(level, text, NUMBEROF(text));
+				usnprintf(label, NUMBEROF(label) - 1, L"NEXT: %s", text);
+				usnprintf(value, NUMBEROF(value) - 1, L"%s", host_difficulty_name(difficulty));
+			}
+			break;
+		}
 		if (index == HOST_PLAYLIST_CHANGE)
 		{
 			boolean now;
@@ -1732,25 +1892,46 @@ static short host_buttons_of(struct host_controls_player const *player, short ch
 			buttons[shown++] = _host_button_cancel;
 			break;
 		}
+		if (host_menu.choosing == _host_button_teleport &&
+			(player->actions & (FLAG(_host_controls_bring) | FLAG(_host_controls_go_to))))
+		{
+			if (TEST_FLAG(player->actions, _host_controls_bring))
+				buttons[shown++] = _host_controls_bring;
+			if (TEST_FLAG(player->actions, _host_controls_go_to))
+				buttons[shown++] = _host_controls_go_to;
+			buttons[shown++] = _host_button_cancel;
+			break;
+		}
 		for (index = 0; index < NUMBEROF(order); index++)
 		{
 			if (TEST_FLAG(player->actions, order[index]))
 				buttons[shown++] = order[index] == _host_controls_mute && host_muted(player) ?
 					_host_button_unmute : order[index];
 		}
+		/* (co-op's, which has no teams to move between: a fourth button) */
+		if (player->actions & (FLAG(_host_controls_bring) | FLAG(_host_controls_go_to)))
+			buttons[shown++] = _host_button_teleport;
 		break;
 	case _host_tab_maps:
-		/* (co-op plays the campaign's levels: no change) */
-		if (!host_chosen_map() || (!host_remote() && network_host_game_cooperative()))
+		if (!host_chosen_map())
 			break;
 		buttons[shown++] = _host_button_map_now;
 		if (!lobby)
 			buttons[shown++] = _host_button_map_after;
-		buttons[shown++] = _host_button_map_add;
+		/* (co-op has no playlist) */
+		if (!host_cooperative())
+			buttons[shown++] = _host_button_map_add;
 		break;
 	case _host_tab_playlist:
-		if (chosen == NONE || (!host_remote() && network_host_game_cooperative()))
+		if (chosen == NONE)
 			break;
+		/* (co-op's: the change alone) */
+		if (host_cooperative())
+		{
+			if (host_menu.chosen_entry == HOST_PLAYLIST_CHANGE)
+				buttons[shown++] = _host_button_change_cancel;
+			break;
+		}
 		if (host_menu.chosen_entry == HOST_PLAYLIST_CHANGE)
 		{
 			buttons[shown++] = _host_button_change_cancel;
@@ -1802,6 +1983,15 @@ static void host_button_text(short action, struct host_controls_player const *pl
 	case _host_button_unmute:
 		usnprintf(text, size - 1, L"UNMUTE");
 		break;
+	case _host_button_teleport:
+		usnprintf(text, size - 1, L"TELEPORT...");
+		break;
+	case _host_controls_bring:
+		usnprintf(text, size - 1, L"BRING TO ME");
+		break;
+	case _host_controls_go_to:
+		usnprintf(text, size - 1, L"GO TO %s", player ? player->name : L"");
+		break;
 	case _host_button_unban:
 		usnprintf(text, size - 1, L"UNBAN");
 		break;
@@ -1837,11 +2027,11 @@ static void host_button_text(short action, struct host_controls_player const *pl
 		break;
 	case _host_button_map_now:
 	case _host_button_entry_now:
-		usnprintf(text, size - 1, lobby ? L"PLAY IN THIS LOBBY" : confirming ? L"PRESS AGAIN" : L"PLAY NOW");
+		usnprintf(text, size - 1, lobby ? L"PLAY IN LOBBY" : confirming ? L"PRESS AGAIN" : L"PLAY NOW");
 		break;
 	case _host_button_map_after:
 	case _host_button_entry_next:
-		usnprintf(text, size - 1, L"AFTER THIS GAME");
+		usnprintf(text, size - 1, host_cooperative() ? L"AFTER THIS LEVEL" : L"AFTER THIS GAME");
 		break;
 	case _host_button_map_add:
 		usnprintf(text, size - 1, L"ADD TO PLAYLIST");
@@ -1897,11 +2087,18 @@ static void host_buttons_show(struct widget_instance *list, struct host_controls
 		tapped, and name no key) */
 		if (text[0] && button && button == list->focused_child && !ui_widget_port_touch_menus())
 		{
+			/* (its words fitted to the room the key's picture leaves them:
+			fitted with it, "%a-button" was measured as its letters, which
+			took a word's room, "PLAY IN THIS LO...") */
 			wchar_t words[96];
+			short width;
+			long font = ui_widget_port_text_box_font(button, &width);
 
-			ustrncpy(words, text, NUMBEROF(words) - 1);
-			words[NUMBEROF(words) - 1] = 0;
+			menu_text_fit(font, text, words, NUMBEROF(words), (short)(width - HOST_CONTROLS_KEY_ROOM));
 			usnprintf(text, NUMBEROF(text) - 1, L"%%a-button %s", words);
+			text[NUMBEROF(text) - 1] = 0;
+			text_set_length(button, text, NUMBEROF(text));
+			continue;
 		}
 		text[NUMBEROF(text) - 1] = 0;
 		menu_text_box_fit(button, text, 0);
@@ -1938,11 +2135,11 @@ static void host_panel_show(struct widget_instance *list, short chosen)
 		else if (player->ping != NONE)
 		{
 			usnprintf(where, NUMBEROF(where) - 1, L"%s%s%ld ms", player->tag == _host_controls_tag_opence ?
-				L"OpenCE \x00B7 " : player->tag == _host_controls_tag_openh1 ? L"OpenH1 \x00B7 " : L"",
+				L"OpenCE \x00B7 " : player->tag == _host_controls_tag_openh1 ? L"GOAT H1 \x00B7 " : L"",
 				L"", player->ping);
 		}
 		else if (player->tag == _host_controls_tag_opence || player->tag == _host_controls_tag_openh1)
-			usnprintf(where, NUMBEROF(where) - 1, player->tag == _host_controls_tag_opence ? L"OpenCE" : L"OpenH1");
+			usnprintf(where, NUMBEROF(where) - 1, player->tag == _host_controls_tag_opence ? L"OpenCE" : L"GOAT H1");
 		if (host_game_teams() && player->team != NONE)
 		{
 			size_t length = ustrlen(where);
@@ -1954,11 +2151,13 @@ static void host_panel_show(struct widget_instance *list, short chosen)
 			usnprintf(status, NUMBEROF(status) - 1, L"For how long? They can't join until then.");
 		else if (host_menu.choosing == _host_controls_mute)
 			usnprintf(status, NUMBEROF(status) - 1, L"For how long? No chat or voice.");
+		else if (host_menu.choosing == _host_button_teleport)
+			usnprintf(status, NUMBEROF(status) - 1, L"Bring them beside you, or go to them.");
 		else if (!lobby && game_engine_running() && game_engine_has_teams() &&
 			!TEST_FLAG(player->actions, _host_controls_move_team))
 		{
 			usnprintf(status, NUMBEROF(status) - 1, (host_remote() ? host_flag(_network_admin_flag_standard) :
-				network_standard_hosting()) ? L"Players move teams only when everyone is on OpenH1." :
+				network_standard_hosting()) ? L"Players move teams only when everyone is on GOAT H1." :
 				L"Players can't move teams in a Legacy game.");
 		}
 		break;
@@ -1983,6 +2182,27 @@ static void host_panel_show(struct widget_instance *list, short chosen)
 		struct host_game_map const *map = host_chosen_map();
 		wchar_t gametype[HOST_CONTROLS_TEXT_LENGTH];
 
+		if (host_cooperative())
+		{
+			if (!map)
+			{
+				usnprintf(title, NUMBEROF(title) - 1, L"Levels");
+				usnprintf(where, NUMBEROF(where) - 1, L"%s", host_difficulty_name(host_difficulty()));
+				usnprintf(status, NUMBEROF(status) - 1, L"Choose the difficulty (left and right), then a level: "
+					L"play it now, or after this one.");
+				break;
+			}
+			lobby_board_map_text(map->level, title, NUMBEROF(title));
+			usnprintf(where, NUMBEROF(where) - 1, L"%s%s", host_difficulty_name(host_difficulty()),
+				map->custom ? L"\r\nCustom Edition" : L"");
+			if (host_confirming((short)(_host_button_map_now + HOST_CONFIRM_BUTTON)))
+				usnprintf(status, NUMBEROF(status) - 1, L"Press PLAY NOW again: this level ends for everyone, "
+					L"and this one starts from the lobby.");
+			else
+				usnprintf(status, NUMBEROF(status) - 1, lobby ? L"Play it in this lobby." :
+					L"Play it now, or after this level in place of the next one.");
+			break;
+		}
 		host_gametype_shown(gametype, NUMBEROF(gametype));
 		if (!map)
 		{
@@ -2012,6 +2232,24 @@ static void host_panel_show(struct widget_instance *list, short chosen)
 	{
 		struct server_rotation const *playlist = host_playlist();
 
+		if (host_cooperative())
+		{
+			char level[HOST_GAME_MAP_SIZE];
+			short difficulty;
+			boolean now;
+
+			usnprintf(title, NUMBEROF(title) - 1, L"Next level");
+			if (chosen != NONE && network_host_game_cooperative_next(level, sizeof(level), &difficulty, &now))
+			{
+				network_host_game_cooperative_text(level, difficulty, where, NUMBEROF(where));
+				usnprintf(status, NUMBEROF(status) - 1, now ? L"Starting now." :
+					L"Plays after this level, in place of the campaign's next one.");
+			}
+			else
+				usnprintf(status, NUMBEROF(status) - 1, L"The campaign's next level plays after this one. "
+					L"Pick another from MAPS.");
+			break;
+		}
 		if (chosen == NONE)
 		{
 			usnprintf(title, NUMBEROF(title) - 1, L"Playlist");
@@ -2302,14 +2540,14 @@ static void host_controls_update(struct widget_instance *list)
 		struct network_admin_state state;
 		long rate = network_admin_remote_state(&state) ? state.rate : network_standard_server_rate(FALSE);
 
-		usnprintf(text, NUMBEROF(text) - 1, L"%d %s    %ld TICK%s", host_menu.player_count,
+		usnprintf(text, NUMBEROF(text) - 1, L"%d %s   %ld TICK%s", host_menu.player_count,
 			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", rate,
-			host_lobby() ? L"    LOBBY" : L"");
+			host_lobby() ? L"   LOBBY" : L"");
 	}
 	else
 	{
-		usnprintf(text, NUMBEROF(text) - 1, L"%d %s    LEGACY%s", host_menu.player_count,
-			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", host_lobby() ? L"    LOBBY" : L"");
+		usnprintf(text, NUMBEROF(text) - 1, L"%d %s   LEGACY%s", host_menu.player_count,
+			host_menu.player_count == 1 ? L"PLAYER" : L"PLAYERS", host_lobby() ? L"   LOBBY" : L"");
 	}
 	text[NUMBEROF(text) - 1] = 0;
 	menu_text_box_fit(named(screen, "host_counts", 0), text, 0);
@@ -2319,7 +2557,9 @@ static void host_controls_update(struct widget_instance *list)
 	{
 		menu_text_box_wrap(named(screen, "host_empty", 0), !host_available() ?
 			L"The game is over." : host_menu.tab == _host_tab_bans ? L"No one is banned." :
-			host_menu.tab == _host_tab_playlist ? L"No games yet: add them from MAPS." : L"Nothing here.", 3);
+			host_menu.tab == _host_tab_playlist ? (host_cooperative() ?
+			L"The campaign's next level plays after this one: pick another from MAPS." :
+			L"No games yet: add them from MAPS.") : L"Nothing here.", 3);
 	}
 }
 
@@ -2368,6 +2608,16 @@ static boolean host_focus_buttons(struct widget_instance *list)
 	return FALSE;
 }
 
+/* MAPS' first row stepped (left -1, right 1): the gametype, or co-op's
+difficulty (easy to legendary, round) */
+static void host_maps_first_step(short step)
+{
+	if (host_cooperative())
+		host_menu.difficulty = (short)((host_difficulty() + step + HOST_DIFFICULTIES) % HOST_DIFFICULTIES);
+	else
+		host_gametype_step(step);
+}
+
 /* "port host row" (A or a click on a row): a player's, a map's, a
 playlist's or a ban's chosen, the focus to its buttons; a game's row
 changed; the gametype's stepped */
@@ -2396,7 +2646,7 @@ static boolean host_controls_row(struct widget_instance *row)
 	}
 	if (host_menu.tab == _host_tab_maps && entry == 0)
 	{
-		host_gametype_step(1);
+		host_maps_first_step(1);
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
 		return TRUE;
 	}
@@ -2417,7 +2667,7 @@ static boolean host_controls_step(struct widget_instance *row, short step)
 		return FALSE;
 	if (host_menu.tab == _host_tab_maps && entry == 0)
 	{
-		host_gametype_step(step);
+		host_maps_first_step(step);
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
 		return TRUE;
 	}
@@ -2486,6 +2736,30 @@ static boolean host_play(char const *text, short when, long playlist_index)
 	}
 	else
 		host_notice(L"It plays after this game.", NULL);
+	return TRUE;
+}
+
+/* co-op's level played (now or after this level) at the difficulty chosen:
+said in the panel */
+static boolean host_play_level(char const *level, short when)
+{
+	char reason[SERVER_REASON_SIZE];
+	boolean lobby = host_lobby();
+
+	if (!network_host_game_cooperative_change(level, host_difficulty(), when, reason, sizeof(reason)))
+	{
+		host_notice_text(reason);
+		return FALSE;
+	}
+	if (lobby)
+		host_notice(L"The lobby plays it now.", NULL);
+	else if (when == _host_game_now)
+	{
+		/* (back to the level, which ends) */
+		ui_widgets_close_all();
+	}
+	else
+		host_notice(L"It plays after this level.", NULL);
 	return TRUE;
 }
 
@@ -2577,6 +2851,21 @@ static boolean host_controls_action(struct widget_instance *button)
 		host_focus_buttons(button->parent);
 		ui_play_audio_feedback_sound(SOUND_CURSOR);
 		return TRUE;
+	case _host_button_teleport:
+		if (!player)
+			break;
+		host_menu.choosing = action;
+		host_focus_buttons(button->parent);
+		ui_play_audio_feedback_sound(SOUND_CURSOR);
+		return TRUE;
+	case _host_controls_bring:
+	case _host_controls_go_to:
+		if (!player || !host_teleport(player, action == _host_controls_go_to))
+			break;
+		host_menu.choosing = NONE;
+		host_notice(action == _host_controls_bring ? L"%s was brought to you." : L"You went to %s.", name);
+		ui_play_audio_feedback_sound(SOUND_FORWARD);
+		return TRUE;
 	case _host_controls_move_team:
 		if (!player || !host_move(player))
 			break;
@@ -2585,6 +2874,21 @@ static boolean host_controls_action(struct widget_instance *button)
 		return TRUE;
 	case _host_button_map_now:
 	case _host_button_map_after:
+		/* (co-op's: the level at the difficulty chosen) */
+		if (host_cooperative())
+		{
+			if (!map)
+				break;
+			if (action == _host_button_map_now && !host_lobby() &&
+				!host_confirmed((short)(action + HOST_CONFIRM_BUTTON)))
+			{
+				return TRUE;
+			}
+			if (!host_play_level(map->level, action == _host_button_map_now ? _host_game_now : _host_game_after))
+				break;
+			ui_play_audio_feedback_sound(SOUND_FORWARD);
+			return TRUE;
+		}
 		if (!host_map_entry_text(map, FALSE, text, sizeof(text)))
 			break;
 		/* (now, in a game: pressed twice, as it ends) */

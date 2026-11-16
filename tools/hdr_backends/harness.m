@@ -353,8 +353,13 @@ leaves */
 /* (the self-illuminated pass's colour: stage 0's constant) */
 static const float self_illumination_color[4] = { 0.9f, 0.7f, 0.4f, 0.0f };
 
+/* (interlocked, the Vulkan backend's draws that read and write their
+target as a storage image, texture 1, under a raster order group, the
+pipeline writing no colour: drawn over each pixel twice, the second with the
+second half of the colours; mask, the pipeline's colour mask) */
 static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger uniforms_index, unsigned offset,
-	unsigned constants_offset, const float *colors, const float *had, float *left)
+	unsigned constants_offset, const float *colors, const float *had, float *left, int interlocked, int twice,
+	MTLColorWriteMask mask)
 {
 	id<MTLFunction> vertex = function_load([dir stringByAppendingPathComponent:[stem stringByAppendingString:@".vertex.metal"]],
 		@"hdr_test_vertex");
@@ -365,7 +370,7 @@ static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger un
 	id<MTLRenderPipelineState> pipeline;
 	id<MTLCommandBuffer> commands;
 	id<MTLRenderCommandEncoder> encoder;
-	id<MTLTexture> target;
+	id<MTLTexture> target, attachment;
 	NSError *error = nil;
 	float uniforms[1024], width = PIXELS;
 
@@ -374,6 +379,7 @@ static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger un
 	description.vertexFunction = vertex;
 	description.fragmentFunction = fragment;
 	description.colorAttachments[0].pixelFormat = MTLPixelFormatRGBA16Float;
+	description.colorAttachments[0].writeMask = interlocked ? MTLColorWriteMaskNone : mask;
 	description.inputPrimitiveTopology = MTLPrimitiveTopologyClassPoint;
 	pipeline = [device newRenderPipelineStateWithDescriptor:description error:&error];
 	if (!pipeline)
@@ -381,8 +387,10 @@ static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger un
 		FAIL("%s: %s", stem.UTF8String, error.localizedDescription.UTF8String);
 		return 0;
 	}
-	target = texture_make(MTLPixelFormatRGBA16Float, PIXELS, MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead);
+	target = texture_make(MTLPixelFormatRGBA16Float, PIXELS, MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead |
+		MTLTextureUsageShaderWrite);
 	halves_write(target, had, PIXELS);
+	attachment = interlocked ? texture_make(MTLPixelFormatRGBA16Float, PIXELS, MTLTextureUsageRenderTarget) : target;
 	/* (the blend colour, which the constant factors take) */
 	memset(uniforms, 0, sizeof(uniforms));
 	uniforms[offset / 4] = 0.8f;
@@ -390,16 +398,18 @@ static int draw_run(NSString *dir, NSString *stem, NSString *name, NSUInteger un
 	uniforms[offset / 4 + 2] = 0.3f;
 	uniforms[offset / 4 + 3] = 0.7f;
 	memcpy(&uniforms[constants_offset / 4], self_illumination_color, sizeof(self_illumination_color));
-	pass.colorAttachments[0].texture = target;
+	pass.colorAttachments[0].texture = attachment;
 	pass.colorAttachments[0].loadAction = MTLLoadActionLoad;
 	pass.colorAttachments[0].storeAction = MTLStoreActionStore;
 	commands = [queue commandBuffer];
 	encoder = [commands renderCommandEncoderWithDescriptor:pass];
 	[encoder setRenderPipelineState:pipeline];
-	[encoder setVertexBytes:colors length:PIXELS * 16 atIndex:0];
+	[encoder setVertexBytes:colors length:(twice ? 2 : 1) * PIXELS * 16 atIndex:0];
 	[encoder setVertexBytes:&width length:sizeof(width) atIndex:1];
 	[encoder setFragmentBytes:uniforms length:sizeof(uniforms) atIndex:uniforms_index];
-	[encoder drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:PIXELS];
+	if (interlocked)
+		[encoder setFragmentTexture:target atIndex:1];
+	[encoder drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:(twice ? 2 : 1) * PIXELS];
 	[encoder endEncoding];
 	[commands commit];
 	[commands waitUntilCompleted];
@@ -412,9 +422,9 @@ static void draws_test(NSString *dir)
 	NSString *index = [NSString stringWithContentsOfFile:[dir stringByAppendingPathComponent:@"index.txt"]
 		encoding:NSUTF8StringEncoding error:nil];
 	NSArray<NSString *> *lines = [index componentsSeparatedByString:@"\n"];
-	static float colors[PIXELS * 4], had[PIXELS * 4], vulkan[PIXELS * 4], metal[PIXELS * 4];
+	static float colors[2 * PIXELS * 4], had[PIXELS * 4], vulkan[PIXELS * 4], metal[PIXELS * 4];
 	unsigned spirv_offset = 0, msl_offset = 0, spirv_constants = 0, msl_constants = 0, seed = 12345;
-	int pixel, channel, draws = 0, compared = 0, unclamped = 0, self_illuminated = 0;
+	int pixel, channel, draws = 0, compared = 0, unclamped = 0, self_illuminated = 0, interlocked_draws = 0;
 	NSUInteger line;
 
 	if (!index || lines.count < 2 || sscanf(lines[0].UTF8String, "blend_constant %u %u ps_c0 %u %u", &spirv_offset,
@@ -423,9 +433,17 @@ static void draws_test(NSString *dir)
 		FAIL("draws: no index");
 		return;
 	}
-	/* the colours drawn (0 to 1, the pixel shaders' clamp) and the pixels
-	drawn over (0 to 3: past white too; alpha 0 to 1), the same for every
-	draw */
+	/* the colours drawn (0 to 1, the pixel shaders' clamp; a second set,
+	the interlocked draws' second time over each pixel) and the pixels drawn
+	over (0 to 3: past white too; alpha 0 to 1), the same for every draw */
+	for (pixel = 0; pixel < PIXELS; pixel++)
+	{
+		for (channel = 0; channel < 4; channel++)
+		{
+			seed = seed * 1103515245u + 12345u;
+			colors[(PIXELS + pixel) * 4 + channel] = half_of((float)((seed >> 8) & 0xffff) / 65535.0f);
+		}
+	}
 	for (pixel = 0; pixel < PIXELS; pixel++)
 	{
 		for (channel = 0; channel < 4; channel++)
@@ -440,18 +458,40 @@ static void draws_test(NSString *dir)
 	{
 		char name[64];
 		unsigned tag;
-		int ceiling;
+		int ceiling, interlocked;
 		float ceiling_value;
+		MTLColorWriteMask mask;
 
 		if (sscanf(lines[line].UTF8String, "%63s %u", name, &tag) != 2)
 			continue;
 		ceiling = XGPU_HDR_CEILING_OF(tag);
 		ceiling_value = xgpu_hdr_ceiling_value(ceiling);
+		/* (interlocked: Vulkan's storage image against Metal's programmable
+		blending, each pixel drawn twice in one draw; the rest of the
+		checks are of one draw over the pixels drawn over) */
+		interlocked = strstr(name, "-interlock") != NULL;
+		mask = strstr(name, "-interlock-rgb") ? MTLColorWriteMaskRed | MTLColorWriteMaskGreen | MTLColorWriteMaskBlue :
+			MTLColorWriteMaskAll;
 		if (!draw_run(dir, [NSString stringWithFormat:@"%s.vk", name], @"xgpu_vk_fragment", 1, spirv_offset, spirv_constants,
-			colors, had, vulkan) || !draw_run(dir, [NSString stringWithUTF8String:name], @"xgpu_fragment", 17, msl_offset,
-			msl_constants, colors, had, metal))
+			colors, had, vulkan, interlocked, interlocked, mask) || !draw_run(dir, [NSString stringWithUTF8String:name],
+			@"xgpu_fragment", 17, msl_offset, msl_constants, colors, had, metal, 0, interlocked, mask))
 			continue;
 		draws++;
+		if (interlocked)
+		{
+			interlocked_draws++;
+			for (pixel = 0; pixel < PIXELS * 4; pixel++)
+			{
+				compared++;
+				if (fabsf(vulkan[pixel] - metal[pixel]) > 0.002f + 0.002f * fabsf(metal[pixel]))
+					FAIL("%s (tag %04x) pixel %d channel %d: Vulkan's %.5f, Metal's %.5f (drawn twice over %.4f)", name,
+						tag, pixel / 4, pixel % 4, (double)vulkan[pixel], (double)metal[pixel], (double)had[pixel]);
+				if (mask != MTLColorWriteMaskAll && pixel % 4 == 3 && vulkan[pixel] != had[pixel])
+					FAIL("%s: pixel %d's alpha written through the mask: %.5f over %.5f", name, pixel / 4,
+						(double)vulkan[pixel], (double)had[pixel]);
+			}
+			continue;
+		}
 		for (pixel = 0; pixel < PIXELS; pixel++)
 		{
 			for (channel = 0; channel < 4; channel++)
@@ -522,10 +562,10 @@ static void draws_test(NSString *dir)
 			}
 		}
 	}
-	printf("draws: %d draws, %d values compared between the backends, %d past 1 unclamped, %d past 1 self-illuminated\n",
-		draws, compared, unclamped, self_illuminated);
-	if (draws != 69)
-		FAIL("draws: %d drawn, not 69", draws);
+	printf("draws: %d draws (%d interlocked), %d values compared between the backends, %d past 1 unclamped, "
+		"%d past 1 self-illuminated\n", draws, interlocked_draws, compared, unclamped, self_illuminated);
+	if (draws != 141 || interlocked_draws != 72)
+		FAIL("draws: %d drawn (%d interlocked), not 141 (72)", draws, interlocked_draws);
 	if (unclamped < PIXELS)
 		FAIL("draws: %d values past 1 unclamped", unclamped);
 	if (self_illuminated < PIXELS / 4)

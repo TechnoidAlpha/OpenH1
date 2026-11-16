@@ -67,6 +67,7 @@ symbols in this file:
 #include "interface/hud_weapon.h"
 #include "interface/unit_hud_interface_definition.h"
 #include "interface/weapon_hud_interface_definition.h"
+#include "mcc_grenades.h" /* port: port/linux/game/mcc_grenades.h */
 #include "items/weapon_definitions.h"
 #include "items/weapons.h"
 #include "objects/objects.h"
@@ -79,6 +80,8 @@ symbols in this file:
 #include "units/unit_definitions.h"
 #include "units/units.h"
 #include "custom_edition_hud.h" /* port: CE warning placement and reticle classification */
+#include "view_fov.h" /* port: port/linux/game/view_fov.c (the zoomed reticle's scale) */
+#include "mcc_hud_draw.h" /* port: port/linux/game/mcc_hud_draw.c */
 
 #include <math.h>
 #include <string.h>
@@ -596,6 +599,12 @@ static void render_grenade_hud(
 	struct grenade_hud_interface_definition *definition;
 	short draw_flags;
 
+	/* port: MCC's expanded grenade types have their own HUD (mcc_grenades.c) */
+	if (mcc_grenades_active())
+	{
+		mcc_grenades_hud(local_player_index, unit_index);
+		return;
+	}
 	csmemset(
 		stack_buffer,
 		0x62,
@@ -876,6 +885,8 @@ static void hud_update_weapon_local_player(
 					{
 						no_grenades = no_grenades && !unit->unit.grenade_counts[grenade_type];
 					}
+					/* port: and MCC's expanded grenade types */
+					if (mcc_grenades_active() && mcc_grenades_total(unit_index)) no_grenades = FALSE;
 					result = (no_grenades &&
 							!unit->unit.grenade_throw_state &&
 							TEST_FLAG(unit->unit.control_flags, _unit_control_throw_grenade_bit)) ||
@@ -1184,6 +1195,8 @@ static void crosshairs_draw(
 										{
 											no_grenades = no_grenades && !unit->unit.grenade_counts[grenade_type];
 										}
+										/* port: and MCC's expanded grenade types */
+										if (mcc_grenades_active() && mcc_grenades_total(unit_index)) no_grenades = FALSE;
 										firing_active = no_grenades &&
 											!unit->unit.grenade_throw_state &&
 											TEST_FLAG(unit->unit.control_flags, _unit_control_throw_grenade_bit);
@@ -1366,10 +1379,26 @@ static void crosshairs_draw(
 												in_multiplayer,
 												bitmap_group->type == _bitmap_group_type_interface_bitmaps,
 												/* port: a reticle, scaled with display.fov
-												(view_fov.c); a scope's picture keeps its
-												place */
-												state_index != _crosshair_state_zoom &&
-												!custom_edition_hud_warning(state_index));
+												(view_fov.c), but a piece of a scope's own
+												picture (drawn zoomed only) keeps to the view
+												as the picture does; the zoom's own picture
+												keeps its place. Zoomed, the reticle is one of
+												the scope's pieces too: the tag draws it with
+												them (the pistol's circle under its range and
+												target diamond), so it takes their scale, not
+												the unzoomed view's (#738), with the Xbox's
+												zoom; display.scale_scoped_fov's keeps
+												the unzoomed size (#594). Let go, the view eases
+												back out after the zoom level has gone, and the
+												reticle with it, as it eased in (#747) */
+												state_index == _crosshair_state_zoom ||
+													custom_edition_hud_warning(state_index) ? FALSE :
+												TEST_FLAG(item->flags, _hud_crosshair_not_on_default_zoom_bit) ||
+													TEST_FLAG(item->flags, _hud_crosshair_show_sniper_data_bit) ||
+													(crosshair->states[_crosshair_state_zoom].value.reference_data > 0 ||
+														render_fov_zoom_easing(render.local_player_index)) &&
+													render_fov_zoomed_reticle_with_scope(render.local_player_index) ?
+													HUD_CROSSHAIR_SCOPE_PIECE : TRUE);
 										}
 									}
 								}
@@ -1800,6 +1829,10 @@ static void render_weapon_hud(
 			&definition->statics,
 			element_index,
 			struct weapon_hud_static_element);
+		/* port: MCC child anchors; other formats retain their parent pointer. */
+		struct hud_absolute_placement_definition mcc_placement;
+		struct hud_absolute_placement_definition const *placement = mcc_hud_child_placement(
+			&definition->absolute_placement, element, &mcc_placement);
 
 		if (!TEST_FLAG(element->header.runtime_flags, _hud_element_runtime_invalid_bit) &&
 			TEST_FLAG(map_type_flags, element->header.use_on_map_type) &&
@@ -1816,7 +1849,7 @@ static void render_weapon_hud(
 			state_index = element->header.state_type;
 			hud_draw_static_element(
 				local_player_index,
-				&definition->absolute_placement,
+				placement, /* port: honor the resolved MCC child anchor */
 				&element->static_element,
 				state_flags[state_index],
 				hud_state->last_weapon_flash_time[state_index]);
@@ -1833,6 +1866,10 @@ static void render_weapon_hud(
 			&definition->meters,
 			element_index,
 			struct weapon_hud_meter_element);
+		/* port: MCC child anchors; other formats retain their parent pointer. */
+		struct hud_absolute_placement_definition mcc_placement;
+		struct hud_absolute_placement_definition const *placement = mcc_hud_child_placement(
+			&definition->absolute_placement, element, &mcc_placement);
 
 		if (!TEST_FLAG(element->header.runtime_flags, _hud_element_runtime_invalid_bit) &&
 			TEST_FLAG(map_type_flags, element->header.use_on_map_type) &&
@@ -1851,7 +1888,7 @@ static void render_weapon_hud(
 			value = (byte)number_values[state_index];
 			hud_draw_meter(
 				local_player_index,
-				&definition->absolute_placement,
+				placement, /* port: honor the resolved MCC child anchor */
 				&element->meter_element,
 				value,
 				value,
@@ -1871,6 +1908,10 @@ static void render_weapon_hud(
 			&definition->numbers,
 			element_index,
 			struct weapon_hud_number_element);
+		/* port: MCC child anchors; other formats retain their parent pointer. */
+		struct hud_absolute_placement_definition mcc_placement;
+		struct hud_absolute_placement_definition const *placement = mcc_hud_child_placement(
+			&definition->absolute_placement, element, &mcc_placement);
 
 		if (!TEST_FLAG(element->header.runtime_flags, _hud_element_runtime_invalid_bit) &&
 			TEST_FLAG(map_type_flags, element->header.use_on_map_type) &&
@@ -1931,7 +1972,7 @@ static void render_weapon_hud(
 				hud_zoomed_layout_begin(&window_bounds);
 			hud_draw_numbers(
 				local_player_index,
-				&definition->absolute_placement,
+				placement, /* port: honor the resolved MCC child anchor */
 				&element->number_element,
 				value,
 				decimal_value,
@@ -1951,6 +1992,10 @@ static void render_weapon_hud(
 			&definition->overlays,
 			element_index,
 			struct weapon_hud_overlays_element);
+		/* port: MCC child anchors; other formats retain their parent pointer. */
+		struct hud_absolute_placement_definition mcc_placement;
+		struct hud_absolute_placement_definition const *placement = mcc_hud_child_placement(
+			&definition->absolute_placement, element, &mcc_placement);
 
 		if (!TEST_FLAG(element->runtime_flags, _hud_element_runtime_invalid_bit) &&
 			TEST_FLAG(map_type_flags, element->use_on_map_type) &&
@@ -1960,7 +2005,7 @@ static void render_weapon_hud(
 			state_index = element->state_type;
 			hud_draw_weapon_overlays(
 				local_player_index,
-				&definition->absolute_placement,
+				placement, /* port: honor the resolved MCC child anchor */
 				&element->overlays,
 				overlay_flags[state_index],
 				hud_state->last_weapon_flash_time[state_index],
@@ -2141,6 +2186,7 @@ void hud_render_weapon_interface(
 			weapon_index,
 			&weapon_state);
 		hud_index = definition->weapon.interface_definition.hud_interface.index;
+		render_marks_hud(hud_index, "weapon interface"); /* port: debug.render_marks */
 		if (hud_index != NONE)
 		{
 			crosshairs_draw(
@@ -2148,6 +2194,8 @@ void hud_render_weapon_interface(
 				weapon_index,
 				hud_index,
 				&weapon_state);
+			/* port: keep MCC child and inherited HUD components in one safe frame. */
+			mcc_hud_weapon_frame_begin(hud_index);
 			render_weapon_hud(
 				hud_index,
 				player->local_player_index,
@@ -2156,6 +2204,7 @@ void hud_render_weapon_interface(
 				NULL,
 				NULL,
 				NULL);
+			mcc_hud_weapon_frame_end(); /* port: do not affect later HUD draws. */
 			play_weapon_hud_sounds(
 				player->local_player_index,
 				hud_index,

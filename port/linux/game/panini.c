@@ -1,8 +1,9 @@
 /*
 PANINI.C
 
-display.panini (its strength, 0 off) and display.panini_vertical: each
-player's window's 3D view drawn again through the Panini projection
+display.panini (its strength, 0 off) and display.panini_vertical, each local
+player's own (their profile's: player_settings.c): each player's window's 3D
+view drawn again through the Panini projection
 (port/linux/include/panini_projection.h has its arithmetic and why the view
 is drawn as ever first), once it is whole and before the HUD is drawn over
 it, by the renderers' pass (halo_screen_panini: port/linux/src/d3d8_device.c,
@@ -35,6 +36,8 @@ any other target than the screen.
 #include "render/render_cameras.h"
 
 #include "panini_projection.h"
+#include "player_settings.h"
+#include "render_enumerate.h"
 
 #include <math.h>
 
@@ -44,33 +47,34 @@ enum
 	_rasterizer_target_render_primary = 0
 };
 
-double config_real(const char *name);
-unsigned long config_changes(void);
-
-/* the settings: the strength (d; 0 off) and the vertical compression (s);
-TRUE while on */
-static boolean panini_settings(real *d, real *s)
+/* the local player's settings (their profile's: player_settings.c): the
+strength (d; 0 off) and the vertical compression (s); TRUE while on */
+static boolean panini_settings(short local_player_index, real *d, real *s)
 {
-	static boolean initialized;
-	static unsigned long read_at;
-	static real strength, vertical;
+	static struct
+	{
+		boolean initialized;
+		unsigned long read_at;
+		real strength, vertical;
+	} players[PLAYER_SETTINGS_SLOTS];
+	short slot = PLAYER_SETTINGS_SLOT(local_player_index);
 	unsigned long changes = config_changes();
 
-	if (!initialized || read_at != changes)
+	if (!players[slot].initialized || players[slot].read_at != changes)
 	{
-		initialized = TRUE;
-		read_at = changes;
-		strength = (real)config_real("display.panini");
-		vertical = (real)config_real("display.panini_vertical");
+		players[slot].initialized = TRUE;
+		players[slot].read_at = changes;
+		players[slot].strength = (real)config_player_real(local_player_index, "display.panini");
+		players[slot].vertical = (real)config_player_real(local_player_index, "display.panini_vertical");
 	}
-	*d = strength;
-	*s = vertical;
+	*d = players[slot].strength;
+	*s = players[slot].vertical;
 #ifdef HALO_VR
 	/* (not the VR build's: the headset's eyes need the true perspective,
 	and its mirror on the screen is not the player's view) */
 	return FALSE;
 #else
-	return strength > 0.0f;
+	return players[slot].strength > 0.0f;
 #endif
 }
 
@@ -80,7 +84,12 @@ scales, x and y offsets: render_cameras.c's), the rectilinear view's
 tangents at the viewport's left, right, top and bottom, and the projection */
 static struct
 {
+	/* (its local player's settings) */
+	short local_player_index;
 	boolean active;
+	/* (off, the window a map's preparation draws: its pass journaled
+	alone, for its record: panini_window_draw) */
+	boolean journaled;
 	rectangle2d viewport;
 	real projection[4];
 	real left, right, top, bottom;
@@ -92,10 +101,17 @@ void panini_window_begin(short local_player_index, short rasterizer_target, stru
 {
 	real d, s, x_scale, y_scale, x_offset, y_offset;
 
-	window.active = FALSE;
-	if (!panini_settings(&d, &s) || local_player_index < 0 ||
-		rasterizer_target != _rasterizer_target_render_primary || camera->mirrored || !frustum->projection_valid)
+	window.active = window.journaled = FALSE;
+	window.local_player_index = local_player_index;
+	if (local_player_index < 0 || rasterizer_target != _rasterizer_target_render_primary || camera->mirrored ||
+		!frustum->projection_valid)
 	{
+		return;
+	}
+	if (!panini_settings(local_player_index, &d, &s))
+	{
+		window.viewport = camera->viewport_bounds;
+		window.journaled = render_enumerating;
 		return;
 	}
 	x_scale = frustum->projection_matrix[0][0];
@@ -130,11 +146,13 @@ void panini_window_begin(short local_player_index, short rasterizer_target, stru
 	window.active = TRUE;
 }
 
-boolean panini_projection_of_view(real tangent_x, real tangent_y, struct panini_projection *projection)
+boolean panini_projection_of_view(short local_player_index, real tangent_x, real tangent_y,
+	struct panini_projection *projection)
 {
 	real d, s;
 
-	return panini_settings(&d, &s) && panini_projection_fit(projection, d, s, tangent_x, tangent_y);
+	return panini_settings(local_player_index, &d, &s) &&
+		panini_projection_fit(projection, d, s, tangent_x, tangent_y);
 }
 
 void panini_window_draw(void)
@@ -142,7 +160,11 @@ void panini_window_draw(void)
 	float parameters[8];
 
 	if (!window.active)
+	{
+		if (window.journaled)
+			halo_screen_panini(window.viewport.x0, window.viewport.y0, window.viewport.x1, window.viewport.y1, NULL);
 		return;
+	}
 	parameters[0] = window.panini.d;
 	parameters[1] = window.panini.s;
 	parameters[2] = window.panini.scale;
@@ -156,7 +178,31 @@ void panini_window_draw(void)
 
 void panini_window_end(void)
 {
-	window.active = FALSE;
+	window.active = window.journaled = FALSE;
+}
+
+boolean panini_replay_projection(float projection[8])
+{
+	real d, s;
+	struct panini_projection fitted;
+
+	/* (the first player's, whose view a map's preparation draws) */
+	if (!panini_settings(0, &d, &s))
+		return FALSE;
+	/* (a record made with it off: a projection of a 90-degree view, the
+	pass's own being the same whatever its terms) */
+	if (projection[0] <= 0.0f && panini_projection_fit(&fitted, d, s, 1.0f, 1.0f))
+	{
+		projection[0] = fitted.d;
+		projection[1] = fitted.s;
+		projection[2] = fitted.scale;
+		projection[3] = 0.0f;
+		projection[4] = -1.0f;
+		projection[5] = 1.0f;
+		projection[6] = 1.0f;
+		projection[7] = -1.0f;
+	}
+	return TRUE;
 }
 
 real panini_center_scale(void)
@@ -164,11 +210,27 @@ real panini_center_scale(void)
 	return window.active ? window.panini.scale : 1.0f;
 }
 
-real panini_strength(void)
+real panini_center_scale_widened(real widening)
+{
+	struct panini_projection widened;
+	real d, s;
+
+	if (!window.active)
+		return 1.0f;
+	if (widening == 1.0f || !(widening > 0.0f) || !panini_settings(window.local_player_index, &d, &s) ||
+		!panini_projection_fit(&widened, d, s, MAX(-window.left, window.right) * widening,
+			MAX(-window.bottom, window.top) * widening))
+	{
+		return window.panini.scale;
+	}
+	return widened.scale;
+}
+
+real panini_strength(short local_player_index)
 {
 	real d, s;
 
-	return panini_settings(&d, &s) ? d : 0.0f;
+	return panini_settings(local_player_index, &d, &s) ? d : 0.0f;
 }
 
 /* a term of a projection as the window's (the game's camera's frustum and

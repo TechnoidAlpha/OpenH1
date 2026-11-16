@@ -73,6 +73,22 @@ OPTIMISATION = "-O2"
 # function's int cutting a pointer short). These make it stop the build;
 # the vendored libraries (port/third_party, and what is downloaded: musl,
 # SDL) keep their own flags. (tools/test_build_errors.py)
+# the replays' shared part (port/tools/replay/host_render_replay.c): Metal's
+# replay (tools/macos_build.py) and Vulkan's (tools/linux_guest_build.py)
+REPLAY_DIR = Path("port/tools/replay")
+
+
+def replay_build_label() -> str:
+    """the commit configure.py ran at, which the replay's service names (its
+    "build"); "unknown" outside a clone"""
+    try:
+        result = subprocess.run(["git", "rev-parse", "--short=12", "HEAD"], capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    label = result.stdout.strip()
+    return label if result.returncode == 0 and re.fullmatch(r"[0-9a-f]+", label) else "unknown"
+
+
 OWN_CODE_ERRORS = [
     "-Werror=return-type",
     "-Werror=implicit-function-declaration",
@@ -162,8 +178,13 @@ def updater_defines(release: bool) -> str:
     if not number.isdigit():
         number = "0"
     flavor = "release" if release else "debug"
+    # (the commit, in the game's log as it starts: CI's, which names a
+    # release's; none for a local build)
+    commit = os.environ.get("GITHUB_SHA", "")[:12]
+    if not re.fullmatch(r"[0-9a-f]*", commit):
+        commit = ""
     return (f'-DHALO_BUILD_NUMBER={number} -DHALO_BUILD_FLAVOR=\\"{flavor}\\" '
-            f'-DHALO_BUILD_REPOSITORY=\\"{build_repository()}\\"')
+            f'-DHALO_BUILD_REPOSITORY=\\"{build_repository()}\\" -DHALO_BUILD_COMMIT=\\"{commit}\\"')
 
 
 def configuration_defines(sln: Any) -> List[str]:

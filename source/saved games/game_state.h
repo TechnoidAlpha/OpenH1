@@ -52,14 +52,23 @@ boolean game_state_test_persistent_storage(
 	short *difficulty,
 	boolean *corrupted);
 /* port: takes an image of the game state read from a file, if it is one of
-this build's (game_state.c) */
+this build's (game_state.c): of the part in use (game_state_image_size), or
+of the whole game state */
 boolean game_state_image_accept(
 	void *image,
 	long size);
+/* port: the size of an image of the part of the game state in use, and the
+image taken (game_state.c): a checkpoint's (game_state_xbox.c) */
+long game_state_image_size(
+	void);
+void game_state_image_take(
+	void *image);
 void game_state_save_core(
 	const char *name);
 boolean game_state_reverted(
 	void);
+/* port: checked MCC sidecar storage uses the otherwise-unused CPU tail. */
+void *game_state_port_cpu_region(unsigned long *used, unsigned long *capacity);
 void *game_state_malloc(
 	const char *name,
 	const char *type,
@@ -110,6 +119,9 @@ boolean game_state_write_to_file(
 	void);
 boolean game_state_read_from_file(
 	void);
+/* port: (game_state_xbox.c) */
+boolean game_state_write_wait(
+	void);
 boolean game_state_write_core(
 	const char *name,
 	void *buffer,
@@ -123,6 +135,14 @@ void game_state_read_core(
 	void *buffer,
 	long buffer_size);
 const char *game_state_get_persistent_storage_filename(
+	void);
+/* port: the persistent storage's file, and its check begun ahead (on a
+thread: port/linux/src/saved_game_check.c) for the menus that ask for it */
+boolean game_state_persistent_storage_file(
+	char *path);
+boolean game_state_persistent_storage_file_expected(
+	char *path);
+void game_state_persistent_storage_ahead(
 	void);
 boolean game_state_read_header_from_persistent_storage(
 	void *header,

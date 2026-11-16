@@ -90,6 +90,14 @@ static void describe_address(uint64_t address, char *text, size_t size)
 	snprintf(text, size, "?");
 }
 
+/* a line of a crash's report: to halo.log, and to the crash record
+(host_common.c) */
+static void crash_line(const char *line)
+{
+	host_log(HOST_LOG_ERROR, line);
+	host_crash_record_line(line);
+}
+
 /* whether a stack address lies on this thread's stack */
 static int on_this_stack(uint64_t address)
 {
@@ -106,7 +114,7 @@ void host_crash_report(void *exception_pointers)
 	CONTEXT context = *pointers->ContextRecord;
 	LONG thread = (LONG)GetCurrentThreadId();
 	LONG first = InterlockedCompareExchange(&crashed_thread, thread, 0);
-	char line[512], where[400];
+	char line[512], text[512], where[400];
 	int frame;
 
 	/* one report: a crash in this report ends it, and another thread's
@@ -118,33 +126,36 @@ void host_crash_report(void *exception_pointers)
 	/* the minidump first, before anything here can fail */
 	if (host_crash_dump(pointers))
 		host_log(HOST_LOG_ERROR, "crash: the crash reporter wrote a minidump (crashes\\ beside halo.exe)");
-	snprintf(line, sizeof(line), "crash: halo.exe at %p, the guest image at %08x, build %d", (void *)GetModuleHandleW(NULL),
-		host_image.base, HALO_CRASH_BUILD_NUMBER);
-	host_log(HOST_LOG_ERROR, line);
-
+	/* (the crash record, the guest's reports\.crash.txt, begun with the
+	exception: the next start offers to report it, its first line the
+	crash's; halo.log is made afresh then) */
 	describe_address(context.Rip, where, sizeof(where));
 	snprintf(line, sizeof(line), "exception %08lx at %016llx (%s), thread %lu", (unsigned long)record->ExceptionCode,
 		(unsigned long long)context.Rip, where, (unsigned long)GetCurrentThreadId());
+	host_crash_record_begin(line);
+	snprintf(text, sizeof(text), "crash: halo.exe at %p, the guest image at %08x, build %d", (void *)GetModuleHandleW(NULL),
+		host_image.base, HALO_CRASH_BUILD_NUMBER);
+	crash_line(text);
 	host_log(HOST_LOG_ERROR, line);
 	if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION && record->NumberParameters >= 2)
 	{
 		snprintf(line, sizeof(line), "  %s of address %016llx",
 			record->ExceptionInformation[0] == 0 ? "a read" : record->ExceptionInformation[0] == 1 ? "a write" :
 			"execution", (unsigned long long)record->ExceptionInformation[1]);
-		host_log(HOST_LOG_ERROR, line);
+		crash_line(line);
 	}
 	snprintf(line, sizeof(line), "  rax %016llx rbx %016llx rcx %016llx rdx %016llx", (unsigned long long)context.Rax,
 		(unsigned long long)context.Rbx, (unsigned long long)context.Rcx, (unsigned long long)context.Rdx);
-	host_log(HOST_LOG_ERROR, line);
+	crash_line(line);
 	snprintf(line, sizeof(line), "  rsi %016llx rdi %016llx rbp %016llx rsp %016llx", (unsigned long long)context.Rsi,
 		(unsigned long long)context.Rdi, (unsigned long long)context.Rbp, (unsigned long long)context.Rsp);
-	host_log(HOST_LOG_ERROR, line);
+	crash_line(line);
 	snprintf(line, sizeof(line), "  r8  %016llx r9  %016llx r10 %016llx r11 %016llx", (unsigned long long)context.R8,
 		(unsigned long long)context.R9, (unsigned long long)context.R10, (unsigned long long)context.R11);
-	host_log(HOST_LOG_ERROR, line);
+	crash_line(line);
 	snprintf(line, sizeof(line), "  r12 %016llx r13 %016llx r14 %016llx r15 %016llx", (unsigned long long)context.R12,
 		(unsigned long long)context.R13, (unsigned long long)context.R14, (unsigned long long)context.R15);
-	host_log(HOST_LOG_ERROR, line);
+	crash_line(line);
 	/* the frames, by Windows's unwinder (the guest's through the function
 	table); each step only while the stack pointer stays on this stack */
 	for (frame = 0; frame < 48; frame++)
@@ -156,7 +167,7 @@ void host_crash_report(void *exception_pointers)
 
 		describe_address(context.Rip, where, sizeof(where));
 		snprintf(line, sizeof(line), "  frame %2d: %016llx %s", frame, (unsigned long long)context.Rip, where);
-		host_log(HOST_LOG_ERROR, line);
+		crash_line(line);
 		/* (a guest frame is read through rbp: it must be on the stack) */
 		if (host_image.base && context.Rip >= host_image.base && context.Rip < host_image.end &&
 			!on_this_stack(context.Rbp))
@@ -180,6 +191,8 @@ void host_crash_report(void *exception_pointers)
 		if (!context.Rip || !on_this_stack(context.Rsp) || context.Rsp < previous)
 			break;
 	}
+	/* (the guest's log after the crash's lines: report.c's) */
+	host_crash_record_end();
 }
 
 int host_stack_exception(void *record_pointer, void *frame, void *context, void *dispatcher)
@@ -199,6 +212,8 @@ int host_stack_exception(void *record_pointer, void *frame, void *context, void 
 	{
 		/* (little stack is left: no walk) */
 		host_log(HOST_LOG_FATAL, "stack overflow");
+		if (host_crash_record_begin("stack overflow"))
+			host_crash_record_end();
 		TerminateProcess(GetCurrentProcess(), EXCEPTION_STACK_OVERFLOW);
 	}
 	pointers.ExceptionRecord = record;

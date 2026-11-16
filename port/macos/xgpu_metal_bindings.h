@@ -27,6 +27,9 @@ shaders that read them (xgpu_metal_set_dynamic_lights;
 XGPU_MSL_BUFFER_DYNAMIC_LIGHTS, _DYNAMIC_LIGHT_CELLS) */
 #define XGPU_METAL_BUFFER_DYNAMIC_LIGHTS 18
 #define XGPU_METAL_BUFFER_DYNAMIC_LIGHT_CELLS 22
+/* ... and their world (xgpu_metal_set_dynamic_light_world;
+XGPU_MSL_BUFFER_DYNAMIC_LIGHT_WORLD) */
+#define XGPU_METAL_BUFFER_DYNAMIC_LIGHT_WORLD 24
 /* (19: the emitter's sample counter, which the macOS app does not use) */
 /* the values of the inputs no stream feeds, 16 float4 (setVertexBytes),
 read by the vertex descriptor at a constant step: the shaders read every
@@ -35,9 +38,31 @@ input as [[attribute(n)]] whether a stream feeds it or not */
 /* (the VR mode's uniforms, should the macOS app ever draw both eyes) */
 #define XGPU_METAL_BUFFER_VIEW_UNIFORMS 21
 
-/* texture stage n samples texture n with sampler n */
+/* texture stage n samples texture n with sampler n: the game's four */
 #define XGPU_METAL_TEXTURE_STAGE(stage) (stage)
 #define XGPU_METAL_SAMPLER_STAGE(stage) (stage)
 #define XGPU_METAL_TEXTURE_STAGE_COUNT 4
+/* display.ambient_occlusion "world" (port/linux/src/xgpu_stream.h): the
+field past the stages (XGPU_MSL_TEXTURE_WORLD_SDF) and the window's block
+(XGPU_MSL_BUFFER_WORLD_AO), bound by xgpu_metal_set_world_ao, not as a
+stage: a 3D texture at stage 5 would also be bound at the combiner's place
+for it, XGPU_METAL_COMBINER_TEXTURE_3D + 5, which is a cube stage's */
+#define XGPU_METAL_TEXTURE_WORLD_SDF 5
+/* (and its table of cells, past it: 6 is no stage's, nor a combiner's place) */
+#define XGPU_METAL_TEXTURE_WORLD_SDF_TABLE 6
+/* (and the static scenery's pages of the level's occlusion: 7 is no
+stage's, nor a combiner's place, whose 3D ones begin at 8) */
+#define XGPU_METAL_TEXTURE_WORLD_AO_SCENERY 7
+/* (and the vehicles' occlusion fields' atlas, a 3D texture of four
+halves: past the combiner's places, 8 to 19) */
+#define XGPU_METAL_TEXTURE_WORLD_AO_OBJECTS 20
+#define XGPU_METAL_BUFFER_WORLD_AO 23
+/* (and the occlusion found once a pixel, which the draws that read it
+read: past the objects' atlas) */
+#define XGPU_METAL_TEXTURE_WORLD_AO_PIXELS 21
+/* (the World AO pass's own: the window's previous occlusion and the
+distance-field scene's cascades, XGPU_MSL_WORLD_AO_PASS_*) */
+#define XGPU_METAL_WORLD_AO_PASS_HISTORY 1
+#define XGPU_METAL_WORLD_AO_PASS_CASCADES 2
 
 #endif

@@ -28,6 +28,13 @@ boolean virtual_keyboard_launch(
 	wchar_t *text_buffer,
 	word buffer_size,
 	short caption_index);
+/* port: launched with a title and a caption of the caller's, kept while it
+is up (Settings' search's: port/linux/game/settings_search_menu.inc) */
+boolean virtual_keyboard_port_launch(
+	wchar_t *text_buffer,
+	word buffer_size,
+	wchar_t const *title,
+	wchar_t const *caption);
 boolean virtual_keyboard_active(
 	void);
 void virtual_keyboard_close(

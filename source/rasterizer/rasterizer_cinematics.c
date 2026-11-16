@@ -369,17 +369,30 @@ struct rasterizer_cinematic_screen_effect_parameters *rasterizer_screen_effect_g
 		}
 		else
 		{
-			if (main_get_window_count() > 1)
-			{
-				display_assert(
-					"### FATAL_ERROR screen effects can't use convolution when main_get_window_count>1\r\nmaybe you forgot to turn off the cinematic screen effect?",
-					"c:\\halo\\SOURCE\\rasterizer\\rasterizer_cinematics.c",
-					336,
-					TRUE);
-				system_exit(-1);
-			}
-
 			parameters = &cinematic_screen_effect_globals->parameters;
+		}
+
+		/* port: the screen effect blurs, warps and plays video over the
+		whole screen only (rasterizer_xbox_screen_effect.c), so split
+		screen's views go without them, keeping the filters. The Xbox
+		stopped here (a fatal error): its split screen was local co-op,
+		whose scripts blur only in cutscenes, which have one view
+		(main_get_window_count). Network co-op runs the single-player
+		scripts (game_is_cooperative is FALSE), and its split screen
+		players see them: the Pillar of Autumn's cryo tube blurs the
+		first player's waking on Normal outside a cutscene. Drawn from a
+		copy, so the script's blur is drawn again once there is one view. */
+		if (main_get_window_count() > 1 &&
+			(parameters->convolution_type != 0 || parameters->convolution_radius > 0.0f || parameters->video_on))
+		{
+			static struct rasterizer_cinematic_screen_effect_parameters split_parameters;
+
+			split_parameters = *parameters;
+			split_parameters.convolution_radius = 0.0f;
+			split_parameters.convolution_type = 0;
+			split_parameters.convolution_extra_passes = 0;
+			split_parameters.video_on = FALSE;
+			parameters = &split_parameters;
 		}
 
 		if (parameters->filter_light_enhancement_intensity <= _real_epsilon &&
@@ -600,9 +613,10 @@ void rasterizer_screen_effect_port_enumerate(
 {
 	struct rasterizer_cinematic_screen_effect_parameters parameters;
 	short convolution, extra, mask, light, light_mask, desaturation, additive, desaturation_mask, mode, noise;
-	/* (a split screen's views draw no blur, warp or video, which
-	rasterizer_screen_effect halts on with more than one: those of a
-	full screen's only) */
+	/* (a split screen's views draw no blur, warp or video, which the Xbox's
+	rasterizer_screen_effect asserts on with more than one: those of a
+	full screen's only, as rasterizer_screen_effect_get_cinematic_parameters
+	draws them) */
 	boolean split = main_get_window_count() > 1;
 
 	if (!map)

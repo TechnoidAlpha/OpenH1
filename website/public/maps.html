@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>OpenH1: get your maps</title>
-<meta name="description" content="How to give OpenH1 the game: a disc image of your own Halo: Combat Evolved disc for the original Xbox, how to make one, and where it goes on Windows, Mac, Steam Deck, Steam Frame and Android.">
+<title>GOAT H1: get your maps</title>
+<meta name="description" content="How to give GOAT H1 the game: a disc image of your own Halo: Combat Evolved disc for the original Xbox, how to make one, and where it goes on Windows, Mac, Steam Deck, Steam Frame and Android.">
 <meta name="theme-color" content="#040504">
-<meta property="og:title" content="OpenH1: get your maps">
-<meta property="og:description" content="OpenH1 plays the maps of your own Halo: Combat Evolved disc for the original Xbox. Here is how to give them to it.">
-<meta property="og:image" content="https://openh1.com/media/og-maps.jpg">
-<meta property="og:url" content="https://openh1.com/maps">
+<meta property="og:title" content="GOAT H1: get your maps">
+<meta property="og:description" content="GOAT H1 plays the maps of your own Halo: Combat Evolved disc for the original Xbox. Here is how to give them to it.">
+<meta property="og:image" content="https://goath1.com/media/og-maps.jpg">
+<meta property="og:url" content="https://goath1.com/maps">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
@@ -155,19 +155,50 @@ pre code { font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
 }
+
+/* ---------- renamed: a bar above the header for visitors sent here from openh1.com */
+.renamed { position: fixed; inset: 0 0 auto; z-index: 21; height: 44px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 52px; box-sizing: border-box; background: var(--green); color: #060806; font: 500 15px/1.3 var(--body); text-align: center; }
+.renamed[hidden] { display: none; }
+.renamed b { font-weight: 700; }
+.renamed button { position: absolute; right: 8px; top: 4px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: #060806; font: 22px/1 var(--body); cursor: pointer; }
+.renamed button:hover, .renamed button:focus-visible { background: rgba(6, 8, 6, 0.12); }
+html.renamed-on .top { top: 44px; }
+@media (max-width: 560px) { .renamed { font-size: 14px; padding: 0 48px 0 16px; } }
 </style>
 </head>
 <body>
+<div class="renamed" id="renamed" role="status" hidden>
+  <span><b>OpenH1</b> is now <b>GOAT H1</b>. Same game, new name.</span>
+  <button type="button" id="renamed-close" aria-label="Close">×</button>
+</div>
+<script>
+// renamed: openh1.com sends its pages here with ?renamed; say so once, then
+// take it off the address so a reload or a shared link doesn't show it again
+(() => {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('renamed')) return;
+  params.delete('renamed');
+  const q = params.toString();
+  history.replaceState(history.state, '', location.pathname + (q ? '?' + q : '') + location.hash);
+  const note = document.getElementById('renamed');
+  note.hidden = false;
+  document.documentElement.classList.add('renamed-on');
+  document.getElementById('renamed-close').addEventListener('click', () => {
+    note.hidden = true;
+    document.documentElement.classList.remove('renamed-on');
+  });
+})();
+</script>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="top" id="top">
   <div class="wrap">
-    <a class="wordmark" href="/" aria-label="OpenH1, home"><img src="brand/openh1-lockup.svg" alt="OpenH1" width="129" height="22"></a>
+    <a class="wordmark" href="/" aria-label="GOAT H1, home"><img src="brand/goath1-lockup.svg" alt="GOAT H1" width="127" height="22"></a>
     <nav aria-label="Sections">
       <a class="opt" href="/#features">Features</a>
       <a class="opt" href="/#vr">VR</a>
       <a href="/#get">Download</a>
-      <a class="gh" href="https://github.com/OpenH1/OpenH1">GitHub</a>
+      <a class="gh" href="https://github.com/OpenH1/goath1">GitHub</a>
     </nav>
   </div>
 </header>
@@ -177,11 +208,11 @@ pre code { font: inherit; }
     <div class="wrap">
       <p class="eyebrow mono">Your copy · The one step before you play</p>
       <h1 id="page-title"><span>Get your</span><span class="lit">maps.</span></h1>
-      <p class="lede">OpenH1 doesn't come with Halo's levels. You bring them from your own copy of the game: the original Xbox disc of Halo: Combat Evolved. Copy the disc once, show OpenH1 where the copy is, and it does the rest.</p>
+      <p class="lede">GOAT H1 doesn't come with Halo's levels. You bring them from your own copy of the game: the original Xbox disc of Halo: Combat Evolved. Copy the disc once, show GOAT H1 where the copy is, and it does the rest.</p>
       <ul class="jump" aria-label="On this page">
         <li><a href="#need">What you need</a></li>
         <li><a href="#make">Make a disc image</a></li>
-        <li><a href="#give">Give it to OpenH1</a></li>
+        <li><a href="#give">Give it to GOAT H1</a></li>
         <li><a href="#help">If it goes wrong</a></li>
       </ul>
     </div>
@@ -196,9 +227,9 @@ pre code { font: inherit; }
           <h2 id="need-title">Your disc, <span class="lit">copied.</span></h2>
         </div>
         <div>
-          <p><strong>Your own Halo: Combat Evolved disc for the original Xbox.</strong> Any region works: OpenH1 changes the European (PAL) version's maps to play as the North American (NTSC) ones do, so the two play together (<a href="https://github.com/OpenH1/OpenH1#game-data">README</a>).</p>
+          <p><strong>Your own Halo: Combat Evolved disc for the original Xbox.</strong> Any region works: GOAT H1 changes the European (PAL) version's maps to play as the North American (NTSC) ones do, so the two play together (<a href="https://github.com/OpenH1/goath1#game-data">README</a>).</p>
           <p><strong>A disc image of it</strong>: an <code>.iso</code> or <code>.xiso</code> file, made from that disc. A copy of the disc's <code>maps</code> folder works too on most machines.</p>
-          <p>OpenH1 doesn't include the game, and never says where to download it. Halo PC and Custom Edition don't work as the base game: their maps are made differently.</p>
+          <p>GOAT H1 doesn't include the game, and never says where to download it. Halo PC and Custom Edition don't work as the base game: their maps are made differently.</p>
         </div>
       </div>
     </div>
@@ -221,7 +252,7 @@ pre code { font: inherit; }
           <p>An original Xbox with a custom dashboard (softmodded or modchipped) can read its own discs, and most such dashboards have an FTP server.</p>
           <ol>
             <li>Put the disc in the Xbox, and connect to the Xbox from your computer with an FTP app (FileZilla, or your system's).</li>
-            <li>Copy the disc's drive (<code>D</code>) to a folder on your computer. Its <code>maps</code> folder is what OpenH1 needs.</li>
+            <li>Copy the disc's drive (<code>D</code>) to a folder on your computer. Its <code>maps</code> folder is what GOAT H1 needs.</li>
             <li>For a disc image, pack that folder with <a href="https://github.com/XboxDev/extract-xiso">extract-xiso</a>:</li>
           </ol>
           <pre><code>extract-xiso -c halo-folder halo.iso</code></pre>
@@ -233,7 +264,7 @@ pre code { font: inherit; }
           <p>A few DVD drives can read Xbox discs with special firmware: older Samsung and Toshiba drives with <em>Kreon</em> firmware, or some LG-made Blu-ray drives with <a href="https://github.com/RibShark/OmniDrive">OmniDrive</a>.</p>
           <ol>
             <li>Check your drive's exact model first: the wrong firmware can ruin a drive. The <a href="https://xboxdevwiki.net/Xbox_Game_Disc">Xbox Dev Wiki</a> lists the Kreon drives.</li>
-            <li>Dump the disc with <a href="https://github.com/superg/redumper">redumper</a> (Windows, Linux and Mac). It makes a full image of the disc, which OpenH1 reads as it is.</li>
+            <li>Dump the disc with <a href="https://github.com/superg/redumper">redumper</a> (Windows, Linux and Mac). It makes a full image of the disc, which GOAT H1 reads as it is.</li>
           </ol>
           <p class="where">This is the disc-preservation community's method. Their guides go into the details.</p>
         </article>
@@ -242,15 +273,15 @@ pre code { font: inherit; }
     </div>
   </section>
 
-  <!-- 03: giving it to OpenH1 -->
+  <!-- 03: giving it to GOAT H1 -->
   <section class="sec" id="give" aria-labelledby="give-title">
     <div class="wrap">
       <div class="sec-head">
         <div>
-          <p class="kicker mono">03 · Give it to OpenH1</p>
+          <p class="kicker mono">03 · Give it to GOAT H1</p>
           <h2 id="give-title">Once, on <span class="lit">each machine.</span></h2>
         </div>
-        <p>The first time you start it, OpenH1 asks for your maps and copies them out (about 2 GB). After that it starts straight into the game.</p>
+        <p>The first time you start it, GOAT H1 asks for your maps and copies them out (about 2 GB). After that it starts straight into the game.</p>
       </div>
       <div class="dl" id="platforms">
         <article data-os="windows">
@@ -266,8 +297,8 @@ pre code { font: inherit; }
           <h3>Mac</h3>
           <p>Takes a disc image or the <code>maps</code> folder.</p>
           <ol>
-            <li>Open OpenH1. It asks for the game's maps: choose your disc image (<code>.iso</code> or <code>.xiso</code>), and it copies the maps (about 1.8 GB). Then you can delete the image.</li>
-            <li>Or choose the <code>maps</code> folder (the folder with <code>ui.map</code> and <code>bloodgulch.map</code>). It stays where it is, and OpenH1 remembers it, even if you move it. Don't delete it.</li>
+            <li>Open the app. It asks for the game's maps: choose your disc image (<code>.iso</code> or <code>.xiso</code>), and it copies the maps (about 1.8 GB). Then you can delete the image.</li>
+            <li>Or choose the <code>maps</code> folder (the folder with <code>ui.map</code> and <code>bloodgulch.map</code>). It stays where it is, and GOAT H1 remembers it, even if you move it. Don't delete it.</li>
           </ol>
           <p class="where">Maps from a disc image go in <code>~/Library/Application Support/OpenH1/maps</code>, which holds the rest too.</p>
         </article>
@@ -276,7 +307,7 @@ pre code { font: inherit; }
           <p>And any Linux PC. Takes a disc image or a <code>maps</code> folder.</p>
           <ol>
             <li>Put your disc image in Downloads or on your SD card. From another computer, Steam's file transfer works in Game Mode.</li>
-            <li>Play OpenH1 from Game Mode. It finds the image: press <em>A</em> and it copies the maps.</li>
+            <li>Play it from Game Mode. It finds the image: press <em>A</em> and it copies the maps.</li>
             <li>Or choose the image or a <code>maps</code> folder when <code>install.sh</code> asks, in Desktop Mode.</li>
           </ol>
           <p class="where">Maps go in <code>~/Applications/OpenH1/maps</code>.</p>
@@ -285,7 +316,7 @@ pre code { font: inherit; }
           <h3>Steam Frame</h3>
           <p>Takes a disc image or the <code>maps</code> folder.</p>
           <ol>
-            <li>Put your disc image in the Frame's Downloads, then play OpenH1 VR. It finds the image: press <em>A</em> and it copies the maps.</li>
+            <li>Put your disc image in the Frame's Downloads, then play it from your Library. It finds the image: press <em>A</em> and it copies the maps.</li>
             <li>Or, on the Frame in Desktop Mode, open <code>install.sh</code> from the download. It asks for the maps folder: choose it, and it copies the maps.</li>
           </ol>
           <p class="where">Maps go in <code>~/apps/halo-vr/maps</code>.</p>
@@ -295,7 +326,7 @@ pre code { font: inherit; }
           <p>Takes a disc image.</p>
           <ol>
             <li>Copy the disc image to the phone (over USB, or from a cloud drive).</li>
-            <li>Open OpenH1, tap <em>Choose disc image</em> and pick it. It copies the maps (about 1.8 GB). Then you can delete the image.</li>
+            <li>Open the app, tap <em>Choose disc image</em> and pick it. It copies the maps (about 1.8 GB). Then you can delete the image.</li>
           </ol>
           <p class="where">Maps go in the app's own storage, and are deleted when you remove the app.</p>
         </article>
@@ -318,14 +349,14 @@ pre code { font: inherit; }
           <p class="kicker mono">04 · If it goes wrong</p>
           <h2 id="help-title">Fixes.</h2>
         </div>
-        <p>Something else? <a href="https://github.com/OpenH1/OpenH1/issues" style="color:var(--green)">Report a problem</a> on GitHub.</p>
+        <p>Something else? <a href="https://github.com/OpenH1/goath1/issues" style="color:var(--green)">Report a problem</a> on GitHub.</p>
       </div>
       <div class="hood">
         <dl>
-          <div><dt>"Halo PC maps"</dt><dd>The <code>maps</code> folder is from Halo PC or Custom Edition, not the Xbox game. Move it aside, and give OpenH1 your Xbox disc image or its <code>maps</code> folder.<small>Custom Edition maps still work: they go in a <code>custom_maps</code> folder beside <code>maps</code>.</small></dd></div>
+          <div><dt>"Halo PC maps"</dt><dd>The <code>maps</code> folder is from Halo PC or Custom Edition, not the Xbox game. Move it aside, and give GOAT H1 your Xbox disc image or its <code>maps</code> folder.<small>Custom Edition maps still work: they go in a <code>custom_maps</code> folder beside <code>maps</code>.</small></dd></div>
           <div><dt>"Not an Xbox disc image"</dt><dd>The file isn't a copy of the game. An image made in an ordinary DVD drive has only the disc's video part: make one as above.</dd></div>
-          <div><dt>Image not found</dt><dd>On Linux, a Steam Deck and the Steam Frame, OpenH1 looks in Downloads, the Desktop, your home folder, SD cards and USB drives. Put the image there and choose <em>Look again</em>.</dd></div>
-          <div><dt>Game Mode</dt><dd>Works there: put your disc image in Downloads or on your SD card, then play OpenH1 from Game Mode. It finds it.</dd></div>
+          <div><dt>Image not found</dt><dd>On Linux, a Steam Deck and the Steam Frame, GOAT H1 looks in Downloads, the Desktop, your home folder, SD cards and USB drives. Put the image there and choose <em>Look again</em>.</dd></div>
+          <div><dt>Game Mode</dt><dd>Works there: put your disc image in Downloads or on your SD card, then play it from Game Mode. It finds it.</dd></div>
         </dl>
         <dl>
           <div><dt>Disk space</dt><dd>About 2 GB free for the maps, as well as the disc image while they're copied.<small>On a Mac given the <code>maps</code> folder, nothing is copied: the folder is used where it is.</small></dd></div>
@@ -334,7 +365,7 @@ pre code { font: inherit; }
           <div><dt>Some maps missing</dt><dd>The Mac says so when the folder or image lacks some of the disc's maps. You can play what's there, or choose a complete copy.</dd></div>
         </dl>
       </div>
-      <p style="margin-top:56px"><a class="btn" href="/#get">Download OpenH1</a></p>
+      <p style="margin-top:56px"><a class="btn" href="/#get">Download GOAT H1</a></p>
       <p class="mono" style="margin-top:28px; color: var(--muted, #8e9a89)">Shoutout to Clayton for the inspiration for this page.</p>
     </div>
   </section>
@@ -343,16 +374,16 @@ pre code { font: inherit; }
 <footer>
   <div class="wrap">
     <div class="row">
-      <a class="wordmark" href="/" aria-label="OpenH1, home"><img src="brand/openh1-lockup.svg" alt="OpenH1" width="105" height="18"></a>
+      <a class="wordmark" href="/" aria-label="GOAT H1, home"><img src="brand/goath1-lockup.svg" alt="GOAT H1" width="104" height="18"></a>
       <nav aria-label="Footer">
-        <a href="https://github.com/OpenH1/OpenH1">Source</a>
-        <a href="https://github.com/OpenH1/OpenH1/issues">Report a problem</a>
-        <a href="https://github.com/OpenH1/OpenH1/blob/master/LICENSE">Licence</a>
+        <a href="https://github.com/OpenH1/goath1">Source</a>
+        <a href="https://github.com/OpenH1/goath1/issues">Report a problem</a>
+        <a href="https://github.com/OpenH1/goath1/blob/master/LICENSE">Licence</a>
         <a href="fonts/LICENSES.txt">Font licences</a>
       </nav>
     </div>
     <p class="legal">Free software under the AGPL-3.0-or-later. Built on <a href="https://github.com/OpenCommunityEdition/OpenCE">OpenCE</a>.
-      OpenH1 is an unofficial fan project, not endorsed by or affiliated with Microsoft, Xbox Game Studios, Halo Studios or Bungie.
+      GOAT H1 is an unofficial fan project, not endorsed by or affiliated with Microsoft, Xbox Game Studios, Halo Studios or Bungie.
       Halo is a trademark of Microsoft Corporation. No game data is included: you need your own copy of the game.</p>
   </div>
 </footer>

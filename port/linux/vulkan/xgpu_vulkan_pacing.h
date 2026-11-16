@@ -63,6 +63,10 @@ with the thread's calls on the swapchain (display timing's), which must
 have it to themselves */
 VkResult xgpu_vulkan_pacing_acquire(PFN_vkAcquireNextImageKHR acquire, VkDevice device, VkSwapchainKHR swapchain,
 	uint64_t timeout, VkSemaphore semaphore, uint32_t *index);
+/* (render thread) the most frames whose work may be unfinished, besides
+the one just presented, when the game starts the next
+(host_render_stream_frames_ahead): 0 with FIFO, -1 (the stream's own) else */
+void xgpu_vulkan_pacing_frames_ahead(int frames);
 /* (render thread) a frame ended with nothing presented */
 void xgpu_vulkan_pacing_unshown(void);
 /* (render thread) the swapchain has given no image for seconds: the thread

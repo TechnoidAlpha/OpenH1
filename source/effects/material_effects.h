@@ -31,6 +31,9 @@ extern boolean debug_material_effects;
 
 boolean material_effect_visible(
 	real_point3d const *position);
+/* port: the local players' cameras as a tick begins (material_effects.c) */
+void material_effects_tick_begin(
+	void);
 void material_effect_new(
 	long definition_index,
 	short effect_index,

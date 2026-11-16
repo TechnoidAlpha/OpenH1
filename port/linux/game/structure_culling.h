@@ -85,8 +85,14 @@ long structure_culling_gather_pairings(long const *list, long list_count, boolea
 	word const *surface_vertex_indices, struct structure_culling_pairing *pairings);
 void structure_culling_structure_bsp_loaded(void);
 /* the buckets of the map's structure_bsp_index'th bsp, just read where it
-loads (another loaded or none), built and kept for the switch to it */
-void structure_culling_structure_bsp_read(struct structure_bsp *structure, short structure_bsp_index);
+loads (another loaded or none), built and kept for the switch to it: built
+on a thread of their own from the bsp's copy, copy_offset bytes from where
+it loads (structure_bsp_cache_copy_offset; 0, none: built now) */
+void structure_culling_structure_bsp_read(struct structure_bsp *structure, short structure_bsp_index,
+	long copy_offset);
+/* every build on that thread done, and kept (before the bsps' copies or
+their buckets are let go of) */
+void structure_culling_wait(void);
 void structure_culling_dispose(void);
 void structure_culling_order_clusters(short *order, real const *distances, short count);
 boolean structure_culling_traverse(struct structure_bsp *structure);

@@ -31,6 +31,18 @@ saver's interval). All of it goes to host_render_stream_frame_displayed,
 which counts the frame taken and learns the margin by the frames that
 missed the refresh they were started for.
 
+Bounded only (display.low_latency off), the game starts a frame as soon as
+at most one of its frames waits for the display, by the same present wait:
+never more frames queued ahead of the display, but no wait for the start
+time (HOST_RENDER_DISPLAY_BOUNDED). Windows' NVIDIA driver, presenting
+through DXGI (its "Vulkan/OpenGL present method" layered on DXGI, which it
+chose for FIFO in issue #274's capture), queued five refreshes of frames
+ahead of the display while auto was off there: 81 ms from a present to the
+screen, every present waited for longer than FRAME_WAIT_MOST_NS and so
+taken for one the display said nothing of. Auto is now on there too.
+Without present wait, or once a display is silent, xgpu_vulkan.c bounds
+the frames by its GPU instead (xgpu_vulkan_pacing_frames_ahead).
+
 Presents that never come (the window covered, the swapchain made again, a
 present that failed) are taken as shown at once (FRAME_WAIT_MOST_NS at
 most), so the game never stops for them.
@@ -55,6 +67,9 @@ known), refreshes those since the frame before reached it (0 not known;
 more than the frames' interval: refreshes that showed a frame again), paced
 1 if the game was paced, display timing's earliestPresentTime and
 presentMargin (0 not known), present wait's return (0 not known).
+HALO_VULKAN_UNHEEDED_PRESENTS=1 waits for the presents and logs them, but
+never paces the game by them, as a display that says nothing (the bound by
+the GPU alone, xgpu_vulkan.c's, measured by the display's own times).
 HALO_VULKAN_STATS (or debug.gpu_stats) adds a line each 600 frames: the
 refreshes that showed a frame again, the frames that missed their refresh,
 the margin and the input to screen time.
@@ -84,7 +99,10 @@ its own, which this file would then count again */
 #define POLL_NS 1000000ull
 /* display timing's times kept by present number */
 #define TIMINGS 64
-/* presents in a row the display said nothing of (FRAME_WAIT_MOST_NS each)
+/* a present's wait, at least, in refreshes of the display (a slow display's
+frames, bounded, may take three refreshes to show) */
+#define FRAME_WAIT_MOST_REFRESHES 5u
+/* presents in a row the display said nothing of (frame_wait_most each)
 before it is taken to say nothing at all: no longer waited for, and the
 game no longer paced */
 #define SILENT_PRESENTS 8
@@ -123,13 +141,16 @@ static struct
 	struct entry queue[QUEUE];
 	uint32_t first, count;
 	uint64_t next_id;
-	/* paced now (the stream told); pacing asked for (display.low_latency
-	with FIFO), which begins only once the display has said when it took a
-	present (proven); the display has said nothing of SILENT_PRESENTS in a
+	/* paced now (the stream told: 0, HOST_RENDER_DISPLAY_PACED or
+	HOST_RENDER_DISPLAY_BOUNDED); pacing asked for (display.low_latency
+	with FIFO: as paced), which begins only once the display has said when
+	it took a present (proven); the display has said nothing of SILENT_PRESENTS in a
 	row (silent_run): its presents are no longer waited for; the swap
 	interval; the refresh period by the window's mode and by display timing
 	(0: none) */
-	int paced, wanted, proven, silent, silent_run, interval;
+	int paced, wanted, proven, silent, silent_run, interval, unheeded;
+	/* the presents present wait failed for (neither shown nor not yet) */
+	uint32_t wait_failed;
 	uint64_t mode_period, refresh;
 	/* display timing's times, by present number */
 	struct
@@ -175,6 +196,15 @@ static uint64_t period_now(void)
 	uint64_t refresh = pacing.refresh ? pacing.refresh : pacing.mode_period;
 
 	return refresh * (uint64_t)(pacing.interval > 1 ? pacing.interval : 1);
+}
+
+/* (lock held) the longest a present is waited for: FRAME_WAIT_MOST_NS, or
+FRAME_WAIT_MOST_REFRESHES of a slow display's */
+static uint64_t frame_wait_most(void)
+{
+	uint64_t refreshes = period_now() * FRAME_WAIT_MOST_REFRESHES;
+
+	return refreshes > FRAME_WAIT_MOST_NS && refreshes < 1000000000ull ? refreshes : FRAME_WAIT_MOST_NS;
 }
 
 /* (lock held) display timing's times so far, kept by present number; and
@@ -288,7 +318,7 @@ static void present_done(const struct entry *entry, uint64_t shown, uint64_t per
 		host_logf(HOST_LOG_INFO, "vulkan: pacing %s: %u frames, %u refreshes showed a frame again, %u times not "
 			"known; %u shown at their refresh, %u after it (%u ran long), %u started late; margin %.2f ms, "
 			"budget %.2f ms; input to screen %.1f / %.1f ms (median / 95th percentile), refresh %.3f ms",
-			paced ? "on" : "off", pacing.frames, pacing.repeated, pacing.unknown, statistics.kept, statistics.missed,
+			paced == HOST_RENDER_DISPLAY_PACED ? "on" : paced ? "bounded" : "off", pacing.frames, pacing.repeated, pacing.unknown, statistics.kept, statistics.missed,
 			statistics.overran, statistics.late_starts, (double)statistics.margin / 1e6,
 			(double)statistics.budget / 1e6, (double)median, (double)high, (double)refresh / 1e6);
 	}
@@ -305,7 +335,7 @@ static void *pacing_thread(void *unused)
 	while (!pacing.stopping)
 	{
 		struct entry *entry, done;
-		uint64_t shown = 0, period, now;
+		uint64_t shown = 0, period, now, most;
 		int paced, finish, unpace;
 
 		if (!pacing.count)
@@ -315,8 +345,9 @@ static void *pacing_thread(void *unused)
 		}
 		entry = &pacing.queue[pacing.first];
 		now = now_ns();
+		most = frame_wait_most();
 		/* (a present waited for too long: the display said nothing of it) */
-		if (entry->id && !pacing.silent && entry->swapchain == pacing.swapchain && now - entry->queued >= FRAME_WAIT_MOST_NS &&
+		if (entry->id && !pacing.silent && entry->swapchain == pacing.swapchain && now - entry->queued >= most &&
 			++pacing.silent_run >= SILENT_PRESENTS)
 		{
 			pacing.silent = 1;
@@ -327,7 +358,7 @@ static void *pacing_thread(void *unused)
 		too long, or a display that says nothing: taken as shown, its time
 		not known) */
 		if (entry->id && !pacing.silent && entry->swapchain == pacing.swapchain &&
-			now - entry->queued < FRAME_WAIT_MOST_NS)
+			now - entry->queued < most)
 		{
 			VkSwapchainKHR swapchain = entry->swapchain;
 			uint64_t id = entry->id;
@@ -347,7 +378,7 @@ static void *pacing_thread(void *unused)
 				info.semaphoreCount = 1;
 				info.pSemaphores = &pacing.device.timeline;
 				info.pValues = &value;
-				if (pacing.wait_semaphores(pacing.device.device, &info, FRAME_WAIT_MOST_NS) == VK_SUCCESS)
+				if (pacing.wait_semaphores(pacing.device.device, &info, most) == VK_SUCCESS)
 				{
 					uint64_t finished = now_ns();
 
@@ -363,6 +394,10 @@ static void *pacing_thread(void *unused)
 			if (pacing.wait_for_present)
 			{
 				result = pacing.wait_for_present(pacing.device.device, swapchain, id, WAIT_PART_NS);
+				/* (suboptimal is shown too: a swapchain the compositor would
+				have otherwise, which it shows all the same) */
+				if (result == VK_SUBOPTIMAL_KHR)
+					result = VK_SUCCESS;
 				if (result == VK_SUCCESS)
 					entry->returned = now_ns();
 			}
@@ -381,6 +416,23 @@ static void *pacing_thread(void *unused)
 			/* (present wait: not yet) */
 			if (pacing.wait_for_present && result == VK_TIMEOUT)
 				continue;
+			/* (present wait failed: said once, and counted with the
+			presents the display said nothing of, so that one that only
+			fails is given up on and the game bounded by its GPU, as by a
+			silent display, not taken for a display that answers late) */
+			if (pacing.wait_for_present && result != VK_SUCCESS)
+			{
+				if (!pacing.wait_failed++)
+					host_logf(HOST_LOG_WARN, "vulkan: present wait answered %d for present %llu", (int)result,
+						(unsigned long long)id);
+				if (!pacing.silent && ++pacing.silent_run >= SILENT_PRESENTS)
+				{
+					pacing.silent = 1;
+					host_logf(HOST_LOG_WARN, "vulkan: present wait failed for %d presents in a row (%u in all): they "
+						"are no longer waited for, and the game's frames not paced by it", SILENT_PRESENTS,
+						pacing.wait_failed);
+				}
+			}
 			if (pacing.past_timing)
 			{
 				timings_take();
@@ -422,7 +474,7 @@ static void *pacing_thread(void *unused)
 				shown = entry->returned;
 			/* (the display says when it takes the presents: the game may be
 			paced by it, from the next present, xgpu_vulkan_pacing_present) */
-			if (shown)
+			if (shown && !pacing.unheeded)
 			{
 				pacing.silent_run = 0;
 				pacing.proven = 1;
@@ -466,6 +518,8 @@ static int thread_start(void)
 	}
 	pacing.stopping = 0;
 	pacing.proven = pacing.silent = pacing.silent_run = 0;
+	pacing.wait_failed = 0;
+	pacing.unheeded = getenv("HALO_VULKAN_UNHEEDED_PRESENTS") != NULL;
 	pacing.first = pacing.count = 0;
 	pacing.last_shown = 0;
 	memset(pacing.timings, 0, sizeof(pacing.timings));
@@ -533,21 +587,20 @@ static int pacing_set(int paced)
 	pacing.paced = paced;
 	pthread_mutex_unlock(&pacing.lock);
 	host_render_stream_display_paced(paced);
-	host_logf(HOST_LOG_INFO, "vulkan: low latency %s: the game's frames %s", paced ? "on" : "off",
-		paced ? "start in time for the refresh they are shown at" : "are not paced by the display");
+	host_logf(HOST_LOG_INFO, "vulkan: low latency %s: the game's frames %s",
+		paced == HOST_RENDER_DISPLAY_PACED ? "on" : paced ? "bounded" : "off",
+		paced == HOST_RENDER_DISPLAY_PACED ? "start in time for the refresh they are shown at" :
+		paced ? "start while at most one waits for the display" : "are not paced by the display");
 	return paced;
 }
 
 int xgpu_vulkan_pacing_mode(int mode, int interval, int fifo, uint64_t period)
 {
-	/* (auto: on for the Linux desktop's, the Steam Deck's and Android's
-	drivers; Windows' turns it on itself until its are measured) */
-#if defined(_WIN32)
-	int automatic = 0;
-#else
-	int automatic = 1;
-#endif
-	int wanted = pacing.available && fifo && (mode == 1 || (mode == 0 && automatic)) && thread_start();
+	/* (auto and on: paced, on every driver that says when it took a
+	present, Windows' too since issue #274 measured it unpaced: five
+	refreshes queued. Off: bounded, never more frames queued than one) */
+	int level = mode == 2 ? HOST_RENDER_DISPLAY_BOUNDED : HOST_RENDER_DISPLAY_PACED;
+	int wanted = pacing.available && fifo && thread_start() ? level : 0;
 	int ready;
 
 	pthread_mutex_lock(&pacing.lock);
@@ -559,7 +612,7 @@ int xgpu_vulkan_pacing_mode(int mode, int interval, int fifo, uint64_t period)
 	the frames are presented as they come, so that a display that says
 	nothing until it has shown one, or nothing at all, is still shown
 	them) */
-	ready = wanted && pacing.proven && !pacing.silent;
+	ready = wanted && pacing.proven && !pacing.silent ? wanted : 0;
 	pthread_mutex_unlock(&pacing.lock);
 	return pacing_set(ready);
 }
@@ -623,7 +676,7 @@ VkResult xgpu_vulkan_pacing_present(PFN_vkQueuePresentKHR queue_present, VkQueue
 	info->pNext = next;
 	/* (pacing asked for, and the display has now said when it took a
 	present: from the next frame, xgpu_vulkan_pacing_mode) */
-	begin = pacing.wanted && pacing.proven && !pacing.silent && !pacing.paced;
+	begin = pacing.wanted && pacing.proven && !pacing.silent && pacing.paced != pacing.wanted ? pacing.wanted : 0;
 	if (pacing.count < QUEUE && (id || frame))
 	{
 		struct entry *entry = &pacing.queue[(pacing.first + pacing.count++) % QUEUE];
@@ -641,7 +694,7 @@ VkResult xgpu_vulkan_pacing_present(PFN_vkQueuePresentKHR queue_present, VkQueue
 	}
 	pthread_mutex_unlock(&pacing.lock);
 	if (begin)
-		pacing_set(1);
+		pacing_set(begin);
 	return result;
 }
 
@@ -656,6 +709,11 @@ VkResult xgpu_vulkan_pacing_acquire(PFN_vkAcquireNextImageKHR acquire, VkDevice 
 	result = acquire(device, swapchain, timeout, semaphore, VK_NULL_HANDLE, index);
 	pthread_mutex_unlock(&pacing.lock);
 	return result;
+}
+
+void xgpu_vulkan_pacing_frames_ahead(int frames)
+{
+	host_render_stream_frames_ahead(frames);
 }
 
 void xgpu_vulkan_pacing_unshown(void)

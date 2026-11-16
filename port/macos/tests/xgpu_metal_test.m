@@ -114,6 +114,12 @@ uint64_t host_memory_watch_faults(void)
 	return 0;
 }
 
+/* (no game's frames: no stalls detected, host_stall.c) */
+void host_stall_note(const char *what)
+{
+	(void)what;
+}
+
 #ifdef TEST_STREAM
 void host_render_stream_gpu_completed(void)
 {
@@ -144,6 +150,11 @@ int host_screenshot_write(unsigned char *bgra, uint32_t width, uint32_t height, 
 const struct xgpu_stream_ring *host_render_stream_ring(void)
 {
 	return NULL;
+}
+
+void host_render_stream_gpu_time(uint64_t nanoseconds)
+{
+	(void)nanoseconds;
 }
 
 int host_render_stream_playing(void)
@@ -2268,6 +2279,46 @@ static void test_stream_dynamic_lights(void)
 		"lit green before the light: %08x (unlit %08x)", pixel(32, 32), unlit_middle);
 	CHECK(((pixel(32, 32) >> 8) & 0xff) > ((pixel(2, 2) >> 8) & 0xff) + 20,
 		"brighter near the light than far from it: %08x %08x", pixel(32, 32), pixel(2, 2));
+
+	/* a world whose BSP splits it at x = 32 (xgpu.h): the left half's leaf in
+	cluster 0, which the light reaches, the right half's in cluster 1, which it
+	does not: the left lit, the right not */
+	{
+		struct xgpu_stream_dynamic_lights_world world_record;
+		uint32_t world[5][4];
+		float plane[4] = { 1.0f, 0.0f, 0.0f, 32.0f };
+
+		memset(world, 0, sizeof(world));
+		world[0][0] = 1;           /* a node */
+		world[0][1] = 2;           /* the planes from texel 2 */
+		world[0][2] = 3;           /* the leaves' clusters from texel 3 */
+		world[0][3] = 2;           /* two leaves */
+		world[1][0] = 0;
+		world[1][1] = 0x80000000u; /* behind: leaf 0 */
+		world[1][2] = 0x80000001u; /* in front: leaf 1 */
+		memcpy(world[2], plane, sizeof(plane));
+		world[3][0] = 0;
+		world[3][1] = 1;
+		for (index = 0; index < XGPU_METAL_STREAM_DYNAMIC_LIGHT_CELLS_SIZE / 16; index++)
+			cells[index * 4] = index == 32 * 32 * 16 || index < 32 * 32 * 16;
+		world_record.header = XGPU_STREAM_HEADER(XGPU_STREAM_DYNAMIC_LIGHTS_WORLD, sizeof(world_record));
+		world_record.count = 5;
+		world_record.texels = guest_address(ring_put(ring, &position, world, sizeof(world)));
+		backend->dynamic_lights_world(NULL, &world_record);
+		upload->cells = guest_address(ring_put(ring, &position, cells, XGPU_METAL_STREAM_DYNAMIC_LIGHT_CELLS_SIZE));
+		backend->dynamic_lights_upload(NULL, upload);
+		LIT_DRAW();
+		LIT_READ();
+		CHECK(((pixel(31, 32) >> 8) & 0xff) > ((unlit_middle >> 8) & 0xff) + 20,
+			"lit in the light's cluster: %08x (unlit %08x)", pixel(31, 32), unlit_middle);
+		CHECK(near(pixel(33, 32), unlit_middle, 2), "unlit in a cluster the light does not reach, as near it: %08x",
+			pixel(33, 32));
+		/* (no world again: its header of no nodes) */
+		memset(world, 0, sizeof(world));
+		world_record.count = 1;
+		world_record.texels = guest_address(ring_put(ring, &position, world, 16));
+		backend->dynamic_lights_world(NULL, &world_record);
+	}
 
 	/* the next frame sent none: unlit again */
 	LIT_DRAW();

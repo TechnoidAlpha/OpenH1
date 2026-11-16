@@ -18,6 +18,10 @@
 #define LOADING_PRESENTATION_VR_DISTANCE 8.0f
 #define LOADING_PRESENTATION_VR_EYE_WIDTH 640
 #define LOADING_PRESENTATION_VR_EYE_HEIGHT 480
+/* the caption under the words (loading_screen.h) is set at this many times
+   the 480 lines' size, and drawn at the screen's own pixels from it
+   (loading_art_caption_shown): sharp up to 3840 rows */
+#define LOADING_PRESENTATION_CAPTION_SCALE 8
 
 struct loading_presentation_rect
 {

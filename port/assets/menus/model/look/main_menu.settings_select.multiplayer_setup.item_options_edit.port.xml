@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.item_options_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_map_weapons" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/map_weapons_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_map_weapons"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_loadout" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/loadout_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_primary_weapon" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/primary_weapon_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/op_secondary_weapon" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" x="286" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/item_options_labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/item_options_edit/secondary_weapon_spinner" type="spinner" box="0 2 206 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-13 7 -7 19" footer="bitmaps/arrow_sm_right" footer_box="208 7 214 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/item_options_edit/var_loadout_weapon"/>
+	</look>
+</model>

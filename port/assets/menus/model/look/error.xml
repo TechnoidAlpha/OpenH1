@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/error.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="error/confirm_delete_gametype" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/confirm_delete_gametype_text_box" x="192" y="176"/>
+		<at widget="error/header_warning" x="201" y="180"/>
+	</look>
+	<look name="error/confirm_delete_gametype_button_bar" type="column_list" box="0 0 256 20">
+		<at widget="error/confirm_delete_gametype_button_cancel" x="128" y="0"/>
+		<at widget="error/confirm_delete_gametype_button_ok" x="0" y="0"/>
+	</look>
+	<look name="error/confirm_delete_gametype_button_cancel" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="error/confirm_delete_gametype_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="error/confirm_delete_gametype_modal_fullscreen">
+		<at widget="error/confirm_delete_gametype" x="0" y="0"/>
+		<at widget="error/confirm_delete_gametype_button_bar" x="194" y="309"/>
+	</look>
+	<look name="error/confirm_delete_gametype_text_box" type="text" box="0 0 280 159" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="25"/>
+	</look>
+	<look name="error/confirm_delete_profile" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/confirm_delete_profile_text_box" x="192" y="176"/>
+		<at widget="error/header_warning" x="201" y="180"/>
+	</look>
+	<look name="error/confirm_delete_profile_button_bar" type="column_list" box="0 0 256 20">
+		<at widget="error/confirm_delete_profile_button_cancel" x="128" y="0"/>
+		<at widget="error/confirm_delete_profile_button_ok" x="0" y="0"/>
+	</look>
+	<look name="error/confirm_delete_profile_button_cancel" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="error/confirm_delete_profile_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="error/confirm_delete_profile_modal_fullscreen">
+		<at widget="error/confirm_delete_profile" x="0" y="0"/>
+		<at widget="error/confirm_delete_profile_button_bar" x="194" y="309"/>
+	</look>
+	<look name="error/confirm_delete_profile_text_box" type="text" box="0 0 280 159" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="24"/>
+	</look>
+	<look name="error/confirm_delete_savegame" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/confirm_delete_savegame_text_box" x="192" y="176"/>
+		<at widget="error/header_warning" x="201" y="180"/>
+	</look>
+	<look name="error/confirm_delete_savegame_button_bar" type="column_list" box="0 0 256 20">
+		<at widget="error/confirm_delete_profile_button_cancel" x="128" y="0"/>
+		<at widget="error/confirm_delete_savegame_button_ok" x="0" y="0"/>
+	</look>
+	<look name="error/confirm_delete_savegame_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="error/confirm_delete_savegame_modal_fullscreen">
+		<at widget="error/confirm_delete_savegame" x="0" y="0"/>
+		<at widget="error/confirm_delete_savegame_button_bar" x="194" y="309"/>
+	</look>
+	<look name="error/confirm_delete_savegame_text_box" type="text" box="0 0 280 159" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="59"/>
+	</look>
+	<look name="error/confirm_empty_player_text_box" type="text" box="0 0 280 159" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="main_menu/player_profiles_select/empty_profile_selected"/>
+	</look>
+	<look name="error/confirm_empty_profile" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/confirm_empty_player_text_box" x="192" y="176"/>
+		<at widget="error/header_attention" x="201" y="180"/>
+	</look>
+	<look name="error/error_modal">
+		<at widget="error/error_text_box" x="192" y="176"/>
+		<at widget="error/header_error" x="202" y="180"/>
+	</look>
+	<look name="error/error_modal_button_bar" type="column_list" box="0 0 256 20">
+		<at widget="error/error_modal_button_ok" x="64" y="0"/>
+	</look>
+	<look name="error/error_modal_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="error/error_text_box" type="text" box="0 0 280 159" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 35" string_list="strings/displayed_error_messages" replace="%controller controller"/>
+	</look>
+	<look name="error/header_are_you_sure" type="text" box="0 0 170 20">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="error/error_headers" index="2"/>
+	</look>
+	<look name="error/header_attention" type="text" box="0 0 150 20">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="error/error_headers" index="4"/>
+	</look>
+	<look name="error/header_error" type="text" box="0 0 150 20">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="error/error_headers"/>
+	</look>
+	<look name="error/header_saving" type="text" box="0 0 150 20">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="error/error_headers" index="3"/>
+	</look>
+	<look name="error/header_warning" type="text" box="0 0 150 20">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="error/error_headers" index="1"/>
+	</look>
+	<look name="error/warning_creating_player_profile_screen" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/warning_creating_player_profile_text" x="192" y="176"/>
+		<at widget="error/header_saving" x="201" y="180"/>
+	</look>
+	<look name="error/warning_creating_player_profile_text" type="text" box="0 0 256 160" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="16"/>
+	</look>
+	<look name="error/warning_pre_testing_video_screen" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/warning_pre_testing_video_text" x="192" y="176"/>
+		<at widget="error/header_warning" x="201" y="180"/>
+	</look>
+	<look name="error/warning_pre_testing_video_text" type="text" box="0 0 280 160" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="51"/>
+	</look>
+	<look name="error/warning_saving_file_screen" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/warning_saving_file_text" x="192" y="176"/>
+		<at widget="error/header_saving" x="201" y="180"/>
+	</look>
+	<look name="error/warning_saving_file_text" type="text" box="0 0 256 160" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="15"/>
+	</look>
+	<look name="error/warning_testing_video_screen" picture="bitmaps/semi_transparent_grey">
+		<at widget="error/warning_testing_video_text" x="192" y="176"/>
+		<at widget="error/header_are_you_sure" x="201" y="180"/>
+	</look>
+	<look name="error/warning_testing_video_text" type="text" box="0 0 280 160" picture="bitmaps/alert_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="9 36" string_list="strings/displayed_error_messages" index="41"/>
+	</look>
+</model>

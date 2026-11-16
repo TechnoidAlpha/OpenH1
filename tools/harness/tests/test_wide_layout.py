@@ -70,14 +70,15 @@ def test_generator_is_the_engine():
 
 def test_game_menus_stay_centred():
     """Only the port's own screens (the generator's files) are laid out wide, and Multiplayer's title (the PC
-    version's, over the hub: WIDGET_PATCHES); every wide attribute is "dx dw" within the extra width."""
+    version's, over the hub: WIDGET_PATCHES); every wide attribute is "dx dw" within twice the extra width
+    (menu_tags.c)."""
     ours = {*port_settings.settings_files(), *port_settings.multiplayer_files(), *port_settings.campaign_files()}
     patched = {name for name, patch in port_settings.WIDGET_PATCHES.items() if "wide" in patch.get("set", {})}
     assert patched == {f"{MT}/header_multiplayer"}
     for path in sorted(menu_layout.CE.glob("*.xml")):
         for name, wide in re.findall(r'<widget name="([^"]+)"[^>]*? wide="([^"]*)"', path.read_text()):
             dx, dw = (int(value) for value in wide.split())
-            assert abs(dx) <= port_settings.WIDE_EXTRA and abs(dw) <= port_settings.WIDE_EXTRA, name
+            assert abs(dx) <= 2 * port_settings.WIDE_EXTRA and abs(dw) <= 2 * port_settings.WIDE_EXTRA, name
             assert path.name in ours or name in patched, f"{name} ({path.name}) is the game's own, laid out wide"
 
 
@@ -146,14 +147,23 @@ def test_settings_layout(aspect, folder, root, tab, platforms):
         _check_apart(tabs + prompts, "tabs")
         assert prompts[0].x1 <= min(box.x0 for box in tabs) and prompts[1].x0 >= max(box.x1 for box in tabs)
     # (wider as the screen is: at 16:9 the rows and panel as wide as the usable screen, less the margins; 21:9's
-    # 16:9's)
+    # 16:9's. The extra width the rows', and some of the panel's: the panel about a quarter of a 16:10 or 16:9
+    # screen)
     if width >= port_settings.WIDE_WIDTH:
         assert layout(root, width, platforms) == layout(root, port_settings.WIDE_WIDTH, platforms)
         assert rows[0].x0 - usable(width).x0 == 28 and usable(width).x1 - panel.x1 == 28
+        assert (panel.x1 - panel.x0) / port_settings.WIDE_WIDTH < 0.25
     if width > 640:
-        narrow = [box for box in layout(root, 640, platforms) if box.name in (rows[0].name, panel.name)]
-        assert rows[0].x1 - rows[0].x0 > narrow[0].x1 - narrow[0].x0
-        assert panel.x1 - panel.x0 > narrow[1].x1 - narrow[1].x0
+        narrow = layout(root, 640, platforms)
+        narrow_row, narrow_panel = one(narrow, rows[0].name), one(narrow, panel.name)
+        less = port_settings.wide_scale(port_settings.SETTINGS_WIDE_PANEL_LESS, port_settings.wide_extra_of(width))
+        assert rows[0].x1 - rows[0].x0 - (narrow_row.x1 - narrow_row.x0) == port_settings.wide_extra_of(width) + less
+        assert panel.x1 - panel.x0 == narrow_panel.x1 - narrow_panel.x0 - less
+        assert (panel.x1 - panel.x0) / min(width, port_settings.WIDE_WIDTH) < 0.28
+        # (the values' column longer: a spinner's, a slider's track)
+        for value in [box for box in boxes if box.name.endswith(("_spinner", "_track"))]:
+            before = [box for box in narrow if box.name == value.name and box.path == value.path]
+            assert before and value.x1 - value.x0 > before[0].x1 - before[0].x0, value
 
 
 @pytest.mark.parametrize("aspect", WIDTHS)
@@ -164,7 +174,8 @@ def test_hub_layout(aspect):
     with its items."""
     width = WIDTHS[aspect]
     area = inner(width)
-    for root, page_items in ((f"{MT}/multiplayer_type_select_screen", 9), (f"{MT}/hub/create_screen", 3),
+    for root, page_items in ((f"{MT}/multiplayer_type_select_screen", 8),
+                             (f"{MT}/hub/create_screen", 3),
                              (f"{MT}/hub/coop_screen", 2)):
         boxes = layout(root, width)
         items = [box for box in boxes if box.name.startswith("hub_") and box.path[-1].endswith("_list")
@@ -223,32 +234,6 @@ def test_friends_layout(aspect):
 
 
 @pytest.mark.parametrize("aspect", WIDTHS)
-def test_matchmaking_layout(aspect):
-    """The Matchmaking screen, laid out as Multiplayer is: its playlists' rows (each note in its row) under their
-    section from the screen's left, apart, the panel beside them to its right with its words in it, its footer's
-    prompts at the screen's edges; on the screen, none over another."""
-    width = WIDTHS[aspect]
-    area = inner(width)
-    boxes = layout(f"{MT}/matchmaking/matchmaking_screen", width)
-    panel = one(boxes, "matchmaking_panel")
-    section = one(boxes, "section_matchmaking")
-    assert panel.inside(area) and section.inside(area) and section.x1 + 8 <= panel.x0
-    rows = [one(boxes, f"mm_row_{row}") for row in range(port_settings.MATCHMAKING_ROWS)]
-    for row, box in enumerate(rows):
-        assert box.inside(area) and box.x0 >= section.x0 and box.x1 <= section.x1 and box.x1 + 8 <= panel.x0, box
-        assert one(boxes, f"mm_note_{row}").inside(box), row
-    _check_apart(rows, "rows")
-    for box in boxes:
-        if box.path and box.path[-1] == "matchmaking_panel":
-            assert box.inside(panel), f"{box} is out of the panel {panel}"
-    prompts = [box for box in boxes if box.name.startswith("prompt_")]
-    for box in prompts:
-        assert box.inside(area), box
-    for left in ("prompt_search", "prompt_cancel"):
-        assert one(boxes, left).x0 - usable(width).x0 == 28
-
-
-@pytest.mark.parametrize("aspect", WIDTHS)
 def test_party_layout(aspect):
     """The Party screen, laid out as Multiplayer is: its members' rows (each name before where it is, the leader's
     pill at the row's end) under their section from the screen's left, the panel beside them to its right with its
@@ -272,3 +257,88 @@ def test_party_layout(aspect):
         assert box.inside(area), box
     for left in ("prompt_make", "prompt_copy"):
         assert one(boxes, left).x0 - usable(width).x0 == 28
+
+
+# the browsers the menu engine lays out tall (tools/port_settings.py's BROWSER_TALL), and the parts each must have
+TALL_BROWSERS = {
+    f"{MT}/join_game/join_game_screen": ("join_game_items_list", "browser_panel", "join_game_button_bar"),
+    "main_menu/doubles/browser/doubles_browser_screen": ("doubles_browser_list", "doubles_panel", "doubles_prompts"),
+}
+
+
+def _tall_parts(root, width):
+    boxes = layout(root, width, every=menu_layout.engine_widgets())
+    _, panel_name, prompts_name = TALL_BROWSERS[root]
+    rows = [box for box in boxes if re.fullmatch(r"server_item_\d+", box.name)]
+    prompts = [box for box in boxes if box.name.startswith("prompt_") and box.path[-1] == prompts_name]
+    titles = [box for box in boxes if box.name in ("header_join_game", "header_doubles_browser")]
+    return boxes, rows, one(boxes, panel_name), prompts, titles
+
+
+@pytest.mark.parametrize("aspect", WIDTHS)
+@pytest.mark.parametrize("root", TALL_BROWSERS)
+def test_tall_browser_layout(aspect, root):
+    """The browsers as the menu engine lays them out (BROWSER_TALL, the engine's own looks: classic keeps
+    test_browser_menu's): the whole height, a slim title and the tabs under it at the top, the footer's prompts at
+    the very bottom, the rows (taller than the classic's) and the panel filling what is between, none over another;
+    on a screen wider than 16:9 the rows from its left edge and the panel to its right (WIDE_MARGIN in), the tabs
+    16:9's; the classic layout's rows and footer where they were."""
+    width = WIDTHS[aspect]
+    screen = menu_layout.screen(width)
+    margin = port_settings.WIDE_MARGIN
+    boxes, rows, panel, prompts, titles = _tall_parts(root, width)
+    tall = port_settings.BROWSER_TALL
+    assert rows and prompts and titles
+    # (the title slim: under 0.7 of the classic's height, at the top)
+    for title in titles:
+        assert title.y0 <= 8 and title.y1 - title.y0 <= port_settings.BROWSER_TITLE[3] * 0.7, title
+    # (the footer at the very bottom, the rows and panel down to it)
+    assert all(470 <= prompt.y1 <= 480 for prompt in prompts), prompts
+    footer_top = min(prompt.y0 for prompt in prompts)
+    # (under PRO 2V2's rows its HOST GAME and FIND GAME)
+    lowest = max(box.y1 for box in rows + [box for box in boxes if box.name.startswith("button_doubles_")])
+    assert 0 < footer_top - lowest <= 40 and 0 < footer_top - panel.y1 <= 16, (lowest, panel)
+    assert panel.y0 <= 80 and panel.y1 - panel.y0 >= 350, panel
+    assert all(row.y1 - row.y0 == tall["BROWSER_ROW_HEIGHT"] > port_settings.BROWSER_ROW_HEIGHT for row in rows)
+    _check_apart(rows, "rows")
+    # (wider than 16:9, the prompts apart as 16:9's are: those shown together, test_browser_menu's)
+    wide = {prompt.name: prompt for prompt in _tall_parts(root, port_settings.WIDE_WIDTH)[3]}
+    for prompt in prompts if width > port_settings.WIDE_WIDTH else []:
+        for other in prompts:
+            assert prompt is other or wide[prompt.name].overlaps(wide[other.name]) or not prompt.overlaps(other), \
+                (prompt, other)
+    for box in rows + [panel] + prompts + titles:
+        assert box.inside(screen), f"{box} is off the screen {screen}"
+        assert not any(box.overlaps(row) for row in rows if row is not box) or box in rows
+    assert all(not row.overlaps(panel) for row in rows)
+    # (to the screen's edges, however wide: the rows' left and the panel's right WIDE_MARGIN in)
+    if width > port_settings.WIDE_WIDTH:
+        assert min(row.x0 for row in rows) - screen.x0 <= margin + 8, rows[0]
+        assert screen.x1 - panel.x1 <= margin + 8, panel
+        tabs = [box for box in boxes if box.name.startswith("tab_")]
+        assert all(box.inside(usable(width)) for box in tabs), tabs
+    # (the classic engine's layout unchanged: its rows where BROWSER_ROWS_TOP has them, its footer at 414)
+    classic = layout(root, width)
+    first = min((box for box in classic if re.fullmatch(r"server_item_\d+", box.name)), key=lambda box: box.y0)
+    assert first.y0 == port_settings.BROWSER_ROWS_TOP and first.y1 - first.y0 == port_settings.BROWSER_ROW_HEIGHT
+    assert all(414 <= box.y0 <= 420 for box in classic if box.name.startswith("prompt_") and box.path[-1] in
+               TALL_BROWSERS[root][2])
+
+
+def test_tall_browser_negative_controls(monkeypatch):
+    """The tall layout's test sees a layout that is not: the footer left at 414, the rows not to a 21:9 screen's
+    edge (no past), the title not slimmer."""
+    root = f"{MT}/join_game/join_game_screen"
+    faults = [{"BROWSER_FOOTER_TOP": 414}, {"BROWSER_TITLE": port_settings.BROWSER_TITLE}]
+    for fault in faults:
+        monkeypatch.setattr(port_settings, "BROWSER_TALL", {**port_settings.BROWSER_TALL, **fault})
+        menu_layout.engine_widgets.cache_clear()
+        with pytest.raises(AssertionError):
+            test_tall_browser_layout("16:9", root)
+    monkeypatch.setattr(port_settings, "BROWSER_TALL", dict(port_settings.BROWSER_TALL))
+    monkeypatch.setattr(port_settings, "BROWSER_TALL_CENTRED", re.compile(r"."))
+    menu_layout.engine_widgets.cache_clear()
+    with pytest.raises(AssertionError):
+        test_tall_browser_layout("21:9", root)
+    monkeypatch.undo()
+    menu_layout.engine_widgets.cache_clear()

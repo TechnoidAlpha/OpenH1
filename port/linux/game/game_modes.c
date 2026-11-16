@@ -22,6 +22,19 @@ machine (network_game_manager.h) and the game plays by
 The built-in gametypes (game_modes_gametype) are written with the Xbox's
 default ones, after them, and the Select Gametype screen lists them in a bank
 of their own (menu_functions.c's OPENCE).
+
+Pro Doubles (pro_doubles, game_modes_pro_doubles), matchmaking's 2V2
+(matchmaking.c), is found by its name alone, as debug.network_test's and a
+dedicated server's gametypes are: not a saved gametype, so the profiles'
+built-in ones stay as they were. It is Team Slayer as competitive Halo 1
+2v2 is played, after the published rules of a 2v2 tournament of the
+original game ("2v2 Rules Halo 1 Original": Team Slayer to 50 kills, a
+respawn of 5 seconds and a suicide penalty of 5, infinite lives, 100%
+health, shields on, the normal weapons, generic starting equipment, other
+players not on the radar, no objective indicator, friends' indicators on,
+no death bonus, kill penalty, kill in order, odd man out or respawn growth).
+What the rules leave unsaid is Team Slayer's own: friendly fire on, no time
+limit.
 */
 
 #include "cseries.h"
@@ -44,8 +57,17 @@ game_engine_weapons and game_engine_vehicles) */
 enum
 {
 	GOAL_RADAR_NAV_POINT = 1,
+	GOAL_RADAR_NONE = 2,
 	WEAPON_SET_NO_GRENADES = 10,
 	VEHICLE_SET_NONE = 1
+};
+
+/* Pro Doubles' (game_modes_pro_doubles): to 50 kills, a respawn and a
+suicide penalty of 5 seconds */
+enum
+{
+	PRO_DOUBLES_SCORE_TO_WIN = 50,
+	PRO_DOUBLES_RESPAWN_SECONDS = 5
 };
 
 /* Infection's options when a gametype has none (game_modes_options_sanitize) */
@@ -193,12 +215,54 @@ void game_modes_gametype(
 	}
 }
 
+void game_modes_pro_doubles(
+	struct game_variant *variant,
+	struct game_variant_options *options)
+{
+	struct game_variant temporary;
+
+	*variant = *build_game_variant_team_slayer(&temporary);
+	game_variant_options_default(variant, options);
+	variant->universal_variant.score_to_win = PRO_DOUBLES_SCORE_TO_WIN;
+	variant->universal_variant.respawn_time = PRO_DOUBLES_RESPAWN_SECONDS * TICKS_PER_SECOND;
+	variant->universal_variant.suicide_penalty = PRO_DOUBLES_RESPAWN_SECONDS * TICKS_PER_SECOND;
+	variant->universal_variant.respawn_time_growth = 0;
+	variant->universal_variant.lives = 0;
+	variant->universal_variant.health = 1.0f;
+	variant->universal_variant.odd_man_out = FALSE;
+	/* (the normal weapons: Team Slayer's own) */
+	SET_FLAG(variant->universal_variant.flags, _game_variant_no_shields_bit, FALSE);
+	SET_FLAG(variant->universal_variant.flags, _game_variant_generic_starting_equipment_bit, TRUE);
+	/* (other players not on the radar, no objective indicator; friends'
+	indicators on) */
+	SET_FLAG(variant->universal_variant.flags, _game_variant_draw_object_in_motion_sensor_bit, FALSE);
+	SET_FLAG(variant->universal_variant.flags, _game_variant_allow_friendly_navpoints_bit, TRUE);
+	variant->universal_variant.goal_radar = GOAL_RADAR_NONE;
+	options->radar_players = _radar_players_none;
+	variant->game_engine_variant.slayer.no_death_bonus = TRUE;
+	variant->game_engine_variant.slayer.no_kill_penalty = TRUE;
+	variant->game_engine_variant.slayer.kill_in_order = FALSE;
+	options->friendly_fire = _friendly_fire_on;
+	options->time_limit = 0;
+	options->vehicle_set[0] = options->vehicle_set[1] = (byte)variant->universal_variant.vehicle_set;
+	game_modes_options_sanitize(options);
+	csmemset(variant->human_readable_game_description, 0, sizeof(variant->human_readable_game_description));
+	ustrncpy(variant->human_readable_game_description, L"Pro Doubles",
+		NUMBEROF(variant->human_readable_game_description) - 1);
+}
+
 boolean game_modes_gametype_by_name(
 	char const *name,
 	struct game_variant *variant,
 	struct game_variant_options *options)
 {
 	short index;
+
+	if (!strcmp(name, "pro_doubles"))
+	{
+		game_modes_pro_doubles(variant, options);
+		return TRUE;
+	}
 
 	for (index = 0; index < NUMBER_OF_GAMETYPES; index++)
 	{

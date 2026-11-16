@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.bots.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/multiplayer_type_create_bots_item">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

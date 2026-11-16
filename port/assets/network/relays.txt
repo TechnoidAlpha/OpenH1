@@ -9,5 +9,7 @@
 # dedicated server's server.relays_file. An update replaces it; keep a list
 # of your own under another name.)
 #
-# A file that names none, as this one, offers none: the game then uses only
-# the relays its game's dedicated server offers.
+# A file that names none offers none: the game then uses only the relays its
+# game's dedicated server offers. This one names the project's own
+# (deploy/net).
+net.goath1.com:2302

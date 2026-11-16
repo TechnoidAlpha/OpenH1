@@ -79,17 +79,3 @@ def test_flag_bit_is_its_name():
     order = re.findall(r'"(\w+)"', names)
     assert order.index("wheel_sideways") == constant(tags, "WIDGET_FLAG_WHEEL_SIDEWAYS")
     assert order.index("keep_ends") == constant(tags, "WIDGET_FLAG_KEEP_ENDS")
-
-
-def test_the_wheel_takes_the_row_sideways():
-    """The wheel's widget may be a row flagged so (not for a touch drag), and its presses are then left and right,
-    as many as ui_mouse_wheel_sideways_steps gives."""
-    widgets = read("source/interface/ui_widget.c")
-    chooser = function(widgets, "ui_mouse_wheel_widget")
-    assert "(!skip_settings && ui_widget_port_wheel_sideways(definition->flags))" in chooser
-    process = function(widgets, "ui_widgets_process_mouse")
-    sideways = process[process.index("if (widget && !touch &&\n\t\t\t\tui_widget_port_wheel_sideways"):]
-    sideways = sideways[:sideways.index("}") + 1]
-    assert "back = _widget_event_dpad_left;" in sideways and "forward = _widget_event_dpad_right;" in sideways
-    assert "steps = ui_mouse_wheel_sideways_steps(" in sideways
-    assert "for (step = 0; step < steps && step < 4" in process

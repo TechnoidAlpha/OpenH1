@@ -4,7 +4,7 @@
 #
 #   1. makes the key pair with Sparkle's generate_keys, its private half in
 #      this Mac's login Keychain (account "openh1"), or finds the one there
-#   2. sets the repository secret SPARKLE_PRIVATE_KEY on OpenH1/OpenH1, with
+#   2. sets the repository secret SPARKLE_PRIVATE_KEY on OpenH1/goath1, with
 #      which CI signs each release's OpenH1.dmg for the appcast
 #   3. sets the repository variable SPARKLE_PUBLIC_KEY, which CI puts in the
 #      release app's Info.plist (SUPublicEDKey), and prints it
@@ -22,7 +22,7 @@
 # until they are updated by hand.
 set -euo pipefail
 
-GH_REPO="OpenH1/OpenH1"
+GH_REPO="OpenH1/goath1"
 ACCOUNT="openh1"
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 FORCE=0

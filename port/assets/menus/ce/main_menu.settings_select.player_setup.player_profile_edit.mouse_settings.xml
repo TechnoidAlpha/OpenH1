@@ -1,17 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_settings_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_settings_screen" width="640" height="480" flags="pass_unhandled_to_focused_child pause_game" bitmap="bitmaps/gradient" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="b" run="port settings cancel" back="true"/>
 		<on event="back" run="port settings cancel" back="true"/>
 		<on event="white" run="port settings tab previous"/>
 		<on event="black" run="port settings tab next"/>
+		<on event="y" run="port settings search"/>
 		<child widget="main_menu/settings/header_settings"/>
-		<child widget="main_menu/settings/tab_prompt_previous" x="24" y="76"/>
-		<child widget="main_menu/settings/tab_prompt_next" x="586" y="76"/>
+		<child widget="main_menu/settings/profile"/>
+		<child widget="main_menu/settings/tabs/tab_prompt_previous" x="24" y="76"/>
+		<child widget="main_menu/settings/tabs/tab_prompt_next" x="586" y="76"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/options_menu"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/tab_panel">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/options_menu" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/settings/tab_panel" source="tools/port_settings.py settings_files/_settings_page">
 		<data input="port settings page"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_0" x="28" y="104"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_sensitivity" x="28" y="124"/>
@@ -31,71 +33,123 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_touch_crouch" x="28" y="423" platform="touch"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_bar" y="414"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tabs" y="76"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tabs_search" y="76"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_defaults" x="24" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_ok" x="358" y="1"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_cancel" x="488" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_video_settings" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-106 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_video_settings" type="text" controller="1" width="59" height="22" flags="keep_ends" wide="-106 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 		<on event="a" run="port settings tab"/>
 		<on event="start" run="port settings tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_audio_settings" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-64 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="1" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_audio_settings" type="text" controller="1" width="61" height="22" flags="keep_ends" wide="-71 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="1" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 		<on event="a" run="port settings tab"/>
 		<on event="start" run="port settings tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_mouse_settings" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="-21 0" bitmap="main_menu/settings/tab_current" string_list="main_menu/settings/tab_names" string_index="2" color="#FFFFFFFF" align="center" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_mouse_settings" type="text" controller="1" width="92" height="22" flags="keep_ends" wide="-35 0" bitmap="main_menu/settings/tab_current" string_list="main_menu/settings/tab_names" string_index="2" color="#FFFFFFFF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 		<on event="a" run="port settings tab"/>
 		<on event="start" run="port settings tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_network_settings" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="21 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="3" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_network_settings" type="text" controller="1" width="67" height="22" flags="keep_ends" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="3" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 		<on event="a" run="port settings tab"/>
 		<on event="start" run="port settings tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_interface_settings" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="64 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="4" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_interface_settings" type="text" controller="1" width="95" height="22" flags="keep_ends" wide="35 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="4" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 		<on event="a" run="port settings tab"/>
 		<on event="start" run="port settings tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_profile_settings" type="text" controller="1" width="86" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="5" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_profile_settings" type="text" controller="1" width="83" height="22" flags="keep_ends" wide="71 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="5" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 		<on event="a" run="port settings tab"/>
 		<on event="start" run="port settings tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tabs" type="column_list" width="640" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_mods_settings" type="text" controller="1" width="57" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="6" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tabs" type="column_list" width="640" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_video_settings" x="56"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_audio_settings" x="144"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_mouse_settings" x="232"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_network_settings" x="320"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_interface_settings" x="408"/>
-		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_profile_settings" x="496"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_audio_settings" x="117"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_mouse_settings" x="180"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_network_settings" x="274"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_interface_settings" x="343"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_profile_settings" x="440"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tab_mods_settings" x="525"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="-106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_video_settings" type="text" controller="1" width="56" height="22" flags="keep_ends" wide="4 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_audio_settings" type="text" controller="1" width="58" height="22" flags="keep_ends" wide="21 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="1" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_mouse_settings" type="text" controller="1" width="88" height="22" flags="keep_ends" wide="38 0" bitmap="main_menu/settings/tab_current" string_list="main_menu/settings/tab_names" string_index="2" color="#FFFFFFFF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_network_settings" type="text" controller="1" width="65" height="22" flags="keep_ends" wide="55 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="3" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_interface_settings" type="text" controller="1" width="91" height="22" flags="keep_ends" wide="72 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="4" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_profile_settings" type="text" controller="1" width="81" height="22" flags="keep_ends" wide="89 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="5" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_mods_settings" type="text" controller="1" width="53" height="22" flags="keep_ends" wide="106 0" bitmap="main_menu/settings/tab" string_list="main_menu/settings/tab_names" string_index="6" color="#FF2896FF" align="center" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+		<on event="a" run="port settings tab"/>
+		<on event="start" run="port settings tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/tabs_search" type="column_list" width="640" height="22" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py settings_files/_settings_page">
+		<child widget="main_menu/settings/search_field" x="56"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_video_settings" x="78"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_audio_settings" x="136"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_mouse_settings" x="196"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_network_settings" x="286"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_interface_settings" x="353"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_profile_settings" x="446"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/search_tab_mods_settings" x="529"/>
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_defaults" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="3" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="-106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
 		<on event="a" run="port settings defaults"/>
 		<on event="start" run="port settings defaults"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_ok" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
 		<on event="a" run="port settings ok" back="true"/>
 		<on event="start" run="port settings ok" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_cancel" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" string_list="strings/common_button_captions" string_index="2" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" wide="106 0" source="tools/port_settings.py settings_files/_settings_page/_button">
 		<on event="a" run="port settings cancel" back="true"/>
 		<on event="start" run="port settings cancel" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_0" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_0" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_0_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_0_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_0_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="left" run="port slider left"/>
 		<on event="right" run="port slider right"/>
 		<on event="a" run="port slider edit"/>
@@ -104,134 +158,195 @@
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_track" x="188" y="3"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" x="252" y="0"/>
+		<on event="stick_left" run="port slider left"/>
+		<on event="stick_right" run="port slider right"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="1" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_track" controller="1" width="62" height="14" bitmap="main_menu/settings/slider_track" wide="20 224" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_thumb"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_thumb" controller="1" width="8" height="14" bitmap="main_menu/settings/slider_thumb" source="tools/port_settings.py settings_files/_settings_page">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="120 0" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_sensitivity_value" type="text" controller="1" width="76" height="20" bitmap="main_menu/settings/slider_field" color="#FF2896FF" align="center" text_y="1" text_flags="no_focus_test" wide="244 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_vertical_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_vertical_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="2" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0.25X|0.5X|0.6X|0.7X|0.75X|0.8X|0.9X|1X|1.1X|1.25X|1.5X|2X" setting="input.mouse_vertical_sensitivity" values="0.25|0.5|0.6|0.7|0.75|0.8|0.9|1|1.1|1.25|1.5|2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_vertical_sensitivity_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="0.25X|0.5X|0.6X|0.7X|0.75X|0.8X|0.9X|1X|1.1X|1.25X|1.5X|2X" setting="input.mouse_vertical_sensitivity" values="0.25|0.5|0.6|0.7|0.75|0.8|0.9|1|1.1|1.25|1.5|2" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_zoom_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_zoom_sensitivity" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_seg1" x="274" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="3" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="3" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="CS2|ORIGINAL" setting="input.zoom_sensitivity" values="cs2|halo" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_seg0" type="text" controller="1" width="82" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="CS2" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_seg1" type="text" controller="1" width="82" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ORIGINAL" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/zoom_sensitivity_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="CS2|ORIGINAL" setting="input.zoom_sensitivity" values="cs2|halo" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_invert_mouse" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_invert_mouse" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="4" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="input.invert_mouse" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="YES" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="NO" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/invert_mouse_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="YES|NO" setting="input.invert_mouse" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_aim_assist" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_mouse_aim_assist" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="5" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="5" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="input.mouse_aim_assist" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="OFF" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/mouse_aim_assist_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="input.mouse_aim_assist" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_direct_camera" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="computer" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_direct_camera" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="computer" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="6" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.direct_camera" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="OFF" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/direct_camera_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="ON|OFF" setting="display.direct_camera" values="true|false" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_menu_cursor" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="computer" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_menu_cursor" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="computer" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/menu_cursor_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/menu_cursor_spinner" x="188"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/menu_cursor_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/menu_cursor_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="7" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/menu_cursor_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|SMALL|MEDIUM|LARGE|EXTRA LARGE" setting="display.menu_cursor" values="off|small|medium|large|extra_large" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/menu_cursor_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|SMALL|MEDIUM|LARGE|EXTRA LARGE" setting="display.menu_cursor" values="off|small|medium|large|extra_large" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_key_bindings" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_key_bindings" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/controls_setup/controls_settings_screen"/>
 		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/controls_setup/controls_settings_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/key_bindings_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/key_bindings_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/key_bindings_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="8" color="#FF2896FF" text_x="10" text_y="1" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_button_prompts" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_button_prompts" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_seg1" x="300" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_seg2" x="412" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="9" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="9" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="AUTO|CONTROLLER|KEYBOARD" setting="input.button_prompts" values="auto|controller|keyboard" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_seg0" type="text" controller="1" width="108" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="AUTO" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_seg1" type="text" controller="1" width="108" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="CONTROLLER" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_seg2" type="text" controller="1" width="108" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="KEYBOARD" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/button_prompts_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="AUTO|CONTROLLER|KEYBOARD" setting="input.button_prompts" values="auto|controller|keyboard" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_10" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_10" width="344" height="18" bitmap="main_menu/settings/section" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_10_title"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_10_title" type="text" controller="1" width="344" height="18" wide="0 120" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="10" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/section_10_title" type="text" controller="1" width="344" height="18" wide="0 244" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="10" color="#FF6F9CD0" text_x="2" text_y="1" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_controller" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_controller" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gamepad_setup_screen"/>
 		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/gamepad_setup/gamepad_setup_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/controller_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/controller_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/controller_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="11" color="#FF2896FF" text_x="10" text_y="1" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_vr_setup" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="vr" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_vr_setup" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="vr" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="a" open="main_menu/settings_select/player_setup/player_profile_edit/vr_controls/vr_controls_screen"/>
 		<on event="start" open="main_menu/settings_select/player_setup/player_profile_edit/vr_controls/vr_controls_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/vr_setup_label"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/vr_setup_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/vr_setup_label" type="text" controller="1" width="332" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="12" color="#FF2896FF" text_x="10" text_y="1" wide="0 244" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_crouch" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_crouch" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_seg1" x="263" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="13" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HOLD|TOGGLE" setting="input.crouch" values="hold|toggle" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_seg0" type="text" controller="1" width="71" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="HOLD" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_seg1" type="text" controller="1" width="71" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="TOGGLE" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="HOLD|TOGGLE" setting="input.crouch" values="hold|toggle" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_crouch_walk" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_crouch_walk" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_seg1" x="240" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="14" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="14" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ON" setting="input.crouch_walk" values="false|true" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_seg0" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="OFF" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_seg1" type="text" controller="1" width="48" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="ON" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/crouch_walk_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="OFF|ON" setting="input.crouch_walk" values="false|true" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_touch_crouch" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="touch" wide="-106 120">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/op_touch_crouch" width="344" height="20" flags="pass_unhandled_to_focused_child" bitmap="main_menu/settings/row" color="#FF2896FF" platform="touch" wide="-106 244" source="tools/port_settings.py settings_files/_settings_page">
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_label"/>
 		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_spinner" x="188"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_seg0" x="188" y="1"/>
+		<child widget="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_seg1" x="263" y="1"/>
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="15" color="#FF2896FF" text_x="10" text_y="1" wide="0 120" font="ui\small_ui">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_label" type="text" controller="1" width="184" height="20" string_list="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels" string_index="15" color="#FF2896FF" text_x="10" text_y="1" wide="0 20" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
 	</widget>
-	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="TOGGLE|HOLD" setting="input.touch_crouch" values="toggle|hold" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="120 0">
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_seg0" type="text" controller="1" width="71" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="TOGGLE" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_seg1" type="text" controller="1" width="71" height="18" flags="keep_ends" bitmap="main_menu/settings/segment" text="HOLD" color="#FF2896FF" align="center" text_y="0" text_flags="no_focus_test" wide="20 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_page/_settings_text">
+	</widget>
+	<widget name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/touch_crouch_spinner" type="spinner" top="1" width="140" height="18" flags="pass_unhandled_to_focused_child left_right_tabs_items" strings="TOGGLE|HOLD" setting="input.touch_crouch" values="toggle|hold" font="ui\small_ui" color="#FF2896FF" align="center" text_y="0" header_bitmap="bitmaps/arrow_sm_left" footer_bitmap="bitmaps/arrow_sm_right" header_bounds="4 -6 16 0" footer_bounds="4 140 16 146" wide="20 120" source="tools/port_settings.py settings_files/_settings_page">
 		<on event="created" run="port setting load"/>
+		<on event="a" run="port setting segment"/>
 	</widget>
 	<strings name="main_menu/settings_select/player_setup/player_profile_edit/mouse_settings/labels">
 		<string text="MOUSE AND KEYBOARD"/>
@@ -258,8 +373,8 @@
 		<string text="How far the view turns up and down, of how far it turns side to side. 1X turns it as far."/>
 		<string text="How fast you turn while zoomed in. CS2 matches Counter-Strike 2's scoped feel; Original is how Halo felt.|Mouse only: controllers always turn as Halo did."/>
 		<string text="Moving the mouse forward looks down, as a flight stick does."/>
-		<string text="Slows and drags your aim along with a target while you aim with the mouse, as it does with a controller."/>
-		<string text="Turns the view the moment the mouse moves, not up to two of the game's updates later. Off feels as the original did."/>
+		<string text="Slows and drags your aim along with a target while you aim with the mouse, as it does with a controller.|Off in Pro 2v2 games, for everyone."/>
+		<string text="Turns the view the moment the mouse moves, not up to two of the game's updates later. Off feels as the original did.|Off for everyone in a Pro 2v2 Classic game; yours again after it."/>
 		<string text="The menus' blue arrow for the mouse, and its size. The sizes keep their share of the screen at any resolution.|Off shows the system's pointer."/>
 		<string text="The keys and mouse buttons for each action, two for each."/>
 		<string text="The buttons the HUD's prompts show. Auto shows the keys or the controller's buttons, as you last played with."/>

@@ -28,6 +28,8 @@ without a display to wait for, and its exits.
 #include "server_netlist.h"
 #include "server_rotation.h"
 #include "map_import.h"
+#include "bot_control.h"
+#include "cli_install.h"
 
 #include <SDL3/SDL.h>
 #include <stdio.h>
@@ -167,7 +169,7 @@ static void print_help(void)
 {
 	fprintf(stdout,
 		"halo [--server] [--relay] [--config <file>] [--keygen] [--sign <text>] [--probe [<invite>]] "
-		"[--import-maps <file>] [--version] [--help]\n"
+		"[--import-maps <file>] [--demo <file>] [--version] [--help]\n"
 		"  --server         a dedicated server (docs/dedicated_server.md)\n"
 		"  --relay          a relay alone, for players who cannot connect directly (docs/dedicated_server.md)\n"
 		"  --probe [<invite>]  prints the invite's game (or the LAN's first) as one line of JSON\n"
@@ -176,6 +178,10 @@ static void print_help(void)
 		"  --sign <text>    prints the publisher key's signature of the text (an application's proof)\n"
 		"  --import-maps <file>  adds the multiplayer maps of Custom Edition's installer (halocesetup_en_1.00.exe)\n"
 		"                   to the custom_maps folder\n"
+		"  --demo <file>    plays a demo (docs/demos.md)\n"
+		"  --bot-control    lets scripts and agents direct this game's bots (docs/bot_control.md)\n"
+		"  --install-cli [<folder>]  puts goath1 on the PATH (/usr/local/bin or ~/.local/bin): goath1 runs this game\n"
+		"goath1 bots <command> [--json]  directs the bots of the game this computer hosts (goath1 bots help)\n"
 		"  --version        prints the build and its network version\n");
 }
 
@@ -209,6 +215,12 @@ static void answer_command_line(void)
 	char argument[1024];
 	int index;
 
+	/* (halo bots <command>: the host's bots directed, bot_control.c) */
+	if (posix_command_line_argument(1, argument, sizeof(argument)) && (!strcmp(argument, "bots") ||
+		!strcmp(argument, "--bots")))
+	{
+		bot_control_command_line(2);
+	}
 	for (index = 1; posix_command_line_argument(index, argument, sizeof(argument)); index++)
 	{
 		if (!strcmp(argument, "--version") || !strcmp(argument, "-v"))
@@ -221,6 +233,8 @@ static void answer_command_line(void)
 			print_help();
 			exit(EXIT_SUCCESS);
 		}
+		if (!strcmp(argument, "--install-cli"))
+			cli_install_command_line(index + 1);
 		if (!strcmp(argument, "--relay"))
 			run_relay();
 		if (!strcmp(argument, "--keygen"))

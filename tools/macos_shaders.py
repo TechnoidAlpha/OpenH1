@@ -9,8 +9,9 @@ of time"):
 
 1. The game's vertex shaders are read from its code (tools/render_manifest.py
    vertex), and the tool (port/macos/tools/xgpu_metal_prebuild.c) writes each
-   shader the manifest's draws and those vertex shaders need as <name>.metal, and the pipelines as a Metal
-   pipelines script whose functions are the library's.
+   shader the manifest's draws, each derived under every setting (xgpu_manifest_derive), and those vertex
+   shaders need as <name>.metal, and the pipelines as a Metal pipelines script whose functions are the
+   library's.
 2. Each source is compiled to AIR (xcrun metal, in parallel, as the backend
    would compile it: MSL 3.1 for macOS 14.4, or with --platform ios for iOS
    17.4, safe maths) and linked into one library, shaders.metallib, which the

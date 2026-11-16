@@ -1,0 +1,7 @@
+#!/bin/sh
+# opence-master's administration commands, as the master's own (dynamic) user,
+# on its database: opence-master-cli list-applications
+exec systemd-run --quiet --pipe --wait --collect -p DynamicUser=yes -p User=opence-master \
+	-p StateDirectory=opence-master -p WorkingDirectory=/var/lib/opence-master \
+	-E MASTER_DB=/var/lib/opence-master/master.db -E MASTER_KEY=/var/lib/opence-master/master.key \
+	/usr/local/bin/opence-master "$@"

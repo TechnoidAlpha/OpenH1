@@ -183,6 +183,38 @@ boolean cache_files_precache_map_begin(
 /* port: a map's checksum as the precache would copy it; 0 if it would not */
 unsigned long cache_files_map_copyable_checksum(
 	char const *map_name);
+/* port: whether a map can be loaded (cache_files_windows.c); the reason it
+cannot is logged */
+boolean cache_files_map_loadable(
+	char const *map_name);
+/* port: the bytes a copy of a map into the cache would take without giving
+up another's, 0 if one is held or there is no room (port/linux/game/
+map_cache_prefill.c); the bytes the cache takes, its budget, its maps */
+long cache_files_map_prefill_size(
+	char const *map_name);
+void cache_files_cache_usage(
+	unsigned long long *bytes,
+	unsigned long long *budget,
+	long *maps);
+/* port: the cache's budget read again (game.map_cache_megabytes changed), and
+maps given up now, the least useful first, until the cache fits it: the bytes
+given up */
+unsigned long long cache_files_budget_update(
+	void);
+/* port: a stock map unpacked into a slot by a worker ahead
+(port/linux/src/map_unpack.c): begun (FALSE if not), the slots the workers
+are done with taken back, whether a map is being unpacked, how many are,
+and one waited for */
+boolean cache_files_unpack_begin(
+	char const *map_name);
+void cache_files_unpack_update(
+	void);
+boolean cache_files_map_unpacking(
+	char const *map_name);
+long cache_files_unpacking_count(
+	void);
+void cache_files_unpack_wait(
+	char const *map_name);
 
 void cache_file_promote_read(
 	short request_index);

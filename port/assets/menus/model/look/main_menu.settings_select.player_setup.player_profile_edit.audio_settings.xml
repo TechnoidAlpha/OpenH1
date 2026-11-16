@@ -1,0 +1,296 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.audio_settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/audio_settings_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings/header_settings" x="0" y="0"/>
+		<at widget="main_menu/settings/profile" x="0" y="0"/>
+		<at widget="main_menu/settings/tabs/tab_prompt_previous" x="24" y="46"/>
+		<at widget="main_menu/settings/tabs/tab_prompt_next" x="586" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_0" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_output_device" x="28" y="100"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_spatial" x="28" y="125"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_reverb" x="28" y="150"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_resampler" x="28" y="175"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_enabled" x="28" y="200"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_6" x="28" y="231"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_volume" x="28" y="253"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_music_volume" x="28" y="278"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_effects_volume" x="28" y="303"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_10" x="28" y="334"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_voice_chat_settings" x="28" y="356"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_hit_sounds" x="28" y="381"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_allow_hit_sounds" x="28" y="406"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_bar" x="0" y="448"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tabs" x="0" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tabs_search" x="0" y="46"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_defaults" x="24" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_cancel" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_video_settings" type="text" box="0 0 59 22" wide="-106 0" past="-143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_audio_settings" type="text" box="0 0 61 22" wide="-71 0" past="-95 0" place="keep_ends" picture="main_menu/settings/tab_current">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_mouse_settings" type="text" box="0 0 92 22" wide="-35 0" past="-48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_network_settings" type="text" box="0 0 67 22" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_interface_settings" type="text" box="0 0 95 22" wide="35 0" past="48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_profile_settings" type="text" box="0 0 83 22" wide="71 0" past="95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_mods_settings" type="text" box="0 0 57 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tabs" role="tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_video_settings" x="56" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_audio_settings" x="117" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_mouse_settings" x="180" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_network_settings" x="274" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_interface_settings" x="343" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_profile_settings" x="440" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tab_mods_settings" x="525" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_video_settings" type="text" box="0 0 56 22" wide="4 0" past="-143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_audio_settings" type="text" box="0 0 58 22" wide="21 0" past="-95 0" place="keep_ends" picture="main_menu/settings/tab_current">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_mouse_settings" type="text" box="0 0 88 22" wide="38 0" past="-48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_network_settings" type="text" box="0 0 65 22" wide="55 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_interface_settings" type="text" box="0 0 91 22" wide="72 0" past="48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_profile_settings" type="text" box="0 0 81 22" wide="89 0" past="95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_mods_settings" type="text" box="0 0 53 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/tabs_search" role="search tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/settings/search_field" x="56" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_video_settings" x="78" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_audio_settings" x="136" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_mouse_settings" x="196" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_network_settings" x="286" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_interface_settings" x="353" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_profile_settings" x="446" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/search_tab_mods_settings" x="529" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_defaults" type="text" box="0 0 128 24" wide="-106 0" past="-143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/button_cancel" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_0" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_0_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_0_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_output_device" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/output_device_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/output_device_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/output_device_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="1" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/output_device_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="SYSTEM DEFAULT" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_spatial" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_seg1" x="250" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_seg2" x="377" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_seg0" type="text" box="0 0 58 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="AUTO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_seg1" type="text" box="0 0 123 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="HEADPHONES" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_seg2" type="text" box="0 0 97 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="SPEAKERS" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/spatial_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="AUTO|HEADPHONES|SPEAKERS" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_reverb" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_seg1" x="240" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ON" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/reverb_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="ON|OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_resampler" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_seg1" x="248" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_seg2" x="316" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="4" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_seg0" type="text" box="0 0 56 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="XBOX" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_seg1" type="text" box="0 0 64 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="CLEAN" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_seg2" type="text" box="0 0 80 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="CLASSIC" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/resampler_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="XBOX|CLEAN|CLASSIC" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_enabled" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_seg1" x="240" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="5" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ON" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/enabled_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="ON|OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_6" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_6_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_6_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="6" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_volume" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/volume_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/volume_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/volume_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="7" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/volume_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="0|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_music_volume" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/music_volume_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/music_volume_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/music_volume_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="8" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/music_volume_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="0|1|2|3|4|5|6|7|8|9|10" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_effects_volume" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/effects_volume_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/effects_volume_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/effects_volume_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="9" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/effects_volume_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="0|1|2|3|4|5|6|7|8|9|10" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_10" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_10_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/section_10_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="10" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_voice_chat_settings" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat_settings_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/voice_chat_settings_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="11" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_hit_sounds" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_seg1" x="240" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="12" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ON" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/hit_sounds_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="ON|OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/op_allow_hit_sounds" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_seg1" x="240" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/labels" index="13" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="YES" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="NO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/audio_settings/allow_hit_sounds_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="YES|NO" scale="1 1.2"/>
+	</look>
+</model>

@@ -1,0 +1,15 @@
+{
+  "name": "openh1-menu-review",
+  "private": true,
+  "description": "The menu review app's client (tools/menu_review.py serves it): built once into static/app.js",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3"
+  }
+}

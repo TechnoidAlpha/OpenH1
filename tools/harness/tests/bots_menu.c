@@ -1,8 +1,9 @@
 #include "harness.h"
 
 /* The bots in the menus and the game: Server Setup in a game of this machine
-alone (menu_functions.c's server_settings_local: the network's rows hidden,
-its line in their place; the bots are the lobby's), the lobby's BOTS
+alone (its rows' conditions in the menus' model, made into C by the test:
+the network's rows hidden, its line in their place; the bots are the
+lobby's), the lobby's BOTS
 (lobby_menu.inc's lobby_board_bots_choice and lobby_board_bots_load: the
 choice the settings make shown, one the host steps to written, a locked one
 put back), a spinner of the menus stopping at its ends (ui_widget.c's

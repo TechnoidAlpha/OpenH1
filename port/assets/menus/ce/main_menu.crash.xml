@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The crash question (the last run closed unexpectedly), in the style of the PC version's Quit (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/crash/crash_screen" controller="1" left="180" top="160" width="280" height="160" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/alert_bkd" source="tools/port_settings.py multiplayer_files/_crash">
+		<on event="b" run="port crash dismiss" back="true"/>
+		<on event="back" run="port crash dismiss" back="true"/>
+		<child widget="main_menu/crash/crash_message"/>
+		<child widget="main_menu/crash/button_bar" x="182" y="293"/>
+		<child widget="main_menu/crash/header_crash" x="182" y="164"/>
+	</widget>
+	<widget name="main_menu/crash/crash_message" type="text" controller="1" left="194" top="194" width="233" height="94" string_list="main_menu/crash/crash_prompt" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="wrap" source="tools/port_settings.py multiplayer_files/_crash/_dialog_message">
+	</widget>
+	<widget name="main_menu/crash/header_crash" type="text" controller="1" width="200" height="20" text="CRASH REPORT" font="ui\large_ui" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_crash">
+	</widget>
+	<widget name="main_menu/crash/button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_crash">
+		<child widget="main_menu/crash/button_report"/>
+		<child widget="main_menu/crash/button_skip" x="128"/>
+	</widget>
+	<widget name="main_menu/crash/button_report" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="REPORT" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_crash/_text_button">
+		<on event="a" run="port crash report" back="true"/>
+		<on event="start" run="port crash report" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/crash/button_skip" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="SKIP" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_crash/_text_button">
+		<on event="a" run="port crash dismiss" back="true"/>
+		<on event="start" run="port crash dismiss" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<strings name="main_menu/crash/crash_prompt">
+		<string text="GOAT H1 closed unexpectedly last time. Report it? A report is saved, and its GitHub issue opens for you to send."/>
+	</strings>
+</menus>

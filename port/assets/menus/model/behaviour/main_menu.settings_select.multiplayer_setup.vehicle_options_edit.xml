@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.vehicle_options_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/banshee_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/cgturret_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/ghost_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_banshee" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_cgturret" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_ghost" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_rwarthog" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_scorpion" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_team" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicle_presets" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_vehicles_respawn" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/op_warthog" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/rwarthog_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/scorpion_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/team_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_button_ok">
+		<on event="a" run="mp prof save vehicle options" back="true"/>
+		<on event="start" run="mp profile set item options" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="mp prof init vehicle options"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_options_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicle_presets_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/vehicles_respawn_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/vehicle_options_edit/warthog_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+</model>

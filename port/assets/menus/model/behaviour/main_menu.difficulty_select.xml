@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.difficulty_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/difficulty_select/difficulty_select_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/difficulty_select/difficulty_select_button_ok">
+		<on event="a" run="set difficulty"/>
+		<on event="start" run="set difficulty"/>
+		<on event="a" run="main menu switch to solo game" branch="true"/>
+		<on event="start" run="main menu switch to solo game" branch="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/difficulty_select/difficulty_select_list" flags="pass_unhandled_to_focused_child up_down_tabs_items pass_handled_to_all_children">
+		<on event="created" run="difficulty menu init"/>
+	</behaviour>
+	<behaviour name="main_menu/difficulty_select/difficulty_select_list_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/difficulty_select/hard_difficulty_item">
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="a" run="difficulty item select"/>
+		<on event="start" run="difficulty item select"/>
+	</behaviour>
+	<behaviour name="main_menu/difficulty_select/impossible_difficulty_item">
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="a" run="difficulty item select"/>
+		<on event="start" run="difficulty item select"/>
+	</behaviour>
+	<behaviour name="main_menu/difficulty_select/kindergarten_difficulty_item">
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="a" run="difficulty item select"/>
+		<on event="start" run="difficulty item select"/>
+	</behaviour>
+	<behaviour name="main_menu/difficulty_select/normal_difficulty_item">
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="a" run="difficulty item select"/>
+		<on event="start" run="difficulty item select"/>
+	</behaviour>
+</model>

@@ -37,32 +37,34 @@ it is kept; otherwise the farther of it and this setting.
 #include "far_clip.h"
 #include "rasterizer/rasterizer.h"
 #include "rasterizer/rasterizer_globals_internal.h"
-
-double config_real(const char *name);
-unsigned long config_changes(void);
+#include "player_settings.h"
 
 /* display.draw_distance's range (world units): the game's own, to
 ChupathingyCE's farthest (its Far Clip) */
 #define DRAW_DISTANCE_LEAST 1024.0
 #define DRAW_DISTANCE_MOST 10000.0
 
-real render_far_clip_distance(void)
+real render_far_clip_distance(short local_player_index)
 {
-	static boolean initialized;
-	static unsigned long read_at;
-	static real distance;
+	static struct
+	{
+		boolean initialized;
+		unsigned long read_at;
+		real distance;
+	} players[PLAYER_SETTINGS_SLOTS];
+	short slot = PLAYER_SETTINGS_SLOT(local_player_index);
 	real game_distance = rasterizer_globals.far_clip_distance;
 	unsigned long changes = config_changes();
 
-	if (!initialized || read_at != changes)
+	if (!players[slot].initialized || players[slot].read_at != changes)
 	{
-		double setting = config_real("display.draw_distance");
+		double setting = config_player_real(local_player_index, "display.draw_distance");
 
-		initialized = TRUE;
-		read_at = changes;
-		distance = setting > DRAW_DISTANCE_LEAST && setting <= DRAW_DISTANCE_MOST ? (real)setting : 0.0f;
+		players[slot].initialized = TRUE;
+		players[slot].read_at = changes;
+		players[slot].distance = setting > DRAW_DISTANCE_LEAST && setting <= DRAW_DISTANCE_MOST ? (real)setting : 0.0f;
 	}
-	if (!(game_distance >= rasterizer_global_defaults.far_clip_distance) || !(distance > game_distance))
+	if (!(game_distance >= rasterizer_global_defaults.far_clip_distance) || !(players[slot].distance > game_distance))
 		return game_distance;
-	return distance;
+	return players[slot].distance;
 }

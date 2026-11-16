@@ -114,6 +114,7 @@ from: port/ios/README.md).
 #include "frame_pacing.h"
 #define XGPU_HDR_REFERENCE
 #include "xgpu_hdr.h"
+#include "xgpu_astc.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_metal.h>
@@ -121,10 +122,12 @@ from: port/ios/README.md).
 #include <pthread.h>
 #include <errno.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include <mach/mach.h>
 #include <mach/mach_time.h>
 #include <mach/thread_policy.h>
@@ -196,6 +199,15 @@ static struct
 	id<MTLBuffer> loading_uploads[LOADING_UPLOADS];
 	BOOL loading_upload_busy[LOADING_UPLOADS];
 	BOOL loading_texture_valid;
+	/* the caption at the drawable's pixels (loading_art_caption_shown): the
+	frame this refresh's render gave (NULL: none), the caption's textures
+	(each with the refreshes in flight that draw it), the one drawn last
+	(its index and 1; 0: none) and its place in the frame as it is shown */
+	const uint8_t *loading_pixels;
+	id<MTLTexture> caption_textures[LOADING_UPLOADS];
+	int caption_busy[LOADING_UPLOADS];
+	int caption_drawn;
+	unsigned int caption_left, caption_top;
 	id<MTLSamplerState> present_sampler;
 	_Atomic int active;
 	/* the window's size in pixels, as SDL last reported it */
@@ -246,6 +258,16 @@ static struct
 	/* (iOS) the app is in the background: no GPU work, which iOS refuses
 	there (host_metal_background) */
 	_Atomic int background;
+	/* (macOS) the window is hidden (window_visibility_read): the link's
+	refreshes, seldom or none, show nothing, and hidden_refresh takes the
+	frames on the grid of its last deadline (the link's thread's), from that
+	thread's run loop; the refreshes so taken, and the times the
+	window was hidden, since the last log */
+	_Atomic int hidden;
+	double last_deadline;
+	CFRunLoopRef link_run_loop;
+	uint32_t hidden_taken;
+	_Atomic uint32_t hidden_times;
 
 	/* pacing, since the last log */
 	double stats_interval, stats_since, started;
@@ -519,6 +541,7 @@ void host_metal_loading_caption(void *context, const unsigned char *coverage, ui
 	(void)context;
 	pthread_mutex_lock(&presentation.lock);
 	loading_art_caption(&presentation.loading_art, coverage, width, height);
+	presentation.caption_drawn = 0;
 	presentation.loading_texture_valid = NO;
 	pthread_mutex_unlock(&presentation.lock);
 }
@@ -573,6 +596,7 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 	}
 	pixels = presentation.loading_texture && index < LOADING_UPLOADS ?
 		loading_art_render(&presentation.loading_art, frame) : NULL;
+	presentation.loading_pixels = pixels;
 	/* (what the render gave: the sharp frame's size, or, without its
 	memory, the 480 rows') */
 	if (pixels)
@@ -629,6 +653,142 @@ static id<MTLTexture> loading_upload(id<MTLCommandBuffer> buffer,
 	return texture;
 }
 
+/* HALO_LOADING_CAPTURE_DIR's pictures of the loading screen as it is shown
+(the frame scaled, the caption over it at the drawable's pixels), beside
+its frames' (host_loading_capture.h): the drawable read back once drawn, as
+screen-<epoch>-<serial>.ppm, every HALO_LOADING_SCREEN_EVERY frames of a
+load (60: a second's; 0: none); the drawable's BGRA8 only. */
+static void loading_screen_capture(id<MTLCommandBuffer> buffer, id<MTLTexture> texture,
+	const struct loading_presentation_frame *frame)
+{
+	static int checked;
+	static unsigned every;
+	static const char *directory;
+	id<MTLBuffer> pixels;
+	id<MTLBlitCommandEncoder> blit;
+	NSUInteger width = texture.width, height = texture.height;
+	unsigned long long epoch = frame->epoch, serial = frame->serial;
+	char *path;
+
+	if (!checked)
+	{
+		const char *value = getenv("HALO_LOADING_SCREEN_EVERY");
+
+		directory = getenv("HALO_LOADING_CAPTURE_DIR");
+		every = value ? (unsigned)strtoul(value, NULL, 10) : 60;
+		checked = 1;
+	}
+	if (!directory || !*directory || !every || frame->serial % every || texture.framebufferOnly ||
+		texture.pixelFormat != MTLPixelFormatBGRA8Unorm)
+		return;
+	pixels = [xgpu_metal_device() newBufferWithLength:width * height * 4 options:MTLResourceStorageModeShared];
+	if (!pixels || asprintf(&path, "%s/screen-%llu-%llu.ppm", directory, epoch, serial) < 0)
+		return;
+	blit = [buffer blitCommandEncoder];
+	[blit copyFromTexture:texture sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(0, 0, 0)
+		sourceSize:MTLSizeMake(width, height, 1) toBuffer:pixels destinationOffset:0
+		destinationBytesPerRow:width * 4 destinationBytesPerImage:width * height * 4];
+	[blit endEncoding];
+	[buffer addCompletedHandler:^(id<MTLCommandBuffer> done) {
+		FILE *file = fopen(path, "wb");
+		const unsigned char *bgra = pixels.contents;
+		unsigned char *row = malloc(width * 3);
+		NSUInteger x, y;
+
+		(void)done;
+		if (file && row)
+		{
+			fprintf(file, "P6\n%lu %lu\n255\n", (unsigned long)width, (unsigned long)height);
+			for (y = 0; y < height; y++)
+			{
+				for (x = 0; x < width; x++)
+				{
+					row[x * 3] = bgra[(y * width + x) * 4 + 2];
+					row[x * 3 + 1] = bgra[(y * width + x) * 4 + 1];
+					row[x * 3 + 2] = bgra[(y * width + x) * 4];
+				}
+				fwrite(row, 3, width, file);
+			}
+			host_load_trace("loading.screen_capture", "epoch=%llu serial=%llu path=%s", epoch, serial, path);
+		}
+		if (file)
+			fclose(file);
+		free(row);
+		free(path);
+	}];
+}
+
+/* The caption over the loading frame shown `shown_width` by `shown_height`
+pixels: its texture, at those pixels (loading_art_caption_shown), and its
+place in them; nil: none. */
+static id<MTLTexture> loading_caption_upload(id<MTLCommandBuffer> buffer, NSUInteger shown_width,
+	NSUInteger shown_height, unsigned int *left, unsigned int *top)
+{
+	id<MTLTexture> texture = nil;
+	const uint8_t *tile = NULL;
+	unsigned int width = 0, height = 0;
+	int index = LOADING_UPLOADS;
+
+	pthread_mutex_lock(&presentation.lock);
+	if (presentation.loading_pixels)
+	{
+		/* (this refresh's frame: its caption made again, the background
+		under it the frame's) */
+		tile = loading_art_caption_shown(&presentation.loading_art, presentation.loading_pixels,
+			(unsigned int)shown_width, (unsigned int)shown_height, left, top, &width, &height);
+		presentation.caption_drawn = 0;
+		for (index = 0; tile && index < LOADING_UPLOADS; index++)
+		{
+			if (!presentation.caption_busy[index])
+				break;
+		}
+		if (tile && index < LOADING_UPLOADS)
+		{
+			texture = presentation.caption_textures[index];
+			if (!texture || texture.width != width || texture.height != height)
+			{
+				MTLTextureDescriptor *description = [MTLTextureDescriptor
+					texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:width height:height
+					mipmapped:NO];
+
+				description.storageMode = MTLStorageModeShared;
+				description.usage = MTLTextureUsageShaderRead;
+				texture = [xgpu_metal_device() newTextureWithDescriptor:description];
+				presentation.caption_textures[index] = texture;
+			}
+			if (texture)
+			{
+				[texture replaceRegion:MTLRegionMake2D(0, 0, width, height) mipmapLevel:0 withBytes:tile
+					bytesPerRow:width * 4];
+				presentation.caption_drawn = index + 1;
+				presentation.caption_left = *left;
+				presentation.caption_top = *top;
+			}
+		}
+	}
+	else if (presentation.caption_drawn)
+	{
+		/* (the frame shown again: its caption too) */
+		index = presentation.caption_drawn - 1;
+		texture = presentation.caption_textures[index];
+		*left = presentation.caption_left;
+		*top = presentation.caption_top;
+	}
+	if (texture)
+		presentation.caption_busy[index]++;
+	pthread_mutex_unlock(&presentation.lock);
+	if (texture)
+	{
+		[buffer addCompletedHandler:^(id<MTLCommandBuffer> done) {
+			(void)done;
+			pthread_mutex_lock(&presentation.lock);
+			presentation.caption_busy[index]--;
+			pthread_mutex_unlock(&presentation.lock);
+		}];
+	}
+	return texture;
+}
+
 int host_metal_loading_owned(void *context)
 {
 	int owned;
@@ -665,6 +825,56 @@ uint64_t host_metal_loading(void *context, const struct loading_presentation_fra
 	while (discarded-- > 0)
 		host_render_stream_frame_taken();
 	return presentation.refresh_rate > 0.0f ? (uint64_t)(1e9 / presentation.refresh_rate) : 16666667ull;
+}
+
+/* A picture drawn into the viewport, as the drawable's layer wants it. */
+static void present_draw(id<MTLRenderCommandEncoder> encoder, id<CAMetalDrawable> drawable, id<MTLTexture> picture,
+	MTLViewport viewport)
+{
+	[encoder setViewport:viewport];
+	[encoder setFragmentTexture:picture atIndex:0];
+	[encoder setFragmentSamplerState:presentation.present_sampler atIndex:0];
+	if (drawable.texture.pixelFormat == MTLPixelFormatRGBA16Float && presentation.edr_pipeline)
+	{
+		/* display.hdr: the frame encoded for the EDR layer (xgpu_hdr.c) */
+		struct xgpu_metal_post_uniforms uniforms;
+		struct xgpu_hdr_frame frame;
+
+		host_metal_hdr_frame(&frame);
+		memset(&uniforms, 0, sizeof(uniforms));
+		uniforms.metrics[0] = (float)viewport.originX;
+		uniforms.metrics[1] = (float)viewport.originY;
+		uniforms.metrics[2] = 1.0f / (float)viewport.width;
+		uniforms.metrics[3] = 1.0f / (float)viewport.height;
+		uniforms.hdr[0] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white;
+		uniforms.hdr[1] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.peak;
+		uniforms.hdr[2] = (float)XGPU_HDR_OUTPUT_EXTENDED_LINEAR;
+		uniforms.hdr[3] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.ui;
+		[encoder setRenderPipelineState:presentation.edr_pipeline];
+		[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+	}
+	else if (drawable.texture.pixelFormat == MTLPixelFormatBGRA8Unorm && gamma_power() > 0.0f)
+	{
+		/* display.gamma: the frame curved as it is drawn into the SDR
+		layer (no pass of its own: this is the frame's last) */
+		struct xgpu_metal_post_uniforms uniforms;
+
+		memset(&uniforms, 0, sizeof(uniforms));
+		uniforms.metrics[0] = (float)viewport.originX;
+		uniforms.metrics[1] = (float)viewport.originY;
+		uniforms.metrics[2] = 1.0f / (float)viewport.width;
+		uniforms.metrics[3] = 1.0f / (float)viewport.height;
+		uniforms.bounds[0] = gamma_power();
+		[encoder setRenderPipelineState:presentation.gamma_pipeline];
+		[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
+	}
+	else
+	{
+		[encoder setRenderPipelineState:presentation.present_pipeline];
+		[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+	}
 }
 
 /* ---------- the presentation images */
@@ -980,7 +1190,7 @@ static void pacing_log(double now)
 			"metal: a frame: GPU busy %.2f ms (%.0f%% of the time); its command buffers' GPU time %.2f ms (%u), render thread CPU %.2f ms, %.1f draws, %.1f passes (%.1f put aside, %.1f targets renamed for it), "
 			"%.1f ordered uploads, %.1f copies of a target drawn into, %.1f pictures restored; the last played in %.2f ms, its stream %u KB "
 			"(the most %u KB); the game waited %u times (%.1f ms); textures made %u, made again %u, images %u, "
-			"%.1f MB read; shaders compiled %u (%.1f ms), %u from the library, %u the combiner's specialised; pipelines made %u (%u from the archive, %.1f ms); %u pipelines made while drawing (not prepared); thermal state %s",
+			"%.1f MB read; shaders compiled %u (%.1f ms), %u from the library, %u the combiner's specialised; pipelines made %u (%u from the archive, %.1f ms); %u pipelines missed (not prepared: made on the compilers, their draws skipped meanwhile); thermal state %s",
 			statistics.gpu_busy_seconds * 1000.0 / statistics.frames, statistics.gpu_busy_seconds * 100.0 / seconds,
 			statistics.gpu_seconds * 1000.0 / statistics.frames, statistics.command_buffers,
 			statistics.render_cpu_seconds * 1000.0 / statistics.frames, (double)statistics.draws / statistics.frames,
@@ -994,6 +1204,14 @@ static void pacing_log(double now)
 			statistics.shaders_from_library, statistics.shaders_specialised,
 			statistics.pipelines_made, statistics.pipelines_from_archive,
 			statistics.pipeline_seconds * 1000.0, statistics.draws_waiting, thermal_state());
+	{
+		uint32_t hidden_times = atomic_exchange(&presentation.hidden_times, 0);
+
+		if (hidden_times || presentation.hidden_taken)
+			host_logf(HOST_LOG_INFO, "metal: %.1f s: the window hidden %u times, %u frames taken while hidden", seconds,
+				hidden_times, presentation.hidden_taken);
+		presentation.hidden_taken = 0;
+	}
 	waits_before = waits;
 	wait_nanoseconds_before = wait_nanoseconds;
 	presentation.stats_since = now;
@@ -1061,6 +1279,292 @@ static void take_wait(double when)
 	if (late > atomic_load(&presentation.take_late_most_us))
 		atomic_store(&presentation.take_late_most_us, late);
 }
+
+/* (the link's thread) a refresh's times: its target's interval from the
+last (its period, link_period), and its deadline (the hidden window's grid,
+hidden_refresh) */
+static void link_grid(CAMetalDisplayLinkUpdate *update)
+{
+	if (presentation.last_target > 0.0 && update.targetPresentationTimestamp > presentation.last_target &&
+		update.targetPresentationTimestamp - presentation.last_target < 0.1)
+		presentation.target_intervals[presentation.target_interval_next++ % 32] =
+			update.targetPresentationTimestamp - presentation.last_target;
+	presentation.last_target = update.targetPresentationTimestamp;
+	presentation.last_deadline = update.targetTimestamp;
+}
+
+/* (the link's thread) the refreshes' period: the least of the link's last
+targets' intervals (a ProMotion display's rate is the link's), else the
+display's */
+static double link_period(void)
+{
+	double period = 0.0;
+	uint32_t interval;
+
+	for (interval = 0; interval < 32; interval++)
+	{
+		double each = presentation.target_intervals[interval];
+
+		if (each > 0.0 && (period == 0.0 || each < period))
+			period = each;
+	}
+	return period > 0.0 ? period : 1.0 / (presentation.refresh_rate > 0.0f ? presentation.refresh_rate : 60.0f);
+}
+
+/* (the link's thread) a refresh's take, for its deadline (the link's
+targetTimestamp, or the hidden window's stand-in's): until TAKE_MARGIN_MS
+before it, the time the game's next frames are paced by. Paced, the
+refresh's latch and the refreshes' period on the game's clock (else 0) */
+static void take_time(double deadline, double now, uint64_t *latch_ns, uint64_t *period_ns)
+{
+	struct timespec monotonic;
+	double offset, period = link_period();
+	/* (vsync off) the newest frame is taken TAKE_MARGIN_MS before the
+	link's deadline for this refresh, not as the link calls, a refresh
+	before it: the frame on screen is that much newer */
+	double take = deadline - presentation.take_margin;
+
+	*latch_ns = *period_ns = 0;
+	clock_gettime(CLOCK_MONOTONIC, &monotonic);
+	offset = (double)monotonic.tv_sec + monotonic.tv_nsec / 1e9 - seconds_now();
+	if (!presentation.unpaced)
+	{
+		/* (the refresh's latch is the link's deadline, its frame's work to
+		be done by it: its GPU's too, which the presentation waits for. The
+		frame is taken a little before, take_frame) */
+		if (presentation.frames_seen && take > now && take - now < 0.1)
+			take_wait(take);
+		*latch_ns = (uint64_t)((deadline + offset) * 1e9);
+		*period_ns = (uint64_t)(period * 1e9);
+	}
+	else
+	{
+		/* (the game's frames start at fixed phases of these times:
+		host_metal_frame_phase) */
+		uint64_t budget = take_budget((uint64_t)(period * 1e9));
+
+		/* (the budget follows the frames' costs by UNPACED_PHASE_SLEW_NS a
+		refresh at most: a jump in the frames' start would be a jump in the
+		game's time on screen) */
+		if (!presentation.take_budget_ns)
+			presentation.take_budget_ns = budget;
+		else if (budget > presentation.take_budget_ns + UNPACED_PHASE_SLEW_NS)
+			presentation.take_budget_ns += UNPACED_PHASE_SLEW_NS;
+		else if (budget + UNPACED_PHASE_SLEW_NS < presentation.take_budget_ns)
+			presentation.take_budget_ns -= UNPACED_PHASE_SLEW_NS;
+		else
+			presentation.take_budget_ns = budget;
+		atomic_store(&presentation.take_period_ns, (uint64_t)(period * 1e9));
+		atomic_store(&presentation.take_budget_published_ns, presentation.take_budget_ns);
+		atomic_store(&presentation.take_phase_ns, (uint64_t)((take + offset) * 1e9) - presentation.take_budget_ns);
+		if (presentation.frames_seen && take > now && take - now < 0.1)
+			take_wait(take);
+	}
+}
+
+/* a refresh's take (take_frame): the image to show (index -1, nil: none
+new), its frame's, and the loading screen's frame */
+struct taken
+{
+	int index;
+	id<MTLTexture> image;
+	struct xgpu_metal_compile_totals compiled;
+	uint64_t input, producer_frame;
+	struct loading_presentation_frame loading;
+	BOOL idle;
+};
+
+/* (the link's thread, at a refresh's take) the frame it shows: the oldest
+queued (vsync off: the newest, those before it dropped), none while the
+loading screen is shown; and the stream told (paced: the frame taken at its
+latch, which says whether it came in time for the refresh it was started
+for, or the latch alone, nothing new queued). hidden: a hidden window's
+refresh, whose frame is shown nowhere: its image is free again at once (its
+producer's later work on it is on that same queue), and the frame neither
+counts as in time nor as missed */
+static void take_frame(struct taken *taken, uint64_t latch_ns, uint64_t period_ns, BOOL hidden)
+{
+	int discarded = 0;
+
+	*taken = (struct taken){ .index = -1 };
+	pthread_mutex_lock(&presentation.lock);
+	taken->loading = presentation.loading;
+	if (taken->loading.ready && presentation.queued)
+	{
+		taken->loading.active = 0;
+		presentation.loading.active = 0;
+	}
+	if (taken->loading.active && !hidden)
+	{
+		struct timespec monotonic;
+
+		clock_gettime(CLOCK_MONOTONIC, &monotonic);
+		taken->loading.elapsed_ns = (uint64_t)monotonic.tv_sec * 1000000000ull + monotonic.tv_nsec -
+			taken->loading.started_ns;
+		taken->loading.serial = ++presentation.loading.serial;
+		loading_presentation_build(&taken->loading);
+	}
+	/* Progress pictures are not sampled by the owned loading scene. Their
+	producer work was committed before queueing; later reuse stays on that
+	same producer queue, so it needs no loading-GPU completion dependency. */
+	if (taken->loading.active)
+	{
+		while (presentation.queued)
+		{
+			presentation.image_states[presentation.queue[--presentation.queued]] = _image_free;
+			discarded++;
+		}
+		pthread_cond_broadcast(&presentation.freed);
+	}
+	/* (vsync off: the newest frame, those queued before it dropped) */
+	while (presentation.unpaced && presentation.queued > 1)
+	{
+		presentation.image_states[presentation.queue[0]] = _image_free;
+		memmove(presentation.queue, presentation.queue + 1, sizeof(int) * (size_t)(presentation.queued - 1));
+		presentation.queued--;
+		presentation.dropped++;
+		discarded++;
+		pthread_cond_broadcast(&presentation.freed);
+	}
+	if (presentation.queued)
+	{
+		taken->index = presentation.queue[0];
+		memmove(presentation.queue, presentation.queue + 1, sizeof(int) * (size_t)(presentation.queued - 1));
+		presentation.queued--;
+		presentation.image_states[taken->index] = hidden ? _image_free : _image_showing;
+		taken->image = presentation.images[taken->index];
+		taken->compiled = presentation.compiled[taken->index];
+		taken->input = presentation.frame_input[taken->index];
+		taken->producer_frame = presentation.frame_ready[taken->index];
+		if (hidden)
+			pthread_cond_broadcast(&presentation.freed);
+	}
+	taken->idle = !presentation.frames_seen;
+	pthread_mutex_unlock(&presentation.lock);
+	while (discarded-- > 0)
+		host_render_stream_frame_taken();
+	if (taken->image && latch_ns && !hidden)
+	{
+		uint64_t finished = atomic_load(&presentation.frame_finished_number[taken->producer_frame % 8]) ==
+			taken->producer_frame ? atomic_load(&presentation.frame_finished_ns[taken->producer_frame % 8]) : 0;
+
+		host_render_stream_frame_displayed(taken->input, finished, latch_ns, 0, period_ns);
+		return;
+	}
+	if (taken->image)
+		host_render_stream_frame_taken();
+	if (latch_ns)
+		host_render_stream_display_latched(latch_ns, period_ns);
+}
+
+#if !TARGET_OS_IPHONE
+/* ---------- the window hidden
+
+A window on another desktop (a three-finger swipe away, or another app's
+fullscreen Space), covered by others or minimized is hidden: its link calls
+seldom (about once a second on an M2) or not at all, and what it presents
+never reaches the screen. The game would wait for each take a refresh never
+gave (frame_pacing.h's FRAME_PACING_WAIT_MAXIMUM_NS, then this file's
+PRESENT_WAIT_MAXIMUM_NS), and macOS lets the timed waits of a hidden
+window's process end late: measured on an M2, each of the game's frames took
+100 to 190 ms while hidden (its ticks run five at a time), the pacing learned
+those frames as missed refreshes (its margin from 1.75 to 5 ms, its budget
+from 18 to 30 ms: frames started earlier, a refresh more of latency, after
+coming back), and the first frames back were those the timed-out waits had
+left queued (#646). So while the window is hidden (its occlusion state,
+window_visibility_read) the link's thread takes the frames in the link's
+place (hidden_refresh), at its deadlines on the grid of its last
+(frame_pacing_next_latch), waiting for each as the link's takes do (take_wait,
+on time whatever macOS does to other timers): the game keeps the display's
+pace and phase and its own clock, draws no more than it would on screen,
+counts no refresh missed, and the link's first refresh back finds the frame
+started for it. The link's own calls meanwhile only keep its grid
+(link_grid). */
+
+/* (the link's thread, from its run loop as the window is hidden) the hidden
+window's refreshes, until it is shown again */
+static void hidden_refresh(void)
+{
+	while (atomic_load(&presentation.hidden))
+	{
+		double now = seconds_now(), period = link_period(), deadline, take;
+		uint64_t latch_ns, period_ns;
+		struct taken taken;
+
+		if (presentation.last_deadline <= 0.0)
+			presentation.last_deadline = now;
+		deadline = (double)frame_pacing_next_latch((uint64_t)(presentation.last_deadline * 1e9),
+			(uint64_t)(period * 1e9), (uint64_t)(now * 1e9), (uint64_t)(presentation.take_margin * 1e9)) / 1e9;
+		take = deadline - presentation.take_margin;
+		if (take > now)
+			take_wait(take);
+		take_time(deadline, seconds_now(), &latch_ns, &period_ns);
+		take_frame(&taken, latch_ns, period_ns, YES);
+		if (taken.image)
+			presentation.hidden_taken++;
+		presentation.last_deadline = deadline;
+	}
+}
+
+/* (the main thread, as the window's occlusion changes) whether it is
+hidden: the link's thread takes its frames while it is */
+/* (HALO_METAL_HIDE_TEST, the window's hiding tested in a run nobody
+watches: its state while window_hide_test says so, else -1) */
+static int window_hide_forced = -1;
+
+static void window_visibility_read(void)
+{
+	NSWindow *native = (__bridge NSWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(presentation.window),
+		SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+	/* (HALO_LOADING_CAPTURE_DIR's pictures of the screen need its frames
+	drawn: a window covered by others still draws them, at the pace its
+	link keeps, so that the pictures are taken whatever covers it) */
+	int hidden = window_hide_forced >= 0 ? window_hide_forced :
+		native && !(native.occlusionState & NSWindowOcclusionStateVisible) && !getenv("HALO_LOADING_CAPTURE_DIR");
+
+	if (atomic_exchange(&presentation.hidden, hidden) == hidden)
+		return;
+	host_logf(HOST_LOG_INFO, "metal: the window is %s", hidden ? "hidden: its frames are taken on the display's "
+		"refreshes, not shown" : "shown again");
+	if (hidden && presentation.link_run_loop)
+	{
+		atomic_fetch_add(&presentation.hidden_times, 1);
+		CFRunLoopPerformBlock(presentation.link_run_loop, kCFRunLoopDefaultMode, ^{ hidden_refresh(); });
+		CFRunLoopWakeUp(presentation.link_run_loop);
+	}
+}
+
+/* HALO_METAL_HIDE_TEST="<first>,<hidden>,<every>": the window taken as
+hidden <first> seconds after it opens, for <hidden> seconds, and again every
+<every> seconds (0: once), through the same path as the occlusion's
+notification (window_visibility_read), on the main thread: the way back
+from a hidden window measured in a run whose window is never shown */
+static void window_hide_test(double hidden_seconds, double every, BOOL hide)
+{
+	window_hide_forced = hide ? 1 : 0;
+	window_visibility_read();
+	if (hide)
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(hidden_seconds * NSEC_PER_SEC)),
+			dispatch_get_main_queue(), ^{ window_hide_test(hidden_seconds, every, NO); });
+	else if (every > hidden_seconds)
+		dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)((every - hidden_seconds) * NSEC_PER_SEC)),
+			dispatch_get_main_queue(), ^{ window_hide_test(hidden_seconds, every, YES); });
+}
+
+static void window_hide_test_start(void)
+{
+	const char *test = getenv("HALO_METAL_HIDE_TEST");
+	double first = 0.0, hidden_seconds = 0.0, every = 0.0;
+
+	if (!test || sscanf(test, "%lf,%lf,%lf", &first, &hidden_seconds, &every) < 2 || hidden_seconds <= 0.0)
+		return;
+	host_logf(HOST_LOG_INFO, "metal: the window taken as hidden at %g s for %g s (every %g s): HALO_METAL_HIDE_TEST",
+		first, hidden_seconds, every);
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(first * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+		window_hide_test(hidden_seconds, every, YES);
+	});
+}
+#endif
 
 @interface HaloDisplayLinkTarget : NSObject <CAMetalDisplayLinkDelegate>
 @end
@@ -1145,6 +1649,14 @@ static BOOL rate_adapt(BOOL shown, double now)
 
 	if (atomic_load(&presentation.background))
 		return;
+	/* (the window hidden: the drawable would not reach the screen, and the
+	frames are taken by hidden_refresh; the link's times keep its grid) */
+	if (atomic_load(&presentation.hidden))
+	{
+		link_grid(update);
+		presentation.last_tick = 0.0;
+		return;
+	}
 	[self refresh:update];
 	presentation.last_callback_seconds = seconds_now() - start;
 	if (presentation.last_callback_seconds > presentation.callback_most_seconds)
@@ -1177,8 +1689,9 @@ static BOOL rate_adapt(BOOL shown, double now)
 		id<MTLTexture> image = nil;
 		id<MTLTexture> loading_image = nil, sampled_image;
 		double now = seconds_now(), target = update.targetPresentationTimestamp, committed;
-		int index = -1, discarded = 0;
+		int index = -1;
 		BOOL idle;
+		struct taken taken;
 		struct xgpu_metal_compile_totals compiled = { 0 };
 		uint64_t input = 0, producer_frame = 0;
 		/* (paced) the take's time and the refreshes' period, on the game's
@@ -1215,73 +1728,14 @@ static BOOL rate_adapt(BOOL shown, double now)
 			presentation.last_gap = NO;
 		}
 		presentation.last_tick = now;
-		if (presentation.last_target > 0.0 && update.targetPresentationTimestamp > presentation.last_target &&
-			update.targetPresentationTimestamp - presentation.last_target < 0.1)
-			presentation.target_intervals[presentation.target_interval_next++ % 32] =
-				update.targetPresentationTimestamp - presentation.last_target;
-		presentation.last_target = update.targetPresentationTimestamp;
+		link_grid(update);
 		if (presentation.stats_interval > 0.0 && now - presentation.stats_since >= presentation.stats_interval)
 			pacing_log(now);
 		/* the frame is latched now (the link calls about two refreshes before
 		the frame is on screen; one taken later, nearer the link's deadline,
 		misses its refresh): the game starts each frame to be ready by the
 		next latch (frame_pacing.h) */
-		{
-			struct timespec monotonic;
-			double offset, period = 0.0;
-			uint32_t interval;
-			/* (vsync off) the newest frame is taken TAKE_MARGIN_MS
-			before the link's deadline for this refresh, not as the link
-			calls, a refresh before it: the frame on screen is that much
-			newer */
-			double take = update.targetTimestamp - presentation.take_margin;
-
-			for (interval = 0; interval < 32; interval++)
-			{
-				double each = presentation.target_intervals[interval];
-
-				if (each > 0.0 && (period == 0.0 || each < period))
-					period = each;
-			}
-			if (period == 0.0)
-				period = 1.0 / presentation.refresh_rate;
-			clock_gettime(CLOCK_MONOTONIC, &monotonic);
-			offset = (double)monotonic.tv_sec + monotonic.tv_nsec / 1e9 - seconds_now();
-			if (!presentation.unpaced)
-			{
-				/* (the refresh's latch is the link's deadline, its frame's
-				work to be done by it: its GPU's too, which the presentation
-				waits for. The frame is taken a little before, below) */
-				if (presentation.frames_seen && take > now && take - now < 0.1)
-					take_wait(take);
-				latch_ns = (uint64_t)((update.targetTimestamp + offset) * 1e9);
-				period_ns = (uint64_t)(period * 1e9);
-			}
-			else
-			{
-				/* (the game's frames start at fixed phases of these times:
-				host_metal_frame_phase) */
-				uint64_t budget = take_budget((uint64_t)(period * 1e9));
-
-				/* (the budget follows the frames' costs by
-				UNPACED_PHASE_SLEW_NS a refresh at most: a jump in the
-				frames' start would be a jump in the game's time on
-				screen) */
-				if (!presentation.take_budget_ns)
-					presentation.take_budget_ns = budget;
-				else if (budget > presentation.take_budget_ns + UNPACED_PHASE_SLEW_NS)
-					presentation.take_budget_ns += UNPACED_PHASE_SLEW_NS;
-				else if (budget + UNPACED_PHASE_SLEW_NS < presentation.take_budget_ns)
-					presentation.take_budget_ns -= UNPACED_PHASE_SLEW_NS;
-				else
-					presentation.take_budget_ns = budget;
-				atomic_store(&presentation.take_period_ns, (uint64_t)(period * 1e9));
-				atomic_store(&presentation.take_budget_published_ns, presentation.take_budget_ns);
-				atomic_store(&presentation.take_phase_ns, (uint64_t)((take + offset) * 1e9) - presentation.take_budget_ns);
-				if (presentation.frames_seen && take > now && take - now < 0.1)
-					take_wait(take);
-			}
-		}
+		take_time(update.targetTimestamp, now, &latch_ns, &period_ns);
 		/* (a new size is the next drawable's) */
 		if (width && height && (width != presentation.drawable_width || height != presentation.drawable_height))
 		{
@@ -1289,74 +1743,14 @@ static BOOL rate_adapt(BOOL shown, double now)
 			presentation.drawable_width = width;
 			presentation.drawable_height = height;
 		}
-		pthread_mutex_lock(&presentation.lock);
-		loading_frame = presentation.loading;
-		if (loading_frame.ready && presentation.queued)
-		{
-			loading_frame.active = 0;
-			presentation.loading.active = 0;
-		}
-		if (loading_frame.active)
-		{
-			struct timespec monotonic;
-
-			clock_gettime(CLOCK_MONOTONIC, &monotonic);
-			loading_frame.elapsed_ns = (uint64_t)monotonic.tv_sec * 1000000000ull + monotonic.tv_nsec -
-				loading_frame.started_ns;
-			loading_frame.serial = ++presentation.loading.serial;
-			loading_presentation_build(&loading_frame);
-		}
-		/* Progress pictures are not sampled by the owned loading scene. Their
-		producer work was committed before queueing; later reuse stays on that
-		same producer queue, so it needs no loading-GPU completion dependency. */
-		if (loading_frame.active)
-		{
-			while (presentation.queued)
-			{
-				presentation.image_states[presentation.queue[--presentation.queued]] = _image_free;
-				discarded++;
-			}
-			pthread_cond_broadcast(&presentation.freed);
-		}
-		/* (vsync off: the newest frame, those queued before it dropped) */
-		while (presentation.unpaced && presentation.queued > 1)
-		{
-			presentation.image_states[presentation.queue[0]] = _image_free;
-			memmove(presentation.queue, presentation.queue + 1, sizeof(int) * (size_t)(presentation.queued - 1));
-			presentation.queued--;
-			presentation.dropped++;
-			discarded++;
-			pthread_cond_broadcast(&presentation.freed);
-		}
-		if (presentation.queued)
-		{
-			index = presentation.queue[0];
-			memmove(presentation.queue, presentation.queue + 1, sizeof(int) * (size_t)(presentation.queued - 1));
-			presentation.queued--;
-			presentation.image_states[index] = _image_showing;
-			image = presentation.images[index];
-			compiled = presentation.compiled[index];
-			input = presentation.frame_input[index];
-			producer_frame = presentation.frame_ready[index];
-		}
-		idle = !presentation.frames_seen;
-		pthread_mutex_unlock(&presentation.lock);
-		while (discarded-- > 0)
-			host_render_stream_frame_taken();
-		/* (paced: the frame taken at the take, which tells the stream whether
-		it came in time for the refresh it was started for; or the take
-		alone, nothing new queued) */
-		if (image && latch_ns)
-		{
-			uint64_t finished = atomic_load(&presentation.frame_finished_number[producer_frame % 8]) == producer_frame ?
-				atomic_load(&presentation.frame_finished_ns[producer_frame % 8]) : 0;
-
-			host_render_stream_frame_displayed(input, finished, latch_ns, 0, period_ns);
-		}
-		else if (image)
-			host_render_stream_frame_taken();
-		else if (latch_ns)
-			host_render_stream_display_latched(latch_ns, period_ns);
+		take_frame(&taken, latch_ns, period_ns, NO);
+		index = taken.index;
+		image = taken.image;
+		compiled = taken.compiled;
+		input = taken.input;
+		producer_frame = taken.producer_frame;
+		loading_frame = taken.loading;
+		idle = taken.idle;
 		if (!idle && !loading_frame.active && rate_adapt(image != nil, now))
 		{
 			link.preferredFrameRateRange = link_rate_range(presentation.battery_saver_set);
@@ -1417,49 +1811,18 @@ static BOOL rate_adapt(BOOL shown, double now)
 			MTLViewport viewport = { floor((drawable_width - fit_width) / 2.0), floor((drawable_height - fit_height) / 2.0),
 				floor(fit_width), floor(fit_height), 0.0, 1.0 };
 
-			[encoder setViewport:viewport];
-			[encoder setFragmentTexture:sampled_image atIndex:0];
-			[encoder setFragmentSamplerState:presentation.present_sampler atIndex:0];
-			if (drawable.texture.pixelFormat == MTLPixelFormatRGBA16Float && presentation.edr_pipeline)
+			present_draw(encoder, drawable, sampled_image, viewport);
+			/* (the loading screen's caption over it, at the drawable's
+			pixels) */
+			if (loading_image)
 			{
-				/* display.hdr: the frame encoded for the EDR layer (xgpu_hdr.c) */
-				struct xgpu_metal_post_uniforms uniforms;
-				struct xgpu_hdr_frame frame;
+				unsigned int left = 0, top = 0;
+				id<MTLTexture> caption = loading_caption_upload(buffer, (NSUInteger)viewport.width,
+					(NSUInteger)viewport.height, &left, &top);
 
-				host_metal_hdr_frame(&frame);
-				memset(&uniforms, 0, sizeof(uniforms));
-				uniforms.metrics[0] = (float)viewport.originX;
-				uniforms.metrics[1] = (float)viewport.originY;
-				uniforms.metrics[2] = 1.0f / (float)viewport.width;
-				uniforms.metrics[3] = 1.0f / (float)viewport.height;
-				uniforms.hdr[0] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.paper_white;
-				uniforms.hdr[1] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.peak;
-				uniforms.hdr[2] = (float)XGPU_HDR_OUTPUT_EXTENDED_LINEAR;
-				uniforms.hdr[3] = frame.output == XGPU_HDR_OUTPUT_SDR ? 1.0f : frame.ui;
-				[encoder setRenderPipelineState:presentation.edr_pipeline];
-				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
-				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-			}
-			else if (drawable.texture.pixelFormat == MTLPixelFormatBGRA8Unorm && gamma_power() > 0.0f)
-			{
-				/* display.gamma: the frame curved as it is drawn into the
-				SDR layer (no pass of its own: this is the frame's last) */
-				struct xgpu_metal_post_uniforms uniforms;
-
-				memset(&uniforms, 0, sizeof(uniforms));
-				uniforms.metrics[0] = (float)viewport.originX;
-				uniforms.metrics[1] = (float)viewport.originY;
-				uniforms.metrics[2] = 1.0f / (float)viewport.width;
-				uniforms.metrics[3] = 1.0f / (float)viewport.height;
-				uniforms.bounds[0] = gamma_power();
-				[encoder setRenderPipelineState:presentation.gamma_pipeline];
-				[encoder setFragmentBytes:&uniforms length:sizeof(uniforms) atIndex:XGPU_METAL_BUFFER_DRAW_UNIFORMS];
-				[encoder drawPrimitives:MTLPrimitiveTypeTriangle vertexStart:0 vertexCount:3];
-			}
-			else
-			{
-				[encoder setRenderPipelineState:presentation.present_pipeline];
-				[encoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+				if (caption)
+					present_draw(encoder, drawable, caption, (MTLViewport){ viewport.originX + left,
+						viewport.originY + top, caption.width, caption.height, 0.0, 1.0 });
 			}
 		}
 		if (loading_frame.active && !loading_image)
@@ -1488,6 +1851,8 @@ static BOOL rate_adapt(BOOL shown, double now)
 			}
 		}
 		[encoder endEncoding];
+		if (loading_image)
+			loading_screen_capture(buffer, drawable.texture, &loading_frame);
 		atomic_fetch_add(&presentation.drawables_pending, 1);
 #if TARGET_OS_SIMULATOR
 		/* (the iOS simulator's drawables say nothing of their presentation:
@@ -1615,6 +1980,13 @@ static void *presentation_thread(void *context)
 		link.preferredFrameLatency = 1.0f;
 		presentation.link = link;
 		[link addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+#if !TARGET_OS_IPHONE
+		/* (the hidden window's refreshes: hidden_refresh, from here; the
+		window hidden before the thread was up) */
+		presentation.link_run_loop = (CFRunLoopRef)CFRetain(CFRunLoopGetCurrent());
+		if (atomic_load(&presentation.hidden))
+			CFRunLoopPerformBlock(presentation.link_run_loop, kCFRunLoopDefaultMode, ^{ hidden_refresh(); });
+#endif
 	}
 	for (;;)
 	{
@@ -1681,6 +2053,85 @@ static const char *shader_library_path(void)
 	return path;
 }
 
+/* ---------- the caches the player clears (host_caches, guest_host.h)
+
+The pipelines' archive and the ASTC textures' files are made again as the
+game plays. Settings' CLEAR CACHES asks for them to go at the next start
+(CACHES_REQUEST, a file in the app's caches folder), and they go as the
+backend is set up, before it reads them (host_metal_initialize). */
+
+#define CACHES_FOLDER "Library/Caches/OpenH1"
+#define CACHES_REQUEST "clear_caches"
+
+/* the pipelines' archive: HALO_METAL_ARCHIVE ("" none), or the app's caches
+folder's, into path; NULL for none */
+static const char *metal_archive_path(char *path, size_t size)
+{
+	const char *archive = getenv("HALO_METAL_ARCHIVE"), *home = getenv("HOME");
+
+	if (!archive && home)
+	{
+		snprintf(path, size, "%s/" CACHES_FOLDER "/metal_pipelines.bin", home);
+		archive = path;
+	}
+	return archive && *archive ? archive : NULL;
+}
+
+/* the caches' bytes, each file deleted with clear */
+static unsigned long long caches_bytes(int clear)
+{
+	char path[1024], folder[1024];
+	unsigned long long total = 0;
+	struct stat status;
+	const char *archive = metal_archive_path(path, sizeof(path));
+	const char *astc = xgpu_metal_textures_astc_folder(folder, sizeof(folder));
+
+	if (archive && !stat(archive, &status))
+	{
+		total += (unsigned long long)status.st_size;
+		if (clear)
+			remove(archive);
+	}
+	return total + xgpu_astc_cache_files(astc && *astc ? astc : NULL, clear);
+}
+
+/* the request's file, into path; NULL without a home */
+static const char *caches_request_path(char *path, size_t size)
+{
+	const char *home = getenv("HOME");
+
+	if (!home || !*home)
+		return NULL;
+	snprintf(path, size, "%s/" CACHES_FOLDER "/" CACHES_REQUEST, home);
+	return path;
+}
+
+/* (a host import: menu_functions.c's CLEAR CACHES, by game_caches.c) the
+caches' kilobytes; with what 1 their clearing asked for at the next start,
+2 that asked for no longer */
+unsigned int host_caches(int what)
+{
+	char path[1100];
+	unsigned long long kilobytes;
+
+	if ((what == 1 || what == 2) && caches_request_path(path, sizeof(path)))
+	{
+		if (what == 1)
+		{
+			FILE *file = fopen(path, "wb");
+
+			if (file)
+				fclose(file);
+		}
+		else
+		{
+			remove(path);
+		}
+	}
+	kilobytes = caches_bytes(0) / 1024ULL;
+	return kilobytes > 0xFFFFFFFFULL ? 0xFFFFFFFFu : (unsigned int)kilobytes;
+}
+
 /* the backend, set up for this process (once; host_main.c, before the
 guest starts, so that the command stream finds it) */
 int host_metal_initialize(void)
@@ -1689,11 +2140,17 @@ int host_metal_initialize(void)
 	const char *edr = getenv("HALO_METAL_EDR_HEADROOM");
 	struct xgpu_metal_options options;
 	char path[1024];
-	const char *archive = getenv("HALO_METAL_ARCHIVE");
-	const char *home = getenv("HOME");
+	struct stat status;
 
 	if (result >= 0)
 		return result;
+	/* (the caches gone first, if the player asked for it at the last run) */
+	if (caches_request_path(path, sizeof(path)) && !stat(path, &status))
+	{
+		host_logf(HOST_LOG_INFO, "metal: the caches cleared, as Settings asked: %llu KB",
+			caches_bytes(1) / 1024ULL);
+		remove(path);
+	}
 	atomic_store(&presentation.edr_potential, float_bits(1.0f));
 	atomic_store(&presentation.edr_current, float_bits(1.0f));
 	atomic_store(&presentation.hdr_paper_white_nits, 0);
@@ -1702,12 +2159,7 @@ int host_metal_initialize(void)
 	if (edr && atof(edr) > 0.0)
 		host_metal_hdr_override((float)atof(edr));
 	memset(&options, 0, sizeof(options));
-	if (!archive && home)
-	{
-		snprintf(path, sizeof(path), "%s/Library/Caches/OpenH1/metal_pipelines.bin", home);
-		archive = path;
-	}
-	options.archive_path = archive && *archive ? archive : NULL;
+	options.archive_path = metal_archive_path(path, sizeof(path));
 #if TARGET_OS_SIMULATOR
 	/* (the iOS simulator's GPU has no binary archives: Metal stops the
 	process at the first pipeline made with one) */
@@ -1869,7 +2321,9 @@ int host_metal_window_open(uint32_t window)
 	presentation.layer = (__bridge CAMetalLayer *)SDL_Metal_GetLayer(presentation.view);
 	presentation.layer.device = xgpu_metal_device();
 	presentation.layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-	presentation.layer.framebufferOnly = YES;
+	/* (read back for HALO_LOADING_CAPTURE_DIR's pictures of the screen:
+	loading_screen_capture) */
+	presentation.layer.framebufferOnly = !getenv("HALO_LOADING_CAPTURE_DIR");
 	/* (the presentation writes every pixel, alpha 1: the window server
 	need not draw what is behind the window, nor blend the window over it) */
 	presentation.layer.opaque = YES;
@@ -1957,6 +2411,17 @@ int host_metal_window_open(uint32_t window)
 			display_hdr_read();
 			display_rate_read();
 		}];
+	{
+		NSWindow *native = (__bridge NSWindow *)SDL_GetPointerProperty(SDL_GetWindowProperties(object),
+			SDL_PROP_WINDOW_COCOA_WINDOW_POINTER, NULL);
+
+		[[NSNotificationCenter defaultCenter] addObserverForName:NSWindowDidChangeOcclusionStateNotification
+			object:native queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+				(void)note;
+				window_visibility_read();
+			}];
+		window_hide_test_start();
+	}
 #endif
 	sampler = [MTLSamplerDescriptor new];
 	sampler.minFilter = MTLSamplerMinMagFilterLinear;

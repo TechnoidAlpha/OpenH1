@@ -47,6 +47,12 @@ short structure_visibility_find_objects(
 /* port: (structure_visibility.c) */
 boolean structure_visibility_port_has_mirrors(
 	void);
+/* port: a cluster's size and its mirrors' count (a copy's cluster,
+port/linux/game/structure_bsp_cache.c) */
+unsigned long structure_visibility_port_cluster_size(
+	void);
+long structure_visibility_port_cluster_mirror_count(
+	void const *cluster);
 boolean structure_visibility_find_mirror(
 	struct render_camera const *camera,
 	struct render_frustum const *frustum,

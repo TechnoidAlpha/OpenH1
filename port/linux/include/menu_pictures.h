@@ -6,7 +6,8 @@ ui\shell\bitmaps\sp_levels and mp_map_grafix, 140x114 in 256x128 frames)
 drawn again, sharp, from the player's own maps: a camera's place for each
 (port/assets/pictures, embedded by tools/embed_assets.py: never a picture),
 rendered once by the game itself, in its own window, under the loading
-screen as the main menu first shows ("Preparing menu pictures":
+screen, as a phase of its start between the intro movie and the main menu
+("Preparing menu pictures":
 port/linux/game/menu_pictures_render.c),
 kept in the data folder, and drawn in place of the original frame
 (port/linux/src/menu_pictures.c). Any picture that cannot be (its map
@@ -33,6 +34,14 @@ enum
 	MAXIMUM_MENU_PICTURE_CHECKSUMS = 4,
 	/* the most poses */
 	MAXIMUM_MENU_PICTURES = 64,
+};
+
+/* the phases of the game's start (menu_pictures_startup_next) */
+enum
+{
+	_menu_pictures_startup_intro,
+	_menu_pictures_startup_pictures,
+	_menu_pictures_startup_done,
 };
 
 /* what to do with a picture (menu_picture_decide) */
@@ -109,6 +118,15 @@ notes): those to render this run, in the order they are rendered, into
 poses; how many. None if nothing is to be rendered, or in runs nobody
 watches, or with display.menu_pictures off */
 long menu_pictures_wanted(long *poses, long maximum);
+/* after it, a pose of each stock map the player has (a map made for it, not
+modded), whose preparation the pass records where it has none: none in runs
+nobody watches, as with the pictures */
+long menu_pictures_maps(long *poses, long maximum);
+/* runs nobody watches (tests: timed, scripted, driven through the script
+console, recorded or measured), and those whose first screen is not the
+main menu's: no pass, for the pictures, the maps' preparations or their
+distance fields (world_sdf.c) */
+int menu_pictures_quiet_run(void);
 /* a picture's high-res image, once it is ready, else 0 (the original is
 drawn) */
 unsigned int menu_pictures_texture(long pose, unsigned long *levels);
@@ -116,14 +134,18 @@ unsigned int menu_pictures_texture(long pose, unsigned long *levels);
 colour curve */
 void menu_pictures_keep_original(long pose, void const *texture);
 /* a pose's render begun (noted first: a game gone in the middle of it
-counts it as failed), failed, or its frame kept (the frame being drawn's, so far: cut, its
-colours matched, written and noted; 0 if that failed) */
+counts it as failed), failed, or its frame kept (the frame being drawn's,
+read back; 0 if that failed; then cut, its colours matched, written and
+noted on the pictures' own thread, or failed there) */
 void menu_pictures_render_begin(long pose);
 void menu_pictures_render_failed(long pose, char const *why);
 int menu_pictures_render_kept(long pose);
 /* ...or given up on for good (its pose and map's), as one that stopped the
 game: not tried again */
 void menu_pictures_render_given_up(long pose, char const *why);
+/* the kept frames' pictures all made (their files written, drawn): they are
+made on a thread of their own as the pass goes on (menu_pictures.c) */
+void menu_pictures_render_finished(void);
 /* the scale the pictures are rendered at (menu_picture_scale_for_height) */
 long menu_pictures_scale(void);
 
@@ -138,6 +160,11 @@ void menu_picture_note_begin(struct menu_picture_note *note, struct menu_picture
 void menu_picture_note_end(struct menu_picture_note *note, enum menu_picture_result result, long scale);
 void menu_picture_note_give_up(struct menu_picture_note *note);
 int menu_picture_overdue(unsigned long long now, unsigned long long pass_began, unsigned long long picture_began);
+long menu_pictures_startup_next(long phase, int main_menu_loaded, int movie_open, int pass_exclusive);
+int menu_pictures_startup_holds_main_menu(long phase, int pass_exclusive);
+int menu_pictures_phase_exclusive(int running, int ended);
+int menu_picture_png_whole(unsigned char const *head, unsigned long head_size, unsigned char const *tail,
+	unsigned long tail_size, unsigned long width, unsigned long height);
 int menu_picture_note_parse(char const *text, struct menu_picture_note *note);
 int menu_picture_note_format(struct menu_picture_note const *note, char *text, long size);
 void menu_picture_colour_curve(unsigned char *pixels, unsigned long count, unsigned char const *reference,
@@ -158,20 +185,29 @@ unsigned long menu_picture_map_checksum(char const *map);
 /* the pass stopped where it is, as the game stops (the error a damaged
 disc gives): the picture being made given up, the loading screen given back */
 void menu_pictures_abandon(char const *why);
-/* each frame of the game's main loop, before it is drawn: in the main menu
-first shown, the pictures to render looked for, and if there are any, each
-rendered in turn (its map loaded, the scene set, a frame drawn and kept),
-the preparing screen shown meanwhile, then the main menu again */
+/* the pass begun, as the game's start reaches its phase (main.c's
+main_startup_update): TRUE if there are pictures to make, the first begun */
+int menu_pictures_begin(void);
+/* from then until it asks for the main menu at its end: the pass has the
+game to itself (menu_pictures_phase_exclusive) */
+int menu_pictures_exclusive(void);
+/* each frame of the game's main loop, before it is drawn, while the pass
+runs: each picture rendered in turn (its map loaded, the scene set, a frame
+drawn and kept), the preparing screen shown meanwhile, then the main menu */
 void menu_pictures_frame(int main_menu_loaded);
-/* while the pictures are rendered (from the main menu first shown to the
-main menu again, under the loading screen): the main loop draws only the
-frames kept (menu_pictures_frame_drawn) */
+/* while the pictures are rendered (from the pass begun to the main menu
+shown, under the loading screen): the main loop draws only the frames kept
+(menu_pictures_frame_drawn) */
 int menu_pictures_preparing(void);
+/* the start-up pass's seconds this run, to its main menu shown (0: none) */
+double menu_pictures_pass_seconds(void);
 int menu_pictures_frame_drawn(void);
 /* the maps loaded now are the pass's, drawn as they shipped: no mod is
 played on them (mods.c), so a picture never shows a mod, and turning mods
 on or off leaves the cached pictures right */
 int menu_pictures_stock_maps(void);
+/* how far a map's preparation recorded in the pass has come (render_enumerate.c) */
+void menu_pictures_recording(float fraction);
 /* a frame to keep, as it is presented (d3d8_device.c's present: kept, and
 not shown); TRUE if it was one */
 int menu_pictures_frame_kept(void);

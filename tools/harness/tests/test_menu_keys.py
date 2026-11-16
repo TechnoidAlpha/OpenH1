@@ -12,7 +12,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run  # noqa: E402
 
-CASES = ["keys", "scores", "unnamed", "browser", "mouse-back", "back-buttons", "back-held-over-switch"]
+CASES = ["keys", "scores", "unnamed", "browser", "settings", "mouse-back", "back-buttons", "back-held-over-switch"]
 
 # a fault in the code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -25,11 +25,23 @@ NEGATIVE_CONTROLS = {
     "tab-deletes": ("keyboard", ("(browser ? k[SDL_SCANCODE_TAB] : k[SDL_SCANCODE_E])", "k[SDL_SCANCODE_TAB]"),
                     "browser"),
     # the browsers' Filters (the left trigger) drawn as L, which presses nothing
-    "l-not-left-trigger": ("keyboard", ("analog(k[SDL_SCANCODE_L])", "analog(0)"), "keys"),
-    "escape-not-b": ("keyboard", ("k[SDL_SCANCODE_ESCAPE] || k[SDL_SCANCODE_BACKSPACE]", "k[SDL_SCANCODE_BACKSPACE]"),
+    "l-not-left-trigger": ("keyboard", ("analog(!settings && k[SDL_SCANCODE_L])", "analog(0)"), "keys"),
+    # the D-pad's left drawn as the right arrow (the lobby's CHANGE TEAM)
+    "dpad-arrows-swapped": ("menu", ('return "<";', 'return ">";'), "keys"),
+    # the browsers' SEARCH (R3) drawn as /, which presses nothing; / as R3 in every menu
+    "slash-not-r3": ("keyboard", ("if (browser && k[SDL_SCANCODE_SLASH])", "if (FALSE)"), "keys"),
+    "slash-everywhere": ("keyboard", ("if (browser && k[SDL_SCANCODE_SLASH])", "if (k[SDL_SCANCODE_SLASH])"),
+                         "browser"),
+    # Settings' letters still the stick and buttons: "w" moves the focus as the search is typed into
+    "settings-wasd": ("keyboard", ("\tif (!settings)\n\t{\n\t\tif (k[SDL_SCANCODE_D]) x++;",
+                                   "\tif (TRUE)\n\t{\n\t\tif (k[SDL_SCANCODE_D]) x++;"), "settings"),
+    # the search's Backspace as B: it leaves the search for a letter taken off
+    "search-backspace-b": ("keyboard", ("(!(settings && settings_keys_search) && k[SDL_SCANCODE_BACKSPACE])",
+                                        "k[SDL_SCANCODE_BACKSPACE]"), "settings"),
+    "escape-not-b": ("keyboard", ("analog(k[SDL_SCANCODE_ESCAPE] ||\n", "analog(\n"),
                      "keys"),
     # the code before #541: the Back button only as X1 held, which the menus' pointer never lets through
-    "back-not-b": ("keyboard", ("input->menu_back || (mouse && m[SDL_BUTTON_X1])", "(mouse && m[SDL_BUTTON_X1])"),
+    "back-not-b": ("keyboard", ("input->menu_back ||\n\t\t(mouse && m[SDL_BUTTON_X1])", "\n\t\t(mouse && m[SDL_BUTTON_X1])"),
                    "mouse-back"),
     # while typing, the Back button cancels nothing
     "back-not-typing-b": ("typing", ("k[SDL_SCANCODE_ESCAPE] || input->menu_back", "k[SDL_SCANCODE_ESCAPE]"),
@@ -71,7 +83,7 @@ def generated(fault=None):
             keyboard = mutated(keyboard, *change)
     names = set(re.findall(r"SDL_SCANCODE_\w+", keyboard + function(inputs, "typing_gamepad")))
     names |= {"SDL_SCANCODE_RETURN", "SDL_SCANCODE_ESCAPE", "SDL_SCANCODE_E", "SDL_SCANCODE_F", "SDL_SCANCODE_Q",
-              "SDL_SCANCODE_L", "SDL_SCANCODE_F1"}
+              "SDL_SCANCODE_L", "SDL_SCANCODE_F1", "SDL_SCANCODE_SLASH"}
     config = "\n".join(re.findall(r"^#define XINPUT_GAMEPAD_\w+ [^\n]+", read("port/include/xdk/xdk_xbox.h"), re.M))
     config += "\nenum {" + ", ".join(sorted(names)) + ", TEST_SCANCODE_COUNT};\n"
     config += enum_with(widgets, "_icon_a_button") + "\n"

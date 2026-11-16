@@ -5,10 +5,13 @@ Spectating in network co-op. A dead player watches a living teammate
 until they respawn (players.c respawns them beside a teammate once it is
 safe). The campaign's dead camera would watch the body; instead this
 follows a teammate from behind, and A (jump on the keyboard) switches to
-the next one. director.c and hud.c call in here.
+the next one (dead_spectate.c chooses them, and with game.spectate_on_death
+"teammates" watches through their eyes instead where it can). director.c
+and hud.c call in here.
 
 It also draws the line telling players about the vote to skip a cutscene
-(network_coop.c counts the votes).
+(network_coop.c counts the votes; on the touchscreen, the button they tap
+is touch_cinematic.c's).
 */
 
 #include "cseries.h"
@@ -16,7 +19,6 @@ It also draws the line telling players about the vote to skip a cutscene
 #include "game/game.h"
 #include "game/game_engine.h"
 #include "game/players.h"
-#include "input/input.h"
 #include "interface/hud_messaging.h"
 #include "objects/objects.h"
 #include "rasterizer/rasterizer.h"
@@ -27,7 +29,9 @@ It also draws the line telling players about the vote to skip a cutscene
 #include "units/units.h"
 
 #include "coop_spectate.h"
+#include "dead_spectate.h"
 #include "network_coop.h"
+#include "touch_cinematic.h"
 
 #include <math.h>
 
@@ -52,14 +56,6 @@ observer allows up to 90 degrees) takes in all of them from that close */
 in front, far enough back to see all of what holds them */
 #define SPECTATE_HELD_DISTANCE 2.0f
 #define SPECTATE_HELD_PITCH -0.1f
-
-/* ---------- globals */
-
-/* the player each local player is watching, or NONE */
-static long coop_spectate_watched[MAXIMUM_LOCAL_PLAYERS] = { NONE, NONE, NONE, NONE };
-
-/* input_abstraction.c: how many ticks the keyboard's jump key has been held */
-byte input_abstraction_port_accept(short controller_index);
 
 /* ---------- private code */
 
@@ -91,26 +87,6 @@ static long next_living_player(long self, long after)
 	return first;
 }
 
-/* Returns TRUE once per press of A (or jump on the keyboard), however long
-it is held. The buttons count ticks, and one tick can span several frames,
-so testing "held" alone would switch more than once. */
-static boolean next_pressed(short controller_index)
-{
-	static boolean held[MAXIMUM_GAMEPADS];
-	struct gamepad_state const *gamepad;
-	boolean down;
-	boolean pressed;
-
-	if (controller_index < 0 || controller_index >= MAXIMUM_GAMEPADS)
-		return FALSE;
-	gamepad = input_get_gamepad_state(controller_index);
-	down = (gamepad && gamepad->buttons[FIRST_GAMEPAD_ANALOG_BUTTON + _gamepad_analog_button_a] > 0) ||
-		input_abstraction_port_accept(controller_index) > 0;
-	pressed = down && !held[controller_index];
-	held[controller_index] = down;
-	return pressed;
-}
-
 /* whether the unit rides in a vehicle it isn't driving */
 static boolean unit_is_passenger(
 	long unit_index)
@@ -132,26 +108,7 @@ boolean coop_spectating(
 long coop_spectate_unit(
 	short local_player_index)
 {
-	long self = local_player_get_player_index(local_player_index);
-	long *watched = &coop_spectate_watched[local_player_index];
-	struct player_datum *player;
-
-	boolean next;
-
-	if (self == NONE)
-		return NONE;
-	player = player_get(self);
-	/* checked every frame so a press is never missed or counted twice */
-	next = next_pressed(player->network_player_data.controller_index);
-	/* alive: keep `watched`, so the next death starts on the same teammate */
-	if (player->unit_index != NONE)
-		return NONE;
-	if (*watched == NONE || !player_try_and_get(*watched) || player_get(*watched)->unit_index == NONE || next)
-	{
-		*watched = next_living_player(self, *watched);
-	}
-
-	return *watched != NONE ? player_get(*watched)->unit_index : NONE;
+	return dead_spectate_unit(local_player_index);
 }
 
 boolean coop_spectate_nothing_to_watch(
@@ -213,7 +170,9 @@ static void draw_bottom_text(
 		return;
 	font = font_definition_get(font_index);
 	height = (short)(font->ascending_height + font->descending_height);
+	/* (in the view's own coordinates: a split screen's lower window's too) */
 	bounds = render.camera.window_bounds;
+	offset_rectangle2d(&bounds, (short)-render.camera.viewport_bounds.x0, (short)-render.camera.viewport_bounds.y0);
 	bounds.y0 = (short)(bounds.y1 - 3 * height - 24);
 	bounds.y1 = (short)(bounds.y1 - 24);
 	/* draw mode 2: centered */
@@ -224,7 +183,7 @@ static void draw_bottom_text(
 void coop_spectate_draw(
 	short local_player_index)
 {
-	long watched = coop_spectate_watched[local_player_index];
+	long watched = dead_spectate_watched_player(local_player_index);
 	wchar_t text[96];
 	wchar_t const *hint;
 
@@ -257,6 +216,9 @@ void coop_skip_vote_draw(
 		return;
 	if (voted)
 		usnprintf(text, NUMBEROF(text) - 1, L"VOTED TO SKIP   %d OF %d", votes, voters);
+	/* (the touchscreen's button: touch_cinematic.c) */
+	else if (touch_cinematic_button_enabled())
+		usnprintf(text, NUMBEROF(text) - 1, L"TAP SKIP TO VOTE   %d OF %d", votes, voters);
 	else
 		usnprintf(text, NUMBEROF(text) - 1, L"PRESS SPACE OR A TO VOTE TO SKIP   %d OF %d", votes, voters);
 	text[NUMBEROF(text) - 1] = 0;

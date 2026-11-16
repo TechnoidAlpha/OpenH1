@@ -1685,3 +1685,18 @@ boolean game_engine_race_read_network_state(
 	csmemcpy(race_events.best_laps, state.best_laps, sizeof(race_events.best_laps));
 	return TRUE;
 }
+
+/* port: the game type's state kept outside the game state, part by part
+(NULL past the last), for a demo (port/linux/game/demo.c) */
+void *game_engine_race_port_demo_state(
+	short part,
+	long *size)
+{
+	switch (part)
+	{
+	case 0:
+		*size = (long)sizeof(race_globals);
+		return &race_globals;
+	}
+	return NULL;
+}

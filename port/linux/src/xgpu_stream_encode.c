@@ -49,6 +49,7 @@ black, white or blocks.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 void platform_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 
@@ -100,6 +101,7 @@ _Static_assert(sizeof(struct xgpu_combiner_stage) == XGPU_STREAM_COMBINER_STAGE_
 _Static_assert(sizeof(struct xgpu_final_combiner) == XGPU_STREAM_FINAL_COMBINER_SIZE, "final combiner");
 _Static_assert(sizeof(struct xgpu_vertex_element) == sizeof(struct xgpu_stream_vertex_element), "vertex element");
 _Static_assert(sizeof(struct xgpu_draw_uniforms) == sizeof(struct xgpu_stream_draw_uniforms), "draw uniforms");
+_Static_assert(XGPU_DYNAMIC_LIGHTS_WORLD_TEXELS == XGPU_STREAM_DYNAMIC_LIGHTS_WORLD_TEXELS, "the dynamic lights' world");
 _Static_assert(sizeof(struct xgpu_dynamic_lights_block) == sizeof(struct xgpu_stream_dynamic_lights_block),
 	"dynamic lights block");
 _Static_assert(XGPU_DYNAMIC_LIGHTS_MAXIMUM == XGPU_STREAM_DYNAMIC_LIGHTS_MAXIMUM, "dynamic lights");
@@ -177,7 +179,9 @@ static struct
 		struct xgpu_stream_vr_info vr_info;
 	} *replies;
 
-	/* what the host last had */
+	/* what the host last had (category: XGPU_STREAM_CATEGORY's value + 1,
+	0 none sent) */
+	uint32_t category;
 	uint32_t pipeline;
 	BOOL dynamic_sent, uniforms_sent;
 	struct xgpu_stream_dynamic_state dynamic;
@@ -207,6 +211,17 @@ static struct
 	{
 		uint32_t width, height;
 	} targets[TARGET_MAXIMUM];
+
+	/* the time the game has waited so far, and of it the time paced by
+	display.max_fps (xgpu_backend_frame_times), and the host's count of
+	its waits as last read */
+	uint64_t waited_nanoseconds, capped_nanoseconds;
+	uint32_t host_waited;
+
+	/* the dynamic lights' cells as last sent (lights_sent: the host has
+	them since the stream opened), which the next change is of */
+	unsigned char *lights_cells;
+	BOOL lights_sent;
 } stream;
 
 /* (tests and measurements) the ring's size and frames in flight, before
@@ -261,6 +276,8 @@ static void commit(unsigned int flags)
 }
 
 static void vertices_keep(uint32_t size);
+static void marks_forget(void);
+static void marks_draw(void);
 
 /* A map's preparation (render_enumerate.c) writes hundreds of megabytes of
 records in one frame, and waits for the render thread to have played them
@@ -476,6 +493,7 @@ static void synchronous(void)
 again as it is next used */
 static void forget_sent(void)
 {
+	stream.category = 0;
 	stream.pipeline = 0;
 	stream.dynamic_sent = FALSE;
 	stream.uniforms_sent = FALSE;
@@ -611,6 +629,8 @@ void xgpu_backend_initialize(void)
 		stream_free(stream.asides[--stream.aside_count].data);
 	memset(&stream.vertices, 0, sizeof(stream.vertices));
 	forget_sent();
+	marks_forget();
+	stream.lights_sent = FALSE;
 	if (host_render_stream_open(STREAM_ADDRESS(ring)))
 	{
 		fprintf(stderr, "the renderer's command stream: the host has no renderer for it\n");
@@ -638,7 +658,39 @@ void xgpu_backend_initialize(void)
 	xgpu_backend_capabilities.mixed_constant_blend = stream.capabilities.mixed_constant_blend;
 	xgpu_backend_capabilities.dynamic_lights = stream.capabilities.dynamic_lights;
 	xgpu_backend_capabilities.hdr = stream.capabilities.hdr;
+	xgpu_backend_capabilities.ray_queries = stream.capabilities.ray_queries;
+	stream.capabilities.device[sizeof(stream.capabilities.device) - 1] = 0;
 }
+
+const char *xgpu_backend_device(void)
+{
+	return stream.open ? stream.capabilities.device : "";
+}
+
+int xgpu_backend_frame_times(struct xgpu_backend_frame_times *times)
+{
+	times->waited = (unsigned long)(uint32_t)(stream.waited_nanoseconds / 1000u);
+	times->paced = (unsigned long)(uint32_t)(stream.capped_nanoseconds / 1000u);
+	times->render = 0;
+	if (!stream.open)
+		return 0;
+	times->paced = (unsigned long)(uint32_t)(times->paced + load_acquire(&stream.ring->paced_microseconds));
+	times->render = load_acquire(&stream.ring->render_microseconds);
+	if (!load_acquire(&stream.ring->gpu_measured))
+		return 0;
+	times->gpu = load_acquire(&stream.ring->gpu_microseconds);
+	return 1;
+}
+
+#ifndef XGPU_STREAM_TEST
+static uint64_t monotonic_nanoseconds(void)
+{
+	struct timespec now;
+
+	clock_gettime(CLOCK_MONOTONIC, &now);
+	return (uint64_t)now.tv_sec * 1000000000u + (uint64_t)now.tv_nsec;
+}
+#endif
 
 /* (at exit) the frames submitted played, the render thread ended */
 void xgpu_stream_encode_close(void)
@@ -733,6 +785,155 @@ void xgpu_backend_gamma(float gamma)
 		record_value(XGPU_STREAM_GAMMA, bits);
 }
 
+void xgpu_backend_category(int category)
+{
+	uint32_t value = category >= 0 && category < (int)XGPU_STREAM_CATEGORY_NONE ? (uint32_t)category :
+		XGPU_STREAM_CATEGORY_NONE;
+
+	/* (not into a map's preparation: its draws are not timed) */
+	if (!stream.open || stream.preparing || stream.category == value + 1)
+		return;
+	stream.category = value + 1;
+	record_value(XGPU_STREAM_CATEGORY, value);
+}
+
+/* ---------- debug.render_marks (xgpu_stream.h's MARK records)
+
+The strings the marks name, by their hash: a cache of those sent (the
+host keeps every number it was given, so a string the cache lets go is
+sent again under a new number); and the owner, sent before the draw that
+follows it (marks_draw). */
+
+#define MARK_STRINGS 4096u
+
+static struct
+{
+	uint64_t hashes[MARK_STRINGS];
+	uint32_t numbers[MARK_STRINGS];
+	uint32_t count, next;
+	/* the owner given (written before the next draw: owners given
+	without a draw between them are not sent) and the last sent */
+	BOOL owner_given, owner_sent;
+	struct xgpu_stream_mark_owner owner, sent;
+} marks;
+
+static void marks_forget(void)
+{
+	memset(&marks, 0, sizeof(marks));
+	marks.next = 1;
+}
+
+static uint64_t mark_hash(const char *text, uint32_t length)
+{
+	uint64_t hash = 0xcbf29ce484222325ull;
+	uint32_t index;
+
+	for (index = 0; index < length; index++)
+		hash = (hash ^ (unsigned char)text[index]) * 0x100000001b3ull;
+	return hash ? hash : 1;
+}
+
+/* the string's number, sent before if it is new (0: none) */
+static uint32_t mark_string(const char *text)
+{
+	struct xgpu_stream_mark_string *record_body;
+	unsigned char *data;
+	uint32_t length, slot;
+	uint64_t hash;
+
+	if (!text || !*text)
+		return 0;
+	length = (uint32_t)strnlen(text, 1024);
+	hash = mark_hash(text, length);
+	for (slot = (uint32_t)hash & (MARK_STRINGS - 1); marks.hashes[slot]; slot = (slot + 1) & (MARK_STRINGS - 1))
+	{
+		if (marks.hashes[slot] == hash)
+			return marks.numbers[slot];
+	}
+	if (marks.count * 2 >= MARK_STRINGS)
+	{
+		/* (full: forgotten, the numbers counted on) */
+		memset(marks.hashes, 0, sizeof(marks.hashes));
+		marks.count = 0;
+		slot = (uint32_t)hash & (MARK_STRINGS - 1);
+	}
+	marks.hashes[slot] = hash;
+	marks.numbers[slot] = marks.next++;
+	marks.count++;
+	record_body = record_data(XGPU_STREAM_MARK_STRING, sizeof(*record_body), length + 1, &data);
+	record_body->number = marks.numbers[slot];
+	record_body->length = length;
+	memcpy(data, text, length);
+	data[length] = 0;
+	record_body->data = STREAM_ADDRESS(data);
+	return marks.numbers[slot];
+}
+
+void xgpu_backend_mark_view(const char *map, unsigned long tick, long window, const float position[3],
+	const float forward[3], const float up[3], float field_of_view, const long viewport[4])
+{
+	struct xgpu_stream_mark_view *record_body;
+	uint32_t map_number;
+	int index;
+
+	if (!stream.open || stream.preparing)
+		return;
+	map_number = mark_string(map);
+	record_body = record(XGPU_STREAM_MARK_VIEW, sizeof(*record_body));
+	record_body->map = map_number;
+	record_body->tick = (uint32_t)tick;
+	record_body->window = window < 0 ? XGPU_STREAM_MARK_NONE : (uint32_t)window;
+	for (index = 0; index < 3; index++)
+	{
+		record_body->position[index] = position ? position[index] : 0.0f;
+		record_body->forward[index] = forward ? forward[index] : 0.0f;
+		record_body->up[index] = up ? up[index] : 0.0f;
+	}
+	record_body->field_of_view = field_of_view;
+	for (index = 0; index < 4; index++)
+		record_body->viewport[index] = viewport ? (int32_t)viewport[index] : 0;
+	/* (an owner is said again after a view) */
+	marks.owner_sent = FALSE;
+	marks.owner_given = TRUE;
+}
+
+void xgpu_backend_mark_owner(int kind, long id, const char *label, const char *object, const char *model,
+	const char *shader, const char *bitmap, const char *widget, const char *source)
+{
+	struct xgpu_stream_mark_owner *owner = &marks.owner;
+
+	if (!stream.open || stream.preparing)
+		return;
+	memset(owner, 0, sizeof(*owner));
+	owner->kind = kind >= 0 && kind < XGPU_STREAM_MARK_KINDS ? (uint32_t)kind : XGPU_STREAM_MARK_OTHER;
+	owner->id = id < 0 ? XGPU_STREAM_MARK_NONE : (uint32_t)id;
+	owner->label = mark_string(label);
+	owner->object = mark_string(object);
+	owner->model = mark_string(model);
+	owner->shader = mark_string(shader);
+	owner->bitmap = mark_string(bitmap);
+	owner->widget = mark_string(widget);
+	owner->source = mark_string(source);
+	marks.owner_given = TRUE;
+}
+
+/* (before a draw's records) the owner given, if it is not the last sent */
+static void marks_draw(void)
+{
+	struct xgpu_stream_mark_owner *record_body;
+
+	if (!marks.owner_given)
+		return;
+	marks.owner_given = FALSE;
+	if (marks.owner_sent && !memcmp(&marks.owner, &marks.sent, sizeof(marks.sent)))
+		return;
+	record_body = record(XGPU_STREAM_MARK_OWNER, sizeof(*record_body));
+	marks.owner.header = record_body->header;
+	*record_body = marks.owner;
+	marks.sent = marks.owner;
+	marks.owner_sent = TRUE;
+}
+
 void xgpu_backend_picture_top(int top)
 {
 	/* (0 centered, n + 1 at n pixels from the top) */
@@ -753,20 +954,135 @@ void xgpu_backend_tone_map(xgpu_target target, const long corners[4])
 		record_body->corners[index] = (int32_t)corners[index];
 }
 
-void xgpu_backend_ambient_occlusion(xgpu_target target, const long corners[4], int quality, const float camera[6])
+static void stream_finite(float *values, unsigned long count, const char *what, unsigned long first);
+
+void xgpu_backend_world_ao_window(const struct xgpu_world_ao_block *block)
 {
-	struct xgpu_stream_ambient_occlusion *record_body;
-	int index;
+	struct xgpu_stream_world_ao_window *record_body;
 
 	if (!stream.open)
 		return;
-	record_body = record(XGPU_STREAM_AMBIENT_OCCLUSION, sizeof(*record_body));
-	record_body->target = target;
-	record_body->quality = (uint32_t)quality;
-	for (index = 0; index < 4; index++)
-		record_body->corners[index] = (int32_t)corners[index];
-	for (index = 0; index < 6; index++)
-		record_body->camera[index] = camera ? camera[index] : 0.0f;
+	record_body = record(XGPU_STREAM_WORLD_AO_WINDOW, sizeof(*record_body));
+	record_body->active = block ? 1 : 0;
+	record_body->pad[0] = record_body->pad[1] = 0;
+	if (block)
+	{
+		record_body->block = *block;
+		/* (its floats: the cells are masks) */
+		stream_finite(&record_body->block.field[0][0], offsetof(struct xgpu_world_ao_block, cells) / 4,
+			"world occlusion", 0);
+	}
+	else
+	{
+		memset(&record_body->block, 0, sizeof(record_body->block));
+	}
+}
+
+void xgpu_backend_world_ao_field(int part, unsigned long width, unsigned long height, unsigned long depth,
+	unsigned long z_first, unsigned long z_count, const void *data)
+{
+	struct xgpu_stream_world_ao_field *record_body;
+	uint32_t size = (uint32_t)(width * height * z_count * XGPU_STREAM_WORLD_AO_TEXEL(part));
+	unsigned char *place;
+
+	if (!stream.open)
+		return;
+	if (!width || !data)
+		size = 0;
+	record_body = record_data(XGPU_STREAM_WORLD_AO_FIELD, sizeof(*record_body), size ? carried_one(size) : 0, &place);
+	record_body->part = (uint32_t)part;
+	record_body->width = (uint32_t)width;
+	record_body->height = (uint32_t)height;
+	record_body->depth = (uint32_t)depth;
+	record_body->z_first = (uint32_t)z_first;
+	record_body->z_count = (uint32_t)z_count;
+	record_body->size = size;
+	record_body->data = size ? carry_one(&place, data, size) : 0;
+}
+
+void xgpu_backend_world_ao_prepass(int phase, xgpu_target target, const struct xgpu_world_ao_pass *pass)
+{
+	struct xgpu_stream_world_ao_prepass *record_body;
+
+	if (!stream.open)
+		return;
+	record_body = record(XGPU_STREAM_WORLD_AO_PREPASS, sizeof(*record_body));
+	record_body->phase = (uint32_t)phase;
+	record_body->target = (uint32_t)target;
+	record_body->pad = 0;
+	if (pass)
+	{
+		record_body->pass = *pass;
+		stream_finite(&record_body->pass.camera[0][0], 16, "world occlusion's camera", 0);
+		stream_finite(&record_body->pass.cascades[0][0], 32, "world occlusion's cascades and previous camera", 0);
+		stream_finite(&record_body->pass.history[0], 4, "world occlusion's history", 0);
+	}
+	else
+	{
+		memset(&record_body->pass, 0, sizeof(record_body->pass));
+	}
+}
+
+void xgpu_backend_world_ao_cascades(unsigned long x, unsigned long y, unsigned long z, unsigned long width,
+	unsigned long height, unsigned long depth, const void *data)
+{
+	struct xgpu_stream_world_ao_cascades *record_body;
+	uint32_t size = (uint32_t)(width * height * depth * 2u);
+	unsigned char *place;
+
+	if (!stream.open)
+		return;
+	if (!width || !data)
+		size = 0;
+	record_body = record_data(XGPU_STREAM_WORLD_AO_CASCADES, sizeof(*record_body), size ? carried_one(size) : 0, &place);
+	record_body->x = (uint32_t)x;
+	record_body->y = (uint32_t)y;
+	record_body->z = (uint32_t)z;
+	record_body->width = size ? (uint32_t)width : 0;
+	record_body->height = (uint32_t)height;
+	record_body->depth = (uint32_t)depth;
+	record_body->size = size;
+	record_body->data = size ? carry_one(&place, data, size) : 0;
+	record_body->pad = 0;
+}
+
+void xgpu_backend_world_ao_mesh(unsigned long id, unsigned long count, const float *triangles)
+{
+	struct xgpu_stream_world_ao_mesh *record_body;
+	uint32_t size;
+	unsigned char *place;
+
+	if (!stream.open || id >= XGPU_STREAM_WORLD_AO_MESHES || count > XGPU_STREAM_WORLD_AO_MESH_TRIANGLES)
+		return;
+	if (!id || !triangles)
+		count = 0;
+	size = (uint32_t)(count * 36u);
+	record_body = record_data(XGPU_STREAM_WORLD_AO_MESH, sizeof(*record_body), size ? carried_one(size) : 0, &place);
+	record_body->id = (uint32_t)id;
+	record_body->count = (uint32_t)count;
+	record_body->size = size;
+	record_body->data = size ? carry_one(&place, triangles, size) : 0;
+	record_body->pad[0] = record_body->pad[1] = record_body->pad[2] = 0;
+}
+
+void xgpu_backend_world_ao_instances(const struct xgpu_world_ao_instance *instances, unsigned long count)
+{
+	struct xgpu_stream_world_ao_instances *record_body;
+	uint32_t size;
+	unsigned char *place;
+
+	if (!stream.open)
+		return;
+	if (count > XGPU_STREAM_WORLD_AO_INSTANCES_MAXIMUM)
+		count = XGPU_STREAM_WORLD_AO_INSTANCES_MAXIMUM;
+	if (!instances)
+		count = 0;
+	size = (uint32_t)(count * sizeof(struct xgpu_world_ao_instance));
+	record_body = record_data(XGPU_STREAM_WORLD_AO_INSTANCES, sizeof(*record_body), size ? carried_one(size) : 0,
+		&place);
+	record_body->count = (uint32_t)count;
+	record_body->size = size;
+	record_body->data = size ? carry_one(&place, instances, size) : 0;
 }
 
 /* (the host writes the ring's display_hdr and display_headroom as it looks
@@ -1181,6 +1497,9 @@ void xgpu_backend_vertex_lighting(unsigned long long program, const struct nv2a_
 	record_body->world_register = (uint32_t)lighting->world_register;
 }
 
+/* port/linux/game/render_marks.c: a new pipeline in play named in the log */
+void render_marks_pipeline_unprepared(void);
+
 BOOL xgpu_backend_pipeline(const struct xgpu_pipeline_key *key)
 {
 	uint32_t id;
@@ -1209,6 +1528,8 @@ BOOL xgpu_backend_pipeline(const struct xgpu_pipeline_key *key)
 		/* (the host's answer comes later) */
 		__atomic_store_n(&stream.pipelines[id], XGPU_STREAM_PIPELINE_UNKNOWN, __ATOMIC_RELAXED);
 		stream.pipeline = 0;
+		if (!stream.preparing)
+			render_marks_pipeline_unprepared();
 	}
 	if (id != stream.pipeline)
 	{
@@ -1216,6 +1537,18 @@ BOOL xgpu_backend_pipeline(const struct xgpu_pipeline_key *key)
 		stream.pipeline = id;
 	}
 	return __atomic_load_n(&stream.pipelines[id], __ATOMIC_RELAXED) != XGPU_STREAM_PIPELINE_FAILED;
+}
+
+void xgpu_backend_pipeline_stand_in(unsigned long number)
+{
+	struct xgpu_stream_pipeline_stand_in *record_body;
+
+	if (!stream.open || !stream.pipeline)
+		return;
+	record_body = record(XGPU_STREAM_PIPELINE_STAND_IN, sizeof(*record_body));
+	record_body->id = stream.pipeline;
+	/* (the same round of numbers alone: XGPU_STREAM_PIPELINES' 14 bits) */
+	record_body->stand_in = number >> 16 == stream.pipeline_keys.rounds ? (uint32_t)(number & 0xffff) : 0;
 }
 
 unsigned long xgpu_backend_pipeline_number(void)
@@ -1565,6 +1898,7 @@ void xgpu_backend_draw(int primitive, unsigned long count)
 
 	if (!stream.open)
 		return;
+	marks_draw();
 	vertices_ensure(sizeof(*record_body));
 	record_body = record(XGPU_STREAM_DRAW, sizeof(*record_body));
 	record_body->primitive = (uint32_t)primitive;
@@ -1579,6 +1913,7 @@ void xgpu_backend_draw_indices(int primitive, const WORD *indices, unsigned long
 
 	if (!stream.open)
 		return;
+	marks_draw();
 	data_size = carried_one(bytes);
 	vertices_ensure(sizeof(*record_body) + data_size + XGPU_STREAM_DATA_ALIGNMENT);
 	record_body = record_data(XGPU_STREAM_DRAW_INDICES, sizeof(*record_body), data_size, &place);
@@ -1596,6 +1931,7 @@ void xgpu_backend_draw_indexed(int primitive, const WORD *indices, unsigned long
 
 	if (!stream.open)
 		return;
+	marks_draw();
 	data_size = carried_one(bytes);
 	vertices_ensure(sizeof(*record_body) + data_size + XGPU_STREAM_DATA_ALIGNMENT);
 	record_body = record_data(XGPU_STREAM_DRAW_INDEXED, sizeof(*record_body), data_size, &place);
@@ -1622,6 +1958,7 @@ void xgpu_backend_draw_immediate(int primitive, const float *vertices, unsigned 
 
 	if (!stream.open)
 		return;
+	marks_draw();
 	/* the written registers' values alone, vertex by vertex (immediate
 	mode's vertices are few: lens flares, text, the HUD) */
 	changed = attributes_changed(&stream.immediate_attributes, attributes, ~registers & 0xffff);
@@ -1740,11 +2077,26 @@ void xgpu_backend_frame_end(void)
 	xgpu_images_frame_end();
 	xgpu_texture_cache_begin_frame();
 #endif
+	/* (the game's waits for the host this frame: room, a frame retired, a
+	synchronous record, the display's pacing; a report's) */
+	{
+		uint32_t host_waited = stream.ring->wait_nanoseconds;
+
+		stream.waited_nanoseconds += (uint32_t)(host_waited - stream.host_waited);
+		stream.host_waited = host_waited;
+	}
 #ifndef XGPU_STREAM_TEST
 	/* (the frames paced by display.max_fps while the host shows this one:
 	sdl_platform.c; with vsync on, the Metal host's display paces them
 	instead, frame_pacing.h) */
-	platform_video_swap();
+	{
+		uint64_t swap_start = monotonic_nanoseconds(), swapped;
+
+		platform_video_swap();
+		swapped = monotonic_nanoseconds() - swap_start;
+		stream.waited_nanoseconds += swapped;
+		stream.capped_nanoseconds += swapped;
+	}
 #endif
 }
 
@@ -1758,27 +2110,80 @@ BOOL xgpu_backend_dynamic_lights_prepare(void)
 	return TRUE;
 }
 
-#define DYNAMIC_LIGHTS_CELLS_SIZE \
-	(XGPU_DYNAMIC_LIGHTS_GRID_X * XGPU_DYNAMIC_LIGHTS_GRID_Y * XGPU_DYNAMIC_LIGHTS_GRID_Z * 16)
+#define DYNAMIC_LIGHTS_CELLS_SIZE XGPU_DYNAMIC_LIGHTS_CELLS_BYTES
+
+/* The cells change little from frame to frame (where the lights reach
+around the camera, and the clusters' masks): only the bytes from the first
+16 that differ from those last sent to the last that do are sent, and none
+where none differ; the first after the stream opens are all of them. (All
+278 KB of them were sent each frame, copied into the ring and again by the
+host.) */
+#define DYNAMIC_LIGHTS_ROW 512u
+
+typedef uint64_t __attribute__((may_alias)) lights_word;
+
+/* whether bytes bytes (a multiple of 16) at a and b are the same: their
+words' differences or'd, which the compiler makes vector instructions of
+(musl's memcmp is a byte at a time) */
+static BOOL lights_same(const void *a, const void *b, uint32_t bytes)
+{
+	const lights_word *x = a, *y = b;
+	uint64_t difference = 0;
+	uint32_t index;
+
+	for (index = 0; index < bytes / 8; index++)
+		difference |= x[index] ^ y[index];
+	return !difference;
+}
+
+static void dynamic_lights_changed(const unsigned char *cells, uint32_t *first, uint32_t *end)
+{
+	const unsigned char *sent = stream.lights_cells;
+	uint32_t low = 0, high = DYNAMIC_LIGHTS_CELLS_SIZE;
+
+	/* (a row of 32 cells at a time, then the cells in the row) */
+	while (low < high && lights_same(sent + low, cells + low, DYNAMIC_LIGHTS_ROW))
+		low += DYNAMIC_LIGHTS_ROW;
+	while (low < high && lights_same(sent + low, cells + low, 16))
+		low += 16;
+	while (high > low && lights_same(sent + high - DYNAMIC_LIGHTS_ROW, cells + high - DYNAMIC_LIGHTS_ROW,
+		DYNAMIC_LIGHTS_ROW))
+		high -= DYNAMIC_LIGHTS_ROW;
+	while (high > low && lights_same(sent + high - 16, cells + high - 16, 16))
+		high -= 16;
+	*first = low;
+	*end = high;
+}
 
 void xgpu_backend_dynamic_lights_upload(const struct xgpu_dynamic_lights_block *block, const void *cells)
 {
 	static const float zero[4];
-	struct xgpu_stream_dynamic_lights_upload *record_body;
+	struct xgpu_stream_dynamic_lights_change *record_body;
 	uint32_t count = XGPU_DYNAMIC_LIGHTS_MAXIMUM;
-	uint32_t light;
+	uint32_t light, first = 0, end = DYNAMIC_LIGHTS_CELLS_SIZE;
 	unsigned char *place;
 
 	if (!stream.open)
 		return;
+	if (!stream.lights_cells)
+		stream.lights_cells = malloc(DYNAMIC_LIGHTS_CELLS_SIZE);
+	if (!stream.lights_cells)
+		stream.lights_sent = FALSE;
+	else if (stream.lights_sent)
+	{
+		dynamic_lights_changed(cells, &first, &end);
+		if (first >= end)
+			first = end = 0;
+	}
 	/* the lights past the last that is there are zeros */
 	while (count && !memcmp(block->position[count - 1], zero, 16) && !memcmp(block->color[count - 1], zero, 16) &&
 		!memcmp(block->cone[count - 1], zero, 16))
 		count--;
-	record_body = record_data(XGPU_STREAM_DYNAMIC_LIGHTS_UPLOAD, sizeof(*record_body),
-		carried_one(DYNAMIC_LIGHTS_CELLS_SIZE), &place);
+	record_body = record_data(XGPU_STREAM_DYNAMIC_LIGHTS_CHANGE, sizeof(*record_body),
+		end > first ? carried_one(end - first) : 0, &place);
 	record_body->count = count;
-	record_body->size = DYNAMIC_LIGHTS_CELLS_SIZE;
+	record_body->offset = first;
+	record_body->size = end - first;
 	memcpy(record_body->block.grid, block->grid, sizeof(record_body->block.grid));
 	for (light = 0; light < count; light++)
 	{
@@ -1790,7 +2195,28 @@ void xgpu_backend_dynamic_lights_upload(const struct xgpu_dynamic_lights_block *
 	stream_finite(&record_body->block.position[0][0], count * 4, "dynamic light place", 0);
 	stream_finite(&record_body->block.color[0][0], count * 4, "dynamic light colour", 0);
 	stream_finite(&record_body->block.cone[0][0], count * 4, "dynamic light cone", 0);
-	record_body->cells = carry_one(&place, cells, DYNAMIC_LIGHTS_CELLS_SIZE);
+	if (end > first)
+	{
+		record_body->cells = carry_one(&place, (const unsigned char *)cells + first, end - first);
+		if (stream.lights_cells)
+		{
+			memcpy(stream.lights_cells + first, (const unsigned char *)cells + first, end - first);
+			stream.lights_sent = TRUE;
+		}
+	}
+}
+
+void xgpu_backend_dynamic_lights_world(const void *texels, int count)
+{
+	struct xgpu_stream_dynamic_lights_world *record_body;
+	unsigned char *place;
+
+	if (!stream.open || count < 1 || count > XGPU_DYNAMIC_LIGHTS_WORLD_TEXELS)
+		return;
+	record_body = record_data(XGPU_STREAM_DYNAMIC_LIGHTS_WORLD, sizeof(*record_body),
+		carried_one((uint32_t)count * 16), &place);
+	record_body->count = (uint32_t)count;
+	record_body->texels = carry_one(&place, texels, (uint32_t)count * 16);
 }
 
 void xgpu_backend_dynamic_lights_halos(xgpu_target color, xgpu_target depth, int layers,

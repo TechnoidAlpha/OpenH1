@@ -38,6 +38,8 @@ static short local_player_get_next(short index) { return NONE; }
 static void display_error(short error, short local_player_index, boolean a, boolean b) { errors_shown++; }
 static void display_error_when_main_menu_loaded(short error) { shown_error = error; }
 static void network_event(const char *text, ...) { }
+/* (no MCC map converting: mcc_load_network_game.c) */
+static int mcc_load_network_client_expired(void) { return 0; }
 static void error(int level, const char *text, ...) { }
 static boolean network_game_client_process_incoming_messages(struct network_game_client *client)
 {

@@ -17,7 +17,11 @@ nonzero on a failure.
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/syscall.h>
+#ifdef __APPLE__
+#include <sys/ucontext.h>
+#else
 #include <ucontext.h>
+#endif
 #include <unistd.h>
 
 static int failures;
@@ -38,7 +42,22 @@ static void expect(int condition, const char *what, int line)
 static void set_registers(ucontext_t *context, uint64_t pc, uint64_t sp, uint64_t fp, uint64_t lr)
 {
 	memset(context, 0, sizeof(*context));
-#if defined(__aarch64__)
+#if defined(__APPLE__) && defined(__aarch64__)
+	{
+		/* (Darwin's context points at its registers) */
+		static struct __darwin_mcontext64 machine;
+		int index;
+
+		memset(&machine, 0, sizeof(machine));
+		context->uc_mcontext = &machine;
+		for (index = 0; index < 29; index++)
+			machine.__ss.__x[index] = 0x1000 + index;
+		machine.__ss.__pc = pc;
+		machine.__ss.__sp = sp;
+		machine.__ss.__fp = fp;
+		machine.__ss.__lr = lr;
+	}
+#elif defined(__aarch64__)
 	{
 		struct sigcontext *registers = (struct sigcontext *)&context->uc_mcontext;
 		int index;
@@ -271,6 +290,23 @@ static void walking_handler(int number, siginfo_t *information, void *context)
 fp, from the system call's return (where the signal is taken) */
 static void signal_with_frame_pointer(uint64_t fp, int number)
 {
+#if defined(__APPLE__) && defined(__aarch64__)
+	/* (Darwin's kill(pid, number, posix) to this process, its one thread) */
+	register long x0 __asm__("x0") = getpid();
+	register long x1 __asm__("x1") = number;
+	register long x2 __asm__("x2") = 1;
+	register long x16 __asm__("x16") = SYS_kill;
+	register long x9 __asm__("x9") = (long)fp;
+
+	__asm__ volatile(
+		"mov x19, x29\n\t"
+		"mov x29, x9\n\t"
+		"svc #0x80\n\t"
+		"mov x29, x19"
+		: "+r"(x0), "+r"(x1), "+r"(x2), "+r"(x16)
+		: "r"(x9)
+		: "x19", "cc", "memory");
+#else
 	long pid = getpid(), tid = syscall(SYS_gettid);
 #if defined(__x86_64__)
 	register long r8 __asm__("r8") = (long)fp;
@@ -301,6 +337,7 @@ static void signal_with_frame_pointer(uint64_t fp, int number)
 		: "+r"(x0)
 		: "r"(x1), "r"(x2), "r"(x8), "r"(x9)
 		: "x19", "memory");
+#endif
 #endif
 }
 

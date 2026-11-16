@@ -50,37 +50,32 @@ def test_mouse_alone_uses_it():
     assert control.index("player_control_scale_look(player->unit_index, control->zoom_level, &look_delta);") < \
         control.index("if (halo_linux_mouse_look(gamepad_index, &mouse_yaw, &mouse_pitch))")
     fov = (ROOT / "port/linux/game/view_fov.c").read_text()
-    assert 'strcmp(config_string("input.zoom_sensitivity"), "halo")' in fov
+    assert 'strcmp(config_player_string(0, "input.zoom_sensitivity"), "halo")' in fov
 
 
 def test_menu_sliders_match_their_rows():
-    """menu_functions.c's settings_sliders and its track's layout are tools/port_settings.py's Slider rows', and the
-    slider's functions are ones menu_tags.c names"""
+    """the menus' model's sliders (port/assets/menus/model, which menu_functions.c's sliders are made from) and the
+    track's layout are tools/port_settings.py's Slider rows', and the slider's functions are ones menu_tags.c names"""
     import sys
+    import xml.etree.ElementTree as ET
     sys.path.insert(0, str(ROOT / "tools"))
     import port_settings
 
     functions = (ROOT / "port/linux/game/menu_functions.c").read_text()
-    table = functions[functions.index("} const settings_sliders[] ="):]
-    table = table[:table.index("};")]
-    # (a slider's stops as their words, or numbers, and values: a number, or
-    # the setting's word a stop writes)
-    def stops_of(choices):
-        return tuple((shown, value if value.isalpha() else float(value)) for shown, value in choices)
-
-    rows = {(f"op_{row[1].split('.', 1)[1]}", row[1], row[2]._replace(stops=stops_of(row[2].stops)))
+    assert "settings_slider_made(menu_engine_model_row_of(row))" in functions
+    # (a row's name: its own key, else its setting's)
+    rows = {(row[5] if len(row) > 5 else row[1].split(".", 1)[1], row[1],
+             row[2]._replace(stops=tuple((shown, str(value)) for shown, value in row[2].stops)))
             for page in port_settings.PAGES.values() for row in page["rows"]
             if row[0] != port_settings.SECTION and isinstance(row[2], port_settings.Slider)}
     assert rows
-    stops = {name: tuple((word or f"{float(value):g}", text or float(value))
-                         for value, word, text in re.findall(r'\{ (-?[\d.]+), (?:"(\w+)"|NULL)(?:, "(\w+)")? \}',
-                                                             body))
-             for name, body in re.findall(r"settings_slider_stop const (\w+)\[\] =\n\{\n(.*?)\n\};", functions, re.S)}
-    found = set()
-    for row, setting, numbers, whole, stops_name in re.findall(
-            r'\{ "(\w+)", "([\w.]+)", ([-\d., ]+?), (TRUE|FALSE),\s+(?:NULL, 0|SLIDER_STOPS\((\w+)\)) \}', table):
-        found.add((row, setting, port_settings.Slider(*map(float, numbers.split(", ")), whole=whole == "TRUE",
-                                                      stops=stops[stops_name] if stops_name else ())))
+    model = ET.parse(ROOT / "port/assets/menus/model/settings.xml").getroot()
+    found = {(row.get("key"), row.get("setting"),
+              port_settings.Slider(*(float(row.get(name)) for name in ("least", "most", "step", "typed_least",
+                                                                       "typed_most")),
+                                   whole=row.get("whole") == "true",
+                                   stops=tuple((stop.get("shown"), stop.get("value")) for stop in row.findall("stop"))))
+             for row in model.iter("row") if row.get("kind") == "slider"}
     assert found == rows
     for name in ("SLIDER_TRACK_WIDTH", "SLIDER_THUMB_WIDTH"):
         assert re.search(rf"#define {name} {getattr(port_settings, name)}\b", functions), name

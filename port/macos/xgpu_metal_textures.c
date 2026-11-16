@@ -283,25 +283,29 @@ static uint32_t texture_make(struct entry *entry)
 
 /* ---------- ASTC */
 
+const char *xgpu_metal_textures_astc_folder(char *path, size_t size)
+{
+	const char *folder = getenv("HALO_ASTC_CACHE"), *home = getenv("HOME");
+
+	if (folder)
+		return folder;
+	if (!home || !*home)
+		return NULL;
+	snprintf(path, size, "%s/" ASTC_CACHE_FOLDER, home);
+	return path;
+}
+
 /* whether DXT textures are ASTC here (decided at the first, once the
 device is there): display.astc_textures, and the GPU's formats */
 static int astc_wanted(void)
 {
 	if (cache.astc < 0)
 	{
-		const char *folder = getenv("HALO_ASTC_CACHE"), *home = getenv("HOME");
 		char path[1024];
 
 		cache.astc = xgpu_astc_chosen(host_astc_textures, xgpu_metal_block_compression(), xgpu_metal_astc());
 		if (cache.astc)
-		{
-			if (!folder && home && *home)
-			{
-				snprintf(path, sizeof(path), "%s/" ASTC_CACHE_FOLDER, home);
-				folder = path;
-			}
-			xgpu_astc_cache_initialize(folder, ASTC_CACHE_BYTES);
-		}
+			xgpu_astc_cache_initialize(xgpu_metal_textures_astc_folder(path, sizeof(path)), ASTC_CACHE_BYTES);
 		host_logf(HOST_LOG_INFO, "metal: DXT textures %s (display.astc_textures \"%s\"; the GPU samples BC %s, ASTC %s)",
 			cache.astc ? "as ASTC 4x4" : xgpu_metal_block_compression() ? "as BC" : "decoded", host_astc_textures,
 			xgpu_metal_block_compression() ? "yes" : "no", xgpu_metal_astc() ? "yes" : "no");
@@ -662,12 +666,8 @@ static uint32_t xbox_texture_get(const struct xgpu_stream_texture_stage *stage)
 
 /* ---------- images */
 
-/* XGPU_IMAGE_* (xgpu_images.h) */
-enum
-{
-	_image_rgba,
-	_image_coverage,
-};
+/* (XGPU_IMAGE_RGBA, xgpu_images.h: 4 bytes a pixel) */
+#define IMAGE_TEXEL 4
 
 static uint32_t image_get(const struct xgpu_stream_texture_stage *stage)
 {
@@ -677,7 +677,7 @@ static uint32_t image_get(const struct xgpu_stream_texture_stage *stage)
 	uint32_t width = stage->width, height = stage->height;
 
 	if (!pixels || !width || !height || width > 16384 || height > 16384 ||
-		!readable(stage->data, width * height * (stage->resource_format == _image_coverage ? 1 : 4)))
+		!readable(stage->data, width * height * IMAGE_TEXEL))
 		return 0;
 	for (entry = *bucket; entry; entry = entry->next)
 	{
@@ -707,7 +707,7 @@ static uint32_t image_get(const struct xgpu_stream_texture_stage *stage)
 		texture_release(entry);
 		memset(&made, 0, sizeof(made));
 		made.type = XGPU_METAL_TEXTURE_2D;
-		made.format = stage->resource_format == _image_coverage ? XGPU_METAL_FORMAT_COVERAGE : XGPU_METAL_FORMAT_RGBA8;
+		made.format = XGPU_METAL_FORMAT_RGBA8;
 		made.usage = XGPU_METAL_USAGE_SAMPLED;
 		made.width = (uint16_t)width;
 		made.height = (uint16_t)height;
@@ -720,7 +720,7 @@ static uint32_t image_get(const struct xgpu_stream_texture_stage *stage)
 		entry->size_word = stage->resource_format;
 		if (!entry->texture)
 			return 0;
-		entry->bytes = width * height * (stage->resource_format == _image_coverage ? 1 : 4) *
+		entry->bytes = width * height * IMAGE_TEXEL *
 			(made.levels > 1 ? 4 : 3) / 3;
 		entry->resident = _resident_other;
 		cache.resident += entry->bytes;
@@ -728,13 +728,13 @@ static uint32_t image_get(const struct xgpu_stream_texture_stage *stage)
 	}
 	entry->format_word = stage->resource_size;
 	if (host_render_record_active)
-		host_render_record_note(stage->data, width * height * (stage->resource_format == _image_coverage ? 1 : 4));
+		host_render_record_note(stage->data, width * height * IMAGE_TEXEL);
 	xgpu_metal_texture_upload(entry->texture, 0, 0, 0, 0, 0, width, height, 1, pixels,
-		width * (stage->resource_format == _image_coverage ? 1 : 4), 0);
+		width * IMAGE_TEXEL, 0);
 	if (stage->levels > 1)
 		xgpu_metal_texture_make_levels(entry->texture);
 	cache.statistics.images++;
-	cache.statistics.bytes += (uint64_t)width * height * (stage->resource_format == _image_coverage ? 1 : 4);
+	cache.statistics.bytes += (uint64_t)width * height * IMAGE_TEXEL;
 	return entry->texture;
 }
 

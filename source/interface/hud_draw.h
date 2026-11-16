@@ -100,6 +100,11 @@ void hud_draw_weapon_overlays(
 	long reference_time,
 	short draw_flags,
 	boolean in_multiplayer);
+/* port: what hud_draw_bitmap's is_crosshair_bitmap may be besides FALSE
+and TRUE (the weapon's reticle, its size display.fov's: view_fov.c): a
+piece of a scope's own picture, drawn only zoomed over it, which keeps to
+the view as the scope's picture does (render_fov_reticle_scale) */
+#define HUD_CROSSHAIR_SCOPE_PIECE 2
 void hud_draw_bitmap(
 	struct bitmap_data const *bitmap,
 	struct hud_absolute_placement_definition const *absolute_placement,
@@ -144,6 +149,19 @@ void hud_draw_numbers(
 	short draw_flags,
 	long flash_reference_time,
 	real override_scale);
+
+/* port: a mark over the world (a waypoint and its distance, a teammate's
+triangle, a player's name) at the point of the screen where its world point
+projects through the view drawn (in the screen's units, not whole): whole is
+the whole units the game places it at, and what is drawn until
+hud_draw_mark_end is moved on by the rest, so that it keeps to its point as
+the world under it moves, not a unit (several pixels) short of it in steps */
+void hud_draw_mark_begin(
+	real x,
+	real y,
+	point2d *whole);
+void hud_draw_mark_end(
+	void);
 
 /* port: the left of the last picture drawn, in the window's units
 (hud_unit.c: the motion sensor's, which the text chat goes above:

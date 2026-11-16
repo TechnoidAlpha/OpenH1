@@ -124,6 +124,7 @@ symbols in this file:
 #include "rasterizer/xbox/rasterizer_xbox_internal.h"
 #include "rasterizer/xbox/rasterizer_xbox_models.h"
 #include "view_fov.h" /* port: port/linux/game/view_fov.c */
+#include "world_ao.h" /* port: port/linux/game/world_ao.c */
 
 /* ---------- constants */
 
@@ -657,7 +658,8 @@ void _rasterizer_model_begin(
 			/* port: the first-person weapon's projection (view_fov.c) */
 			viewmodel_projection_begin();
 			rasterizer_set_frustum_z(
-				rasterizer_globals.first_person_weapon_near_clip_distance,
+				/* port: nearer for a widened or moved weapon (view_fov.c) */
+				viewmodel_near_clip_distance(),
 				rasterizer_globals.first_person_weapon_far_clip_distance);
 		}
 
@@ -713,7 +715,10 @@ void _rasterizer_model_begin(
 				_rasterizer_geometry_atmospheric_fog_but_no_planar_fog_bit) ||
 			camera_plane_distance < 0.0f);
 
-		if (!local_sky_flag &&
+		/* port: (not in display.ambient_occlusion "world"'s pre-pass: the fog
+		screen draws its models again at the window's end, queued by its
+		own draw: render_world_ao_prepass) */
+		if (!local_sky_flag && !render_world_ao_prepass &&
 			rasterizer_environment_fog_screen_model_begin(parameters))
 		{
 			local_environment_fog_screen_flag = TRUE;
@@ -2359,6 +2364,14 @@ void _rasterizer_model_draw(
 					global_d3d_device,
 					D3DRS_CULLMODE,
 					D3DCULL_CCW);
+				/* port: display.ambient_occlusion "world": a two-sided
+				shader's cards (a plant's leaves) take their occlusion about
+				their most open direction, not each card's normal
+				(world_ao.c) */
+				world_ao_cards(
+					TEST_FLAG(
+						shader_model->model.flags,
+						_shader_model_two_sided_bit));
 
 				rasterizer_draw(
 					triangle_buffer,
@@ -2444,6 +2457,7 @@ void _rasterizer_model_draw(
 					}
 				}
 				halo_hdr_draw_kind(HALO_HDR_KIND_NONE); /* port: (drawn) */
+				world_ao_cards(FALSE); /* port: (drawn) */
 			}
 
 			if (local_environment_fog_screen_flag)
@@ -2489,8 +2503,11 @@ struct transparent_geometry_group *_rasterizer_model_transparent_geometry_submit
 	boolean alpha_blended_decal;
 	boolean submit_decals;
 
+	/* port: (nothing queued by display.ambient_occlusion "world"'s
+	pre-pass: the window's own draw queues it, render_world_ao_prepass) */
 	if (rasterizer_debug_options.draw_models &&
-		rasterizer_debug_options.draw_model_transparent_geometry)
+		rasterizer_debug_options.draw_model_transparent_geometry &&
+		!render_world_ao_prepass)
 	{
 		alpha_blended_decal =
 			shader &&

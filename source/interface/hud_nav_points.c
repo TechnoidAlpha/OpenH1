@@ -98,6 +98,7 @@ symbols in this file:
 
 /* ---------- headers */
 
+#include "mcc_hud_draw.h" /* port: port/linux/game/mcc_hud_draw.c */
 #include "cseries/cseries.h"
 #include "cseries/errors.h"
 #include "game_state.h"
@@ -125,11 +126,13 @@ symbols in this file:
 #include "units/units.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "panini.h" /* port: port/linux/game/panini.c */
+#include "network_markers.h" /* port: port/linux/game/network_markers.c */
 #ifdef HALO_VR
 /* port/linux/game/vr_render.c: a waypoint on the screen drawn in the eyes
 over what it marks, not in the HUD's layer */
 boolean vr_render_world_waypoint(real_point3d const *point, boolean on_screen, real x, real y);
 #endif
+#include "mcc_campaign.h" /* port: port/linux/game/mcc_campaign.c */
 
 /* ---------- constants */
 
@@ -225,6 +228,20 @@ static void hud_update_nav_point_local_player(
 /* ---------- globals */
 
 static struct hud_nav_point_player_datum *nav_point_data;
+
+/* port: a ping's nav point (port/linux/game/network_markers.c,
+hud_render_nav_point_colored): drawn in a colour and a fade of its own in
+place of its arrow's, and where it was drawn kept */
+static struct
+{
+	boolean active;
+	boolean drawn;
+	short waypoint_type;
+	real alpha;
+	real half_height;
+	real_rgb_color color;
+	real_point2d position;
+} nav_point_override;
 
 /* ---------- private code */
 
@@ -696,6 +713,7 @@ void custom_render_nav_point(
 	real_point2d screen_position;
 	real a, b, ab, bx, ay;
 	real theta;
+	point2d corner;
 
 	memset(stack_buffer, 0x62, sizeof(stack_buffer));
 	arrow = TAG_BLOCK_GET_ELEMENT(&hud_globals->waypoint.arrows, nav_index, struct hud_waypoint_arrow);
@@ -762,15 +780,19 @@ void custom_render_nav_point(
 	screen_position.y += (render.camera.viewport_bounds.y1 - render.camera.viewport_bounds.y0) / 2;
 	match_assert("c:\\halo\\SOURCE\\interface\\hud_nav_points.c", 615, waypoint_type!=NONE);
 
+	/* port: where its point is, not the whole unit short of it, that it
+	keeps to the world under it (hud_draw_mark_begin) */
+	hud_draw_mark_begin(screen_position.x, screen_position.y, &corner);
 #ifdef HALO_VR
 	/* port: in VR, a waypoint on the screen is drawn in each eye over what it
 	marks, one off it at the HUD's edge as ever (vr_render_world_waypoint) */
 	if (!vr_render_world_waypoint(
 		position_pointer,
 		waypoint_type!=_waypoint_off_screen,
-		(real)(short)(long)screen_position.x,
-		(real)(short)(long)screen_position.y))
+		screen_position.x,
+		screen_position.y))
 	{
+		hud_draw_mark_end();
 		match_assert_stack_frame("c:\\halo\\SOURCE\\interface\\hud_nav_points.c", 675);
 		return;
 	}
@@ -784,26 +806,40 @@ void custom_render_nav_point(
 		hud_retrieve_bitmap_and_bounding_rect(bitmap_index, arrow->sequence_indices[waypoint_type], 0, &bitmap, &clip);
 		if (bitmap && _texture_cache_bitmap_get_hardware_format((struct bitmap_data *)bitmap, FALSE, TRUE))
 		{
-			point2d corner;
 			byte alpha;
 			real_rgb_color rgb_temp;
 
-			corner.x = (short)screen_position.x;
-			corner.y = (short)screen_position.y;
+			scale *= mcc_hud_bitmap_scale(bitmap_index); /* port: preserve MCC waypoint bitmap scaling. */
 			alpha = PIN(255 * fast_ftol_C(arrow->opacity), 0, 255);
 			pixel32_to_real_rgb_color(arrow->color, &rgb_temp);
 			rgb_temp.red *= PIN(1.f - arrow->fade, 0.f, 1.f);
 			rgb_temp.green *= PIN(1.f - arrow->fade, 0.f, 1.f);
 			rgb_temp.blue *= PIN(1.f - arrow->fade, 0.f, 1.f);
+			/* port: a ping's colour and fade (hud_render_nav_point_colored),
+			and where it is drawn */
+			if (nav_point_override.active)
+			{
+				alpha = (byte)PIN((long)(255.f * nav_point_override.alpha + 0.5f), 0, 255);
+				rgb_temp = nav_point_override.color;
+				nav_point_override.drawn = TRUE;
+				nav_point_override.waypoint_type = waypoint_type;
+				nav_point_override.position = screen_position;
+				nav_point_override.half_height = bitmap->height * (clip->y1 - clip->y0) / 2.f * scale;
+			}
 			hud_draw_bitmap_direct(bitmap, _hud_anchor_center, &corner, clip, scale, theta, ((pixel32)alpha << 24) | real_rgb_color_to_pixel32(&rgb_temp), FALSE);
 
 			if (waypoint_type != _waypoint_off_screen)
 			{
 				struct hud_absolute_placement_definition placement;
 				struct number_hud_element_definition numbers;
-				real fractional_value;
+				long tenths;
 
-				distance *= 3.048f;
+				/* port: in meters to the nearest tenth, the whole meters and
+				the tenth both of it: the whole meters were rounded to the
+				nearest and the tenth cut short, so that 108.6 m showed as
+				109.6 and the number jumped a meter and a tenth at each
+				half meter */
+				tenths = (long)floor(distance * 3.048f * 10.0f + 0.5f);
 				memset(&placement, 0, sizeof(struct hud_absolute_placement_definition));
 				memset(&numbers, 0, sizeof(struct number_hud_element_definition));
 				placement.corner = _hud_anchor_top_left;
@@ -818,13 +854,13 @@ void custom_render_nav_point(
 				numbers.placement.offset.x -= render.camera.window_bounds.x0 - render.camera.viewport_bounds.x0;
 				numbers.placement.offset.y -= render.camera.window_bounds.y0 - render.camera.viewport_bounds.y0;
 
-				fractional_value = power(10.f, 4.f);
 				hud_draw_numbers(local_player_index, &placement, &numbers,
-					fast_ftol_C(distance), fast_ftol(fmod(fabs((real)(fractional_value * distance)), fractional_value)),
+					(short)MIN(tenths / 10, SHORT_MAX), (short)(tenths % 10 * 1000),
 					0, 0, 0.f);
 			}
 		}
 	}
+	hud_draw_mark_end();
 
 	{
 		short corrupt_index = check_stack_buffer(stack_buffer);
@@ -833,6 +869,68 @@ void custom_render_nav_point(
 	}
 
 	return;
+}
+
+/* port: an arrow by its name (NULL: the first), NONE (and nothing logged)
+for none */
+short hud_find_nav_point_quietly(
+	char const *name)
+{
+	short index;
+
+	if (!hud_globals)
+		return NONE;
+	if (!name)
+		return hud_globals->waypoint.arrows.count>0 ? 0 : NONE;
+	for (index = 0; index<hud_globals->waypoint.arrows.count; index++)
+	{
+		struct hud_waypoint_arrow *arrow = TAG_BLOCK_GET_ELEMENT(
+			&hud_globals->waypoint.arrows, index, struct hud_waypoint_arrow);
+
+		if (!_stricmp(name, arrow->name))
+			return index;
+	}
+
+	return NONE;
+}
+
+/* port: a ping's nav point (port/linux/game/network_markers.c), drawn as
+custom_render_nav_point draws one, in its colour and faded to its alpha:
+TRUE if it was drawn on this view's HUD, with its place in the viewport,
+its arrow's half height and its kind (off the screen, at the edge) */
+boolean hud_render_nav_point_colored(
+	short local_player_index,
+	real_point3d const *position,
+	short nav_index,
+	short waypoint_type,
+	real_rgb_color const *color,
+	real alpha,
+	real_point2d *drawn_position,
+	real *half_height,
+	short *drawn_type)
+{
+	boolean drawn;
+
+	if (!hud_globals || nav_index<0 || nav_index>=hud_globals->waypoint.arrows.count ||
+		hud_globals->waypoint.arrow_bitmap.index==NONE)
+	{
+		return FALSE;
+	}
+	nav_point_override.active = TRUE;
+	nav_point_override.drawn = FALSE;
+	nav_point_override.color = *color;
+	nav_point_override.alpha = alpha;
+	custom_render_nav_point(local_player_index, position, nav_index, waypoint_type);
+	nav_point_override.active = FALSE;
+	drawn = nav_point_override.drawn;
+	if (drawn)
+	{
+		*drawn_position = nav_point_override.position;
+		*half_height = nav_point_override.half_height;
+		*drawn_type = nav_point_override.waypoint_type;
+	}
+
+	return drawn;
 }
 
 void hud_render_nav_points(
@@ -936,7 +1034,11 @@ void hud_render_nav_points(
 		}
 	}
 
+	/* port: the players' pings (port/linux/game/network_markers.c) */
+	network_markers_render(local_player_index);
 	game_engine_render_nav_points(local_player_index);
+	/* port: MCC campaign markers have separate state (mcc_campaign.c) */
+	mcc_campaign_render(local_player_index);
 
 	return;
 }

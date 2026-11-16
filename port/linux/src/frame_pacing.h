@@ -207,6 +207,26 @@ static FRAME_PACING_UNUSED uint64_t frame_pacing_start_time(uint64_t latch, uint
 	return target > budget ? target - budget : 0;
 }
 
+/* a display that takes no frames while its window is hidden (a Mac's on
+another desktop, covered or minimized: its link calls seldom or not at all,
+and nothing it presents reaches the screen) is stood in for by the host's own
+refreshes on the grid of its last ones, so that the game goes on at the
+display's pace and phase, and the display's first refresh back finds the
+frame started for it: the latch after last (its period on) nearest the time
+a take now (margin before its latch) is for, the ones passed skipped as a
+display skips them. now and last on one clock; 0: no grid yet */
+static FRAME_PACING_UNUSED uint64_t frame_pacing_next_latch(uint64_t last, uint64_t period, uint64_t now,
+	uint64_t margin)
+{
+	uint64_t steps = 1;
+
+	if (!last || !period)
+		return 0;
+	if (now + margin > last + period)
+		steps = (now + margin - last + period / 2) / period;
+	return last + steps * period;
+}
+
 /* the refreshes each frame is shown for, at a display's refresh rate (frames
 a second; 0 or less: unknown, taken as 60): the fewest that bring the frames
 a second to most or below, but not so many that they fall below least; 1

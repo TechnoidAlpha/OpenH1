@@ -76,6 +76,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "effects/particle_systems.h"
+#include "mcc_particles.h" /* port: port/linux/game/mcc_particles.c */
 #include "effects/particle_system_definitions.h"
 
 #include "bitmaps/bitmap_group.h"
@@ -90,6 +91,7 @@ symbols in this file:
 #include "saved games/game_state.h"
 #include "scenario/scenario.h"
 #include "tag_files/tag_files.h"
+#include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
 
 /* ---------- constants */
 
@@ -550,6 +552,12 @@ static boolean particle_system_initialize(
 	struct particle_system_definition *definition = particle_system_definition_get(system->definition_index);
 	boolean success = TRUE;
 	short type_index;
+	/* port: at game.sim_rate 60 and 120 the frames' seed in a tick too
+	(random_math_port_begin_cosmetic, as particles.c's particle_new): a
+	particle system is only seen, and its first particles are as many as the
+	frames left room for. At 30 the tick's, as the original's */
+	boolean cosmetic = sim_rate_get() > TICKS_PER_SECOND;
+	boolean ticking = cosmetic ? random_math_port_begin_cosmetic() : FALSE;
 
 	scenario_location_from_point(&system->location, &system->position);
 	SET_FLAG(system->flags, _particle_system_initializing_bit, TRUE);
@@ -605,6 +613,8 @@ static boolean particle_system_initialize(
 	{
 		particle_system_update(0.001f, system_index);
 	}
+	if (cosmetic) /* port: (above) */
+		random_math_port_end_cosmetic(ticking);
 
 	return success;
 }
@@ -717,6 +727,9 @@ static void particle_system_new_particles(
 					struct object_attachment_definition)->marker_name,
 				markers,
 				NUMBEROF(markers));
+			/* port: MCC first-person streams use their authored viewmodel marker. */
+			marker_count = mcc_particle_system_markers(system->object_index,
+				system->attachment_index, type_definition->flags, markers, NUMBEROF(markers), marker_count);
 			object_get_location(system->object_index, &system->location);
 		}
 		else
@@ -1440,6 +1453,10 @@ static void particle_system_render(
 			struct particle_system_type);
 		struct particle_type *type = &system->types[type_index];
 
+		/* port: MCC view exclusions are evaluated separately for each split-screen view. */
+		if (!mcc_particle_system_visible(system->object_index, type_definition->flags, render.local_player_index))
+			continue;
+
 		if (type->state_index != NONE &&
 			!TEST_FLAG(type_definition->flags, _particle_system_type_disabled_bit))
 		{
@@ -1593,6 +1610,7 @@ static void particle_system_render(
 							lit_color.blue *= system->lighting.blue;
 						}
 
+						render_marks_next(RENDER_MARK_PARTICLE, state_definition->bitmaps.index); /* port: debug.render_marks */
 						build_sprites_begin(
 							&sprite_data,
 							2,
@@ -1653,6 +1671,7 @@ static void particle_system_render(
 							lit_color.blue *= system->lighting.blue;
 						}
 
+						render_marks_next(RENDER_MARK_PARTICLE, transition_state_definition->bitmaps.index); /* port: debug.render_marks */
 						build_sprites_begin(
 							&sprite_data,
 							2,

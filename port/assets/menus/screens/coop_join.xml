@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Co-op's JOIN (docs/menu_screens.md, "Co-op"): one list of co-op games,
+the player's friends' first (under their own heading), then the
+public ones, each its host, mission, difficulty, players and ping. It is
+the server browser's model (the row source browser.games and the browser.*
+bindings and actions, on its co-op list while this screen is open:
+menu_functions.c's coop_menu.inc): its listings, pings, joining, password
+screen and connecting box; none of its filters, searches or tabs hide a
+game here. With none, the list says why in plain words, with the button
+that fixes it (TURN ON INTERNET PLAY, RETRY, HOST CO-OP...). JOIN BY LINK
+opens Join by Link, which joins an invite link copied at once. -->
+<screen name="coop_join">
+	<header title="{browser.title}" detail="{browser.counts}"/>
+	<table source="browser.games" do="browser join" empty="{browser.empty}">
+		<column id="host" label="HOST" kind="strong" width="96" grow="52" touch="32 7 220 0 144"/>
+		<column id="mission" label="MISSION" width="96" grow="48" touch="32 30 120 0 72"/>
+		<column id="difficulty" label="DIFFICULTY" width="82" grow="24" touch="158 30 100 72 72"/>
+		<column id="players" label="PLAYERS" width="54" gap="2" align="right" touch="272 7 80 144 0"/>
+		<column id="ping" label="PING" kind="ping" width="52" align="right" touch="272 30 80 144 0"/>
+		<button key="accept" label="{browser.fix}" if="browser.fix" do="coop fix"/>
+	</table>
+	<panel>
+		<heading text="{browser.panel.title}" lines="2"/>
+		<text text="{browser.panel.where}" lines="2"/>
+		<pair label="PLAYERS" value="{browser.panel.players}" when="pointer"/>
+		<pair label="PING" value="{browser.panel.ping}" when="pointer"/>
+		<text text="{browser.panel.status}" lines="3" touch-lines="4"/>
+		<button key="accept" label="JOIN" if="browser.joinable" do="browser join"/>
+	</panel>
+	<buttons>
+		<button key="back" label="BACK" width="88"/>
+		<button key="y" label="JOIN BY LINK" width="124" do="coop join link"/>
+		<button key="rt" label="REFRESH" width="102" do="browser refresh"/>
+	</buttons>
+</screen>

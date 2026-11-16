@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.host_controls.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/host_controls/host_controls_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/host_controls/header_host_controls" x="0" y="0"/>
+		<at widget="main_menu/host_controls/host_counts" x="0" y="0"/>
+		<at widget="main_menu/settings/tab_prompt_previous" x="24" y="76"/>
+		<at widget="main_menu/settings/tab_prompt_next" x="586" y="76"/>
+		<at widget="main_menu/host_controls/header_label" x="0" y="0"/>
+		<at widget="main_menu/host_controls/header_team" x="0" y="0"/>
+		<at widget="main_menu/host_controls/header_score" x="0" y="0"/>
+		<at widget="main_menu/host_controls/header_ping" x="0" y="0"/>
+		<at widget="main_menu/host_controls/header_value" x="0" y="0"/>
+		<at widget="main_menu/host_controls/host_columns_line" x="0" y="0"/>
+		<at widget="main_menu/host_controls/host_empty" x="0" y="0"/>
+		<at widget="main_menu/host_controls/host_list" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/header_label" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/header_team" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/header_score" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/header_ping" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/header_value" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/host_empty" x="0" y="0"/>
+		<at widget="main_menu/host_controls/touch/host_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/header_host_controls" box="35 11 398 70" wide="-106 0" picture="main_menu/host_controls/header_host_controls"/>
+	<look name="main_menu/host_controls/host_counts" type="text" box="404 46 612 64" wide="106 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/header_label" type="text" box="34 104 184 120" wide="-106 84">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/header_team" type="text" box="188 104 254 120" wide="-22 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/header_score" type="text" box="258 104 308 120" wide="-2 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/header_ping" type="text" box="312 104 356 120" wide="18 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/header_value" type="text" box="218 104 426 120" wide="-106 144">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_columns_line" box="28 118 432 122" wide="-106 144" picture="main_menu/parts/line_404"/>
+	<look name="main_menu/host_controls/host_empty" type="text" box="52 200 408 280" wide="-106 144">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_list" type="column_list">
+		<at widget="main_menu/host_controls/host_tabs" x="0" y="76"/>
+		<at widget="main_menu/host_controls/host_item_1" x="28" y="124"/>
+		<at widget="main_menu/host_controls/host_item_2" x="28" y="143"/>
+		<at widget="main_menu/host_controls/host_item_3" x="28" y="162"/>
+		<at widget="main_menu/host_controls/host_item_4" x="28" y="181"/>
+		<at widget="main_menu/host_controls/host_item_5" x="28" y="200"/>
+		<at widget="main_menu/host_controls/host_item_6" x="28" y="219"/>
+		<at widget="main_menu/host_controls/host_item_7" x="28" y="238"/>
+		<at widget="main_menu/host_controls/host_item_8" x="28" y="257"/>
+		<at widget="main_menu/host_controls/host_item_9" x="28" y="276"/>
+		<at widget="main_menu/host_controls/host_item_10" x="28" y="295"/>
+		<at widget="main_menu/host_controls/host_item_11" x="28" y="314"/>
+		<at widget="main_menu/host_controls/host_item_12" x="28" y="333"/>
+		<at widget="main_menu/host_controls/host_item_13" x="28" y="352"/>
+		<at widget="main_menu/host_controls/host_item_14" x="28" y="371"/>
+		<at widget="main_menu/host_controls/host_action_0" x="452" y="282"/>
+		<at widget="main_menu/host_controls/host_action_1" x="452" y="310"/>
+		<at widget="main_menu/host_controls/host_action_2" x="452" y="338"/>
+		<at widget="main_menu/host_controls/host_action_3" x="452" y="366"/>
+		<at widget="main_menu/host_controls/host_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/host_controls/host_tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/host_controls/tab_players" x="56" y="0"/>
+		<at widget="main_menu/host_controls/tab_game" x="144" y="0"/>
+		<at widget="main_menu/host_controls/tab_maps" x="232" y="0"/>
+		<at widget="main_menu/host_controls/tab_playlist" x="320" y="0"/>
+		<at widget="main_menu/host_controls/tab_bans" x="408" y="0"/>
+		<at widget="main_menu/host_controls/tab_bots" x="496" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/tab_players" type="text" box="0 0 86 22" wide="-106 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="PLAYERS"/>
+	</look>
+	<look name="main_menu/host_controls/tab_game" type="text" box="0 0 86 22" wide="-64 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="GAME"/>
+	</look>
+	<look name="main_menu/host_controls/tab_maps" type="text" box="0 0 86 22" wide="-21 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="MAPS"/>
+	</look>
+	<look name="main_menu/host_controls/tab_playlist" type="text" box="0 0 86 22" wide="21 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="PLAYLIST"/>
+	</look>
+	<look name="main_menu/host_controls/tab_bans" type="text" box="0 0 86 22" wide="64 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="BANS"/>
+	</look>
+	<look name="main_menu/host_controls/tab_bots" type="text" box="0 0 86 22" wide="106 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="BOTS"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_1" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_2" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_3" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_4" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_5" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_6" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_7" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_8" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_9" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_10" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_11" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_12" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_13" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_14" box="0 0 404 19" wide="-106 144" picture="main_menu/parts/row_404x19">
+		<at widget="main_menu/host_controls/host_item_label" x="6" y="0"/>
+		<at widget="main_menu/host_controls/host_item_team" x="160" y="0"/>
+		<at widget="main_menu/host_controls/host_item_score" x="230" y="0"/>
+		<at widget="main_menu/host_controls/host_item_ping" x="284" y="0"/>
+		<at widget="main_menu/host_controls/host_item_tag" x="336" y="1"/>
+		<at widget="main_menu/host_controls/host_item_value" x="190" y="0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_label" type="text" box="0 0 150 19" wide="0 84">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 0"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_team" type="text" box="0 0 66 19" wide="84 20">
+		<text font="ui\small_ui" color="#FFC9DCF7" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_score" type="text" box="0 0 50 19" wide="104 20">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_ping" type="text" box="0 0 44 19" wide="124 20">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_tag" type="text" box="0 0 64 16" wide="144 0" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_item_value" type="text" box="0 0 208 19" wide="0 144">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/panel_title" type="text" box="0 0 148 48" wide="0 68">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/panel_where" type="text" box="0 0 148 44" wide="0 68">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/panel_status" type="text" box="0 0 148 160" wide="0 68">
+		<text font="ui\small_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/host_controls/host_panel" box="440 104 612 400" wide="38 68" picture="main_menu/parts/panel_172x296">
+		<at widget="main_menu/host_controls/panel_title" x="452" y="116"/>
+		<at widget="main_menu/host_controls/panel_where" x="452" y="164"/>
+		<at widget="main_menu/host_controls/panel_status" x="452" y="210"/>
+	</look>
+	<look name="main_menu/host_controls/host_action_0" type="text" box="0 0 148 24" wide="38 68" picture="main_menu/parts/button_148x24">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="12 3"/>
+	</look>
+	<look name="main_menu/host_controls/host_action_1" type="text" box="0 0 148 24" wide="38 68" picture="main_menu/parts/button_148x24">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="12 3"/>
+	</look>
+	<look name="main_menu/host_controls/host_action_2" type="text" box="0 0 148 24" wide="38 68" picture="main_menu/parts/button_148x24">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="12 3"/>
+	</look>
+	<look name="main_menu/host_controls/host_action_3" type="text" box="0 0 148 24" wide="38 68" picture="main_menu/parts/button_148x24">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="12 3"/>
+	</look>
+	<look name="main_menu/host_controls/host_prompts" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/host_controls/prompt_back" x="516" y="1"/>
+	</look>
+	<look name="main_menu/host_controls/prompt_back" type="text" box="0 0 96 24" wide="106 0" picture="main_menu/parts/item_96x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%b-button BACK"/>
+	</look>
+</model>

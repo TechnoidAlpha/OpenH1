@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.ctf_edit.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_kills_score"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_score" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_score_spinner" x="320" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_spinner" type="spinner" box="2 2 150 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="150 7 156 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_kills_per_capture"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/op_kills_per_capture" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/kills_per_capture_spinner" x="320" y="1"/>
+	</look>
+</model>

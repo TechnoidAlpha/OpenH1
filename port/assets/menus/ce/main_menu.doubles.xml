@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
+<menus>
+	<widget name="main_menu/main_menu_item_doubles" type="text" width="256" height="33" bitmap="main_menu/menu_doubles" source="tools/port_settings.py multiplayer_files/_doubles">
+		<on event="a" open="main_menu/doubles/doubles_screen"/>
+		<on event="start" open="main_menu/doubles/doubles_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/header_doubles" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/doubles/header_doubles" source="tools/port_settings.py multiplayer_files/_doubles/_header">
+	</widget>
+	<widget name="main_menu/doubles/doubles_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+		<on event="x" run="port matchmaking x"/>
+		<child widget="main_menu/doubles/header_doubles"/>
+		<child widget="main_menu/doubles/section_matchmaking" x="28" y="80"/>
+		<child widget="main_menu/doubles/matchmaking_panel"/>
+		<child widget="main_menu/doubles/doubles_list"/>
+	</widget>
+	<widget name="main_menu/doubles/section_matchmaking" type="text" width="280" height="20" wide="-106 80" bitmap="main_menu/parts/section_280" text="2 AGAINST 2" font="ui\small_ui" color="#FF6F9CD0" text_x="4" source="tools/port_settings.py _doubles/_matchmaking_screen/_section">
+	</widget>
+	<widget name="main_menu/doubles/doubles_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+		<data input="port matchmaking update"/>
+		<child widget="main_menu/doubles/mm_row_0" x="28" y="102"/>
+		<child widget="main_menu/doubles/mm_row_1" x="28" y="130"/>
+		<child widget="main_menu/doubles/matchmaking_prompts" y="414"/>
+	</widget>
+	<widget name="main_menu/doubles/mm_row_0" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+		<on event="a" run="port matchmaking button"/>
+		<on event="start" run="port matchmaking button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/mm_note_0"/>
+	</widget>
+	<widget name="main_menu/doubles/mm_note_0" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+	</widget>
+	<widget name="main_menu/doubles/mm_row_1" type="text" width="280" height="26" wide="-106 80" bitmap="main_menu/parts/item_280x26" font="ui\large_ui" color="#FF2896FF" text_x="10" text_y="2" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+		<on event="a" run="port matchmaking button"/>
+		<on event="start" run="port matchmaking button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/mm_note_1"/>
+	</widget>
+	<widget name="main_menu/doubles/mm_note_1" type="text" width="264" height="26" wide="0 80" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="4" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+	</widget>
+	<widget name="main_menu/doubles/panel_title" type="text" controller="1" left="330" top="94" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _matchmaking_screen/text/_part_text">
+	</widget>
+	<widget name="main_menu/doubles/panel_about" type="text" controller="1" left="330" top="120" width="268" height="36" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _matchmaking_screen/text/_part_text">
+	</widget>
+	<widget name="main_menu/doubles/panel_status_label" type="text" controller="1" left="330" top="164" width="268" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="0 132" text="SEARCH" text_flags="no_focus_test" source="tools/port_settings.py _doubles/_matchmaking_screen/text">
+	</widget>
+	<widget name="main_menu/doubles/panel_status" type="text" controller="1" left="330" top="180" width="268" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _matchmaking_screen/text/_part_text">
+	</widget>
+	<widget name="main_menu/doubles/panel_detail" type="text" controller="1" left="330" top="206" width="268" height="84" font="ui\small_ui" color="#FF2896FF" wide="0 132" text_flags="no_focus_test" source="tools/port_settings.py _matchmaking_screen/text/_part_text">
+	</widget>
+	<widget name="main_menu/doubles/panel_help" type="text" controller="1" left="330" top="310" width="268" height="78" font="ui\small_ui" color="#FF2896FF" wide="0 132" text="Pro settings on the 2v2 maps, 120 ticks. Classic: Instant Aim off, lead your shots. Crispy: Instant Aim on. Each lists only its own games." text_flags="no_focus_test wrap" source="tools/port_settings.py _doubles/_matchmaking_screen/text">
+	</widget>
+	<widget name="main_menu/doubles/matchmaking_panel" controller="1" left="316" top="80" width="296" height="320" bitmap="main_menu/parts/panel_296x320" wide="-26 132" source="tools/port_settings.py multiplayer_files/_doubles/_matchmaking_screen">
+		<child widget="main_menu/doubles/panel_title"/>
+		<child widget="main_menu/doubles/panel_about"/>
+		<child widget="main_menu/doubles/panel_status_label"/>
+		<child widget="main_menu/doubles/panel_status"/>
+		<child widget="main_menu/doubles/panel_detail"/>
+		<child widget="main_menu/doubles/panel_help"/>
+	</widget>
+	<widget name="main_menu/doubles/matchmaking_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py _doubles/_matchmaking_screen/_prompts">
+		<child widget="main_menu/doubles/prompt_search" x="28" y="1"/>
+		<child widget="main_menu/doubles/prompt_cancel" x="28" y="1"/>
+		<child widget="main_menu/doubles/prompt_back" x="516" y="1"/>
+	</widget>
+	<widget name="main_menu/doubles/prompt_search" type="text" width="124" height="24" wide="-106 0" bitmap="main_menu/parts/item_124x24" text="%a-button CHOOSE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_matchmaking_screen/_prompts">
+		<on event="a" run="port matchmaking button"/>
+		<on event="start" run="port matchmaking button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/prompt_cancel" type="text" width="124" height="24" wide="-106 0" bitmap="main_menu/parts/item_124x24" text="%x-button CANCEL" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_matchmaking_screen/_prompts">
+		<on event="a" run="port matchmaking button"/>
+		<on event="start" run="port matchmaking button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/prompt_back" type="text" width="96" height="24" wide="106 0" bitmap="main_menu/parts/item_96x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_matchmaking_screen/_prompts">
+		<on event="a" run="port matchmaking button"/>
+		<on event="start" run="port matchmaking button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_browser_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="created" run="port doubles init"/>
+		<on event="deleted" run="port doubles dispose"/>
+		<on event="b" run="gamespy back handler"/>
+		<on event="back" run="gamespy back handler"/>
+		<on event="x" run="port doubles x"/>
+		<on event="right_trigger" run="port browser refresh"/>
+		<on event="right_thumb" run="port browser search next"/>
+		<child widget="main_menu/doubles/browser/header_doubles_browser"/>
+		<child widget="main_menu/doubles/browser/doubles_kind"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/browser_counts"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/browser_columns_line"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/browser_empty"/>
+		<child widget="main_menu/doubles/browser/doubles_browser_list"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/header_doubles_browser" controller="1" left="35" top="11" width="363" height="59" bitmap="main_menu/doubles/header_doubles" source="tools/port_settings.py _doubles_browser/_browser_title/_header">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_kind" type="text" controller="1" left="32" top="78" width="404" height="20" font="ui\large_ui" color="#FFFFFFFF" wide="-106 144" text_flags="no_focus_test" source="tools/port_settings.py _doubles/_doubles_browser/_part_text">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_browser_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/doubles/browser/doubles_panel" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<data input="port doubles update"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/join_game_header" y="104"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_1" x="28" y="124"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_2" x="28" y="143"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_3" x="28" y="162"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_4" x="28" y="181"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_5" x="28" y="200"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_6" x="28" y="219"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_7" x="28" y="238"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_8" x="28" y="257"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_9" x="28" y="276"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_10" x="28" y="295"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_11" x="28" y="314"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/server_item_12" x="28" y="333"/>
+		<child widget="main_menu/doubles/browser/doubles_actions" y="360"/>
+		<child widget="main_menu/doubles/browser/doubles_friend_1" x="452" y="270"/>
+		<child widget="main_menu/doubles/browser/doubles_friend_2" x="452" y="290"/>
+		<child widget="main_menu/doubles/browser/doubles_friend_3" x="452" y="310"/>
+		<child widget="main_menu/doubles/browser/doubles_friend_4" x="452" y="330"/>
+		<child widget="main_menu/doubles/browser/doubles_friend_5" x="452" y="350"/>
+		<child widget="main_menu/doubles/browser/doubles_friend_6" x="452" y="370"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/browser_clear_bar" y="288"/>
+		<child widget="main_menu/doubles/browser/doubles_prompts" y="414"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_actions" type="column_list" width="640" height="24" flags="pass_unhandled_to_focused_child left_right_tabs_children" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<child widget="main_menu/doubles/browser/button_doubles_host" x="28"/>
+		<child widget="main_menu/doubles/browser/button_doubles_find" x="184"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/button_doubles_host" type="text" width="148" height="24" bitmap="main_menu/parts/button_set_148x24" wide="-106 0" text="HOST GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles host"/>
+		<on event="start" run="port doubles host"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/button_doubles_find" type="text" width="148" height="24" bitmap="main_menu/parts/button_set_148x24" wide="-106 0" text="FIND GAME" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="3" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles find"/>
+		<on event="start" run="port doubles find"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friend_1" type="text" width="148" height="18" wide="38 68" bitmap="main_menu/parts/item_148x18" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="0" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles friend"/>
+		<on event="start" run="port doubles friend"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/browser/df_note_1"/>
+		<child widget="main_menu/doubles/browser/df_live_1"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/df_note_1" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/df_live_1" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friend_2" type="text" width="148" height="18" wide="38 68" bitmap="main_menu/parts/item_148x18" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="0" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles friend"/>
+		<on event="start" run="port doubles friend"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/browser/df_note_2"/>
+		<child widget="main_menu/doubles/browser/df_live_2"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/df_note_2" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/df_live_2" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friend_3" type="text" width="148" height="18" wide="38 68" bitmap="main_menu/parts/item_148x18" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="0" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles friend"/>
+		<on event="start" run="port doubles friend"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/browser/df_note_3"/>
+		<child widget="main_menu/doubles/browser/df_live_3"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/df_note_3" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/df_live_3" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friend_4" type="text" width="148" height="18" wide="38 68" bitmap="main_menu/parts/item_148x18" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="0" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles friend"/>
+		<on event="start" run="port doubles friend"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/browser/df_note_4"/>
+		<child widget="main_menu/doubles/browser/df_live_4"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/df_note_4" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/df_live_4" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friend_5" type="text" width="148" height="18" wide="38 68" bitmap="main_menu/parts/item_148x18" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="0" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles friend"/>
+		<on event="start" run="port doubles friend"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/browser/df_note_5"/>
+		<child widget="main_menu/doubles/browser/df_live_5"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/df_note_5" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/df_live_5" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friend_6" type="text" width="148" height="18" wide="38 68" bitmap="main_menu/parts/item_148x18" font="ui\small_ui" color="#FFFFFFFF" text_x="4" text_y="0" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<on event="a" run="port doubles friend"/>
+		<on event="start" run="port doubles friend"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/doubles/browser/df_note_6"/>
+		<child widget="main_menu/doubles/browser/df_live_6"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/df_note_6" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF7FB2FF" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/df_live_6" type="text" width="142" height="18" wide="0 68" font="ui\small_ui" color="#FF5ED38C" align="right" text_y="0" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friends_title" type="text" controller="1" width="148" height="18" text="FRIENDS ONLINE" font="ui\small_ui" color="#FF6F9CD0" text_x="4" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_friends_empty" type="text" controller="1" width="148" height="40" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py _doubles/_doubles_browser/_part_text">
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_panel" controller="1" left="440" top="104" width="172" height="296" bitmap="main_menu/parts/panel_172x296" wide="38 68" source="tools/port_settings.py multiplayer_files/_doubles/_doubles_browser">
+		<child widget="main_menu/multiplayer_type_select/join_game/panel_title" x="452" y="114"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/panel_where" x="452" y="144"/>
+		<child widget="main_menu/multiplayer_type_select/join_game/panel_status" x="452" y="184"/>
+		<child widget="main_menu/doubles/browser/doubles_friends_title" x="452" y="250"/>
+		<child widget="main_menu/doubles/browser/doubles_friends_empty" x="452" y="270"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/doubles_prompts" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<child widget="main_menu/doubles/browser/prompt_refresh" x="24" y="1"/>
+		<child widget="main_menu/doubles/browser/prompt_join" x="24" y="1"/>
+		<child widget="main_menu/doubles/browser/prompt_invite" x="24" y="1"/>
+		<child widget="main_menu/doubles/browser/prompt_search" x="238" y="1"/>
+		<child widget="main_menu/doubles/browser/prompt_sort" x="335" y="1"/>
+		<child widget="main_menu/doubles/browser/prompt_invite_x" x="329" y="1"/>
+		<child widget="main_menu/doubles/browser/prompt_back" x="526" y="1"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_refresh" type="text" width="105" height="24" wide="-106 70" bitmap="main_menu/parts/item_105x24" text="%right-trigger REFRESH" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="port browser refresh"/>
+		<on event="start" run="port browser refresh"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_join" type="text" width="102" height="24" wide="-106 0" bitmap="main_menu/parts/item_102x24" text="%a-button JOIN" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="port doubles join"/>
+		<on event="start" run="port doubles join"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_invite" type="text" width="108" height="24" wide="-106 0" bitmap="main_menu/parts/item_108x24" text="%a-button INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="port doubles invite"/>
+		<on event="start" run="port doubles invite"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_search" type="text" width="99" height="24" wide="-143 63" bitmap="main_menu/parts/item_99x24" text="%right-thumb SEARCH" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="port browser search next"/>
+		<on event="start" run="port browser search next"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_sort" type="text" width="92" height="24" wide="203 0" bitmap="main_menu/parts/item_92x24" text="%x-button SORT" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="port browser sort"/>
+		<on event="start" run="port browser sort"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_invite_x" type="text" width="98" height="24" wide="109 0" bitmap="main_menu/parts/item_98x24" text="%x-button INVITE" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="port doubles invite"/>
+		<on event="start" run="port doubles invite"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+	<widget name="main_menu/doubles/browser/prompt_back" type="text" width="90" height="24" wide="106 0" bitmap="main_menu/parts/item_90x24" text="%b-button BACK" font="ui\small_ui" color="#FFCFE3FF" text_x="8" text_y="3" source="tools/port_settings.py _doubles/_doubles_browser/_prompts">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</widget>
+</menus>

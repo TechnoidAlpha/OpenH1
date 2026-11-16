@@ -34,15 +34,20 @@ faults, so the renderer's device installs it again, chained to that one.
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define WATCH_PAGE_SIZE 0x1000UL
+/* The pages watched are the kernel's (sysconf: 4 KB, or 16 KB or 64 KB on
+some ARM kernels), which protection works in; the arrays have room for the
+smallest, 4 KB. */
+#define WATCH_UNIT 0x1000UL
+static unsigned long watch_page_size = WATCH_UNIT;
+#define WATCH_PAGE_SIZE watch_page_size
 #define WATCH_PAGE_COUNT (PLATFORM_CONTIGUOUS_SIZE / WATCH_PAGE_SIZE)
 
 /* (each page: 0 not watched, 1 watched and read-only, 2 made writable by a
 watched write. A fault on a page at 2 is a write another thread made as
 this one was making the page writable, and is made again; one on a page at
 0, freed memory or none of the watch's, is a crash) */
-static unsigned char page_protected[WATCH_PAGE_COUNT];
-static unsigned long page_generation[WATCH_PAGE_COUNT];
+static unsigned char page_protected[PLATFORM_CONTIGUOUS_SIZE / WATCH_UNIT];
+static unsigned long page_generation[PLATFORM_CONTIGUOUS_SIZE / WATCH_UNIT];
 static volatile unsigned long current_generation = 1;
 static BOOL watch_active = FALSE;
 
@@ -282,7 +287,17 @@ went unreported */
 __attribute__((constructor))
 static void memory_watch_install(void)
 {
+	long size = sysconf(_SC_PAGESIZE);
+
+	/* (before any page is watched) */
+	if (size > (long)WATCH_UNIT && !(size & (size - 1)) && (unsigned long)size <= PLATFORM_CONTIGUOUS_SIZE)
+		watch_page_size = (unsigned long)size;
 	memory_watch_initialize();
+}
+
+unsigned long memory_watch_page_size(void)
+{
+	return watch_page_size;
 }
 
 void memory_watch_protect(unsigned long address, unsigned long size)

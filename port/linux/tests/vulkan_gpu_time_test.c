@@ -15,6 +15,11 @@ void host_render_stream_display_paced(int paced)
 	(void)paced;
 }
 
+void host_render_stream_frames_ahead(int frames)
+{
+	(void)frames;
+}
+
 void host_render_stream_frames_taken_reset(void)
 {
 }
@@ -55,6 +60,9 @@ static unsigned creates, resets, writes, reads;
 static int available = 1;
 static VkResult create_result = VK_SUCCESS;
 static VkResult read_result = VK_SUCCESS;
+
+/* (debug.pass_times: never) */
+int host_pass_times;
 
 void host_logf(int priority, const char *format, ...)
 {

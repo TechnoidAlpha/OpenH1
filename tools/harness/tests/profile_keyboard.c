@@ -18,6 +18,11 @@ static BOOL text_typing, text_typing_enter_armed, text_typing_keyboard, text_typ
 /* whether a server browser is shown (xinput_sdl.c's halo_keyboard_browser_keys): not, but in browser-keys */
 static int browser_shown;
 static int halo_keyboard_browser_keys_active(void) { return browser_shown; }
+/* (a Settings screen of the menu engine's: none, its search's keys not: xinput_sdl.c's halo_keyboard_settings_keys) */
+static BOOL settings_keys_search;
+static int halo_keyboard_settings_keys_active(void) { return 0; }
+/* (the port's title and caption, virtual_keyboard_port_launch's: none here) */
+wchar_t const *virtual_keyboard_port_title, *virtual_keyboard_port_caption;
 static struct { boolean active, shift_active, caps_active, symbols_active;
     void *keyboard; short row, column; word buffer_size; short last_event, last_key,
     number_of_event_repeats, caption_index; boolean last_exit_saved_text, first_key_replaces_buffer;

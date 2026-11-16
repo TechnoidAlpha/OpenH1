@@ -15,16 +15,51 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, ROOT, build, enum_with, function, mutated, read, run, structure  # noqa: E402
 
-CASES = ["tabs", "empty", "ellipsis", "ping", "filters"]
+CASES = ["tabs", "groups", "sort", "empty", "ellipsis", "ping", "filters", "tick", "game_type", "search", "doubles",
+         "view"]
 
 NEGATIVE_CONTROLS = {
+    "doubles-by-tab": (("\tif (browser_doubles_playlist != NONE)\n\t\treturn TRUE;\n\tswitch (browser_tab)",
+                        "\tswitch (browser_tab)"), "doubles"),
+    "doubles-filtered": (("if (browser_filtering && browser_doubles_playlist == NONE &&",
+                          "if (browser_filtering &&"), "doubles"),
+    "doubles-offline": (("\tif (browser_doubles_playlist != NONE)\n\t\treturn FALSE;\n\treturn", "\treturn"),
+                        "doubles"),
     "favorites-on-every-tab": (("\tcase _browser_tab_favorites:\n\t\treturn favorite;\n", ""), "tabs"),
-    "legacy-as-openh1": (("\t\treturn !entry->openh1;", "\t\treturn entry->openh1;"), "tabs"),
+    "legacy-as-openh1": (("\tcase _browser_tab_legacy:\n\t\treturn !entry->openh1;",
+                          "\tcase _browser_tab_legacy:\n\t\treturn entry->openh1;"), "tabs"),
     "dedicated-tab-lists-all": (("\tcase _browser_tab_dedicated:\n\t\treturn entry->dedicated;\n", ""), "tabs"),
-    "openh1-not-first": (("browser_sort_descending && a->openh1 != b->openh1)",
-                          "browser_sort_descending && a->openh1 != b->openh1 && FALSE)"), "tabs"),
-    "dedicated-not-first": (("browser_sort_descending && a->dedicated != b->dedicated)",
-                             "browser_sort_descending && a->dedicated != b->dedicated && FALSE)"), "tabs"),
+    "openh1-not-first": (("\t\tif (a->openh1 != b->openh1)", "\t\tif (a->openh1 != b->openh1 && FALSE)"), "sort"),
+    "dedicated-not-first": (("\t\tif (a->dedicated != b->dedicated)",
+                             "\t\tif (a->dedicated != b->dedicated && FALSE)"), "sort"),
+    # (#920: the grouping before the players, as it was)
+    "grouped-before-players": (("if (!difference && browser_sort_column", "if (browser_sort_column"), "sort"),
+    # (the server browser's groups: OpenH1's dedicated servers, the project's first; the games players host; the
+    # Legacy ones)
+    "groups-none": (("\tif (!browser_grouped)\n\t\treturn _browser_group_dedicated;", "\tif (TRUE)\n\t\treturn "
+                     "_browser_group_dedicated;"), "groups"),
+    "hosted-as-dedicated": (("return entry->dedicated ? _browser_group_dedicated : _browser_group_hosted;",
+                             "return _browser_group_dedicated;"), "groups"),
+    "project-not-first": (("(project != NONE && entries[index].project != project)", "FALSE"), "groups"),
+    "favorites-before-project": (("\t\tfor (project = browser_grouped ? TRUE : NONE; project >= (browser_grouped ? "
+                                  "FALSE : NONE); project--)\n\t\t{\n\t\t\twritten = browser_order_part(favorite_of, "
+                                  "entries, count, group, project, TRUE, order, written);\n\t\t\twritten = "
+                                  "browser_order_part(favorite_of, entries, count, group, project, FALSE, order, written);",
+                                  "\t\tfor (project = browser_grouped ? TRUE : NONE; project >= (browser_grouped ? "
+                                  "FALSE : NONE); project--)\n\t\t\twritten = browser_order_part(favorite_of, "
+                                  "entries, count, group, project, TRUE, order, written);\n\t\tfor (project = "
+                                  "browser_grouped ? TRUE : NONE; project >= (browser_grouped ? FALSE : NONE); "
+                                  "project--)\n\t\t{\n\t\t\twritten = browser_order_part(favorite_of, entries, "
+                                  "count, group, project, FALSE, order, written);"), "groups"),
+    "legacy-not-headed": (("return group != _browser_group_legacy || browser_tab != _browser_tab_legacy;",
+                           "return group != _browser_group_legacy;"), "groups"),
+    "legacy-tab-headed": (("return group != _browser_group_legacy || browser_tab != _browser_tab_legacy;",
+                           "return TRUE;"), "groups"),
+    "empty-group-headed": (("if (written > start && browser_grouped && browser_group_headed(group))",
+                            "if (browser_grouped && browser_group_headed(group))"), "groups"),
+    "heading-words": (('return L"Legacy (Slow) Servers";', 'return L"Legacy Servers";'), "groups"),
+    "dedicated-heading-words": (('return L"GOAT H1 Dedicated Servers";', 'return L"Dedicated Servers";'), "groups"),
+    "favorites-before-groups": (("browser_group_of(&entries[index]) != group ||", "FALSE ||"), "groups"),
     "offline-on-every-tab": (("\tif (!browser_tab_lists_offline())\n\t\tbrowser_offline_count = 0;\n", ""), "tabs"),
     "lan-says-nothing-to-do": (("L\"No games on your network yet.\\r\\nHost one from Create Game.\"",
                                 "L\"No games.\""), "empty"),
@@ -38,14 +73,84 @@ NEGATIVE_CONTROLS = {
                              "filters"),
     "ping-unknown-hidden": (("entry->ping >= filters->maximum_ping)",
                              "(entry->ping < 0 || entry->ping >= filters->maximum_ping))"), "filters"),
-    "coop-hidden-by-types": (("entry->engine_type >= 1 && entry->engine_type <= 5 &&", ""), "filters"),
-    "search-name-only": (("browser_text_has(text, filters->search) || browser_text_has(entry->map_shown, "
-                          "filters->search)", "browser_text_has(text, filters->search)"), "filters"),
-    "search-case-kept": (("int y = words[index] >= 'a' && words[index] <= 'z' ? words[index] - 32 : words[index];",
-                          "int y = words[index];"), "filters"),
-    "search-spaces-kept": (("; *search == ' '; search++)", "; 0; search++)"), "filters"),
-    "types-read-shifted": (("(short)(1 << index);", "(short)(1 << (index - 1));"), "filters"),
-    "hidden-not-counted": (("\t\t\t\tbrowser_filtered_count++;", "\t\t\t\t;"), "filters"),
+    # (the TICK RATE and GAME TYPE filters: browser_tick_shows, browser_type_shows)
+    "tick-filter-ignored": (("if (!browser_tick_shows(filters->tick, entry) || ", "if ("), "tick"),
+    "tick-legacy-as-30": (("\t\treturn entry->openh1 && entry->rate == 30;", "\t\treturn entry->rate == 30;"), "tick"),
+    "tick-60-any-rate": (("\t\treturn entry->openh1 && entry->rate == 60;", "\t\treturn entry->openh1;"), "tick"),
+    "tick-legacy-lists-openh1": (("\tcase _browser_tick_legacy:\n\t\treturn !entry->openh1;",
+                                  "\tcase _browser_tick_legacy:\n\t\treturn TRUE;"), "tick"),
+    "type-filter-ignored": (("|| !browser_type_shows(filters->game_type, entry))", ")"), "game_type"),
+    "slayer-lists-teams": (("\t\treturn slayer && !entry->has_teams;", "\t\treturn slayer;"), "game_type"),
+    "team-slayer-lists-ffa": (("\t\treturn slayer && entry->has_teams;", "\t\treturn slayer;"), "game_type"),
+    "slayer-lists-modes": (("boolean slayer = entry->engine_type == 2 && mode == _game_mode_none;",
+                            "boolean slayer = entry->engine_type == 2;"), "game_type"),
+    "hardcore-not-its-mode": (("short mode = (short)(entry->kind & ~GAME_MODES_KIND_HARDCORE);",
+                               "short mode = (short)entry->kind;"), "game_type"),
+    "pro-2v2-as-team-slayer": (("\t\treturn entry->pro_2v2;", "\t\treturn entry->has_teams;"), "game_type"),
+    "coop-as-any": (("\tcase _browser_type_coop:\n\t\treturn entry->coop;",
+                     "\tcase _browser_type_coop:\n\t\treturn TRUE;"), "game_type"),
+    "types-read-shifted": (("\t\tif (!strcmp(word, words[index]))\n\t\t\treturn index;",
+                            "\t\tif (!strcmp(word, words[index]))\n\t\t\treturn (short)(index + 1);"), "filters"),
+    "unknown-word-not-any": (("\t\t\treturn index;\n\t}\n\treturn 0;", "\t\t\treturn index;\n\t}\n\treturn 1;"),
+                             "filters"),
+    # (the tab and the order kept: browser_view_read, browser_view_write)
+    "tab-not-written": (('\t\tconfig_write("network.browser_tab", browser_tab_words[browser_tab]);', "\t\t;"), "view"),
+    "sort-not-written": (('\t\tconfig_write("network.browser_sort", browser_sort_words[browser_sort_column]);',
+                          "\t\t;"), "view"),
+    "way-not-written": (('\t\tconfig_write("network.browser_sort_descending", browser_sort_descending ? "true" : '
+                         '"false");', "\t\t;"), "view"),
+    "tab-not-read": (('\tbrowser_tab = browser_word_index(config_string("network.browser_tab")',
+                      '\tbrowser_tab = 0 * browser_word_index(config_string("network.browser_tab")'), "view"),
+    "way-not-read": (('\tbrowser_sort_descending = config_boolean("network.browser_sort_descending") != 0;',
+                      "\tbrowser_sort_descending = TRUE;"), "view"),
+    # (the new engine's browser on CO-OP kept: its CO-OP tab is co-op's screen's door, the browser on ALL)
+    "coop-tab-kept": (("if (browser_tab == _browser_tab_coop && menu_engine_looks())", "if (FALSE)"), "view"),
+    "written-unchanged": (('\tif (browser_tab_visit == NONE && strcmp(config_string("network.browser_tab"), '
+                           'browser_tab_words[browser_tab]))', "\tif (browser_tab_visit == NONE)"), "view"),
+    # (the column searches: browser_search_shows)
+    "search-case-kept": (("*text >= 'a' && *text <= 'z' ? (wchar_t)(*text - 32) : *text;", "*text;"), "search"),
+    "search-spaces-kept": (("if ((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9') "
+                            "|| character > 0x7F)", "if (TRUE)"), "search"),
+    "search-whole-words": (("for (start = 0; start + words_length <= length; start++)",
+                            "for (start = 0; start == 0 && words_length == length; start++)"), "search"),
+    "search-map-shown-only": (("if (!browser_ascii_has(map, map_words) && !browser_text_has(map_shown, map_words))",
+                               "if (!browser_text_has(map_shown, map_words))"), "search"),
+    "search-map-file-only": (("if (!browser_ascii_has(map, map_words) && !browser_text_has(map_shown, map_words))",
+                              "if (!browser_ascii_has(map, map_words))"), "search"),
+    "search-either-column": (("if (!browser_ascii_has(name, searches[_browser_search_server]))\n\t\treturn FALSE;\n\t"
+                              "if (!browser_ascii_has(map, map_words)",
+                              "if (browser_ascii_has(name, searches[_browser_search_server]) && "
+                              "searches[_browser_search_server][0])\n\t\treturn TRUE;\n\tif (!browser_ascii_has(map, "
+                              "map_words)"), "search"),
+    # (the touchscreen's one search: a word of the server's name or of its map, and the columns' searches too)
+    "search-any-ignored": (("return browser_ascii_has(name, any_words) || browser_ascii_has(map, any_words) ||\n"
+                            "\t\tbrowser_text_has(map_shown, any_words);", "return TRUE;"), "search"),
+    "search-any-name-only": (("return browser_ascii_has(name, any_words) || browser_ascii_has(map, any_words) ||\n"
+                              "\t\tbrowser_text_has(map_shown, any_words);",
+                              "return browser_ascii_has(name, any_words);"), "search"),
+    "search-any-map-only": (("return browser_ascii_has(name, any_words) || browser_ascii_has(map, any_words) ||\n"
+                             "\t\tbrowser_text_has(map_shown, any_words);",
+                             "return browser_ascii_has(map, any_words) || browser_text_has(map_shown, any_words);"),
+                            "search"),
+    "search-any-shown-map-unread": (("return browser_ascii_has(name, any_words) || browser_ascii_has(map, any_words) ||\n"
+                                     "\t\tbrowser_text_has(map_shown, any_words);",
+                                     "return browser_ascii_has(name, any_words) || browser_ascii_has(map, any_words);"),
+                                    "search"),
+    "search-any-overrides-server": (("if (!browser_ascii_has(name, searches[_browser_search_server]))",
+                                     "if (!browser_ascii_has(name, searches[_browser_search_server]) && !any_words[0])"),
+                                    "search"),
+    "search-any-shown-map-not-found": (("return browser_searches[_browser_search_map][0] || "
+                                        "browser_searches[_browser_search_any][0];",
+                                        "return browser_searches[_browser_search_map][0];"), "search"),
+    "search-server-searches-map": (("if (!browser_ascii_has(name, searches[_browser_search_server]))",
+                                    "if (!browser_ascii_has(name, searches[_browser_search_server]) && "
+                                    "!browser_ascii_has(map, searches[_browser_search_server]))"), "search"),
+    "search-ignores-filters": (("\t\telse if (browser_filtering && !browser_search_shows(",
+                                "\t\tif (browser_filtering && !browser_search_shows("), "search"),
+    "search-not-counted": (("\t\t\tbrowser_searched_count++;\n\t\t}", "\t\t}"), "search"),
+    "searched-says-filters": (("\telse if (searched > 0)", "\telse if (FALSE)"), "empty"),
+    "hidden-not-counted": (("&entries[index]))\n\t\t\tbrowser_filtered_count++;", "&entries[index]))\n\t\t\t;"),
+                           "filters"),
     "filtered-says-nothing": (("\telse if (filtered > 0)", "\telse if (FALSE)"), "empty"),
     "ping-unknown-as-measuring": (("\telse if (ping_state == _browser_ping_measuring)",
                                    "\telse if (ping_state != _browser_ping_measured)"), "ping"),
@@ -62,19 +167,29 @@ def generated(fault=None):
     menus = read("port/linux/game/menu_functions.c")
     config = "\n\n".join([
         enum_with(menus, "_multiplayer_mode_server_browser"), enum_with(menus, "_browser_sort_players"),
-        enum_with(menus, "_browser_tab_all"), enum_with(menus, "_browser_ping_measured"),
-        enum_with(menus, "PING_GOOD = 80"),
+        enum_with(menus, "_browser_tab_all"), enum_with(menus, "_browser_group_dedicated"),
+        "\n".join(re.findall(r"^#define BROWSER_HEADING(?:_GROUP)?\(\w+\) [^\n]+", menus, re.M)),
+        "#define BROWSER_LISTED_MAXIMUM %s" % re.search(r"#define BROWSER_LISTED_MAXIMUM (.+)", menus).group(1),
+        enum_with(menus, "_browser_ping_measured"),
+        enum_with(menus, "PING_GOOD = 80"), enum_with(menus, "_browser_search_server"),
         "#define BROWSER_SEARCH_LENGTH %s" % re.search(r"#define BROWSER_SEARCH_LENGTH (\d+)", menus).group(1),
-        "#define BROWSER_ALL_ENGINES %s" % re.search(r"#define BROWSER_ALL_ENGINES (\w+)", menus).group(1),
+        enum_with(menus, "_browser_tick_any"), enum_with(menus, "_browser_type_any"),
+        enum_with(read("source/game/game_engine.h"), "_game_mode_none = 0"),
+        "#define GAME_MODES_KIND_HARDCORE %s" % re.search(r"#define GAME_MODES_KIND_HARDCORE (\w+)",
+                                                           read("port/linux/game/game_modes.h")).group(1),
         "\n".join(re.findall(r"^#define BROWSER_PING_\w+ L[^\n]+", menus, re.M)),
         "#define BROWSER_MODE_LENGTH %s" % re.search(r"#define BROWSER_MODE_LENGTH (\d+)", menus).group(1),
         "#define MENU_TEXT_ELLIPSIS_LENGTH %s" % re.search(r"#define MENU_TEXT_ELLIPSIS_LENGTH (\d+)",
                                                            menus).group(1),
-        structure(menus, "browser_sort_entry"), structure(menus, "browser_filters")]) + "\n"
+        structure(menus, "browser_sort_entry"), structure(menus, "browser_filters"),
+        *(re.search(r"^static char const \*const %s\[[^]]*\] =\n\{.*?^\};" % name, menus, re.M | re.S).group(0)
+          for name in ("browser_tick_words", "browser_type_words", "browser_tab_words", "browser_sort_words"))]) + "\n"
     code = "\n\n".join(function(menus, name) for name in (
         "settings_wide_copy", "browser_text_compare", "browser_wide_compare", "browser_sort_before",
-        "browser_tab_shows", "browser_tab_lists_offline", "browser_text_has", "browser_filters_show",
-        "browser_filters_read", "browser_favorites_order", "browser_empty_text",
+        "browser_group_of", "browser_group_headed", "browser_group_heading", "browser_tab_shows", "browser_tab_lists_offline", "browser_search_key", "browser_text_has",
+        "browser_ascii_has", "browser_search_shows", "browser_search_reads_map_shown", "browser_tick_shows",
+        "browser_type_shows", "browser_word_index", "browser_filters_show", "browser_filters_read", "browser_view_read",
+        "browser_view_write", "browser_order_part", "browser_favorites_order", "browser_empty_text",
         "menu_text_cut", "menu_text_fit", "browser_ping_cell", "browser_ping_bars"))
     if fault:
         code = mutated(code, *fault)
@@ -130,129 +245,6 @@ def test_parts_pictures_are_drawn():
         lines.append("\t</bitmap>")
         assert "\n".join(lines) in bitmaps, f"{name} is not in bitmaps.xml as ce_menus.py writes it"
     assert "port_settings.parts_pictures()" in read("tools/ce_menus.py")
-
-
-def test_browser_layout():
-    """The browser: its five tabs (LB and RB, Q and E: the screen's white and black), its columns' titles over the
-    rows' columns (each title where its column is, Players' and Ping's at their right), the details panel beside the
-    rows with JOIN GAME, the words for no games, and the footer's prompts, each a button its key presses."""
-    port_settings = _port_settings()
-    text = (CE / "main_menu.multiplayer_type_select.join_game.xml").read_text()
-    screen = re.search(rf'<widget name="{MT}/join_game/join_game_screen".*?</widget>', text, re.S).group(0)
-    for event, run_name in (("white", "port browser tab previous"), ("black", "port browser tab next"),
-                            ("x", "port browser sort"), ("y", "port browser favorite"),
-                            ("right_trigger", "port browser refresh"), ("b", "gamespy back handler")):
-        assert f'<on event="{event}" run="{run_name}"/>' in screen, event
-    tabs = re.findall(rf'<widget name="{MT}/join_game/(tab_\w+)"[^>]*text="([^"]*)"', text)
-    assert tabs == port_settings.BROWSER_TABS == [("tab_all", "ALL"), ("tab_dedicated", "DEDICATED"),
-                                                 ("tab_openh1", "OPENH1"), ("tab_legacy", "LEGACY"),
-                                                 ("tab_coop", "CO-OP"), ("tab_favorites", "FAVORITES")]
-    # (the tabs in menu_functions.c's order)
-    menus = read("port/linux/game/menu_functions.c")
-    order = re.findall(r"_browser_tab_(\w+),", enum_with(menus, "_browser_tab_all"))
-    assert order == [name[4:] for name, _ in tabs]
-    # (each title over its column: at its left, Players' at its right with its numbers, Ping's at its bars;
-    # the row at the list's left; no two titles in one place)
-    places = []
-    for header, words, column in port_settings.BROWSER_HEADERS:
-        x, width = port_settings.BROWSER_COLUMNS[column]
-        title_x = port_settings._header_x(column)
-        title_width = port_settings.BROWSER_HEADER_WIDTHS.get(column, width)
-        assert f'<child widget="{MT}/join_game/{header}" x="{port_settings.BROWSER_LIST_X + title_x}"/>' in text, header
-        assert re.search(rf'<widget name="{MT}/join_game/{header}" type="text" width="{title_width}"', text), header
-        if column == "players":
-            assert title_x + title_width == x + width
-        else:
-            assert x - 8 <= title_x <= x
-        places.append((title_x, title_x + title_width))
-    assert all(places[index][1] <= places[index + 1][0] for index in range(len(places) - 1)), places
-    assert [words for _, words, _ in port_settings.BROWSER_HEADERS] == ["SERVER", "MAP", "MODE", "PLAYERS", "PING"]
-    # (the ping's column: its bars, then its number at its right, as wide as the column, its title at its right)
-    x, width = port_settings.BROWSER_COLUMNS["ping"]
-    assert f'<child widget="{MT}/join_game/server_item_ping_ms" x="{x}"/>' in text
-    assert re.search(rf'<widget name="{MT}/join_game/server_item_ping_ms" type="text" width="{width}"[^>]*'
-                     r'align="right"', text)
-    assert width >= port_settings.BROWSER_PING_BARS + 24
-    assert port_settings._header_x("ping") + width == x + width
-    for column in ("server_name", "map", "type", "players", "ping"):
-        x, _ = port_settings.BROWSER_COLUMNS[column]
-        assert f'<child widget="{MT}/join_game/server_item_{column}" x="{x}"' in text, column
-    # (the panel beside the rows, inside the screen, and the list's description)
-    left, top, width, height = port_settings.BROWSER_PANEL
-    assert port_settings.BROWSER_LIST_X + port_settings.BROWSER_LIST_WIDTH < left and left + width <= 640
-    assert f'description="{MT}/join_game/browser_panel"' in text
-    assert re.search(r'name="[^"]*/button_join"[^>]*text="%a-button JOIN GAME"', text)
-    assert f'<widget name="{MT}/join_game/browser_empty"' in text
-    # (the footer's prompts: each its button's picture, a key of the keyboard's: menu_keys.c)
-    keys = function(read("source/interface/ui_widget.c"), "ui_widget_port_menu_key")
-    for name, words, _, _, handler in port_settings.BROWSER_PROMPTS + port_settings.HUB_PROMPTS:
-        icon = re.match(r"%([a-z-]+) ", words).group(1).replace("-", "_")
-        assert f"case _icon_{icon}:" in keys, f"{name}'s {icon} has no key"
-    assert [words.split(" ", 1)[1] for _, words, *_ in port_settings.BROWSER_PROMPTS] == \
-        ["FAVORITE", "REFRESH", "PASTE LINK", "SORT", "FILTERS", "BACK"]
-    # (FILTERS, and the left trigger, open the Filters page, Settings' Online's too)
-    filters = f"{port_settings.PE}/network_setup/browser_filters/browser_filters_screen"
-    assert f'<on event="left_trigger" run="port browser filters" open="{filters}"/>' in screen
-    assert f'<on event="a" run="port browser filters" open="{filters}"/>' in text
-    assert f'open="{filters}"' in (CE / "main_menu.settings_select.player_setup.player_profile_edit."
-                                         "network_setup.xml").read_text()
-    # (the sort is the column titles': each sorts by its column, X the next of them; the title sorted by
-    # brighter, its arrow its way; no sort of its own by the tabs)
-    sorts = re.findall(r'\{ "(op_sort_header_\w+)", L"(\w+)", (?:TRUE|FALSE) \}', menus)
-    assert sorted(sorts) == sorted((header, words) for header, words, _ in port_settings.BROWSER_HEADERS)
-    assert "browser_sort_header_current(widget)" in function(menus, "pc_menu_text_color")
-    assert "browser_sort" not in text.replace("browser_sort_", "")
-
-
-def test_hub_keeps_every_place():
-    """Multiplayer's list, on the computer: PLAY ONLINE's items, HOST's (CREATE GAME's and CO-OP CAMPAIGN's pages
-    and Create Game's OFFLINE) and EDIT GAMETYPES, each opening what the PC version's list did (the same functions and
-    screens; the touchscreen's tiles too: _touch_hub), its panel with ONLINE NOW and BEST FOR YOU, the panel's
-    descriptions one for each of menu_functions.c's items, and REFRESH and BACK in its footer."""
-    port_settings = _port_settings()
-    hub = (CE / "main_menu.multiplayer_type_select.hub.xml").read_text()
-    pc = (CE / "main_menu.multiplayer_type_select.xml").read_text()
-    port = "\n".join((CE / name).read_text() for name in ("main_menu.multiplayer_type_select.bots.xml",
-                                                          "main_menu.multiplayer_type_select.coop.xml"))
-
-    def handlers(text, name):
-        widget = re.search(rf'<widget name="{name}"[^>]*>(.*?)</widget>', text, re.S).group(1)
-        return [line.strip() for line in widget.splitlines() if line.strip().startswith('<on event="a"')]
-
-    pairs = {
-        "hub_join_internet": "multiplayer_type_join_internet_item",
-        "hub_join_lan_item": "multiplayer_type_join_lan_item",
-        "hub_join_direct": "multiplayer_type_join_direct_item",
-        "hub_create_inter": "multiplayer_type_create_internet_item",
-        "hub_create_lan_item": "multiplayer_type_create_lan_item",
-        # (OFFLINE hosts a game of this machine alone, as the PC list's PLAY WITH BOTS did)
-        "hub_create_offline": "multiplayer_type_create_bots_item",
-        "hub_online_coop": "multiplayer_type_online_coop_item",
-        "hub_split_coop": "multiplayer_type_coop_item",
-        "hub_gametypes": "multiplayer_type_gametypes_item",
-    }
-    touch = (CE / "main_menu.multiplayer_type_select.hub.touch.xml").read_text()
-    for ours, theirs in pairs.items():
-        assert handlers(hub, f"{MT}/hub/{ours}") == handlers(pc + port, f"{MT}/{theirs}"), ours
-        assert handlers(touch, f"{MT}/hub/touch/{ours}") == handlers(hub, f"{MT}/hub/{ours}"), ours
-    # (the screen shows the hub's list and line on the computer, the touchscreen's tiles)
-    screen = re.search(rf'<widget name="{MT}/multiplayer_type_select_screen".*?</widget>', pc, re.S).group(0)
-    assert f'<child widget="{MT}/hub/hub_list" platform="pointer"/>' in screen
-    x, y = port_settings.MULTIPLAYER_LINE_PLACE
-    assert f'<child widget="{MT}/hub/hub_divider" x="{x}" y="{y}" platform="pointer"/>' in screen
-    assert f'<child widget="{MT}/hub/touch/hub_list" platform="touch"/>' in screen
-    assert '<on event="right_trigger" run="port multiplayer refresh"/>' in screen
-    # (the items' names menu_functions.c knows, and its descriptions)
-    menus = read("port/linux/game/menu_functions.c")
-    known = re.findall(r'\{ "(hub_\w+)", _multiplayer_item_\w+ \}', menus)
-    assert sorted(known) == sorted(set(re.findall(rf'<widget name="{MT}/hub/(hub_(?!list|divider|panel|prompts)\w+)"',
-                                                  hub)) - {"hub_prompts"})
-    items = re.findall(r"_multiplayer_item_(\w+),", enum_with(menus, "_multiplayer_item_server_browser"))
-    assert len(items) == len(port_settings.HUB_DESCRIPTIONS)
-    assert "Press %a-button" in port_settings.HUB_DESCRIPTIONS[0]
-    for name in ("online_now_label", "online_games_0", "best_label", "best_0_name", "best_0_badge", "best_0_about",
-                 "multiplayer_options_txt"):
-        assert f'<child widget="{MT}/hub/{name}"/>' in hub, name
 
 
 @pytest.mark.parametrize("aspect", ["4:3", "16:10", "16:9", "21:9"])

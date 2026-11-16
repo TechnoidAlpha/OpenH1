@@ -91,6 +91,18 @@ with a caption under the words, the sweep following the wait's progress as
 the Xbox's followed the load's (once across, its position the progress
 smoothed with a slow wobble) or looping as a map load's does.
 
+The caption is lettered as the words are: in capitals, in OpenCE (the
+stand-in for the menus' titles' typeface, which the picture's "LOADING..."
+is set in), its capitals 15 of the 480 lines to the words' 22, in the
+words' blue as the picture has it down their capitals. The sweep lights it
+as it lights the words: it is in what the sweep feeds the trail (in the 480
+rows, so the trail's glow spreads from it), and at the screen's own pixels
+the presenter draws its letters as the sharp frame draws the words, the
+trail there, the sweep's band at its brightness, the letters dimly between
+the sweeps (`loading_art_caption_shown`); VR's window has it in its frame.
+
 Diagnostics: `HALO_LOADING_SCENE_DUMP=<file>` writes the scene as the
 presenter receives it, and `HALO_LOADING_CAPTURE_DIR=<folder>` writes the
-loading frames (`HALO_LOADING_CAPTURE_EVERY=<frames>`: every that many).
+loading frames (`HALO_LOADING_CAPTURE_EVERY=<frames>`: every that many)
+and, on macOS, the screen as shown, caption and all (`screen-*.ppm`,
+`HALO_LOADING_SCREEN_EVERY=<frames>`, 60 unless set).

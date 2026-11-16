@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.join_game.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/join_game/password/password_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/multiplayer_type_select/join_game/password/header_password" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/password/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/header_password" box="35 11 640 70" picture="main_menu/multiplayer_type_select/join_game/header_password"/>
+	<look name="main_menu/multiplayer_type_select/join_game/password/help" type="text" box="68 120 550 180">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/multiplayer_type_select/join_game/password/help_strings"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/options_menu" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/join_game/password/op_password" x="54" y="73"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/password/button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/join_game/password/button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/op_password" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/password/password_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/password/password_value" x="286" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/password_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/join_game/password/labels"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/password_value" type="text" box="0 0 206 26">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 2" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/button_defaults" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/password/button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="JOIN GAME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/header_server_browser" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/multiplayer_type_select/join_game/tall_titles" index="2" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/header_direct_link" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/multiplayer_type_select/join_game/tall_titles" index="1" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/connect/connect_screen" type="text" box="180 160 460 320" picture="bitmaps/alert_bkd">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="-10 36"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/connect/button_bar" x="182" y="293"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/connect/header_connect" x="182" y="164"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/connect/header_connect" type="text" box="0 0 270 20">
+		<text font="ui\large_ui" color="#FF2896FF"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/connect/button_bar" type="column_list" box="0 0 256 20">
+		<at widget="main_menu/multiplayer_type_select/join_game/connect/button_back" x="128" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/connect/button_retry" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/connect/button_retry" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="RETRY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/connect/button_back" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="BACK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_favorite" box="0 0 16 18" picture="main_menu/multiplayer_type_select/join_game/favorite_star"/>
+</model>

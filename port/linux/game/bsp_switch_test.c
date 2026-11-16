@@ -15,6 +15,10 @@ switch's hitch can be read against the level's ordinary frames:
 	bsp switch test: 0 -> 1: switch frame 412.3 ms, after 18.1 ms (240 frames;
 	the first 18.1, 8.4, 8.3 ms), before 8.4 ms (median 8.3 ms)
 
+debug.setting_test ("<setting>=<value>@<seconds>"): that many seconds into
+a level, the setting is written as Settings' OK writes it (a change in
+play: the map's preparation made again for it, render_enumerate.c).
+
 Called from the main loop every frame (network_test_update, network_test.c).
 */
 
@@ -28,9 +32,13 @@ Called from the main loop every frame (network_test_update, network_test.c).
 #include "hs/hs_library_external.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 /* the platform layer's (port/linux/src/port_config.c) */
 double config_real(char const *name);
+char const *config_string(char const *name);
+int config_write(char const *name, char const *value);
+unsigned long config_changes(void);
 void platform_log(char const *format, ...);
 unsigned long long SDL_GetTicksNS(void);
 
@@ -95,14 +103,59 @@ static void bsp_switch_test_place(
 	platform_log("bsp switch test: no cutscene flag in structure bsp %d", global_structure_bsp_index_get());
 }
 
+/* debug.setting_test's change, once, that many seconds into the level */
+static void setting_test_update(
+	void)
+{
+	static boolean done;
+	static long start_tick = NONE;
+	char const *test = config_string("debug.setting_test");
+	char name[96], value[96];
+	char const *equals, *at;
+
+	if (done || !test || !*test)
+		return;
+	equals = strchr(test, '=');
+	at = equals ? strchr(equals, '@') : NULL;
+	if (!at || equals - test >= (long)sizeof(name) || at - equals - 1 >= (long)sizeof(value))
+	{
+		platform_log("setting test: \"%s\" is not <setting>=<value>@<seconds>", test);
+		done = TRUE;
+		return;
+	}
+	if (start_tick == NONE)
+		start_tick = game_time_get();
+	if (game_time_get() - start_tick < (long)(atof(at + 1) * TICKS_PER_SECOND))
+		return;
+	done = TRUE;
+	memcpy(name, test, equals - test);
+	name[equals - test] = 0;
+	memcpy(value, equals + 1, at - equals - 1);
+	value[at - equals - 1] = 0;
+	platform_log("setting test: %s = %s %s", name, value, config_write(name, value) ? "written" : "not written");
+}
+
 void bsp_switch_test_update(
 	boolean main_menu_loaded)
 {
-	double seconds = config_real("debug.bsp_switch_test");
+	/* (the settings, read again as they change: config_changes) */
+	static boolean read;
+	static unsigned long read_at;
+	static double seconds;
+	static boolean setting_test;
 	unsigned long long now;
 	float frame_ms;
 	struct scenario *scenario;
 
+	if (!read || read_at != config_changes())
+	{
+		read_at = config_changes();
+		read = TRUE;
+		seconds = config_real("debug.bsp_switch_test");
+		setting_test = config_string("debug.setting_test")[0] != 0;
+	}
+	if (setting_test && !main_menu_loaded && game_in_progress())
+		setting_test_update();
 	if (seconds <= 0.0)
 		return;
 	now = SDL_GetTicksNS();

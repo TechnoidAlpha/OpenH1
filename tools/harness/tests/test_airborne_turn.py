@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run
 
-CASES = ['turns', 'off', 'network', 'actor', 'melee', 'look']
+CASES = ['turns', 'off', 'network', 'network_classic', 'actor', 'melee', 'look']
 CONTROLS = [
     ('throwing_turn ||\n\t\t\tairborne_turn)', 'throwing_turn)', 'turns'),
     ('biped->unit.player_index!=NONE &&\n\t\t\tbiped->unit.animation.state==_unit_state_airborne',
@@ -18,9 +18,10 @@ CONTROLS = [
 ]
 # (faults in units.c's unit_turns_with_aim, and the case that must catch each)
 TURNS_CONTROLS = [
-    ('return unit_animation_enhanced_unit(unit_index);\n\t}', 'return unit_animation_enhanced(unit_index);\n\t}',
+    ('return unit_animation_enhanced_unit(unit_index) &&', 'return unit_animation_enhanced(unit_index) &&',
      'network'),
-    ('game_connection() == _game_connection_network_client ||', '', 'network'),
+    # (the host's word ignored: a Classic host's clients would turn its players)
+    ('network_standard_turns_with_aim(unit_get(unit_index)->unit.player_index)', 'TRUE', 'network_classic'),
 ]
 
 

@@ -154,7 +154,10 @@ paths with any characters operate.
 ## Crash reports
 
 A crash writes the faulting address, the registers and the calls that led
-to it to the log, with the frames of the guest. The builds of the workflow
+to it to the log, with the frames of the guest, and to `reports\.crash.txt`
+with the log the game keeps in memory, so that the next start offers to
+report it as the other computers' builds do (Report a Problem, in
+`port/linux/README.md`; the next start makes `halo.log` afresh). The builds of the workflow
 (the releases) also send a crash report to the Sentry project of the
 developers:
 
@@ -193,10 +196,15 @@ source lines to the crash lines of a `halo.log`:
 
 ```
 python tools/symbolize_crash.py halo.log <folder>
+python tools/symbolize_crash.py halo.log OpenH1-Windows.zip OpenH1-Windows-symbols.zip
 ```
 
 Give the folder of the build that crashed: `halo.exe`, `halo.pdb` and
-`halo_guest.elf`. The tool needs `llvm-symbolizer` (LLVM).
+`halo_guest.debug.elf` (the guest image with its source lines; a release's
+before it was published has `halo_guest.elf`, which names the functions
+only), or the release's two zips as they are downloaded, of the release
+the report's Build line names (the releases keep the last five builds).
+The tool needs `llvm-symbolizer` (LLVM).
 
 OpenH1 has no Sentry project yet: no build sends crash reports. To test the
 crash reports, set the `HALO_CRASH_REPORTS_ANY_BUILD` environment

@@ -41,6 +41,16 @@ unsigned long network_party_player_actions(long player_index);
 void network_party_action_label(long player_index, short action, wchar_t *label, short size);
 /* ... done */
 void network_party_player_act(long player_index, short action);
+/* a player of the game's record (its slot: the lobby's, which has no datum
+yet) and its friend code, as the host told it: what it is to this profile
+(p2p.h's _p2p_friend_*: _p2p_friend_self for this machine's own), NONE if
+its code is not known (an OpenCE machine's, a bot, a machine of an older
+build, outside an OpenH1 game). A player card's ADD FRIEND (lobby_menu.inc) */
+int network_party_slot_friend(short slot);
+/* ... a friend request sent it (name: the game's), or its request accepted:
+FALSE if it cannot be (no code, a friend already, asked, blocked; this
+machine without a profile) */
+boolean network_party_slot_add_friend(short slot, wchar_t const *name);
 /* the newest invite (or ask) accepted: as its key does */
 boolean network_party_accept(void);
 /* (the HUD of the first local player's view) the invite to accept, with

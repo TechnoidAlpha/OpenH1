@@ -1,29 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The update question (the Steam Frame's, gamescope's), in the style of the PC version's Quit (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/update/update_screen" type="text" controller="1" left="180" top="160" width="280" height="160" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/alert_bkd" string_list="main_menu/update/update_prompt" font="ui\small_ui" color="#FF2896FF" align="center" text_x="-10" text_y="40">
+	<widget name="main_menu/update/update_screen" controller="1" left="180" top="160" width="280" height="160" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/alert_bkd" source="tools/port_settings.py multiplayer_files/_update">
 		<on event="b" back="true"/>
 		<on event="back" back="true"/>
+		<child widget="main_menu/update/update_message"/>
 		<child widget="main_menu/update/button_bar" x="182" y="293"/>
 		<child widget="main_menu/update/header_update" x="182" y="164"/>
 	</widget>
-	<widget name="main_menu/update/header_update" type="text" controller="1" width="200" height="20" text="NEW VERSION" font="ui\large_ui" color="#FF2896FF">
+	<widget name="main_menu/update/update_message" type="text" controller="1" left="194" top="194" width="233" height="94" string_list="main_menu/update/update_prompt" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="wrap" source="tools/port_settings.py multiplayer_files/_update/_dialog_message">
 	</widget>
-	<widget name="main_menu/update/button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items">
+	<widget name="main_menu/update/header_update" type="text" controller="1" width="200" height="20" text="NEW VERSION" font="ui\large_ui" color="#FF2896FF" source="tools/port_settings.py multiplayer_files/_update">
+	</widget>
+	<widget name="main_menu/update/button_bar" type="column_list" width="256" height="20" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_update">
 		<child widget="main_menu/update/button_update"/>
 		<child widget="main_menu/update/button_later" x="128"/>
 	</widget>
-	<widget name="main_menu/update/button_update" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="UPDATE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/update/button_update" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="UPDATE" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_update/_text_button">
 		<on event="a" run="port update now"/>
 		<on event="start" run="port update now"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/update/button_later" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="NOT NOW" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2">
+	<widget name="main_menu/update/button_later" type="text" width="128" height="24" bitmap="bitmaps/text_button_background" text="NOT NOW" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="2" source="tools/port_settings.py multiplayer_files/_update/_text_button">
 		<on event="a" back="true"/>
 		<on event="start" back="true"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
 	<strings name="main_menu/update/update_prompt">
-		<string text="A new version is ready.\nUpdate now? The game will\nclose, update and start again."/>
+		<string text="A new version is ready. Update now? The game will close, update and start again."/>
 	</strings>
 </menus>

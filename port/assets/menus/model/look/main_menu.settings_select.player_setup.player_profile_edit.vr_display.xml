@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.vr_display.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/vr_display_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/header_vr_display" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/header_vr_display" box="35 11 640 70" picture="main_menu/settings_select/player_setup/player_profile_edit/vr_display/header_vr_display"/>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/help" type="text" box="68 366 550 426">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/help_strings"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_dominant_hand" x="54" y="73"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_swap_sticks" x="54" y="97"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_height" x="54" y="121"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_player_height" x="54" y="145"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_world_scale" x="54" y="169"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_hud_distance" x="54" y="193"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_hud_size" x="54" y="217"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_menu_distance" x="54" y="241"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_menu_width" x="54" y="265"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_resolution_scale" x="54" y="289"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_refresh_rate" x="54" y="313"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_vr_visor_screen" x="54" y="337"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/button_bar" role="buttons" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/button_defaults" x="0" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_dominant_hand" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/dominant_hand_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/dominant_hand_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/dominant_hand_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/dominant_hand_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="RIGHT|LEFT"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_swap_sticks" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/swap_sticks_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/swap_sticks_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/swap_sticks_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/swap_sticks_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="AS THE HAND|NO|YES"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_height" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/height_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/height_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/height_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/height_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="SEATED|STANDING"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_player_height" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/player_height_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/player_height_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/player_height_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/player_height_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="1.40 M|1.45 M|1.50 M|1.55 M|1.60 M|1.65 M|1.70 M|1.75 M|1.80 M|1.85 M|1.90 M|1.95 M|2.00 M"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_world_scale" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/world_scale_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/world_scale_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/world_scale_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/world_scale_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="0.75X|0.8X|0.9X|1X|1.1X|1.2X|1.25X|1.5X"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_hud_distance" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_distance_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_distance_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_distance_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_distance_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="1.0 M|1.5 M|2.0 M|2.5 M|3.0 M|4.0 M|5.0 M"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_hud_size" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_size_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_size_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_size_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/hud_size_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="40 DEGREES|50 DEGREES|60 DEGREES|70 DEGREES|80 DEGREES|90 DEGREES|100 DEGREES"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_menu_distance" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_distance_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_distance_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_distance_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_distance_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="1.5 M|2.0 M|2.5 M|3.0 M|3.5 M|4.0 M"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_menu_width" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_width_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_width_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_width_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/menu_width_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="1.6 M|2.0 M|2.3 M|2.6 M|3.0 M|3.5 M|4.0 M"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_resolution_scale" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/resolution_scale_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/resolution_scale_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/resolution_scale_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="9"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/resolution_scale_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="50%|60%|75%|90%|100%|110%|125%|150%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_refresh_rate" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/refresh_rate_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/refresh_rate_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/refresh_rate_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="10"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/refresh_rate_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="HEADSET'S|72 HZ|80 HZ|90 HZ|120 HZ|144 HZ"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/op_vr_visor_screen" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_display/vr_visor_screen_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/vr_visor_screen_label" type="text" box="0 0 480 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_display/labels" index="11"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/button_defaults" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_display/button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+</model>

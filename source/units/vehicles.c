@@ -167,6 +167,7 @@ symbols in this file:
 #include "units/unit_definitions.h"
 #include "units/vehicle_definitions.h"
 #include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
+#include "vehicle_riding_bipeds.h" /* port: port/linux/game/vehicle_riding_bipeds.c */
 #include "network_standard.h" /* port: port/linux/game/network_standard.c */
 
 /* ---------- constants */
@@ -277,6 +278,7 @@ struct vehicle_suspension
 #include "physics/mass_point_datum.h"
 
 #include "physics/powered_mass_point_datum.h"
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
 
 struct scenario_object_permutation;
 struct scenario_unit;
@@ -2144,6 +2146,10 @@ static void update_human_boat_physics(
 		real *rotation;
 		real const *forward;
 
+		/* port: the original left inactive controls uninitialized. Both physics
+		paths can read them for valid powered-point flags. */
+		csmemset(state, 0, 3 * sizeof(*state));
+
 		speed = (real)fabs(magnitude3d(&vehicle->object.translational_velocity)*2.5f);
 		maximum_angle = vehicle->vehicle.turn*0.5f;
 		angle = 1.0f-CEILING(speed, 1.0f);
@@ -2642,6 +2648,11 @@ boolean vehicle_takes_substeps(
 	/* (an OpenCE player's in a mixed game, which moves once a tick, as on
 	their own machine: network_standard.c) */
 	if (network_standard_player_is_opence(unit_get(driver_index)->unit.player_index))
+		return FALSE;
+	/* (a deck a rider is in the window of, which moves once a tick with its
+	riders, as at 30: port/linux/game/vehicle_riding_bipeds.c's
+	vehicle_riding_holds_lane) */
+	if (vehicle_riding_holds_lane(vehicle_index))
 		return FALSE;
 	/* (physics.c's sub-steps are of mass points: not of a physics of a radius,
 	physics_update_old's, which no vehicle of the game has) */
@@ -3243,7 +3254,13 @@ static void vehicle_substep_take_controls(
 	{
 		struct unit_datum *driver_unit = unit_get(unit->unit.driver_object_index);
 
-		if (driver_unit->unit.player_index!=NONE ||
+		/* port: (a driver being hijacked drives no more, as unit_update
+		has it: port/linux/game/vehicle_hijack.c) */
+		if (vehicle_hijack_seat_held(vehicle_index, unit->unit.driver_object_index))
+		{
+			unit->unit.throttle = *global_zero_vector3d;
+		}
+		else if (driver_unit->unit.player_index!=NONE ||
 			driver_unit->unit.animation.state!=_unit_state_exiting_seat &&
 			driver_unit->unit.animation.state!=_unit_state_entering_seat)
 		{
@@ -3258,7 +3275,11 @@ static void vehicle_substep_take_controls(
 	{
 		struct unit_datum *gunner_unit = unit_get(unit->unit.gunner_object_index);
 
-		if (gunner_unit->unit.player_index!=NONE ||
+		if (vehicle_hijack_seat_held(vehicle_index, unit->unit.gunner_object_index))
+		{
+			unit->unit.primary_trigger = 0.f;
+		}
+		else if (gunner_unit->unit.player_index!=NONE ||
 			gunner_unit->unit.animation.state!=_unit_state_exiting_seat &&
 			gunner_unit->unit.animation.state!=_unit_state_entering_seat)
 		{

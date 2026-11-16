@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.friends.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/friends/touch/friends_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_row_0" x="28" y="104"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_row_1" x="28" y="160"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_row_2" x="28" y="216"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_row_3" x="28" y="272"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_row_4" x="28" y="328"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/friends_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/section_friends" type="text" box="0 0 368 20" wide="-106 144" picture="main_menu/parts/section_368">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="4 0" text="FRIENDS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/friends_count" type="text" box="28 82 388 98" wide="-106 144">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_row_0" type="text" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="12 7"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_note_0" x="12" y="30"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_live_0" x="12" y="30"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_note_0" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_live_0" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_row_1" type="text" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="12 7"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_note_1" x="12" y="30"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_live_1" x="12" y="30"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_note_1" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_live_1" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_row_2" type="text" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="12 7"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_note_2" x="12" y="30"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_live_2" x="12" y="30"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_note_2" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_live_2" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_row_3" type="text" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="12 7"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_note_3" x="12" y="30"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_live_3" x="12" y="30"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_note_3" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_live_3" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_row_4" type="text" box="0 0 364 52" wide="-106 144" picture="main_menu/parts/touch_row_364x52">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="12 7"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_note_4" x="12" y="30"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/fr_live_4" x="12" y="30"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_note_4" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF7FB2FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/fr_live_4" type="text" box="0 0 340 16" wide="0 144">
+		<text font="ui\small_ui" color="#FF5ED38C" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_kind" type="text" box="414 88 598 104" wide="0 68">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_title" type="text" box="414 104 598 128" wide="0 68">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_status" type="text" box="414 132 598 176" wide="0 68">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_detail" type="text" box="414 180 598 280" wide="0 68">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_code_label" type="text" box="414 314 598 330" wide="0 68">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="YOUR FRIEND CODE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_code" type="text" box="414 330 598 354" wide="0 68">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/panel_help" type="text" box="414 356 598 400" wide="0 68">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/friends_panel" box="400 76 612 410" wide="38 68" picture="main_menu/parts/panel_212x334">
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_kind" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_title" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_status" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_detail" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_code_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_code" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/panel_help" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/friends_prompts" type="column_list" box="0 0 640 52">
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_copy" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_join" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_accept" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_add" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_unblock" x="28" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_code" x="152" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_invite" x="152" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_ignore" x="152" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_cancel" x="152" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_remove" x="276" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_block" x="276" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_hide" x="276" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_show" x="276" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/prompt_back" x="502" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_copy" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="COPY CODE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_join" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="JOIN"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_accept" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="ACCEPT"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_add" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="ADD FRIEND"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_unblock" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="UNBLOCK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_code" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="ADD BY CODE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_invite" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="INVITE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_ignore" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="IGNORE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_cancel" type="text" box="0 0 120 52" wide="-106 0" picture="main_menu/parts/touch_button_120x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="CANCEL"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_remove" type="text" box="0 0 106 52" wide="106 0" picture="main_menu/parts/touch_button_106x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="REMOVE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_block" type="text" box="0 0 106 52" wide="106 0" picture="main_menu/parts/touch_button_106x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="BLOCK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_hide" type="text" box="0 0 106 52" wide="106 0" picture="main_menu/parts/touch_button_106x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="HIDE ME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_show" type="text" box="0 0 106 52" wide="106 0" picture="main_menu/parts/touch_button_106x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="SHOW ME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/touch/prompt_back" type="text" box="0 0 110 52" wide="106 0" picture="main_menu/parts/touch_button_110x52">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 19" text="BACK"/>
+	</look>
+</model>

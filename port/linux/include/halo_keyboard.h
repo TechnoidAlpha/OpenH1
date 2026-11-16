@@ -35,6 +35,9 @@ enum halo_keyboard_action
 	HALO_KEYBOARD_SCOREBOARD,
 	HALO_KEYBOARD_PAUSE,
 	HALO_KEYBOARD_SCREENSHOT,
+	/* (Save Report's, which the game itself does not read: port/linux/src/
+	report.c) */
+	HALO_KEYBOARD_REPORT,
 	/* (voice chat's, which the game itself does not read:
 	halo_push_to_talk_held) */
 	HALO_KEYBOARD_PUSH_TO_TALK,
@@ -49,6 +52,20 @@ enum halo_keyboard_action
 	network_votekick.c, read with the chat's keys) */
 	HALO_KEYBOARD_VOTE_YES,
 	HALO_KEYBOARD_VOTE_NO,
+	/* (the clip key's, which the game itself does not read: the demo being
+	recorded marked, port/linux/game/demo.c) */
+	HALO_KEYBOARD_CLIP,
+	/* (a ping's, which the game itself does not read: what the player aims
+	at marked for their allies, port/linux/game/network_markers.c) */
+	HALO_KEYBOARD_PING,
+	/* (walking's: while it is held (or toggled on, input.walk), the movement
+	keys push the player a part of the way, as a stick pushed a little does,
+	slowly enough by default to stay off the enemies' motion trackers:
+	source/input/input_abstraction.c, port/linux/game/keyboard_walk.c) */
+	HALO_KEYBOARD_WALK,
+	/* (the HUD's Spartan link's, which the game itself does not read: the
+	teammates' feeds shown or hidden, port/linux/game/spartan_link.c) */
+	HALO_KEYBOARD_SPARTAN_LINK,
 	NUMBER_OF_HALO_KEYBOARD_ACTIONS
 };
 
@@ -56,6 +73,8 @@ enum halo_keyboard_action
 (a bit for each halo_keyboard_action): theirs is the first's; none while a
 menu or the console is up, or a chat line is typed */
 unsigned long halo_keyboard_actions(short controller_index);
+/* Current binding label, slot 0/1; zero and empty for unbound or invalid inputs. */
+int halo_keyboard_binding_label(int action, int slot, char *shown, unsigned int size);
 /* whether voice chat's push to talk is held (controls.push_to_talk), in the
 game and in the menus alike */
 int halo_push_to_talk_held(void);
@@ -74,6 +93,13 @@ delete) as well as RB. Whether they are, for the keys and their prompts
 (source/interface/ui_widget.c) */
 void halo_keyboard_browser_keys(void);
 int halo_keyboard_browser_keys_active(void);
+/* a Settings screen's keys, the menu engine's (menu_functions.c says, each
+frame one is shown, that one is; search: the search's own screen): W, A, S,
+D, F, R and L type into its search (settings_search_keys), not the left
+stick, Y and the triggers, and on the search's screen Backspace takes a
+letter off, not Esc. Whether they are (for the keys) */
+void halo_keyboard_settings_keys(int search);
+int halo_keyboard_settings_keys_active(void);
 
 /* the first controller's buttons (with the touch controls'), as the text
 chat's on-screen keyboard reads them: a bit for each (port/linux/game/
@@ -99,6 +125,11 @@ enum halo_chat_pad_button
 };
 
 unsigned long halo_chat_pad_buttons(void);
+/* the stock layouts' ping, D-pad Right, pressed on the port's controller
+since it was last asked (a custom layout's is its PING:
+port/linux/game/network_markers.c); while pings can be sent the game gets
+none of that direction (network_markers_pad_open) */
+int halo_ping_pad_pressed(short port);
 /* Raw physical snapshot: suppress the button which opened controller chat. */
 unsigned long halo_chat_pad_buttons_for_port(short port);
 
@@ -162,5 +193,8 @@ int halo_chat_taps(float *x, float *y);
 /* whether the touch controls hold the screen's bottom left, where the chat
 then goes at the top left: on Android and iOS */
 int halo_chat_touch_layout(void);
+/* the mouse wheel's notches turned while a chat line is typed, since the
+last call (up positive): they scroll the lines, not the weapons */
+int halo_chat_wheel_steps(void);
 
 #endif

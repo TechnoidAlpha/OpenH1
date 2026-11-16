@@ -12,9 +12,12 @@ void passenger_camera_clamp_facing(short local_player_index, real_euler_angles2d
 
 /* Scoped to crosshairs_draw: one ray query for all of a reticle's pieces.
 The offset says whether it moved the point to the shot (which, projected
-through the drawn view, needs no lowered reticle's offset besides). */
+through the drawn view, needs no lowered reticle's offset besides): the
+point to the whole unit short of it, and rest how far past that, in the
+screen's units as drawn (hud_draw.c's reticle scaled), that the reticle
+keeps to the shot, not a unit short of it in steps. */
 boolean passenger_camera_reticle_begin(short local_player_index, long weapon_index);
-boolean passenger_camera_reticle_offset(point2d *point);
+boolean passenger_camera_reticle_offset(point2d *point, real reticle_scale, real_vector2d *rest);
 void passenger_camera_reticle_end(void);
 
 #endif

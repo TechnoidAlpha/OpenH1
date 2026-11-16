@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.indicator_options_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options" box="35 11 640 70" picture="main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options"/>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_friends_on_screen_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_friends_on_screen_spinner" type="spinner" box="2 2 48 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="48 7 54 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/var_friends_on_screen"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_help" type="text" box="68 321 550 400">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/cap_indicator_options"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_menu" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/op_radar display" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/op_players_on_radar" x="54" y="103"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/op_friends_on_screen" x="54" y="133"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_players_on_radar_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_players_on_radar_spinner" type="spinner" box="2 2 108 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="108 7 114 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/var_others_on_radar"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_radar display_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_labels"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_radar display_spinner" type="spinner" box="3 2 186 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="186 7 192 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/indicator_options_edit/var_radar display"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/header_indicator_options" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/op_friends_on_screen" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_friends_on_screen_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_friends_on_screen_spinner" x="366" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/op_players_on_radar" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_players_on_radar_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_players_on_radar_spinner" x="336" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/indicator_options_edit/op_radar display" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_radar display_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/indicator_options_edit/indicator_options_radar display_spinner" x="297" y="1"/>
+	</look>
+</model>

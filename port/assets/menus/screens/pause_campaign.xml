@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The pause menu of a campaign (docs/menu_screens.md), single player's or
+network co-op's, in place of the map's (ui\shell\solo_game\pause_game\
+pause_game, and split screen's pause_game_split_screen, which menu_view.c
+scales into the player's view): the Xbox's box of rows, as the port has it
+(menu_tags.c's pause_campaign_patch), its legend under them, and the
+mission objectives' box beside it. RESUME GAME and B close every screen
+(the game goes on); REVERT TO SAVED and RESTART LEVEL ask first (the map's
+questions); SAVE AND QUIT goes to the main menu. SETTINGS, network co-op's
+FRIENDLY FIRE (this machine's own, ON or OFF) and its host's HOST CONTROLS
+are the port's. The box grows down from the Xbox's top as its rows need. -->
+<screen name="pause_campaign" back="close all">
+	<box x="64" y="162" width="218">
+		<list focus="resume">
+			<item id="resume" label="RESUME GAME" do="close all"/>
+			<item id="settings" label="SETTINGS" do="open settings"/>
+			<item id="friendly_fire" label="{pause.friendly_fire}" do="pause friendly fire"/>
+			<item id="host" label="HOST CONTROLS" if="pause.host_controls" do="open host controls"/>
+			<item id="revert" label="REVERT TO SAVED" do="pause revert"/>
+			<item id="restart" label="RESTART LEVEL" do="pause restart"/>
+			<item id="quit" label="SAVE AND QUIT" do="pause quit"/>
+		</list>
+		<legend x="23"/>
+	</box>
+	<objectives title="MISSION OBJECTIVES:"/>
+</screen>

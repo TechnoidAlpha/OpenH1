@@ -70,6 +70,7 @@ symbols in this file:
 #include "units/vehicle_definitions.h"
 #include "units/vehicles.h"
 #include "halo_keyboard.h" /* port */
+#include "keyboard_walk.h" /* port: port/linux/game/keyboard_walk.c */
 
 /* ---------- constants */
 
@@ -272,30 +273,43 @@ static struct
 	long down_time;
 } crouch_toggles[MAXIMUM_GAMEPADS];
 
-/* port: input.crouch ("toggle") and input.crouch_walk, read again when the
-settings change */
+/* port: input.crouch ("toggle") and input.crouch_walk, each controller's
+player's (the local player of its index, their profile's:
+port/linux/game/player_settings.c), read again when the settings change */
 static struct
 {
+	boolean read;
 	unsigned long read_at;
 	boolean toggle;
 	boolean walk;
-} crouch_settings = { (unsigned long)-1, FALSE, FALSE };
+} crouch_settings_of[MAXIMUM_GAMEPADS];
+
+static struct crouch_settings_values
+{
+	boolean toggle;
+	boolean walk;
+} crouch_settings;
 
 static void crouch_settings_read(
-	void)
+	long controller_index)
 {
-	extern const char *config_string(const char *name);
-	extern int config_boolean(const char *name);
+	extern const char *config_player_string(int local_player, const char *name);
+	extern int config_player_boolean(int local_player, const char *name);
 	extern unsigned long config_changes(void);
 
-	if (crouch_settings.read_at != config_changes())
+	if (controller_index < 0 || controller_index >= MAXIMUM_GAMEPADS)
+		return;
+	if (!crouch_settings_of[controller_index].read || crouch_settings_of[controller_index].read_at != config_changes())
 	{
-		const char *value = config_string("input.crouch");
+		const char *value = config_player_string((int)controller_index, "input.crouch");
 
-		crouch_settings.read_at = config_changes();
-		crouch_settings.toggle = value && !strcmp(value, "toggle");
-		crouch_settings.walk = config_boolean("input.crouch_walk") != 0;
+		crouch_settings_of[controller_index].read = TRUE;
+		crouch_settings_of[controller_index].read_at = config_changes();
+		crouch_settings_of[controller_index].toggle = value && !strcmp(value, "toggle");
+		crouch_settings_of[controller_index].walk = config_player_boolean((int)controller_index, "input.crouch_walk") != 0;
 	}
+	crouch_settings.toggle = crouch_settings_of[controller_index].toggle;
+	crouch_settings.walk = crouch_settings_of[controller_index].walk;
 	return;
 }
 
@@ -318,7 +332,7 @@ static void crouch_controls_update(
 	boolean down = state->buttons[_game_control_crouch] != 0;
 	boolean jump_down = state->buttons[_game_control_jump] != 0;
 
-	crouch_settings_read();
+	crouch_settings_read(controller_index);
 	if (crouch_settings.toggle)
 	{
 		long now = (long)system_milliseconds();
@@ -357,6 +371,69 @@ static void crouch_controls_update(
 	return;
 }
 
+/* port: the keys' Walk (controls.walk, port/linux/game/keyboard_walk.c):
+input.walk "hold" walks while it is held, "toggle" from one press to the
+next (walk_toggle_update, the frame's, never a sub-step's) */
+static struct
+{
+	boolean on;
+	boolean down;
+} walk_toggles[MAXIMUM_GAMEPADS];
+
+static struct
+{
+	unsigned long read_at;
+	boolean toggle;
+} walk_settings = { (unsigned long)-1, FALSE };
+
+static void walk_settings_read(
+	void)
+{
+	extern const char *config_player_string(int local_player, const char *name);
+	extern unsigned long config_changes(void);
+
+	if (walk_settings.read_at != config_changes())
+	{
+		/* (the keys' player's, player 1's: their profile's) */
+		const char *value = config_player_string(0, "input.walk");
+
+		walk_settings.read_at = config_changes();
+		walk_settings.toggle = value && !strcmp(value, "toggle");
+	}
+	return;
+}
+
+static void walk_toggle_update(
+	long controller_index,
+	unsigned long held)
+{
+	boolean down = TEST_FLAG(held, HALO_KEYBOARD_WALK);
+
+	walk_settings_read();
+	if (!walk_settings.toggle)
+		walk_toggles[controller_index].on = FALSE;
+	else if (down && !walk_toggles[controller_index].down)
+		walk_toggles[controller_index].on = !walk_toggles[controller_index].on;
+	walk_toggles[controller_index].down = down;
+	return;
+}
+
+static boolean walk_held(
+	long controller_index,
+	unsigned long held)
+{
+	walk_settings_read();
+	return walk_settings.toggle ? walk_toggles[controller_index].on : TEST_FLAG(held, HALO_KEYBOARD_WALK);
+}
+
+/* port: a walking throttle's part on the 127 steps a network game sends,
+toward none, so that no machine moves it faster */
+static real walk_throttle_step(
+	real value)
+{
+	return value >= 0.f ? (real)floor(value * 127.f) / 127.f : -(real)floor(-value * 127.f) / 127.f;
+}
+
 /* the keys held as a game input state's (the keyboard's ticks counted as
 keyboard_controls_update counted them) */
 static void keyboard_controls_apply(
@@ -380,14 +457,25 @@ static void keyboard_controls_apply(
 	{
 		/* (diagonals on the unit circle) */
 		real length = x && y ? 0.70710678f : 1.f;
+		/* port: walking (controls.walk), a part of the full push, as a stick
+		pushed a little gives (keyboard_walk_throttle) */
+		boolean walking = walk_held(controller_index, held);
+		real push = walking ? keyboard_walk_throttle((short)controller_index) : 1.f;
 
 		/* port: crouched, below the full stick's 0.98 that stands a grounded
-		biped up (player_control.c), as a stick's crouch walk is */
+		biped up (player_control.c), as a stick's crouch walk is; walking
+		crouched, the slower of the two pushes */
 		if (TEST_FLAG(held, HALO_KEYBOARD_CROUCH))
-			length *= 0.97f;
+			push = MIN(push, 0.97f);
+		length *= push;
 
 		state->forward_movement = y * length;
 		state->strafe = -x * length;
+		if (walking && push < 1.f)
+		{
+			state->forward_movement = walk_throttle_step(state->forward_movement);
+			state->strafe = walk_throttle_step(state->strafe);
+		}
 	}
 	{
 		/* port: the touch controls' stick (port/linux/src/xinput_sdl.c)
@@ -431,6 +519,7 @@ static void keyboard_controls_update(
 		&keyboard_controls[controller_index].reload_ticks,
 		&keyboard_controls[controller_index].reload_down_time,
 		TEST_FLAG(held, HALO_KEYBOARD_RELOAD));
+	walk_toggle_update(controller_index, held); /* port */
 	keyboard_controls_apply(controller_index, held, state);
 	return;
 }
@@ -562,6 +651,36 @@ boolean input_abstraction_port_look_inverted(
 	preferences = &input_abstraction_globals.player_control_preferences[controller_index];
 	return preferences->invert_look ||
 		(preferences->invert_look_aircraft_control && local_player_is_piloting_aircraft(controller_index));
+}
+
+/* port: the controller's right stick is the flick stick (input.flick_stick),
+whose turn player_control.c gives the player: only with the default stick
+layout, in which the right stick looks (another's moves or strafes with it) */
+boolean input_abstraction_port_flick_stick(
+	short controller_index)
+{
+	if (controller_index < 0 || controller_index >= MAXIMUM_GAMEPADS || !halo_linux_flick_stick())
+		return FALSE;
+	return input_abstraction_globals.player_control_preferences[controller_index].joystick_controls ==
+		_joystick_controls_default;
+}
+
+/* port: the stick that alone looks (Modern aim's round dead zone:
+input_xbox.c's input_port_fix_stick_dead_zones) */
+short input_abstraction_port_look_stick(
+	short controller_index)
+{
+	if (controller_index < 0 || controller_index >= MAXIMUM_GAMEPADS)
+		return NONE;
+	switch (input_abstraction_globals.player_control_preferences[controller_index].joystick_controls)
+	{
+		case _joystick_controls_default:
+			return _gamepad_stick_right;
+		case _joystick_controls_southpaw:
+			return _gamepad_stick_left;
+		default:
+			return NONE;
+	}
 }
 
 /* ---------- public code */
@@ -940,8 +1059,15 @@ static void input_abstraction_state_from_gamepad(
 	}
 	/* port: the look's side to side inverted (input.invert_look_horizontal),
 	whichever stick or D-pad turns */
-	if (halo_look_horizontal_inverted())
+	if (halo_look_horizontal_inverted((short)controller_index))
 		state->yaw = -state->yaw;
+	/* port: the right stick as the flick stick looks by itself: its turn is
+	the flick stick's (player_control.c), its look as the stick's none */
+	if (input_abstraction_port_flick_stick((short)controller_index))
+	{
+		state->yaw = 0.f;
+		state->pitch = 0.f;
+	}
 	/* port: digital movement bindings are independent of stick presets. */
 	controller_remap_movement((short)controller_index, &state->forward_movement, &state->strafe);
 
@@ -970,6 +1096,8 @@ void input_abstraction_update(
 			input_abstraction_state_from_gamepad(controller_index, gamepad, state);
 			keyboard_controls_update(controller_index, state);
 			crouch_controls_update(controller_index, state); /* port */
+			/* port: the input trace (port/linux/src/input_trace.c) */
+			input_trace_player(controller_index, 0, state->forward_movement, state->strafe, state->yaw, state->pitch);
 			input_abstraction_globals.controller_available[controller_index] = TRUE;
 		}
 		else
@@ -1099,12 +1227,12 @@ boolean input_abstraction_port_substep_state(
 			*ticks = 1;
 	}
 	/* (each stick's dead range as input_xbox.c's: halo_stick_dead_range) */
-	gamepad.sticks[_gamepad_stick_left].x = fix_dead_zone(pad.sThumbLX, halo_stick_dead_range(_gamepad_stick_left));
-	gamepad.sticks[_gamepad_stick_left].y = fix_dead_zone(pad.sThumbLY, halo_stick_dead_range(_gamepad_stick_left));
-	gamepad.sticks[_gamepad_stick_right].x = fix_dead_zone(pad.sThumbRX, halo_stick_dead_range(_gamepad_stick_right));
-	gamepad.sticks[_gamepad_stick_right].y = fix_dead_zone(pad.sThumbRY, halo_stick_dead_range(_gamepad_stick_right));
+	input_port_fix_stick_dead_zones(controller_index, pad.sThumbLX, pad.sThumbLY, pad.sThumbRX, pad.sThumbRY,
+		gamepad.sticks);
 	input_abstraction_state_from_gamepad(controller_index, &gamepad, state);
 	keyboard_controls_apply(controller_index, halo_keyboard_actions(controller_index), state);
+	/* port: the input trace (port/linux/src/input_trace.c) */
+	input_trace_player(controller_index, 1, state->forward_movement, state->strafe, state->yaw, state->pitch);
 	*primary_trigger = primary_trigger_pull(controller_index, &gamepad);
 	return TRUE;
 }

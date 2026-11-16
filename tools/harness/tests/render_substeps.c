@@ -34,6 +34,7 @@ struct _object
 {
 	struct { short size; } node_matrices;
 	real_point3d position;
+	real_vector3d forward;
 	real_vector3d translational_velocity;
 	long parent_object_index;
 	real outgoing_function_values[NUMBER_OF_OUTGOING_OBJECT_FUNCTIONS];
@@ -127,7 +128,15 @@ static void sim_substep_register(short slot, sim_substep_procedure procedure)
 }
 static short sim_substep_count(void) { return fake_substep_count; }
 static real game_time_get_tick_fraction(void) { return fake_fraction; }
-static short director_get_perspective(short local_player_index) { return _director_perspective_first_person; }
+/* (the clock's time since its newest step, in ticks: these frames' part of a sub-step past it) */
+static real game_time_get_step_age(void)
+{
+	real steps = fake_fraction * (real)fake_substep_count;
+
+	return (steps - floorf(steps)) / (real)fake_substep_count;
+}
+static short fake_perspective = _director_perspective_first_person;
+static short director_get_perspective(short local_player_index) { return fake_perspective; }
 static long scripted_camera_object_relative_to(void) { return NONE; }
 static boolean scripted_camera_object_is_first_person_camera(long index) { return FALSE; }
 static boolean cinematic_in_progress(void) { return FALSE; }
@@ -267,6 +276,7 @@ static void world_new(short substep_count)
 	substeps_run = 0;
 	case_substep = NULL;
 	fake_player_unit = BIPED;
+	fake_perspective = _director_perspective_first_person;
 	render_interpolation_register();
 	object_add(BIPED, _object_type_biped, NONE, 3);
 	object_place(BIPED, 0.0f, 0.0f, 0.0f);
@@ -318,9 +328,21 @@ static real_point3d biped_on_line(void)
 		&biped_positions[tick][fake_substep_count - 1], fake_fraction);
 }
 
+/* the frames' times drawn by the test's own generator (xorshift32), not the C library's rand(), whose numbers
+differ from system to system: a case draws the same frames everywhere, from the seed it is run with */
+static unsigned long random_state = 7;
+
+static void random_seed(unsigned long seed)
+{
+	random_state = (seed & 0xFFFFFFFFUL) ? (seed & 0xFFFFFFFFUL) : 7;
+}
+
 static real random_part(void)
 {
-	return (real)(rand() % 1000) / 1000.0f;
+	random_state ^= (random_state << 13) & 0xFFFFFFFFUL;
+	random_state ^= random_state >> 17;
+	random_state ^= (random_state << 5) & 0xFFFFFFFFUL;
+	return (real)(random_state % 1000) / 1000.0f;
 }
 
 /* the observer as the main loop has it after the frame's sub-steps: the biped's eye, now */
@@ -533,6 +555,22 @@ static short projectile_made_substep;
 static short projectile_held;
 #define PROJECTILE_SPEED 0.9f
 static real_point3d projectile_positions[MAXIMUM_TICKS][MAXIMUM_SIM_SUBSTEPS];
+/* (projectile_turning) how far it turns about the up axis each sub-step it moves (radians), and has turned */
+static real projectile_turn;
+static real projectile_heading;
+
+/* the projectile's nodes turned to its heading, about where it is */
+static void projectile_turned(void)
+{
+	real_matrix4x3 *m = &object_get_node_matrices(PROJECTILE)[0];
+
+	m->forward.i = (real)cos(projectile_heading);
+	m->forward.j = (real)sin(projectile_heading);
+	m->forward.k = 0.0f;
+	m->left.i = -(real)sin(projectile_heading);
+	m->left.j = (real)cos(projectile_heading);
+	m->left.k = 0.0f;
+}
 
 static void projectile_substep(long tick, short substep_index)
 {
@@ -546,6 +584,8 @@ static void projectile_substep(long tick, short substep_index)
 		/* (its head start) */
 		object_place(PROJECTILE, 1.0f + PROJECTILE_SPEED, 5.0f, 1.0f);
 		projectile_held = (short)(substep_index < 0 ? fake_substep_count : fake_substep_count - 1);
+		projectile_heading = 0.0f;
+		projectile_turned();
 	}
 	else if (valid(PROJECTILE) && substep_index >= 0)
 	{
@@ -553,13 +593,17 @@ static void projectile_substep(long tick, short substep_index)
 		if (projectile_held > 0)
 			projectile_held--;
 		else
+		{
 			object_place(PROJECTILE, projectile->object.position.x + PROJECTILE_SPEED / fake_substep_count, 5.0f, 1.0f);
+			projectile_heading += projectile_turn;
+		}
+		projectile_turned();
 	}
 	if (valid(PROJECTILE) && substep_index >= 0)
 		projectile_positions[tick][substep_index] = object_get(PROJECTILE)->object.position;
 }
 
-static void projectile_case(short made_substep, long checked_ticks)
+static void projectile_case(short made_substep, long checked_ticks, real turn)
 {
 	long frame;
 	short count = 4;
@@ -570,6 +614,7 @@ static void projectile_case(short made_substep, long checked_ticks)
 	world_new(count);
 	projectile_made_tick = 5;
 	projectile_made_substep = made_substep;
+	projectile_turn = turn;
 	/* (the sub-step it is first kept after, counted from the clock's first: the open tick's are ticks_ended + 1's) */
 	made_step = projectile_made_tick * count + (made_substep < 0 ? 0 : made_substep);
 	case_substep = projectile_substep;
@@ -604,6 +649,18 @@ static void projectile_case(short made_substep, long checked_ticks)
 		CHECK(drawn[0].position.x <= object_get(PROJECTILE)->object.position.x + 1e-5f,
 			"frame %ld: drawn past where the newest sub-step left it (%f, %f)", frame, drawn[0].position.x,
 			object_get(PROJECTILE)->object.position.x);
+		/* turning as it moves: headed as far round as it is along (the sub-steps' headings blended as the
+		quaternions are, near enough over a sub-step's small turn), not as the newest sub-step left it */
+		if (turn != 0.0f)
+		{
+			real moved = time <= (real)(count - 1) ? 0.0f : time - (real)(count - 1);
+			real heading = (real)atan2(drawn[0].forward.j, drawn[0].forward.i);
+
+			CHECK(fabs(heading - turn * moved) < 1e-3f && fabs(drawn[0].forward.k) < 1e-5f &&
+				fabs(drawn[0].up.k - 1.0f) < 1e-5f,
+				"frame %ld: headed %f radians round, not %f (turning %f a sub-step)", frame, heading, turn * moved,
+				turn);
+		}
 		seen = TRUE;
 		render_interpolation_frame_end();
 	}
@@ -778,10 +835,171 @@ static void lead_case(short substep_count, boolean glide)
 		CHECK(released_seen && taken_seen, "the glide not seen both ways (%d %d)", released_seen, taken_seen);
 }
 
+/* A cutscene's scripted camera on its way between two camera points, which the observer moves once a frame by the
+frame's time: the observer a frame leaves is the camera at the frame's moment, a slow move (a few tenths of a unit a
+tick). Frames come at any part of a tick, several in a tick or one every tick and a half; the camera is drawn where
+it was a tick before the frame's moment, as the objects are, at every frame rate (#805: blended from snapshots taken
+as if each were the tick's, it lurched ahead and back at each tick by the part of a tick its first frame came) */
+static double scripted_speed = 0.3;
+/* a cut to another camera point at this moment (0: none) */
+static double scripted_cut;
+
+static real scripted_path(double moment)
+{
+	return (real)(scripted_speed * moment + 0.001 * moment * moment +
+		(scripted_cut > 0.0 && moment >= scripted_cut ? 100.0 : 0.0));
+}
+
+/* ... a fast one (d40's, c40's: nearly a cut's distance a tick), whose snapshots are often more than a cut's distance
+apart (a frame more than a tick after the last): drawn a tick behind as the slow one, not from the latest snapshot a
+tick ahead at random ticks (#805); and a cut to another point still cut, not glided through */
+static void scripted_camera_case(short substep_count, double speed, double cut)
+{
+	double moment = 0.0;
+	long frame;
+
+	world_new(substep_count);
+	fake_perspective = _director_perspective_scripted;
+	scripted_speed = speed;
+	scripted_cut = cut;
+	for (frame = 0; frame < 300; frame++)
+	{
+		struct observer_result observer;
+		struct observer_result const *camera;
+		double drawn_moment;
+		real error;
+
+		/* (the next frame's moment: some frames close together, some more than a tick apart) */
+		moment += frame % 7 == 3 ? 1.0 + 0.6 * random_part() : 0.05 + 0.4 * random_part();
+		/* (as many ticks as the world keeps) */
+		if (moment > (double)(MAXIMUM_TICKS - 4))
+			break;
+		while ((double)(ticks_ended * substep_count + substeps_run + 1) <= moment * substep_count)
+			world_substep();
+		frame_begin((real)(moment * substep_count - (double)(ticks_ended * substep_count + substeps_run)));
+		memset(&observer, 0, sizeof(observer));
+		observer.position.x = scripted_path(moment);
+		observer.position.y = 5.0f;
+		observer.forward.i = 1.0f;
+		observer.up.k = 1.0f;
+		observer.field_of_view = 1.2f;
+		camera = render_interpolation_blended_camera(0, &observer);
+		drawn_moment = (double)ticks_ended + (double)fake_fraction - 1.0;
+		if (ticks_ended < 4)
+		{
+			render_interpolation_frame_end();
+			continue;
+		}
+		if (cut > 0.0)
+		{
+			/* (either side of the cut, never between) */
+			real before = (real)(speed * drawn_moment + 0.001 * drawn_moment * drawn_moment);
+
+			CHECK(fabsf(camera->position.x - before) < 2.0f * (real)speed + 0.5f ||
+				fabsf(camera->position.x - before - 100.0f) < 2.0f * (real)speed + 0.5f,
+				"frame %ld (moment %.3f): the camera %f between the cut's two points (%f, %f)", frame, moment,
+				camera->position.x, before, before + 100.0f);
+			/* (from the cut's frame until a tick past the snapshot after it: drawn from either point) */
+			if (moment >= cut && drawn_moment < cut + 1.7)
+			{
+				render_interpolation_frame_end();
+				continue;
+			}
+		}
+		error = camera->position.x - scripted_path(drawn_moment);
+		CHECK(fabsf(error) < 2e-3f, "frame %ld (moment %.3f): the camera %f from where it was a tick before (%f): "
+			"%.2f of a tick's move", frame, moment, camera->position.x, scripted_path(drawn_moment),
+			error / (real)speed);
+		CHECK(camera->field_of_view == 1.2f, "frame %ld: the field of view %f", frame, camera->field_of_view);
+		render_interpolation_frame_end();
+	}
+}
+
+/* An object whose part an animation carries away from its root faster each tick (a30's lifepod's body, dropping from
+its root): further in a tick than a limb moves, but steadily, so blended between the ticks as any object, not drawn
+stepping from tick to tick as a new pose each tick (#805); a part that jumps at once from rest is a new pose still,
+drawn as the latest snapshot has it */
+#define STEADY_POSED_TICK 20
+
+static real steady_part_offset(long tick)
+{
+	return (real)(0.035 * tick * (tick + 1));
+}
+
+static void steady_part_substep(long tick, short substep_index)
+{
+	long at = absolute(BIPED);
+
+	if (substep_index != -1)
+		return;
+	node_offsets[at][2].k = 0.2f + steady_part_offset(tick);
+	node_offsets[at][1].i = tick >= STEADY_POSED_TICK ? 1.0f : 0.0f;
+}
+
+static void steady_part_case(void)
+{
+	real_point3d snapshots[MAXIMUM_TICKS][MAXIMUM_NODES];
+	long frame;
+	long recorded = -1;
+
+	world_new(1);
+	case_substep = steady_part_substep;
+	for (frame = 0; frame < 4 * 34; frame++)
+	{
+		real_matrix4x3 const *drawn;
+		real_point3d expected;
+		real fraction;
+		short node_index;
+
+		if (frame % 4 == 0)
+			world_substep();
+		if (recorded != ticks_ended)
+		{
+			for (node_index = 0; node_index < MAXIMUM_NODES; node_index++)
+				snapshots[ticks_ended][node_index] = world_nodes[absolute(BIPED)][node_index].position;
+			recorded = ticks_ended;
+		}
+		if (ticks_ended < 3)
+			continue;
+		fraction = 0.1f + 0.25f * (real)(frame % 4);
+		frame_begin(fraction);
+		drawn = render_interpolation_object_node_matrices(BIPED);
+		CHECK(drawn, "frame %ld: not drawn between the ticks", frame);
+		for (node_index = 1; node_index < MAXIMUM_NODES; node_index++)
+		{
+			if (ticks_ended == STEADY_POSED_TICK)
+				expected = snapshots[ticks_ended][node_index];
+			else
+				expected = point_between(&snapshots[ticks_ended - 1][node_index], &snapshots[ticks_ended][node_index],
+					fraction);
+			CHECK(distance(&drawn[node_index].position, &expected) < 1e-4f,
+				"tick %ld, %.2f of a tick: node %d drawn %f from %s (its part moved %f in the tick)", ticks_ended,
+				fraction, node_index, distance(&drawn[node_index].position, &expected),
+				ticks_ended == STEADY_POSED_TICK ? "the new pose" : "the line between the ticks",
+				steady_part_offset(ticks_ended) - steady_part_offset(ticks_ended - 1));
+		}
+		render_interpolation_frame_end();
+	}
+	CHECK(steady_part_offset(33) - steady_part_offset(32) > 2.0f,
+		"the part never moved far in a tick: the case shows nothing");
+}
+
 int main(int argc, char **argv)
 {
-	CHECK(argc == 2, "usage: %s <case>", argv[0]);
-	srand(7);
+	char name[64];
+	char *at;
+
+	CHECK(argc == 2, "usage: %s <case>[@<seed>]", argv[0]);
+	/* (<case>@<seed>: the frames drawn from another seed) */
+	snprintf(name, sizeof(name), "%s", argv[1]);
+	at = strchr(name, '@');
+	random_seed(7);
+	if (at)
+	{
+		*at = 0;
+		random_seed(strtoul(at + 1, NULL, 10));
+	}
+	argv[1] = name;
 	if (!strcmp(argv[1], "classic"))
 		case_classic();
 	else if (!strcmp(argv[1], "substeps"))
@@ -793,13 +1011,27 @@ int main(int argc, char **argv)
 	else if (!strcmp(argv[1], "camera_slow"))
 		case_camera_slow();
 	else if (!strcmp(argv[1], "projectile"))
-		projectile_case(-1, 8);
+		projectile_case(-1, 8, 0.0f);
 	else if (!strcmp(argv[1], "projectile_late"))
-		projectile_case(2, 8);
+		projectile_case(2, 8, 0.0f);
+	else if (!strcmp(argv[1], "projectile_turning"))
+		projectile_case(-1, 8, 0.03f);
 	else if (!strcmp(argv[1], "respawn"))
 		respawn_case(1);
 	else if (!strcmp(argv[1], "respawn_120"))
 		respawn_case(4);
+	else if (!strcmp(argv[1], "scripted_camera"))
+		scripted_camera_case(1, 0.3, 0.0);
+	else if (!strcmp(argv[1], "scripted_camera_120"))
+		scripted_camera_case(4, 0.3, 0.0);
+	else if (!strcmp(argv[1], "scripted_camera_fast"))
+		scripted_camera_case(1, 2.9, 0.0);
+	else if (!strcmp(argv[1], "scripted_camera_fast_120"))
+		scripted_camera_case(4, 2.9, 0.0);
+	else if (!strcmp(argv[1], "scripted_camera_cut"))
+		scripted_camera_case(1, 2.9, 61.3);
+	else if (!strcmp(argv[1], "steady_part"))
+		steady_part_case();
 	else if (!strcmp(argv[1], "vr_release"))
 		case_vr_release();
 	else if (!strcmp(argv[1], "lead"))

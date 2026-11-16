@@ -785,7 +785,7 @@ int game_data_picked_folder(const char *path, struct game_data_candidate *candid
 	version = ui_map_version(ui_map);
 	if (version == HALO_PC_MAP_VERSION || version == CUSTOM_EDITION_MAP_VERSION)
 	{
-		snprintf(error, (size_t)error_size, "These are the maps of Halo for PC or Halo Custom Edition. OpenH1 "
+		snprintf(error, (size_t)error_size, "These are the maps of Halo for PC or Halo Custom Edition. GOAT H1 "
 			"plays the maps of the Xbox game, Halo: Combat Evolved: choose its maps folder or its disc image.");
 		return -1;
 	}

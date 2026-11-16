@@ -272,6 +272,7 @@ public final class TouchControls extends View implements SensorEventListener, In
     private static native int nativeScene();
     private static native int nativeBindings(int[] controls);
     private static native void nativePictureTop(int pixels);
+    private static native void nativeDevices(boolean touchscreen, boolean controller);
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pictures = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -778,6 +779,8 @@ public final class TouchControls extends View implements SensorEventListener, In
         mouseConnected = mouse;
         keyboardConnected = keyboard;
         touchscreen = touch;
+        // (the game's own touchscreen buttons follow the same rule: touch_input.c)
+        nativeDevices(touch, controller);
         updateShowing();
     }
 
@@ -949,13 +952,15 @@ public final class TouchControls extends View implements SensorEventListener, In
     /**
      * whether a finger went down where Android keeps its edge gestures; in
      * sticky full screen the first swipe in from an edge only shows the
-     * system bars, and Android also hands it over as an ordinary finger
+     * system bars, and Android also hands it over as an ordinary finger.
+     * Only fingers on no control are kept out of them: the zones stay their
+     * full size while the bars are hidden (all of the hidden 3-button bar),
+     * and a control drawn there would never press
      */
-    private boolean inGestureZone(float x, float y, boolean sidesOnly) {
+    private boolean inGestureZone(float x, float y) {
         int[] insets = ((HaloActivity) getContext()).getSystemGestureInsetsPixels();
-        if (x < insets[0] || x >= getWidth() - insets[2])
-            return true;
-        return !sidesOnly && (y < insets[1] || y >= getHeight() - insets[3]);
+        return x < insets[0] || x >= getWidth() - insets[2]
+            || y < insets[1] || y >= getHeight() - insets[3];
     }
 
     @Override
@@ -1023,14 +1028,12 @@ public final class TouchControls extends View implements SensorEventListener, In
 
     /** a finger down in a game, at a point in pixels */
     private void fingerDown(int id, float px, float py) {
-        if (inGestureZone(px, py, true))
-            return;
         float x = logical(px);
         float y = logical(py);
         int target = hit(x, y);
         int stick = TouchLayout.LEFT;
         if (target == NOTHING && layout.floatingStick && !hidden && layout.shown(stick) && !held(stick)
-                && inFloatingZone(x, y) && !inGestureZone(px, py, false)) {
+                && inFloatingZone(x, y) && !inGestureZone(px, py)) {
             floatStick(x, y);
             target = stick;
         }
@@ -1046,7 +1049,7 @@ public final class TouchControls extends View implements SensorEventListener, In
                 crouchedKind = TouchContext.crouchPressed(crouchedKind, type, gameControl(type), crouchToggles());
                 tap();
             }
-        } else if (!hidden && lookPointer < 0 && !inGestureZone(px, py, false)) {
+        } else if (!hidden && lookPointer < 0 && !inGestureZone(px, py)) {
             startLook(id, px, py);
         }
     }
@@ -1432,9 +1435,12 @@ public final class TouchControls extends View implements SensorEventListener, In
         panel.addView(opacityLabel);
         panel.addView(opacity);
 
+        // (scrolled: in portrait, or on a short display, the rows do not all fit)
+        ScrollView scroll = new ScrollView(getContext());
+        scroll.addView(panel);
         AlertDialog dialog = new AlertDialog.Builder(getContext())
             .setTitle("General")
-            .setView(panel)
+            .setView(scroll)
             .setPositiveButton("Done", null)
             .create();
         panel.addView(button("Hide or add buttons", view -> {

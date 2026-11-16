@@ -167,7 +167,7 @@ public class LauncherActivity extends Activity {
         layout.setBackgroundColor(Color.rgb(12, 16, 20));
 
         TextView title = new TextView(this);
-        title.setText("OpenH1 needs Halo's game data");
+        title.setText("GOAT H1 needs Halo's game data");
         title.setTextColor(Color.WHITE);
         title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
         title.setGravity(Gravity.CENTER);
@@ -186,6 +186,10 @@ public class LauncherActivity extends Activity {
         layout.addView(message);
 
         pick = new Button(this);
+        Button mccImport = new Button(this);
+        mccImport.setText("Import MCC maps");
+        mccImport.setOnClickListener(v -> startActivity(new Intent(this, MccImportActivity.class)));
+        layout.addView(mccImport);
         pick.setText("Choose disc image");
         pick.setOnClickListener(v -> {
             // (disc images have no MIME type of their own: any file, checked

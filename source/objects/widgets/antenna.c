@@ -43,6 +43,8 @@ symbols in this file:
 #include "render/render_sprite.h"
 #include "saved games/game_state.h"
 #include "scenario/scenario.h"
+/* port: port/linux/game/spartan_link.c: a feed of the HUD's Spartan link is drawn */
+boolean spartan_link_drawing(void);
 #include "shaders/shader_definitions.h"
 
 /* ---------- constants */
@@ -262,6 +264,16 @@ void antenna_render(
 	antenna = antenna_get(antenna_index);
 	definition = antenna_definition_get(antenna->definition_index);
 
+	/* port: a feed of the HUD's Spartan link draws the antenna as the ticks
+	left it, and changes nothing of it: the ticks step those the players'
+	own views draw, as before (port/linux/game/spartan_link.c) */
+	if (spartan_link_drawing())
+	{
+		if (!antenna->disabled && antenna->object_index == object_index && antenna->updates_since_last_render <= 5)
+			antenna_render_proper(antenna_index, antenna, definition);
+		return;
+	}
+
 	if (!antenna->disabled)
 	{
 		antenna->object_index = object_index;
@@ -439,6 +451,7 @@ static void antenna_render_proper(
 			}
 		}
 
+		render_marks_next(RENDER_MARK_EFFECT, definition->texture.index); /* port: debug.render_marks */
 		build_sprites_begin(
 			&sprite_data,
 			(short)vertices->count,

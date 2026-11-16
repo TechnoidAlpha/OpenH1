@@ -30,6 +30,7 @@ silently.
 #include <sys/mman.h>
 #include <unistd.h>
 
+/* (at least: a host page, if larger) */
 #define GUARD_SIZE 0x4000
 
 static __thread uint32_t guest_tp;
@@ -46,18 +47,28 @@ void host_set_tp(uint32_t thread)
 
 /* ---------- stacks */
 
+/* the guard's size: whole host pages, which alone protection can be given
+to (a smaller one, on a kernel of 16 KB or 64 KB pages, would protect the
+bottom of the stack with it) */
+static size_t guard_size(size_t least)
+{
+	size_t page = host_page_size();
+
+	return (least + page - 1) & ~(page - 1);
+}
+
 static void *stack_allocate(size_t size, void **mapping, size_t *mapping_size)
 {
-	size_t total = size + GUARD_SIZE;
+	size_t guard = guard_size(GUARD_SIZE), total = size + guard;
 	void *base = host_low_map(total, PROT_READ | PROT_WRITE);
 
 	if (!base)
 		return NULL;
 	/* guard page at the bottom */
-	mprotect(base, GUARD_SIZE, PROT_NONE);
+	mprotect(base, guard, PROT_NONE);
 	*mapping = base;
 	*mapping_size = total;
-	return (char *)base + GUARD_SIZE;
+	return (char *)base + guard;
 }
 
 static int on_guest_stack(void)
@@ -72,6 +83,7 @@ static int on_guest_stack(void)
 #define SIGNAL_STACK_GUARD 0x1000
 
 static __thread void *signal_stack;
+static __thread size_t signal_stack_guard;
 
 int host_signal_stack_install(void)
 {
@@ -83,7 +95,8 @@ int host_signal_stack_install(void)
 	/* (bionic gives every thread one already) */
 	if (sigaltstack(NULL, &stack) == 0 && !(stack.ss_flags & SS_DISABLE) && stack.ss_size >= SIGNAL_STACK_SIZE / 2)
 		return 0;
-	mapping = mmap(NULL, SIGNAL_STACK_GUARD + SIGNAL_STACK_SIZE, PROT_READ | PROT_WRITE,
+	signal_stack_guard = guard_size(SIGNAL_STACK_GUARD);
+	mapping = mmap(NULL, signal_stack_guard + SIGNAL_STACK_SIZE, PROT_READ | PROT_WRITE,
 		MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 	if (mapping == MAP_FAILED)
 	{
@@ -91,15 +104,15 @@ int host_signal_stack_install(void)
 		return -1;
 	}
 	/* guard page at the bottom */
-	mprotect(mapping, SIGNAL_STACK_GUARD, PROT_NONE);
+	mprotect(mapping, signal_stack_guard, PROT_NONE);
 	memset(&stack, 0, sizeof(stack));
-	stack.ss_sp = mapping + SIGNAL_STACK_GUARD;
+	stack.ss_sp = mapping + signal_stack_guard;
 	stack.ss_size = SIGNAL_STACK_SIZE;
 	if (sigaltstack(&stack, NULL) != 0)
 	{
 		host_logf(HOST_LOG_WARN, "cannot install a signal stack (%s): a stack overflow will not be reported",
 			strerror(errno));
-		munmap(mapping, SIGNAL_STACK_GUARD + SIGNAL_STACK_SIZE);
+		munmap(mapping, signal_stack_guard + SIGNAL_STACK_SIZE);
 		return -1;
 	}
 	signal_stack = mapping;
@@ -115,7 +128,7 @@ void host_signal_stack_remove(void)
 	memset(&stack, 0, sizeof(stack));
 	stack.ss_flags = SS_DISABLE;
 	sigaltstack(&stack, NULL);
-	munmap(signal_stack, SIGNAL_STACK_GUARD + SIGNAL_STACK_SIZE);
+	munmap(signal_stack, signal_stack_guard + SIGNAL_STACK_SIZE);
 	signal_stack = NULL;
 }
 

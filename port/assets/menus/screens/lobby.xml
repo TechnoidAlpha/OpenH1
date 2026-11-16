@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The lobby (docs/menu_screens.md), a network game's and a game of this
+machine alone's, in place of the generated lobby (main_menu/
+multiplayer_type_select/lobby/lobby_screen) in the new engine. The tall
+layout: LOBBY in the band, the game's name, where it is and its players at
+its right; a lineup of the players' Spartans over them (four of each team,
+or the first eight; each in the color the game gives them; on the computer:
+a phone's lanes keep their rows); the players in
+a lane for each team (RED and BLUE, each its count; in a game without teams
+one list, PLAYERS, down both), each a row of its dot, name and tag (HOST,
+BOT and the bots' skill, PARTY, GOAT H1, OPENCE), this machine's own
+framed. Beside them a panel, one of three: the next game (its map's
+picture, its gametype and what wins it, the map and limits, the host's bots
+(BOTS, SKILL, TEAMS), how the game is, and HOST CONTROLS, GAME SETTINGS and
+START GAME, a player's WAITING FOR THE HOST); a player's card (A, a click
+or a tap on their row: their Spartan, name, ping, platform and party, and
+ADD FRIEND, MUTE and the host's KICK); or INVITE FRIENDS (the friends
+online, the one chosen invited, and the invite link copied). BACK (LEAVE,
+or BACK while a card or the invite is open) at the bar's left, CHANGE TEAM,
+INVITE FRIENDS, ADD PLAYER and CHAT at its right (a touchscreen's HOST
+CONTROLS too). What it
+shows and does is menu_functions.c's lobby_menu.inc, as for the generated
+screen (the row source lobby.players, the lobby.* bindings and actions):
+left and right on the players change this player's team, a player's Start
+starts the host's game, and the Start of a controller not yet in the game
+opens Add Player (screens/add_player.xml) with it joining; the generated
+screen's own keys stay (B leaves, X opens Add Player, Y the map vote or COPY
+INVITE).
+Under the players, the lobby's text chat (network_chat.c's lobby lines,
+each name in its team's colour): T or Y on the keyboard, LB (CHAT) or A on
+its line on a controller (the on-screen keyboard), a tap on it on a
+touchscreen; the host's LOBBY TEXT CHAT has it on or off for everyone. -->
+<screen name="lobby" start="lobby start">
+	<header title="{lobby.title}" detail="{lobby.subtitle}" fallback="{lobby.subtitle.short}"/>
+	<spartan height="80" color="lobby.lineup" names="lobby.lineup.names" when="pointer"/>
+	<table source="lobby.players" lanes="2" do="lobby card" left="lobby team red" right="lobby team blue">
+		<lane label="{lobby.red}" detail="{lobby.red.count}" tone="lobby.red.tone"/>
+		<lane label="{lobby.blue}" detail="{lobby.blue.count}" tone="lobby.blue.tone"/>
+		<column id="dot" kind="dot" width="8" gap="0" touch="8 0 8 0 0"/>
+		<column id="name" kind="strong" width="76" grow="48" gap="6" touch="22 0 64 0 48"/>
+		<column id="tag" width="72" grow="24" gap="2" align="right" touch="88 0 62 48 24"/>
+	</table>
+	<panel if="lobby.details">
+		<picture set="maps" frame="lobby.map.picture" height="132" touch-height="72"/>
+		<heading text="{lobby.gametype}"/>
+		<text text="{lobby.where}"/>
+		<text text="{lobby.description}" lines="2" touch-lines="1"/>
+		<pills>
+			<pill text="{lobby.kind}" tone="lobby.kind.tone" width="64"/>
+			<pill text="{lobby.tick}" tone="2" width="64"/>
+			<pill text="{lobby.opence}" tone="2" width="132"/>
+		</pills>
+		<text text="THEN: {lobby.after}" if="lobby.after"/>
+		<text text="{coop.listing}" lines="2" if="coop.listing"/>
+		<text text="{coop.link}" if="coop.link" when="pointer"/>
+		<text text="{coop.problem}" lines="2" if="coop.problem"/>
+		<choice label="BOTS" value="{lobby.bots}" left="lobby bots left" right="lobby bots right" if="lobby.bots.shown" dim="lobby.bots.count.locked"/>
+		<choice label="SKILL" value="{lobby.skill}" left="lobby skill left" right="lobby skill right" if="lobby.bots.some" dim="lobby.bots.locked"/>
+		<choice label="TEAMS" value="{lobby.teams}" left="lobby teams left" right="lobby teams right" if="lobby.bots.some" dim="lobby.bots.locked"/>
+		<text text="{lobby.status}" lines="2"/>
+		<heading text="{lobby.waiting}" if="lobby.waiting"/>
+		<button key="accept" label="{coop.fix}" if="coop.fix" do="lobby fix"/>
+		<button key="accept" label="HOST CONTROLS" if="lobby.controls" do="lobby host" when="pointer"/>
+		<button key="accept" label="GAME SETTINGS" if="lobby.settings" do="lobby settings"/>
+		<button key="accept" label="{lobby.start}" if="lobby.host" do="lobby start"/>
+	</panel>
+	<chat source="lobby.chat" lines="3" do="lobby chat"/>
+	<panel if="lobby.card">
+		<spartan height="116" touch-height="72" color="lobby.card.color"/>
+		<heading text="{lobby.card.name}"/>
+		<pair label="PING" value="{lobby.card.ping}" when="pointer"/>
+		<pair label="PLATFORM" value="{lobby.card.platform}" when="pointer"/>
+		<pair label="PARTY" value="{lobby.card.party}" when="pointer"/>
+		<text text="{lobby.card.facts}" when="touch"/>
+		<text text="{lobby.card.note}" lines="2" if="lobby.card.note"/>
+		<button key="accept" label="ADD FRIEND" if="lobby.card.friend" do="lobby card friend"/>
+		<button key="accept" label="{lobby.card.mute}" if="lobby.card.mutable" do="lobby card mute"/>
+		<button key="accept" label="KICK" if="lobby.card.kick" do="lobby card kick"/>
+	</panel>
+	<panel if="lobby.inviting">
+		<heading text="INVITE FRIENDS"/>
+		<text text="{lobby.friends.count}" lines="2"/>
+		<choice label="FRIEND" value="{lobby.friend}" left="lobby friend left" right="lobby friend right" if="lobby.friend"/>
+		<text text="{lobby.friend.where}"/>
+		<text text="{lobby.friends.said}" lines="3"/>
+		<button key="accept" label="COPY INVITE LINK" if="lobby.invite" do="lobby invite"/>
+		<button key="accept" label="INVITE" if="lobby.friend" do="lobby friend invite"/>
+	</panel>
+	<buttons>
+		<button key="back" label="BACK" if="lobby.panel.open" do="lobby close" touch-width="84"/>
+		<button key="back" label="LEAVE" if="lobby.details" touch-width="84"/>
+		<button key="dpad" label="CHANGE TEAM" side="right" if="lobby.team.change" do="lobby team toggle" touch-width="120"/>
+		<button key="y" label="COPY LINK" side="right" if="coop.link" do="lobby invite" when="pointer"/>
+		<button key="rb" label="INVITE FRIENDS" side="right" if="lobby.invite" do="lobby friends" when="pointer"/>
+		<button key="rb" label="INVITE" side="right" if="lobby.invite" do="lobby friends" touch-width="80" when="touch"/>
+		<button key="x" label="ADD PLAYER" side="right" if="lobby.add" touch-width="106"/>
+		<button key="lb" label="CHAT" side="right" if="lobby.chat" do="lobby chat" when="pointer"/>
+		<button key="rt" label="HOST CONTROLS" side="right" if="lobby.controls" do="lobby host" touch-width="130" when="touch"/>
+	</buttons>
+</screen>

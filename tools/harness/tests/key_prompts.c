@@ -41,6 +41,22 @@ static int halo_keyboard_action_name(int action, char *name, unsigned long size)
 	return name[0] != 0;
 }
 
+/* the prompts' device (xinput_sdl.c's halo_keyboard_prompts: the keyboard's
+keys, else the controller's buttons), and whether the map's message icons
+have a picture of a button (hud_key_prompts.c's button_sprite_drawn) */
+static int keyboard_prompts;
+static boolean back_sprite;
+
+static int halo_keyboard_prompts(void)
+{
+	return keyboard_prompts;
+}
+
+static boolean button_sprite_drawn(short gamepad_button)
+{
+	return gamepad_button == _icon_back_button && back_sprite;
+}
+
 #include "under_test.inc"
 
 static void default_bindings(void)
@@ -232,6 +248,33 @@ int main(int argc, char **argv)
 		CHECK(!wcscmp(tight, L"Hold BACK for score"), "%ls", tight);
 		CHECK(hud_key_prompt_text(0, NONE, _icon_back_button, shown, NUMBEROF(shown)) && !wcscmp(shown, L"Tab"),
 			"Back's key on the keyboard: %ls", shown);
+		return 0;
+	}
+	CASE("score-hint-controller")
+	{
+		/* the score hint's BACK made the icon only where the HUD draws
+		something for it: the keyboard's key, or a picture of Back, which
+		the Xbox's message icons have not (the word stays, as the Xbox
+		wrote it) */
+		wchar_t text[64];
+
+		CHECK(HUD_KEY_PROMPT_BACK_BUTTON == _icon_back_button, "the Back button's icon moved");
+		keyboard_prompts = 1;
+		wcscpy(text, L"Hold BACK for score");
+		hud_key_prompt_score_hint(0, text, NUMBEROF(text));
+		CHECK(!wcscmp(text, L"Hold %back-button for score"), "keyboard: %ls", text);
+		/* (a second player's prompts are never keys) */
+		wcscpy(text, L"Hold BACK for score");
+		hud_key_prompt_score_hint(1, text, NUMBEROF(text));
+		CHECK(!wcscmp(text, L"Hold BACK for score"), "second player: %ls", text);
+		keyboard_prompts = 0;
+		wcscpy(text, L"Hold BACK for score");
+		hud_key_prompt_score_hint(0, text, NUMBEROF(text));
+		CHECK(!wcscmp(text, L"Hold BACK for score"), "controller: %ls", text);
+		back_sprite = TRUE;
+		wcscpy(text, L"Hold BACK for score");
+		hud_key_prompt_score_hint(0, text, NUMBEROF(text));
+		CHECK(!wcscmp(text, L"Hold %back-button for score"), "controller, a picture of Back: %ls", text);
 		return 0;
 	}
 	fprintf(stderr, "unknown case: %s\n", case_name);

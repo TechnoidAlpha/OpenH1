@@ -10,6 +10,12 @@ tests of config.toml: built with stand-ins for SDL, the platform layer
     config_check <folder> saving <setting>       prints the value the game reads
                                                  with battery saver on, then the
                                                  one Settings shows
+    config_check <folder> player <n> <profile folder> <setting>
+                                                 prints local player n's value, their
+                                                 profile's folder that one ("": none)
+    config_check <folder> profile-write <profile folder> <setting> <value>
+    config_check <folder> profile-get <profile folder> <setting>
+                                                 a profile's own value (1: none)
 */
 
 #include "install_layout.h"
@@ -17,6 +23,7 @@ tests of config.toml: built with stand-ins for SDL, the platform layer
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static char folder[1024];
@@ -98,6 +105,61 @@ int main(int argc, char **argv)
 			printf("%s", config_string(argv[3]));
 		config_text(argv[3], text, sizeof(text));
 		printf(" %s\n", text);
+		return 0;
+	}
+	/* (a local player's value, their profile's folder given ("" none), by
+the setting's type) */
+	if (!strcmp(argv[2], "player") && argc == 6)
+	{
+		struct config_setting_info info;
+		int index;
+
+		config_player_profile(atoi(argv[3]), argv[4]);
+		for (index = 0; config_setting_info(index, &info) && strcmp(info.name, argv[5]); index++)
+		{
+		}
+		if (!info.name || strcmp(info.name, argv[5]))
+			return 2;
+		if (!strcmp(info.type, "boolean"))
+			printf("%s\n", config_player_boolean(atoi(argv[3]), argv[5]) ? "true" : "false");
+		else if (!strcmp(info.type, "integer"))
+			printf("%ld\n", config_player_integer(atoi(argv[3]), argv[5]));
+		else if (!strcmp(info.type, "real"))
+			printf("%g\n", config_player_real(atoi(argv[3]), argv[5]));
+		else
+			printf("%s\n", config_player_string(atoi(argv[3]), argv[5]));
+		return 0;
+	}
+	/* (a weapon's own offsets: a local player's, their profile's folder
+given; and set in a profile) */
+	if (!strcmp(argv[2], "player-weapon") && argc == 6)
+	{
+		double values[CONFIG_WEAPON_VALUES];
+		int index;
+
+		config_player_profile(atoi(argv[3]), argv[4]);
+		config_player_viewmodel_weapon(atoi(argv[3]), argv[5], values);
+		for (index = 0; index < CONFIG_WEAPON_VALUES; index++)
+			printf("%s%g", index ? " " : "", values[index]);
+		printf("\n");
+		return 0;
+	}
+	if (!strcmp(argv[2], "profile-weapon-write") && argc == 5 + CONFIG_WEAPON_VALUES)
+	{
+		double values[CONFIG_WEAPON_VALUES];
+		int index;
+
+		for (index = 0; index < CONFIG_WEAPON_VALUES; index++)
+			values[index] = atof(argv[5 + index]);
+		return config_profile_viewmodel_weapon_write(argv[3], argv[4], values) ? 0 : 1;
+	}
+	if (!strcmp(argv[2], "profile-write") && argc == 6)
+		return config_profile_write(argv[3], argv[4], argv[5]) ? 0 : 1;
+	if (!strcmp(argv[2], "profile-get") && argc == 5)
+	{
+		if (!config_profile_text(argv[3], argv[4], text, sizeof(text)))
+			return 1;
+		printf("%s\n", text);
 		return 0;
 	}
 	return 2;

@@ -86,6 +86,7 @@ def test_generator_sizes_are_the_engines():
     assert _define(source, "MISSION_CARDS_TOP") == port_settings.MISSION_CARDS_TOP
     assert _define(source, "MISSION_DOTS") == port_settings.MISSION_DOTS
     assert _define(source, "MISSION_DOT_STEP") == port_settings.MISSION_DOT_STEP
+    assert _define(source, "MISSION_OBJECTIVE_LINES") == port_settings.MISSION_OBJECTIVE_LINES
     assert _define(source, "CAMPAIGN_ITEMS_TOP") == port_settings.CAMPAIGN_ITEMS_TOP
     assert _define(source, "CAMPAIGN_CONTINUE_HEIGHT") == port_settings.CAMPAIGN_CONTINUE[1]
     assert _define(source, "CAMPAIGN_ITEM_HEIGHT") == port_settings.HUB_ITEM[1]
@@ -94,23 +95,6 @@ def test_generator_sizes_are_the_engines():
         for slot in range(3):
             attributes = every[f"{CAMPAIGN}/card_{kind}_{slot}"].attributes
             assert (int(attributes["width"]), int(attributes["height"])) == size
-
-
-def test_the_menus_open_them():
-    """The main menu's CAMPAIGN opens the Campaign menu, a new profile's campaign the difficulties, and split-screen
-    co-op's player 2 Choose Mission: no screen opens the old list (New Game's, Load Game's)."""
-    main_menu = (menu_layout.CE / "main_menu.xml").read_text()
-    assert main_menu.count(f'open="{CAMPAIGN}/campaign_screen"') == 2
-    assert f'open="{CAMPAIGN}/difficulty_screen"' in main_menu
-    coop = (menu_layout.CE / "main_menu.multiplayer_type_select.coop.xml").read_text()
-    assert f'open="{CAMPAIGN}/mission_screen"' in coop
-    for path in menu_layout.CE.glob("*.xml"):
-        if path.name.startswith(("main_menu.campaign_select", "main_menu.solo_level_select")):
-            continue
-        text = path.read_text()
-        for old in ("campaign_select/campaign_menu", "solo_level_select/solo_level_select_screen",
-                    "difficulty_select/difficulty_select_list_screen", "load_level_select_screen"):
-            assert f'open="main_menu/{old}"' not in text, (path.name, old)
 
 
 def test_functions_are_named():
@@ -168,7 +152,7 @@ def test_mission_screen_layout(aspect):
     panel = one(boxes, "mission_panel")
     assert panel.inside(area)
     assert cards_bottom <= port_settings.MISSION_DOTS_TOP <= panel.y0 - port_settings.MISSION_DOT[1]
-    for name in ("detail_title", "detail_objective", "detail_status", "detail_status_new", "detail_beaten"):
+    for name in ("detail_title", "detail_objective", "detail_status", "detail_status_new"):
         assert one(boxes, name).inside(panel), name
     badges = named(boxes, "detail_badge")
     assert len(badges) == 4

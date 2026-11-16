@@ -76,6 +76,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries/cseries.h"
+#include "mcc_grenades.h" /* port: port/linux/game/mcc_grenades.h */
 #include "bitmaps/bitmap_group.h"
 #include "camera/director.h"
 #include "cache/texture_cache.h"
@@ -85,7 +86,9 @@ symbols in this file:
 #include "game/game_globals.h"
 #include "game/players.h"
 #include "interface/hud.h"
+#include "mcc_hud_draw.h" /* port: port/linux/game/mcc_hud_draw.c */
 #include "interface/hud_definitions.h"
+#include "interface/hud_draw.h"
 #include "interface/hud_messaging.h"
 #include "interface/hud_unit.h"
 #include "interface/hud_weapon.h"
@@ -108,6 +111,7 @@ symbols in this file:
 #include "tag_files/tag_files.h"
 #include "text/draw_string.h"
 #include "coop_spectate.h" /* port: port/linux/game/coop_spectate.c */
+#include "dead_spectate.h" /* port: port/linux/game/dead_spectate.c */
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "network_chat.h" /* port: port/linux/game/network_chat.c */
 #include "network_party.h" /* port: port/linux/game/network_party.c */
@@ -612,6 +616,14 @@ static void hud_show_action_response(
 		return;
 	}
 
+	/* port: an enemy's seat, taken by holding the action button
+	(port/linux/game/vehicle_hijack.c): its prompt in place of entering's,
+	the button drawn as every prompt's is (hud_key_prompts.c) */
+	case _player_action_result_hijack_vehicle:
+		hud_enable_custom_state_message(render.local_player_index, TRUE);
+		hud_set_state_text(render.local_player_index, L"Hold %action to hijack");
+		return;
+
 	case _player_action_result_flip_vehicle:
 #ifdef HALO_VR
 		/* port: the VR mode's lift flips it (vr.vehicle_flip,
@@ -989,10 +1001,12 @@ static void hud_draw_friendly_indicator(
 			0);
 		if (_texture_cache_bitmap_get_hardware_format(bitmap, FALSE, TRUE))
 		{
-			position.x =
-				(short)fast_ftol(screen_position.x) - render.camera.viewport_bounds.x0;
-			position.y =
-				(short)fast_ftol(screen_position.y) - render.camera.viewport_bounds.y0;
+			/* port: where the point is, not the nearest whole unit, that
+			it keeps to the teammate (hud_draw_mark_begin) */
+			hud_draw_mark_begin(
+				screen_position.x - render.camera.viewport_bounds.x0,
+				screen_position.y - render.camera.viewport_bounds.y0,
+				&position);
 			/* port: over the game's own far distance, not display.draw_
 			distance's (far_clip.c): the fade's distance stays the same */
 			depth_factor = 1.0f -
@@ -1005,16 +1019,22 @@ static void hud_draw_friendly_indicator(
 			clip.y1 = 1.0f;
 #ifdef HALO_VR
 			/* port: in VR, drawn in each eye over the teammate */
-			if (!vr_render_world_mark(&head_position, (real)position.x, (real)position.y))
+			if (!vr_render_world_mark(&head_position,
+				screen_position.x - render.camera.viewport_bounds.x0,
+				screen_position.y - render.camera.viewport_bounds.y0))
+			{
+				hud_draw_mark_end();
 				return;
+			}
 #endif
 			interface_draw_bitmap(
 				bitmap,
 				&position,
 				&clip,
-				1.0f,
+				mcc_hud_bitmap_scale(interface_get_tag_index(_interface_bitmap_multiplayer_hud)), /* port: MCC bitmap units */
 				0.0f,
 				1.0f);
+			hud_draw_mark_end();
 		}
 	}
 
@@ -1041,7 +1061,9 @@ static void hud_draw_players(
 		{
 			if (player_index != iterator.datum_index &&
 				team_index == player->team_index &&
-				player->unit_index != NONE)
+				player->unit_index != NONE &&
+				/* port: nor the teammate a dead player looks out of */
+				player->unit_index != dead_spectate_eyes_unit(render.local_player_index))
 			{
 				/* never write past the buffer, whatever the player data holds */
 				if (teammate_count < (long)NUMBEROF(teammate_indices))
@@ -1228,12 +1250,27 @@ static void hud_draw_player_name(
 	matrix4x3_transform_point(&render.frustum.world_to_view, &head_position, &view_position);
 	if (!render_camera_view_to_screen(&render.camera, &render.frustum, &view_position, &screen_position))
 		return;
-	x = (short)fast_ftol(screen_position.x) - render.camera.viewport_bounds.x0;
-	y = (short)fast_ftol(screen_position.y) - render.camera.viewport_bounds.y0;
+	/* (where the point is, not the nearest whole unit, that the name keeps
+	to the player: hud_draw_mark_begin) */
+	{
+		point2d whole;
+
+		hud_draw_mark_begin(
+			screen_position.x - render.camera.viewport_bounds.x0,
+			screen_position.y - render.camera.viewport_bounds.y0,
+			&whole);
+		x = whole.x;
+		y = whole.y;
+	}
 #ifdef HALO_VR
 	/* port: in VR, drawn in each eye over the player's head */
-	if (!vr_render_world_mark(&head_position, (real)x, (real)y))
+	if (!vr_render_world_mark(&head_position,
+		screen_position.x - render.camera.viewport_bounds.x0,
+		screen_position.y - render.camera.viewport_bounds.y0))
+	{
+		hud_draw_mark_end();
 		return;
+	}
 #endif
 	if (indicator)
 	{
@@ -1241,7 +1278,8 @@ static void hud_draw_player_name(
 			interface_get_tag_index(_interface_bitmap_multiplayer_hud), 0, 0);
 
 		if (bitmap)
-			y -= bitmap->registration_point.y;
+			y -= (short)(bitmap->registration_point.y *
+				mcc_hud_bitmap_scale(interface_get_tag_index(_interface_bitmap_multiplayer_hud))); /* port: match the MCC arrow's scale */
 	}
 	y -= 2;
 	font = font_definition_get(font_index);
@@ -1290,6 +1328,7 @@ static void hud_draw_player_name(
 		icon.y1 = (short)(icon.y0 + size);
 		network_voice_draw_icon(&icon, FALSE, color.alpha);
 	}
+	hud_draw_mark_end();
 
 	return;
 }
@@ -1321,8 +1360,12 @@ static void hud_draw_player_names(
 		/* (allies as the game's triangles tell them: the same team) */
 		boolean ally = player->team_index == team_index;
 
-		if (iterator.datum_index == player_index || player->unit_index == NONE)
+		/* port: (nor the teammate a dead player looks out of) */
+		if (iterator.datum_index == player_index || player->unit_index == NONE ||
+			player->unit_index == dead_spectate_eyes_unit(render.local_player_index))
+		{
 			continue;
+		}
 		if ((ally && setting == _player_names_enemies) || (!ally && setting == _player_names_allies) ||
 			!game_engine_draw_object_in_motion_sensor(player->unit_index))
 		{
@@ -1379,6 +1422,12 @@ static void temporary_hud_draw(
 			&scenario_get_game_globals()->grenades,
 			unit->unit.current_grenade_index,
 			struct game_globals_grenade);
+		/* port: retain MCC inventory counts with bounded tag-name formatting. */
+		if (mcc_grenades_active())
+			snprintf(temporary + csstrlen(temporary), sizeof(temporary) - csstrlen(temporary), "%d %s|n",
+				mcc_grenades_get(player->unit_index, unit->unit.current_grenade_index),
+				tag_name_strip_path(tag_get_name(grenade->projectile.index)));
+		else
 		snprintf(
 			temporary + csstrlen(temporary),
 			sizeof(temporary) - csstrlen(temporary),
@@ -1541,6 +1590,8 @@ void hud_draw_screen(
 	if (player_index != NONE)
 	{
 		struct player_datum *player = player_get(player_index);
+		/* port: related MCC HUD elements share this player's unit safe frame. */
+		mcc_hud_view_begin(player->unit_index);
 
 #ifdef HALO_VR
 		/* port: in VR, what the HUD places in the world is drawn at a depth
@@ -1556,6 +1607,7 @@ void hud_draw_screen(
 		if ((!game_engine_running() || game_engine_display_team_indicators()) &&
 			!cinematic_in_progress())
 		{
+			render_marks_hud(NONE, "player indicators"); /* port: debug.render_marks */
 			hud_draw_players();
 		}
 
@@ -1566,8 +1618,14 @@ void hud_draw_screen(
 #ifdef HALO_VR
 		halo_vr_hud_group(HALO_VR_HUD_GROUP_CENTRE);
 #endif
-		/* port: who a dead network co-op player is watching */
-		if (player->unit_index == NONE && coop_spectating() && !cinematic_in_progress())
+		/* port: who a dead player is watching through their eyes
+		(game.spectate_on_death), or a dead network co-op player from behind */
+		if (player->unit_index == NONE && !cinematic_in_progress() &&
+			dead_spectate_eyes_unit(render.local_player_index) != NONE)
+		{
+			dead_spectate_draw(render.local_player_index);
+		}
+		else if (player->unit_index == NONE && coop_spectating() && !cinematic_in_progress())
 			coop_spectate_draw(render.local_player_index);
 		/* port: the network co-op vote to skip a cinematic */
 		if (cinematic_in_progress())
@@ -1610,10 +1668,12 @@ void hud_draw_screen(
 #ifdef HALO_VR
 				halo_vr_hud_group(HALO_VR_HUD_GROUP_WORLD);
 #endif
+				render_marks_hud(NONE, "navigation points"); /* port: debug.render_marks */
 				hud_render_nav_points(render.local_player_index);
 #ifdef HALO_VR
 				halo_vr_hud_group(HALO_VR_HUD_GROUP_CENTRE);
 #endif
+				render_marks_hud(NONE, "damage indicators"); /* port: debug.render_marks */
 				hud_render_damage_indicators(render.local_player_index);
 			}
 			else
@@ -1630,6 +1690,7 @@ void hud_draw_screen(
 #ifdef HALO_VR
 		halo_vr_hud_group(HALO_VR_HUD_GROUP_CENTRE);
 #endif
+		render_marks_hud(NONE, "messages"); /* port: debug.render_marks */
 		hud_messaging_update(render.local_player_index);
 		/* port: network games' text chat, the lines this view's player hears */
 		network_chat_draw(render.local_player_index);
@@ -1639,6 +1700,7 @@ void hud_draw_screen(
 		network_votekick_draw(render.local_player_index);
 		/* port: Basic Training's step, its progress and its skip buttons */
 		basic_training_draw(render.local_player_index);
+		mcc_hud_view_end(); /* port: no frame choice leaks to another view */
 	}
 
 	rasterizer_hud_end();

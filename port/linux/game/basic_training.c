@@ -1932,6 +1932,16 @@ static void basic_training_button_name(
 #endif
 	if (button >= 0 && button < NUMBER_OF_TRAINING_BUTTONS)
 		snprintf(name, size, "%s", pad_names[button]);
+	/* (an action on a back paddle: its name, "L4" on a Steam Deck) */
+	else if (button >= CONTROLLER_REMAP_PROMPT_PADDLE && button <= CONTROLLER_REMAP_PROMPT_PADDLE + 3)
+	{
+		wchar_t const *text = controller_remap_prompt_text(local_player_get_next(NONE), button);
+		size_t index;
+
+		for (index = 0; text && text[index] && index + 1 < size; index++)
+			name[index] = (char)text[index];
+		name[index] = 0;
+	}
 }
 
 /* the panel (TRAINING_PANEL_LINES of text) at the top of the middle of the

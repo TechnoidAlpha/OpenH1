@@ -11,7 +11,7 @@ no pass), a render noted before it begins (retried after a failure or a
 crash, then given up), a pass resumed at the next start, its notes written
 and read back, the colour curve,
 the picture cut from the middle of a frame and laid out as the original
-frame is. test_menu_pictures.py takes the header (menu_pictures_h.inc), the
+frame is, and the game's start's phases (the intro, the pass, the main menu). test_menu_pictures.py takes the header (menu_pictures_h.inc), the
 constants (config.inc) and the code (under_test.inc).
 */
 
@@ -406,6 +406,67 @@ int main(int argc, char **argv)
 			menu_picture_decide(&pose, 0x22222222UL, &note, 6));
 		/* (a new map, or pose, is tried again) */
 		CHECK(menu_picture_decide(&pose, 0x11111111UL, &note, 3) == RENDER, "a changed map is not tried");
+	}
+
+	/* the game's start, in order: the intro movie played to its end or
+	skipped, then the pictures' pass, then the main menu's menus and music;
+	none begins before the one before it has ended, and the pass has the game
+	to itself from its start to its end's main menu (issue 550: the pass ran
+	under the intro, which held the texture cache's spare memory the maps'
+	files are copied through and drew over the frames kept) */
+	CASE("startup")
+	{
+		enum { INTRO = _menu_pictures_startup_intro, PICTURES = _menu_pictures_startup_pictures,
+			DONE = _menu_pictures_startup_done };
+
+		/* (the intro: until the main menu's map is loaded and no movie is
+		open; the pass's state is not its business) */
+		CHECK(menu_pictures_startup_next(INTRO, FALSE, FALSE, FALSE) == INTRO, "the start goes on before the main menu");
+		CHECK(menu_pictures_startup_next(INTRO, TRUE, TRUE, FALSE) == INTRO, "the pass begins while the intro plays");
+		CHECK(menu_pictures_startup_next(INTRO, FALSE, TRUE, FALSE) == INTRO, "the start goes on in a movie");
+		CHECK(menu_pictures_startup_next(INTRO, TRUE, FALSE, FALSE) == PICTURES,
+			"the pass does not begin once the intro has ended");
+		/* (the pass: while it has the game, whatever else is so) */
+		CHECK(menu_pictures_startup_next(PICTURES, TRUE, FALSE, TRUE) == PICTURES, "the main menu comes during the pass");
+		CHECK(menu_pictures_startup_next(PICTURES, FALSE, FALSE, TRUE) == PICTURES,
+			"the main menu comes as the pass loads a map");
+		CHECK(menu_pictures_startup_next(PICTURES, TRUE, FALSE, FALSE) == DONE, "the start never ends after the pass");
+		CHECK(menu_pictures_startup_next(DONE, TRUE, TRUE, TRUE) == DONE, "the start begins again");
+		/* (the main menu's menus and music wait through the intro and the
+		pass, not for the pass's own main menu at its end) */
+		CHECK(menu_pictures_startup_holds_main_menu(INTRO, FALSE), "the main menu shows before the intro has ended");
+		CHECK(menu_pictures_startup_holds_main_menu(PICTURES, TRUE), "the main menu shows during the pass");
+		CHECK(!menu_pictures_startup_holds_main_menu(PICTURES, FALSE), "the pass's end's main menu is held");
+		CHECK(!menu_pictures_startup_holds_main_menu(DONE, FALSE), "the main menu is held after the start");
+		CHECK(!menu_pictures_startup_holds_main_menu(DONE, TRUE), "the main menu is held after the start");
+		/* (the pass has the game from its start to its end's main menu) */
+		CHECK(menu_pictures_phase_exclusive(TRUE, FALSE), "the running pass shares the game");
+		CHECK(!menu_pictures_phase_exclusive(TRUE, TRUE), "the ended pass keeps the game: no intro after it");
+		CHECK(!menu_pictures_phase_exclusive(FALSE, FALSE), "no pass has the game");
+	}
+
+	/* a cached picture noted as rendered is drawn only if its file is a
+	whole PNG of its scale's size: one cut short, of another size, or not a
+	PNG is rendered again */
+	CASE("whole")
+	{
+		static unsigned char const ihdr[24] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 13, 'I', 'H', 'D',
+			'R', 0, 0, 3, 0, 0, 0, 1, 128 };
+		static unsigned char const iend[12] = { 0, 0, 0, 0, 'I', 'E', 'N', 'D', 0xAE, 0x42, 0x60, 0x82 };
+		unsigned char head[24], tail[12];
+
+		CHECK(menu_picture_png_whole(ihdr, 24, iend, 12, 768, 384), "a whole 768x384 PNG is not whole");
+		CHECK(!menu_picture_png_whole(ihdr, 24, iend, 12, 512, 256), "a 768x384 PNG is taken for a 512x256 one");
+		CHECK(!menu_picture_png_whole(ihdr, 24, iend, 12, 768, 256), "a 768x384 PNG is taken for a 768x256 one");
+		/* (cut short: its last bytes the picture's data, not its end) */
+		memcpy(tail, iend, 12);
+		tail[11] = 0;
+		CHECK(!menu_picture_png_whole(ihdr, 24, tail, 12, 768, 384), "a PNG cut short is whole");
+		CHECK(!menu_picture_png_whole(ihdr, 24, iend, 4, 768, 384), "a file of 28 bytes is whole");
+		memcpy(head, ihdr, 24);
+		head[1] = 'J';
+		CHECK(!menu_picture_png_whole(head, 24, iend, 12, 768, 384), "a file that is not a PNG is whole");
+		CHECK(!menu_picture_png_whole(ihdr, 16, iend, 12, 768, 384), "a file of no size is whole");
 	}
 
 	/* laid out in the frame's top left, its last column and row repeated */

@@ -15,6 +15,7 @@ A dedicated server's rotation and gametype rules (server_rotation.h).
 #include "platform.h"
 #include "port_config.h"
 #include "posix.h"
+#include "../game/mcc_server.h"
 #endif
 
 /* ---------- the rules */
@@ -67,6 +68,7 @@ const struct server_rule_definition server_rule_definitions[] =
 	RULE_BOOLEAN("no_shields", NULL, "universal", ALL, "Players have no shields"),
 	RULE_BOOLEAN("invisible", NULL, "universal", ALL, "Players are always camouflaged"),
 	RULE_BOOLEAN("generic_equipment", NULL, "universal", ALL, "Every map starts players with the same weapons"),
+	RULE_BOOLEAN("vehicle_riding", "riding", "universal", ALL, "Players standing on a vehicle are carried by it"),
 	RULE_CHOICE("weapon_set", "weapons", "universal", ALL, weapon_set_words, "The weapons on the map"),
 	RULE_CHOICE("vehicle_set", "vehicles", "universal", ALL, vehicle_set_words, "The vehicles on the map"),
 	RULE_CHOICE("goal_radar", NULL, "universal", ALL, goal_radar_words,
@@ -342,7 +344,7 @@ int server_rotation_parse_entry(const char *text, int length, struct server_entr
 	{
 		char *map = copy;
 		size_t map_length;
-		char prefix[12] = "";
+		char prefix[12] = "", mcc_prefix[9] = "";
 
 		while (is_space(*map))
 			map++;
@@ -364,7 +366,17 @@ int server_rotation_parse_entry(const char *text, int length, struct server_entr
 		/* (custom_maps\ in any case) */
 		if (map_length >= 12 && map[11] == '\\')
 			snprintf(prefix, sizeof(prefix), "%.11s", map);
-		if (text_equal_case(prefix, "custom_maps"))
+		/* Explicit MCC names are resolved by the MCC adapter. Bare names
+		retain their Xbox/CE lookup order. */
+		if (map_length >= 9 && map[8] == '\\')
+			snprintf(mcc_prefix, sizeof(mcc_prefix), "%.8s", map);
+		if (text_equal_case(mcc_prefix, "mcc_maps"))
+		{
+			entry->map_kind = _server_map_mcc;
+			snprintf(entry->level, sizeof(entry->level), "%s", map);
+			snprintf(entry->map_name, sizeof(entry->map_name), "%s", strrchr(map, '\\') + 1);
+		}
+		else if (text_equal_case(prefix, "custom_maps"))
 		{
 			entry->map_kind = _server_map_custom;
 			memcpy(entry->map, "custom_maps", 11);
@@ -594,6 +606,8 @@ first of its spellings found, into path */
 static int map_file(const char *folder, const char *name, char *path, int size)
 {
 	char xbox_path[512];
+	char file_name[300];
+	char on_disk[300];
 	long version, type;
 
 	if (folder[0] == 'd' && folder[1] == ':')
@@ -604,6 +618,15 @@ static int map_file(const char *folder, const char *name, char *path, int size)
 	else
 	{
 		snprintf(path, (size_t)size, "%s/%s.map", folder, name);
+		/* (a file named in other letters' case, cmt_Snow_Grove.map: the maps'
+		list names each in lower case, and the game finds it in any case, as
+		platform_translate_path does) */
+		snprintf(file_name, sizeof(file_name), "%s.map", name);
+		if (!server_map_header(path, &version, &type) &&
+			posix_find_entry_case_insensitive(folder, file_name, on_disk, sizeof(on_disk)))
+		{
+			snprintf(path, (size_t)size, "%s/%s", folder, on_disk);
+		}
 	}
 	return server_map_header(path, &version, &type);
 }
@@ -647,6 +670,11 @@ void server_rotation_resolve(struct server_entry *entry)
 
 	if (entry->rejected[0])
 		return;
+	if (entry->map_kind == _server_map_mcc)
+	{
+		mcc_server_resolve(entry);
+		return;
+	}
 	custom_maps_folder(folder, sizeof(folder));
 	/* a name: the Xbox's map of it, else Custom Edition's */
 	if (entry->map_kind == _server_map_name)
@@ -752,6 +780,7 @@ int server_maps_each(void (*each)(void *context, const char *name, const char *l
 	count = maps_in_folder(folder, 0, each, context);
 	custom_maps_folder(folder, sizeof(folder));
 	count += maps_in_folder(folder, 1, each, context);
+	count += mcc_server_maps_each(each, context);
 	return count;
 }
 

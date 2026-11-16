@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.campaign.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/campaign/campaign_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/campaign/header_campaign" x="0" y="0"/>
+		<at widget="main_menu/campaign/campaign_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/header_campaign" box="35 11 398 70" wide="-106 0" picture="main_menu/campaign/header_campaign"/>
+	<look name="main_menu/campaign/campaign_list" type="column_list">
+		<at widget="main_menu/campaign/item_continue" x="28" y="92"/>
+		<at widget="main_menu/campaign/item_restart" x="28" y="142"/>
+		<at widget="main_menu/campaign/item_missions" x="28" y="170"/>
+		<at widget="main_menu/campaign/item_coop" x="28" y="198"/>
+		<at widget="main_menu/campaign/item_back" x="28" y="226"/>
+		<at widget="main_menu/campaign/campaign_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/campaign/item_continue" type="text" box="0 0 280 46" wide="-106 80" picture="main_menu/campaign/continue_280x46">
+		<text font="ui\large_ui" color="#FFFFFFFF" at="58 2" text="CONTINUE"/>
+		<at widget="main_menu/campaign/continue_art" x="0" y="0"/>
+		<at widget="main_menu/campaign/continue_note" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/continue_art" box="5 5 49 41" picture="main_menu/campaign/art_44x36" radius="5"/>
+	<look name="main_menu/campaign/continue_note" type="text" box="58 24 272 42" wide="0 80">
+		<text font="ui\small_ui" color="#FFD6E9FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/item_restart" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2" text="RESTART MISSION"/>
+	</look>
+	<look name="main_menu/campaign/item_missions" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2" text="CHOOSE MISSION"/>
+	</look>
+	<look name="main_menu/campaign/item_coop" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2" text="CO-OP"/>
+	</look>
+	<look name="main_menu/campaign/item_back" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2" text="BACK"/>
+	</look>
+	<look name="main_menu/campaign/panel_art_back" box="376 92 552 235" wide="66 0" picture="main_menu/campaign/art_back_176x143"/>
+	<look name="main_menu/campaign/panel_art" box="376 92 552 235" wide="66 0" picture="main_menu/campaign/art_176x143" radius="5"/>
+	<look name="main_menu/campaign/panel_number" type="text" box="330 238 598 254" wide="0 132">
+		<text font="ui\small_ui" color="#FF8FB3D3" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/panel_title" type="text" box="330 253 598 277" wide="0 132">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/panel_status" type="text" box="330 277 598 295" wide="0 132">
+		<text font="ui\small_ui" color="#FF4FB3FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/panel_objective" type="text" box="330 296 598 346" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/panel_hint" type="text" box="330 350 598 394" wide="0 132">
+		<text font="ui\small_ui" color="#FF8FB3D3" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/campaign_panel" box="316 80 612 400" wide="-26 132" picture="main_menu/parts/panel_296x320">
+		<at widget="main_menu/campaign/panel_art_back" x="0" y="0"/>
+		<at widget="main_menu/campaign/panel_art" x="0" y="0"/>
+		<at widget="main_menu/campaign/panel_number" x="0" y="0"/>
+		<at widget="main_menu/campaign/panel_title" x="0" y="0"/>
+		<at widget="main_menu/campaign/panel_status" x="0" y="0"/>
+		<at widget="main_menu/campaign/panel_objective" x="0" y="0"/>
+		<at widget="main_menu/campaign/panel_hint" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/campaign_prompts" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/campaign/prompt_back" x="516" y="1"/>
+	</look>
+	<look name="main_menu/campaign/prompt_back" type="text" box="0 0 96 24" wide="-106 0" past="-143 0" picture="main_menu/parts/item_96x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%b-button BACK"/>
+	</look>
+	<look name="main_menu/campaign/restart_screen" box="180 160 460 320" picture="bitmaps/alert_bkd">
+		<at widget="main_menu/campaign/restart_message" x="0" y="0"/>
+		<at widget="main_menu/campaign/restart_button_bar" x="182" y="293"/>
+		<at widget="main_menu/campaign/header_restart" x="182" y="164"/>
+	</look>
+	<look name="main_menu/campaign/restart_message" type="text" box="194 194 427 288">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" flags="wrap"/>
+	</look>
+	<look name="main_menu/campaign/header_restart" type="text" box="0 0 270 20">
+		<text font="ui\large_ui" color="#FF2896FF" text="RESTART MISSION"/>
+	</look>
+	<look name="main_menu/campaign/restart_button_bar" type="column_list" box="0 0 256 20">
+		<at widget="main_menu/campaign/restart_button_cancel" x="128" y="0"/>
+		<at widget="main_menu/campaign/restart_button_confirm" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/restart_button_confirm" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="RESTART"/>
+	</look>
+	<look name="main_menu/campaign/restart_button_cancel" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="CANCEL"/>
+	</look>
+	<look name="main_menu/campaign/mission_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/campaign/mission_cards" x="0" y="0"/>
+		<at widget="main_menu/campaign/header_missions" x="0" y="0"/>
+		<at widget="main_menu/campaign/source_prompt_previous" x="0" y="0"/>
+		<at widget="main_menu/campaign/source_prompt_next" x="0" y="0"/>
+		<at widget="main_menu/campaign/source_tabs" x="410" y="9"/>
+		<at widget="main_menu/campaign/mission_dot_0" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_1" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_2" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_3" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_4" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_5" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_6" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_7" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_8" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_9" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_10" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_11" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_12" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_13" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_14" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_dot_15" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_empty" x="0" y="0"/>
+		<at widget="main_menu/campaign/mission_resume_row" x="73" y="48"/>
+		<at widget="main_menu/campaign/mission_prompts" x="0" y="448"/>
+	</look>
+	<look name="main_menu/campaign/mission_resume_row" type="column_list" box="0 0 494 52">
+		<at widget="main_menu/campaign/mission_resume" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/mission_resume" box="0 0 494 52" picture="main_menu/campaign/continue_494x52">
+		<at widget="main_menu/campaign/resume_art" x="0" y="0"/>
+		<at widget="main_menu/campaign/resume_label" x="0" y="0"/>
+		<at widget="main_menu/campaign/resume_title" x="0" y="0"/>
+		<at widget="main_menu/campaign/resume_difficulty" x="0" y="0"/>
+		<at widget="main_menu/campaign/resume_badge" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/resume_art" box="6 6 54 45" picture="main_menu/campaign/art_48x39" radius="5"/>
+	<look name="main_menu/campaign/resume_label" type="text" box="66 6 306 22">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="CONTINUE"/>
+	</look>
+	<look name="main_menu/campaign/resume_title" type="text" box="66 22 358 46">
+		<text font="ui\large_ui" color="#FF2890F8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/resume_difficulty" type="text" box="364 17 448 35">
+		<text font="ui\small_ui" color="#FF2890F8" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/resume_badge" box="454 12 482 40" picture="main_menu/campaign/badges_28"/>
+	<look name="main_menu/campaign/header_missions" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/campaign/tall_titles" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/campaign/source_prompt_previous" type="text" box="380 9 410 31" wide="106 0" past="143 0">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 2" flags="no_focus_test" text="%white-button"/>
+	</look>
+	<look name="main_menu/campaign/source_prompt_next" type="text" box="588 9 618 31" wide="106 0" past="143 0">
+		<text font="ui\small_ui" color="#FF2896FF" at="0 2" flags="no_focus_test" text="%black-button"/>
+	</look>
+	<look name="main_menu/campaign/source_tabs" type="column_list" box="0 0 176 22">
+		<at widget="main_menu/campaign/tab_halo" x="0" y="0"/>
+		<at widget="main_menu/campaign/tab_custom" x="88" y="0"/>
+	</look>
+	<look name="main_menu/campaign/tab_halo" type="text" box="0 0 86 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="HALO"/>
+	</look>
+	<look name="main_menu/campaign/tab_custom" type="text" box="0 0 86 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="CUSTOM"/>
+	</look>
+	<look name="main_menu/campaign/mission_cards" type="column_list">
+		<at widget="main_menu/campaign/card_big_0" x="0" y="78"/>
+		<at widget="main_menu/campaign/card_small_0" x="0" y="78"/>
+		<at widget="main_menu/campaign/card_big_1" x="0" y="78"/>
+		<at widget="main_menu/campaign/card_small_1" x="0" y="78"/>
+		<at widget="main_menu/campaign/card_big_2" x="0" y="78"/>
+		<at widget="main_menu/campaign/card_small_2" x="0" y="78"/>
+		<at widget="main_menu/campaign/arrow_previous" x="17" y="209"/>
+		<at widget="main_menu/campaign/arrow_next" x="599" y="209"/>
+	</look>
+	<look name="main_menu/campaign/arrow_previous" box="0 0 24 64" wide="-26 0" picture="main_menu/campaign/arrow_left"/>
+	<look name="main_menu/campaign/arrow_next" box="0 0 24 64" wide="26 0" picture="main_menu/campaign/arrow_right"/>
+	<look name="main_menu/campaign/card_big_0" box="0 0 158 326" picture="main_menu/campaign/card_158x326">
+		<at widget="main_menu/campaign/card_art_back_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_art_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_custom_art_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_tag_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_title_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_resume_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_number_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_title_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_objective_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_unbeaten_big" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/card_art_back_big" box="6 6 152 125" picture="main_menu/campaign/art_back_146x119"/>
+	<look name="main_menu/campaign/card_art_big" box="6 6 152 125" picture="main_menu/campaign/art_146x119" radius="5"/>
+	<look name="main_menu/campaign/card_custom_art_big" box="6 6 152 125" picture="ui\shell\bitmaps\mp_map_grafix" radius="5"/>
+	<look name="main_menu/campaign/card_card_tag_big" type="text" box="16 77 80 93" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test" text="CUSTOM"/>
+	</look>
+	<look name="main_menu/campaign/card_card_title_big" type="text" box="16 95 142 121">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_resume_big" type="text" box="14 14 78 30" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test" text="RESUME"/>
+	</look>
+	<look name="main_menu/campaign/card_number_big" type="text" box="10 131 148 147">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_title_big" type="text" box="10 147 148 193">
+		<text font="ui\large_ui" color="#FF2890F8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_objective_big" type="text" box="10 195 148 296">
+		<text font="ui\small_ui" color="#FF2890F8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_badge_shape_big" box="0 290 28 318" picture="main_menu/campaign/badge_shape_28"/>
+	<look name="main_menu/campaign/card_badge_big" box="0 290 28 318" picture="main_menu/campaign/badges_28"/>
+	<look name="main_menu/campaign/card_unbeaten_big" type="text" box="10 270 148 288">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_small_0" box="0 0 158 326" picture="main_menu/campaign/card_158x326">
+		<at widget="main_menu/campaign/card_art_back_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_art_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_custom_art_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_tag_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_title_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_resume_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_number_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_title_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_objective_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_unbeaten_small" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/card_art_back_small" box="6 6 152 125" picture="main_menu/campaign/art_back_146x119"/>
+	<look name="main_menu/campaign/card_art_small" box="6 6 152 125" picture="main_menu/campaign/art_146x119" radius="5"/>
+	<look name="main_menu/campaign/card_custom_art_small" box="6 6 152 125" picture="ui\shell\bitmaps\mp_map_grafix" radius="5"/>
+	<look name="main_menu/campaign/card_card_tag_small" type="text" box="16 77 80 93" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test" text="CUSTOM"/>
+	</look>
+	<look name="main_menu/campaign/card_card_title_small" type="text" box="16 95 142 121">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_resume_small" type="text" box="14 14 78 30" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test" text="RESUME"/>
+	</look>
+	<look name="main_menu/campaign/card_number_small" type="text" box="10 131 148 147">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_title_small" type="text" box="10 147 148 193">
+		<text font="ui\large_ui" color="#FF2890F8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_objective_small" type="text" box="10 195 148 296">
+		<text font="ui\small_ui" color="#FF2890F8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_badge_shape_small" box="0 290 28 318" picture="main_menu/campaign/badge_shape_28"/>
+	<look name="main_menu/campaign/card_badge_small" box="0 290 28 318" picture="main_menu/campaign/badges_28"/>
+	<look name="main_menu/campaign/card_unbeaten_small" type="text" box="10 270 148 288">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/card_big_1" box="0 0 158 326" picture="main_menu/campaign/card_158x326">
+		<at widget="main_menu/campaign/card_art_back_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_art_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_custom_art_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_tag_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_title_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_resume_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_number_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_title_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_objective_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_unbeaten_big" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/card_small_1" box="0 0 158 326" picture="main_menu/campaign/card_158x326">
+		<at widget="main_menu/campaign/card_art_back_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_art_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_custom_art_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_tag_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_title_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_resume_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_number_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_title_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_objective_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_unbeaten_small" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/card_big_2" box="0 0 158 326" picture="main_menu/campaign/card_158x326">
+		<at widget="main_menu/campaign/card_art_back_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_art_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_custom_art_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_tag_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_title_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_resume_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_number_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_title_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_objective_big" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_big" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_big" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_unbeaten_big" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/card_small_2" box="0 0 158 326" picture="main_menu/campaign/card_158x326">
+		<at widget="main_menu/campaign/card_art_back_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_art_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_custom_art_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_tag_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_card_title_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_resume_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_number_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_title_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_objective_small" x="0" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_shape_small" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="18" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="49" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="80" y="0"/>
+		<at widget="main_menu/campaign/card_badge_small" x="111" y="0"/>
+		<at widget="main_menu/campaign/card_unbeaten_small" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/mission_dot_0" box="160 328 176 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_1" box="180 328 196 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_2" box="200 328 216 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_3" box="220 328 236 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_4" box="240 328 256 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_5" box="260 328 276 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_6" box="280 328 296 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_7" box="300 328 316 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_8" box="320 328 336 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_9" box="340 328 356 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_10" box="360 328 376 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_11" box="380 328 396 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_12" box="400 328 416 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_13" box="420 328 436 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_14" box="440 328 456 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/mission_dot_15" box="460 328 476 336" picture="main_menu/campaign/dot"/>
+	<look name="main_menu/campaign/detail_title" type="text" box="42 344 318 366" wide="0 212">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/detail_objective" type="text" box="42 364 332 401" wide="0 212">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/detail_status" type="text" box="324 342 588 358" wide="212 0">
+		<text font="ui\small_ui" color="#FF4FB3FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/detail_status_new" type="text" box="324 342 588 358" wide="212 0">
+		<text font="ui\small_ui" color="#FFF2B34A" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/detail_badge_shape" box="342 358 372 388" wide="212 0" picture="main_menu/campaign/badge_shape_30"/>
+	<look name="main_menu/campaign/detail_badge" box="342 358 372 388" wide="212 0" picture="main_menu/campaign/badges_30"/>
+	<look name="main_menu/campaign/detail_badge_name" type="text" box="316 387 398 403" wide="212 0">
+		<text font="ui\small_ui" color="#FF8FB3D3" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/mission_panel" box="28 340 612 408" wide="-106 212" picture="main_menu/campaign/panel">
+		<at widget="main_menu/campaign/detail_title" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_objective" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_status" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_status_new" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_shape" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_badge" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_name" x="0" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_shape" x="66" y="0"/>
+		<at widget="main_menu/campaign/detail_badge" x="66" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_name" x="66" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_shape" x="132" y="0"/>
+		<at widget="main_menu/campaign/detail_badge" x="132" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_name" x="132" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_shape" x="198" y="0"/>
+		<at widget="main_menu/campaign/detail_badge" x="198" y="0"/>
+		<at widget="main_menu/campaign/detail_badge_name" x="198" y="0"/>
+	</look>
+	<look name="main_menu/campaign/mission_empty" type="text" box="80 170 560 250">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/mission_prompts" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/campaign/prompt_select" x="492" y="1"/>
+		<at widget="main_menu/campaign/prompt_back" x="24" y="1"/>
+		<at widget="main_menu/campaign/prompt_restart" x="360" y="1"/>
+	</look>
+	<look name="main_menu/campaign/prompt_select" type="text" box="0 0 124 24" wide="106 0" past="143 0" picture="main_menu/parts/item_124x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3"/>
+	</look>
+	<look name="main_menu/campaign/prompt_restart" type="text" box="0 0 124 24" wide="106 0" past="143 0" picture="main_menu/parts/item_124x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%y-button RESTART"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/campaign/difficulty_list" x="0" y="0"/>
+		<at widget="main_menu/difficulty_select/header_choose_difficulty" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_mission" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_mission" type="text" box="24 52 584 70" wide="-106 0" past="-143 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_list" type="column_list">
+		<at widget="main_menu/campaign/difficulty_0" x="28" y="96"/>
+		<at widget="main_menu/campaign/difficulty_1" x="176" y="96"/>
+		<at widget="main_menu/campaign/difficulty_2" x="324" y="96"/>
+		<at widget="main_menu/campaign/difficulty_3" x="472" y="96"/>
+		<at widget="main_menu/campaign/difficulty_prompts" x="0" y="448"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_0" box="0 0 138 300" wide="-106 53" picture="main_menu/campaign/difficulty_card">
+		<at widget="main_menu/campaign/difficulty_badge_box" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge_shape" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_name" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_blurb" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_beaten" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_1" box="0 0 138 300" wide="-53 53" picture="main_menu/campaign/difficulty_card">
+		<at widget="main_menu/campaign/difficulty_badge_box" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge_shape" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_name" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_blurb" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_beaten" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_2" box="0 0 138 300" wide="0 53" picture="main_menu/campaign/difficulty_card">
+		<at widget="main_menu/campaign/difficulty_badge_box" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge_shape" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_name" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_blurb" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_beaten" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_3" box="0 0 138 300" wide="53 53" picture="main_menu/campaign/difficulty_card">
+		<at widget="main_menu/campaign/difficulty_badge_box" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge_shape" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_badge" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_name" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_blurb" x="0" y="0"/>
+		<at widget="main_menu/campaign/difficulty_beaten" x="0" y="0"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_badge_box" box="8 8 130 130" wide="26 0" picture="main_menu/campaign/badge_box"/>
+	<look name="main_menu/campaign/difficulty_badge_shape" box="19 11 119 111" wide="26 0" picture="main_menu/campaign/badge_shape_100"/>
+	<look name="main_menu/campaign/difficulty_badge" box="19 11 119 111" wide="26 0" picture="main_menu/campaign/difficulty_badges"/>
+	<look name="main_menu/campaign/difficulty_name" type="text" box="10 140 128 164" wide="0 53">
+		<text font="ui\large_ui" color="#FF2890F8" flags="no_focus_test" string_list="main_menu/difficulty_select/difficulty_options"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_blurb" type="text" box="10 166 134 292" wide="0 53">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_beaten" type="text" box="35 113 103 127" wide="26 0" picture="main_menu/campaign/beaten">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -2" flags="no_focus_test" text="BEATEN"/>
+	</look>
+	<look name="main_menu/campaign/difficulty_prompts" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/campaign/prompt_play" x="492" y="1"/>
+		<at widget="main_menu/campaign/prompt_back" x="24" y="1"/>
+	</look>
+	<look name="main_menu/campaign/prompt_play" type="text" box="0 0 124 24" wide="106 0" past="143 0" picture="main_menu/parts/item_124x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button PLAY"/>
+	</look>
+	<look name="main_menu/campaign/solo_creating_profile"/>
+	<look name="main_menu/campaign/coop_join_creating_profile"/>
+</model>

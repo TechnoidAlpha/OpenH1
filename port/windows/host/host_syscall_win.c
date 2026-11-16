@@ -1395,6 +1395,135 @@ void host_sleep_nanoseconds(uint64_t nanoseconds)
 	Sleep((DWORD)((nanoseconds + 999999) / 1000000));
 }
 
+/* The high-resolution timer wakes a thread late, as the scheduler gets to it:
+on a Windows 11 VM with an RTX 3090 (the frames' limit's 6 to 8 ms sleeps,
+measured at a 128 Hz limit), 0.3 to 0.4 ms at the median, 0.5 to 0.65 ms at
+the 99th percentile, never 0.8 ms; more on a busy computer. A frame limited
+to 240 Hz, 4.2 ms, would come late by a tenth of its time, unevenly. So a
+sleep until a time waits the timer until a margin before it and spins on the
+performance counter (the monotonic clock's) for the rest. The margin is
+the timer's own recent lateness: the 99th percentile of the last
+WAKE_WINDOW waits' (the second latest of them), with WAKE_SLACK more, from
+WAKE_FLOOR to WAKE_CEILING; WAKE_FIRST until WAKE_WINDOW waits have been
+measured. A fixed millisecond spun 0.6 ms a frame, 8% of a core at 128 Hz.
+
+No spin at all, the timer waited to the time itself: on battery (its spin is
+power the frames' evenness is not worth), or where the frames are long
+beside the margin (WAKE_SPIN_SHARE: a 30 Hz limit's 33 ms against half a
+millisecond late). A wait shorter than the margin is spun whole. The deadline
+stays absolute: each wait is from the clock read just before it. Only the
+frames' limit sleeps this way (one thread, the guest's main one): every
+other sleep (the game's Sleep(1), poll's steps) is host_sleep_nanoseconds's,
+which spins for none of its time. HALO_FRAME_LIMIT_STATS=1 logs the
+lateness, the margin and the spin each WAKE_REPORT frames. */
+#define WAKE_WINDOW 128
+#define WAKE_FIRST 1000000ULL
+#define WAKE_SLACK 50000ULL
+#define WAKE_FLOOR 100000ULL
+#define WAKE_CEILING 2000000ULL
+#define WAKE_SPIN_SHARE 50
+#define WAKE_REPORT 1000
+
+static struct
+{
+	uint64_t late[WAKE_WINDOW];
+	unsigned count, next;
+	uint64_t margin, previous_deadline;
+	/* the power checked each second (GetSystemPowerStatus) */
+	uint64_t power_checked;
+	int on_battery;
+	/* HALO_FRAME_LIMIT_STATS: -1 until read */
+	int statistics;
+	unsigned frames, spun_frames;
+	uint64_t spun, late_most, late_total, missed_most;
+} wake = { { 0 }, 0, 0, WAKE_FIRST, 0, 0, 0, -1 };
+
+/* the margin from the recent waits' lateness: the second latest of the
+window (its 99th percentile) */
+static void wake_margin(void)
+{
+	uint64_t first = 0, second = 0, margin;
+	unsigned index;
+
+	for (index = 0; index < WAKE_WINDOW; index++)
+	{
+		uint64_t late = wake.late[index];
+
+		if (late > first)
+		{
+			second = first;
+			first = late;
+		}
+		else if (late > second)
+			second = late;
+	}
+	margin = second + WAKE_SLACK;
+	wake.margin = margin < WAKE_FLOOR ? WAKE_FLOOR : margin > WAKE_CEILING ? WAKE_CEILING : margin;
+}
+
+static void wake_report(void)
+{
+	if (wake.statistics < 0)
+	{
+		const char *value = getenv("HALO_FRAME_LIMIT_STATS");
+
+		wake.statistics = value && *value && *value != '0';
+	}
+	if (!wake.statistics || ++wake.frames < WAKE_REPORT)
+		return;
+	host_logf(HOST_LOG_INFO, "frame limit: the timer late %.0f us on average, %.0f us at most; the margin %.0f us;"
+		" %u of %u frames spun, %.0f us a frame; the deadline missed by %.0f us at most%s",
+		(double)wake.late_total / wake.frames / 1000.0, (double)wake.late_most / 1000.0,
+		(double)wake.margin / 1000.0, wake.spun_frames, wake.frames, (double)wake.spun / wake.frames / 1000.0,
+		(double)wake.missed_most / 1000.0, wake.on_battery ? " (on battery)" : "");
+	wake.frames = wake.spun_frames = 0;
+	wake.spun = wake.late_most = wake.late_total = wake.missed_most = 0;
+}
+
+void host_sleep_until_nanoseconds(uint64_t deadline)
+{
+	uint64_t now = clock_nanoseconds(CLOCK_MONOTONIC), interval, margin, asked, woke, late;
+
+	interval = wake.previous_deadline && deadline > wake.previous_deadline ? deadline - wake.previous_deadline : 0;
+	wake.previous_deadline = deadline;
+	if (now >= wake.power_checked + 1000000000ULL || now < wake.power_checked)
+	{
+		SYSTEM_POWER_STATUS power;
+
+		wake.on_battery = GetSystemPowerStatus(&power) && power.ACLineStatus == 0;
+		wake.power_checked = now;
+	}
+	margin = wake.on_battery || (interval && interval / WAKE_SPIN_SHARE > wake.margin) ? 0 : wake.margin;
+	if (deadline > now + margin)
+	{
+		asked = deadline - margin;
+		host_sleep_nanoseconds(asked - now);
+		woke = clock_nanoseconds(CLOCK_MONOTONIC);
+		late = woke > asked ? woke - asked : 0;
+		wake.late[wake.next] = late;
+		wake.next = (wake.next + 1) % WAKE_WINDOW;
+		if (++wake.count >= WAKE_WINDOW)
+		{
+			wake.count = WAKE_WINDOW;
+			if (!(wake.next % 16))
+				wake_margin();
+		}
+		wake.late_total += late;
+		wake.late_most = late > wake.late_most ? late : wake.late_most;
+		now = woke;
+	}
+	if (now < deadline)
+	{
+		wake.spun += deadline - now;
+		wake.spun_frames++;
+		while (clock_nanoseconds(CLOCK_MONOTONIC) < deadline)
+			YieldProcessor();
+	}
+	else if (now - deadline > wake.missed_most)
+		wake.missed_most = now - deadline;
+	wake_report();
+}
+
 /* ---------- futexes, on WaitOnAddress */
 
 static long futex_wake(void *address, long long count)
@@ -1758,6 +1887,19 @@ static long long dispatch(long long number, long long a, long long b, long long 
 		return guest_futex((uint64_t)a, (int)b, (uint32_t)c, (uint64_t)d, (uint64_t)e, (uint32_t)f);
 	case GUEST_SYS_sched_yield:
 		SwitchToThread();
+		return 0;
+	case GUEST_SYS_sched_getaffinity:
+		/* (the host's processors, all of them: musl's processor count) */
+		return halo_guest_affinity(GUEST(unsigned char *, c), (unsigned long)(uint32_t)b,
+			(long)GetActiveProcessorCount(ALL_PROCESSOR_GROUPS));
+	/* the calling thread's priority (who 0, as Linux sets a thread's) */
+	case GUEST_SYS_setpriority:
+		/* (the lowest, 19: background mode, the thread's processor, disk and
+		memory priority all lowered; world_sdf.c's bake) */
+		if (a == 0 && b == 0 && (int)c >= 19 && SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN))
+			return 0;
+		if (a == 0 && b == 0 && (int)c > 0)
+			SetThreadPriority(GetCurrentThread(), (int)c >= 10 ? THREAD_PRIORITY_LOWEST : THREAD_PRIORITY_BELOW_NORMAL);
 		return 0;
 
 	case GUEST_SYS_mmap:

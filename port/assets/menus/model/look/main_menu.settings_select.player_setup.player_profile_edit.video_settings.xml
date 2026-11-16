@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.video_settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings/header_settings" x="0" y="0"/>
+		<at widget="main_menu/settings/profile" x="0" y="0"/>
+		<at widget="main_menu/settings/tabs/tab_prompt_previous" x="24" y="46"/>
+		<at widget="main_menu/settings/tabs/tab_prompt_next" x="586" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_0" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_mode" x="28" y="100"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_resolution" x="28" y="125"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_window_size" x="28" y="125"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_refresh_rate" x="28" y="150"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_frame_rate_sync" x="28" y="175"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_fov" x="28" y="200"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_orientation" x="28" y="225"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_screen_layout" x="28" y="250"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_first_person" x="28" y="275"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_movies" x="28" y="300"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_11" x="28" y="331"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_graphics" x="28" y="353"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_high_res_text" x="28" y="378"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_battery_saver" x="28" y="403"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_brightness_settings" x="28" y="428"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_advanced_graphics" x="28" y="453"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_bar" x="0" y="448"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs" x="0" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs_search" x="0" y="46"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_defaults" x="24" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_cancel" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_video_settings" type="text" box="0 0 59 22" wide="-106 0" past="-143 0" place="keep_ends" picture="main_menu/settings/tab_current">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/settings/tab_names"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_audio_settings" type="text" box="0 0 61 22" wide="-71 0" past="-95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_mouse_settings" type="text" box="0 0 92 22" wide="-35 0" past="-48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_network_settings" type="text" box="0 0 67 22" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_interface_settings" type="text" box="0 0 95 22" wide="35 0" past="48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_profile_settings" type="text" box="0 0 83 22" wide="71 0" past="95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_mods_settings" type="text" box="0 0 57 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs" role="tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_video_settings" x="56" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_audio_settings" x="117" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_mouse_settings" x="180" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_network_settings" x="274" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_interface_settings" x="343" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_profile_settings" x="440" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tab_mods_settings" x="525" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_video_settings" type="text" box="0 0 56 22" wide="4 0" past="-143 0" place="keep_ends" picture="main_menu/settings/tab_current">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/settings/tab_names"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_audio_settings" type="text" box="0 0 58 22" wide="21 0" past="-95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_mouse_settings" type="text" box="0 0 88 22" wide="38 0" past="-48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_network_settings" type="text" box="0 0 65 22" wide="55 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_interface_settings" type="text" box="0 0 91 22" wide="72 0" past="48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_profile_settings" type="text" box="0 0 81 22" wide="89 0" past="95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_mods_settings" type="text" box="0 0 53 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/tabs_search" role="search tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/settings/search_field" x="56" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_video_settings" x="78" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_audio_settings" x="136" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_mouse_settings" x="196" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_network_settings" x="286" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_interface_settings" x="353" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_profile_settings" x="446" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/search_tab_mods_settings" x="529" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_defaults" type="text" box="0 0 128 24" wide="-106 0" past="-143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/button_cancel" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_0" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_0_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_0_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_mode" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_seg1" x="308" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_seg2" x="433" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="1" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_seg0" type="text" box="0 0 116 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="FULLSCREEN" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_seg1" type="text" box="0 0 121 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="BORDERLESS" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_seg2" type="text" box="0 0 102 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="WINDOWED" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/mode_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="FULLSCREEN|BORDERLESS|WINDOWED" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_resolution" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/resolution_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/resolution_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/resolution_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/resolution_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="NATIVE" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_window_size" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/window_size_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/window_size_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/window_size_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/window_size_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="1280 x 960" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_refresh_rate" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/refresh_rate_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/refresh_rate_spinner" x="188" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/refresh_rate_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="4" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/refresh_rate_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="AUTO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_frame_rate_sync" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/frame_rate_sync_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/frame_rate_sync_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="5" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_fov" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_track" x="188" y="5"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_value" x="252" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="6" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_track" box="0 0 62 14" wide="40 204" past="60 133" picture="main_menu/settings/slider_track">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_thumb" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_thumb" box="0 0 8 14" picture="main_menu/settings/slider_thumb"/>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/fov_value" type="text" box="0 0 76 20" wide="244 0" past="193 0" picture="main_menu/settings/slider_field">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_orientation" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_seg1" x="302" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_seg2" x="402" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="7" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_seg0" type="text" box="0 0 110 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="LANDSCAPE" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_seg1" type="text" box="0 0 96 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="PORTRAIT" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_seg2" type="text" box="0 0 58 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="AUTO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/orientation_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="LANDSCAPE|PORTRAIT|AUTO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_screen_layout" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/screen_layout_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="8" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_first_person" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/first_person_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="9" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_movies" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_seg1" x="240" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="10" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ON" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/movies_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="ON|OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_11" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_11_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/section_11_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="11" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_graphics" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_seg1" x="292" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_seg2" x="376" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="12" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_seg0" type="text" box="0 0 100 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ENHANCED" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_seg1" type="text" box="0 0 80 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="CLASSIC" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_seg2" type="text" box="0 0 81 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="CUSTOM" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/graphics_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="ENHANCED|CLASSIC|CUSTOM" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_high_res_text" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_seg1" x="240" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="13" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ON" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/high_res_text_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="ON|OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_battery_saver" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_seg1" x="240" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_seg2" x="292" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="14" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_seg0" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="OFF" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_seg1" type="text" box="0 0 48 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="ON" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_seg2" type="text" box="0 0 58 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="AUTO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/battery_saver_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="OFF|ON|AUTO" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_brightness_settings" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness_settings_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/brightness_settings_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="15" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/op_advanced_graphics" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced_graphics_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/video_settings/advanced_graphics_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/video_settings/labels" index="16" scale="1 1.2"/>
+	</look>
+</model>

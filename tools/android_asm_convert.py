@@ -19,6 +19,14 @@ lies at a base the host chooses (tools/guest_base_register.py). Then the
 conditional branches that the added instructions put out of reach are
 relaxed (tools/guest_branch_relax.py).
 
+A compile with line tables (-gline-tables-only) keeps its .file and .loc
+directives, from which the ELF assembler writes the object's .debug_line;
+Darwin's own DWARF sections are dropped (their offsets into the object's
+sections would not be relocated in an ELF link) and a compile unit of the
+converter's own takes their place: the source's name, its line table and
+the range of the object's code, which is what tools/symbolize_crash.py asks
+of llvm-symbolizer (the functions' names are the symbol table's).
+
 Usage: android_asm_convert.py [--base-register] input.s output.s
 """
 
@@ -70,6 +78,45 @@ class ConvertError(Exception):
     pass
 
 
+# the compile unit written for a compile with line tables (Converter.run):
+# DW_TAG_compile_unit, no children, with DW_AT_name and DW_AT_comp_dir
+# (DW_FORM_string), DW_AT_stmt_list (DW_FORM_sec_offset), DW_AT_low_pc
+# (DW_FORM_addr) and DW_AT_high_pc (DW_FORM_data4, the length)
+LINE_TABLE_UNIT = """\t.section .debug_abbrev,"",@progbits
+.Lguest_debug_abbrev:
+\t.byte 1
+\t.byte 0x11
+\t.byte 0
+\t.byte 0x03
+\t.byte 0x08
+\t.byte 0x1b
+\t.byte 0x08
+\t.byte 0x10
+\t.byte 0x17
+\t.byte 0x11
+\t.byte 0x01
+\t.byte 0x12
+\t.byte 0x06
+\t.byte 0
+\t.byte 0
+\t.byte 0
+\t.section .debug_info,"",@progbits
+\t.word .Lguest_debug_info_end-.Lguest_debug_info_start
+.Lguest_debug_info_start:
+\t.hword 4
+\t.word .Lguest_debug_abbrev
+\t.byte 8
+\t.byte 1
+\t.asciz {name}
+\t.asciz {directory}
+\t.word .Lline_table_start0
+\t.xword .Lguest_text_begin
+\t.word .Lguest_text_end-.Lguest_text_begin
+.Lguest_debug_info_end:
+\t.section .debug_line,"",@progbits
+.Lline_table_start0:"""
+
+
 def strip_comment(line: str) -> str:
     if '"' not in line:
         # (no string literal to step over: the comment, if any, starts at
@@ -110,6 +157,10 @@ class Converter:
         self.local_labels = set()
         self.out = []
         self.in_dropped_section = False
+        # a compile with line tables: its first .file's directory and name,
+        # and whether the code's section has begun (its first label)
+        self.line_file = None
+        self.text_begun = False
         for line in lines:
             text = strip_comment(line).strip()
             m = LABEL.match(text)
@@ -178,15 +229,23 @@ class Converter:
             # (port/android/guest/runtime/guest_profile.c)
             self.emit(f'\t.section {name},"aw",@progbits')
         elif segment == "__TEXT" and name == "__text":
-            self.emit("\t.text")
+            self.text()
         elif segment == "__TEXT" and name in RODATA_SECTIONS:
             self.emit('\t.section .rodata,"a",@progbits')
         elif segment == "__TEXT":
-            self.emit("\t.text")
+            self.text()
         elif name in ("__bss", "__common"):
             self.emit("\t.bss")
         else:
             self.emit("\t.data")
+
+    def text(self):
+        """the code's section; its start labelled the first time (the compile
+        unit's low_pc)"""
+        self.emit("\t.text")
+        if not self.text_begun:
+            self.text_begun = True
+            self.emit(".Lguest_text_begin:")
 
     def zerofill(self, args):
         parts = [a.strip() for a in args.split(",")]
@@ -277,6 +336,17 @@ class Converter:
         if op in STRING_DIRECTIVES:
             self.emit(f"\t{op} {args}")
             return
+        if op == ".file":
+            # (a line table's file, its strings as they are: ".file 1
+            # "directory" "name"")
+            names = re.findall(r'"(?:[^"\\]|\\.)*"', args)
+            if self.line_file is None and len(names) >= 1:
+                self.line_file = (names[0], names[1]) if len(names) >= 2 else ('""', names[0])
+            self.emit(f"\t.file {args}")
+            return
+        if op == ".loc":
+            self.emit(f"\t.loc {args}")
+            return
         if op.startswith("."):
             self.emit(f"\t{op} {self.operands(args)}" if args else f"\t{op}")
             return
@@ -313,6 +383,10 @@ class Converter:
         weak = {line.split(None, 1)[1] for line in self.out if line.startswith("\t.weak ")}
         out = [line for line in self.out
                if not (line.startswith("\t.globl ") and line.split(None, 1)[1] in weak)]
+        if self.line_file is not None and self.text_begun:
+            directory, name = self.line_file
+            out += ["\t.text", ".Lguest_text_end:",
+                    *LINE_TABLE_UNIT.format(name=name, directory=directory).split("\n")]
         return "\n".join(out) + "\n"
 
 

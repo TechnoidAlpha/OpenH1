@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.teamplay_options_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/autobalance_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_penalty_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/friendly_fire_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_autobalance" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/op_friendly_fire_penalty" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_button_ok">
+		<on event="a" run="mp prof save teamplay options" back="true"/>
+		<on event="start" back="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="mp prof init teamplay options"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/teamplay_options_edit/teamplay_options_screen" flags="pass_unhandled_to_focused_child"/>
+</model>

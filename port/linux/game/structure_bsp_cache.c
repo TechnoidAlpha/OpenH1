@@ -23,6 +23,8 @@ as before.
 #include "scenario/scenario_definitions.h"
 #include "structures/structure_bsp_definitions.h"
 #include "structure_bsp_cache.h"
+#include "structures/structure_visibility.h"
+#include "structure_culling.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -160,6 +162,14 @@ void structure_bsp_cache_keep(
 	structure_bsp_cache.bytes += (unsigned long)reference->file_size;
 }
 
+long structure_bsp_cache_copy_offset(
+	struct scenario_structure_bsp_reference const *reference)
+{
+	struct structure_bsp_cache_entry const *entry = structure_bsp_cache_find(reference);
+
+	return entry ? (long)((byte *)entry->bytes - (byte *)entry->base_address) : 0;
+}
+
 /* the copy's bytes standing for count elements of size bytes at address,
 where the bsp loads; NULL for any not in the copy */
 static void const *structure_bsp_cache_at(
@@ -177,6 +187,31 @@ static void const *structure_bsp_cache_at(
 		return NULL;
 	}
 	return (byte const *)entry->bytes + offset;
+}
+
+boolean structure_bsp_cache_has_mirrors(
+	void)
+{
+	unsigned long size = structure_visibility_port_cluster_size();
+	short index;
+
+	for (index = 0; index < structure_bsp_cache.count; index++)
+	{
+		struct structure_bsp_cache_entry const *entry = &structure_bsp_cache.entries[index];
+		void *const *header = structure_bsp_cache_at(entry, entry->base_address, 1, sizeof(void *));
+		struct structure_bsp const *structure_bsp =
+			header ? structure_bsp_cache_at(entry, *header, 1, sizeof(struct structure_bsp)) : NULL;
+		byte const *clusters = structure_bsp ? structure_bsp_cache_at(entry, structure_bsp->clusters.address,
+			structure_bsp->clusters.count, size) : NULL;
+		long cluster_index;
+
+		for (cluster_index = 0; clusters && cluster_index < structure_bsp->clusters.count; cluster_index++)
+		{
+			if (structure_visibility_port_cluster_mirror_count(clusters + cluster_index * size) > 0)
+				return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 void structure_bsp_cache_materials(
@@ -217,6 +252,8 @@ void structure_bsp_cache_dispose(
 {
 	short index;
 
+	/* (the buckets being built from the copies: structure_culling.c) */
+	structure_culling_wait();
 	if (structure_bsp_cache.count)
 	{
 		platform_log("structure bsps: %d kept, %lu bytes, let go of", structure_bsp_cache.count,

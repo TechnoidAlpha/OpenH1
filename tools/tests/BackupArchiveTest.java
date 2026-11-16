@@ -332,7 +332,7 @@ public final class BackupArchiveTest {
         refused(renamed(zip("openh1-backup.properties", text(GOOD_MARKER),
             "openh1-backup.propertieX", text(GOOD_MARKER)),
             "openh1-backup.propertieX", "openh1-backup.properties"), "second marker", "a second marker");
-        refused(new byte[] {1, 2, 3, 4, 5, 6, 7, 8}, "not an OpenH1 backup", "bytes that are not a zip");
+        refused(new byte[] {1, 2, 3, 4, 5, 6, 7, 8}, "not a GOAT H1 backup", "bytes that are not a zip");
         BackupArchive.Summary ok = BackupArchive.scan(new ByteArrayInputStream(
             zip("openh1-backup.properties", text(GOOD_MARKER))));
         check(ok.profiles == 0 && ok.build == 7 && !ok.settings, "an empty but valid backup must scan");

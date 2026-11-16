@@ -30,6 +30,11 @@ unsigned long memory_watch_serial(void)
 	return host_memory_watch_serial();
 }
 
+unsigned long memory_watch_page_size(void)
+{
+	return host_memory_watch_page_size();
+}
+
 void memory_watch_prepare_write(void *address, unsigned long size)
 {
 	host_memory_watch_prepare_write((unsigned int)address, size);

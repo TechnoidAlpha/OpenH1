@@ -228,7 +228,7 @@ static void case_panel(void)
 	friends_panel_text(&entry, "K7QM", TRUE, TRUE, 0, kind, NUMBEROF(kind), status, NUMBEROF(status), detail,
 		NUMBEROF(detail));
 	CHECK(!wcscmp(status, L"Hosting a game"), "hosting");
-	CHECK(!wcscmp(detail, L"OpenH1 120 Tick \x00B7 Slayer (5 of 16)."), "its game, from UTF-8, and its players");
+	CHECK(!wcscmp(detail, L"GOAT H1 120 Tick \x00B7 Slayer (5 of 16)."), "its game, from UTF-8, and its players");
 	entry.hosting = 0;
 	entry.place = _p2p_party_place_menus;
 	entry.party_count = 3;

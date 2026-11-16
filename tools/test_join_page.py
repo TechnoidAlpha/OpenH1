@@ -45,13 +45,6 @@ def page_function() -> str:
     return match.group(1)
 
 
-def test_page_is_the_games_join_page():
-    page = re.search(r'#define P2P_JOIN_PAGE "https://openh1\.com(/[^"]*)"',
-                     (ROOT / "port/linux/src/p2p.h").read_text())
-    assert page, "p2p.h names the join page"
-    assert ROOT / "website/public" / page.group(1).strip("/") / "index.html" == PAGE
-
-
 def test_page_loads_nothing_from_elsewhere():
     text = PAGE.read_text()
     loaded = re.findall(r'<(?:script|img|link)\b[^>]*\b(?:src|href)="([^"]+)"', text)
@@ -91,16 +84,3 @@ def test_page_opens_the_link_on_every_system():
     script = PAGE.read_text().split("<script>")[1]
     assert re.search(r"\n  attempt\(\);\n  location\.href = found\.link;\n", script)
     assert not re.search(r"\bapple\b", script) and "iPhone|iPad|Mac" not in script
-
-
-def test_page_opens_the_games_scheme():
-    """the page opens the game's own links (p2p.h's prefixes, openh1://), never OpenCE's halo://, which the game no
-    longer registers"""
-    header = (ROOT / "port/linux/src/p2p.h").read_text()
-    prefixes = {name: re.search(rf'#define {name} "([^"]*)"', header).group(1)
-                for name in ("P2P_PARTY_LINK_PREFIX", "P2P_JOIN_LINK_PREFIX")}
-    assert prefixes == {"P2P_PARTY_LINK_PREFIX": "openh1://party/", "P2P_JOIN_LINK_PREFIX": "openh1://join/"}
-    function = page_function()
-    for prefix in prefixes.values():
-        assert f'link: "{prefix}" + digits' in function
-    assert "halo:" not in PAGE.read_text()

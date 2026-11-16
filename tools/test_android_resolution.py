@@ -36,7 +36,6 @@ def test_android_drawable_resolution(tmp_path):
 #define HALO_ANDROID 1
 #define SCREEN_HEIGHT 480
 #define SCREEN_MAXIMUM_WIDTH 1920
-#define _anti_aliasing_ssaa 3
 #define D3DFMT_LIN_A8R8G8B8 1
 #define D3DFMT_LIN_D24S8 2
 typedef int BOOL;
@@ -45,21 +44,33 @@ static void *platform_window;
 static const char *boot_width, *boot_height;
 static int drawable_width, drawable_height;
 static long screen_width;
-static float screen_scale[2], screen_supersampling;
+static float screen_scale[2], screen_supersampling, screen_supersampling_asked;
 static long shadow_scale;
 static unsigned long shadow_scale_read_at;
 static unsigned int resized, evicted;
 static struct { int created, back_buffer, depth_buffer;
     struct { UINT BackBufferWidth; } presentation; } device;
 static struct { long largest_target; } xgpu_backend_capabilities = { 16384 };
-static int anti_aliasing(void) { return 0; }
+/* (display.supersampling: none on Android, d3d8_device.c's) */
+static float supersampling_wanted(void) { return 1.0f; }
+static void screen_mode_log(long width, const float scale[2]) { (void)width; (void)scale; }
 /* (display.panini supersamples nothing on Android: d3d8_device.c's) */
 static float panini_supersampling(long width, long height) { (void)width; (void)height; return 1.0f; }
 static void anti_aliasing_read(void) {}
+/* (halo_screen_commit's other settings: none here) */
+static void battery_saver_update(void) {}
+static void bink_import_update(void) {}
+static void hdr_read(void) {}
+static void picture_position_send(void) {}
+static void gamma_send(void) {}
+static unsigned long screen_settings_taken;
 static unsigned long config_changes(void) { return 0; }
 static long shadow_scale_choose(void) { return 1; }
 #define SHADOW_MAP_SIZE 128
 static void render_targets_evict(void) { evicted++; }
+/* (no extra view's images let go of: d3d8_device.c's halo_view_release) */
+#define FALSE 0
+static BOOL views_released;
 static void platform_log(const char *format, ...) { (void)format; }
 static void d3d8_surface_resize(int *surface, int format, unsigned long width, unsigned long height)
 {
@@ -81,9 +92,10 @@ static void SDL_GetWindowSizeInPixels(void *window, int *width, int *height)
     *width = drawable_width;
     *height = drawable_height;
 }
+static const char *config_string(const char *name) { assert(!strcmp(name, "display.picture_shape")); return "4:3"; }
 ''' + function(platform, "BOOL platform_screen_mode(") + function(
-        renderer, "static void screen_mode_choose("
-    ) + function(renderer, "long halo_screen_width(") + function(
+        renderer, "static long screen_narrowest_width("
+    ) + function(renderer, "static void screen_mode_choose(") + function(renderer, "long halo_screen_width(") + function(
         renderer, "long halo_screen_commit("
     ) + r'''
 static void check_pixels(long expected_width, long expected_height)

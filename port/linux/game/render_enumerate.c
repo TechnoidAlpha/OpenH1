@@ -31,6 +31,27 @@ detail objects', the weather's: each in its own file). render_window
 whether the window being drawn is one of these. The texture cache waits for
 each texture while enumerating (xbox_texture_cache.c), so that no draw is
 skipped or made without its sampler.
+
+What a structure the map switches to later draws besides its materials is
+drawn in the map's first frame too, whatever structure it starts in: the
+mirrors' window (render_window's through a mirror: the world again, its
+models, decals, effects and lens flares, unlit by the ambient occlusion, which the
+3D view's window alone has) where any structure of the map has a mirror
+(structure_bsp_cache_has_mirrors: the kept copies of its bsps), and the
+other structures' materials (the stand-ins) drawn through it too; and the
+fog screen of each of the map's fogs (the planar fog's layers a camera
+inside a fog plane's depth sees), each in a world pass of its own with the
+camera inside it (fog_screens_collect). A later structure then draws
+nothing new as the game switches to it.
+
+A setting that changes what the draws' pipelines are (render_prepared.c's
+prepared_settings: the ambient occlusion, the lights, HDR, multisampling)
+changed in play makes the maps' enumerations others': each map is prepared
+again under it, the one loaded at the next frame (from the record it was
+prepared from, else walked), before a draw needs a pipeline of the new
+settings. Without it the new settings' pipelines were made one at a time
+as the draws first needed them, for the rest of the map (the surfaces at
+each structure's first sight, every model and effect).
 */
 
 #include "cseries.h"
@@ -50,6 +71,8 @@ skipped or made without its sampler.
 #include "rasterizer/rasterizer_model_types.h"
 #include "rasterizer/rasterizer_models.h"
 #include "rasterizer/rasterizer_widgets.h"
+#include <xtl.h>
+#include "rasterizer/xbox/rasterizer_xbox.h"
 #include "render/render.h"
 #include "scenario/scenario.h"
 #include "scenario/sky_definitions.h"
@@ -80,9 +103,12 @@ skipped or made without its sampler.
 #include "effects/particles.h"
 #include "effects/weather_particle_systems.h"
 #include "render/render_sprite.h"
+#include "scenario/fog_definitions.h"
 
 #include "halo_dynamic_lights.h"
 #include "render_enumerate.h"
+#include "render_prepared.h"
+#include "world_ao.h"
 #ifdef HALO_VR
 #include "../src/vr.h"
 boolean vr_render_eye_pass(void);
@@ -102,6 +128,8 @@ void dynamic_lights_submit(void);
 /* the platform layer's (port/linux/src/port_config.c) */
 const char *config_string(char const *name);
 int config_boolean(char const *name);
+/* (d3d8_device.c's: config_changes() as the frame took the settings up) */
+unsigned long halo_gpu_settings_taken(void);
 void platform_log(char const *format, ...);
 /* cache_files.c's */
 boolean tag_index_is_group(long tag_index, long group_tag);
@@ -239,6 +267,9 @@ static struct
 	/* the frame's lens flares before the enumeration's (none of these
 	left for the frame's own window) */
 	long lens_flare_count;
+	/* the fog (a 'fog ' tag) whose screen this round's world pass draws
+	(fog_screens_collect), or NONE */
+	long fog_screen;
 	/* the pass's lights (rasterizer_light_submit's) */
 	short light_count;
 	long light_indices[MAXIMUM_LIGHTS_PER_WINDOW];
@@ -265,6 +296,56 @@ static struct
 	struct enumerated_materials *materials[2];
 } enumerated_maps[MAXIMUM_ENUMERATED_MAPS];
 static short enumerated_map_count = 0;
+
+/* what the settings made of the draws (render_prepared_derivation) as the
+maps were enumerated, and the settings' changes (config_changes) when it
+was last compared: as the front end took them up between frames
+(halo_screen_commit), so that the map is prepared again as the draws will
+be derived */
+static struct
+{
+	boolean known;
+	unsigned long long derivation;
+	unsigned long changes;
+} enumerated_derivation;
+
+/* the maps' enumerations forgotten where the settings now make other
+pipelines of their draws than they were made under: the map loaded is
+prepared again at its next frame, another as it is loaded again */
+static void enumerated_derivation_check(void)
+{
+	unsigned long long derivation;
+	short index;
+
+	if (!enumerated_derivation.known || enumerated_derivation.changes == halo_gpu_settings_taken())
+		return;
+	enumerated_derivation.changes = halo_gpu_settings_taken();
+	derivation = render_prepared_derivation();
+	if (derivation == enumerated_derivation.derivation)
+		return;
+	enumerated_derivation.derivation = derivation;
+	for (index = 0; index < enumerated_map_count; index++)
+	{
+		short view;
+
+		for (view = 0; view < 2; view++)
+		{
+			enumerated_maps[index].structure_bsps[view] = 0;
+			if (enumerated_maps[index].materials[view])
+				enumerated_maps[index].materials[view]->count = 0;
+		}
+	}
+	platform_log("render: the settings make other pipelines of the draws: the map's shaders and pipelines made "
+		"again");
+}
+
+/* the settings the maps' enumerations are made under (as one begins) */
+static void enumerated_derivation_note(void)
+{
+	enumerated_derivation.known = TRUE;
+	enumerated_derivation.changes = halo_gpu_settings_taken();
+	enumerated_derivation.derivation = render_prepared_derivation();
+}
 
 /* the map's structures enumerated: a map not seen in this run of the game
 has none */
@@ -332,13 +413,12 @@ static void materials_add(struct enumerated_materials *materials, unsigned long 
 		materials->keys[materials->count++] = key;
 }
 
-/* each of the structure's materials' keys, as its world draws them and (a
-structure with a mirror) as its mirror's window does: whether one is new
-(not in materials), or with add, they are added */
+/* each of the structure's materials' keys, as its world draws them and
+(mirrors) as a mirror's window does: whether one is new (not in materials),
+or with add, they are added */
 static boolean structure_materials(struct structure_bsp *structure_bsp, struct enumerated_materials *materials,
-	boolean add)
+	boolean add, boolean mirrors)
 {
-	boolean mirrors = structure_visibility_port_has_mirrors();
 	short lightmap_index, material_index;
 
 	for (lightmap_index = 0; lightmap_index < structure_bsp->lightmaps.count; lightmap_index++)
@@ -427,7 +507,7 @@ static void stand_ins_collect(struct structure_bsp *structure_bsp, struct enumer
 	if (!enumerated)
 		return;
 	known = *enumerated;
-	structure_materials(structure_bsp, &known, TRUE);
+	structure_materials(structure_bsp, &known, TRUE, FALSE);
 	structure_bsp_cache_materials(stand_ins_visit, &known);
 }
 
@@ -446,7 +526,12 @@ static void stand_ins_restore(struct enumerated_materials *enumerated)
 		stand_ins.unlit->bitmap_index = stand_ins.unlit_bitmap_index;
 	stand_ins.unlit = NULL;
 	for (index = 0; index < stand_ins.keys.count; index++)
+	{
 		materials_add(enumerated, stand_ins.keys.keys[index]);
+		/* (drawn through the mirrors' window too) */
+		if (enumerate.mirrors)
+			materials_add(enumerated, stand_ins.keys.keys[index] | MATERIAL_KEY_MIRROR);
+	}
 	stand_ins.count = 0;
 	stand_ins.keys.count = 0;
 }
@@ -526,7 +611,7 @@ static short pass_fog(void)
 }
 
 /* the renderer's dynamic lights the stand-in lights (display.dynamic_lights
-"enhanced") */
+"enhanced", or the preparation recorded: halo_dynamic_lights_walked) */
 static boolean pass_dynamic_lights(void)
 {
 	return enumerate.pass >= NUMBER_OF_FOGS * NUMBER_OF_PARTS * NUMBER_OF_STENCIL_CONTEXTS;
@@ -534,7 +619,7 @@ static boolean pass_dynamic_lights(void)
 
 static short passes(void)
 {
-	return (short)((halo_dynamic_lights_enhanced() ? MAXIMUM_LIGHTINGS : 1) * NUMBER_OF_FOGS * NUMBER_OF_PARTS *
+	return (short)((halo_dynamic_lights_walked() ? MAXIMUM_LIGHTINGS : 1) * NUMBER_OF_FOGS * NUMBER_OF_PARTS *
 		NUMBER_OF_STENCIL_CONTEXTS);
 }
 
@@ -550,6 +635,100 @@ static short pass_part(void)
 
 /* ---------- the fogs */
 
+/* a fog's screen as the fog tag holds it (structures.c's struct fog_screen,
+at FOG_SCREEN_OFFSET in the tag: tag_schema_render.c checks the offsets) */
+#define FOG_SCREEN_OFFSET 0x84
+#define MAXIMUM_FOG_SCREEN_LAYERS 4
+struct enumerated_fog_screen
+{
+	word flags;
+	short layer_count;
+	real near_distance, far_distance, near_density, far_density;
+	real start_distance_from_fog_plane;
+	byte reserved18[4];
+	pixel32 color;
+	real rotation_multiplier, strafing_multiplier, zoom_multiplier;
+	byte reserved2C[8];
+	real map_scale;
+	struct tag_reference map;
+};
+typedef char enumerated_fog_screen_map_offset[offsetof(struct enumerated_fog_screen, map) == 0xBC - FOG_SCREEN_OFFSET ?
+	1 : -1];
+
+#define MAXIMUM_FOG_SCREENS 32
+
+/* the map's fogs whose screens the first frame draws, one of each that
+draws alike (its flags, layers and map), and the next to draw */
+static struct
+{
+	long tags[MAXIMUM_FOG_SCREENS];
+	short count, next;
+} fog_screens;
+
+static struct enumerated_fog_screen const *fog_screen_get(long fog_index)
+{
+	return (struct enumerated_fog_screen const *)((byte const *)fog_definition_get(fog_index) + FOG_SCREEN_OFFSET);
+}
+
+/* each of the map's fogs with a screen a camera inside it draws
+(rasterizer_xbox_environment_fog.c's rasterizer_environment_fog_screen_is_active
+and _begin: its layers, its map, its densities apart): whatever structure's
+fog plane or sky uses it */
+static void fog_screens_collect(void)
+{
+	struct tag_iterator iterator;
+	long fog_index;
+
+	fog_screens.count = fog_screens.next = 0;
+	tag_iterator_new(&iterator, FOG_TAG);
+	while ((fog_index = tag_iterator_next(&iterator)) != NONE && fog_screens.count < MAXIMUM_FOG_SCREENS)
+	{
+		struct enumerated_fog_screen const *screen = fog_screen_get(fog_index);
+		short index;
+
+		if (screen->layer_count <= 0 || screen->layer_count > MAXIMUM_FOG_SCREEN_LAYERS || screen->map.index == NONE ||
+			screen->far_distance == 0.0f || screen->far_density == 0.0f || screen->near_density == screen->far_density)
+		{
+			continue;
+		}
+		for (index = 0; index < fog_screens.count; index++)
+		{
+			struct enumerated_fog_screen const *other = fog_screen_get(fog_screens.tags[index]);
+
+			if (other->flags == screen->flags && other->layer_count == screen->layer_count &&
+				other->map.index == screen->map.index)
+			{
+				break;
+			}
+		}
+		if (index == fog_screens.count)
+			fog_screens.tags[fog_screens.count++] = fog_index;
+	}
+}
+
+/* the round's fog screen's fog: planar, its plane above the camera, which
+is half way into the screen's density (between where it starts and the
+plane's depth) */
+static void fog_screen_set(struct render_fog *to, long fog_index)
+{
+	struct enumerated_fog_screen const *screen = fog_screen_get(fog_index);
+	real depth = 10.0f, start = screen->start_distance_from_fog_plane, inside;
+
+	if (start == -depth)
+		start = 0.0001f - depth;
+	inside = (start - depth) * 0.5f;
+	to->planar_mode = _planar_fog_normal;
+	to->plane.n.i = to->plane.n.j = 0.0f;
+	to->plane.n.k = 1.0f;
+	to->plane.d = render.camera.position.z - inside;
+	to->planar_maximum_density = 0.5f;
+	to->planar_maximum_distance = 50.0f;
+	to->planar_maximum_depth = depth;
+	to->runtime_flags = 0;
+	to->fog_definition_flags = *(word const *)fog_definition_get(fog_index);
+	to->screen = (struct fog_screen const *)screen;
+}
+
 static void fog_set(short fog)
 {
 	struct render_fog *to = &render.fog;
@@ -557,6 +736,8 @@ static void fog_set(short fog)
 	real_vector3d up = { 0.0f, 0.0f, 1.0f };
 
 	*to = enumerate.own_fog;
+	if (fog == _fog_own && enumerate.fog_screen != NONE)
+		fog_screen_set(to, enumerate.fog_screen);
 	if (fog == _fog_own)
 		return;
 	to->screen = NULL;
@@ -619,9 +800,7 @@ boolean render_enumerate_pending(boolean scope)
 
 	if (setting < 0)
 		setting = config_boolean("display.prepare_shaders") || *config_string("debug.render_manifest");
-	/* (nor a map of the menus' pictures: its one frame makes only the
-	pipelines it draws with, menu_pictures_render.c) */
-	if (!setting || structure_bsp_index == NONE || structure_bsp_index >= LONG_BITS || menu_pictures_preparing())
+	if (!setting || structure_bsp_index == NONE || structure_bsp_index >= LONG_BITS)
 		return FALSE;
 	if (enumerate.new_map)
 	{
@@ -629,6 +808,14 @@ boolean render_enumerate_pending(boolean scope)
 		enumerate.structure_bsps_enumerated[1] = NULL;
 		enumerate.new_map = FALSE;
 	}
+	enumerated_derivation_check();
+	/* (a map of the menus' pictures too, menu_pictures_render.c, in its first
+	frame: from its record, where it has one, so that its pose's frame finds
+	its pipelines made, on the compilers, not one at a time as it draws;
+	else walked, and recorded, so that a player's first load of it is played
+	back: render_prepared.c) */
+	if (menu_pictures_preparing() && (scope || !menu_pictures_stock_maps()))
+		return FALSE;
 	if (!enumerate.structure_bsps_enumerated[view])
 	{
 		enumerate.structure_bsps_enumerated[view] =
@@ -640,7 +827,8 @@ boolean render_enumerate_pending(boolean scope)
 	has its pipelines: nothing is drawn as the game switches to it (a load
 	zone), and its textures load as its surfaces are seen, as the Xbox's. */
 	if (*enumerate.structure_bsps_enumerated[view] && global_structure_bsp_get() &&
-		!structure_materials(global_structure_bsp_get(), enumerate.materials_enumerated[view], FALSE))
+		!structure_materials(global_structure_bsp_get(), enumerate.materials_enumerated[view], FALSE,
+			structure_visibility_port_has_mirrors()))
 	{
 		SET_FLAG(*enumerate.structure_bsps_enumerated[view], structure_bsp_index, TRUE);
 		platform_log("render: structure %d%s: its materials' pipelines made before", structure_bsp_index,
@@ -667,9 +855,33 @@ boolean render_enumerate_begin(boolean mirrors, boolean scope)
 		stand_ins.pending.count = stand_ins.round = 0;
 	enumerate.scope = scope;
 	enumerate.interface_drawn = FALSE;
+	if (enumerate.everything)
+		enumerated_derivation_note();
 	enumerate.structure_bsp_index = structure_bsp_index;
 	SET_FLAG(*enumerate.structure_bsps_enumerated[view], structure_bsp_index, TRUE);
-	enumerate.mirrors = mirrors && structure_visibility_port_has_mirrors();
+	/* (a map's first frame: through a mirror's window wherever the map has
+	one, whatever structure it starts in) */
+	enumerate.mirrors = mirrors && (structure_visibility_port_has_mirrors() ||
+		(enumerate.everything && structure_bsp_cache_has_mirrors()));
+	enumerate.fog_screen = NONE;
+	fog_screens.count = fog_screens.next = 0;
+	if (enumerate.everything)
+		fog_screens_collect();
+	/* (a map's first: from its record, where it has one: render_prepared.c;
+	its structure's materials then counted as the walk counts them) */
+	if (enumerate.everything && !scope && render_prepared_replay(enumerate.mirrors))
+	{
+		struct structure_bsp *structure_bsp = global_structure_bsp_get();
+		struct enumerated_materials *enumerated = enumerate.materials_enumerated[view];
+
+		if (structure_bsp)
+			structure_materials(structure_bsp, enumerated, TRUE, enumerate.mirrors);
+		while (stand_ins_next(structure_bsp, enumerated))
+			;
+		platform_log("render: the map's and its structure %d's shaders and pipelines made from its record, %d "
+			"rounds of the other structures' materials counted", structure_bsp_index, stand_ins.round);
+		return FALSE;
+	}
 	enumerate.own_fog = render.fog;
 	halo_load_trace("enumerate.begin", NULL);
 	enumerate.started = system_milliseconds();
@@ -682,6 +894,8 @@ boolean render_enumerate_begin(boolean mirrors, boolean scope)
 	render_enumerating = TRUE;
 	halo_gpu_prepare(enumerate.everything);
 	texture_cache_preparation_begin();
+	if (enumerate.everything && !scope)
+		render_prepared_record_begin(enumerate.mirrors);
 	return TRUE;
 }
 
@@ -689,14 +903,29 @@ boolean render_enumerate_next(void)
 {
 	double waited, cpu;
 
-	do
-		enumerate.pass++;
-	while (enumerate.pass < passes() && !pass_drawn());
-	if (enumerate.pass < passes())
+	if (enumerate.fog_screen == NONE)
 	{
+		do
+			enumerate.pass++;
+		while (enumerate.pass < passes() && !pass_drawn());
+		if (enumerate.pass < passes())
+		{
+			fog_set(pass_fog());
+			if (menu_pictures_preparing())
+				menu_pictures_recording((float)enumerate.pass / (float)passes());
+			return TRUE;
+		}
+	}
+	/* the map's fog screens, each in the first world pass again (its models
+	too: a screen draws the opaque models over again) */
+	if (enumerate.everything && fog_screens.next < fog_screens.count)
+	{
+		enumerate.fog_screen = fog_screens.tags[fog_screens.next++];
+		enumerate.pass = 0;
 		fog_set(pass_fog());
 		return TRUE;
 	}
+	enumerate.fog_screen = NONE;
 	if (!stand_ins.round)
 	{
 		if (!enumerate.scope)
@@ -704,13 +933,14 @@ boolean render_enumerate_next(void)
 		/* (its materials' pipelines made: a later structure with these alone
 		draws nothing) */
 		if (global_structure_bsp_get())
-			structure_materials(global_structure_bsp_get(), enumerate.materials_enumerated[enumerate.scope ? 1 : 0], TRUE);
+			structure_materials(global_structure_bsp_get(), enumerate.materials_enumerated[enumerate.scope ? 1 : 0], TRUE,
+				enumerate.mirrors);
 	}
 	/* the map's other structures' materials, in the world's passes alone */
 	if (stand_ins_next(global_structure_bsp_get(), enumerate.materials_enumerated[enumerate.scope ? 1 : 0]))
 	{
+		/* (and through the mirrors' window, where the map has one) */
 		enumerate.everything = FALSE;
-		enumerate.mirrors = FALSE;
 		enumerate.pass = 0;
 		while (!pass_drawn())
 			enumerate.pass++;
@@ -725,6 +955,9 @@ boolean render_enumerate_next(void)
 	cpu = cpu < 0.0 || enumerate.started_cpu < 0.0 ? -1.0 : cpu - enumerate.started_cpu;
 	/* (the loading screen's end: the shaders and pipelines made) */
 	waited = halo_gpu_prepared();
+	render_prepared_record_end();
+	if (menu_pictures_preparing())
+		menu_pictures_recording(1.0f);
 	halo_load_trace("enumerate.prepared.end", NULL);
 	/* These draws have reached the host. Advance the texture cache as a
 	completed frame does, so the next view and HUD can load their real
@@ -829,7 +1062,7 @@ static void lights_submit(void)
 			enumerate.light_indices[enumerate.light_count++] = light_index;
 	}
 	/* (the renderer's: these and the window's, or none) */
-	if (halo_dynamic_lights_enhanced())
+	if (halo_dynamic_lights_walked())
 	{
 		long count = rasterizer_lights.light_count;
 
@@ -851,7 +1084,9 @@ void render_enumerate_lights(boolean specular)
 {
 	short index;
 
-	if (!render_enumerating || !pass_world())
+	/* (the structure's light passes are drawn by their own shaders, not lit
+	by the renderer's lights: the same in either lighting) */
+	if (!render_enumerating || !pass_world() || pass_dynamic_lights())
 		return;
 	if (specular)
 		rasterizer_environment_specular_lights_begin();
@@ -1023,58 +1258,148 @@ static void models_draw(void)
 
 /* every object's model with its own effects: its modifier shader (a
 shield's), its camouflage (a unit's), its transparency drawn as it
-occludes itself, its forced shader permutation */
+occludes itself, its forced shader permutation. Many objects share a
+model and an effect (a level's many bipeds of one model, their shields'
+one modifier shader): each model is drawn with each of its effects once a
+pass, as a second draw of the same model with the same effect draws the
+same (a pass's draws are its fog's, part's and lighting's alone). */
+
+enum
+{
+	_object_effect_modifier,
+	_object_effect_camouflage,
+	_object_effect_self_occludes,
+	_object_effect_permutation,
+	/* (first person's: a model drawn as the first-person weapon's) */
+	_object_effect_first_person,
+};
+
+/* the models and effects a pass has drawn, at most (past them, each is
+drawn as if new) */
+#define MAXIMUM_OBJECT_EFFECTS 2048
+
+static struct
+{
+	short count;
+	struct
+	{
+		long model_index;
+		long value;
+		short kind;
+	} drawn[MAXIMUM_OBJECT_EFFECTS];
+} object_effects;
+
+/* the effects that take no light, the camouflage and the self-occluding
+transparency (rasterizer_xbox_models.c sets a model's lights only for a draw
+with neither; a modifier shader is lit), drawn in the passes without the
+renderer's lights alone: those light nothing they draw */
+static boolean unlit_effects_drawn(void)
+{
+	return !pass_dynamic_lights();
+}
+
+/* whether the model has been drawn with the effect (kind, and its shader
+or permutation: value) this pass; else it is now */
+static boolean object_effect_drawn(long model_index, short kind, long value)
+{
+	short index;
+
+	for (index = 0; index < object_effects.count; index++)
+	{
+		if (object_effects.drawn[index].model_index == model_index && object_effects.drawn[index].kind == kind &&
+			object_effects.drawn[index].value == value)
+		{
+			return TRUE;
+		}
+	}
+	if (object_effects.count < MAXIMUM_OBJECT_EFFECTS)
+	{
+		object_effects.drawn[object_effects.count].model_index = model_index;
+		object_effects.drawn[object_effects.count].kind = kind;
+		object_effects.drawn[object_effects.count].value = value;
+		object_effects.count++;
+	}
+	return FALSE;
+}
+
+/* a model camouflaged, as rasterizer_xbox_active_camouflage.c draws it:
+fading (the model blended over its refraction) and fully cloaked (an
+intensity of 1: depth alone, alpha tested against its base map, then the
+refraction unblended), each with the ordinary and the hyper-stealth
+parameters. A player who picks up active camouflage is fully cloaked
+within a second; without the cloaked draws, their first-person weapon's
+and the other camouflaged units' pipelines were made in play, as they were
+first drawn so */
+static void camouflage_draw(long model_index, short state, struct render_model_effect *effect, unsigned long flags)
+{
+	static real const intensities[] = { 0.5f, 1.0f };
+	short intensity, parameter;
+
+	effect->type = _render_model_effect_type_active_camouflage;
+	for (intensity = 0; intensity < (short)NUMBEROF(intensities); intensity++)
+	{
+		for (parameter = 0; parameter < 2; parameter++)
+		{
+			effect->intensity = intensities[intensity];
+			effect->parameter = (real)parameter;
+			model_draw(model_index, state, effect, 0, flags);
+		}
+	}
+	effect->type = _render_model_effect_type_none;
+	effect->intensity = effect->parameter = 0.0f;
+}
+
 static void object_effects_draw(void)
 {
 	struct tag_iterator iterator;
 	long tag_index;
 
+	object_effects.count = 0;
 	tag_iterator_new(&iterator, OBJECT_DEFINITION_TAG);
 	while ((tag_index = tag_iterator_next(&iterator)) != NONE)
 	{
 		struct object_definition *definition = object_definition_get(tag_index);
 		long model_index = definition->object.model.index;
+		long modifier_index = definition->object.modifier_shader.index;
+		short forced = definition->object.forced_shader_permutation_index;
 		struct render_model_effect effect;
+		boolean modifier, camouflage, self_occludes, permutation;
 		short state;
 
 		if (model_index == NONE)
 			continue;
+		modifier = modifier_index != NONE &&
+			shader_type_is_valid_for_modifier(shader_definition_get(modifier_index)->base.type) &&
+			!object_effect_drawn(model_index, _object_effect_modifier, modifier_index);
+		camouflage = TEST_FLAG(_object_mask_unit, FLAG(definition->object.type)) &&
+			!object_effect_drawn(model_index, _object_effect_camouflage, 0);
+		self_occludes = TEST_FLAG(definition->object.flags, _object_transparency_self_occludes_bit) &&
+			!object_effect_drawn(model_index, _object_effect_self_occludes, 0);
+		permutation = forced > 0 && !object_effect_drawn(model_index, _object_effect_permutation, forced);
 		for (state = 0; state < (short)NUMBEROF(model_states); state++)
 		{
+			boolean unlit_effects = unlit_effects_drawn();
+
 			memset(&effect, 0, sizeof(effect));
 			effect.type = _render_model_effect_type_none;
 			effect.source_object_index = STAND_IN_OBJECT_INDEX;
 			effect.source_object_centroid = render.camera.position;
-			if (definition->object.modifier_shader.index != NONE)
+			if (modifier)
 			{
-				struct shader *modifier = shader_definition_get(definition->object.modifier_shader.index);
-
-				if (shader_type_is_valid_for_modifier(modifier->base.type))
-				{
-					effect.modifier_shader = modifier;
-					model_draw(model_index, state, &effect, 0, 0);
-					effect.modifier_shader = NULL;
-				}
-			}
-			if (TEST_FLAG(_object_mask_unit, FLAG(definition->object.type)))
-			{
-				effect.type = _render_model_effect_type_active_camouflage;
-				effect.intensity = 0.5f;
-				effect.parameter = 0.0f;
+				effect.modifier_shader = shader_definition_get(modifier_index);
 				model_draw(model_index, state, &effect, 0, 0);
-				effect.parameter = 1.0f;
-				model_draw(model_index, state, &effect, 0, 0);
-				effect.type = _render_model_effect_type_none;
-				effect.intensity = effect.parameter = 0.0f;
+				effect.modifier_shader = NULL;
 			}
-			if (TEST_FLAG(definition->object.flags, _object_transparency_self_occludes_bit))
+			if (camouflage && unlit_effects)
+				camouflage_draw(model_index, state, &effect, 0);
+			if (self_occludes && unlit_effects)
 			{
 				effect.type = _render_model_effect_type_modifier;
 				model_draw(model_index, state, &effect, 0, 0);
 				effect.type = _render_model_effect_type_none;
 			}
-			if (definition->object.forced_shader_permutation_index > 0)
-				model_draw(model_index, state, NULL, definition->object.forced_shader_permutation_index, 0);
+			if (permutation)
+				model_draw(model_index, state, NULL, forced, 0);
 		}
 	}
 }
@@ -1088,34 +1413,44 @@ static void first_person_model_draw(long model_index)
 	struct render_model_effect effect;
 	struct tag_iterator iterator;
 	long tag_index;
-	short state;
+	long modifiers[MAXIMUM_OBJECT_EFFECTS];
+	short modifier_count = 0, index, state;
 
-	if (model_index == NONE)
+	/* (a model drawn before: many weapons share one) */
+	if (model_index == NONE || object_effect_drawn(model_index, _object_effect_first_person, 0))
 		return;
+	/* (each modifier shader once: the units share their shields') */
+	tag_iterator_new(&iterator, UNIT_DEFINITION_TAG);
+	while ((tag_index = tag_iterator_next(&iterator)) != NONE && modifier_count < MAXIMUM_OBJECT_EFFECTS)
+	{
+		long modifier_index = object_definition_get(tag_index)->object.modifier_shader.index;
+
+		if (modifier_index == NONE ||
+			!shader_type_is_valid_for_modifier(shader_definition_get(modifier_index)->base.type))
+		{
+			continue;
+		}
+		for (index = 0; index < modifier_count && modifiers[index] != modifier_index; index++)
+			;
+		if (index == modifier_count)
+			modifiers[modifier_count++] = modifier_index;
+	}
 	for (state = 0; state < (short)NUMBEROF(model_states); state++)
 	{
 		model_draw(model_index, state, NULL, 0, flags);
 		memset(&effect, 0, sizeof(effect));
-		effect.type = _render_model_effect_type_active_camouflage;
-		effect.source_object_index = STAND_IN_OBJECT_INDEX;
-		effect.source_object_centroid = render.camera.position;
-		effect.intensity = 0.5f;
-		model_draw(model_index, state, &effect, 0, flags);
-		effect.parameter = 1.0f;
-		model_draw(model_index, state, &effect, 0, flags);
+		if (unlit_effects_drawn())
+		{
+			effect.source_object_index = STAND_IN_OBJECT_INDEX;
+			effect.source_object_centroid = render.camera.position;
+			camouflage_draw(model_index, state, &effect, flags);
+		}
 		memset(&effect, 0, sizeof(effect));
 		effect.source_object_index = STAND_IN_OBJECT_INDEX;
-		tag_iterator_new(&iterator, UNIT_DEFINITION_TAG);
-		while ((tag_index = tag_iterator_next(&iterator)) != NONE)
+		for (index = 0; index < modifier_count; index++)
 		{
-			struct object_definition *definition = object_definition_get(tag_index);
-
-			if (definition->object.modifier_shader.index != NONE)
-			{
-				effect.modifier_shader = shader_definition_get(definition->object.modifier_shader.index);
-				if (shader_type_is_valid_for_modifier(effect.modifier_shader->base.type))
-					model_draw(model_index, state, &effect, 0, flags);
-			}
+			effect.modifier_shader = shader_definition_get(modifiers[index]);
+			model_draw(model_index, state, &effect, 0, flags);
 		}
 	}
 }
@@ -1127,6 +1462,7 @@ static void first_person_models_draw(void)
 	long tag_index;
 	short index;
 
+	object_effects.count = 0;
 	for (index = 0; globals && index < (short)globals->first_person_interface.count; index++)
 	{
 		struct game_globals_first_person_interface *interface = TAG_BLOCK_GET_ELEMENT(
@@ -1195,7 +1531,12 @@ void render_enumerate_models(void)
 		object_effects_draw();
 		break;
 	case _part_first_person:
+		/* (as render_objects draws the first-person weapon: its window's
+		span the first person's, display.ambient_occlusion "world" leaving
+		it as it is, world_ao.c) */
+		world_ao_first_person(TRUE);
 		first_person_models_draw();
+		world_ao_first_person(FALSE);
 		break;
 	}
 	rasterizer_debug_options.debug_model_lod = saved_lod;
@@ -1216,7 +1557,9 @@ void render_enumerate_shadows(void)
 	real_matrix4x3 shadow_matrix;
 	real_vector3d right;
 
-	if (!render_enumerating || !pass_world())
+	/* (a shadow is drawn by its own shaders, not lit by the renderer's
+	lights: the same in either lighting) */
+	if (!render_enumerating || !pass_world() || pass_dynamic_lights())
 		return;
 	memset(planes, 0, sizeof(planes));
 	memset(&bounds, 0, sizeof(bounds));
@@ -1236,6 +1579,35 @@ void render_enumerate_shadows(void)
 		/* (a new structure of the map: a shadow cast on it, the models' made) */
 		if (!enumerate.everything)
 			break;
+	}
+	/* the shadow atlas's (rasterizer_xbox_shadows.c): a caster into a region
+	of it, the chain over the atlas, and the receivers sampling the region */
+	if (rasterizer_shadow_atlas_begin())
+	{
+		short region = NONE;
+		real radius = 1.0f;
+
+		tag_iterator_new(&iterator, MODELS_GROUP_TAG);
+		model_index = tag_iterator_next(&iterator);
+		if (model_index != NONE &&
+			rasterizer_environment_shadow_begin(STAND_IN_OBJECT_INDEX, &shadow_matrix, &shadow_color, 1.0f, &radius))
+		{
+			model_draw(model_index, 0, NULL, 0, FLAG(_render_model_shadow_bit));
+			region = rasterizer_shadow_atlas_caster_end();
+			if (region == NONE)
+			{
+				structure_render_shadow(&render.camera.position, radius, &bounds, 0, planes);
+				rasterizer_environment_shadow_end();
+			}
+		}
+		rasterizer_shadow_atlas_convolve();
+		if (region != NONE)
+		{
+			rasterizer_shadow_atlas_receive(region);
+			structure_render_shadow(&render.camera.position, radius, &bounds, 0, planes);
+			rasterizer_environment_shadow_end();
+		}
+		rasterizer_shadow_atlas_end();
 	}
 	rasterizer_environment_shadows_end();
 	/* Shadows leave stencil rejection enabled. The world can also follow
@@ -1260,7 +1632,10 @@ fog */
 
 void render_enumerate_decals(void)
 {
-	if (!render_enumerating || !enumerate.everything || pass_part() != _part_world)
+	/* (the world's, and a mirror's window, which draws its clusters' decals
+	and detail objects as the world's does: into the secondary target, whose
+	colour is not the screen's) */
+	if (!render_enumerating || !enumerate.everything || !pass_world())
 		return;
 	rasterizer_decals_port_enumerate(pass_stencil_reject() ? 2 : 0);
 	/* (and every detail object collection's: rasterizer_xbox_detail_objects.c) */
@@ -1347,7 +1722,10 @@ static void effect_sprite(long bitmap_group_index, struct shader_effect_definiti
 }
 
 /* Light volumes use the widget sprite shader with depth testing, unlike
-lens flares. Their animated objects need not be visible in the first frame. */
+lens flares. Their animated objects need not be visible in the first frame.
+They are drawn as light_volume_render draws them in play: among the queued
+transparent geometry, each a light (display.hdr: a light's glow, whose HDR
+tag makes a pipeline of its own) */
 static void light_volumes_draw(void)
 {
 	struct tag_iterator iterator;
@@ -1356,6 +1734,8 @@ static void light_volumes_draw(void)
 
 	point_from_line3d(&render.camera.position, &render.camera.forward, 2.0f, &origin);
 	rasterizer_set_stencil_mode(pass_stencil_reject() ? 2 : 0);
+	halo_hdr_category(_rasterizer_profile_queued_transparents);
+	halo_hdr_draw_kind(HALO_HDR_KIND_LIGHT);
 	tag_iterator_new(&iterator, 'mgs2');
 	while ((tag_index = tag_iterator_next(&iterator)) != NONE)
 	{
@@ -1371,6 +1751,8 @@ static void light_volumes_draw(void)
 		}
 		rasterizer_widget_end();
 	}
+	halo_hdr_draw_kind(HALO_HDR_KIND_NONE);
+	halo_hdr_category(NONE);
 }
 
 void render_enumerate_effects(void)
@@ -1533,6 +1915,11 @@ enum
 	_text_justification_left = 0,
 };
 
+/* every font in each style; and with the alpha test on and off, which the
+text's drawing leaves as the draw before it left it (rasterizer_xbox_text.c
+sets none): the HUD's messages are drawn with it on after some of the HUD's
+draws (a10's, at a structure switch), its function the device's
+(D3DCMP_GREATER, rasterizer_xbox.c, which none sets otherwise) */
 static void fonts_draw(void)
 {
 	static wchar_t const unicode_string[] = { 'A', 'g', '0', 0 };
@@ -1541,20 +1928,27 @@ static void fonts_draw(void)
 	struct tag_iterator iterator;
 	long font_index;
 	short style;
+	DWORD alpha_test = D3D__RenderState[D3DRS_ALPHATESTENABLE];
+	int tested;
 
 	bounds.x0 = bounds.y0 = 0;
 	bounds.x1 = 200;
 	bounds.y1 = 50;
-	tag_iterator_new(&iterator, FONT_GROUP_TAG);
-	while ((font_index = tag_iterator_next(&iterator)) != NONE)
+	for (tested = 0; tested < 2; tested++)
 	{
-		for (style = _text_style_plain; style < NUMBER_OF_TEXT_STYLES; style++)
+		IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_ALPHATESTENABLE, tested ? TRUE : FALSE);
+		tag_iterator_new(&iterator, FONT_GROUP_TAG);
+		while ((font_index = tag_iterator_next(&iterator)) != NONE)
 		{
-			draw_string_set_draw_mode(font_index, style, _text_justification_left, 0, &color);
-			rasterizer_draw_unicode_string(&bounds, NULL, NULL, 0, unicode_string);
-			rasterizer_draw_string(&bounds, NULL, NULL, 0, "Ag0");
+			for (style = _text_style_plain; style < NUMBER_OF_TEXT_STYLES; style++)
+			{
+				draw_string_set_draw_mode(font_index, style, _text_justification_left, 0, &color);
+				rasterizer_draw_unicode_string(&bounds, NULL, NULL, 0, unicode_string);
+				rasterizer_draw_string(&bounds, NULL, NULL, 0, "Ag0");
+			}
 		}
 	}
+	IDirect3DDevice8_SetRenderState(global_d3d_device, D3DRS_ALPHATESTENABLE, alpha_test);
 }
 
 /* a menu's picture, as its widgets draw them (ui_widget.c: every one over

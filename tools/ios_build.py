@@ -50,7 +50,7 @@ IOS_BUNDLE_ID = MACOS_BUNDLE_ID
 IOS_FRAMEWORKS = " ".join(f"-framework {name}" for name in (
     "Metal", "QuartzCore", "Foundation", "UIKit", "ImageIO", "CoreGraphics", "AVFoundation", "AudioToolbox",
     "CoreAudio", "CoreHaptics", "CoreMotion", "GameController", "CoreBluetooth", "UniformTypeIdentifiers",
-    "CoreFoundation", "Security", "CoreMedia", "CoreVideo", "IOSurface", "CoreText")) + " -lcompression"
+    "CoreFoundation", "Security", "CoreMedia", "CoreVideo", "IOSurface", "CoreText")) + " -lcompression -lz"
 
 
 def ios_configure_inputs() -> List[Path]:
@@ -111,8 +111,9 @@ def ios_platform(name: str, sdk: str, guest=None) -> ApplePlatform:
         sdl_library="libSDL3.a", sdl_link="-lSDL3", guest_image_source=PORT_DIR / "guest_image.S",
         shader_platform="ios_simulator" if simulator else "ios", guest=guest,
         guest_imports=[PORT_DIR / "host_imports.list"],
-        # (the first start's disc image extraction: port/ios/data_import.m)
-        shared_extra=["xiso.h", "xiso.c", "posix.h"])
+        # (the first start's disc image extraction and the maps' unpack into the
+        # cache: port/ios/data_import.m)
+        shared_extra=["xiso.h", "xiso.c", "posix.h", "map_unpack.h", "map_unpack.c"])
 
 
 def generate_ios_app(n: Writer, sln: Any, built: dict, name: str, build: Path, signed: bool) -> None:
@@ -149,14 +150,18 @@ def generate_ios_app(n: Writer, sln: Any, built: dict, name: str, build: Path, s
     n.rule(
         name=f"{name}_app",
         command=(f"$python tools/ios_app.py bundle --app {app} --executable {built['executable']} "
-                 f"--resource {built['brokers']} --resource {built['library']} --bundle-id {bundle_id} "
+                 f"--resource {built['brokers']} --resource {built['records']} --resource {built['assets']} "
+                 f"--resource {built['library']} "
+                 f"--bundle-id {bundle_id} "
                  f"{' '.join(f'--license {source}={name}' for source, name in licenses)} "
                  f"{' '.join(f'--touch {source}' for source in touch)} "
                  f"--build {build_number if build_number.isdigit() else 0} --minimum {IOS_MINIMUM} {signing} "
                  f"{'--simulator ' if not signed else ''}> {build}/app.log"),
         description=f"{name.upper()} APP {app}",
     )
-    n.build(outputs=app_executable, rule=f"{name}_app", inputs=[built["executable"], built["brokers"], built["library"]],
+    n.build(outputs=app_executable, rule=f"{name}_app",
+            inputs=[built["executable"], built["brokers"], built["records"], built["assets"],
+                    built["library"]],
             implicit=implicit)
     n.build(outputs=name, rule="phony", inputs=[app_executable])
     # (the app on the connected device, or the booted simulator:

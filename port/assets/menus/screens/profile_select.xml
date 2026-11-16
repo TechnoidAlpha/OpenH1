@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Select Profile (docs/menu_screens.md), in place of the generated
+profile manager (Settings' MANAGE PROFILES: main_menu/profile_manager/
+player_profile_manager). The tall layout: its title in the band at the top,
+the profiles and the row that makes one in the table at the left, and in the
+panel beside it the chosen one's name, its Spartan in its color (drawn by the
+game in a view of its own; its original picture where it cannot be; none on
+the row that makes one) and its controls, best difficulty (none, its line
+gone, until it has finished a level) and current level, and player 1's
+profile at the band's right; BACK at the bar's left, the rest at its right. The list, the details and what
+each key does are menu_functions.c's, as for the generated screen (the row
+source profiles, the profile.* bindings and actions): A chooses the row's
+profile and goes back (on the row that makes one, it asks first), Y makes a
+new one, X deletes the chosen one, B goes back. -->
+<screen name="profile_select">
+	<header title="SELECT PROFILE" detail="PROFILE: {profile.current}"/>
+	<table source="profiles" do="profile select">
+		<column id="name" label="NAME" kind="strong" width="392" grow="144" touch="12 14 340 0 144"/>
+	</table>
+	<panel>
+		<heading text="{profile.title}" lines="2"/>
+		<spartan height="184" color="profile.color"/>
+		<text text="Controls: {profile.controls}"/>
+		<text text="Difficulty: {profile.difficulty}" if="profile.difficulty"/>
+		<text text="Current Level: {profile.level}" lines="2"/>
+	</panel>
+	<buttons>
+		<button key="back" label="BACK"/>
+		<button key="x" label="DELETE" side="right" if="profile.chosen" do="profile delete"/>
+		<button key="y" label="CREATE NEW" side="right" do="profile new"/>
+		<button key="accept" label="OK" side="right"/>
+	</buttons>
+</screen>

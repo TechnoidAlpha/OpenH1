@@ -809,3 +809,144 @@ static boolean biped_limp_noodle_nodes_valid(
 
 	return valid;
 }
+
+/* port: a death animation is made for open, flat ground: it lays the body
+out at the height of the biped's origin, in the biped's own frame, which
+stays upright, wherever that takes it. Fallen against a wall it lays the
+legs or the arms through the wall, and where the ground rises under it (a
+slope at the foot of a rock wall, a50's canyon) the part lying uphill
+inside the ground; the relaxation, which moves nodes a few hundredths, can
+lift neither out. So while a dead biped's nodes are still its animation's
+(until its body lies limp, whose nodes are no longer made), the pose is
+fitted to what is around it, from the pose alone and nothing kept, each
+tick as the animation makes it, so the body settles as it falls, without a
+step, and lies still once limp:
+- the whole body is moved away from the wall a node went furthest
+  through, by as far as it went through (BIPED_DRAPE_CLEARANCE short of the
+  wall, no more than BIPED_DRAPE_MAXIMUM), as seen from above the origin at
+  the node's height: the pose kept, the body a little further from the
+  wall than the biped stood;
+- then each node is raised by as much as the ground under it is above the
+  ground under the origin, less BIPED_DRAPE_DEAD_ZONE (bumps left as they
+  were) and no more than BIPED_DRAPE_MAXIMUM: the pose the animation would
+  end in on that ground, looked for below the node, or, the node a little
+  way in the ground (BIPED_DRAPE_EMBEDDED), from above it. Nothing is lowered (what lies over a drop is left
+  to the relaxation, as before).
+Open, flat ground changes nothing. A node whose wall or ground cannot be
+seen (from inside a wall, under an overhang) is left as the animation put
+it. The pose is each machine's own (the host's word on a body is where it
+is and whether it lies limp, not its nodes: NETCODE.md's corrections), and
+a client's hit reported through a body is checked against the structure
+alone (network_damage.c), so nothing the machines must agree on changes.
+The pose is the game state's, though (the limp body starts from it, what
+strikes the body strikes it there), so it is fitted with the game's
+animation enhancements only (units.c): Classic plays as the original */
+
+#define BIPED_DRAPE_CLEARANCE 0.03f
+#define BIPED_DRAPE_DEAD_ZONE 0.01f
+#define BIPED_DRAPE_MAXIMUM 0.25f
+/* (how far above the origin the ground under it is looked for from) */
+#define BIPED_DRAPE_ABOVE 0.25f
+/* (how deep in the ground a node may be and be raised out of it: one
+deeper is in something else, a console it lies against, a wall) */
+#define BIPED_DRAPE_EMBEDDED 0.1f
+
+void biped_limp_noodle_drape_dying(
+	long biped_index,
+	real_matrix4x3 *node_matrices)
+{
+	struct biped_datum *biped = biped_get(biped_index);
+	struct object_datum *object = object_get(biped_index);
+	unsigned long flags = _collision_test_for_bipeds_dead_flags |
+		FLAG(_collision_test_ignore_invisible_surfaces_bit);
+	long node_count = object->object.node_matrices.size / (long)sizeof(real_matrix4x3);
+	real_point3d origin = biped->object.position;
+	real_point3d start;
+	real_vector3d vector;
+	real_vector3d push;
+	struct collision_result collision;
+	real ground;
+	real push_distance = 0.f;
+	long node_index;
+
+	if (!TEST_FLAG(biped->object.damage_flags, _object_dead_bit) ||
+		TEST_FLAG(biped->biped.flags, _biped_limp_body_physics_active_bit) ||
+		biped->object.parent_object_index != NONE ||
+		node_count <= 1)
+	{
+		return;
+	}
+
+	/* (the ground under the origin, which the animation lies on) */
+	start = origin;
+	start.z += BIPED_DRAPE_ABOVE;
+	set_real_vector3d(&vector, 0.f, 0.f, -2.f * BIPED_DRAPE_ABOVE);
+	if (collision_test_point(flags, &start, biped_index) ||
+		!collision_test_vector(flags, &start, &vector, biped_index, &collision))
+	{
+		return;
+	}
+	ground = collision.point.z;
+
+	/* (the wall a node went furthest through, from above the origin) */
+	set_real_vector3d(&push, 0.f, 0.f, 0.f);
+	for (node_index = 0; node_index < node_count; node_index++)
+	{
+		real_point3d const *position = &node_matrices[node_index].position;
+		real_vector3d wall;
+		real length, depth;
+
+		set_real_point3d(&start, origin.x, origin.y, MAX(position->z, ground + BIPED_DRAPE_ABOVE * 0.5f));
+		set_real_vector3d(&vector, position->x - start.x, position->y - start.y, 0.f);
+		length = magnitude3d(&vector);
+		if (length < BIPED_DRAPE_CLEARANCE)
+			continue;
+		scale_vector3d(&vector, (length + BIPED_DRAPE_CLEARANCE) / length, &vector);
+		if (collision_test_point(flags, &start, biped_index) ||
+			!collision_test_vector(flags, &start, &vector, biped_index, &collision))
+		{
+			continue;
+		}
+		/* (a wall's: the ground, below, is the next step's) */
+		set_real_vector3d(&wall, collision.plane.n.i, collision.plane.n.j, 0.f);
+		if (fabs(collision.plane.n.k) > 0.7f || normalize3d(&wall) == 0.f)
+			continue;
+		depth = BIPED_DRAPE_CLEARANCE -
+			((position->x - collision.point.x) * wall.i + (position->y - collision.point.y) * wall.j);
+		if (depth > push_distance)
+		{
+			push_distance = depth;
+			scale_vector3d(&wall, MIN(depth, BIPED_DRAPE_MAXIMUM), &push);
+		}
+	}
+
+	for (node_index = 0; node_index < node_count; node_index++)
+	{
+		real_point3d *position = &node_matrices[node_index].position;
+		real rise;
+
+		position->x += push.i;
+		position->y += push.j;
+
+		/* (the ground under it, above the origin's: looked for from the node,
+		or from above it, as far as it can be raised, when the node is in the
+		ground) */
+		start = *position;
+		if (collision_test_point(flags, &start, biped_index))
+		{
+			start.z += BIPED_DRAPE_EMBEDDED;
+			if (collision_test_point(flags, &start, biped_index))
+				continue;
+		}
+		if (start.z <= ground + BIPED_DRAPE_DEAD_ZONE)
+			continue;
+		set_real_vector3d(&vector, 0.f, 0.f, ground + BIPED_DRAPE_DEAD_ZONE - start.z);
+		if (!collision_test_vector(flags, &start, &vector, biped_index, &collision))
+			continue;
+		rise = collision.point.z - ground - BIPED_DRAPE_DEAD_ZONE;
+		if (rise > 0.f)
+			position->z += MIN(rise, BIPED_DRAPE_MAXIMUM);
+	}
+
+	return;
+}

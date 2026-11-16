@@ -1,40 +1,20 @@
 /*
 HALO_REPLAY.M
 
-The renderer's command stream replayed from a recording (HALO_RENDER_RECORD:
-port/android/host/host_render_record.h), without the game: no guest, no
-maps. The guest's memory is a reservation of 4 GB at a base, as the game's
-host has it (host_memory_base.c); the tool is the guest, writing the
-recorded records into the ring where they were and submitting them as the
-encoder did (a frame's end, a synchronous record, the ring full), and the
-same render thread, decoder and Metal backend play them. Before each record
-is played, the memory it reads (the recording's chunks) is put back where
-it was, and the pages that changed count as written for the textures'
-cache (the write tracking's generations, here).
+The renderer's command stream replayed from a recording with the Metal
+backend (HALO_RENDER_RECORD: port/android/host/host_render_record.h): the
+replay of port/tools/replay/host_render_replay.h, its options and its
+service (--serve), with Metal's own:
 
-halo_replay <file> [--frames a-b] [--window] [--unpaced] [--shots dir]
-	[--shot-frames list] [--loop N] [--cold] [--archive path] [--quiet]
+halo_replay <file> ... [--window] [--cold] [--archive path]
 
---frames a-b: the frames measured (those before are played unmeasured, the
-stream's state being theirs; none after); --window: in a window, paced by
-the display unless --unpaced (offscreen, the frames are as fast as the GPU);
---shots dir: the back buffers of the frames of --shot-frames (as
-HALO_RENDER_SHOT_FRAMES; all measured frames if not given) as PNGs, in
-dir/loop<n> with --loop; --loop N: the whole replayed N times in one
-process; --cold: in a throwaway app of a new bundle id (a new Metal shader
-cache) with an empty pipeline archive; --archive: the pipelines'
-archive (default: <file>.pipelines); --hitch ms: a hitch is an interval
-over this (default 12.5: 1.5 refreshes at 120 Hz) and twice the median. --compare a b: the PNGs of two shot
-folders compared, pixel by pixel.
-
-Prints each measured frame: its interval (the render thread's, from frame
-end to frame end), the render thread's CPU time, the GPU time of the command
-buffers completed in it (a frame or two late), its draws and the pipelines
-made (compiles) in it; then a summary, hitches named.
+--window: in a window, paced by the display unless --unpaced; --cold: in a
+throwaway app of a new bundle id (a new Metal shader cache) with an empty
+pipeline archive; --archive: the pipelines' archive (default:
+<file>.pipelines).
 */
 
 #import <Foundation/Foundation.h>
-#import <ImageIO/ImageIO.h>
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
 
@@ -43,6 +23,7 @@ made (compiles) in it; then a summary, hitches named.
 #include "host.h"
 #undef host_page_size
 #include "host_render_record.h"
+#include "host_render_replay.h"
 #include "host_render_stream.h"
 #include "xgpu_metal.h"
 #include "xgpu_metal_internal.h"
@@ -51,16 +32,10 @@ made (compiles) in it; then a summary, hitches named.
 #include "xgpu_astc.h"
 
 #include <SDL3/SDL.h>
-#include <compression.h>
-#include <fcntl.h>
 #include <mach-o/dyld.h>
-#include <stdarg.h>
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -70,37 +45,10 @@ int host_metal_initialize(void);
 int host_metal_window_open(uint32_t window);
 void host_metal_set_unpaced(int unpaced);
 
-/* ---------- what the host gives the backend and the decoder, here */
+/* ---------- what the host gives the backend, here */
 
-uintptr_t host_guest_base;
-void (*host_memory_remapped)(uint32_t address, uint32_t size);
 /* display.astc_textures, from HALO_ASTC_TEXTURES as the host reads it (main) */
 char host_astc_textures[16] = "auto";
-static int verbose;
-
-void host_logf(int priority, const char *format, ...)
-{
-	va_list arguments;
-
-	if (priority < HOST_LOG_WARN && !verbose)
-		return;
-	fprintf(stderr, "host: ");
-	va_start(arguments, format);
-	vfprintf(stderr, format, arguments);
-	va_end(arguments);
-	fputc('\n', stderr);
-}
-
-void host_fatal(const char *format, ...)
-{
-	va_list arguments;
-
-	va_start(arguments, format);
-	vfprintf(stderr, format, arguments);
-	va_end(arguments);
-	fputc('\n', stderr);
-	exit(2);
-}
 
 static SDL_Window *window;
 
@@ -110,715 +58,360 @@ void *host_sdl_handle_get(uint32_t handle, int type)
 	return handle == 1 ? (void *)window : NULL;
 }
 
-/* the guest's memory: pages put back (readable) and their generations */
-static size_t page_size;
-static uint8_t *pages_restored;
-static uint32_t *page_generations;
-static _Atomic uint32_t watch_serial = 1;
+/* ---------- the platform */
 
-size_t guest_host_page_size(void) __asm__("_host_page_size");
+/* the textures' cache over the loop: its bytes at the most and at the end
+(all, ASTC, DXT decoded), and its counts (xgpu_metal_textures.h) */
+static struct xgpu_metal_texture_statistics textures, textures_most;
 
-size_t guest_host_page_size(void)
-{
-	return page_size;
-}
-
-/* readable if every page has been put back; the extent is none, so that
-the backend copies what it would read in place (the tool rewrites the
-memory while frames are in flight, which the game does not) */
-int host_memory_readable_extent(uint32_t address, uint32_t size, uint32_t limit_start, uint32_t limit_end,
-	uint32_t *start, uint32_t *end)
-{
-	uint64_t page, last = ((uint64_t)address + size + page_size - 1) / page_size;
-
-	(void)limit_start;
-	(void)limit_end;
-	if (!address)
-		return 0;
-	for (page = address / page_size; page < last; page++)
-	{
-		if (page >= 0x100000000ull / page_size || !pages_restored[page])
-			return 0;
-	}
-	*start = *end = 0;
-	return 1;
-}
-
-void host_memory_watch_protect(uint32_t address, uint32_t size)
-{
-	(void)address;
-	(void)size;
-}
-
-uint32_t host_memory_watch_generation(uint32_t address, uint32_t size)
-{
-	uint64_t page, last = ((uint64_t)address + size + page_size - 1) / page_size;
-	uint32_t newest = 0;
-
-	for (page = address / page_size; page < last && page < 0x100000000ull / page_size; page++)
-	{
-		if (page_generations[page] > newest)
-			newest = page_generations[page];
-	}
-	return newest;
-}
-
-uint32_t host_memory_watch_serial(void)
-{
-	return atomic_load(&watch_serial);
-}
-
-/* (no write tracking here: no faults) */
-uint64_t host_memory_watch_faults(void)
-{
-	return 0;
-}
-
-static void pages_mark(uint32_t address, uint32_t size, int written)
-{
-	uint64_t page, last = ((uint64_t)address + size + page_size - 1) / page_size;
-	uint32_t serial = written ? atomic_fetch_add(&watch_serial, 1) + 1 : 0;
-
-	for (page = address / page_size; page < last && page < 0x100000000ull / page_size; page++)
-	{
-		pages_restored[page] = 1;
-		if (written)
-			page_generations[page] = serial;
-	}
-}
-
-/* ---------- the recording */
-
-struct chunk
-{
-	uint32_t address, size;
-	const unsigned char *data;
-};
-
-struct record
-{
-	uint32_t position, type, size, bytes;
-	const unsigned char *data;
-	uint32_t chunk_first, chunk_count;
-};
-
-static struct
-{
-	const unsigned char *map;
-	size_t map_size;
-	/* the blocks' bytes, together: the events */
-	unsigned char *body;
-	size_t body_size;
-	struct host_render_record_file header;
-	struct record *records;
-	uint32_t record_count;
-	struct chunk *chunks;
-	uint32_t chunk_count;
-	/* the contents by hash (open table) */
-	uint64_t *hashes;
-	const unsigned char **contents;
-	uint32_t content_mask;
-	uint32_t frames;
-	uint64_t content_bytes;
-} recording;
-
-static const unsigned char *content_find(uint64_t hash)
-{
-	uint32_t index;
-
-	for (index = (uint32_t)hash & recording.content_mask; recording.hashes[index];
-		index = (index + 1) & recording.content_mask)
-	{
-		if (recording.hashes[index] == hash)
-			return recording.contents[index];
-	}
-	return NULL;
-}
-
-static void content_put(uint64_t hash, const unsigned char *data)
-{
-	uint32_t index;
-
-	for (index = (uint32_t)hash & recording.content_mask; recording.hashes[index];
-		index = (index + 1) & recording.content_mask)
-	{
-		if (recording.hashes[index] == hash)
-			return;
-	}
-	recording.hashes[index] = hash;
-	recording.contents[index] = data;
-}
-
-static int recording_load(const char *path)
-{
-	int descriptor = open(path, O_RDONLY);
-	struct stat status;
-	const unsigned char *place, *end;
-	uint32_t records = 0, chunks = 0, contents = 0, record_capacity, chunk_capacity, size;
-	uint32_t pending_first = 0;
-
-	if (descriptor < 0 || fstat(descriptor, &status) || (size_t)status.st_size < sizeof(recording.header))
-	{
-		fprintf(stderr, "halo_replay: cannot read %s\n", path);
-		return 0;
-	}
-	recording.map_size = (size_t)status.st_size;
-	recording.map = mmap(NULL, recording.map_size, PROT_READ, MAP_PRIVATE, descriptor, 0);
-	close(descriptor);
-	if (recording.map == MAP_FAILED)
-		return 0;
-	memcpy(&recording.header, recording.map, sizeof(recording.header));
-	if (recording.header.magic != HOST_RENDER_RECORD_MAGIC || recording.header.version != HOST_RENDER_RECORD_VERSION ||
-		recording.header.header_size != sizeof(recording.header) ||
-		recording.header.ring.version != XGPU_STREAM_VERSION)
-	{
-		fprintf(stderr, "halo_replay: %s is not a recording of this version (%u)\n", path, recording.header.version);
-		return 0;
-	}
-	/* the blocks, decompressed */
-	{
-		const unsigned char *block_place = recording.map + sizeof(recording.header), *map_end = recording.map +
-			recording.map_size;
-		size_t total = 0;
-
-		for (place = block_place; place + sizeof(struct host_render_record_block) <= map_end;)
-		{
-			struct host_render_record_block block;
-
-			memcpy(&block, place, sizeof(block));
-			if ((size_t)(map_end - place) - sizeof(block) < block.stored)
-				break;
-			total += block.size;
-			place += sizeof(block) + block.stored;
-		}
-		recording.body = malloc(total ? total : 1);
-		if (!recording.body)
-			return 0;
-		for (place = block_place; place + sizeof(struct host_render_record_block) <= map_end;)
-		{
-			struct host_render_record_block block;
-
-			memcpy(&block, place, sizeof(block));
-			if ((size_t)(map_end - place) - sizeof(block) < block.stored)
-			{
-				fprintf(stderr, "halo_replay: the recording is cut short (its last %zu bytes)\n", (size_t)(map_end - place));
-				break;
-			}
-			if (block.stored == block.size)
-				memcpy(recording.body + recording.body_size, place + sizeof(block), block.size);
-			else if (compression_decode_buffer(recording.body + recording.body_size, block.size, place + sizeof(block),
-				block.stored, NULL, COMPRESSION_LZ4) != block.size)
-			{
-				fprintf(stderr, "halo_replay: a block does not decompress\n");
-				return 0;
-			}
-			recording.body_size += block.size;
-			place += sizeof(block) + block.stored;
-		}
-	}
-	/* (counted first, then indexed) */
-	end = recording.body + recording.body_size;
-	for (place = recording.body; place + sizeof(struct host_render_record_event) <= end;)
-	{
-		struct host_render_record_event event;
-
-		memcpy(&event, place, sizeof(event));
-		if ((size_t)(end - place) - sizeof(event) < event.size)
-			break;
-		records += event.type == HOST_RENDER_EVENT_RECORD;
-		chunks += event.type == HOST_RENDER_EVENT_CHUNK;
-		contents += event.type == HOST_RENDER_EVENT_CONTENT;
-		place += sizeof(event) + event.size;
-	}
-	record_capacity = records ? records : 1;
-	chunk_capacity = chunks ? chunks : 1;
-	recording.records = calloc(record_capacity, sizeof(*recording.records));
-	recording.chunks = calloc(chunk_capacity, sizeof(*recording.chunks));
-	for (size = 16; size < contents * 2 + 2; size *= 2)
-		;
-	recording.content_mask = size - 1;
-	recording.hashes = calloc(size, sizeof(*recording.hashes));
-	recording.contents = calloc(size, sizeof(*recording.contents));
-	if (!recording.records || !recording.chunks || !recording.hashes || !recording.contents)
-		return 0;
-	for (place = recording.body; place + sizeof(struct host_render_record_event) <= end;)
-	{
-		struct host_render_record_event event;
-		const unsigned char *body = place + sizeof(event);
-
-		memcpy(&event, place, sizeof(event));
-		if ((size_t)(end - place) - sizeof(event) < event.size)
-		{
-			fprintf(stderr, "halo_replay: the recording is cut short (its last %zu bytes)\n", (size_t)(end - place));
-			break;
-		}
-		place = body + event.size;
-		if (event.type == HOST_RENDER_EVENT_CONTENT && event.size >= 8)
-		{
-			uint64_t hash;
-
-			memcpy(&hash, body, 8);
-			content_put(hash, body + 8);
-			recording.content_bytes += event.size - 8;
-		}
-		else if (event.type == HOST_RENDER_EVENT_CHUNK && event.size >= sizeof(struct host_render_record_chunk))
-		{
-			struct host_render_record_chunk chunk;
-			struct chunk *to = &recording.chunks[recording.chunk_count];
-
-			memcpy(&chunk, body, sizeof(chunk));
-			to->address = chunk.address;
-			to->size = chunk.size;
-			to->data = content_find((uint64_t)chunk.hash[0] | (uint64_t)chunk.hash[1] << 32);
-			if (!to->data)
-			{
-				fprintf(stderr, "halo_replay: a chunk of %u bytes at %08x has no content\n", chunk.size, chunk.address);
-				continue;
-			}
-			recording.chunk_count++;
-		}
-		else if (event.type == HOST_RENDER_EVENT_RECORD && event.size >= 8)
-		{
-			struct record *to = &recording.records[recording.record_count++];
-			uint32_t header;
-
-			memcpy(&to->position, body, 4);
-			memcpy(&header, body + 4, 4);
-			to->data = body + 4;
-			to->bytes = event.size - 4;
-			to->type = XGPU_STREAM_HEADER_TYPE(header);
-			to->size = XGPU_STREAM_HEADER_SIZE(header);
-			if (to->type == XGPU_STREAM_SKIP && !to->size)
-				to->size = recording.header.ring.size - (to->position & (recording.header.ring.size - 1));
-			to->chunk_first = pending_first;
-			to->chunk_count = recording.chunk_count - pending_first;
-			pending_first = recording.chunk_count;
-			recording.frames += to->type == XGPU_STREAM_FRAME_END;
-		}
-	}
-	return recording.record_count > 0;
-}
-
-/* ---------- the guest's memory */
-
-static int memory_make(void)
-{
-	const struct xgpu_stream_ring *ring = &recording.header.ring;
-	uintptr_t reservation;
-	uint64_t pages;
-
-	page_size = (size_t)getpagesize();
-	if (recording.header.page_size && recording.header.page_size != page_size)
-		fprintf(stderr, "halo_replay: recorded with %u-byte pages, replayed with %zu\n", recording.header.page_size,
-			page_size);
-	pages = 0x100000000ull / page_size;
-	pages_restored = calloc(pages, 1);
-	page_generations = calloc(pages, sizeof(*page_generations));
-	/* (4 GB-aligned, as host_memory_base.c places it) */
-	reservation = (uintptr_t)mmap(NULL, 0x200000000ull, PROT_NONE, MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
-	if ((void *)reservation == MAP_FAILED || !pages_restored || !page_generations)
-		return 0;
-	host_guest_base = (reservation + 0xffffffffull) & ~(uintptr_t)0xffffffffull;
-	if (mmap((void *)host_guest_base, 0x100000000ull, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_FIXED |
-		MAP_NORESERVE, -1, 0) == MAP_FAILED)
-		return 0;
-	/* the ring's header, its bytes and the host's answers, where they were */
-	pages_mark(ring->buffer, ring->size, 0);
-	pages_mark(ring->visibility, XGPU_STREAM_VISIBILITY_SLOTS * 2 * 4, 0);
-	pages_mark(ring->pipelines, XGPU_STREAM_PIPELINES, 0);
-	return 1;
-}
-
-static uint32_t ring_address(void)
-{
-	return recording.header.ring_address;
-}
-
-/* ---------- playing: the render thread's side */
-
-struct frame_measure
-{
-	double interval_ms, cpu_ms, gpu_ms, compile_ms, shader_ms;
-	uint32_t draws, compiles, shaders;
-};
-
-static struct
-{
-	/* the records played (of play_count each loop), and the loop */
-	uint64_t played;
-	uint32_t play_count;
-	uint32_t loop, loops;
-	uint64_t shift;
-	uint32_t first_frame, last_frame;
-	uint32_t frame;
-	int frame_closing;
-	double last_end;
-	struct frame_measure *frames;
-	const char *shots, *shot_frames;
-	int window, unpaced, quiet;
-	/* a hitch: an interval over this (and twice the median) */
-	double hitch_ms;
-	uint32_t mismatches;
-	uint64_t restored_bytes;
-	/* the textures' cache over the loop: its bytes at the most and at the
-	end (all, ASTC, DXT decoded), and its counts (xgpu_metal_textures.h) */
-	struct xgpu_metal_texture_statistics textures, textures_most;
-} play;
-
-static double seconds_now(void)
-{
-	return CACurrentMediaTime();
-}
-
-/* (the render thread) a frame's end has been played */
-static void frame_closed(void)
+static void metal_frame_statistics(struct host_render_replay_statistics *to)
 {
 	struct xgpu_metal_statistics statistics;
-	double now = seconds_now();
-	uint32_t frame = play.frame;
+	struct xgpu_metal_texture_statistics now;
 
 	xgpu_metal_statistics(&statistics);
-	{
-		struct xgpu_metal_texture_statistics textures;
-
-		xgpu_metal_textures_statistics(&textures);
-		play.textures.astc_transcoded += textures.astc_transcoded;
-		play.textures.astc_encoded += textures.astc_encoded;
-		play.textures.astc_left_decoded += textures.astc_left_decoded;
-		play.textures.resident = textures.resident;
-		play.textures.resident_astc = textures.resident_astc;
-		play.textures.resident_decoded = textures.resident_decoded;
-		play.textures.astc_waiting = textures.astc_waiting;
-		if (textures.resident > play.textures_most.resident)
-			play.textures_most = textures;
-	}
-	if (frame >= play.first_frame && frame <= play.last_frame)
-	{
-		struct frame_measure *measure = &play.frames[(size_t)play.loop * (play.last_frame - play.first_frame + 1) +
-			(frame - play.first_frame)];
-
-		measure->interval_ms = (now - play.last_end) * 1000.0;
-		measure->cpu_ms = statistics.render_cpu_seconds * 1000.0;
-		measure->gpu_ms = statistics.gpu_seconds * 1000.0;
-		measure->compile_ms = statistics.pipeline_seconds * 1000.0;
-		measure->draws = statistics.draws;
-		measure->compiles = statistics.pipelines_made;
-		measure->shader_ms = statistics.shader_seconds * 1000.0;
-		measure->shaders = statistics.shaders_made;
-	}
-	play.last_end = now;
-	play.frame++;
-	if (play.window && play.frame == play.first_frame)
-		host_metal_set_unpaced(play.unpaced);
+	to->cpu_ms = statistics.render_cpu_seconds * 1000.0;
+	to->gpu_ms = statistics.gpu_seconds * 1000.0;
+	to->compile_ms = statistics.pipeline_seconds * 1000.0;
+	to->draws = statistics.draws;
+	to->compiles = statistics.pipelines_made;
+	to->shader_ms = statistics.shader_seconds * 1000.0;
+	to->shaders = statistics.shaders_made;
+	xgpu_metal_textures_statistics(&now);
+	textures.astc_transcoded += now.astc_transcoded;
+	textures.astc_encoded += now.astc_encoded;
+	textures.astc_left_decoded += now.astc_left_decoded;
+	textures.resident = now.resident;
+	textures.resident_astc = now.resident_astc;
+	textures.resident_decoded = now.resident_decoded;
+	textures.astc_waiting = now.astc_waiting;
+	if (now.resident > textures_most.resident)
+		textures_most = now;
 }
 
-static void loop_begin(uint32_t loop)
+static void metal_report(void)
 {
-	char directory[1100];
+	struct xgpu_astc_statistics astc;
 
-	play.loop = loop;
-	play.frame = 0;
-	host_render_record_set_frame(0);
-	if (play.window)
-		host_metal_set_unpaced(play.first_frame > 0 ? 1 : play.unpaced);
-	if (play.shots)
-	{
-		if (play.loops > 1)
-		{
-			mkdir(play.shots, 0755);
-			snprintf(directory, sizeof(directory), "%s/loop%u", play.shots, loop);
-		}
-		else
-		{
-			snprintf(directory, sizeof(directory), "%s", play.shots);
-		}
-		host_render_record_shots(directory, play.shot_frames);
-	}
-	play.last_end = seconds_now();
+	xgpu_astc_statistics(&astc);
+	printf("  textures: at the most %.1f MB (DXT as ASTC %.1f MB, DXT decoded %.1f MB), at the end %.1f MB "
+		"(%.1f, %.1f); DXT textures transcoded to ASTC %u, encoded blocks applied %u, left decoded %u, waiting %u; "
+		"the encoder: %u jobs, %u from the disk cache, %llu blocks in %.2f s\n",
+		textures_most.resident / 1048576.0, textures_most.resident_astc / 1048576.0,
+		textures_most.resident_decoded / 1048576.0, textures.resident / 1048576.0,
+		textures.resident_astc / 1048576.0, textures.resident_decoded / 1048576.0,
+		textures.astc_transcoded, textures.astc_encoded, textures.astc_left_decoded,
+		textures.astc_waiting, astc.jobs, astc.cache_hits, (unsigned long long)astc.blocks_encoded,
+		astc.encode_seconds);
 }
 
-static void restore(uint32_t position, uint32_t type, const unsigned char *bytes)
+static int metal_initialize(int windowed, int width, int height)
 {
-	const struct record *record;
-	uint32_t index;
-
-	(void)bytes;
-	if (play.frame_closing)
+	if (!windowed)
+		return host_metal_initialize();
+	if (!SDL_Init(SDL_INIT_VIDEO) ||
+		!(window = SDL_CreateWindow("halo_replay", width / 2 > 640 ? width / 2 : width,
+			width / 2 > 640 ? height / 2 : height, SDL_WINDOW_METAL | SDL_WINDOW_HIGH_PIXEL_DENSITY)) ||
+		!host_metal_window_open(1))
 	{
-		play.frame_closing = 0;
-		frame_closed();
+		fprintf(stderr, "halo_replay: no window (%s)\n", SDL_GetError());
+		return 0;
 	}
-	index = (uint32_t)(play.played % play.play_count);
-	record = &recording.records[index];
-	if ((uint32_t)(record->position + play.shift * (play.played / play.play_count)) != position)
+	return 1;
+}
+
+static void metal_pump(void)
+{
+	SDL_Event event;
+
+	@autoreleasepool
 	{
-		/* (the tool's own skips between loops) */
-		if (type != XGPU_STREAM_SKIP && play.mismatches++ < 8)
-			fprintf(stderr, "halo_replay: record %u played at %u, recorded at %u\n", index, position, record->position);
+		while (SDL_PollEvent(&event))
+			;
+	}
+}
+
+static unsigned char *metal_read_target(uint32_t target, uint32_t *width, uint32_t *height)
+{
+	@autoreleasepool
+	{
+		return xgpu_metal_stream_read(target, width, height);
+	}
+}
+
+/* ---------- the ID buffer (host_render_replay.h's ids_*)
+
+Each draw into the target the frame presents is bracketed by the backend
+(xgpu_metal_set_draw_inspector: the draw's pass ended before it and after
+it): before, the target is copied; after, a compute pass compares it with
+the copy, texel by texel, by their bits, and where they differ the draw's
+number goes on top of the pixel's stack (depth numbers a pixel, in a
+buffer the CPU reads at the present), the others down one, the last let
+go; a draw drawn in several parts keeps one place. A multisampled target's
+pass ends resolved (its samples stored too), so the resolved texture is
+compared. As the Vulkan backend's (xgpu_vulkan.c's xgpu_vulkan_inspect_*). */
+
+static const char inspect_source[] =
+	"#include <metal_stdlib>\n"
+	"using namespace metal;\n"
+	"struct inspect_draw { uint width, height, number, depth; };\n"
+	"kernel void inspect_compare(texture2d<float, access::read> before [[texture(0)]],\n"
+	"\ttexture2d<float, access::read> after [[texture(1)]], device uint *ids [[buffer(0)]],\n"
+	"\tconstant inspect_draw &draw [[buffer(1)]], uint2 at [[thread_position_in_grid]])\n"
+	"{\n"
+	"\tif (at.x >= draw.width || at.y >= draw.height)\n"
+	"\t\treturn;\n"
+	"\tif (all(as_type<uint4>(before.read(at)) == as_type<uint4>(after.read(at))))\n"
+	"\t\treturn;\n"
+	"\tdevice uint *stack = ids + ((ulong)at.y * draw.width + at.x) * draw.depth;\n"
+	"\tif (stack[0] == draw.number)\n"
+	"\t\treturn;\n"
+	"\tfor (uint layer = draw.depth - 1; layer > 0; layer--)\n"
+	"\t\tstack[layer] = stack[layer - 1];\n"
+	"\tstack[0] = draw.number;\n"
+	"}\n";
+
+static struct
+{
+	/* the target presented (the stream's number), the numbers a pixel, the
+	draw handed on (its number plus one; 0 none) */
+	uint32_t target, depth, number;
+	uint32_t width, height;
+	id<MTLComputePipelineState> compare;
+	id<MTLBuffer> ids;
+	id<MTLTexture> before;
+	/* draws compared, and their time (the ID frame's cost) */
+	uint32_t draws;
+	double started;
+} ids;
+
+/* the target's texture now (its handle in *handle; nil if it has none) */
+static id<MTLTexture> ids_texture(uint32_t *handle)
+{
+	*handle = xgpu_metal_stream_target_texture(ids.target);
+	return *handle ? xgpu_metal_texture(*handle) : nil;
+}
+
+static int ids_size(id<MTLTexture> texture);
+
+static void metal_ids_inspect(int after, uint32_t color, uint32_t level)
+{
+	uint32_t handle;
+	id<MTLTexture> texture;
+	id<MTLCommandBuffer> buffer;
+
+	if (!ids.number || level)
 		return;
-	}
-	if (index == 0)
-		loop_begin((uint32_t)(play.played / play.play_count));
-	play.played++;
-	for (uint32_t c = 0; c < record->chunk_count; c++)
+	texture = ids_texture(&handle);
+	if (!texture || color != handle)
+		return;
+	if (!ids.width && !ids_size(texture))
+		return;
+	if (texture.width != ids.width || texture.height != ids.height)
+		return;
+	buffer = xgpu_metal_command_buffer();
+	if (!after)
 	{
-		const struct chunk *chunk = &recording.chunks[record->chunk_first + c];
-		void *to = host_pointer(chunk->address);
+		id<MTLBlitCommandEncoder> blit;
 
-		if (memcmp(to, chunk->data, chunk->size))
+		if (!ids.before || ids.before.pixelFormat != texture.pixelFormat)
 		{
-			memcpy(to, chunk->data, chunk->size);
-			pages_mark(chunk->address, chunk->size, 1);
-			play.restored_bytes += chunk->size;
+			MTLTextureDescriptor *descriptor = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:texture.pixelFormat
+				width:ids.width height:ids.height mipmapped:NO];
+
+			descriptor.usage = MTLTextureUsageShaderRead;
+			descriptor.storageMode = MTLStorageModePrivate;
+			ids.before = [xgpu_metal_device() newTextureWithDescriptor:descriptor];
+			if (!ids.before)
+				return;
 		}
-		else
-		{
-			pages_mark(chunk->address, chunk->size, 0);
-		}
+		blit = [buffer blitCommandEncoder];
+		[blit copyFromTexture:texture sourceSlice:0 sourceLevel:0 toTexture:ids.before destinationSlice:0
+			destinationLevel:0 sliceCount:1 levelCount:1];
+		[blit endEncoding];
 	}
-	if (type == XGPU_STREAM_FRAME_END)
-		play.frame_closing = 1;
-}
-
-/* ---------- playing: the guest's side */
-
-static struct xgpu_stream_ring *ring;
-/* the end of the records written so far (all of them may be played) */
-static uint32_t written;
-
-static void submit(uint32_t position, uint32_t flags)
-{
-	__atomic_store_n(&ring->committed, position, __ATOMIC_RELEASE);
-	host_render_stream_submit(flags);
-}
-
-/* waits until the ring's bytes [position, position + size) are free (what
-is written so far submitted: a wait for room that only records written and
-not yet submitted would free never ends) */
-static void room(uint32_t position, uint32_t size)
-{
-	while (position + size - __atomic_load_n(&ring->released, __ATOMIC_ACQUIRE) > ring->size)
+	else if (ids.before && ids.before.pixelFormat == texture.pixelFormat)
 	{
-		submit(written, 0);
-		host_render_stream_wait(position + size - ring->size);
+		id<MTLComputeCommandEncoder> compute = [buffer computeCommandEncoder];
+		uint32_t draw[4] = { ids.width, ids.height, ids.number, ids.depth };
+
+		[compute setComputePipelineState:ids.compare];
+		[compute setTexture:ids.before atIndex:0];
+		[compute setTexture:texture atIndex:1];
+		[compute setBuffer:ids.ids offset:0 atIndex:0];
+		[compute setBytes:draw length:sizeof(draw) atIndex:1];
+		[compute dispatchThreads:MTLSizeMake(ids.width, ids.height, 1) threadsPerThreadgroup:MTLSizeMake(8, 8, 1)];
+		[compute endEncoding];
+		ids.draws++;
 	}
 }
 
-static void skip_write(uint32_t position, uint32_t size)
+static int metal_ids_begin(uint32_t target, uint32_t depth)
 {
-	uint32_t header = XGPU_STREAM_HEADER(XGPU_STREAM_SKIP, size);
+	uint32_t handle;
+	id<MTLTexture> texture;
 
-	room(position, size ? size : ring->size - (position & (ring->size - 1)));
-	memcpy((unsigned char *)host_pointer(ring->buffer) + (position & (ring->size - 1)), &header, 4);
-	written = position + (size ? size : ring->size - (position & (ring->size - 1)));
-}
-
-static int synchronous(uint32_t type)
-{
-	return type == XGPU_STREAM_INITIALIZE || type == XGPU_STREAM_READ_TARGET || type == XGPU_STREAM_VR_SUPPORTED ||
-		type == XGPU_STREAM_VR_INITIALIZE;
-}
-
-static void play_all(void)
-{
-	uint32_t mask = ring->size - 1, loop, index;
-	uint32_t position = recording.records[0].position;
-
-	for (loop = 0; loop < play.loops; loop++)
+	@autoreleasepool
 	{
-		uint32_t start = (uint32_t)(recording.records[0].position + play.shift * loop);
-
-		/* (to the next loop's first position: skips over the gap) */
-		while (position != start)
+		if (!ids.compare)
 		{
-			uint32_t offset = position & mask, gap = start - position;
+			NSError *error = nil;
+			id<MTLLibrary> library = [xgpu_metal_device() newLibraryWithSource:@(inspect_source) options:nil error:&error];
+			id<MTLFunction> function = [library newFunctionWithName:@"inspect_compare"];
 
-			if (offset + gap > ring->size || gap > XGPU_STREAM_RECORD_MAXIMUM)
+			ids.compare = function ? [xgpu_metal_device() newComputePipelineStateWithFunction:function error:&error] : nil;
+			if (!ids.compare)
 			{
-				skip_write(position, 0);
-				position += ring->size - offset;
-			}
-			else
-			{
-				skip_write(position, gap);
-				position += gap;
+				fprintf(stderr, "halo_replay: the ID buffer's pass is not made (%s)\n",
+					error.localizedDescription.UTF8String);
+				return 0;
 			}
 		}
-		for (index = 0; index < play.play_count; index++)
-		{
-			const struct record *record = &recording.records[index];
-			uint32_t at = (uint32_t)(record->position + play.shift * loop);
-
-			room(at, record->size);
-			memcpy((unsigned char *)host_pointer(ring->buffer) + (at & mask), record->data, record->bytes);
-			position = written = at + record->size;
-			if (record->type == XGPU_STREAM_FRAME_END)
-			{
-				ring->frames_submitted++;
-				submit(position, XGPU_STREAM_SUBMIT_FRAME);
-			}
-			else if (synchronous(record->type))
-			{
-				submit(position, XGPU_STREAM_SUBMIT_SYNC);
-			}
-		}
-		submit(position, XGPU_STREAM_SUBMIT_SYNC);
+		ids.target = target;
+		ids.depth = depth;
+		ids.number = 0;
+		ids.draws = 0;
+		ids.started = CACurrentMediaTime();
+		ids.width = ids.height = 0;
+		if (!depth)
+			return 0;
+		xgpu_metal_set_draw_inspector(metal_ids_inspect);
+		/* (a target the frame makes, its first: its buffer made at its
+		first draw) */
+		texture = ids_texture(&handle);
+		return !texture || ids_size(texture);
 	}
 }
 
-/* ---------- the report */
-
-static int double_compare(const void *a, const void *b)
+/* the buffer for the target's size, zeroed (no GPU work reads it now: the
+last frame's was waited for, and this frame's draws come after) */
+static int ids_size(id<MTLTexture> texture)
 {
-	double x = *(const double *)a, y = *(const double *)b;
+	size_t bytes;
 
-	return x < y ? -1 : x > y;
-}
-
-static void report(uint32_t loop, double seconds)
-{
-	uint32_t count = play.last_frame - play.first_frame + 1, index, hitches = 0, compiles = 0, shaders = 0;
-	double shader_ms = 0;
-	struct frame_measure *frames = &play.frames[(size_t)loop * count];
-	double *sorted = malloc(sizeof(double) * count), median, threshold, cpu = 0, gpu = 0, compile_ms = 0, sum = 0;
-	char hitch_list[512] = "";
-	size_t used = 0;
-
-	for (index = 0; index < count; index++)
-		sorted[index] = frames[index].interval_ms;
-	qsort(sorted, count, sizeof(double), double_compare);
-	median = sorted[count / 2];
-	threshold = median * 2.0 > play.hitch_ms ? median * 2.0 : play.hitch_ms;
-	for (index = 0; index < count; index++)
+	@autoreleasepool
 	{
-		const struct frame_measure *frame = &frames[index];
-		/* (a shot's frame waits for its picture's PNG: not counted) */
-		int shot = play.shots && host_render_record_shot_wanted(play.first_frame + index);
-		int hitch = !shot && frame->interval_ms > threshold;
-
-		if (!play.quiet)
-			printf("frame %6u  %7.2f ms  cpu %6.2f  gpu %6.2f  draws %5u  pipelines %3u (%6.1f ms)  shaders %3u (%6.1f ms)%s\n",
-				play.first_frame + index, frame->interval_ms, frame->cpu_ms, frame->gpu_ms, frame->draws, frame->compiles,
-				frame->compile_ms, frame->shaders, frame->shader_ms, hitch ? "  HITCH" : shot ? "  (shot)" : "");
-		if (hitch)
+		bytes = (size_t)texture.width * texture.height * ids.depth * 4;
+		if (!ids.ids || ids.ids.length != bytes)
 		{
-			hitches++;
-			if (used < sizeof(hitch_list) - 48)
-				used += (size_t)snprintf(hitch_list + used, sizeof(hitch_list) - used, frame->shaders || frame->compiles ?
-					" %u (%.1f ms; compiling %.1f)" : " %u (%.1f ms)", play.first_frame + index, frame->interval_ms,
-					frame->shader_ms + frame->compile_ms);
+			ids.ids = [xgpu_metal_device() newBufferWithLength:bytes options:MTLResourceStorageModeShared];
+			if (!ids.ids)
+				return 0;
 		}
-		cpu += frame->cpu_ms;
-		gpu += frame->gpu_ms;
-		compiles += frame->compiles;
-		compile_ms += frame->compile_ms;
-		shaders += frame->shaders;
-		shader_ms += frame->shader_ms;
-		sum += frame->interval_ms;
+		memset(ids.ids.contents, 0, bytes);
+		ids.width = (uint32_t)texture.width;
+		ids.height = (uint32_t)texture.height;
+		return 1;
 	}
-	printf("loop %u: frames %u-%u (%u) in %.2f s (%.1f fps; the whole replay %.2f s): interval mean %.2f ms, median %.2f, "
-		"p95 %.2f, p99 %.2f, max %.2f; render CPU %.2f ms a frame, GPU %.2f; pipelines made %u (%.1f ms), shaders "
-		"compiled %u (%.1f ms); hitches %u (over %.2f ms)%s\n",
-		loop, play.first_frame, play.last_frame, count, sum / 1000.0, count * 1000.0 / sum, seconds, sum / count, median,
-		sorted[(size_t)(count * 0.95)], sorted[(size_t)(count * 0.99)], sorted[count - 1], cpu / count, gpu / count,
-		compiles, compile_ms, shaders, shader_ms, hitches, threshold, hitches ? ":" : "");
-	if (hitches)
-		printf("  hitches:%s%s\n", hitch_list, used >= sizeof(hitch_list) - 48 ? " ..." : "");
-	{
-		struct xgpu_astc_statistics astc;
-
-		xgpu_astc_statistics(&astc);
-		printf("  textures: at the most %.1f MB (DXT as ASTC %.1f MB, DXT decoded %.1f MB), at the end %.1f MB "
-			"(%.1f, %.1f); DXT textures transcoded to ASTC %u, encoded blocks applied %u, left decoded %u, waiting %u; "
-			"the encoder: %u jobs, %u from the disk cache, %llu blocks in %.2f s\n",
-			play.textures_most.resident / 1048576.0, play.textures_most.resident_astc / 1048576.0,
-			play.textures_most.resident_decoded / 1048576.0, play.textures.resident / 1048576.0,
-			play.textures.resident_astc / 1048576.0, play.textures.resident_decoded / 1048576.0,
-			play.textures.astc_transcoded, play.textures.astc_encoded, play.textures.astc_left_decoded,
-			play.textures.astc_waiting, astc.jobs, astc.cache_hits, (unsigned long long)astc.blocks_encoded,
-			astc.encode_seconds);
-	}
-	free(sorted);
 }
 
-/* ---------- shots compared */
-
-static unsigned char *png_read(const char *path, size_t *width, size_t *height)
+static void metal_ids_draw(uint32_t index)
 {
-	NSURL *url = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
-	CGImageSourceRef source = CGImageSourceCreateWithURL((__bridge CFURLRef)url, NULL);
-	CGImageRef image = source ? CGImageSourceCreateImageAtIndex(source, 0, NULL) : NULL;
-	unsigned char *pixels = NULL;
-
-	if (image)
-	{
-		CGColorSpaceRef space = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-		CGContextRef context;
-
-		*width = CGImageGetWidth(image);
-		*height = CGImageGetHeight(image);
-		pixels = calloc(*width * *height, 4);
-		context = CGBitmapContextCreate(pixels, *width, *height, 8, *width * 4, space,
-			kCGBitmapByteOrder32Little | (CGBitmapInfo)kCGImageAlphaNoneSkipFirst);
-		CGContextDrawImage(context, CGRectMake(0, 0, *width, *height), image);
-		CGContextRelease(context);
-		CGColorSpaceRelease(space);
-		CGImageRelease(image);
-	}
-	if (source)
-		CFRelease(source);
-	return pixels;
+	ids.number = index == UINT32_MAX ? 0 : index + 1;
 }
 
-static int compare(const char *first, const char *second)
+static uint32_t *metal_ids_read(uint32_t target, uint32_t *width, uint32_t *height)
 {
-	NSArray<NSString *> *names = [[[NSFileManager defaultManager] contentsOfDirectoryAtPath:@(first) error:nil]
-		sortedArrayUsingSelector:@selector(compare:)];
-	int compared = 0, differ = 0;
+	uint32_t *copy;
+	size_t bytes;
 
-	for (NSString *name in names)
+	(void)target;
+	@autoreleasepool
 	{
-		size_t width_a = 0, height_a = 0, width_b = 0, height_b = 0, index, different = 0;
-		unsigned char *a, *b;
-		int most = 0;
-
-		if (![name hasSuffix:@".png"])
-			continue;
-		a = png_read([@(first) stringByAppendingPathComponent:name].UTF8String, &width_a, &height_a);
-		b = png_read([@(second) stringByAppendingPathComponent:name].UTF8String, &width_b, &height_b);
-		compared++;
-		if (!a || !b || width_a != width_b || height_a != height_b)
+		/* (a frame that drew nothing into its target: none of its pixels
+drawn) */
+		if (!ids.width)
 		{
-			printf("%s: %s\n", name.UTF8String, !b ? "missing in the second" : "of another size");
-			differ++;
-		}
-		else
-		{
-			for (index = 0; index < width_a * height_a; index++)
-			{
-				int channel, pixel_differs = 0;
+			uint32_t handle;
+			id<MTLTexture> texture = ids_texture(&handle);
 
-				for (channel = 0; channel < 3; channel++)
-				{
-					int delta = abs((int)a[index * 4 + channel] - (int)b[index * 4 + channel]);
-
-					if (delta)
-						pixel_differs = 1;
-					if (delta > most)
-						most = delta;
-				}
-				different += pixel_differs;
-			}
-			printf("%s: %s (%zu of %zu pixels differ, by at most %d)\n", name.UTF8String,
-				different ? "DIFFERENT" : "identical", different, width_a * height_a, most);
-			differ += different != 0;
+			if (!texture || !ids_size(texture))
+				return NULL;
 		}
-		free(a);
-		free(b);
+		xgpu_metal_command_buffer_finish();
+		bytes = (size_t)ids.width * ids.height * ids.depth * 4;
+		copy = malloc(bytes);
+		if (!copy)
+			return NULL;
+		memcpy(copy, ids.ids.contents, bytes);
+		*width = ids.width;
+		*height = ids.height;
+		if (host_render_replay_verbose)
+			fprintf(stderr, "halo_replay: the ID buffer of %u draws compared in %.1f ms\n", ids.draws,
+				(CACurrentMediaTime() - ids.started) * 1000.0);
+		return copy;
 	}
-	printf("%d compared, %d differ\n", compared, differ);
-	return compared && !differ ? 0 : 1;
 }
+
+static void metal_ids_end(void)
+{
+	xgpu_metal_set_draw_inspector(NULL);
+	ids.number = 0;
+}
+
+/* ---------- the cost: the frame's passes timed (xgpu_metal_timing_*), at
+the stages' boundaries, the only places Apple's GPUs sample their
+timestamps: a draw's own time is the service's subtraction */
+
+static struct host_render_replay_pass_time cost_passes[1024];
+
+static int metal_cost_begin(void)
+{
+	xgpu_metal_timing_request();
+	return 1;
+}
+
+static int metal_cost_end(struct host_render_replay_cost *cost)
+{
+	const struct xgpu_metal_pass_time *passes;
+	const uint32_t *draw_pass;
+	uint32_t pass_count, draws, index;
+	double busy;
+
+	if (!xgpu_metal_timing_wait(10.0, &busy, &passes, &pass_count, &draw_pass, &draws))
+		return 0;
+	if (pass_count > sizeof(cost_passes) / sizeof(cost_passes[0]))
+		pass_count = sizeof(cost_passes) / sizeof(cost_passes[0]);
+	for (index = 0; index < pass_count; index++)
+	{
+		cost_passes[index].kind = passes[index].kind;
+		cost_passes[index].width = passes[index].width;
+		cost_passes[index].height = passes[index].height;
+		cost_passes[index].draws = passes[index].draws;
+		cost_passes[index].ms = passes[index].ms;
+		cost_passes[index].start_ms = passes[index].start_ms;
+		cost_passes[index].vertex_ms = passes[index].vertex_ms;
+		cost_passes[index].fragment_ms = passes[index].fragment_ms;
+	}
+	cost->frame_ms = busy;
+	cost->passes = cost_passes;
+	cost->pass_count = pass_count;
+	cost->draw_pass = draw_pass;
+	cost->draw_count = draws;
+	cost->note = "Apple's GPUs time passes, not draws: a draw's ms is the frame's time without it subtracted "
+		"from its time whole";
+	return 1;
+}
+
+static const struct host_render_replay_platform metal_platform =
+{
+	.backend = "metal",
+	.window_supported = 1,
+	.initialize = metal_initialize,
+	.set_unpaced = host_metal_set_unpaced,
+	.pump = metal_pump,
+	.shutdown = xgpu_metal_shutdown,
+	.frame_statistics = metal_frame_statistics,
+	.report = metal_report,
+	.read_target = metal_read_target,
+	.ids_begin = metal_ids_begin,
+	.ids_draw = metal_ids_draw,
+	.ids_read = metal_ids_read,
+	.ids_end = metal_ids_end,
+	.cost_begin = metal_cost_begin,
+	.cost_draw = xgpu_metal_timing_draw,
+	.cost_end = metal_cost_end,
+};
 
 /* ---------- --cold: this program again, in an app of a new bundle id
 
@@ -915,68 +508,39 @@ static int cold_run(int argc, char *argv[])
 
 /* ---------- main */
 
-static void usage(void)
+/* the shared replay's options that take a value */
+static int takes_value(const char *option)
 {
-	fprintf(stderr, "usage: halo_replay <file> [--frames a-b] [--window] [--unpaced] [--shots dir] [--shot-frames list]\n"
-		"\t[--loop N] [--cold] [--archive path] [--hitch ms] [--quiet] [--verbose]\n"
-		"       halo_replay --compare <shots> <shots>\n");
+	return !strcmp(option, "--frames") || !strcmp(option, "--shots") || !strcmp(option, "--shot-frames") ||
+		!strcmp(option, "--loop") || !strcmp(option, "--hitch");
 }
 
 int main(int argc, char *argv[])
 {
-	const char *path = NULL, *archive = NULL, *frames = NULL;
-	char archive_default[4200], shot_default[64];
-	int index, cold = 0;
-	double started;
+	const char *archive = NULL, *path = NULL;
+	char archive_default[4200];
+	char **arguments = calloc((size_t)argc + 1, sizeof(char *));
+	int index, count = 0, cold = 0;
 
 	if (getenv("HALO_ASTC_TEXTURES") && *getenv("HALO_ASTC_TEXTURES"))
 		snprintf(host_astc_textures, sizeof(host_astc_textures), "%s", getenv("HALO_ASTC_TEXTURES"));
-	if (argc == 4 && !strcmp(argv[1], "--compare"))
+	if (!arguments)
+		return 2;
+	/* (Metal's own options taken out; the others are the shared replay's) */
+	for (index = 0; index < argc; index++)
 	{
-		@autoreleasepool
-		{
-			return compare(argv[2], argv[3]);
-		}
-	}
-	play.loops = 1;
-	/* (1.5 refreshes at 120 Hz: a frame that misses one) */
-	play.hitch_ms = 12.5;
-	for (index = 1; index < argc; index++)
-	{
-		if (!strcmp(argv[index], "--frames") && index + 1 < argc)
-			frames = argv[++index];
-		else if (!strcmp(argv[index], "--window"))
-			play.window = 1;
-		else if (!strcmp(argv[index], "--unpaced"))
-			play.unpaced = 1;
-		else if (!strcmp(argv[index], "--shots") && index + 1 < argc)
-			play.shots = argv[++index];
-		else if (!strcmp(argv[index], "--shot-frames") && index + 1 < argc)
-			play.shot_frames = argv[++index];
-		else if (!strcmp(argv[index], "--loop") && index + 1 < argc)
-			play.loops = (uint32_t)atoi(argv[++index]);
-		else if (!strcmp(argv[index], "--cold"))
+		if (index && !strcmp(argv[index], "--cold"))
 			cold = 1;
-		else if (!strcmp(argv[index], "--archive") && index + 1 < argc)
+		else if (index && !strcmp(argv[index], "--archive") && index + 1 < argc)
 			archive = argv[++index];
-		else if (!strcmp(argv[index], "--hitch") && index + 1 < argc)
-			play.hitch_ms = atof(argv[++index]);
-		else if (!strcmp(argv[index], "--quiet"))
-			play.quiet = 1;
-		else if (!strcmp(argv[index], "--verbose"))
-			verbose = 1;
-		else if (argv[index][0] != '-' && !path)
-			path = argv[index];
 		else
 		{
-			usage();
-			return 2;
+			arguments[count++] = argv[index];
+			if (index && takes_value(argv[index]) && index + 1 < argc)
+				arguments[count++] = argv[++index];
+			else if (index && argv[index][0] != '-' && !path)
+				path = argv[index];
 		}
-	}
-	if (!path || play.loops < 1)
-	{
-		usage();
-		return 2;
 	}
 	if (cold)
 	{
@@ -985,153 +549,17 @@ int main(int argc, char *argv[])
 			return cold_run(argc, argv);
 		}
 	}
-	@autoreleasepool
+	if (path && !(argc > 1 && !strcmp(argv[1], "--compare")))
 	{
-		started = seconds_now();
-		if (!recording_load(path) || !recording.frames)
-		{
-			fprintf(stderr, "halo_replay: no frames in %s\n", path);
-			return 2;
-		}
-		printf("%s: %u records, %u frames, %u chunks, %.1f MB of contents (read in %.2f s)\n", path,
-			recording.record_count, recording.frames, recording.chunk_count, recording.content_bytes / 1048576.0,
-			seconds_now() - started);
-		play.first_frame = 0;
-		play.last_frame = recording.frames - 1;
-		if (frames)
-		{
-			char *end;
-
-			play.first_frame = (uint32_t)strtoul(frames, &end, 10);
-			play.last_frame = *end == '-' ? (uint32_t)strtoul(end + 1, NULL, 10) : play.first_frame;
-		}
-		if (play.last_frame >= recording.frames)
-			play.last_frame = recording.frames - 1;
-		if (play.first_frame > play.last_frame)
-		{
-			fprintf(stderr, "halo_replay: no frames %s (the recording has %u)\n", frames, recording.frames);
-			return 2;
-		}
-		/* (the records to the last frame's end) */
-		{
-			uint32_t ended = 0;
-
-			for (play.play_count = 0; play.play_count < recording.record_count && ended <= play.last_frame;
-				play.play_count++)
-				ended += recording.records[play.play_count].type == XGPU_STREAM_FRAME_END;
-		}
-		if (play.shots && !play.shot_frames)
-		{
-			snprintf(shot_default, sizeof(shot_default), "%u-%u", play.first_frame, play.last_frame);
-			play.shot_frames = shot_default;
-		}
-		play.frames = calloc((size_t)play.loops * (play.last_frame - play.first_frame + 1), sizeof(*play.frames));
-		{
-			const struct record *last = &recording.records[play.play_count - 1];
-			uint64_t span = (uint32_t)(last->position + last->size - recording.records[0].position);
-			uint64_t ring_size = recording.header.ring.size;
-
-			play.shift = (span + ring_size - 1) / ring_size * ring_size;
-		}
-
-		if (!memory_make())
-		{
-			fprintf(stderr, "halo_replay: cannot reserve the guest's memory\n");
-			return 2;
-		}
 		if (!archive)
 		{
 			snprintf(archive_default, sizeof(archive_default), "%s.pipelines", path);
 			archive = archive_default;
 		}
 		setenv("HALO_METAL_ARCHIVE", archive, 1);
-		if (play.window)
-		{
-			int width = 1280, height = 720;
-
-			for (index = 0; index < (int)play.play_count; index++)
-			{
-				/* (the size of the first target presented: the back buffer's) */
-				if (recording.records[index].type == XGPU_STREAM_TARGET_CREATE)
-				{
-					const struct xgpu_stream_target_create *create = (const void *)recording.records[index].data;
-
-					if (!create->depth && create->width >= 320)
-					{
-						width = (int)create->width;
-						height = (int)create->height;
-						break;
-					}
-				}
-			}
-			if (!SDL_Init(SDL_INIT_VIDEO) ||
-				!(window = SDL_CreateWindow("halo_replay", width / 2 > 640 ? width / 2 : width,
-					width / 2 > 640 ? height / 2 : height, SDL_WINDOW_METAL | SDL_WINDOW_HIGH_PIXEL_DENSITY)) ||
-				!host_metal_window_open(1))
-			{
-				fprintf(stderr, "halo_replay: no window (%s)\n", SDL_GetError());
-				return 2;
-			}
-		}
-		else if (!host_metal_initialize())
-		{
-			fprintf(stderr, "halo_replay: no Metal device\n");
-			return 2;
-		}
-		host_render_record_set_restorer(restore);
-		/* (the Screenshot key's pictures are the game's, not the replay's) */
-		host_render_stream_set_screenshot_writer(NULL);
-
-		/* the ring's header, as it was when the recording began */
-		ring = host_pointer(ring_address());
-		pages_mark(ring_address(), sizeof(*ring), 0);
-		*ring = recording.header.ring;
-		ring->committed = ring->released = written = recording.records[0].position;
-		ring->error = 0;
-		if (host_render_stream_open(ring_address()))
-		{
-			fprintf(stderr, "halo_replay: the stream did not open\n");
-			return 2;
-		}
-		started = seconds_now();
-		{
-			/* (the guest's side on a thread of its own: the main thread
-			keeps SDL's events going for the window) */
-			__block _Atomic int done = 0;
-			NSThread *thread = [[NSThread alloc] initWithBlock:^{
-				play_all();
-				atomic_store(&done, 1);
-			}];
-
-			[thread start];
-			while (!atomic_load(&done))
-			{
-				if (play.window)
-				{
-					SDL_Event event;
-
-					while (SDL_PollEvent(&event))
-						;
-				}
-				usleep(2000);
-			}
-		}
-		host_render_stream_close();
-		if (play.frame_closing)
-		{
-			play.frame_closing = 0;
-			frame_closed();
-		}
-		{
-			double seconds = seconds_now() - started;
-			uint32_t loop;
-
-			for (loop = 0; loop < play.loops; loop++)
-				report(loop, seconds);
-			printf("replayed %u records x %u in %.2f s; %.1f MB of memory put back; %u records out of place\n",
-				play.play_count, play.loops, seconds, play.restored_bytes / 1048576.0, play.mismatches);
-		}
-		xgpu_metal_shutdown();
 	}
-	return 0;
+	@autoreleasepool
+	{
+		return host_render_replay_main(count, arguments, &metal_platform);
+	}
 }

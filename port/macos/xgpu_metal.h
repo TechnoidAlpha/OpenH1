@@ -132,6 +132,19 @@ enum
 	/* ASTC 4x4 (LDR): DXT textures transcoded on a GPU without BC
 	(port/linux/astc/xgpu_astc.h) */
 	XGPU_METAL_FORMAT_ASTC,
+	/* a signed byte (display.ambient_occlusion "world"'s distance field) */
+	XGPU_METAL_FORMAT_R8_SNORM,
+	/* the backend's own targets: a byte (red), two (red, green) */
+	XGPU_METAL_FORMAT_R8,
+	XGPU_METAL_FORMAT_RG8,
+	/* (display.ambient_occlusion "world" found once a pixel: the pre-pass's
+	inputs, four 32-bit unsigned integers; the occlusion and what the
+	surfaces upsample it by, four floats) */
+	XGPU_METAL_FORMAT_RGBA32UI,
+	XGPU_METAL_FORMAT_RGBA32F,
+	/* two signed bytes (display.ambient_occlusion "world"'s distance-field
+	scene's cascades) */
+	XGPU_METAL_FORMAT_RG8_SNORM,
 	XGPU_METAL_FORMAT_COUNT
 };
 
@@ -183,7 +196,20 @@ enum
 {
 	XGPU_METAL_ADDRESS_WRAP, XGPU_METAL_ADDRESS_MIRROR, XGPU_METAL_ADDRESS_CLAMP, XGPU_METAL_ADDRESS_BORDER,
 	XGPU_METAL_ADDRESS_MIRROR_ONCE,
+	/* XGPU_ADDRESS_REGION: the shader's (xgpu_metal_border_axes), clamped
+	to the edge here */
+	XGPU_METAL_ADDRESS_REGION,
+	/* XGPU_ADDRESS_MSDF (on w): the shader's (xgpu_metal_border_axes),
+	repeated here */
+	XGPU_METAL_ADDRESS_MSDF = 6,
 };
+
+/* the bit of a stage's border axes for a region (xgpu_shader.h's
+XGPU_BORDER_REGION) */
+#define XGPU_METAL_BORDER_REGION 8
+/* the bit of a stage's border axes for the high-res text's distance fields
+(xgpu_shader.h's XGPU_BORDER_MSDF) */
+#define XGPU_METAL_BORDER_MSDF 16
 
 /* the border colours Metal has; another is the emitter's to blend in (the
 design notes, 7) */
@@ -370,6 +396,9 @@ struct xgpu_metal_capabilities
 	uint8_t base_vertex;
 	uint8_t fans, line_loops;
 	uint8_t fill_modes;
+	/* the GPU and the system, in a few words (a report's:
+	port/linux/src/report.c) */
+	char device[96];
 };
 
 /* 1 on success (a Metal device); host_metal.m calls it */
@@ -400,6 +429,11 @@ void xgpu_metal_prepare(const struct xgpu_metal_pipeline *pipeline);
 (not drawn: a map's first frame's, unseen) */
 void xgpu_metal_prepare_begin(void);
 double xgpu_metal_prepared(void);
+/* whether a pipeline is made or being made (a draw's: as the map's
+preparation made it, or an earlier draw asked for it) */
+int xgpu_metal_pipeline_known(const struct xgpu_metal_pipeline *pipeline);
+/* whether a pipeline is made (a draw of it is drawn, not skipped) */
+int xgpu_metal_pipeline_made(const struct xgpu_metal_pipeline *pipeline);
 
 /* textures: a handle, or 0 (logged) */
 uint32_t xgpu_metal_texture_create(const struct xgpu_metal_texture_description *description);
@@ -412,6 +446,10 @@ int xgpu_metal_block_compression(void);
 family and later: every iPhone the app runs on, Apple silicon Macs), not an
 Intel Mac's */
 int xgpu_metal_astc(void);
+/* whether the GPU has the SIMD-groups' reductions in fragment functions
+(simd_or): the Apple7 family (A14, M1) and later and Apple silicon Macs; not
+the A12 or A13 an iPhone of the oldest the app runs on may have */
+int xgpu_metal_simd_reductions(void);
 /* (after the frames in flight that use it) */
 void xgpu_metal_texture_destroy(uint32_t texture);
 /* makes its levels past the first from the first, in the frame's order */
@@ -488,6 +526,39 @@ pixel shaders that light with them read (XGPU_METAL_BUFFER_DYNAMIC_LIGHTS,
 _DYNAMIC_LIGHT_CELLS): until set again (XGPU_METAL_SOURCE_NONE: none bound;
 a ring's source is the frame's alone) */
 void xgpu_metal_set_dynamic_lights(struct xgpu_metal_source block, struct xgpu_metal_source cells);
+/* their world (xgpu.h), which the same shaders read
+(XGPU_METAL_BUFFER_DYNAMIC_LIGHT_WORLD): until set again */
+void xgpu_metal_set_dynamic_light_world(struct xgpu_metal_source world);
+/* display.ambient_occlusion "world"'s field, its atlas and its table (3D
+textures: 0 none), the static scenery's pages (a 2D array, at
+XGPU_METAL_TEXTURE_WORLD_AO_SCENERY, the fragments'), the vehicles' occlusion fields' atlas (a 3D texture,
+at XGPU_METAL_TEXTURE_WORLD_AO_OBJECTS, the fragments'), and the window's block (struct xgpu_world_ao_block),
+which the shaders that read them take at XGPU_METAL_TEXTURE_WORLD_SDF (with
+a constexpr sampler of their own), _WORLD_SDF_TABLE and
+XGPU_METAL_BUFFER_WORLD_AO, both stages: until set again (a ring's source
+is the frame's alone) */
+void xgpu_metal_set_world_ao(uint32_t field, uint32_t table, uint32_t scenery, uint32_t objects,
+	struct xgpu_metal_source block);
+/* their resources (xgpu_metal_world_ao.c): slices z_first to z_first +
+z_count - 1 of a width x height x depth part of the field
+(XGPU_STREAM_WORLD_AO_TABLE or _ATLAS), in the frame's order (width 0: both
+let go of; until both have their last slices, 1x1x1 far-outside stand-ins
+are bound), and the window's block from now on (NULL: none, zeros) */
+struct xgpu_world_ao_block;
+void xgpu_metal_world_ao_field(uint32_t part, uint32_t width, uint32_t height, uint32_t depth, uint32_t z_first,
+	uint32_t z_count, const void *data);
+void xgpu_metal_world_ao_window(const struct xgpu_world_ao_block *block);
+/* ... found once a pixel: the texture of it the draws that read it read
+from now on (XGPU_METAL_TEXTURE_WORLD_AO_PIXELS; 0: its stand-in, 1); and
+the backend's, which the fragments read */
+void xgpu_metal_world_ao_set_pixels(uint32_t texture);
+void xgpu_metal_set_world_ao_pixels(uint32_t texture);
+/* a box of the distance-field scene's cascades (xgpu_stream.h's
+WORLD_AO_CASCADES; width 0 released), and their texture (a stand-in of
+nothing where there is none) */
+void xgpu_metal_world_ao_cascades(uint32_t x, uint32_t y, uint32_t z, uint32_t width, uint32_t height, uint32_t depth,
+	const void *data);
+uint32_t xgpu_metal_world_ao_cascades_texture(void);
 /* the values of the 16 inputs no stream feeds */
 void xgpu_metal_set_constant_attributes(const float (*values)[4]);
 /* indices: 16-bit, or XGPU_METAL_SOURCE_NONE */
@@ -524,6 +595,53 @@ floats, as the game has it, not reversed) after the work done so far; waits for 
 tests). Returns 1 on success. */
 int xgpu_metal_read_pixels(uint32_t texture, uint32_t level, uint32_t layer, uint32_t x, uint32_t y,
 	uint32_t width, uint32_t height, void *pixels, uint32_t bytes_per_row);
+
+/* what the passes from now on draw, which HALO_METAL_PASS_TIMES sums the
+GPU's time by (xgpu_metal.m, "the passes' GPU times"): the game's
+renderer's categories (xgpu_metal_stream.m), the backend's own passes */
+enum
+{
+	XGPU_METAL_PASS_OTHER,
+	XGPU_METAL_PASS_SKY,
+	XGPU_METAL_PASS_WORLD,
+	XGPU_METAL_PASS_TRANSPARENTS,
+	XGPU_METAL_PASS_WATER,
+	XGPU_METAL_PASS_EFFECTS,
+	XGPU_METAL_PASS_HUD,
+	XGPU_METAL_PASS_TONE_MAP,
+	XGPU_METAL_PASS_ANTI_ALIASING,
+	XGPU_METAL_PASS_PANINI,
+	/* (display.ambient_occlusion "world" found once a pixel: its pass) */
+	XGPU_METAL_PASS_WORLD_AO,
+	XGPU_METAL_PASS_KINDS
+};
+/* sets what the passes from now on draw; returns what it was */
+uint32_t xgpu_metal_pass_kind(uint32_t kind);
+
+/* A frame's GPU time pass by pass, for a caller (the replay's cost:
+port/tools/replay): the GPU's timestamps at each encoder's stages, as
+HALO_METAL_PASSES's. xgpu_metal_timing_request: the next frame begun is
+timed (0 if the GPU has no timestamps at its stages: nothing is);
+xgpu_metal_timing_draw: (the render thread) the draws handed on from now
+are the frame's index'th (UINT32_MAX: none of the caller's);
+xgpu_metal_timing_wait: waits up to seconds for the timed frame's GPU work
+to be done, then gives the time the GPU was busy with it, its passes (in
+the order they were encoded; each one's time its fragment stage's, or its
+encoder's, from its start or the end of those before it to its end, so
+that they sum to the busy time) and each draw's pass (UINT32_MAX: none),
+until the next request; 0 if it was not timed in that time. */
+struct xgpu_metal_pass_time
+{
+	const char *kind, *what;
+	uint32_t draws, width, height;
+	/* its span, its time (the frame's part), its stages' own times (a
+	blit's its encoder's, as fragment) */
+	double start_ms, end_ms, ms, vertex_ms, fragment_ms;
+};
+void xgpu_metal_timing_request(void);
+void xgpu_metal_timing_draw(uint32_t index);
+int xgpu_metal_timing_wait(double seconds, double *busy_ms, const struct xgpu_metal_pass_time **passes,
+	uint32_t *pass_count, const uint32_t **draw_pass, uint32_t *draws);
 
 /* statistics since the last call */
 struct xgpu_metal_statistics

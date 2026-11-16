@@ -94,6 +94,7 @@ symbols in this file:
 #include "scenario/scenario.h"
 #include "sound/game_sound.h"
 #include "sound/sound_definitions.h"
+#include "sim_rate.h" /* port: port/linux/game/sim_rate.c */
 
 /* ---------- constants */
 
@@ -815,6 +816,7 @@ void particle_new(
 	struct location location;
 	real_point3d position;
 	long particle_index;
+	boolean cosmetic, ticking = FALSE; /* port: (below) */
 
 	match_assert_valid_real_vector3d(
 		"c:\\halo\\SOURCE\\effects\\particles.c",
@@ -870,6 +872,15 @@ void particle_new(
 		return;
 
 	particle = particle_get(particle_index);
+	/* port: at game.sim_rate 60 and 120 the frames' seed in a tick too
+	(random_math_port_begin_cosmetic, as the decals' and the contrails'): a
+	particle is only seen, and whether a tick makes it (seen, room among the
+	particles, held for a later frame: render_interpolation_particle_later)
+	is the frames', so the game's local seed would move with them. At 30 the
+	tick's, as the original's */
+	cosmetic = sim_rate_get() > TICKS_PER_SECOND;
+	if (cosmetic)
+		ticking = random_math_port_begin_cosmetic();
 
 	particle->flags = 0;
 	if (TEST_FLAG(definition->flags, _particle_definition_can_animate_backwards_bit))
@@ -997,12 +1008,22 @@ void particle_new(
 			particle->frame_index = NONE;
 		}
 	}
+	if (cosmetic) /* port: (above) */
+		random_math_port_end_cosmetic(ticking);
 
 	return;
 }
 
+/* port: first_dt, the time of a particle's first update, at least the Xbox's
+frame (game.c). The Xbox drew a frame a tick at most, so a particle came to the
+screen a frame old: one whose sequence runs out within that frame (a single
+sprite at 30 a second: the bolts of lightning of the plasma grenade, the Shade's
+and the needler's impacts) had died by then and was never seen. The frames
+drawn between the ticks are shorter, and without this such a particle was
+drawn for a frame or two of them. */
 void particles_update(
-	real dt)
+	real dt,
+	real first_dt)
 {
 	long particle_index;
 
@@ -1036,6 +1057,8 @@ void particles_update(
 		struct particle_datum *particle = particle_get(particle_index);
 		struct particle_definition *definition = particle_definition_get(particle->definition_index);
 		boolean was_new = (particle->age == 0.0f);
+		/* port: (first_dt, above) */
+		real particle_dt = was_new && dt > 0.f ? MAX(dt, first_dt) : dt;
 
 		if (render.frame_index - particle->last_rendered_frame_index >
 			MAXIMUM_PARTICLE_UNRENDERED_FRAME_COUNT &&
@@ -1046,7 +1069,7 @@ void particles_update(
 		}
 		else
 		{
-			particle->age = dt + particle->age;
+			particle->age = particle_dt + particle->age;
 
 			if (particle->age >= particle->lifespan &&
 				!was_new &&
@@ -1056,8 +1079,8 @@ void particles_update(
 			}
 			else
 			{
-				if (particle_update_frame_time(particle_index, dt))
-					particle_update_physics(particle_index, dt);
+				if (particle_update_frame_time(particle_index, particle_dt))
+					particle_update_physics(particle_index, particle_dt);
 			}
 		}
 	}

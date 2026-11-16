@@ -112,6 +112,7 @@ symbols in this file:
 #include "network_game_manager.h"
 #include "network_game_globals.h"
 #include "network_server_manager_internal.h"
+#include "demo.h" /* port: port/linux/game/demo.c */
 /* port: source/math/random_math.c's, port/linux/src/port_config.c's */
 unsigned long get_number_suitable_for_initializing_random_seed(void);
 long config_integer(const char *name);
@@ -369,6 +370,12 @@ void network_game_set_random_seed(
 struct network_game *network_game_get_game(
 	void)
 {
+	/* port: a demo's playback of a co-op game this machine hosted: the host's
+	game, as its ticks read it (port/linux/game/demo.c) */
+	struct network_game *demo_game = demo_playback_network_game();
+
+	if (demo_game)
+		return demo_game;
 	if (global_network_game_server)
 		return network_game_server_get_game(global_network_game_server);
 

@@ -244,13 +244,25 @@ static int host_page_protection(uint64_t address)
 	return protection;
 }
 
+/* (without memory_lock: the write tracking asks with its page lock held,
+and update() takes that lock (host_memory_watch_forget) with memory_lock
+held, so taking memory_lock here deadlocked the two. A read racing update()
+does no harm: update() forgets the page, waiting for the page lock, before
+it gives the host page its protection, so its protection is the last one
+set) */
 int host_memory_window_protection(uintptr_t address)
 {
-	int protection;
+	uint64_t first = ((address - host_guest_base) & ~((uint64_t)page_size - 1)) / GUEST_PAGE;
+	uint64_t page;
+	int protection = -1;
 
-	pthread_mutex_lock(&memory_lock);
-	protection = host_page_protection(address - host_guest_base);
-	pthread_mutex_unlock(&memory_lock);
+	for (page = first; page < first + page_size / GUEST_PAGE; page++)
+	{
+		uint16_t entry = __atomic_load_n(&guest_pages[page], __ATOMIC_RELAXED);
+
+		if (entry & GUEST_MAPPED)
+			protection = (protection < 0 ? 0 : protection) | (entry & 0xff);
+	}
 	return protection < 0 ? PROT_NONE : protection;
 }
 

@@ -4,8 +4,7 @@ files (port/assets/menus/ce, read by port/linux/src/menu_files.c):
 
     python tools/ce_menus.py --tags .../halopc-restored/tags \\
         --definitions .../invader/src/tag/hek/definition \\
-        --redraws .../ui-svg-handmade --placeholder .../placeholder.png \\
-        [--pictures .../extracted-ui-assets-fixed]
+        --redraws .../ui-svg-handmade
 
 Every widget reachable from the PC main menu (ui\\shell\\main_menu\\main_menu:
 its children, the widgets its handlers open, their conditional widgets and
@@ -19,10 +18,9 @@ in the PC bitmaps' layout), copied to port/assets/menus/svg, at up to 4
 times their size. The pictures with no redraw (renders, screenshots, logos)
 are the Xbox map's bitmap of the same name, where it has the same pictures
 in the same order (XBOX_BITMAPS: the player's own ui.map draws them, and
-nothing is shipped), else the --placeholder image, fitted to each frame
-where the PC version's picture is (--pictures: only their bounds are read),
-else to the part of it the widgets show;
-port/assets/menus/NON_HANDDRAWN.md lists both, the placeholders as ones to
+nothing is shipped), else nothing: the frame is drawn empty, so that a
+screen shows no picture there rather than a stand-in's words;
+port/assets/menus/NON_HANDDRAWN.md lists both, the empty frames as ones to
 be redrawn.
 
 What this engine (the Xbox's) has no use for is written but never runs: the
@@ -36,6 +34,7 @@ which tools/embed_assets.py embeds the files from, is written too.
 """
 
 import argparse
+import io
 import json
 import shutil
 import struct
@@ -49,6 +48,9 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from hud_assets import bleed, render_svg  # noqa: E402
+import menu_behaviour  # noqa: E402
+import menu_look  # noqa: E402
+import menu_nodes  # noqa: E402
 import port_settings  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -131,6 +133,60 @@ CHILD_OFFSETS = {
 }
 SCALE = 4
 MAXIMUM_SIZE = 2048
+# the PNG files there were before this run, by path: a picture drawn the same
+# as before keeps its file, whose bytes zlib's builds (zlib-ng's differ on
+# x86-64 and AArch64) would write differently (save_png)
+PREVIOUS = {}
+
+
+def save_png(image: Image.Image, path: Path) -> None:
+    """the picture saved as a PNG file, or the file it had before where its
+    pixels are the same"""
+    previous = PREVIOUS.get(path) or (path.read_bytes() if path.is_file() else None)
+    if previous:
+        with Image.open(io.BytesIO(previous)) as before:
+            if before.size == image.size and before.convert("RGBA").tobytes() == image.convert("RGBA").tobytes():
+                path.write_bytes(previous)
+                return
+    image.save(path, optimize=True)
+
+
+def rounded_still(png: str, width: int, height: int, rim: Optional[str]) -> str:
+    """a still (port/assets/menus/stills) with its corners cut round, the
+    rim drawn round it in rim's colour if there is one, as ce/port/stills'
+    file of the same name (whose name it returns); drawn SCALE times larger
+    and reduced, for smooth edges"""
+    from PIL import ImageChops, ImageDraw
+    out = f"ce/port/stills/{Path(png).stem}{'' if rim is None else '_framed'}.png"
+    image = Image.open(MENUS / png).convert("RGBA")
+    # (a whole number of pixels to the unit, as the menus read a frame: the
+    # picture scaled to the nearest whole multiple of its size in the menu)
+    multiple = max(1, round(image.width / width))
+    if image.size != (width * multiple, height * multiple):
+        image = image.resize((width * multiple, height * multiple), Image.LANCZOS)
+    units = image.width / width
+    big = (image.width * SCALE, image.height * SCALE)
+    radius = port_settings.SETTINGS_STILL_RADIUS * units * SCALE
+    mask = Image.new("L", big, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, big[0] - 1, big[1] - 1), radius, fill=255)
+    mask = mask.resize(image.size, Image.LANCZOS)
+    image.putalpha(ImageChops.multiply(image.getchannel("A"), mask))
+    if rim is not None:
+        layer = Image.new("RGBA", big, (0, 0, 0, 0))
+        ImageDraw.Draw(layer).rounded_rectangle((0, 0, big[0] - 1, big[1] - 1), radius, outline=rim,
+                                                width=round(port_settings.SETTINGS_STILL_RIM * units * SCALE))
+        image = Image.alpha_composite(image, layer.resize(image.size, Image.LANCZOS))
+    (MENUS / out).parent.mkdir(parents=True, exist_ok=True)
+    save_png(image, MENUS / out)
+    return out
+
+
+def titles_font(size: int):
+    """the titles' font: laid out by FreeType alone, as every Pillow can (a
+    Pillow with Raqm (and FriBiDi) lays it out with other advances)"""
+    from PIL import ImageFont
+    return ImageFont.truetype(str(TITLE_FONT), size, layout_engine=ImageFont.Layout.BASIC)
+
 # the PC fonts this engine's map lacks, and the font drawn instead
 FONTS = {"ui\\gamespy": "ui\\small_ui", "ui\\ticker": "ui\\small_ui"}
 
@@ -174,7 +230,6 @@ XBOX_FRAMES = {
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__2": 1,
     "shell/main_menu/settings_select/player_setup/player_profile_edit/profile_options__7": 3,
 }
-PLACEHOLDER_SCALE = 2
 
 # the Xbox's functions that the PC version rewrote for its own widgets (its
 # column lists where the Xbox had spinners, and other children), which stop
@@ -361,10 +416,9 @@ def bounds_text(bounds: tuple) -> str:
 
 
 class Art:
-    def __init__(self, tags: Tags, redraws: Path, placeholder: Path, shown: dict, pictures: Optional[Path]):
-        self.tags, self.redraws, self.shown, self.pictures_folder = tags, redraws, shown, pictures
-        self.placeholder = Image.open(placeholder).convert("RGBA")
-        self.pictures = []  # (frame, size, PC picture) of the frames drawn as the placeholder
+    def __init__(self, tags: Tags, redraws: Path):
+        self.tags, self.redraws = tags, redraws
+        self.empty = []  # (frame, size, PC picture) of the frames drawn empty, with no redraw
         self.xbox_frames = []  # (PC frame, Xbox bitmap, its frame) drawn from the Xbox map
         self.added_frames = []  # (our bitmap, Xbox bitmap, its frame): port_settings.BITMAP_FRAMES
         self.svgs = []
@@ -375,34 +429,35 @@ class Art:
         the text set in OpenCE (the public-domain Newtown respaced, as the
         port's titles are: tools/title_assets.py) over the PC headers'
         backdrop"""
-        from PIL import ImageDraw, ImageFont
+        from PIL import ImageDraw
         scale = SCALE
-        probe = ImageFont.truetype(str(TITLE_FONT), 1000)
+        probe = titles_font(1000)
         left, top, right, bottom = probe.getbbox("H")
-        font = ImageFont.truetype(str(TITLE_FONT), round(port_settings.TITLE_CAP * scale * 1000 / (bottom - top)))
-        width = font.getlength(text) / scale
+        title_font = titles_font(round(port_settings.TITLE_CAP * scale * 1000 / (bottom - top)))
+        width = title_font.getlength(text) / scale
         svg = MENUS / "port_svg" / f"{name}.svg"
         svg.parent.mkdir(parents=True, exist_ok=True)
         svg.write_text(port_settings.title_backdrop(width))
         image = Image.fromarray(render_svg(svg, scale), "RGBA")
         draw = ImageDraw.Draw(image)
-        cap_top = font.getbbox("H")[1]
+        cap_top = title_font.getbbox("H")[1]
         draw.text((port_settings.TITLE_LEFT * scale, port_settings.TITLE_TOP * scale - cap_top), text,
-                  font=font, fill=port_settings.TITLE_COLOR)
+                  font=title_font, fill=port_settings.TITLE_COLOR)
         png = f"ce/port/{name}.png"
         (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
-        image.save(MENUS / png, optimize=True)
+        save_png(image, MENUS / png)
         self.pngs.append(png)
         return "\n".join([f"\t<bitmap{attributes([('name', name)])}>",
                           f"\t\t<frame{attributes([('png', png), ('width', 512), ('height', 64)])}/>",
                           "\t</bitmap>"])
 
-    def still(self, name: str, png, width: int, height: int) -> str:
+    def still(self, name: str, png, width: int, height: int, rim: Optional[str] = None) -> str:
         """a <bitmap> of a picture shipped as it is (port/assets/menus/stills:
-        NON_HANDDRAWN.md says what each is), outside ce/, which this script
-        writes anew"""
-        pngs = [png] if isinstance(png, str) else png
-        self.pngs += [frame for frame in pngs if frame not in self.pngs]
+        NON_HANDDRAWN.md says what each is), its corners cut round as the
+        panel's frames are (port_settings.SETTINGS_STILL_RADIUS), and with
+        rim its frame drawn in that colour, into ce/port/stills"""
+        pngs = [rounded_still(frame, width, height, rim) for frame in ([png] if isinstance(png, str) else png)]
+        self.pngs += [frame for frame in dict.fromkeys(pngs) if frame not in self.pngs]
         return "\n".join([f"\t<bitmap{attributes([('name', name)])}>",
                           *(f"\t\t<frame{attributes([('png', frame), ('width', width), ('height', height)])}/>"
                             for frame in pngs),
@@ -416,42 +471,45 @@ class Art:
         the widest digit would not fit the frame's width with a margin of
         DIGIT_MARGIN either side (OpenCE's 6 and 9 at the cap's height are
         wider than the frame: their sides were cut, #519)"""
-        from PIL import ImageDraw, ImageFont
+        from PIL import ImageDraw
         scale = SCALE
         width, height = port_settings.DIGIT_SIZE
-        probe = ImageFont.truetype(str(TITLE_FONT), 1000)
+        probe = titles_font(1000)
         left, top, right, bottom = probe.getbbox("0")
         widest = max(probe.getbbox(str(digit))[2] - probe.getbbox(str(digit))[0] for digit in range(10))
         size = min(port_settings.DIGIT_CAP * scale * 1000 / (bottom - top),
                    (width - 2 * port_settings.DIGIT_MARGIN) * scale * 1000 / widest)
-        font = ImageFont.truetype(str(TITLE_FONT), int(size))
+        digit_font = titles_font(int(size))
         lines = [f"\t<bitmap{attributes([('name', name)])}>"]
         for digit in range(10):
             image = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
             draw = ImageDraw.Draw(image)
-            box = font.getbbox(str(digit))
+            box = digit_font.getbbox(str(digit))
             x = (width * scale - (box[2] - box[0])) / 2 - box[0]
             y = (height * scale - (box[3] - box[1])) / 2 - box[1]
-            draw.text((x, y), str(digit), font=font, fill=port_settings.DIGIT_COLOR)
+            draw.text((x, y), str(digit), font=digit_font, fill=port_settings.DIGIT_COLOR)
             png = f"ce/port/{name}__{digit}.png"
             (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
-            image.save(MENUS / png, optimize=True)
+            save_png(image, MENUS / png)
             self.pngs.append(png)
             lines.append(f"\t\t<frame{attributes([('png', png), ('width', width), ('height', height)])}/>")
         lines.append("\t</bitmap>")
         return "\n".join(lines)
 
-    def port_picture(self, name: str, frames: list) -> str:
+    def port_picture(self, name: str, frames: list, keep: bool = False) -> str:
         """a <bitmap> of this port's own drawing: each frame an SVG (text,
-        width, height) written to port_svg/ and drawn"""
+        width, height) written to port_svg/ and drawn (keep: not drawn again
+        where its SVG and picture are there already, unchanged)"""
         lines = [f"\t<bitmap{attributes([('name', name)])}>"]
         for index, (text, width, height) in enumerate(frames):
             svg = MENUS / "port_svg" / f"{name}__{index}.svg"
+            png = f"ce/port/{name}__{index}.png"
+            unchanged = keep and svg.is_file() and svg.read_text() == text and (MENUS / png).is_file()
             svg.parent.mkdir(parents=True, exist_ok=True)
             svg.write_text(text)
-            png = f"ce/port/{name}__{index}.png"
             (MENUS / png).parent.mkdir(parents=True, exist_ok=True)
-            Image.fromarray(render_svg(svg, SCALE), "RGBA").save(MENUS / png, optimize=True)
+            if not unchanged:
+                save_png(Image.fromarray(render_svg(svg, SCALE), "RGBA"), MENUS / png)
             self.pngs.append(png)
             lines.append(f"\t\t<frame{attributes([('png', png), ('width', width), ('height', height)])}/>")
         lines.append("\t</bitmap>")
@@ -482,7 +540,7 @@ class Art:
                 lines.append(f"\t\t<frame{attributes([('map', tag), ('index', XBOX_FRAMES[name])])}/>")
                 continue
             png = f"ce/{relative}__{index}.png"
-            self.draw(relative, index, len(data), width, height, MENUS / png, self.shown.get(tag, []))
+            self.draw(relative, index, len(data), width, height, MENUS / png)
             self.pngs.append(png)
             lines.append(f"\t\t<frame{attributes([('png', png), ('width', width), ('height', height)])}/>")
         # (frames of the port's items: tools/port_settings.py)
@@ -494,8 +552,7 @@ class Art:
         lines.append("\t</bitmap>")
         return "\n".join(lines)
 
-    def draw(self, relative: str, index: int, count: int, width: int, height: int, output: Path,
-             shown: list) -> None:
+    def draw(self, relative: str, index: int, count: int, width: int, height: int, output: Path) -> None:
         output.parent.mkdir(parents=True, exist_ok=True)
         for name in self.frame_sources(relative, index, count):
             svg = self.redraws / f"{name}.svg"
@@ -508,28 +565,13 @@ class Art:
                 image = render_svg(copy, scale)
                 if image.shape[:2] != (height * scale, width * scale):
                     sys.exit(f"{svg}: {image.shape[1]}x{image.shape[0]}, not {scale}x {width}x{height}")
-                Image.fromarray(bleed(image), "RGBA").save(output, optimize=True)
+                save_png(Image.fromarray(bleed(image), "RGBA"), output)
                 return
-        # (no redraw: the placeholder, as large as fits, in the middle of where
-        # the PC version's picture is (only its bounds are read), else of the
-        # part the widgets show: a widget draws its bitmap from the top left,
-        # cut to its size)
+        # (no redraw: the frame empty, at its size, until it is redrawn; a
+        # stand-in picture would show players its words)
         name = self.frame_sources(relative, index, count)[-1]
-        image = Image.new("RGBA", (width * PLACEHOLDER_SCALE, height * PLACEHOLDER_SCALE), (0, 0, 0, 0))
-        area = (0, 0, min([width] + [w for w, _ in shown]), min([height] + [h for _, h in shown]))
-        original = self.pictures_folder / f"{name}.png" if self.pictures_folder else None
-        if original and original.is_file():
-            with Image.open(original) as picture:
-                if picture.size == (width, height):
-                    bounds = picture.convert("RGBA").getchannel("A").point(lambda value: 255 if value > 16 else 0).getbbox()
-                    if bounds:
-                        area = (bounds[0], bounds[1], min(bounds[2], area[2]), min(bounds[3], area[3]))
-        area = tuple(value * PLACEHOLDER_SCALE for value in area)
-        picture = self.placeholder.copy()
-        picture.thumbnail((area[2] - area[0], area[3] - area[1]), Image.LANCZOS)
-        image.paste(picture, ((area[0] + area[2] - picture.width) // 2, (area[1] + area[3] - picture.height) // 2))
-        image.save(output, optimize=True)
-        self.pictures.append((output.relative_to(MENUS).as_posix(), width, height, f"{name}.png"))
+        save_png(Image.new("RGBA", (width, height), (0, 0, 0, 0)), output)
+        self.empty.append((output.relative_to(MENUS).as_posix(), width, height, f"{name}.png"))
 
 
 # ---------- the widgets
@@ -603,6 +645,10 @@ def widget_xml(tag: str, widget: dict, tags: Tags, functions: list, inputs: list
             pairs = [(k, value if k == key else v) for k, v in pairs]
         else:
             pairs = [(k, v) for k, v in pairs if k != key] + [(key, value)]
+    # (where it comes from, which the game ignores and the menu review tools
+    # read: tools/menu_review.py; the PC version's tag, and the port's patch)
+    pairs.append(("source", f"tools/ce_menus.py widget_xml {tag}" +
+                  (" + port_settings.WIDGET_PATCHES" if patch else "")))
     lines = [f"{indent}<widget{attributes(pairs)}>"]
     inner = indent + "\t"
     for data in widget["game data inputs"]:
@@ -670,28 +716,123 @@ def engine_names(source: Path, start: str, count: int) -> list:
 
 
 def pause_art(art):
-    lines = []
-    for piece in ("left", "center", "right"):
-        heights = [port_settings.pause_box_height(buttons) for buttons in port_settings.PAUSE_BOX_BUTTONS]
-        heights += list(port_settings.PAUSE_BOX_EXTRA_HEIGHTS)
-        lines.append(art.port_picture(f"pause/pausebox_{piece}", [
-            (port_settings.pause_box_svg(piece, height), 4 if piece == "center" else 16, 256) for height in heights]))
-    for piece in ("left", "center", "right"):
-        lines.append(art.port_picture(f"pause/objectives_{piece}", [
-            (port_settings.pause_box_svg(piece, height, header=True), 4 if piece == "center" else 16, 256)
-            for height in port_settings.PAUSE_BOX_EXTRA_HEIGHTS]))
-    return lines
+    return [art.port_picture(name, frames) for name, frames in port_settings.pause_pictures()]
+
+
+# the port's own pictures that tools/port_settings.py draws (each list of
+# (bitmap name, frames) in the order main writes them into bitmaps.xml): the
+# button bars' buttons (in the PC version's bitmaps' place), the pause
+# boxes', Settings', then the shared parts and the campaign's
+PORT_PICTURE_GROUPS = [
+    lambda: port_settings.text_button_pictures(),
+    lambda: port_settings.pause_pictures(),
+    lambda: port_settings.settings_pictures(),
+    lambda: port_settings.parts_pictures() + port_settings.campaign_pictures(),
+]
+
+
+def bitmap_blocks(text: str) -> list:
+    """bitmaps.xml's <bitmap> elements, in order: (name, its lines)"""
+    blocks, lines = [], text.splitlines()
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if line.startswith("\t<bitmap "):
+            name = line.split('name="', 1)[1].split('"', 1)[0]
+            end = index
+            while lines[end] != "\t</bitmap>":
+                end += 1
+            blocks.append((name, lines[index:end + 1]))
+            index = end + 1
+        else:
+            index += 1
+    return blocks
+
+
+def port_pictures_only() -> None:
+    """the port's own screens (tools/port_settings.py) and pictures written
+    again without the PC version's tags: the pictures port_settings.py
+    draws (PORT_PICTURE_GROUPS) put in bitmaps.xml in place of what it had
+    of them, each group where its first was (as main writes them), the rest
+    of it as it was; a frame drawn again only where its SVG changed; files of
+    pictures it no longer has removed, and menus.json listing what it has"""
+    ports = {**port_settings.settings_files(), **port_settings.multiplayer_files(), **port_settings.campaign_files()}
+    for name, lines in ports.items():
+        (CE / name).write_text("\n".join(lines))
+    # (the model's rows, the widgets' look and behaviour, and the setup screens' nodes: tools/menu_look.py,
+    # tools/menu_behaviour.py, tools/menu_nodes.py)
+    for name, lines in port_settings.model_files().items():
+        (MENUS / name).write_text("\n".join(lines))
+    looks = menu_look.write(MENUS) + menu_behaviour.write(MENUS) + menu_nodes.write(MENUS)
+    art = Art.__new__(Art)
+    art.pngs = []
+    blocks = bitmap_blocks((CE / "bitmaps.xml").read_text())
+    groups = [group() for group in PORT_PICTURE_GROUPS]
+    ours = {name for group in groups for name, _ in group}
+    # (and those it drew before that no screen names now: a picture of
+    # the same folders as ours, drawn as ours are, that no menu file or
+    # source names)
+    import re
+    folders = {name.rsplit("/", 1)[0] for name in ours}
+    named = "\n".join(path.read_text() for path in CE.glob("*.xml") if path.name != "bitmaps.xml")
+    named += "\n".join(path.read_text() for path in (ROOT / "port/linux/game").glob("*.[ch]*"))
+    for name, lines in blocks:
+        frames = [line for line in lines if 'png="' in line]
+        if (name not in ours and name.rsplit("/", 1)[0] in folders and frames and
+                all(re.search(r'png="ce/port/[^"]*__\d+\.png"', line) for line in frames) and
+                f'"{name}"' not in named and name.rsplit("/", 1)[1] not in named):
+            ours.add(name)
+    old_pngs = {line.split('png="', 1)[1].split('"', 1)[0] for name, lines in blocks if name in ours
+                for line in lines if 'png="' in line}
+    written, placed = [], [False] * len(groups)
+    old_names = [name for name, _ in blocks]
+    for name, lines in blocks:
+        if name in ours:
+            group = next((index for index, members in enumerate(groups) if name in dict(members)), None)
+            if group is not None and not placed[group]:
+                placed[group] = True
+                written += [art.port_picture(member, frames, keep=True) for member, frames in groups[group]]
+            continue
+        written.append("\n".join(lines))
+    for group, done in enumerate(placed):
+        if not done:
+            written += [art.port_picture(member, frames, keep=True) for member, frames in groups[group]]
+    text = (CE / "bitmaps.xml").read_text()
+    head = text[:text.index("\t<bitmap ")]
+    (CE / "bitmaps.xml").write_text(head + "\n".join(written) + "\n</menus>\n")
+    for png in sorted(old_pngs - set(art.pngs)):
+        (MENUS / png).unlink(missing_ok=True)
+        (MENUS / "port_svg" / (png[len("ce/port/"):-len(".png")] + ".svg")).unlink(missing_ok=True)
+    listed = json.loads((MENUS / "menus.json").read_text())
+    pngs = sorted((set(name for name in listed["files"] if name.endswith(".png")) - old_pngs) | set(art.pngs))
+    xmls = [name for name in listed["files"] if not name.endswith(".png") and not name.startswith(menu_look.LOOK)
+            and not name.startswith(menu_behaviour.BEHAVIOUR) and name != menu_nodes.NODES]
+    xmls = sorted(xmls + looks)
+    # (and a file of the port's screens new to it, before the first listed
+    # after it)
+    for name in sorted(set(f"ce/{name}" for name in ports) - set(xmls)):
+        xmls.insert(next((index for index, listed_name in enumerate(xmls) if listed_name > name), len(xmls)), name)
+    listed["files"] = xmls + pngs
+    (MENUS / "menus.json").write_text(json.dumps(listed, indent=1) + "\n")
+    added = sorted(set(name for name, _ in bitmap_blocks((CE / "bitmaps.xml").read_text())) - set(old_names))
+    print(f"{len(ours)} of the port's pictures; added {added or 'none'}; "
+          f"{len(old_pngs - set(art.pngs))} frames' files removed")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--tags", type=Path, required=True)
-    parser.add_argument("--definitions", type=Path, required=True)
-    parser.add_argument("--redraws", type=Path, required=True)
-    parser.add_argument("--placeholder", type=Path, required=True, help="the picture for frames with no redraw")
-    parser.add_argument("--pictures", type=Path,
-                        help="the PC version's pictures, as PNGs by tag path: only where each is, to place its placeholder")
+    parser.add_argument("--port-pictures", action="store_true",
+                        help="only the port's own screens and the pictures tools/port_settings.py draws, without "
+                        "the PC version's tags (the rest of bitmaps.xml kept as it is)")
+    parser.add_argument("--tags", type=Path)
+    parser.add_argument("--definitions", type=Path)
+    parser.add_argument("--redraws", type=Path)
     arguments = parser.parse_args()
+    if arguments.port_pictures:
+        port_pictures_only()
+        return
+    if not (arguments.tags and arguments.definitions and arguments.redraws):
+        parser.error("--tags, --definitions and --redraws are needed (or --port-pictures)")
     tags = Tags(arguments.tags, arguments.definitions)
     # (the names of the Xbox's own as the game has them, which the tags' own
     # names give a little differently: "create&edit", "NULL")
@@ -700,31 +841,21 @@ def main() -> None:
     functions[:102] = engine_names(ROOT / "source/interface/ui_widget_event_handler_functions.c",
                                    '\t{\n\t\t"NULL",', 102)
     inputs[:41] = engine_names(ROOT / "port/linux/game/menu_tags.c", "game_data_input_names[] =", 41)
+    PREVIOUS.update((path, path.read_bytes()) for path in CE.rglob("*.png"))
     for folder in (CE, SVG_COPIES, MENUS / "port_svg"):
         if folder.exists():
             shutil.rmtree(folder)
     CE.mkdir(parents=True)
     widgets = reachable(tags)
-    # the sizes the widgets show their bitmaps at
-    shown = defaultdict(list)
-    for widget in widgets.values():
-        top, left, bottom, right = widget["bounds"]
-        size = (right - left, bottom - top)
-        if widget["background bitmap"]:
-            shown[widget["background bitmap"]].append(size)
-        for kind in ("header", "footer"):
-            if widget[f"list {kind} bitmap"]:
-                top, left, bottom, right = widget[f"{kind} bounds"]
-                shown[widget[f"list {kind} bitmap"]].append((right - left, bottom - top) if any(widget[f"{kind} bounds"])
-                                                            else size)
-    art = Art(tags, arguments.redraws, arguments.placeholder, shown, arguments.pictures)
+    art = Art(tags, arguments.redraws)
     fonts = Counter()
     # the widgets, a file for each folder of their tags
     folders = defaultdict(list)
     for tag in sorted(widgets):
         folder = our_name(tag).rsplit("/", 1)[0] if "/" in our_name(tag) else "shell"
-        # (the settings screens this port has its own of: tools/port_settings.py)
-        if not port_settings.replaced(folder):
+        # (the settings screens this port has its own of, and the widgets:
+        # tools/port_settings.py)
+        if not port_settings.replaced(folder) and our_name(tag) not in port_settings.REPLACED_WIDGETS:
             folders[folder].append(tag)
     string_lists, bitmaps = set(), set()
     for widget in widgets.values():
@@ -744,6 +875,15 @@ def main() -> None:
     for name, lines in [*port_settings.settings_files().items(), *port_settings.multiplayer_files().items(),
                         *port_settings.campaign_files().items()]:
         (CE / name).write_text("\n".join(lines))
+    # (the menu engine's model of them: docs/menu_engine.md)
+    for name, lines in port_settings.model_files().items():
+        (MENUS / name).parent.mkdir(exist_ok=True)
+        (MENUS / name).write_text("\n".join(lines))
+    # (and the look and behaviour of every widget written, and the setup screens' nodes: tools/menu_look.py,
+    # tools/menu_behaviour.py, tools/menu_nodes.py)
+    menu_look.write(MENUS)
+    menu_behaviour.write(MENUS)
+    menu_nodes.write(MENUS)
     # their strings
     (CE / "strings.xml").write_text(strings_xml({
         tag: [text_value(item["string"]) for item in tags.load(tag, "unicode_string_list")["strings"]]
@@ -752,7 +892,11 @@ def main() -> None:
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              "<!-- The PC version's menus' bitmaps, drawn from the redraws, else the PC version's own pictures"
              " (NON_HANDDRAWN.md; tools/ce_menus.py) -->", "<menus>"]
-    lines += [art.bitmap(tag) for tag in sorted(bitmaps)]
+    # (the PC version's bitmaps the port draws its own of in their place:
+    # port_settings.text_button_pictures)
+    drawn = dict(port_settings.text_button_pictures())
+    lines += [art.port_picture(our_name(tag), drawn[our_name(tag)]) if our_name(tag) in drawn else art.bitmap(tag)
+              for tag in sorted(bitmaps)]
     lines += [art.title(name, text) for name, text in sorted(port_settings.TITLES.items())]
     lines += pause_art(art)
     # (voice chat's speaker, of a player who talks and of one muted: Lucide's
@@ -765,6 +909,13 @@ def main() -> None:
     # mods' status icons: Lucide's, port/assets/icons/lucide)
     lines.append(art.port_picture("main_menu/menu_training",
                                   port_settings.menu_item_frames("VR TUTORIAL", art.redraws)))
+    # (the main menu's PRO 2V2, so too: port_settings._doubles)
+    lines.append(art.port_picture("main_menu/menu_doubles", port_settings.menu_item_frames("PRO 2V2", art.redraws)))
+    # (the main menu's VERSUS: port/assets/menus/screens/main.xml)
+    lines.append(art.port_picture("main_menu/menu_versus", port_settings.menu_item_frames("VERSUS", art.redraws)))
+    # (the Campaign screen's SOLO and CO-OP: port/assets/menus/screens/campaign.xml; its hyphen menu_item_frames's)
+    lines.append(art.port_picture("main_menu/menu_solo", port_settings.menu_item_frames("SOLO", art.redraws)))
+    lines.append(art.port_picture("main_menu/menu_coop", port_settings.menu_item_frames("CO-OP", art.redraws)))
     lines.append(art.port_picture("mods/status", port_settings.mod_status_frames(ROOT / "port/assets/icons/lucide")))
     lines.append(art.port_picture("mods/status_small",
                                   port_settings.mod_status_frames(ROOT / "port/assets/icons/lucide", 16)))
@@ -782,7 +933,7 @@ def main() -> None:
     lines += [art.port_picture(name, frames) for name, frames in port_settings.settings_pictures()]
     lines += [art.still(name, png, width, height) for name, png, width, height, _ in port_settings.SETTINGS_STILLS]
     lines += [art.still(f"{port_settings.SETTINGS}/pictures_{key}", pngs, port_settings.SETTINGS_PICTURE_WIDTH,
-                        port_settings.SETTINGS_PICTURE_HEIGHT)
+                        port_settings.SETTINGS_PICTURE_HEIGHT, port_settings.SETTINGS_PICTURE_RIM)
               for key, pngs in port_settings.SETTINGS_VALUE_PICTURES.items()]
     # (the menus' shared parts, in Settings' look: the server browser's and
     # Multiplayer's tabs, rows, panels, pills, button and prompts, and the
@@ -840,16 +991,16 @@ def main() -> None:
                for png, what in port_settings.SETTINGS_PICTURE_FILES.items()]
     report += [
         "",
-        "## Placeholders, to be redrawn",
+        "## Not redrawn yet: drawn empty",
         "",
-        "The Xbox's map has none of these (or other pictures under the name), so each frame is a placeholder",
-        "until it is redrawn.",
+        "The Xbox's map has none of these (or other pictures under the name), so each frame is drawn empty",
+        "(no picture shows there) until it is redrawn.",
         "",
         "| File | Size | The PC version's picture |",
         "| --- | --- | --- |",
     ]
-    report += [f"| `{png}` | {w}x{h} | `{source}` |" for png, w, h, source in sorted(art.pictures)]
-    report += ["", f"{len(art.pictures)} of {len(art.pngs)} frames are placeholders.",
+    report += [f"| `{png}` | {w}x{h} | `{source}` |" for png, w, h, source in sorted(art.empty)]
+    report += ["", f"{len(art.empty)} of {len(art.pngs)} frames are drawn empty.",
                "", "The PC version's `ui\\gamespy` and `ui\\ticker` fonts are drawn with `ui\\small_ui`, which",
                "the Xbox's map has.", ""]
     (MENUS / "NON_HANDDRAWN.md").write_text("\n".join(report))
@@ -888,7 +1039,7 @@ def main() -> None:
     }, indent=1) + "\n")
     size = sum((MENUS / name).stat().st_size for name in files)
     print(f"{len(widgets)} widgets in {len(folders)} files, {len(string_lists)} string lists, {len(bitmaps)} bitmaps "
-          f"({len(art.pngs)} frames, {len(art.pictures)} not redrawn); {size // 1024} KB; fonts {dict(fonts)}")
+          f"({len(art.pngs)} frames, {len(art.empty)} not redrawn); {size // 1024} KB; fonts {dict(fonts)}")
 
 
 if __name__ == "__main__":

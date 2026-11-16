@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.lobby.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_bots_count_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port lobby bots load"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_bots_skill_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_bots_teams_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_host">
+		<on event="a" run="port host open" open="main_menu/host_controls/host_controls_screen" branch="true"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_list" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/prompt_team">
+		<on event="a" run="port lobby team toggle"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/prompt_invite">
+		<on event="a" run="port lobby invite"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/prompt_add">
+		<on event="a" run="port lobby add player"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_settings">
+		<on event="a" run="port lobby settings"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/board_start">
+		<on event="a" run="port lobby start"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/touch/prompt_leave">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

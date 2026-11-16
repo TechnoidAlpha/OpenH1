@@ -44,11 +44,16 @@ void host_logf(int priority, const char *format, ...)
 }
 
 static uint32_t forgotten_address, forgotten_size;
+static int forgotten_protection;
 
+/* (asks the window's protection, as the write tracking does with its page
+lock held: memory_lock taken there too deadlocked an mprotect, which
+forgets with memory_lock held, against a write the tracking prepared) */
 void host_memory_watch_forget(uint32_t address, uint32_t size)
 {
 	forgotten_address = address;
 	forgotten_size = size;
+	forgotten_protection = host_memory_window_protection(host_address(address));
 }
 
 int host_linux_errno(int error)
@@ -119,6 +124,7 @@ static void test_window_pages(void)
 	CHECK(at(b)[1] == 0x33);
 	/* the write tracking hears of the window's host pages that change */
 	CHECK(forgotten_size == host_page_size() && forgotten_address == (a & ~(uint32_t)(host_page_size() - 1)));
+	CHECK(forgotten_protection == (PROT_READ | PROT_WRITE));
 	CHECK(host_guest_munmap(a, 0x2000) == 0);
 	CHECK(host_memory_window_protection(host_address(a)) == PROT_NONE);
 }

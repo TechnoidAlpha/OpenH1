@@ -668,6 +668,27 @@ void _rasterizer_psuedo_dynamic_screen_quad_draw(
 	return;
 }
 
+/* port: the depth the transparent queue sorts a run of sprites of this
+shader at, its centroid there (the group's z_sort, below), so that
+render_particles can cut a run where the queue's other groups sort */
+real rasterizer_dynamic_unlit_geometry_z_sort(
+	struct shader const *shader,
+	real_point3d const *centroid)
+{
+	real_vector3d forward;
+	real z_sort;
+
+	vector_from_points3d(&global_window_parameters.camera.position, centroid, &forward);
+	z_sort = -dot_product3d(&global_window_parameters.camera.forward, &forward);
+	if (shader->base.type == _shader_type_effect &&
+		TEST_FLAG(SHADER_GET_EFFECT(shader)->flags, _shader_effect_sort_bias_bit))
+	{
+		z_sort += SHADER_EFFECT_SORT_BIAS;
+	}
+
+	return z_sort;
+}
+
 void _rasterizer_dynamic_unlit_geometry_draw(
 	struct shader const *shader,
 	struct bitmap_data const *primary_map,
@@ -679,7 +700,6 @@ void _rasterizer_dynamic_unlit_geometry_draw(
 	unsigned long geometry_flags)
 {
 	struct transparent_geometry_group *group;
-	real_vector3d forward;
 	real_plane3d zero_plane;
 	static boolean warned = FALSE;
 
@@ -708,9 +728,9 @@ void _rasterizer_dynamic_unlit_geometry_draw(
 		52,
 		centroid);
 
-	vector_from_points3d(&global_window_parameters.camera.position, centroid, &forward);
-
 	group = rasterizer_transparent_geometry_new_group();
+	/* port: debug.render_marks: what made it (port/linux/game/render_marks.c) */
+	render_marks_group_made(group);
 	if (group)
 	{
 		zero_plane.n.i = 0.0f;
@@ -731,7 +751,9 @@ void _rasterizer_dynamic_unlit_geometry_draw(
 		group->dynamic_vertex_buffer_index = dynamic_vertex_buffer_index;
 		group->vertex_buffer = NULL;
 		group->lightmap = primary_map;
-		group->z_sort = -dot_product3d(&global_window_parameters.camera.forward, &forward);
+		/* port: (rasterizer_dynamic_unlit_geometry_z_sort, the bias below
+		with it) */
+		group->z_sort = rasterizer_dynamic_unlit_geometry_z_sort(shader, centroid);
 		group->centroid = *centroid;
 		group->plane = zero_plane;
 		group->model_base_map_scale.i = group->model_base_map_scale.j = 1.0f;
@@ -739,12 +761,6 @@ void _rasterizer_dynamic_unlit_geometry_draw(
 		group->next_group_presorted_index = NONE;
 		group->active_camouflage_transparent_source_object_index = 0;
 		group->cortana_hack = FALSE;
-
-		if (shader->base.type == _shader_type_effect &&
-			TEST_FLAG(SHADER_GET_EFFECT(shader)->flags, _shader_effect_sort_bias_bit))
-		{
-			group->z_sort += SHADER_EFFECT_SORT_BIAS;
-		}
 
 		group->node_matrices = NULL;
 		group->node_matrix_count = 0;

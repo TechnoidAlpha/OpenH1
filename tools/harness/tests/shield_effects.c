@@ -18,6 +18,8 @@ static char const *config_string(char const *name){(void)name;return setting;}
 static unsigned long config_changes(void){return changes;}
 static short game_connection(void){return connection;}
 static boolean network_connection_last_read_was_unreliable(void){return unreliable;}
+/* (no Pro 2v2 game: test_pro_rules.py's) */
+static boolean network_standard_pro_hosting(void) { return FALSE; }
 #include "under_test.inc"
 
 /* the host's message, as shield_effects_message_make makes it, from the host's stream */

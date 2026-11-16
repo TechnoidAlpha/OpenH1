@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.difficulty_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/difficulty_select/difficulty_ext_desc" box="275 78 595 400" picture="bitmaps/list_field">
+		<text color="#FF0080FF"/>
+		<at widget="main_menu/difficulty_select/difficulty_options" x="333" y="88"/>
+		<at widget="main_menu/difficulty_select/difficulty_extended_description" x="0" y="0"/>
+		<at widget="main_menu/current_profile_name" x="0" y="0"/>
+	</look>
+	<look name="main_menu/difficulty_select/difficulty_extended_description" type="text" box="275 78 580 400">
+		<text font="ui\large_ui" color="#FF2896FF" at="12 220" string_list="main_menu/difficulty_select/difficulty_descriptions"/>
+	</look>
+	<look name="main_menu/difficulty_select/difficulty_options" box="0 0 200 211" picture="ui\shell\main_menu\difficulty_select\difficulty_options"/>
+	<look name="main_menu/difficulty_select/difficulty_select_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/difficulty_select/difficulty_select_button_ok" x="380" y="1"/>
+		<at widget="common_button_back" x="510" y="1"/>
+	</look>
+	<look name="main_menu/difficulty_select/difficulty_select_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/difficulty_select/difficulty_select_list" type="column_list">
+		<at widget="main_menu/difficulty_select/kindergarten_difficulty_item" x="0" y="0"/>
+		<at widget="main_menu/difficulty_select/normal_difficulty_item" x="0" y="0"/>
+		<at widget="main_menu/difficulty_select/hard_difficulty_item" x="0" y="0"/>
+		<at widget="main_menu/difficulty_select/impossible_difficulty_item" x="0" y="0"/>
+		<at widget="main_menu/difficulty_select/difficulty_select_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/difficulty_select/difficulty_select_list_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/difficulty_select/difficulty_select_list" x="0" y="0"/>
+		<at widget="main_menu/difficulty_select/warning_message" x="65" y="215"/>
+		<at widget="main_menu/difficulty_select/header_choose_difficulty" x="0" y="0"/>
+	</look>
+	<look name="main_menu/difficulty_select/hard_difficulty_item" type="text" box="51 144 283 176" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF0080FF" at="13 5" string_list="main_menu/difficulty_select/difficulty_options" index="2"/>
+	</look>
+	<look name="main_menu/difficulty_select/header_choose_difficulty" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/campaign/tall_titles" index="1" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/difficulty_select/impossible_difficulty_item" type="text" box="51 177 283 209" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF0080FF" at="13 5" string_list="main_menu/difficulty_select/difficulty_options" index="3"/>
+	</look>
+	<look name="main_menu/difficulty_select/kindergarten_difficulty_item" type="text" box="51 78 283 110" picture="bitmaps/list_item_bkd_top">
+		<text font="ui\large_ui" color="#FF0080FF" at="13 5" string_list="main_menu/difficulty_select/difficulty_options"/>
+	</look>
+	<look name="main_menu/difficulty_select/normal_difficulty_item" type="text" box="51 111 283 143" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF0080FF" at="13 5" string_list="main_menu/difficulty_select/difficulty_options" index="1"/>
+	</look>
+	<look name="main_menu/difficulty_select/warning_message" type="text" box="0 0 210 185">
+		<text font="ui\small_ui" color="#FFFFFFFF" string_list="main_menu/difficulty_select/warning_message"/>
+	</look>
+</model>

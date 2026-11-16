@@ -7,6 +7,7 @@ threads, asynchronous procedure calls, time, memory and debug output.
 
 #include "platform.h"
 #include "port_config.h"
+#include "report.h"
 
 #include <errno.h>
 #include <sched.h>
@@ -25,13 +26,24 @@ threads, asynchronous procedure calls, time, memory and debug output.
 
 void platform_log(const char *format, ...)
 {
-	va_list arguments;
+	va_list arguments, copy;
+	char line[2048];
+	int length;
 
-	fputs("halo-linux: ", stderr);
 	va_start(arguments, format);
-	vfprintf(stderr, format, arguments);
-	va_end(arguments);
+	va_copy(copy, arguments);
+	length = vsnprintf(line, sizeof(line), format, arguments);
+	fputs("halo-linux: ", stderr);
+	/* (a line longer than the copy's room written whole) */
+	if (length >= (int)sizeof(line))
+		vfprintf(stderr, format, copy);
+	else
+		fputs(line, stderr);
 	fputc('\n', stderr);
+	va_end(copy);
+	va_end(arguments);
+	/* (the last lines kept for a report: report.c) */
+	report_log_line(line);
 }
 
 void platform_unimplemented(const char *name)

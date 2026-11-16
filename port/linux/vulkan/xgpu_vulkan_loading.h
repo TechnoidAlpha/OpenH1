@@ -22,6 +22,9 @@ float xgpu_vulkan_loading_stereo_tangent(void);
 /* the loading frame's width for the window (loading_art_width) */
 uint32_t xgpu_vulkan_loading_frame_width(void);
 uint32_t xgpu_vulkan_loading_frame_height(void);
+/* the window's size as it is shown, where the loading screen has a caption
+(drawn at its pixels); else 0 */
+int xgpu_vulkan_loading_caption_size(uint32_t *width, uint32_t *height);
 uint64_t host_vulkan_display_period(void);
 
 #endif

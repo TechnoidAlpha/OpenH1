@@ -37,10 +37,27 @@ void host_log_set_sink(host_log_sink sink);
 void host_logf(int priority, const char *format, ...) __attribute__((format(printf, 2, 3)));
 /* (also the guest's, host_imports.list) */
 void host_log(int priority, const char *text);
+/* (the guest's too) copies the host's last lines (whole ones, each with its
+newline) into buffer, ended by a 0; returns their length */
+uint32_t host_log_recent(char *buffer, uint32_t size);
 /* guest services also used inside the host (host_main.c) */
 void host_exit(int code) __attribute__((noreturn));
 void host_abort(const char *reason) __attribute__((noreturn));
 int host_errno(void);
+
+/* the crash record (host_common.c): the file a crash is written to, and the
+guest's log kept in memory (report.c's ring of log_size bytes, *log_written
+of them written in all); from the guest (host_imports.list) */
+void host_crash_record(const char *path, const char *log, uint32_t log_size, const uint64_t *log_written);
+/* at a crash (from a signal handler: open() and write() alone): the record
+begun with its reason's line (0 if there is none to write, or a crash on
+another thread wrote it), each line of the crash, and the log after them */
+int host_crash_record_begin(const char *reason);
+/* what brought the crash about, if the host knows (host_abort's reason): a
+line of the record after the first */
+extern const char *volatile host_crash_cause;
+void host_crash_record_line(const char *line);
+void host_crash_record_end(void);
 
 /* logs, shows the message to the player and terminates */
 void host_fatal(const char *format, ...) __attribute__((format(printf, 1, 2), noreturn));
@@ -79,6 +96,9 @@ void host_apply_debug_settings(const char *path, const char *hashes_reason);
 as it is written: "auto", "always" or "off" (port/linux/astc/xgpu_astc.h,
 xgpu_astc_chosen) */
 extern char host_astc_textures[16];
+/* debug.pass_times (HALO_PASS_TIMES): every how many frames the Vulkan
+backend times each of a frame's passes on the GPU; 0 never */
+extern int host_pass_times;
 
 /* ---------- the guest's addresses
 
@@ -144,8 +164,10 @@ void host_memory_report_low_mappings(FILE *file);
 faults (host_watch_hash.h), for when the app cannot receive its own
 SIGSEGV (ARM translation). Call before the guest starts. */
 void host_memory_watch_use_hashes(void);
-/* the host's page size (4 KB on Linux and Android without the base
-register, which needs it: the Xbox window's pages; 16 KB on macOS) */
+/* the host's page size, the kernel's (4 KB; 16 KB on macOS and iOS, and on
+the Android and ARM Linux kernels that use them; 64 KB on some ARM Linux
+ones): the guest's 4 KB pages are kept on them (host_memory.c,
+host_memory_base.c) */
 size_t host_page_size(void);
 /* page-granular allocations in the guest's memory; NULL on failure */
 void *host_low_map(size_t size, int protection);
@@ -166,8 +188,10 @@ long host_guest_madvise(uint64_t address, uint64_t size, int advice);
 reprotected */
 void host_memory_watch_forget(uint32_t address, uint32_t size);
 
-/* the SIGSEGV, SIGBUS and SIGILL handlers: the write tracking's faults, and
-a report of any other (host_memory.c); the main thread calls it first */
+/* the handlers of every signal that ends the process with a core (SIGSEGV,
+SIGBUS, SIGILL, SIGFPE, SIGABRT, SIGTRAP, SIGSYS): the write tracking's
+faults, and a report of any other, the crash record written
+(host_memory_watch.c); the main thread calls it first */
 void host_install_signal_handlers(void);
 /* gives the calling thread a stack of its own for those handlers, so that a
 stack overflow can be reported (host_thread.c does it for its threads); 0
@@ -274,6 +298,9 @@ cache too (port/macos/xgpu_metal_textures.c: any thread) */
 void host_memory_watch_protect(uint32_t address, uint32_t size);
 uint32_t host_memory_watch_generation(uint32_t address, uint32_t size);
 uint32_t host_memory_watch_serial(void);
+/* memory_watch_page_size (also the guest's): the bytes a generation and a
+protection covers, the host's page (or the hashing's, host_watch_hash.h) */
+uint32_t host_memory_watch_page_size(void);
 /* (host_memory.c or host_memory_base.c) the protection the guest asked for
 of the Xbox window's host page at that address, which the write tracking
 puts back */
@@ -320,6 +347,38 @@ void host_debug_thread_exited(void);
 /* config.toml's debug.sample_seconds: seconds between samples of the guest
 threads, as text */
 void host_debug_start_sampler(const char *setting);
+
+/* ---------- the stall detector (host_stall.c; debug.stall_ms) */
+
+#define HOST_STALL_GAME 0
+#define HOST_STALL_RENDER 1
+#define HOST_STALL_THREADS 2
+/* starts the watchdog: a frame later than milliseconds is sampled and
+logged (0: never) */
+void host_stall_start(double milliseconds);
+/* a frame handed to the render thread (host_render_stream_submit, on the
+game's thread) */
+void host_stall_frame(void);
+/* the render thread's start: the thread sampled with the game's */
+void host_stall_render_thread(void);
+/* the loading screen shown (1) or ended (0): a stall it is up for is a
+load */
+void host_stall_loading(int active);
+/* work in progress that may hold up a frame (a string that lives on), kept
+with its time, and listed with a stall it was in */
+void host_stall_note(const char *what);
+/* the stalls so far, logged (at exit) */
+void host_stall_summary(void);
+/* (the platform's sampler: host_debug.c, host_debug_win.c) a sample of a
+thread, for the stall being sampled; async-signal-safe */
+void host_stall_record(int thread, uint64_t pc, uint64_t lr, const uint64_t *returns, int count);
+/* (the platform's) the calling thread taken as that one of the two; that
+one asked for a sample (host_stall_record, now or from its signal); ready
+to sample; an address's library and symbol, or offset */
+void host_debug_stall_thread(int thread);
+void host_debug_stall_interrupt(int thread);
+void host_debug_stall_prepare(void);
+void host_debug_describe_address(uint64_t address, char *buffer, size_t size);
 
 /* ---------- import table (generated by tools/android_imports.py into the
 build's host/host_import_table.c) */

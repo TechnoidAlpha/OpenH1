@@ -53,8 +53,8 @@ static void check_invite(const char *text, int expected)
 static void case_party(void)
 {
 	char message[P2P_INVITE_MESSAGE_SIZE];
-	const char *expected = "Join my OpenH1 party: https://openh1.com/join/#party=" PARTY_TOKEN "\n"
-		"Or paste this into OpenH1's Join by Link: openh1://party/" PARTY_TOKEN;
+	const char *expected = "Join my GOAT H1 party: https://openh1.com/join/#party=" PARTY_TOKEN "\n"
+		"Or paste this into GOAT H1's Join by Link: openh1://party/" PARTY_TOKEN;
 	const char *line;
 
 	CHECK(p2p_invite_message("openh1://party/" PARTY_TOKEN, message, sizeof(message)), "a party's link has a message");
@@ -72,8 +72,8 @@ static void case_party(void)
 static void case_game(void)
 {
 	char message[P2P_INVITE_MESSAGE_SIZE];
-	const char *expected = "Join my OpenH1 game: https://openh1.com/join/#join=" HASH TOKEN "\n"
-		"Or paste this into OpenH1's Join by Link: openh1://join/" HASH TOKEN;
+	const char *expected = "Join my GOAT H1 game: https://openh1.com/join/#join=" HASH TOKEN "\n"
+		"Or paste this into GOAT H1's Join by Link: openh1://join/" HASH TOKEN;
 	const char *line = "https://openh1.com/join/#join=" HASH TOKEN;
 
 	CHECK(p2p_invite_message("openh1://join/" HASH TOKEN, message, sizeof(message)), "a game's link has a message");
@@ -131,10 +131,10 @@ static void case_forms(void)
 		platform_text_has_invite_link("HALO://PARTY/" PARTY_TOKEN), "an older build's links on the clipboard");
 	/* (an older build's link is taken, and made into the game's own) */
 	CHECK(p2p_invite_message("halo://join/" HASH TOKEN, message, sizeof(message)) &&
-		strstr(message, "\nOr paste this into OpenH1's Join by Link: openh1://join/" HASH TOKEN) &&
+		strstr(message, "\nOr paste this into GOAT H1's Join by Link: openh1://join/" HASH TOKEN) &&
 		!strstr(message, "halo:"), "an older build's game link, as the game's:\n%s", message);
 	CHECK(p2p_invite_message("halo://party/" PARTY_TOKEN, message, sizeof(message)) &&
-		strstr(message, "\nOr paste this into OpenH1's Join by Link: openh1://party/" PARTY_TOKEN) &&
+		strstr(message, "\nOr paste this into GOAT H1's Join by Link: openh1://party/" PARTY_TOKEN) &&
 		!strstr(message, "halo:"), "an older build's party link, as the game's:\n%s", message);
 	CHECK(!platform_text_has_invite_link("https://openh1.com/maps"), "another page of the site is no link");
 	CHECK(!platform_text_has_invite_link(HASH TOKEN), "a bare code on the clipboard is no link");

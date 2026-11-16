@@ -92,7 +92,7 @@ def test_vulkan_build_has_runtime_and_guest_imports(tree, monkeypatch, native, v
 
     def image(n, sln, config, **settings):
         guest.update(settings)
-        return {"host_table_c": "imports.c", "image": "guest.bin", "checked": "guest.checked"}
+        return {"host_table_c": "imports.c", "image": "guest.bin", "checked": "guest.checked", "assets": "openh1.assets"}
     monkeypatch.setattr(linux_guest_build, "generate_guest_image", image)
     output = io.StringIO()
     linux_guest_build.generate_linux_guest_build(Writer(output), SimpleNamespace(port_vr=vr), native)

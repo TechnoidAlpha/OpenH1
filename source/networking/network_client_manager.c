@@ -383,10 +383,14 @@ symbols in this file:
 #include "main/main.h"
 #include "memory/data.h"
 #include "networking/network_client_manager.h"
+#include "mcc_load_network.h" /* port: bounded MCC conversion wait */
 #include "networking/network_client_message_handler.h"
 #include "networking/network_connection.h"
 #include "networking/network_game_globals.h"
 #include "networking/network_game_manager.h"
+void network_game_client_reset_settings_staging(void); /* port: discard partial settings across connections */
+#include "mcc_cache.h" /* port: MCC-only origin-change admission guard */
+#include "mcc_identity.h" /* port: MCC content admission and local package resolution */
 #include "networking/network_game_protocol.h"
 #include "networking/network_messages.h"
 #include "networking/network_server_manager.h"
@@ -627,6 +631,7 @@ struct message_client_join_game_request
 	zero for none (port/linux/src/player_link.c) */
 	byte link_pass[170];
 	byte link_proof[64];
+	word network_version; /* port: shared agreement before host admission */
 };
 
 struct message_client_map_is_precached_pregame
@@ -755,7 +760,7 @@ typedef char message_client_ping_size_assert[
 	sizeof(struct message_client_ping) == 8 ? 1 : -1];
 /* (port: and a Discord account's pass and proof after the Xbox's 0x70) */
 typedef char message_client_join_game_request_size_assert[
-	sizeof(struct message_client_join_game_request) == 0x70 + 170 + 64 ? 1 : -1];
+	sizeof(struct message_client_join_game_request) == 0x70 + 170 + 64 + 2 ? 1 : -1];
 typedef char network_game_client_seconds_to_game_start_offset_assert[
 	offsetof(struct network_game_client, seconds_to_game_start) == NETWORK_GAME_CLIENT_TAIL_OFFSET + 0x10 ? 1 : -1];
 typedef char network_game_client_error_offset_assert[
@@ -986,6 +991,8 @@ void network_game_client_dispose(
 {
 	if (client)
 	{
+		network_game_client_reset_settings_staging(); /* port: discard partial old-host settings */
+		mcc_identity_disconnect(); /* port: discard the MCC session's local binding */
 		if (client->connection)
 			network_connection_delete(client->connection);
 
@@ -1097,6 +1104,7 @@ boolean network_game_client_switch_to_pregame(
 		network_game_reset_for_next_round(&client->game, TRUE);
 		network_connection_keep_alive(client->connection);
 		client->next_update_number = 0;
+		network_game_client_reset_settings_staging(); /* port: discard the previous host's partial record */
 		client->join_in_progress = TRUE;
 		client->connection_silent = FALSE;
 		client->state = _network_game_client_state_pregame;
@@ -1371,9 +1379,19 @@ boolean network_game_client_game_settings_updated(
 			return FALSE;
 		}
 		if (csstrcmp(message_packet->map.name, client->game.map.name) ||
-			message_packet->map.version != client->game.map.version)
+			/* port: MCC validation also belongs to the advertised origin in the name tail. */
+			(mcc_level_name(message_packet->map.name) &&
+			 memcmp(message_packet->map.name, client->game.map.name, sizeof(message_packet->map.name))) ||
+			message_packet->map.version != client->game.map.version ||
+			/* port: the host's MCC content may change without changing its stored checksum */
+			memcmp(message_packet->mcc_content_sha256, client->game.mcc_content_sha256, 32) ||
+			/* port: a changed MCC campaign manifest also requires admission. */
+			memcmp(message_packet->mcc_metadata_sha256, client->game.mcc_metadata_sha256, 32))
 		{
 			char build[0x20];
+
+			/* port: resolve MCC locally before native presence checks, retaining the host's wire name */
+			if (!mcc_identity_accept(message_packet)) return FALSE;
 
 			/* port: a map this machine has not (a Custom Edition map not in
 			its custom_maps folder, or another version of it than the host's,
@@ -1733,6 +1751,11 @@ boolean network_game_client_handle_game_update(
 			message_packet->game_time);
 		game_time_set_distributed(message_packet->game_time);
 	}
+	else
+	{
+		/* port: smaller deficits need simulation ticks too, bounded per frame. */
+		game_time_synchronize_distributed(message_packet->game_time);
+	}
 
 	return TRUE;
 }
@@ -1918,6 +1941,26 @@ boolean network_game_client_remove_player(
 				{
 					break;
 				}
+			}
+
+			/* port: a local player who leaves while another remains no longer has
+			its slot: its entry in the local players is cleared here, as the datum
+			stays until a joiner takes the slot (network_game_spawn_player), which
+			then deletes it and makes another with a new identifier, and the entry
+			would name a player that no longer exists (player_get halts on it). The
+			last to leave ends the game, whose sounds and views still name it until
+			then, so its entry stays */
+			if (network_player_index != MAXIMUM_NUMBER_OF_PLAYERS &&
+				player->machine_index == client->machine_index &&
+				player->controller_index >= 0 && player->controller_index < MAXIMUM_LOCAL_PLAYERS &&
+				local_player_get_player_index(player->controller_index) == player_index)
+			{
+				local_player_set_player_index(player->controller_index, NONE);
+				/* (and its control, which names its unit: the datum no longer has a
+				local player index, so the host deleting the unit does not reset it
+				(network_player_detach_unit), and player_control_update would get a
+				unit that is gone) */
+				player_control_new_unit(player->controller_index, NONE);
 			}
 
 			/* port: a dedicated server's own machine never has a player
@@ -2415,9 +2458,9 @@ static wchar_t const *network_game_client_rejection_text(
 	switch (rejection_code)
 	{
 	case _rejection_code_version_too_old:
-		return L"This game is on a newer version of OpenH1 or OpenCE. Update OpenH1 to join it, or if no update is out yet, try again soon.";
+		return L"This game is on a newer version of GOAT H1 or OpenCE. Update GOAT H1 to join it, or if no update is out yet, try again soon.";
 	case _rejection_code_version_too_new:
-		return L"This game is on an older version of OpenH1. Ask the host to update to the latest version.";
+		return L"This game is on an older version of GOAT H1. Ask the host to update to the latest version.";
 	case _rejection_code_bad_password:
 		return L"That isn't this game's password. Ask the host for it, then try again.";
 	case _rejection_code_game_is_full:
@@ -3055,6 +3098,7 @@ static boolean network_game_client_idle_joining(
 				message_header *message;
 
 				csmemset(&join_game_request, 0, sizeof(join_game_request));
+				join_game_request.network_version = HALO_PORT_NETWORK_VERSION; /* port: explicit shared agreement */
 				network_game_generate_local_machine_name(join_game_request.machine_name);
 				csmemcpy(
 					join_game_request.join_token,
@@ -3270,6 +3314,14 @@ static boolean network_game_client_idle_ingame(
 		client->connection_silent = connection_stale;
 	}
 
+	/* port: progressing MCC conversion has an absolute limit too, even when
+	 * the host keeps writing while its synchronous map conversion runs. */
+	if (success && mcc_load_network_client_expired())
+	{
+		network_event("MCC loading exceeded its bounded conversion window");
+		display_error_when_main_menu_loaded(_error_network_connection_lost);
+		success = FALSE;
+	}
 	if (success == TRUE)
 	{
 		/* (port: no timeout on the host, network_game_client_connection_timeout) */
@@ -3404,10 +3456,10 @@ boolean network_game_client_advertised_game_compatible(
 		}
 		/* port: (the versions in the log, the player told what to do) */
 		csprintf(message,
-			"This game is on %s version of OpenH1.\n\n"
+			"This game is on %s version of GOAT H1.\n\n"
 			"%s",
 			theirs > ours ? "a newer" : "an older",
-			theirs > ours ? "Update OpenH1 to join it." : "Ask the host to update to the latest version.");
+			theirs > ours ? "Update GOAT H1 to join it." : "Ask the host to update to the latest version.");
 		if (tell)
 		{
 			network_event("not joining an OpenH1 %u Tick host of protocol version %u (this machine's is %u)",
@@ -3457,20 +3509,20 @@ void network_game_client_tell_version(
 	if (theirs == ours)
 	{
 		csprintf(message,
-			"This server runs an older Halo version that OpenH1 can't join.\n\n"
-			"Join another game, or ask the host to update to the latest OpenH1.");
+			"This server runs an older Halo version that GOAT H1 can't join.\n\n"
+			"Join another game, or ask the host to update to the latest GOAT H1.");
 	}
 	else if (theirs > ours)
 	{
 		csprintf(message,
-			"This game is on a newer version of OpenH1 or OpenCE.\n\n"
-			"Update OpenH1 to join it. If no update is out yet, OpenH1 will catch up soon.");
+			"This game is on a newer version of GOAT H1 or OpenCE.\n\n"
+			"Update GOAT H1 to join it. If no update is out yet, GOAT H1 will catch up soon.");
 	}
 	else
 	{
 		csprintf(message,
-			"This game is on an older version of OpenH1, OpenCE or Halo that this one can't join.\n\n"
-			"Join another game, or ask the host to update to the latest OpenH1.");
+			"This game is on an older version of GOAT H1, OpenCE or Halo that this one can't join.\n\n"
+			"Join another game, or ask the host to update to the latest GOAT H1.");
 	}
 	network_event("not joining a host of network version %u%s (this machine's is %u)", theirs,
 		distributed ? "" : " with the lockstep netcode", ours);

@@ -154,10 +154,19 @@ int voice_audio_microphone(int open)
 	if (!platform_sdl_initialize())
 		return FALSE;
 	{
-		/* (audio.input_device: Settings > Audio's, none on Android) */
-		const char *device = config_string("audio.input_device");
+		/* (audio.input_device: Settings > Audio's, none on Android; read
+		again as the settings change, config_changes: asked every frame) */
+		static unsigned long read_at = (unsigned long)-1;
+		static char device[PLATFORM_AUDIO_DEVICE_NAME_SIZE];
 
-		device = device && device[0] ? device : "default";
+		if (read_at != config_changes())
+		{
+			const char *setting;
+
+			read_at = config_changes();
+			setting = config_string("audio.input_device");
+			snprintf(device, sizeof(device), "%s", setting && setting[0] ? setting : "default");
+		}
 		pthread_mutex_lock(&voice_lock);
 		/* (another device chosen: the one open closed, and the new opened) */
 		if (microphone && strcmp(microphone_device, device))

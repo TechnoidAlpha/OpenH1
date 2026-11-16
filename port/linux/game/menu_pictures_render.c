@@ -10,7 +10,9 @@ menus draw it: ui.map's bitmap itself (the multiplayer map's picture), or a
 menu file's scaled copy of one of its frames (the campaign's cards:
 menu_tags.c's placements).
 
-"Preparing menu pictures": the first time the main menu shows, if any
+"Preparing menu pictures": a phase of the game's start of its own (main.c's
+main_startup_update), after the intro movie (display.movies), if any, has
+ended or been skipped, and before the main menu's menus and music: if any
 picture is to be rendered (menu_pictures_wanted: none rendered yet, a pose
 or map changed, a larger screen), the game renders them itself, in its own
 window and process, one map at a time, then shows the main menu. Each map
@@ -36,8 +38,13 @@ the camera put at the pose (debug_camera_set, camera_pose.c); and one
 frame drawn, each texture it draws with waited for (xbox_texture_cache.c),
 with only the pipelines it draws with made (render_enumerate.c's map's
 enumeration left out), at the window's size, and kept as it is presented
-instead of shown (d3d8_device.c; menu_pictures_render_kept cuts and scales
-it). Whatever the player's view settings, the frame is drawn with the
+instead of shown (d3d8_device.c; menu_pictures_render_kept reads it back,
+and the pictures' own thread cuts, scales and writes it while the pass goes
+on to the next map; the main menu waits for the last). The phase has the game to itself (menu_pictures_exclusive): the map
+loader, the copy of a map's file into the cache and the texture cache's
+spare memory it takes are the pass's alone, no movie starts (bink_playback.c),
+and the main menu's menus are not loaded yet, so a frame kept is the scene
+the pass drew and nothing else. Whatever the player's view settings, the frame is drawn with the
 pose's own field of view, no Panini projection, the reticle in the middle
 and every line drawn (port_config.c's config_picture_view). Sound is off
 meanwhile.
@@ -45,7 +52,7 @@ meanwhile.
 While the pictures are rendered the window shows the loading screen, one
 for the whole pass (loading_screen.h: the main menu's ring, the light
 crossing it once as the pictures are made, the monks' chant swelling),
-with the caption "Preparing menu pictures", "4 of 11"; the maps' own
+with the caption "Menu pictures", "4 of 11" (set in capitals); the maps' own
 loading screens are not shown, nor any frame of the game's (the frames
 kept are not presented). It fades out over the main menu loading. It
 counts only the pictures that can be made (menu_pictures_wanted: none
@@ -71,11 +78,13 @@ shown, not the loading screen.
 #include "cutscene/cinematics.h"
 #include "effects/player_effects.h"
 #include "game/game.h"
+#include "game/players.h"
 #include "hs/hs.h"
 #include "input/input.h"
 #include "interface/interface.h"
 #include "interface/ui_widget.h"
 #include "main/main.h"
+#include "objects/objects.h"
 #include "rasterizer/rasterizer.h"
 #include "render/render.h"
 #include "scenario/scenario.h"
@@ -84,6 +93,10 @@ shown, not the loading screen.
 #include "text/draw_string.h"
 
 #include "menu_pictures.h"
+#include "menu_models.h"
+#include "render_enumerate.h"
+#include "render_prepared.h"
+#include "world_sdf.h"
 #include "../src/loading_screen.h"
 
 /* sdl_platform.c's: a map load's loading screen given back */
@@ -130,6 +143,9 @@ enum prepare_state
 	/* the camera taken; the frame drawn and kept */
 	_prepare_pose,
 	_prepare_capture,
+	/* (a map whose picture is current: its preparation alone recorded, in
+	the frames after its load: render_prepared.c) */
+	_prepare_record,
 	/* the main menu asked for, and shown */
 	_prepare_menu,
 };
@@ -162,6 +178,9 @@ void main_menu_pictures_end(void);
 /* port_config.c's: the view as a pose was found with, whatever the
 player's settings */
 void config_picture_view(int on);
+/* world_sdf.c's: whether a stock map is missing its distance field
+(display.ambient_occlusion "world": the pass loads it for that alone) */
+int world_sdf_startup_map_wanted(char const *map);
 
 /* ---------- globals */
 
@@ -169,9 +188,17 @@ static struct
 {
 	enum prepare_state state;
 	/* the poses to render, in order, the one rendered, and how many are
-	done (rendered or failed) */
+	done (rendered or failed); those whose map's preparation alone is
+	recorded (their pictures current), after them */
 	long poses[MAXIMUM_MENU_PICTURES];
+	boolean record_only[MAXIMUM_MENU_PICTURES];
 	long count;
+	/* a pose whose map is loaded for its distance field alone, not its
+	picture (world_sdf.h) */
+	int fields_only[MAXIMUM_MENU_PICTURES];
+	/* a pose whose map is loaded (or, loaded already, kept) for the menus'
+	models' export alone (menu_models.h) */
+	int models_only[MAXIMUM_MENU_PICTURES];
 	long index;
 	long done, made;
 	long frames, picture_frames;
@@ -188,6 +215,17 @@ static struct
 	unsigned long long began, picture_began, phase_began;
 	double phases[NUMBER_OF_PHASES];
 	double totals[NUMBER_OF_PHASES];
+	/* how far the map's preparation being recorded has come (0 to 1;
+	render_enumerate.c), shown as the step it is of its picture */
+	real recorded;
+	/* any picture is made (else the pass prepares the maps alone); the pass
+	ran out of time */
+	boolean made_pictures, overdue;
+	/* (of the count, the pictures: the maps recorded alone after them) */
+	long pictures;
+	/* the poses whose maps were given to the unpacking workers, or refused
+	(prepare_unpack_ahead) */
+	boolean unpack_tried[MAXIMUM_MENU_PICTURES];
 } prepare;
 
 /* ---------- public code */
@@ -257,6 +295,9 @@ int menu_pictures_textures_wait(void)
 
 /* ---------- the pictures rendered */
 
+/* the last pass's seconds, to the main menu shown (0: none this run) */
+static double prepare_seconds;
+
 static unsigned long long prepare_now(
 	void)
 {
@@ -278,6 +319,24 @@ static void prepare_command(
 	char const *line)
 {
 	hs_compile_and_evaluate((char *)line);
+}
+
+/* the player's body (and what it holds) gone from the world: the player
+given no unit first, for the scripts' object_destroy refuses a player's
+(hs_object_destroy: a10's picture had the Master Chief standing in it,
+issue 881) */
+static void prepare_player_body_remove(
+	void)
+{
+	long unit_index;
+
+	if (!local_player_exists(0))
+		return;
+	unit_index = player_get(local_player_get_player_index(0))->unit_index;
+	if (unit_index == NONE)
+		return;
+	players_set_local_player_unit(0, NONE);
+	object_delete(unit_index);
 }
 
 /* the world's ticks run now (its time stood still, game_speed 0, else) */
@@ -357,9 +416,15 @@ static void prepare_next(
 	prepare.captured = FALSE;
 	if (prepare.index >= prepare.count)
 	{
+		/* (the kept frames' pictures made, on their own thread meanwhile) */
+		menu_pictures_render_finished();
+		/* (every stock map's preparation recorded, or tried) */
+		if (!prepare.overdue)
+			render_prepared_stock_done();
 		platform_log("menu pictures: %ld of %ld made%s in %.2f s (load %.2f, opening %.2f, scene %.2f, objects %.2f, "
-			"frame %.2f, kept %.2f, after %.2f)", prepare.made, prepare.count, prepare.made < prepare.count ?
-			", the rest failed (their originals kept)" : "",
+			"frame %.2f, kept %.2f, after %.2f)", prepare.made, prepare.pictures, prepare.made < prepare.pictures ?
+			", the rest failed (their originals kept)" : prepare.pictures < prepare.count ?
+			", and the other maps prepared" : "",
 			(double)(prepare_now() - prepare.began) / 1e9, prepare.totals[_phase_load], prepare.totals[_phase_opening],
 			prepare.totals[_phase_scene], prepare.totals[_phase_objects], prepare.totals[_phase_frame],
 			prepare.totals[_phase_keep], prepare.totals[_phase_after]);
@@ -380,7 +445,11 @@ static void prepare_next(
 	prepare.ticks = 0;
 	prepare.quiet_ticks = 0;
 	prepare.frames = prepare.picture_frames = 0;
-	menu_pictures_render_begin(pose);
+	if (!prepare.record_only[prepare.index] && !prepare.fields_only[prepare.index] &&
+		!prepare.models_only[prepare.index])
+	{
+		menu_pictures_render_begin(pose);
+	}
 	/* (its map's file copied into the cache first, a frame at a time:
 	_prepare_load) */
 	prepare.state = _prepare_load;
@@ -396,6 +465,9 @@ static int prepare_precache(
 {
 	real progress;
 
+	/* (one a worker is unpacking waited for: prepare_unpack_ahead) */
+	if (cache_files_map_unpacking(scenario))
+		return 0;
 	if (cache_files_precache_map_loaded(scenario))
 		return 1;
 	if (cache_files_precache_in_progress())
@@ -417,35 +489,149 @@ static int prepare_precache(
 	return 0;
 }
 
+/* the maps of the poses to come unpacked ahead on the workers
+(port/linux/src/map_unpack.c: about half the cores, at most 4), every one
+queued at once, which the workers take in the pass's order, so that each
+map is whole as the pass reaches it (the workers never wait for the pass to
+come near a map); each tried once (a map the budget has no room for, or the
+precache is copying, is the precache's at its turn) */
+static void prepare_unpack_ahead(
+	void)
+{
+	long next;
+
+	cache_files_unpack_update();
+	for (next = prepare.index; next < prepare.count; next++)
+	{
+		char const *scenario = menu_picture_poses[prepare.poses[next]].scenario;
+
+		if (prepare.unpack_tried[next])
+			continue;
+		prepare.unpack_tried[next] = TRUE;
+		if (!cache_files_unpack_begin(scenario))
+			platform_log("menu pictures: %s is not unpacked ahead (whole, or the cache has no room for it)",
+				scenario);
+	}
+}
+
 static void prepare_picture_failed(
 	char const *why)
 {
 	long pose = prepare.poses[prepare.index];
 
-	menu_pictures_render_failed(pose, why);
+	if (prepare.models_only[prepare.index])
+		menu_models_export_failed(why);
+	else if (prepare.fields_only[prepare.index])
+		platform_log("menu pictures: %s %s: its distance field is baked when it is played", menu_picture_poses[pose].map,
+			why);
+	else if (!prepare.record_only[prepare.index])
+		menu_pictures_render_failed(pose, why);
 	prepare_picture_log(pose, "failed");
 	prepare.index++;
 	prepare.done++;
 	prepare_next();
 }
 
-/* the pictures to render looked for, as the main menu first shows; and if
-there are any, the first begun */
+/* the pictures to render looked for, as the phase begins; and if there
+are any, the first begun */
 static void prepare_begin(
 	void)
 {
 	long index;
 
 	prepare.count = menu_pictures_wanted(prepare.poses, MAXIMUM_MENU_PICTURES);
+	if (prepare.count < 0)
+		prepare.count = 0;
+	csmemset(prepare.record_only, 0, sizeof(prepare.record_only));
+	csmemset(prepare.fields_only, 0, sizeof(prepare.fields_only));
+	csmemset(prepare.models_only, 0, sizeof(prepare.models_only));
+	csmemset(prepare.unpack_tried, 0, sizeof(prepare.unpack_tried));
+	prepare.made_pictures = prepare.count > 0;
+	prepare.pictures = prepare.count;
+	/* (and the maps whose preparation is not recorded in this form, each
+	once, their pictures current: render_prepared.c) */
+	if (!render_prepared_stock_recorded())
+	{
+		long wanted[MAXIMUM_MENU_PICTURES];
+		long count = menu_pictures_maps(wanted, MAXIMUM_MENU_PICTURES), index, other;
+
+		for (index = 0; index < count && prepare.count < MAXIMUM_MENU_PICTURES; index++)
+		{
+			for (other = 0; other < prepare.count &&
+				strcasecmp(menu_picture_poses[prepare.poses[other]].map, menu_picture_poses[wanted[index]].map); other++)
+				;
+			if (other < prepare.count)
+				continue;
+			/* (nor one whose record is shipped with the game: its first load
+			plays it, render_prepared.c) */
+			if (render_prepared_shipped_map(menu_picture_map_checksum(menu_picture_poses[wanted[index]].map),
+				menu_picture_poses[wanted[index]].scenario))
+				continue;
+			prepare.record_only[prepare.count] = TRUE;
+			prepare.poses[prepare.count++] = wanted[index];
+		}
+	}
+	/* (display.ambient_occlusion "world": each stock map missing its
+	distance field loaded too, once, where neither its picture nor its
+	preparation is made; those that are bake theirs as they load) */
+	if (world_sdf_startup_wanted())
+	{
+		long pose;
+
+		for (pose = 0; pose < (long)menu_picture_pose_count && prepare.count < MAXIMUM_MENU_PICTURES; pose++)
+		{
+			char const *map = menu_picture_poses[pose].map;
+			long other;
+
+			for (other = 0; other < prepare.count && strcasecmp(menu_picture_poses[prepare.poses[other]].map, map);
+				other++)
+				;
+			if (other == prepare.count && world_sdf_startup_map_wanted(map))
+			{
+				prepare.fields_only[prepare.count] = TRUE;
+				prepare.poses[prepare.count++] = pose;
+			}
+		}
+	}
+	/* (the menus' models exported, where they are to be made: from a map the
+	pass loads anyway, after its last turn there, else one more) */
+	{
+		long pose = prepare.count < MAXIMUM_MENU_PICTURES ? menu_models_export_pose() : -1;
+
+		if (pose >= 0)
+		{
+			long at = prepare.count, other;
+
+			for (other = 0; other < prepare.count; other++)
+			{
+				if (!strcasecmp(menu_picture_poses[prepare.poses[other]].map, menu_picture_poses[pose].map))
+					at = other + 1;
+			}
+			for (other = prepare.count; other > at; other--)
+			{
+				prepare.poses[other] = prepare.poses[other - 1];
+				prepare.record_only[other] = prepare.record_only[other - 1];
+				prepare.fields_only[other] = prepare.fields_only[other - 1];
+				prepare.models_only[other] = prepare.models_only[other - 1];
+			}
+			prepare.poses[at] = pose;
+			prepare.record_only[at] = FALSE;
+			prepare.fields_only[at] = FALSE;
+			prepare.models_only[at] = TRUE;
+			prepare.count++;
+		}
+	}
 	if (prepare.count <= 0)
 		return;
 	platform_log("menu pictures: preparing %ld at %ld times their size", prepare.count, menu_pictures_scale());
 	prepare.began = prepare_now();
 	prepare.index = prepare.done = prepare.made = 0;
+	prepare.overdue = FALSE;
 	csmemset(prepare.totals, 0, sizeof(prepare.totals));
 	for (index = 0; index < prepare.count; index++)
 	{
-		if (menu_picture_poses[prepare.poses[index]].colour_curve)
+		if (!prepare.record_only[index] && !prepare.fields_only[index] && !prepare.models_only[index] &&
+			menu_picture_poses[prepare.poses[index]].colour_curve)
 			prepare_keep_original(prepare.poses[index]);
 	}
 	config_picture_view(TRUE);
@@ -458,6 +644,20 @@ static void prepare_begin(
 	halo_loading_end();
 	halo_loading_screen_begin(TRUE);
 	prepare.drawn = 0;
+	prepare_next();
+}
+
+/* the menus' models exported from the map loaded (menu_models.c), and the
+pass on to its next */
+static void prepare_models_export(
+	void)
+{
+	long pose = prepare.poses[prepare.index];
+
+	prepare_phase(_phase_load);
+	prepare_picture_log(pose, menu_models_export() ? "gave the menus' models" : "failed to give the menus' models");
+	prepare.index++;
+	prepare.done++;
 	prepare_next();
 }
 
@@ -475,6 +675,8 @@ static void prepare_update(
 		prepare.index : 0]];
 	char line[MAXIMUM_RENDER_LINE];
 
+	if (prepare.state != _prepare_menu)
+		prepare_unpack_ahead();
 	/* (the picture's or the pass's time spent: the pass ended, the main menu
 	shown, the pictures not made keeping their originals; the one being made
 	counted as failed) */
@@ -484,7 +686,11 @@ static void prepare_update(
 		platform_log("menu pictures: out of time: the pass ends, the %ld not made keep their originals",
 			prepare.count - prepare.made);
 		prepare.capture_wanted = FALSE;
-		menu_pictures_render_failed(prepare.poses[prepare.index], "took too long");
+		prepare.overdue = TRUE;
+		if (prepare.models_only[prepare.index])
+			menu_models_export_failed("the pass took too long");
+		else if (!prepare.record_only[prepare.index] && !prepare.fields_only[prepare.index])
+			menu_pictures_render_failed(prepare.poses[prepare.index], "took too long");
 		prepare_picture_log(prepare.poses[prepare.index], "failed");
 		prepare.index = prepare.count;
 		prepare_next();
@@ -493,6 +699,14 @@ static void prepare_update(
 	switch (prepare.state)
 	{
 	case _prepare_load:
+		/* (the menus' models from the map loaded for the turn before: no
+		load again) */
+		if (prepare.models_only[prepare.index] && game_in_progress() && !main_menu_loaded &&
+			!strcasecmp(cache_file_loaded_map_name(), picture->map))
+		{
+			prepare_models_export();
+			break;
+		}
 		switch (prepare_precache(picture->scenario))
 		{
 		case 1:
@@ -526,7 +740,27 @@ static void prepare_update(
 				}
 			}
 			game_time_set_speed(0.0f);
-			prepare.state = _prepare_opening;
+			/* (display.ambient_occlusion "world": the BSP the map starts in
+			baked in the background, where nobody waits to play) */
+			world_sdf_startup_map_loaded();
+			if (prepare.models_only[prepare.index])
+			{
+				prepare_models_export();
+				break;
+			}
+			if (prepare.fields_only[prepare.index])
+			{
+				/* (no picture, so not one made) */
+				platform_log("menu pictures: %s loaded for its distance field", picture->map);
+				prepare.index++;
+				prepare.done++;
+				prepare_next();
+				break;
+			}
+			prepare.frames = 0;
+			/* (its preparation recorded first, in its first frame as a mission
+			starts: as the player's first frame of it draws, before any tick) */
+			prepare.state = _prepare_record;
 		}
 		else if (++prepare.frames > PREPARE_LOAD_FRAMES)
 		{
@@ -596,7 +830,9 @@ static void prepare_update(
 		break;
 	}
 	case _prepare_structure:
-		/* (the structure switched at this frame's start) */
+		/* (the structure switched at this frame's start: its field baked
+		too, if it is another BSP) */
+		world_sdf_startup_map_loaded();
 		prepare_command("debug_camera_set \"0 0 0 0 0 0 50\"");
 		prepare.line = 0;
 		prepare.state = _prepare_objects;
@@ -630,7 +866,7 @@ static void prepare_update(
 		/* (the player's body gone after the pose's own lines, which may
 		need it: cheat_teleport_to_camera, for where the camera's view is
 		drawn from) */
-		prepare_command("object_destroy (unit (list_get (players) 0))");
+		prepare_player_body_remove();
 		prepare_quiet();
 		snprintf(line, sizeof(line), "debug_camera_set \"%s\"", picture->camera);
 		prepare_command(line);
@@ -660,6 +896,24 @@ static void prepare_update(
 			prepare_next();
 		}
 		break;
+	case _prepare_record:
+		/* (its first frame drawn, walked and recorded: render_enumerate.c) */
+		if (render_enumerate_pending(FALSE) && ++prepare.frames <= PREPARE_LOAD_FRAMES)
+		{
+			prepare.line_drawn = TRUE;
+			break;
+		}
+		if (!prepare.record_only[prepare.index])
+		{
+			prepare.state = _prepare_opening;
+			break;
+		}
+		prepare_phase(_phase_frame);
+		prepare_picture_log(prepare.poses[prepare.index], "recorded");
+		prepare.index++;
+		prepare.done++;
+		prepare_next();
+		break;
 	case _prepare_menu:
 		if (main_menu_loaded && prepare_now() - prepare.faded >= PREPARE_SCREEN_FADE)
 		{
@@ -667,7 +921,8 @@ static void prepare_update(
 			config_picture_view(FALSE);
 			prepare.state = _prepare_off;
 			prepare.drawn = 0;
-			platform_log("menu pictures: the main menu after %.2f s", (double)(prepare_now() - prepare.began) / 1e9);
+			prepare_seconds = (double)(prepare_now() - prepare.began) / 1e9;
+			platform_log("menu pictures: the main menu after %.2f s", prepare_seconds);
 		}
 		break;
 	default:
@@ -690,37 +945,71 @@ static void prepare_screen(
 		0.85f, /* _prepare_objects */
 		0.9f, /* _prepare_pose */
 		0.95f, /* _prepare_capture */
+		0.3f, /* _prepare_record */
 		1.0f, /* _prepare_menu */
 	};
+	/* (a map recorded alone: its load, then its walk from here to its end) */
+	static real const recording_parts[] = { 0.0f, 0.3f };
 	char caption[96];
+	real part;
 
 	if (prepare.state == _prepare_menu || prepare.count <= 0)
 		return;
-	snprintf(caption, sizeof(caption), "Preparing menu pictures \xB7 %ld of %ld", prepare.done, prepare.count);
-	halo_loading_screen_progress((prepare.done + parts[prepare.state]) / (real)prepare.count, caption);
+	/* (a map's preparation recorded in the frame: the way to the next part,
+	or to the map's end) */
+	if (prepare.state == _prepare_record && prepare.record_only[prepare.index])
+		part = recording_parts[1] + (1.0f - recording_parts[1]) * prepare.recorded;
+	else if (prepare.state == _prepare_record)
+		part = parts[_prepare_opening] * prepare.recorded;
+	else if (prepare.index < prepare.count && prepare.record_only[prepare.index])
+		part = recording_parts[0];
+	else
+		part = parts[prepare.state] + (parts[prepare.state + 1] - parts[prepare.state]) * prepare.recorded;
+	snprintf(caption, sizeof(caption), "%s \xB7 %ld of %ld", prepare.made_pictures ? "Menu pictures" :
+		"Maps", prepare.done, prepare.count);
+	halo_loading_screen_progress((prepare.done + part) / (real)prepare.count, caption);
+}
+
+void menu_pictures_recording(
+	real fraction)
+{
+	if (prepare.state == _prepare_off || prepare.state == _prepare_menu)
+		return;
+	prepare.recorded = fraction;
+	prepare_screen();
+	if (fraction >= 1.0f)
+		prepare.recorded = 0.0f;
+}
+
+double menu_pictures_pass_seconds(
+	void)
+{
+	return prepare_seconds;
+}
+
+int menu_pictures_begin(
+	void)
+{
+	if (prepare.state != _prepare_off)
+		return FALSE;
+	prepare_begin();
+	return prepare.state != _prepare_off;
+}
+
+int menu_pictures_exclusive(
+	void)
+{
+	return menu_pictures_phase_exclusive(prepare.state != _prepare_off, prepare.state == _prepare_menu);
 }
 
 void menu_pictures_frame(
 	int main_menu_loaded)
 {
-	static int looked;
-
 	if (prepare.state == _prepare_off)
-	{
-		/* (as the main menu first shows) */
-		if (!main_menu_loaded || looked)
-			return;
-		looked = TRUE;
-		prepare_begin();
-		if (prepare.state == _prepare_off)
-			return;
-	}
-	else
-	{
-		prepare.picture_frames++;
-		prepare_input();
-		prepare_update(main_menu_loaded);
-	}
+		return;
+	prepare.picture_frames++;
+	prepare_input();
+	prepare_update(main_menu_loaded);
 	if (prepare.state == _prepare_off)
 		return;
 	/* this frame: the game's kept, or none (the loading screen's own on
@@ -741,6 +1030,7 @@ void menu_pictures_abandon(
 	if (prepare.state != _prepare_menu && prepare.index < prepare.count)
 		menu_pictures_render_given_up(prepare.poses[prepare.index], why);
 	platform_log("menu pictures: the pass stopped (%s)", why);
+	menu_pictures_render_finished();
 	main_queue_map_name(NULL);
 	prepare.capture_wanted = FALSE;
 	prepare.state = _prepare_off;

@@ -89,12 +89,18 @@ uint64_t xgpu_vulkan_loading(void *context, const struct loading_presentation_fr
 #endif
 	xgpu_vulkan_loading_stereo(0);
 	/* (the frame at the window's shape, which it then fills: at the
-	window's rows where the loading screen draws them sharp) */
+	window's rows where the loading screen draws them sharp; with a
+	caption, at the window's pixels, the caption drawn at them) */
 	{
-		uint32_t frame_width = xgpu_vulkan_loading_frame_width();
+		uint32_t frame_width = xgpu_vulkan_loading_frame_width(), frame_height = xgpu_vulkan_loading_frame_height();
+		uint32_t window_width, window_height;
 
-		image = xgpu_vulkan_loading_draw(frame, frame_width, xgpu_vulkan_loading_frame_height(),
-			XGPU_VULKAN_FORMAT_BGRA8);
+		if (xgpu_vulkan_loading_caption_size(&window_width, &window_height))
+		{
+			frame_width = window_width;
+			frame_height = window_height;
+		}
+		image = xgpu_vulkan_loading_draw(frame, frame_width, frame_height, XGPU_VULKAN_FORMAT_BGRA8);
 	}
 	if (image)
 	{

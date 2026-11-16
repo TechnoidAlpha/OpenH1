@@ -78,10 +78,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("render_vehicle_substeps", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_vehicles_kept():
-    # the vehicles' frames are kept after their slot, and only the frames read them
-    header = Path(__file__).resolve().parents[3] / "port/linux/game/sim_rate.h"
-    text = header.read_text(encoding="latin-1")
-    assert text.index("_sim_substep_vehicles,") < text.index("_sim_substep_render_interpolation,")

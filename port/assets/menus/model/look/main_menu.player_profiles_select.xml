@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.player_profiles_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/player_profiles_select/current_level" type="text" box="0 0 150 50">
+		<text font="ui\small_ui" color="#FF2896FF" string_list="main_menu/map_list"/>
+	</look>
+	<look name="main_menu/player_profiles_select/current_level_label" type="text" box="0 0 150 25">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/player_profiles_select/profile_description_labels"/>
+	</look>
+	<look name="main_menu/player_profiles_select/empty_profile_slot_text" type="text" box="0 0 150 200">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" string_list="main_menu/player_profiles_select/profile_description_labels" index="4"/>
+	</look>
+	<look name="main_menu/player_profiles_select/header_select_profile" box="35 11 640 70" picture="main_menu/player_profiles_select/header_select_profile"/>
+	<look name="main_menu/player_profiles_select/joystick_controls" type="text" box="0 0 150 25">
+		<text font="ui\small_ui" color="#FF2896FF" string_list="main_menu/player_profiles_select/joystick_set_defaults_descriptions"/>
+	</look>
+	<look name="main_menu/player_profiles_select/joystick_controls_label" type="text" box="0 0 150 25">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/player_profiles_select/profile_description_labels" index="2"/>
+	</look>
+	<look name="main_menu/player_profiles_select/player_profile_right_data" box="0 0 150 155">
+		<at widget="main_menu/player_profiles_select/empty_profile_slot_text" x="0" y="0"/>
+		<at widget="main_menu/player_profiles_select/current_level_label" x="0" y="89"/>
+		<at widget="main_menu/player_profiles_select/current_level" x="6" y="111"/>
+		<at widget="main_menu/player_profiles_select/skill_level_label" x="0" y="44"/>
+		<at widget="main_menu/player_profiles_select/skill_level" x="6" y="65"/>
+		<at widget="main_menu/player_profiles_select/joystick_controls_label" x="0" y="0"/>
+		<at widget="main_menu/player_profiles_select/joystick_controls" x="6" y="21"/>
+	</look>
+	<look name="main_menu/player_profiles_select/player_profile_right_item" box="406 75 568 401" picture="bitmaps/spinner_list_3_wide_item_background">
+		<at widget="main_menu/player_profiles_select/player_profile_right_name" x="415" y="83"/>
+		<at widget="main_menu/multiplayer_type_select/connected/4way_profile_select/qtr_screen_profile_color_pic" x="438" y="82"/>
+		<at widget="main_menu/player_profiles_select/player_profile_right_data" x="416" y="242"/>
+	</look>
+	<look name="main_menu/player_profiles_select/player_profile_right_name" type="text" box="0 0 147 22">
+		<text font="ui\large_ui" color="#FF2896FF" align="center"/>
+	</look>
+	<look name="main_menu/player_profiles_select/skill_level" type="text" box="0 0 150 25">
+		<text font="ui\small_ui" color="#FF2896FF" string_list="main_menu/player_profiles_select/difficulty_names"/>
+	</look>
+	<look name="main_menu/player_profiles_select/skill_level_label" type="text" box="0 0 150 25">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/player_profiles_select/profile_description_labels" index="1"/>
+	</look>
+</model>

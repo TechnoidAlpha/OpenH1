@@ -16,6 +16,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, ROOT, build, constant, enum_with, function, mutated, read, run, structure  # noqa: E402
+from harness import skip_without_32_bit_abi  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 CHECKOUT_VECTORS = ROOT.parent / "opence-master-server" / "testdata" / "vectors.json"
@@ -24,7 +25,7 @@ VECTORS_PATH = CHECKOUT_VECTORS if CHECKOUT_VECTORS.exists() else COPIED_VECTORS
 
 CASES = ["crypto", "listing-signatures", "proof", "server-id", "key-file", "instance", "publish-request",
          "me-request", "probe", "probe-refusals", "list-verify", "list-refusals", "list-body", "masters-file",
-         "masters-default", "masters-json", "listing-read", "listing-bounds", "publish-body", "publish-answers", "take-list", "list-large",
+         "masters-default", "masters-json", "project-server", "listing-read", "listing-bounds", "publish-body", "publish-answers", "take-list", "list-large",
          "probe-nonces", "probe-sources"]
 
 # the functions taken, in their files' order (each is defined before what calls it)
@@ -32,7 +33,7 @@ SOURCES = {
     "port/linux/src/p2p.c": ["p2p_hex"],
     "port/linux/src/p2p_lobby.c": ["sanitize", "get_long", "get_text", "listing_read", "listing_signed"],
     "port/linux/src/master_list.c": ["hex_digit", "master_url_allowed", "masters_file", "master_list_read_file", "master_keep",
-                                     "master_list_read_defaults", "master_list_read", "master_list_read_json", "master_list_verify", "take_list"],
+                                     "master_list_read_defaults", "master_list_project_server", "master_list_read", "master_list_read_json", "master_list_verify", "take_list"],
     "port/linux/src/server_master.c": ["hex_value", "seed_from_text", "key_file_path", "publisher_seed", "key_id_of",
                                        "server_master_publisher", "publisher_sign", "instance_name", "hex_text",
                                        "sign_request", "publish_body", "header_number", "logged_each_minute",
@@ -83,6 +84,9 @@ NEGATIVE_CONTROLS = {
     "masters-default-key": (('"ed25519:89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225aa"',
                              '"ed25519:89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225ab"'),
                             "master_list_read_defaults", "masters-default"),
+    "masters-own-default-key": (('"ed25519:120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399684"',
+                                 '"ed25519:120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399685"'),
+                                "master_list_read_defaults", "masters-default"),
     "masters-json-unbounded": (("for (index = 0; count < maximum && server_json_element",
                                 "for (index = 0; server_json_element"), "master_list_read_json", "masters-json"),
     "list-taken-unchecked": (("p2p_sha256(key, MASTER_LIST_KEY_SIZE, digest);\n\tp2p_hex(digest, 8, key_id);",
@@ -105,8 +109,18 @@ NEGATIVE_CONTROLS = {
                              "take_list", "take-list"),
     "take-list-publisher-long": (("publisher[P2P_LISTING_PUBLISHER_SIZE] = 0;", "publisher[sizeof(publisher) - 1] = 0;"),
                                  "take_list", "take-list"),
-    "take-list-other-master": (("dedicated,\n\t\t\tmaster_key_id);", 'dedicated,\n\t\t\t(const unsigned char *)"wrongmas");'),
+    "take-list-other-master": (("publisher_id), master_key_id);", 'publisher_id), (const unsigned char *)"wrongmas");'),
                                "take_list", "take-list"),
+    "project-any-master": (("|| master_list_read_defaults(urls, keys, 1) != 1 ||\n\t\tmemcmp(master_key, keys[0], "
+                             "MASTER_LIST_KEY_SIZE))", ")"), "master_list_project_server", "project-server"),
+    "project-any-publisher": (("if (!strcmp(project_publishers[index], publisher_id))", "if (1)"),
+                               "master_list_project_server", "project-server"),
+    "project-by-prefix": (("if (!strcmp(project_publishers[index], publisher_id))",
+                            "if (!strncmp(project_publishers[index], publisher_id, strlen(publisher_id)))"),
+                           "master_list_project_server", "project-server"),
+    "project-by-name": (('server_json_member(&document, entry, "publisher"),\n\t\t\t"id")',
+                          'server_json_member(&document, entry, "publisher"),\n\t\t\t"name")'), "take_list",
+                         "project-server"),
     "take-list-never-dedicated": (('server_json_member(&document, entry, "dedicated")',
                                    'server_json_member(&document, entry, "no such field")'), "take_list", "take-list"),
     "listing-unlabelled": (("memcpy(data, signature_label, sizeof(signature_label) - 1);\n\tmemcpy(data + sizeof",
@@ -269,6 +283,12 @@ def generated(fault=None, faulty_function=None):
         config += f"#define {name} {constant(publisher, name)}\n"
     config += structure(read("port/linux/src/update.h"), "update_response") + "\n"
     config += structure(publisher, "master") + "\n" + state.group(0) + "\n"
+    # (the project's publishers, the test's one added: master_list_project_server)
+    table = re.search(r"^static const char \*const project_publishers\[\] =\n\{\n(.*?)\tNULL,\n\};", lists,
+                      re.M | re.S)
+    if not table:
+        raise LookupError("master_list.c's project_publishers (ending with NULL) not found")
+    config += table.group(0).replace("\tNULL,", '\t"p_projecttest",\n\tNULL,') + "\n"
     config += enum_with(lobby, "LISTING_FORMAT = 1") + "\n" + label.group(0) + "\n" + structure(lobby, "listing") + "\n"
     text = ""
     for path, names in SOURCES.items():
@@ -290,6 +310,13 @@ def test_vectors_copy():
         f"the master's vectors changed: copy {CHECKOUT_VECTORS} to {COPIED_VECTORS}"
 
 
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT = {
+    "listing-signs-less": ("the fault leaves the signed data's last byte as the stack had it, which differs from the "
+                           "signed byte in the game's ABI but not in a 64-bit one"),
+}
+
+
 @pytest.mark.parametrize("case", [pytest.param(case, marks=pytest.mark.xfail(reason=DISAGREEMENTS[case], strict=True))
                                   if case in DISAGREEMENTS else case for case in CASES])
 def test_case(case):
@@ -300,5 +327,6 @@ def test_case(case):
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, faulty_function, case = NEGATIVE_CONTROLS[control]
+    skip_without_32_bit_abi(ABI_DEPENDENT, control, case)
     status, output = run(build("master_protocol", generated(fault, faulty_function)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"

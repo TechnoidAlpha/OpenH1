@@ -27,6 +27,18 @@ double config_real(const char *name)
 		!strcmp(name, "display.panini_vertical") ? setting_vertical : 0.0;
 }
 
+/* a local player's own (their profile's): player 2's strength set apart
+(players_apart), config.toml's for the others */
+static int players_apart;
+static double player2_strength;
+
+double config_player_real(int local_player, const char *name)
+{
+	if (players_apart && local_player == 1 && !strcmp(name, "display.panini"))
+		return player2_strength;
+	return config_real(name);
+}
+
 unsigned long config_changes(void)
 {
 	return setting_changes;
@@ -46,6 +58,9 @@ void halo_screen_panini(short x0, short y0, short x1, short y1, const float proj
 	pass_bounds[3] = y1;
 	memcpy(pass_projection, projection, sizeof(pass_projection));
 }
+
+/* (the map's preparation's walk: not walking) */
+static boolean render_enumerating;
 
 #include "projection.inc"
 #include "under_test.inc"
@@ -387,6 +402,25 @@ static void center(void)
 		screen.y);
 	panini_window_end();
 	CHECK(panini_center_scale() == 1.0f, "after the window");
+	CHECK(panini_center_scale_widened(2.0f) == 1.0f, "widened, after the window");
+	/* (#594) a zoomed view's window widened back to the unzoomed view has the
+	unzoomed view's magnification, which the reticle keeps through the zoom;
+	at 1 the window's own */
+	{
+		float zx, zy;
+
+		view_tangents(120.0, 16.0 / 9.0, &tx, &ty);
+		zx = tx * 0.25f;
+		zy = ty * 0.25f;
+		window_set(zx, zy, 0.0f, 0.0f, 0, 0, 852, 480);
+		panini_window_begin(0, 0, &camera, &frustum);
+		CHECK(panini_center_scale() < 1.1f, "zoomed: %g", panini_center_scale());
+		CHECK(panini_center_scale_widened(1.0f) == panini_center_scale(), "widened by 1: %g",
+			panini_center_scale_widened(1.0f));
+		CHECK(near(panini_center_scale_widened(4.0f), 1.5f, 1.0e-3f), "widened to 120 degrees: %g",
+			panini_center_scale_widened(4.0f));
+		panini_window_end();
+	}
 }
 
 /* off (the default), no strength, a mirror, a target not the screen, another
@@ -426,6 +460,35 @@ static void off(void)
 	frustum.projection_matrix[0][0] *= 2.0f;
 	CHECK(!panini_view_to_screen(&camera, &frustum, &point, &screen, &visible), "another projection, answered");
 	panini_window_end();
+}
+
+/* split screen's players each their own: player 2's off while player 1's
+is on draws only player 1's window through it, and player 2's strength
+(not player 1's) widens player 2's fields of view */
+static void players(void)
+{
+	float tx, ty;
+
+	view_tangents(120.0, 16.0 / 9.0, &tx, &ty);
+	window_set(tx, ty, 0.0f, 0.0f, 0, 0, 852, 480);
+	settings(TRUE, 1.0, 0.0);
+	players_apart = 1;
+	player2_strength = 0.0;
+	setting_changes++;
+	passes = 0;
+	panini_window_begin(0, 0, &camera, &frustum);
+	panini_window_draw();
+	CHECK(passes == 1 && panini_center_scale() > 1.0f, "player 1's on: %d", passes);
+	panini_window_begin(1, 0, &camera, &frustum);
+	panini_window_draw();
+	CHECK(passes == 1 && panini_center_scale() == 1.0f, "player 2's off, drawn: %d", passes);
+	CHECK(panini_strength(0) == 1.0f && panini_strength(1) == 0.0f, "the strengths: %g, %g", panini_strength(0),
+		panini_strength(1));
+	player2_strength = 0.5;
+	setting_changes++;
+	CHECK(panini_strength(1) == 0.5f, "player 2's changed: %g", panini_strength(1));
+	panini_window_end();
+	players_apart = 0;
 }
 
 /* a waypoint's arrow off the screen points where the projection draws it:
@@ -480,6 +543,8 @@ int main(int argc, char **argv)
 		off();
 	else if (!strcmp(name, "direction"))
 		direction();
+	else if (!strcmp(name, "players"))
+		players();
 	else
 	{
 		fprintf(stderr, "unknown case %s\n", name);

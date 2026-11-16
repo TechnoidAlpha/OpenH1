@@ -13,7 +13,8 @@ those in a menus folder beside config.toml, for the game (halo_menus.h).
 struct menu_file_embedded
 {
 	const char *path;
-	const unsigned int *data;
+	/* (its bytes: an offset in the assets' file, embedded_assets.h) */
+	unsigned int data_offset;
 	unsigned int size;
 };
 

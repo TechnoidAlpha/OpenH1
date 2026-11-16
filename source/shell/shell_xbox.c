@@ -108,6 +108,9 @@ int main(
 	server's checks of its game data and settings, before anything is
 	allocated or bound (port/linux/src/server_mode.c) */
 	server_mode_start();
+	/* port: the caches cleared, where Settings' CLEAR CACHES asked for it,
+	before anything opens them (port/linux/src/game_caches.c) */
+	game_caches_start();
 	fuck_code_in_the_eye();
 	rasterizer_preinitialize__fill_you_up_with_the_devils_cock();
 	physical_memory_allocate();

@@ -162,12 +162,13 @@ static struct
 	char region[64];
 	int version;
 	int dedicated;
+	int project;
 	unsigned char master_key_id[8];
 } entries_taken[4];
 static int entries_count;
 
 static int p2p_lobby_take_master_listing(const unsigned char *payload, int size, const char *publisher,
-	const char *region, int network_version_shown, int dedicated, const unsigned char *master_key_id)
+	const char *region, int network_version_shown, int dedicated, int project, const unsigned char *master_key_id)
 {
 	(void)payload;
 	if (entries_count < 4)
@@ -178,6 +179,7 @@ static int p2p_lobby_take_master_listing(const unsigned char *payload, int size,
 		snprintf(entries_taken[entries_count].region, sizeof(entries_taken[entries_count].region), "%s", region);
 		entries_taken[entries_count].version = network_version_shown;
 		entries_taken[entries_count].dedicated = dedicated;
+		entries_taken[entries_count].project = project;
 	}
 	entries_count++;
 	return 1;
@@ -450,6 +452,19 @@ static const char *body_member(const char *body, const char *name)
 	server_json_document_free(&document);
 	return value;
 }
+
+/* a master's key that is not the project's (OpenCE's), and the project's
+own (master.goath1.com's: master_list_read_defaults' first) */
+static const unsigned char other_master_key[32] =
+{
+	0x89, 0xf4, 0xed, 0xa7, 0x12, 0x29, 0xf1, 0x1f, 0x35, 0x38, 0x67, 0x9f, 0x49, 0xef, 0x7f, 0xb0,
+	0xc2, 0xb4, 0x07, 0xb3, 0x80, 0x09, 0x3f, 0x7f, 0x4f, 0xe0, 0x21, 0x05, 0xb9, 0x22, 0x25, 0xaa,
+};
+static const unsigned char project_master_key[32] =
+{
+	0x12, 0x0f, 0x76, 0x35, 0xfe, 0x75, 0x4e, 0x32, 0x7c, 0xae, 0x95, 0x48, 0x0d, 0x84, 0x7a, 0xa5,
+	0x7b, 0x8b, 0x23, 0xa9, 0xbb, 0x36, 0x2b, 0x3d, 0x60, 0x80, 0xbf, 0xdd, 0x21, 0x39, 0x96, 0x84,
+};
 
 int main(int argc, char **argv)
 {
@@ -885,26 +900,30 @@ int main(int argc, char **argv)
 			"masters read from no file");
 		return 0;
 	}
-	/* the official master, built in: asked when masters.txt names none */
+	/* the official masters, built in: asked when masters.txt names none */
 	CASE("masters-default")
 	{
 		char urls[MASTER_LIST_MAXIMUM_MASTERS][MASTER_LIST_URL_SIZE];
 		unsigned char keys[MASTER_LIST_MAXIMUM_MASTERS][MASTER_LIST_KEY_SIZE];
-		unsigned char official[32];
+		unsigned char official[32], own[32];
 		static const char *const none[] = { NULL, "", "# comments alone\n\n#https://master1.example.org\n",
 			"https://master1.example.org ed25519:abc\n" };
 		static char named[256];
 		int index;
 
 		key_of("89f4eda71229f11f3538679f49ef7fb0c2b407b380093f7f4fe02105b92225aa", official);
+		key_of("120f7635fe754e327cae95480d847aa57b8b23a9bb362b3d6080bfdd21399684", own);
 		for (index = 0; index < (int)(sizeof(none) / sizeof(none[0])); index++)
 		{
 			file_masters = none[index];
 			memset(urls, 0, sizeof(urls));
-			CHECK(master_list_read("masters.txt", urls, keys, MASTER_LIST_MAXIMUM_MASTERS) == 1 &&
-				!strcmp(urls[0], "https://master.opencommunityedition.com"),
-				"masters.txt %d naming none: %s", index, urls[0]);
-			CHECK(!memcmp(keys[0], official, 32), "the official master's key is %s", hex_of(keys[0], 32));
+			CHECK(master_list_read("masters.txt", urls, keys, MASTER_LIST_MAXIMUM_MASTERS) == 4 &&
+				!strcmp(urls[0], "https://master.goath1.com") &&
+				!strcmp(urls[1], "https://master.opencommunityedition.com") &&
+				!strcmp(urls[2], "https://ocemaster.halobase.net") && !strcmp(urls[3], "https://masterce.unicade.io"),
+				"masters.txt %d naming none: %s %s %s %s", index, urls[0], urls[1], urls[2], urls[3]);
+			CHECK(!memcmp(keys[0], own, 32), "the project's master's key is %s", hex_of(keys[0], 32));
+			CHECK(!memcmp(keys[1], official, 32), "OpenCE's master's key is %s", hex_of(keys[1], 32));
 		}
 		snprintf(named, sizeof(named), "https://master1.example.org %s\n", VECTOR_MASTER_PUBLIC_KEY_TEXT);
 		file_masters = named;
@@ -1193,6 +1212,40 @@ int main(int argc, char **argv)
 	/* a list's entries: one that is not an entry is skipped, not the list;
 	the publisher's name and region kept to what the ticker shows; the
 	entry's word on a dedicated server passed on */
+	/* a server of the project's own: on the project's own master's word alone (its
+	key), by a publisher id of the project's (the test's, added to the
+	table: test_master_protocol.py) */
+	CASE("project-server")
+	{
+		char base64[400], body[2048];
+		unsigned char bytes[400];
+		int size;
+
+		CHECK(master_list_project_server(project_master_key, "p_projecttest"), "the project's publisher on its master");
+		CHECK(!master_list_project_server(other_master_key, "p_projecttest"), "another master's word taken");
+		CHECK(!master_list_project_server(project_master_key, "p_someoneelse"), "any publisher taken");
+		CHECK(!master_list_project_server(project_master_key, "p_projecttes") &&
+			!master_list_project_server(project_master_key, "p_projecttestx"), "a part of an id taken");
+		CHECK(!master_list_project_server(project_master_key, "") && !master_list_project_server(project_master_key, NULL) &&
+			!master_list_project_server(NULL, "p_projecttest"), "nothing taken as the project's");
+		size = hex_decode(vector_listings[0].bytes, bytes, sizeof(bytes));
+		server_base64_encode(bytes, size, base64);
+		snprintf(body, sizeof(body), "{\"protocol\":1,\"servers\":["
+			"{\"id\":\"a\",\"listing\":\"%s\",\"publisher\":{\"id\":\"p_projecttest\",\"name\":\"GOAT H1\"}},"
+			"{\"id\":\"b\",\"listing\":\"%s\",\"publisher\":{\"id\":\"p_someoneelse\",\"name\":\"GOAT H1\"}},"
+			"{\"id\":\"c\",\"listing\":\"%s\",\"publisher\":{\"name\":\"p_projecttest\"}}]}",
+			base64, base64, base64);
+		entries_count = 0;
+		CHECK(take_list(body, (unsigned long)strlen(body), project_master_key, (const unsigned char *)"listedby") == 3,
+			"%d entries taken of 3", entries_count);
+		CHECK(entries_taken[0].project && !entries_taken[1].project && !entries_taken[2].project,
+			"the project's as taken: %d %d %d (its id; another's under its name; the id as a name)",
+			entries_taken[0].project, entries_taken[1].project, entries_taken[2].project);
+		entries_count = 0;
+		take_list(body, (unsigned long)strlen(body), other_master_key, (const unsigned char *)"listedby");
+		CHECK(entries_count == 3 && !entries_taken[0].project, "another master's list made a server the project's");
+		return 0;
+	}
 	CASE("take-list")
 	{
 		char base64[400], body[8192];
@@ -1215,7 +1268,7 @@ int main(int argc, char **argv)
 			"{\"id\":\"f\",\"listing\":\"%s\",\"region\":\"us-east-1\",\"dedicated\":\"yes\"}]}",
 			base64, large_base64, base64);
 		entries_count = 0;
-		CHECK(take_list(body, (unsigned long)strlen(body), (const unsigned char *)"listedby") == 2 && entries_count == 2,
+		CHECK(take_list(body, (unsigned long)strlen(body), other_master_key, (const unsigned char *)"listedby") == 2 && entries_count == 2,
 			"%d entries taken of the 2 good ones", entries_count);
 		CHECK(entries_taken[0].size == size && entries_taken[0].dedicated == 1 && entries_taken[0].version == 38,
 			"the first entry was taken as %d bytes, dedicated %d, version %d", entries_taken[0].size,
@@ -1229,7 +1282,7 @@ int main(int argc, char **argv)
 			!entries_taken[1].publisher[0], "the last entry was taken as dedicated %d, region %s",
 			entries_taken[1].dedicated, entries_taken[1].region);
 		entries_count = 0;
-		CHECK(!take_list("{\"servers\":7}", 13, (const unsigned char *)"listedby") && !take_list("not json", 8, (const unsigned char *)"listedby") && !entries_count,
+		CHECK(!take_list("{\"servers\":7}", 13, other_master_key, (const unsigned char *)"listedby") && !take_list("not json", 8, other_master_key, (const unsigned char *)"listedby") && !entries_count,
 			"entries taken from what is no list");
 		return 0;
 	}
@@ -1259,7 +1312,7 @@ int main(int argc, char **argv)
 		CHECK(verify_list(body, (unsigned long)length, master_signs(body), VECTOR_LIST_KEY_HEADER,
 			VECTOR_MASTER_PUBLIC_KEY, 1760900000), "a list of %d entries was refused", MAXIMUM_ENTRIES + 3);
 		entries_count = 0;
-		CHECK(take_list(body, (unsigned long)length, (const unsigned char *)"listedby") == MAXIMUM_ENTRIES && entries_count == MAXIMUM_ENTRIES,
+		CHECK(take_list(body, (unsigned long)length, other_master_key, (const unsigned char *)"listedby") == MAXIMUM_ENTRIES && entries_count == MAXIMUM_ENTRIES,
 			"%d entries were taken of %d", entries_count, MAXIMUM_ENTRIES + 3);
 		return 0;
 	}

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.oddball_edit.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_spinner" type="spinner" box="3 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_ball_spawn_count"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_spinner" type="spinner" box="2 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_ball_type"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_help" type="text" box="68 341 550 420">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/cap_oddball"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_menu" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_with_ball" x="54" y="73"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_without_ball" x="54" y="103"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_speed_with_ball" x="54" y="133"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_type" x="54" y="163"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_random_start" x="54" y="193"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_spawn_count" x="54" y="223"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_score_to_win" x="54" y="253"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_team_play" x="54" y="283"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_time_limit" x="54" y="313"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_spawn_count" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_spawn_count_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_ball_type" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/ball_type_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_random_start" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_score_to_win" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_speed_with_ball" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_team_play" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_time_limit" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_with_ball" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/op_trait_without_ball" box="0 0 512 28" picture="bitmaps/option_bkds">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_spinner" x="288" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/random_start_spinner" type="spinner" box="2 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_random_start"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/score_to_win_spinner" type="spinner" box="2 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_score_to_win"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/speed_with_ball_spinner" type="spinner" box="3 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_speed_with_ball"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/team_play_spinner" type="spinner" box="2 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_team_play"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_label" type="text" box="0 0 320 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/time_limit_spinner" type="spinner" box="2 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/var_time_limit"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_with_ball_spinner" type="spinner" box="4 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_trait_with_ball"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_label" type="text" box="0 0 300 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 4" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/trait_without_ball_spinner" type="spinner" box="4 2 204 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-6 7 0 19" footer="bitmaps/arrow_sm_right" footer_box="204 7 210 19">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/var_trait_without_ball"/>
+	</look>
+</model>

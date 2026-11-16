@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.profile_settings.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/profile_settings_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings/header_settings" x="0" y="0"/>
+		<at widget="main_menu/settings/profile" x="0" y="0"/>
+		<at widget="main_menu/settings/tabs/tab_prompt_previous" x="24" y="46"/>
+		<at widget="main_menu/settings/tabs/tab_prompt_next" x="586" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_0" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_name" x="28" y="100"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_color" x="28" y="125"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_create_profile" x="28" y="150"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_profiles" x="28" y="175"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5" x="28" y="206"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_map_cache_megabytes" x="28" y="228"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_clear_caches" x="28" y="253"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_8" x="28" y="284"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_report" x="28" y="306"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_10" x="28" y="337"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_about" x="28" y="359"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_bar" x="0" y="448"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tabs" x="0" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tabs_search" x="0" y="46"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_defaults" x="24" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_cancel" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_video_settings" type="text" box="0 0 59 22" wide="-106 0" past="-143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_audio_settings" type="text" box="0 0 61 22" wide="-71 0" past="-95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_mouse_settings" type="text" box="0 0 92 22" wide="-35 0" past="-48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_network_settings" type="text" box="0 0 67 22" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_interface_settings" type="text" box="0 0 95 22" wide="35 0" past="48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_profile_settings" type="text" box="0 0 83 22" wide="71 0" past="95 0" place="keep_ends" picture="main_menu/settings/tab_current">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_mods_settings" type="text" box="0 0 57 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tabs" role="tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_video_settings" x="56" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_audio_settings" x="117" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_mouse_settings" x="180" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_network_settings" x="274" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_interface_settings" x="343" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_profile_settings" x="440" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tab_mods_settings" x="525" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_video_settings" type="text" box="0 0 56 22" wide="4 0" past="-143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_audio_settings" type="text" box="0 0 58 22" wide="21 0" past="-95 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_mouse_settings" type="text" box="0 0 88 22" wide="38 0" past="-48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_network_settings" type="text" box="0 0 65 22" wide="55 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_interface_settings" type="text" box="0 0 91 22" wide="72 0" past="48 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_profile_settings" type="text" box="0 0 81 22" wide="89 0" past="95 0" place="keep_ends" picture="main_menu/settings/tab_current">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_mods_settings" type="text" box="0 0 53 22" wide="106 0" past="143 0" place="keep_ends" picture="main_menu/settings/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" string_list="main_menu/settings/tab_names" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/tabs_search" role="search tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/settings/search_field" x="56" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_video_settings" x="78" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_audio_settings" x="136" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_mouse_settings" x="196" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_network_settings" x="286" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_interface_settings" x="353" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_profile_settings" x="446" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/search_tab_mods_settings" x="529" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_defaults" type="text" box="0 0 128 24" wide="-106 0" past="-143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/button_cancel" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_0" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_0_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_0_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_name" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/name_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/name_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="1" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_color" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/color_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/color_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="2" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_create_profile" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/create_profile_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/create_profile_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="3" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_profiles" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/profiles_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/profiles_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="4" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_5_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="5" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_map_cache_megabytes" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_spinner" x="188" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_seg0" x="188" y="2"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_seg1" x="355" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="6" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_seg0" type="text" box="0 0 163 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="INSTANT LOADING" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_seg1" type="text" box="0 0 168 20" wide="40 0" past="60 0" place="keep_ends" picture="main_menu/settings/segment_tall">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" text="DISK SPACE SAVER" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/map_cache_megabytes_spinner" type="spinner" box="0 1 140 23" wide="40 120" past="60 60" header="bitmaps/arrow_sm_left" header_box="-6 6 0 18" footer="bitmaps/arrow_sm_right" footer_box="140 6 146 18">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 0" items="INSTANT LOADING|DISK SPACE SAVER" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_clear_caches" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/clear_caches_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/clear_caches_value" x="188" y="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/clear_caches_label" type="text" box="0 0 184 24" wide="0 40" past="0 60">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="7" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/clear_caches_value" type="text" box="0 0 140 16" wide="40 120" past="60 60">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 1" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_8" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_8_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_8_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="8" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_report" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/report_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/report_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="9" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_10" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_10_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/section_10_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="10" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/op_about" box="0 0 344 24" wide="-106 244" past="-143 193" picture="main_menu/settings/row_tall">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/about_label" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/about_label" type="text" box="0 0 332 24" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF2896FF" at="10 3" string_list="main_menu/settings_select/player_setup/player_profile_edit/profile_settings/labels" index="11" scale="1 1.2"/>
+	</look>
+</model>

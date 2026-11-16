@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.update.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/update/update_screen" box="180 160 460 320" picture="bitmaps/alert_bkd">
+		<at widget="main_menu/update/update_message" x="0" y="0"/>
+		<at widget="main_menu/update/button_bar" x="182" y="293"/>
+		<at widget="main_menu/update/header_update" x="182" y="164"/>
+	</look>
+	<look name="main_menu/update/update_message" type="text" box="194 194 427 288">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" flags="wrap" string_list="main_menu/update/update_prompt"/>
+	</look>
+	<look name="main_menu/update/header_update" type="text" box="0 0 200 20">
+		<text font="ui\large_ui" color="#FF2896FF" text="NEW VERSION"/>
+	</look>
+	<look name="main_menu/update/button_bar" type="column_list" box="0 0 256 20">
+		<at widget="main_menu/update/button_update" x="0" y="0"/>
+		<at widget="main_menu/update/button_later" x="128" y="0"/>
+	</look>
+	<look name="main_menu/update/button_update" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="UPDATE"/>
+	</look>
+	<look name="main_menu/update/button_later" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="NOT NOW"/>
+	</look>
+</model>

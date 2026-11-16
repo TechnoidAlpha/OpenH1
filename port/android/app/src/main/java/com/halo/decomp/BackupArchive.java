@@ -619,7 +619,7 @@ final class BackupArchive {
                 current = label;
                 if (marker == null) {
                     if (!MARKER_NAME.equals(name))
-                        throw new IOException("This file is not an OpenH1 backup: its first entry is "
+                        throw new IOException("This file is not a GOAT H1 backup: its first entry is "
                             + label + ", not " + MARKER_NAME + ".");
                     marker = parseMarker(drain(zip, name, MARKER_CAP_BYTES, null, buffer, counter)
                         .toByteArray());
@@ -646,7 +646,7 @@ final class BackupArchive {
                 boolean profileEntry = match.matches();
                 if (!profileEntry && !CONFIG_NAME.equals(name) && !FAVORITES_NAME.equals(name)
                         && !LAYOUT_NAME.equals(name))
-                    throw new IOException("The entry " + label + " is not part of an OpenH1 backup.");
+                    throw new IOException("The entry " + label + " is not part of a GOAT H1 backup.");
                 if (!seen.add(name))
                     throw new IOException("The entry " + label + " appears twice in the backup.");
                 if (profileEntry) {
@@ -693,7 +693,7 @@ final class BackupArchive {
             throw new IOException("The backup is damaged or ends early, near " + current + ".", e);
         }
         if (marker == null)
-            throw new IOException("This file is not an OpenH1 backup: it has no " + MARKER_NAME + " entry.");
+            throw new IOException("This file is not a GOAT H1 backup: it has no " + MARKER_NAME + " entry.");
         if (profiles.size() != expectedProfiles)
             throw new IOException("The backup ends early: it should hold " + expectedProfiles
                 + " profiles but holds " + profiles.size() + ".");
@@ -738,7 +738,7 @@ final class BackupArchive {
             throw new IOException("The backup's marker is damaged.", e);
         }
         if (!FORMAT.equals(marker.getProperty("format")))
-            throw new IOException("This file is not an OpenH1 backup: the marker does not say " + FORMAT + ".");
+            throw new IOException("This file is not a GOAT H1 backup: the marker does not say " + FORMAT + ".");
         int version;
         try {
             version = Integer.parseInt(marker.getProperty("version", "").trim());

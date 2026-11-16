@@ -13,6 +13,7 @@ import stat
 import struct
 import subprocess
 import sys
+import time
 import zipfile
 import zlib
 from pathlib import Path
@@ -32,7 +33,7 @@ def build(tmp_path):
     """stand-ins for the build's executable, SDL and SDL's licence"""
     folder = tmp_path / "build"
     folder.mkdir()
-    for name in ("halo", "libSDL3.so.0", "SDL3-LICENSE.txt"):
+    for name in ("halo", "libSDL3.so.0", "SDL3-LICENSE.txt", "openh1.assets"):
         (folder / name).write_bytes(name.encode())
     return folder
 
@@ -50,8 +51,11 @@ def test_tree(build, tmp_path):
     linux_package.stage_tree(tree, build / "halo", build / "libSDL3.so.0", notices(build))
     names = files(tree)
     assert (tree / "bin/openh1").read_bytes() == b"halo"
+    assert (tree / "bin/goath1").read_bytes() == linux_package.COMMAND.read_bytes()
     assert "lib/openh1/libSDL3.so.0" in names
     assert "share/openh1/brokers.txt" in names
+    assert "share/openh1/prepared.records" in names
+    assert "share/openh1/openh1.assets" in names
     assert "share/applications/openh1.desktop" in names
     assert "share/icons/hicolor/48x48/apps/openh1.png" in names
     assert "share/licenses/openh1/LICENSE" in names
@@ -82,7 +86,7 @@ def test_package_tree_has_no_installer(build, tmp_path):
 
 
 def test_zip_modes(build, tmp_path):
-    executables = {"install.sh", "bin/openh1", "lib/openh1/libSDL3.so.0"}
+    executables = {"install.sh", "bin/openh1", "bin/goath1", "lib/openh1/libSDL3.so.0"}
     folder = tmp_path / "tree"
     # (as GitHub's artifacts give them: no file executable)
     linux_package.stage_tree(folder, build / "halo", build / "libSDL3.so.0", notices(build))
@@ -260,11 +264,11 @@ def test_frame_install_from_package(tmp_path):
         assert (installed / name).read_bytes() == (package / name).read_bytes(), name
         expected = 0o755 if name in ("halo", "libSDL3.so.0", "halo-vr.sh", "install.sh") else 0o644
         assert stat.S_IMODE((installed / name).stat().st_mode) == expected, name
-    assert "Installing OpenH1 VR to" in output and "(commit " in output
+    assert "Installing GOAT H1 VR to" in output and "(commit " in output
     assert "No maps here" in output and "Add a Non-Steam Game" in output and "Start SteamVR" in output
     entry = dict(line.split("=", 1) for line in
                  (home / ".local/share/applications/openh1-vr.desktop").read_text().splitlines() if "=" in line)
-    assert entry["Name"] == "OpenH1 VR" and entry["Exec"] == f'"{installed}/halo-vr.sh"'
+    assert entry["Name"] == "GOAT H1 VR" and entry["Exec"] == f'"{installed}/halo-vr.sh"'
     assert entry["Path"] == str(installed) and entry["Icon"] == f"{installed}/openh1.png"
     assert not (home / "Applications").exists()
 
@@ -280,9 +284,9 @@ def test_frame_install_asks_for_maps_and_adds_to_steam(tmp_path):
     output = run_install(package, home, KDIALOG_FOLDER=disc)
     installed = home / "apps/halo-vr"
     assert (installed / "maps/a10.map").read_text() == "map"
-    assert calls(home) == [f"kdialog --title OpenH1: your game's maps --getexistingdirectory {home}",
+    assert calls(home) == [f"kdialog --title GOAT H1: your game's maps --getexistingdirectory {home}",
                            f"steamos-add-to-steam {home}/.local/share/applications/openh1-vr.desktop"]
-    assert "Added to Steam as OpenH1 VR: start SteamVR, then it, from the library." in output
+    assert "Added to Steam as GOAT H1 VR: start SteamVR, then it, from the library." in output
     appid = steam_id(f"{installed}/halo-vr.sh")
     grid = home / ".local/share/Steam/userdata/12345/config/grid"
     assert (grid / f"{appid}p.png").read_bytes() == (package / "steam-capsule.png").read_bytes()
@@ -469,7 +473,7 @@ HOME="{frame}" exec bash -c "$1"
     installed = frame / "apps/halo-vr"
     for name in files(package):
         assert (installed / name).read_bytes() == (package / name).read_bytes(), name
-    assert "Installing OpenH1 VR to" in result.stdout and "Add a Non-Steam Game" in result.stdout
+    assert "Installing GOAT H1 VR to" in result.stdout and "Add a Non-Steam Game" in result.stdout
     ssh = (tmp_path / "ssh.txt").read_text()
     remote = re.search(r"rm -rf '(/tmp/openh1-install\.[^']+)'", ssh).group(1)
     assert f"bash '{remote}/install.sh' --package '{remote}/halo-vr-frame' --batch" in ssh
@@ -504,6 +508,7 @@ case " $* " in
 *" --yesnocancel "*) exit "${KDIALOG_ANSWER:-2}" ;;
 *" --getexistingdirectory "*) [ -n "${KDIALOG_FOLDER:-}" ] && echo "$KDIALOG_FOLDER" && exit 0; exit 1 ;;
 *" --getopenfilename "*) [ -n "${KDIALOG_FILE:-}" ] && echo "$KDIALOG_FILE" && exit 0; exit 1 ;;
+*" Steam Input --yesno "*) exit "${KDIALOG_STEAM_INPUT:-1}" ;;
 *" --yesno "*) exit "${KDIALOG_START:-1}" ;;
 esac
 exit 1
@@ -529,7 +534,37 @@ if not (data.startswith(b"\\0shortcuts\\0") and data.endswith(b"\\x08\\x08")):
     data = b"\\0shortcuts\\0\\x08\\x08"
 vdf.write_bytes(data[:-2] + b"\\0" + str(len(data)).encode() + b"\\0" + fields + b"\\x08\\x08\\x08")
 """,
-    "pgrep": "#!/bin/sh\nexit 1\n",
+    # (a process runs while its name is a line of ~/running: Steam's, as the steam stand-in leaves it)
+    "pgrep": """#!/bin/sh
+[ "$1" = -x ] && [ -f "$HOME/running" ] && grep -qx "$2" "$HOME/running" && echo 7
+""",
+    # (as Steam's command: "steam -shutdown" closes the running Steam, which writes its localconfig.vdf as it
+    # exits: the file in ~/steam-exit-writes, if there is one, as Steam's own newer state; STEAM_STAYS, a Steam
+    # that does not close. "steam" starts it, noting whether its Steam Input setting for the shortcut is there.
+    # install.sh runs both in the background, so the call is noted before ~/running changes: a test that sees
+    # Steam closed or started (started_again) has its call already, never one that comes after it has read them)
+    "steam": f"""#!{sys.executable}
+import os, sys
+from pathlib import Path
+home = Path(os.environ["HOME"])
+running = home / "running"
+localconfig = home / ".local/share/Steam/userdata/12345/config/localconfig.vdf"
+names = running.read_text().split() if running.exists() else []
+if sys.argv[1:] == ["-shutdown"]:
+    note = "steam -shutdown"
+    if "steam" in names and not os.environ.get("STEAM_STAYS"):
+        flushed = home / "steam-exit-writes"
+        if flushed.exists():
+            localconfig.write_bytes(flushed.read_bytes())
+        names.remove("steam")
+else:
+    note = " ".join(["steam"] + sys.argv[1:]) + (" (its localconfig.vdf has UseSteamControllerConfig)"
+        if localconfig.exists() and b"UseSteamControllerConfig" in localconfig.read_bytes() else "")
+    names.append("steam")
+with open(home / "calls.txt", "a") as calls:
+    calls.write(note + "\\n")
+running.write_text("".join(name + "\\n" for name in names))
+""",
 }
 GAME = "#!/bin/sh\necho \"started in $(pwd)\" >> \"$HOME/calls.txt\"\n"
 # what install.sh runs besides them: the only commands on its PATH, so that a computer's own kdialog, konsole or
@@ -583,7 +618,7 @@ def unzipped_release(tmp_path, name, vr=False):
     build = tmp_path / f"build-{name}"
     build.mkdir()
     (build / "halo").write_text(GAME + f"# {name}\n")
-    for part in ("libSDL3.so.0", "SDL3-LICENSE.txt"):
+    for part in ("libSDL3.so.0", "SDL3-LICENSE.txt", "openh1.assets"):
         (build / part).write_bytes(part.encode())
     folder = tmp_path / "home/Downloads" / name
     linux_package.stage_tree(folder, build / "halo", build / "libSDL3.so.0", notices(build), vr=vr)
@@ -607,7 +642,9 @@ def run_install(tree, home, tools=("kdialog", "steamos-add-to-steam"), **answers
     for name in set(STAND_INS) - set(tools) - {"pgrep"}:
         (stand_ins / name).unlink(missing_ok=True)
     commands = command_folder(home.parent / "commands")
-    environment = {"HOME": str(home), "PATH": f"{stand_ins}:{commands}", "OPENH1_INSTALL_WINDOW": "1",
+    # (PATH_FIRST: a folder of commands before the others)
+    first = f"{answers.pop('PATH_FIRST')}:" if "PATH_FIRST" in answers else ""
+    environment = {"HOME": str(home), "PATH": f"{first}{stand_ins}:{commands}", "OPENH1_INSTALL_WINDOW": "1",
                    **{key: str(value) for key, value in answers.items()}}
     result = subprocess.run([str(tree / "install.sh")], env=environment, capture_output=True, text=True,
                             stdin=subprocess.DEVNULL)
@@ -646,14 +683,14 @@ def test_install_sh_installs_the_tree(release, tmp_path):
     assert tree_files(installed) == tree_files(release)
     for name in tree_files(release):
         assert (installed / name).read_bytes() == (release / name).read_bytes(), name
-        expected = 0o755 if name in ("install.sh", "bin/openh1", "lib/openh1/libSDL3.so.0") else 0o644
+        expected = 0o755 if name in ("install.sh", "bin/openh1", "bin/goath1", "lib/openh1/libSDL3.so.0") else 0o644
         assert stat.S_IMODE((installed / name).stat().st_mode) == expected, name
     assert (installed / "share/openh1").is_dir()
     assert not list(installed.rglob("*.new"))
     assert sorted(path.name for path in (installed / "maps").iterdir()) == ["a10.map", "loading.tga", "ui.map"]
     assert not (installed / "maps.partial").exists()
     entry = desktop_entry(home)
-    assert entry["Name"] == "OpenH1"
+    assert entry["Name"] == "GOAT H1"
     assert entry["Exec"] == f'"{installed}/bin/openh1"'
     assert entry["Path"] == str(installed)
     assert entry["Icon"] == f"{installed}/share/icons/hicolor/256x256/apps/openh1.png"
@@ -662,14 +699,14 @@ def test_install_sh_installs_the_tree(release, tmp_path):
     assert {key: value for key, value in entry.items() if key not in ("Exec", "Icon", "Path")} == \
         {key: value for key, value in tree_entry.items() if key not in ("Exec", "Icon")}
     assert calls(home) == [
-        "kdialog --title OpenH1: your game's maps --yes-label A disc image --no-label A maps folder --yesnocancel "
-        + "OpenH1 plays the maps of your own Halo: Combat Evolved for the Xbox.",
+        "kdialog --title GOAT H1: your game's maps --yes-label A disc image --no-label A maps folder --yesnocancel "
+        + "GOAT H1 plays the maps of your own Halo: Combat Evolved for the Xbox.",
         "",
         "Where are they: in a disc image of the game (.iso or .xiso), or in a maps folder copied from its disc?",
-        f"kdialog --title OpenH1: your game's maps --getexistingdirectory {home}",
+        f"kdialog --title GOAT H1: your game's maps --getexistingdirectory {home}",
         f"steamos-add-to-steam {home}/.local/share/applications/openh1.desktop",
     ]
-    assert "Added to Steam as OpenH1" in output
+    assert "Added to Steam as GOAT H1" in output
     assert f"{release} can be deleted" in output
 
 
@@ -694,7 +731,7 @@ def test_install_sh_again_and_update(release, tmp_path):
     output = run_install(release, home)
     assert "Nothing changed" in output
     assert calls(home) == []
-    assert "Steam has OpenH1 already" in output
+    assert "Steam has GOAT H1 already" in output
 
     (release / "bin/openh1").write_text(GAME + "# a newer build\n")
     (release / "share/openh1/brokers.txt").write_text("newer brokers\n")
@@ -717,9 +754,9 @@ def test_install_sh_without_steamos(release, tmp_path):
     (home / ".local/share/Steam").mkdir(parents=True)
     output = run_install(release, home, tools=())
     assert (home / "Applications/OpenH1/bin/openh1").is_file()
-    assert desktop_entry(home)["Name"] == "OpenH1"
+    assert desktop_entry(home)["Name"] == "GOAT H1"
     assert "No maps yet: at its first start" in output
-    assert "Add a Non-Steam Game to My Library" in output and "Tick OpenH1 in the list" in output
+    assert "Add a Non-Steam Game to My Library" in output and "Tick GOAT H1 in the list" in output
     assert calls(home) == []
 
 
@@ -781,7 +818,7 @@ def test_install_sh_refuses_while_running(release, tmp_path):
     commands = command_folder(tmp_path / "commands")
     result = subprocess.run([str(release / "install.sh")], capture_output=True, text=True,
                             env={"HOME": str(home), "PATH": f"{stand_ins}:{commands}", "OPENH1_INSTALL_WINDOW": "1"})
-    assert result.returncode == 3 and "OpenH1 is running (process 41 42)" in result.stderr
+    assert result.returncode == 3 and "GOAT H1 is running (process 41 42)" in result.stderr
     assert not (home / "Applications/OpenH1/bin").exists()
 
 
@@ -824,11 +861,11 @@ def test_install_sh_vr_beside_the_other(release, tmp_path):
     before =snapshot(desktop), (entries / "openh1.desktop").read_bytes()
 
     output = run_install(vr_release, home)
-    assert f"Installing OpenH1 VR to {vr}" in output and "Added to Steam as OpenH1 VR" in output
+    assert f"Installing GOAT H1 VR to {vr}" in output and "Added to Steam as GOAT H1 VR" in output
     assert (vr / "bin/openh1").read_bytes() == (vr_release / "bin/openh1").read_bytes()
     assert (vr / "share/openh1/vr").is_file()
     entry = dict(line.split("=", 1) for line in (entries / "openh1-vr.desktop").read_text().splitlines() if "=" in line)
-    assert entry["Name"] == "OpenH1 VR" and entry["Exec"] == f'"{vr}/bin/openh1"' and entry["Path"] == str(vr)
+    assert entry["Name"] == "GOAT H1 VR" and entry["Exec"] == f'"{vr}/bin/openh1"' and entry["Path"] == str(vr)
     assert entry["Icon"] == f"{vr}/share/icons/hicolor/256x256/apps/openh1.png"
     # (Steam's shortcut to the other build is not this one's; each has its own art)
     assert steam_calls(home) == [f"steamos-add-to-steam {entries}/openh1-vr.desktop"]
@@ -844,10 +881,10 @@ def test_install_sh_vr_beside_the_other(release, tmp_path):
                                          ("Exe", f'"{vr}/bin/openh1"')]))
     before_vr = snapshot(vr), (entries / "openh1-vr.desktop").read_bytes()
     output = run_install(release, home)
-    assert "Nothing changed" in output and "Added to Steam as OpenH1:" in output
+    assert "Nothing changed" in output and "Added to Steam as GOAT H1:" in output
     assert steam_calls(home) == [f"steamos-add-to-steam {entries}/openh1.desktop"]
     assert (snapshot(vr), (entries / "openh1-vr.desktop").read_bytes()) == before_vr
-    assert desktop_entry(home)["Name"] == "OpenH1"
+    assert desktop_entry(home)["Name"] == "GOAT H1"
 
 
 def test_steam_artwork(release, tmp_path):
@@ -877,7 +914,7 @@ def test_steam_artwork(release, tmp_path):
     before = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in userdata.glob("*/config/shortcuts.vdf")}
 
     output = run_install(release, home)
-    assert "Steam has OpenH1 already" in output and steam_calls(home) == []
+    assert "Steam has GOAT H1 already" in output and steam_calls(home) == []
     art = release / "share/openh1/steam"
     # Steam's app ID for a shortcut without one: the CRC-32 of its Exe (quoted) and AppName, the top bit set, as
     # a Steam Frame's shortcuts.vdf has it ("NFL Blitz 2027": 3691653383)
@@ -907,6 +944,370 @@ def test_steam_artwork(release, tmp_path):
     assert "Steam library artwork: 2 files" in output
     output = run_install(release, home)
     assert "Steam library artwork:" not in output
+
+
+# ---------- Steam Input, turned off for a shortcut install.sh has just added (steam_input_off)
+
+# a localconfig.vdf as Steam writes it (text VDF, tabs; its key and value apart by two tabs; quotes and
+# backslashes escaped), with other games' entries: the "apps" in the root, where Steam keeps a game's Steam Input
+# (another game's set to on, "2"), and Software's own "apps" (play times), which has the shortcut's app ID too
+def localconfig(shortcut_id, root_apps=True):
+    apps = f'''	"apps"
+	{{
+		"620"
+		{{
+			"UseSteamControllerConfig"		"2"
+			"SteamControllerRumble"		"-1"
+			"SteamControllerRumbleIntensity"		"320"
+		}}
+	}}
+''' if root_apps else ""
+    return f'''"UserLocalConfigStore"
+{{
+	"Broadcast"
+	{{
+		"Permissions"		"1"
+	}}
+	"Software"
+	{{
+		"Valve"
+		{{
+			"Steam"
+			{{
+				"apps"
+				{{
+					"{shortcut_id}"
+					{{
+						"LastPlayed"		"1793498009"
+					}}
+					"730"
+					{{
+						"LastPlayed"		"1793400000"
+						"Playtime"		"12"
+					}}
+				}}
+			}}
+		}}
+	}}
+	"WebStorage"
+	{{
+		"LocalizedTagNames2_english"		"{{\\"version_hash\\":\\"711684454\\",\\"tags\\":[]}}"
+		"Path"		"C:\\\\Games\\\\Halo"
+	}}
+{apps}	"ControllerTypesUsed"		"controller_generic,controller_xboxone,"
+}}
+'''
+
+
+def read_vdf(text):
+    """text VDF as a list of (key, value) pairs, a block's value such a list (the test's own reader, apart from
+    install.sh's)"""
+    root, key = [], None
+    stack = [root]
+    for quoted, brace in re.findall(r'"((?:[^"\\]|\\.)*)"|([{}])', text):
+        if brace == "{":
+            block = []
+            stack[-1].append((key, block))
+            stack.append(block)
+            key = None
+        elif brace == "}":
+            stack.pop()
+        elif key is None:
+            key = quoted
+        else:
+            stack[-1].append((key, quoted))
+            key = None
+    assert len(stack) == 1 and key is None
+    return root
+
+
+def write_vdf(items, depth=0):
+    """items as Steam writes a text VDF"""
+    text = ""
+    for key, value in items:
+        if isinstance(value, list):
+            text += "\t" * depth + f'"{key}"\n' + "\t" * depth + "{\n" + write_vdf(value, depth + 1) + "\t" * depth + "}\n"
+        else:
+            text += "\t" * depth + f'"{key}"\t\t"{value}"\n'
+    return text
+
+
+def without(items, *path):
+    """items without the last key of path (in the blocks path names), and blocks left empty by that"""
+    result = []
+    for key, value in items:
+        if key == path[0]:
+            if len(path) == 1:
+                continue
+            value = without(value, *path[1:])
+            if not value:
+                continue
+        result.append((key, value))
+    return result
+
+
+def steam_input_home(tmp_path, shortcut_id, root_apps=True):
+    """a home whose Steam (running) has user 12345's localconfig.vdf, and another user's files, with others'
+    shortcuts; ~/steam-exit-writes, what Steam writes as it exits: its newer play time for the game"""
+    home = tmp_path / "home"
+    config = home / ".local/share/Steam/userdata/12345/config"
+    config.mkdir(parents=True)
+    (config / "localconfig.vdf").write_text(localconfig(shortcut_id, root_apps))
+    (home / "steam-exit-writes").write_text(localconfig(shortcut_id, root_apps).replace("1793498009", "1793499999"))
+    other = home / ".local/share/Steam/userdata/999/config"
+    other.mkdir(parents=True)
+    (other / "localconfig.vdf").write_text(localconfig(4000000000))
+    (other / "shortcuts.vdf").write_bytes(shortcuts_vdf([("appid", 5), ("AppName", "Another game"),
+                                                         ("Exe", '"/home/deck/game.sh"')]))
+    (home / "running").write_text("steam\n")
+    return home, config / "localconfig.vdf"
+
+
+def started_again(home):
+    """the calls, once Steam has started again (install.sh leaves it starting)"""
+    for _ in range(50):
+        if "steam" in (home / "running").read_text().split():
+            break
+        time.sleep(0.1)
+    return calls(home)
+
+
+def called(home, call):
+    """the calls, once call is among them: a call install.sh leaves running in the background (steam -shutdown,
+    to a Steam that does not close) may note itself after install.sh has finished"""
+    path = home / "calls.txt"
+    for _ in range(50):
+        if path.exists() and call in path.read_text().splitlines():
+            break
+        time.sleep(0.1)
+    return calls(home)
+
+
+STEAM_TOOLS = ("kdialog", "steamos-add-to-steam", "steam")
+HOW = "in Game Mode, Steam > GOAT H1 > the controller icon > Disable Steam Input."
+
+
+@pytest.mark.parametrize("root_apps", [True, False])
+def test_steam_input_off_for_a_new_shortcut(release, tmp_path, root_apps):
+    """a new install on SteamOS, asked (Yes), closes Steam, then sets Steam Input off for the shortcut Steam has
+    just added: UseSteamControllerConfig "0" under localconfig.vdf's root "apps", by the shortcut's app ID
+    (unsigned), in the file Steam wrote as it exited, a copy of which it keeps; nothing else in it changes, and it
+    is as Steam writes it; then starts Steam again. Another user's files, other games' entries and Software's own
+    "apps" (with the same app ID) stay as they were"""
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1/bin/openh1")
+    assert shortcut_id >= 0x80000000  # (its int32 negative: the key is the unsigned one)
+    home, path = steam_input_home(tmp_path, shortcut_id, root_apps)
+    other = snapshot(home / ".local/share/Steam/userdata/999")
+    output = run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    entries = home / ".local/share/applications"
+    noted = started_again(home)
+    assert noted[next(index for index, line in enumerate(noted) if line.startswith("steamos")):] == [
+        f"steamos-add-to-steam {entries}/openh1.desktop",
+        "kdialog --title GOAT H1: Steam Input --yesno Turn Steam Input off for GOAT H1?",
+        "",
+        "GOAT H1 then reads the Steam Deck's controls itself: gyro aiming, and the back buttons (L4, L5, R4, R5) in "
+        "Button Remapping. The Steam and Quick Access buttons stay Steam's.",
+        "",
+        "Steam closes for a moment and opens again.",
+        "steam -shutdown",
+        "steam (its localconfig.vdf has UseSteamControllerConfig)",
+    ]
+    text = path.read_text()
+    flushed = (home / "steam-exit-writes").read_text()
+    # (the file Steam wrote as it exited, its newer play time kept, with the setting added)
+    assert "1793499999" in text
+    assert (path.parent / "localconfig.vdf.before-openh1").read_text() == flushed
+    items = read_vdf(text)
+    store = dict(items)["UserLocalConfigStore"]
+    assert dict(dict(store)["apps"])[str(shortcut_id)] == [("UseSteamControllerConfig", "0")]
+    assert without(items, "UserLocalConfigStore", "apps", str(shortcut_id), "UseSteamControllerConfig") == \
+        read_vdf(flushed)
+    # (as Steam writes it, so that its own writing of it, at its next exit, is the same)
+    assert write_vdf(items) == text
+    assert snapshot(home / ".local/share/Steam/userdata/999") == other
+    assert "Steam Input: off for this shortcut" in output and HOW not in output
+    assert "Steam started again." in output
+
+    # negative control: the reader sees a setting that is not there, and Steam's format apart from another's
+    assert without(read_vdf(flushed), "UserLocalConfigStore", "apps", str(shortcut_id), "UseSteamControllerConfig") \
+        == read_vdf(flushed)
+    assert read_vdf(text) != read_vdf(flushed)
+    assert write_vdf(items) != text.replace('"\t\t"0"', '" "0"')
+
+
+def test_steam_input_kept_on_reinstall_and_update(release, tmp_path):
+    """install.sh again (a reinstall, an update) never changes Steam Input, nor closes Steam: Steam has the
+    shortcut, so whatever its setting is (the player's own, or none) it is the player's"""
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1/bin/openh1")
+    home, path = steam_input_home(tmp_path, shortcut_id)
+    run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    started_again(home)
+    for players in ('"UseSteamControllerConfig"\t\t"2"', '"UseSteamControllerConfig"\t\t"1"', None):
+        text = path.read_text()
+        old = '"UseSteamControllerConfig"\t\t"0"'
+        changed = text.replace(old, players) if players else without_setting(text, old)
+        path.write_text(changed)
+        before = snapshot(home / ".local/share/Steam")
+        output = run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+        assert "Steam has GOAT H1 already" in output
+        assert steam_input_calls(home) == []
+        assert snapshot(home / ".local/share/Steam") == before
+        path.write_text(text)
+    # (an update too)
+    (release / "bin/openh1").write_text(GAME + "# a newer build\n")
+    before = snapshot(home / ".local/share/Steam")
+    output = run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    assert "bin/openh1: updated" in output and steam_input_calls(home) == []
+    assert snapshot(home / ".local/share/Steam") == before
+
+
+def steam_input_calls(home):
+    """the calls that concern Steam Input: its question, and Steam's command"""
+    return [line for line in calls(home) if "Steam Input" in line or line.startswith("steam ")]
+
+
+def without_setting(text, line):
+    """text without the line that holds line (the player's choosing Steam's default again)"""
+    return "".join(part for part in text.splitlines(keepends=True) if line not in part)
+
+
+@pytest.mark.parametrize("value", ["0", "1", "2"])
+def test_steam_input_players_setting_kept_for_a_new_shortcut(release, tmp_path, value):
+    """a shortcut Steam adds whose app ID has a Steam Input setting already (the player's, for a shortcut of the
+    same program and name removed before): kept, nothing asked and Steam not closed"""
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1/bin/openh1")
+    home, path = steam_input_home(tmp_path, shortcut_id)
+    text = localconfig(shortcut_id).replace('\t\t"620"\n', f'\t\t"{shortcut_id}"\n\t\t{{\n\t\t\t'
+                                            f'"UseSteamControllerConfig"\t\t"{value}"\n\t\t}}\n\t\t"620"\n')
+    path.write_text(text)
+    output = run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    assert steam_input_calls(home) == []
+    assert path.read_text() == text
+    assert not (path.parent / "localconfig.vdf.before-openh1").exists()
+    assert HOW not in output
+
+
+def test_steam_input_set_in_an_app_block_without_it(release, tmp_path):
+    """an app ID whose root "apps" block has other settings but no Steam Input: the setting goes in that block"""
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1/bin/openh1")
+    home, path = steam_input_home(tmp_path, shortcut_id)
+    text = localconfig(shortcut_id).replace('\t\t"620"\n', f'\t\t"{shortcut_id}"\n\t\t{{\n\t\t\t'
+                                            f'"SteamControllerRumble"\t\t"-1"\n\t\t}}\n\t\t"620"\n')
+    path.write_text(text)
+    (home / "steam-exit-writes").write_text(text)
+    run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    started_again(home)
+    items = read_vdf(path.read_text())
+    assert dict(dict(dict(items)["UserLocalConfigStore"])["apps"])[str(shortcut_id)] == \
+        [("SteamControllerRumble", "-1"), ("UseSteamControllerConfig", "0")]
+    assert write_vdf(items) == path.read_text()
+
+
+@pytest.mark.parametrize("case", ["declined", "steam stays", "unreadable", "no localconfig", "no steam command"])
+def test_steam_input_left_as_it_was(release, tmp_path, case):
+    """where Steam Input cannot be turned off safely (the player says No; Steam does not close; a localconfig.vdf
+    install.sh cannot read, or none; no steam command to close it with), localconfig.vdf is not written and
+    install.sh says how to do it in Steam"""
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1/bin/openh1")
+    home, path = steam_input_home(tmp_path, shortcut_id)
+    answers, tools = {"KDIALOG_STEAM_INPUT": 0}, STEAM_TOOLS
+    if case == "declined":
+        answers["KDIALOG_STEAM_INPUT"] = 1
+    elif case == "steam stays":
+        answers["STEAM_STAYS"] = 1
+    elif case == "unreadable":
+        path.write_text(localconfig(shortcut_id)[:-2])  # (its last brace gone)
+    elif case == "no localconfig":
+        path.unlink()
+    else:
+        tools = ("kdialog", "steamos-add-to-steam")
+    before = path.read_bytes() if path.exists() else None
+    if case == "steam stays":
+        # (90 seconds' wait, shortened: sleep returns at once)
+        fast = tmp_path / "fast"
+        fast.mkdir()
+        (fast / "sleep").write_text("#!/bin/sh\nexit 0\n")
+        (fast / "sleep").chmod(0o755)
+        answers["PATH_FIRST"] = fast
+    output = run_install(release, home, tools=tools, **answers)
+    assert (path.read_bytes() if path.exists() else None) == before
+    assert not (path.parent / "localconfig.vdf.before-openh1").exists()
+    assert HOW in output
+    noted = called(home, "steam -shutdown") if case == "steam stays" else calls(home)
+    steam = [line for line in noted if line.startswith("steam ")]
+    assert steam == (["steam -shutdown"] if case == "steam stays" else [])
+    assert (home / "running").read_text().split() == ["steam"]
+
+
+def test_steam_input_with_steam_closed(release, tmp_path):
+    """with Steam not running, the setting is written at once: Steam neither closed nor started"""
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1/bin/openh1")
+    home, path = steam_input_home(tmp_path, shortcut_id)
+    (home / "running").unlink()
+    run_install(release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    assert [line for line in calls(home) if line.startswith("steam")] == \
+        [f"steamos-add-to-steam {home}/.local/share/applications/openh1.desktop"]
+    assert dict(dict(dict(read_vdf(path.read_text()))["UserLocalConfigStore"])["apps"])[str(shortcut_id)] == \
+        [("UseSteamControllerConfig", "0")]
+
+
+def test_steam_input_not_for_the_vr_build(tmp_path):
+    """the VR build's new shortcut keeps Steam's Steam Input (its controllers are the headset's)"""
+    vr_release = unzipped_release(tmp_path, "OpenH1-Linux-VR", vr=True)
+    shortcut_id = steam_id(tmp_path / "home/Applications/OpenH1-VR/bin/openh1")
+    home, path = steam_input_home(tmp_path, shortcut_id)
+    before = path.read_bytes()
+    output = run_install(vr_release, home, tools=STEAM_TOOLS, KDIALOG_STEAM_INPUT=0)
+    assert "Added to Steam as GOAT H1 VR" in output
+    assert steam_input_calls(home) == []
+    assert path.read_bytes() == before and HOW not in output
+
+
+def steam_tool():
+    """install.sh's python (steam_python), its functions, run with no mode"""
+    script = linux_package.INSTALLER.read_text()
+    source = script.split("steam_python() {", 1)[1].split("<<'PYTHON'\n", 1)[1].split("\nPYTHON\n", 1)[0]
+    namespace = {"__name__": "steam_tool"}
+    saved = sys.argv
+    sys.argv = ["-", "none", "/nonexistent", "/nonexistent", "/nonexistent", "/nonexistent"]
+    try:
+        exec(compile(source, "steam_python", "exec"), namespace)
+    finally:
+        sys.argv = saved
+    return namespace
+
+
+def test_steam_input_edit_checked():
+    """install.sh's localconfig.vdf edit: added text only, the rest byte for byte (CRLF kept, a brace after
+    something on its line, a // comment and a [$WIN32] condition read); a second edit changes nothing; its check
+    refuses any other change (negative controls), and the reader refuses a file it cannot read"""
+    tool = steam_tool()
+    text = localconfig(3000000001)
+    new = tool["steam_input_off"](text, [3000000001, 2547667450])
+    assert new.startswith(text[:text.index('\t\t"620"')]) and len(new) > len(text)
+    assert tool["checked"](text, new, [3000000001, 2547667450]) == new
+    assert tool["steam_input_off"](new, [3000000001, 2547667450]) == new
+    assert tool["unset"](new, [3000000001, 2547667450, 5]) == [5]
+    for bad in (new.replace('"Playtime"\t\t"12"', '"Playtime"\t\t"13"'),  # another value changed
+                new.replace('\t\t\t\t\t\t"LastPlayed"\t\t"1793400000"\n', ""),  # another key gone
+                new.replace('"UseSteamControllerConfig"\t\t"0"', '"UseSteamControllerConfig"\t\t"2"', 1),
+                new.replace('"UseSteamControllerConfig"\t\t"0"', '"Other"\t\t"0"', 1),  # not the setting
+                new + '"More"\t\t"1"\n'):  # a key outside the store
+        with pytest.raises(ValueError):
+            tool["checked"](text, bad, [3000000001, 2547667450])
+    crlf = text.replace("\n", "\r\n")
+    edited = tool["steam_input_off"](crlf, [3000000001])
+    assert "\n" not in edited.replace("\r\n", "") and edited.replace("\r\n", "\n") == \
+        tool["steam_input_off"](text, [3000000001])
+    odd = '// a comment\n"UserLocalConfigStore"\n{\n\t"a"\t\t"b" [$WIN32]\n\t"apps" { "7" { "x" "y" } }\n}\n'
+    edited = tool["checked"](odd, tool["steam_input_off"](odd, [7, 8]), [7, 8])
+    assert dict(dict(dict(read_vdf(edited))["UserLocalConfigStore"])["apps"]) == \
+        {"7": [("x", "y"), ("UseSteamControllerConfig", "0")], "8": [("UseSteamControllerConfig", "0")]}
+    for unreadable in (text[:-3], text + "}\n", '"UserLocalConfigStore"\n{\n\t"apps"\t\t"x"\n}\n',
+                       '"Other"\n{\n}\n', text + '"unterminated',
+                       text.replace('"Broadcast"\n\t{', '{')):
+        with pytest.raises(ValueError):
+            tool["steam_input_off"](unreadable, [3000000001])
 
 
 def test_install_sh_refuses_the_other_build(release, tmp_path):
@@ -954,3 +1355,25 @@ def test_android_release():
     builder = (ROOT / "tools/android_build.py").read_text()
     assert 'assets_dir / "licenses"' in builder and 'release_notices("android")' in builder
     assert '(SDL_DIR / "LICENSE.txt", "SDL3-LICENSE.txt")' in builder
+
+
+def test_embedded_fonts_carry_their_licenses():
+    """Every font the builds embed (port/assets/fonts/fonts.json: each tag's font and its fallback, tools/
+    embed_assets.py) has its licence in every platform's release (desktop and dedicated server alike) and the Steam
+    Frame's package: a font file Family-Style.ttf, a notice Family-*.txt."""
+    import embed_assets
+    import frame_package
+    families = {name.split("-", 1)[0] for name in embed_assets.font_files()}
+    assert {"CyborgInterfaceGothic", "Overpass"} <= families
+    for platform in ("linux_x86_64", "linux_arm64", "windows", "macos", "ios", "android"):
+        names = {name for _, name in linux_package.notices(platform)}
+        for family in families:
+            assert any(name.startswith(f"{family}-") for name in names), (platform, family)
+    for family in families:
+        assert any(name.startswith(f"{family}-") for name in frame_package.LICENSES), family
+    for source, name in linux_package.notices("linux_x86_64"):
+        assert source.is_file(), source
+    # (Cyborg Interface Gothic's notice: both its copyright lines, and the licence's whole text)
+    cyborg = (ROOT / "port/assets/fonts/CyborgInterfaceGothic-OFL.txt").read_text()
+    assert "Copyright 2021 The Overpass Project Authors" in cyborg and "Copyright (c) 2026, fizzy" in cyborg
+    assert "SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007" in cyborg and "DISCLAIMER" in cyborg

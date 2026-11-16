@@ -102,7 +102,7 @@ void host_app_background_wait(void)
 
 /* ---------- the sound's route */
 
-/* (port/android/host/host_audio_route.c, its thread: audio.spatial "auto")
+/* (port/android/host/host_audio_route.c, its thread: the sound's log)
 what the audio session plays on: 1 headphones (wired, AirPods and other
 Bluetooth headphones), 0 the speaker or another, -1 none */
 int host_app_audio_headphones(void)
@@ -146,17 +146,15 @@ int host_app_audio_output_latency(void)
 three pixels to the point draws two of them (2/3 each way, under half the
 pixels), sharp at a phone's distance and inside the 120 Hz frame where all
 of them were not (an iPhone 15 Pro Max: 8 to 10 ms of GPU a frame at 3x,
-so 60 Hz); an iPad and a 2x phone draw all of theirs */
+so 60 Hz); a 2x phone 0.8, as an Android phone does; an iPad all of its
+own */
 static float render_scale_for_device(void)
 {
 	__block float scale = 1.0f;
 
 	void (^choose)(void) = ^{
-		if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone &&
-			[UIScreen mainScreen].nativeScale >= 2.5)
-		{
-			scale = 2.0f / 3.0f;
-		}
+		if ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
+			scale = [UIScreen mainScreen].nativeScale >= 2.5 ? 2.0f / 3.0f : 0.8f;
 	};
 	if ([NSThread isMainThread])
 		choose();
@@ -304,6 +302,32 @@ void host_app_start(void)
 
 			[files removeItemAtPath:copy error:NULL];
 			[files copyItemAtPath:brokers toPath:copy error:NULL];
+		}
+		/* ...and the stock maps' preparations' records (port/linux/src/
+		prepared_shipped.h), the same way */
+		{
+			NSString *records = [bundle pathForResource:@"prepared" ofType:@"records"];
+
+			if (records)
+			{
+				NSString *copy = [documents_folder stringByAppendingPathComponent:@"prepared.records"];
+
+				[files removeItemAtPath:copy error:NULL];
+				[files copyItemAtPath:records toPath:copy error:NULL];
+			}
+		}
+		/* ...and the textures', fonts' and menus' bytes (port/linux/src/
+		embedded_assets.h), the same way */
+		{
+			NSString *assets = [bundle pathForResource:@"openh1" ofType:@"assets"];
+
+			if (assets)
+			{
+				NSString *copy = [documents_folder stringByAppendingPathComponent:@"openh1.assets"];
+
+				[files removeItemAtPath:copy error:NULL];
+				[files copyItemAtPath:assets toPath:copy error:NULL];
+			}
 		}
 
 		saves = [documents_folder stringByAppendingPathComponent:@"saves"];

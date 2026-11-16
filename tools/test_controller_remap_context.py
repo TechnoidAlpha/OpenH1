@@ -149,9 +149,13 @@ static void director_choose_game_perspective(short local,int force){}
 static void director_rotate_cameras(short local,short const *modes,short count){rotations++;}
 static int network_game_distributed_client(void){return client;}
 static int players_coop_waiting_to_start(long player){return 0;}
-static int coop_spectating(void){return 0;}
-static long coop_spectate_unit(short local){return NONE;}
+static long dead_spectate_unit(short local){return NONE;}
+static int dead_spectate_through_eyes(long unit){return 0;}
+static void dead_spectate_camera_new(void *p,short local,long unit){}
+static long dead_spectate_camera_unit(void const *p){return NONE;}
+static void dead_spectate_camera_update(void){}
 static void coop_spectate_camera(struct dead_camera *p){}
+static void observer_obsolete_position(short local){}
 ''' + function(director, 'director_choose_camera_game') + r'''
 int main(void) {
  int cycle;

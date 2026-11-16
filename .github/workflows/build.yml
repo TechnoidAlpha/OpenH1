@@ -1,10 +1,20 @@
 name: Build
 
 # Builds of the native ports (Linux x86-64 and arm64, Windows, Android,
-# macOS) for every pushed commit, uploaded as artifacts: on master
-# the debug and release builds (and the VR ones: x86-64's, and the Steam
-# Frame's package on arm64), elsewhere the debug builds
-# alone, a quick check until a faster build system replaces this one.
+# macOS, iOS), uploaded as artifacts, in three kinds of run
+# (docs/releasing.md):
+# - a pull request: the quick check (tools/ci_plan.py), Linux x86-64's
+#   debug build and the tests the changed files touch, and another
+#   platform only when the pull request touches its files: the check
+#   job's result is the one branch protection requires;
+# - a push to a main branch (master; dev too until it goes) or a run
+#   started by hand: the full suite, the debug and release builds (and the
+#   VR ones: x86-64's, and the Steam Frame's package on arm64) and every
+#   test. It publishes nothing; a failure opens (or adds to) an issue
+#   labelled ci-broken, which the next green run closes;
+# - a pushed tag build-<N> (tools/ship.sh), or a run started by hand with a
+#   version: the full suite, signed and notarized, published as the release
+#   build-<N> that the self-updaters install (a dry run publishes nothing).
 # tools/ci_build.py does each build; see it for the options.
 #
 # Kept cheap:
@@ -14,6 +24,8 @@ name: Build
 #   without it, gzip, slower to save and restore);
 # - one job per platform builds both configurations, so its set-up (tools,
 #   downloads, caches) is paid once;
+# - the tests that need no build run in the tests job's shards, beside the
+#   builds, rather than after linux-x86_64's;
 # - compiles go through ccache, whose cache, master's latest build's, every
 #   run starts from, so a commit only recompiles what it changed from
 #   master; downloads (SDL, musl, FFmpeg, the Vulkan headers, Gradle, the
@@ -29,28 +41,39 @@ name: Build
 # - Windows, whose minutes cost twice Linux's, builds only Windows;
 # - artifacts are kept for three days.
 #
-# A successful build of master is also published as a GitHub release, the
-# newest marked latest, so that
+# A release run that passes is published as a GitHub release, the newest
+# marked latest, so that
 # https://github.com/<repository>/releases/latest/download/<file> always
 # gives the latest build (the README's download links); the last five are
 # kept. (openh1.com is the landing page, website/.)
 # (every push starts the run, documentation's too, so that the platforms'
 # checks are always reported: the changes job decides whether they build)
 on:
+  pull_request:
   push:
+    branches: [master, dev]
+    tags: ["build-*"]
   workflow_dispatch:
     inputs:
+      version:
+        description: "Release as build-<N> (a number above the latest release's); empty: the full suite, no release"
+        type: string
+        default: ""
+      dry_run:
+        description: "With a version: build, sign and package the release, but publish nothing"
+        type: boolean
+        default: false
       profile:
         description: "Also build the profiling flavour (configure.py --profile) on Linux x86-64"
         type: boolean
         default: false
 
-# (but master's builds finish, a newer one waiting for the one going: 12
-# of 28 were cancelled by the next merge, before they saved the compile
-# cache that every branch's build starts from, or made a release)
+# (a pull request's newer push cancels its run still going; a main
+# branch's, a tag's and a run started by hand are never cancelled nor
+# queued behind another: a group of their own)
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+  group: build-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -73,77 +96,191 @@ env:
   CI_GUEST_ASM_CACHE: .cache/guest-asm
 
 jobs:
-  # Whether the push changes anything but documentation: Markdown files
-  # anywhere, and website/ (openh1.com, published from website/ by hand:
-  # website/README.md). On master, the files the push changed (from its
-  # before sha); on a branch, every file the branch changed from master
-  # (from their merge base), so that the branch's latest commit is skipped
-  # only when the whole branch is documentation: a documentation commit
-  # pushed after code still builds the code. Builds when it cannot tell (a
-  # run started by hand, a first push of master, a history it cannot find),
-  # and the platforms' jobs build too should this job fail: a failed check
-  # rather than a skipped one, which branch protection would let through.
+  # What the run does, tools/ci_plan.py's plan (docs/releasing.md): the
+  # kind of run (quick for a pull request; full for a main branch's push or
+  # a run by hand; release for a tag build-<N> or a version given by hand),
+  # a release's number and whether it is published, whether the compile
+  # caches are saved (a full run's), the tests and their shards, the
+  # platforms built, the scorecard. A push or pull request of documentation
+  # alone (Markdown, website/) builds nothing. Should this job fail, the
+  # platforms' jobs build everything: a failed check rather than a skipped
+  # one.
   changes:
-    runs-on: ubuntu-24.04
+    # (on our machines' plan runners, tools/ci-runner, which builds never
+    # hold, when the Pick the runner step's rule allows it: the same rule,
+    # which runs-on cannot take from a step)
+    runs-on: ${{ (vars.SELF_HOSTED != 'off' && contains(fromJSON('["startupfoundry","g0atbutt","erincena"]'), github.actor) && contains(fromJSON('["startupfoundry","g0atbutt","erincena"]'), github.triggering_actor) && ((github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'push' && github.ref == 'refs/heads/master'))) && fromJSON('["self-hosted","goath1-plan"]') || 'ubuntu-24.04' }}
     timeout-minutes: 5
     outputs:
-      build: ${{ steps.diff.outputs.build }}
-      ios: ${{ steps.diff.outputs.ios }}
+      runner: ${{ steps.free.outputs.runner }}
+      self_hosted: ${{ steps.free.outputs.self_hosted }}
+      windows_runner: ${{ steps.free.outputs.windows_runner }}
+      build: ${{ steps.plan.outputs.build }}
+      full: ${{ steps.plan.outputs.full }}
+      release: ${{ steps.plan.outputs.release }}
+      number: ${{ steps.plan.outputs.number }}
+      publish: ${{ steps.plan.outputs.publish }}
+      save: ${{ steps.plan.outputs.save }}
+      tests: ${{ steps.plan.outputs.tests }}
+      shards: ${{ steps.plan.outputs.shards }}
+      shard_count: ${{ steps.plan.outputs.shard_count }}
+      build_tests: ${{ steps.plan.outputs.build_tests }}
+      scorecard: ${{ steps.plan.outputs.scorecard }}
+      linux_arm64: ${{ steps.plan.outputs.linux_arm64 }}
+      android: ${{ steps.plan.outputs.android }}
+      windows: ${{ steps.plan.outputs.windows }}
+      macos: ${{ steps.plan.outputs.macos }}
+      ios: ${{ steps.plan.outputs.ios }}
     steps:
-      # (the history's commits and trees, without their files' contents,
-      # and one file checked out: seconds)
+      # The Linux x86-64 jobs' runner (changes, linux-x86_64, tests): our own
+      # machines (tools/ci-runner, warm caches, no queue) only for a pull
+      # request from this repository or a push to master, by a trusted
+      # account; anything else, a fork's pull request above all, GitHub's.
+      # Our machines never run an untrusted account's code. (The repository
+      # variable SELF_HOSTED=off sends everything to GitHub's.)
+      - name: Pick the runner
+        id: runner
+        env:
+          TRUSTED: startupfoundry g0atbutt erincena
+          SWITCH: ${{ vars.SELF_HOSTED }}
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          EVENT: ${{ github.event_name }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref }}
+          HERE: ${{ runner.environment }}
+        run: |
+          own=false
+          case " $TRUSTED " in *" $ACTOR "*) case " $TRUSTED " in *" $TRIGGERING_ACTOR "*)
+            case "$EVENT:$REF" in
+              pull_request:*) [ -n "$HEAD_REPO" ] && [ "$HEAD_REPO" = "$REPO" ] && own=true ;;
+              push:refs/heads/master) own=true ;;
+            esac ;; esac ;; esac
+          [ "$SWITCH" != off ] || own=false
+          if [ "$HERE" = self-hosted ] && [ "$own" != true ]; then
+            echo "::error::an untrusted run on our own runner"; exit 1
+          fi
+          if [ "$own" = true ]; then runner='["self-hosted","goath1"]'; else runner='"ubuntu-24.04"'; fi
+          echo "actor $ACTOR ($TRIGGERING_ACTOR), $EVENT from ${HEAD_REPO:-$REPO}: $runner"
+          { echo "runner=$runner"; echo "self_hosted=$own"; } >> "$GITHUB_OUTPUT"
+
+      # (the history's commits and trees; the files' contents of this
+      # commit alone)
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           filter: blob:none
-          sparse-checkout: README.md
-          sparse-checkout-cone-mode: false
 
-      - name: Changed files
-        id: diff
+      - name: Plan
+        id: plan
         env:
-          EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          build=true
-          ios=true
-          base=
-          if [ "$EVENT" = push ]; then
-            if [ "$GITHUB_REF" = refs/heads/master ]; then
-              # (all zeros: master's first push)
-              if [ -n "${BEFORE//0/}" ] && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-                base="$BEFORE"
-              fi
-            else
-              base="$(git merge-base origin/master "$GITHUB_SHA" 2>/dev/null)" || base=
-            fi
-          fi
-          if [ -n "$base" ] && files="$(git -c core.quotePath=false diff --name-only --no-renames "$base" "$GITHUB_SHA")"; then
-            echo "Changed from ${base:0:12}:"
-            printf '%s\n' "$files" | sed 's/^/  /'
-            if ! printf '%s\n' "$files" | grep -v -E -e '\.md$' -e '^website/' -e '^$' > /dev/null; then
-              build=false
-            fi
-            # (a branch builds iOS only when it changes what is iOS's or
-            # Apple's alone: the macOS job builds the shared Metal and Apple
-            # code, and the arm64_32 guest is linux-arm64's and Android's.
-            # macOS runners are few, so iOS's job queued behind every
-            # branch's; master always builds it)
-            if [ "$GITHUB_REF" != refs/heads/master ] && ! printf '%s\n' "$files" | grep -E \
-                -e '^port/(ios|macos|third_party)/' -e '^tools/(ios_|macos_|build_common|ci_build)' -e '^configure\.py$' \
-                -e '^\.github/' -e '[Tt]ouch' > /dev/null; then
-              ios=false
-            fi
+          latest="$(gh release view --json tagName --jq .tagName 2>/dev/null | sed -n 's/^build-\([0-9]*\)$/\1/p')"
+          # (a pull request's newest commit can ask for a platform: [mac], [windows]...)
+          message="$(git log -1 --format=%B "$HEAD" 2>/dev/null || true)"
+          set -- --sha "$HEAD" --base "$BASE" --message "$message" --latest "${latest:-0}" --version "$VERSION"
+          [ "$DRY_RUN" = true ] && set -- "$@" --dry-run
+          python3 tools/ci_plan.py "$@" | tee -a "$GITHUB_OUTPUT"
+
+      # Our runners only when enough of them are free, else GitHub's: no job
+      # waits for ours. Each machine says how many are idle
+      # (tools/ci-runner/status.py, at the repository variable
+      # CI_RUNNER_STATUS's addresses): the Linux jobs (linux-x86_64 and the
+      # tests' shards) all go to ours or all to GitHub's; the windows job to
+      # the Windows VM's runner when it is running and idle and the
+      # repository variable CI_WINDOWS_RUNNER is on, else to windows-2025.
+      # (A trusted run's alone, the Pick the runner step's.)
+      - name: Free runners
+        id: free
+        env:
+          OWN: ${{ steps.runner.outputs.self_hosted }}
+          RUNNER: ${{ steps.runner.outputs.runner }}
+          STATUS: ${{ vars.CI_RUNNER_STATUS }}
+          WINDOWS_ON: ${{ vars.CI_WINDOWS_RUNNER }}
+          BUILD: ${{ steps.plan.outputs.build }}
+          SHARDS: ${{ steps.plan.outputs.shards }}
+        shell: python3 {0}
+        run: |
+          import json, os, urllib.request
+          own = os.environ["OWN"] == "true"
+          linux, windows = 0, "off"
+          for url in os.environ["STATUS"].split() if own else []:
+              try:
+                  with urllib.request.urlopen(url, timeout=3) as answer:
+                      status = json.load(answer)
+              except Exception as error:
+                  print(f"{url}: {error}")
+                  continue
+              print(f"{url}: {status}")
+              linux += int(status.get("linux", 0))
+              windows = "idle" if status.get("windows") == "idle" else windows
+          needed = 0 if os.environ["BUILD"] == "false" else 1 + len(json.loads(os.environ["SHARDS"] or "[1, 2, 3, 4]"))
+          ours = own and (not os.environ["STATUS"] or linux >= needed)
+          outputs = {
+              "runner": os.environ["RUNNER"] if ours else '"ubuntu-24.04"',
+              "self_hosted": "true" if ours else "false",
+              "windows_runner": '["self-hosted","goath1-windows"]' if own and windows == "idle" and os.environ["WINDOWS_ON"] == "on" else '"windows-2025"',
+          }
+          print(f"{linux} idle Linux runners for {needed} jobs, the Windows VM's {windows}: {outputs}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.writelines(f"{key}={value}\n" for key, value in outputs.items())
+
+  # What parallel branches used to fight over, checked so that merges can
+  # be left to tools: GOAT H1's network numbers (tools/netver.py: on master
+  # nothing may be left pending), and the generated menus, which must
+  # be what tools/ce_menus.py writes from the committed sources
+  # (tools/menus_regen.sh --check, with the PC version's tags/ui, Invader's
+  # definitions and the pinned Python packages cached).
+  merge-checks:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    name: merge checks
+    env:
+      MENU_INPUTS: /home/runner/menu-inputs
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Network numbers
+        run: |
+          if [ "$GITHUB_REF" = refs/heads/master ]; then
+            python3 tools/netver.py check --final
           else
-            echo "No base to compare with (event $EVENT): building"
+            python3 tools/netver.py check
           fi
-          echo "build: $build, ios: $ios"
-          echo "build=$build" >> "$GITHUB_OUTPUT"
-          echo "ios=$ios" >> "$GITHUB_OUTPUT"
+
+      - name: Install librsvg
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get -o Acquire::Retries=5 update -qq
+          sudo apt-get -o Acquire::Retries=5 install -y -qq --no-install-recommends librsvg2-bin
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/menu-inputs
+          key: menu-inputs-${{ hashFiles('tools/menus_regen.sh', 'tools/menus_requirements.txt') }}
+
+      - name: Tests
+        run: |
+          tools/menus_regen.sh --fetch
+          "$MENU_INPUTS/venv/bin/python" -m pip install -q pytest
+          "$MENU_INPUTS/venv/bin/python" -m pytest -q -rs tools/test_netver.py tools/test_merge_friction.py
+
+      - name: Generated menus
+        run: tools/menus_regen.sh --check
 
   linux-arm64:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' && needs.changes.outputs.linux_arm64 != 'false' }}
     # Ubuntu 22.04 (glibc 2.35, so the build starts on older distributions
     # too) on GitHub's 64-bit ARM runner, with its clang for the host and the
     # development files SDL3 builds with; the guest's compiler (arm64_32) is
@@ -158,6 +295,9 @@ jobs:
     # (on master three builds, debug, release and the Steam Frame's VR
     # release, each of the whole game, as the x86-64 job's)
     timeout-minutes: 75
+    env:
+      # (a release's number, build-<N>: tools/ci_build.py)
+      CI_BUILD_NUMBER: ${{ needs.changes.outputs.number }}
     steps:
       - uses: actions/checkout@v4
 
@@ -170,8 +310,8 @@ jobs:
         run: |
           packages="$(cat .github/ci-image/packages.txt)"
           if ! dpkg -s $packages > /dev/null 2>&1; then
-            apt-get update
-            apt-get install -y --no-install-recommends $packages
+            apt-get -o Acquire::Retries=5 update
+            apt-get -o Acquire::Retries=5 install -y --no-install-recommends $packages
           fi
 
       # (the compile cache of master's latest build, restored on every branch
@@ -215,7 +355,7 @@ jobs:
         run: python3 tools/ci_build.py linux_arm64 debug
 
       - name: Release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         run: python3 tools/ci_build.py linux_arm64 release
 
       # the VR build for the Steam Frame (an arm64 SteamOS headset), as its
@@ -223,7 +363,7 @@ jobs:
       # shortcut, SHA256SUMS), which its install.sh installs; a download of
       # its own, halo-steam-frame-vr-release.zip
       - name: Steam Frame VR release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         run: python3 tools/ci_build.py linux_arm64 release --vr
 
       - name: Compile cache
@@ -233,7 +373,7 @@ jobs:
       # found, each hit refreshing its entry's time, rather than everything
       # since the cache began, up to CCACHE_MAXSIZE)
       - name: Trim the compile cache
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         run: |
           ccache --evict-older-than "$(( $(date +%s) - CCACHE_START + 60 ))s"
           ccache --show-stats
@@ -241,13 +381,13 @@ jobs:
           echo "guest objects kept: $(find .cache/guest-asm -type f | wc -l)"
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .ccache
           key: ccache-linux-arm64-${{ github.sha }}
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .cache/guest-asm
           key: guest-asm-linux-arm64-${{ github.sha }}
@@ -259,7 +399,7 @@ jobs:
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-linux-arm64-release
           path: dist/halo-linux-arm64-release
@@ -268,11 +408,37 @@ jobs:
       # (the zip itself, which keeps the files' modes: the release has it as
       # it is)
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-steam-frame-vr-release
           path: dist/halo-steam-frame-vr-release
           retention-days: 3
+
+      # the guest image with its source lines (tools/ci_build.py's
+      # halo_guest.debug.elf), which the release publishes beside each
+      # build for tools/symbolize_crash.py; a build without one warns
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halo-linux-arm64-debug-symbols
+          path: dist/halo-linux-arm64-debug-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.full == 'true'
+        with:
+          name: halo-linux-arm64-release-symbols
+          path: dist/halo-linux-arm64-release-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.full == 'true'
+        with:
+          name: halo-steam-frame-vr-release-symbols
+          path: dist/halo-steam-frame-vr-release-symbols
+          retention-days: 3
+          if-no-files-found: warn
 
   linux-x86_64:
     needs: changes
@@ -281,23 +447,29 @@ jobs:
     # 64-bit host, drawn with Vulkan), made as the 64-bit ARM one is: Ubuntu
     # 22.04 (glibc 2.35, so the build starts on older distributions too) with
     # its clang for the host and the development files SDL3 builds with, the
-    # guest's compiler (x32) the pinned LLVM; and the tests: the guest's call
-    # boundary and image checks, which need this processor, and the rest,
-    # among them those that compile the engine's code in the game's 32-bit
-    # x86 ABI (tools/harness, tools/x86_game_abi.py: test tools only, with
-    # gcc-multilib's 32-bit C library; nothing 32-bit ships).
-    runs-on: ubuntu-24.04
+    # guest's compiler (x32) the pinned LLVM; and the tests that read the
+    # build (those that need none are the tests job's).
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner || '"ubuntu-24.04"') }}
     # (.github/ci-image/Dockerfile, as the 64-bit ARM job's)
+    # (none on our machines: their runners run in this image's files)
     container:
-      image: ghcr.io/openh1/ci-linux:ubuntu-22.04-x86_64
+      image: ${{ needs.changes.outputs.self_hosted != 'true' && 'ghcr.io/openh1/ci-linux:ubuntu-22.04-x86_64' || '' }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ github.token }}
     # (three builds, debug, release and VR release, each of the whole game:
     # with a cold compile cache, more than the other jobs' one or two)
     timeout-minutes: 75
+    env:
+      # (a release's number, build-<N>: tools/ci_build.py)
+      CI_BUILD_NUMBER: ${{ needs.changes.outputs.number }}
     steps:
       - uses: actions/checkout@v4
+
+      # (on our machines: their compile cache and the guests' LLVM, kept)
+      - name: Use the machine's caches
+        if: needs.changes.outputs.self_hosted == 'true'
+        run: printf '%s\n' CCACHE_DIR=/goat-rig/ccache CCACHE_MAXSIZE=30G CCACHE_NOHASHDIR=true CCACHE_SLOPPINESS=include_file_mtime,include_file_ctime,time_macros CI_GUEST_LLVM_CACHE=/runner/cache/llvm >> "$GITHUB_ENV"
 
       # (the image has the packages of .github/ci-image's lists: apt installs
       # only what it lacks, a package a branch adds before master publishes
@@ -308,12 +480,13 @@ jobs:
         run: |
           packages="$(cat .github/ci-image/packages.txt .github/ci-image/packages-x86_64.txt)"
           if ! dpkg -s $packages > /dev/null 2>&1; then
-            apt-get update
-            apt-get install -y --no-install-recommends $packages
+            apt-get -o Acquire::Retries=5 update
+            apt-get -o Acquire::Retries=5 install -y --no-install-recommends $packages
           fi
 
       # (master's, as the 64-bit ARM job's)
       - uses: actions/cache/restore@v4
+        if: needs.changes.outputs.self_hosted != 'true'
         with:
           path: .ccache
           key: ccache-linux-x86_64-${{ github.sha }}
@@ -333,42 +506,86 @@ jobs:
 
       # the guests' LLVM, which configure.py fetches (tools/guest_toolchain.py)
       - uses: actions/cache@v4
+        if: needs.changes.outputs.self_hosted != 'true'
         with:
           path: .cache/llvm
           key: guest-llvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/guest_toolchain.py') }}
 
-      # the tests that need no build, started in the background beside the
-      # builds (a build that finds its objects in the compile cache leaves the
-      # processors mostly idle), their output and result in RUNNER_TEMP for
-      # the Test step, which waits for them: with the guests' LLVM on the
-      # PATH (clang, ld.lld and LLVM's tools), on every processor, each
-      # file's tests together (pytest-xdist's loadfile)
-      - name: Start the tests
-        run: |
-          PATH="$(python3 tools/guest_toolchain.py --cache "$CI_GUEST_LLVM_CACHE"):$PATH"
-          (python3 -m pytest -q -rs -n auto --dist loadfile --durations=10 tools/test_host_units.py tools/test_guest_image_check.py tools/test_check_host_imports.py tools/test_host_syscall.py tools/test_guest_layout.py tools/test_linux_guest_build.py tools/test_build_errors.py tools/test_guest_toolchain.py tools/test_linux_port.py tools/test_join_page.py tools/test_linux_package.py tools/test_install_layout.py tools/test_android_asm_convert.py tools/test_guest_asm_cache.py tools/test_guest_branch_relax.py tools/test_host_watch_hash.py tools/test_touch_menu.py tools/harness tools/test_controller_remap.py tools/test_controller_remap_context.py tools/test_net_compare.py tools/test_loading_ring.py tools/test_preparation.py tools/test_progress_ownership.py \
-            > "$RUNNER_TEMP/tests.log" 2>&1 && status=0 || status=$?; echo "$status" > "$RUNNER_TEMP/tests.status") < /dev/null > /dev/null 2>&1 &
-
       - name: Debug
         run: python3 tools/ci_build.py linux_x86_64 debug
+
+      # the tests that read the debug build, started in the background beside
+      # the scorecard, their output and result in RUNNER_TEMP for the Test
+      # step, which waits for them (before the release builds, which
+      # configure and build in the same folder): the profiling build's checks,
+      # which read the build's build.ninja and objects, with the system's
+      # clang, whose sanitizers' runtimes the pinned LLVM leaves out; the
+      # screenshot key's files with the SDL3 the build made; the light
+      # partitions' storage, with the guests' LLVM on the PATH; and the
+      # Vulkan backend's core over a fake Vulkan, and the VR host's OpenXR
+      # binding, with the system's clang (its sanitizers): the pinned Vulkan
+      # headers, which the build fetched, and the OpenXR headers, fetched
+      # here first (before the VR release, which fetches them too, on
+      # master); the VR mode's vehicles' seats and steering against a fake
+      # world; the VR mode's effects' thickness bake, eye transforms and
+      # shaders; the Vulkan and Metal texture caches' idle time against a
+      # fake clock; display.hdr's contract (the classification, the
+      # reference, the two backends' one GLSL source); and
+      # display.ambient_occlusion's, the ambient light alone by it in both
+      # emitters' shaders. (The tests that need no build are the tests job's.)
+      # (the plan's: a pull request's those its files touch, else every one)
+      - name: Start the build's tests
+        id: build-tests
+        env:
+          BUILD_TESTS: ${{ needs.changes.outputs.build_tests }}
+        run: |
+          [ -n "$BUILD_TESTS" ] || BUILD_TESTS="$(python3 tools/ci_plan.py --all-build-tests)"
+          echo "the build's tests: $BUILD_TESTS"
+          serial='' light='' parallel=''
+          for test in $BUILD_TESTS; do
+            case "$test" in
+              tools/test_profile.py|tools/test_host_units.py::*) serial="$serial $test" ;;
+              tools/test_light_storage.py) light=yes ;;
+              *) parallel="$parallel $test" ;;
+            esac
+          done
+          python3 -c "import sys; sys.path.insert(0, '.'); from pathlib import Path; from tools.linux_guest_build import fetch_openxr_headers; fetch_openxr_headers(Path('build/linux_x86_64/third_party/openxr'))"
+          (status=0
+           [ -z "$serial" ] || python3 -m pytest -q -rs $serial || status=1
+           [ -z "$light" ] || (PATH="$(python3 tools/guest_toolchain.py --cache "$CI_GUEST_LLVM_CACHE"):$PATH" python3 tools/test_light_storage.py) || status=1
+           [ -z "$parallel" ] || python3 -m pytest -q -rs -n auto --dist loadfile $parallel || status=1
+           echo "$status" > "$RUNNER_TEMP/tests.status") < /dev/null > "$RUNNER_TEMP/tests.log" 2>&1 &
 
       # the 60/120 Hz scorecard on the debug build (tools/scorecard/ci.py):
       # StageKit, the rates compared, the known bugs caught, and the 30 Hz
       # gate against master's logs, which master's runs keep in the cache
+      # (a pull request's only when it changes C, or the scorecard itself)
       - uses: actions/cache/restore@v4
+        if: needs.changes.outputs.scorecard != 'false'
         with:
           path: .scorecard-baseline
           key: scorecard-baseline-${{ github.sha }}
           restore-keys: scorecard-baseline-
       - name: Scorecard
+        if: needs.changes.outputs.scorecard != 'false'
         env:
           SCORECARD_HOLDOUTS_JSON: ${{ secrets.SCORECARD_HOLDOUTS_JSON }}
+          CI_SCORECARD_RECORD: ${{ needs.changes.outputs.save == 'true' && '1' || '' }}
         run: python3 tools/scorecard/ci.py
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .scorecard-baseline
           key: scorecard-baseline-${{ github.sha }}
+
+      # (the build's tests started beside the scorecard, waited for, their
+      # output shown, their result the step's, the scorecard's passed or not)
+      - name: Test
+        if: ${{ !cancelled() && steps.build-tests.outcome == 'success' }}
+        run: |
+          for second in $(seq 1200); do [ -f "$RUNNER_TEMP/tests.status" ] && break; sleep 1; done
+          cat "$RUNNER_TEMP/tests.log"
+          [ "$(cat "$RUNNER_TEMP/tests.status")" = 0 ]
 
       # (the profiling build, configure.py --profile, which no other step
       # compiles: only when a run started by hand asks for it, as it costs a
@@ -378,54 +595,26 @@ jobs:
         run: python3 tools/ci_build.py linux_x86_64 profile
 
       - name: Release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         run: python3 tools/ci_build.py linux_x86_64 release
 
       # the VR build (OpenXR: SteamVR, Monado), a download of its own: the
       # desktop build has no VR mode, and the VR one starts the runtime
       - name: VR release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         run: python3 tools/ci_build.py linux_x86_64 release --vr
-
-      # (the profiling build's checks, which read the build's build.ninja and
-      # objects, with the system's clang, whose sanitizers' runtimes the
-      # pinned LLVM leaves out; then the tests started beside the builds,
-      # waited for, their output shown, their result the step's)
-      - name: Test
-        run: |
-          python3 -m pytest -q -rs tools/test_profile.py
-          for second in $(seq 1200); do [ -f "$RUNNER_TEMP/tests.status" ] && break; sleep 1; done
-          cat "$RUNNER_TEMP/tests.log"
-          [ "$(cat "$RUNNER_TEMP/tests.status")" = 0 ]
-          PATH="$(python3 tools/guest_toolchain.py --cache "$CI_GUEST_LLVM_CACHE"):$PATH"
-          python3 tools/test_light_storage.py
-
-      # the Vulkan backend's core over a fake Vulkan, and the VR host's OpenXR
-      # binding, with the system's clang (its sanitizers): the pinned Vulkan
-      # headers, which the build fetched, and the OpenXR headers, which only
-      # the VR release fetches, fetched here where it did not run (branches);
-      # the VR mode's vehicles' seats and steering against a fake world; the
-      # VR mode's effects' thickness bake, eye transforms and shaders; the
-      # Vulkan and Metal texture caches' idle time against a fake clock; and
-      # display.hdr's contract (the classification, the reference, the two
-      # backends' one GLSL source)
-      - name: Test the Vulkan backend and the VR host
-        run: |
-          python3 -c "import sys; sys.path.insert(0, '.'); from pathlib import Path; from tools.linux_guest_build import fetch_openxr_headers; fetch_openxr_headers(Path('build/linux_x86_64/third_party/openxr'))"
-          python3 -m pytest -q -n auto --dist loadfile tools/test_vulkan_passes.py tools/test_host_vr_vulkan.py tools/test_vr_vehicles.py \
-            tools/test_vr_effects.py tools/test_host_texture_idle.py tools/test_hdr.py tools/test_hdr_backends.py
 
       - name: Compile cache
         run: ccache --show-stats
 
       - name: Trim the compile cache
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true' && needs.changes.outputs.self_hosted != 'true'
         run: |
           ccache --evict-older-than "$(( $(date +%s) - CCACHE_START + 60 ))s"
           ccache --show-stats
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true' && needs.changes.outputs.self_hosted != 'true'
         with:
           path: .ccache
           key: ccache-linux-x86_64-${{ github.sha }}
@@ -437,33 +626,135 @@ jobs:
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-linux-x86_64-release
           path: dist/halo-linux-x86_64-release
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-linux-x86_64-vr-release
           path: dist/halo-linux-x86_64-vr-release
           retention-days: 3
 
-  android:
+      # the guest image with its source lines (tools/ci_build.py's
+      # halo_guest.debug.elf), which the release publishes beside each
+      # build for tools/symbolize_crash.py; a build without one warns
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halo-linux-x86_64-debug-symbols
+          path: dist/halo-linux-x86_64-debug-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.full == 'true'
+        with:
+          name: halo-linux-x86_64-release-symbols
+          path: dist/halo-linux-x86_64-release-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.full == 'true'
+        with:
+          name: halo-linux-x86_64-vr-release-symbols
+          path: dist/halo-linux-x86_64-vr-release-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+  tests:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
+    # The tests that need no build (among them those that compile the
+    # engine's code in the game's 32-bit x86 ABI: tools/harness,
+    # tools/x86_game_abi.py, with gcc-multilib's 32-bit C library), on
+    # runners of their own beside the builds rather than in linux-x86_64's,
+    # where they were its longest step: split by file into shards of about
+    # the same time (tools/ci_test_shards.py, by tools/ci_test_times.json,
+    # which the shards' JUnit XML, uploaded, makes again), each file's tests
+    # together on every processor (pytest-xdist's loadfile). Every shard
+    # reports its own check, tests (1) to tests (4), and runs to the end
+    # whatever the others do.
+    runs-on: ${{ fromJSON(needs.changes.outputs.runner || '"ubuntu-24.04"') }}
+    # (.github/ci-image/Dockerfile: linux-x86_64's packages and system clang)
+    # (none on our machines: their runners run in this image's files)
+    container:
+      image: ${{ needs.changes.outputs.self_hosted != 'true' && 'ghcr.io/openh1/ci-linux:ubuntu-22.04-x86_64' || '' }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.changes.outputs.shards || '[1, 2, 3, 4]') }}
+    name: tests (${{ matrix.shard }})
+    steps:
+      - uses: actions/checkout@v4
+
+      # (on our machines: their compile cache and the guests' LLVM, kept)
+      - name: Use the machine's caches
+        if: needs.changes.outputs.self_hosted == 'true'
+        run: printf '%s\n' CCACHE_DIR=/goat-rig/ccache CCACHE_MAXSIZE=30G CCACHE_NOHASHDIR=true CCACHE_SLOPPINESS=include_file_mtime,include_file_ctime,time_macros CI_GUEST_LLVM_CACHE=/runner/cache/llvm >> "$GITHUB_ENV"
+
+      # (as linux-x86_64's)
+      - name: Install the toolchain
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          packages="$(cat .github/ci-image/packages.txt .github/ci-image/packages-x86_64.txt)"
+          if ! dpkg -s $packages > /dev/null 2>&1; then
+            apt-get -o Acquire::Retries=5 update
+            apt-get -o Acquire::Retries=5 install -y --no-install-recommends $packages
+          fi
+
+      # the guests' LLVM, linux-x86_64's cache (which that job saves)
+      - uses: actions/cache/restore@v4
+        if: needs.changes.outputs.self_hosted != 'true'
+        with:
+          path: .cache/llvm
+          key: guest-llvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/guest_toolchain.py') }}
+
+      # with the guests' LLVM on the PATH (clang, ld.lld and LLVM's tools)
+      # (the plan's tests: a pull request's those its files touch, else
+      # every one; all of them should the changes job have failed)
+      - name: Test
+        env:
+          TESTS: ${{ needs.changes.outputs.tests }}
+          SHARD_COUNT: ${{ needs.changes.outputs.shard_count || 4 }}
+        run: |
+          [ -n "$TESTS" ] || TESTS="$(python3 tools/ci_plan.py --all-tests)"
+          PATH="$(python3 tools/guest_toolchain.py --cache "$CI_GUEST_LLVM_CACHE"):$PATH"
+          files="$(python3 tools/ci_test_shards.py ${{ matrix.shard }} "$SHARD_COUNT" $TESTS)"
+          python3 -m pytest -q -rs -n auto --dist loadfile --durations=10 -o junit_family=xunit1 --junitxml "$RUNNER_TEMP/junit.xml" $files
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: tests-junit-${{ matrix.shard }}
+          path: ${{ runner.temp }}/junit.xml
+          retention-days: 3
+
+  android:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' && needs.changes.outputs.android != 'false' }}
     # The runner image has the Android SDK and NDK, a JDK and CMake; the
     # guest's compiler is the pinned LLVM configure.py downloads.
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      # (a release's number, build-<N>: tools/ci_build.py)
+      CI_BUILD_NUMBER: ${{ needs.changes.outputs.number }}
     steps:
       - name: Install the toolchain
         run: |
           mkdir -p "$RUNNER_TEMP/tools"
           # (each download checked against the hash it had when it was pinned)
-          curl -fsSL -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip
-          curl -fsSL -o ccache.tar.xz https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-linux-x86_64.tar.xz
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o ccache.tar.xz https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-linux-x86_64.tar.xz
           sha256sum -c - <<'EOF'
           6f98805688d19672bd699fbbfa2c2cf0fc054ac3df1f0e6a47664d963d530255  ninja.zip
           80cab87bd510eca796467aee8e663c398239e0df1c4800a0b5dff11dca0b4f18  ccache.tar.xz
@@ -528,7 +819,7 @@ jobs:
       # builds alone (the release's) get them: a branch's build, which runs
       # the branch's code, is signed with the debug key.
       - name: Signing key
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.release == 'true'
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
@@ -541,24 +832,27 @@ jobs:
 
       - name: Debug
         env:
-          HALO_ANDROID_KEYSTORE_PASSWORD: ${{ github.ref == 'refs/heads/master' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
+          HALO_ANDROID_KEYSTORE_PASSWORD: ${{ needs.changes.outputs.release == 'true' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
         run: python3 tools/ci_build.py android debug
 
       - name: Release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         env:
-          HALO_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          HALO_ANDROID_KEYSTORE_PASSWORD: ${{ needs.changes.outputs.release == 'true' && secrets.ANDROID_KEYSTORE_PASSWORD || '' }}
         run: python3 tools/ci_build.py android release
 
-      # the touch controls' layout and gyroscope maths (the runner's JDK)
-      - name: Test the touch layout
-        run: python3 tools/test_touch_layout.py
+      # the touch controls' layout and gyroscope maths, and the MCC maps'
+      # importer's metadata reading (the runner's JDK)
+      - name: Test the touch layout and MCC importer
+        run: |
+          python3 tools/test_touch_layout.py
+          python3 tools/test_mcc_metadata_importer.py
 
       - name: Compile cache
         run: ccache --show-stats
 
       - name: Trim the compile cache
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         run: |
           ccache --evict-older-than "$(( $(date +%s) - CCACHE_START + 60 ))s"
           ccache --show-stats
@@ -566,13 +860,13 @@ jobs:
           echo "guest objects kept: $(find .cache/guest-asm -type f | wc -l)"
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .ccache
           key: ccache-android-${{ github.sha }}
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .cache/guest-asm
           key: guest-asm-android-${{ github.sha }}
@@ -584,24 +878,46 @@ jobs:
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-android-release
           path: dist/halo-android-release
           retention-days: 3
 
+      # the guest image with its source lines (tools/ci_build.py's
+      # halo_guest.debug.elf), which the release publishes beside each
+      # build for tools/symbolize_crash.py; a build without one warns
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halo-android-debug-symbols
+          path: dist/halo-android-debug-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.full == 'true'
+        with:
+          name: halo-android-release-symbols
+          path: dist/halo-android-release-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
   windows:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' && needs.changes.outputs.windows != 'false' }}
     # The runner image has LLVM, Python, Git and Visual Studio's x64 libraries
     # and Windows SDK; the guest's compiler is the pinned LLVM configure.py
     # downloads (its Windows archive), the host's the image's clang.
-    runs-on: windows-2025
+    # (the Windows VM's runner, tools/ci-runner/windows.ps1, when the
+    # changes job found it free; else GitHub's)
+    runs-on: ${{ fromJSON(needs.changes.outputs.windows_runner || '"windows-2025"') }}
     timeout-minutes: 40
     # (the image's Android SDK hidden from configure.py, which would otherwise
     # fetch the Android build's SDL and musl, uncached here, for a build this
     # job does not make: 10 seconds or so)
     env:
+      # (a release's number, build-<N>: tools/ci_build.py)
+      CI_BUILD_NUMBER: ${{ needs.changes.outputs.number }}
       ANDROID_HOME: ""
       ANDROID_SDK_ROOT: ""
       ANDROID_NDK_HOME: ""
@@ -614,8 +930,8 @@ jobs:
       - name: Install the toolchain
         shell: pwsh
         run: |
-          Invoke-WebRequest -OutFile ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
-          Invoke-WebRequest -OutFile ccache.zip https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-windows-x86_64.zip
+          Invoke-WebRequest -MaximumRetryCount 5 -RetryIntervalSec 5 -OutFile ninja.zip https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
+          Invoke-WebRequest -MaximumRetryCount 5 -RetryIntervalSec 5 -OutFile ccache.zip https://github.com/ccache/ccache/releases/download/v4.10.2/ccache-4.10.2-windows-x86_64.zip
           # (each download checked against the hash it had when it was pinned)
           if ((Get-FileHash ninja.zip -Algorithm SHA256).Hash -ne "F550FEC705B6D6FF58F2DB3C374C2277A37691678D6ABA463ADCBB129108467A") { throw "ninja.zip: unexpected SHA-256" }
           if ((Get-FileHash ccache.zip -Algorithm SHA256).Hash -ne "6252F081876A9A9F700FAE13A5AEC5D0D486B28261D7F1F72AC11C7AD9DF4DA9") { throw "ccache.zip: unexpected SHA-256" }
@@ -627,8 +943,14 @@ jobs:
 
       - uses: actions/checkout@v4
 
+      # (on the VM: its compile cache and the guests' LLVM, kept)
+      - name: Use the machine's caches
+        if: runner.environment == 'self-hosted'
+        run: printf '%s\n' CCACHE_DIR='C:\goath1-ci\cache\ccache' CCACHE_MAXSIZE=20G CCACHE_NOHASHDIR=true CI_GUEST_LLVM_CACHE='C:\goath1-ci\cache\llvm' >> "$GITHUB_ENV"
+
       # (master's, as the 64-bit ARM job's)
       - uses: actions/cache/restore@v4
+        if: runner.environment != 'self-hosted'
         with:
           path: .ccache
           key: ccache-windows-${{ github.sha }}
@@ -648,12 +970,25 @@ jobs:
 
       # the guests' LLVM, which configure.py fetches (tools/guest_toolchain.py)
       - uses: actions/cache@v4
+        if: runner.environment != 'self-hosted'
         with:
           path: .cache/llvm
           key: guest-llvm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/guest_toolchain.py') }}
 
       - name: Debug
         run: python tools/ci_build.py windows debug
+
+      # the command stream's replay (ninja windows_replay), for measuring a
+      # recording on a Windows machine's driver (docs/replay_protocol.md);
+      # the releases do not carry it
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halo-windows-replay
+          path: |
+            build/windows/halo_replay.exe
+            build/windows/halo_replay.pdb
+            build/windows/SDL3.dll
+          retention-days: 7
 
       # The debug build started: the 64-bit host reserves the guest's memory,
       # loads the guest image and runs it through its start-up (settings,
@@ -674,7 +1009,7 @@ jobs:
           [ "$status" = 1 ]
 
       - name: Release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         run: python tools/ci_build.py windows release
 
       - name: Test light storage
@@ -684,13 +1019,13 @@ jobs:
         run: ccache --show-stats
 
       - name: Trim the compile cache
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true' && runner.environment != 'self-hosted'
         run: |
           ccache --evict-older-than "$(( $(date +%s) - CCACHE_START + 60 ))s"
           ccache --show-stats
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true' && runner.environment != 'self-hosted'
         with:
           path: .ccache
           key: ccache-windows-${{ github.sha }}
@@ -702,7 +1037,7 @@ jobs:
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-windows-release
           path: dist/halo-windows-release
@@ -716,7 +1051,7 @@ jobs:
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-windows-release-symbols
           path: dist/halo-windows-release-symbols
@@ -724,7 +1059,7 @@ jobs:
 
   macos:
     needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
+    if: ${{ !cancelled() && needs.changes.outputs.build != 'false' && needs.changes.outputs.macos != 'false' }}
     # The runner image has Xcode (clang, the Metal compiler), Python and
     # CMake; the guest's compiler is the pinned LLVM configure.py downloads.
     # The app is signed ad hoc (tools/macos_app.py), and the release on
@@ -734,6 +1069,8 @@ jobs:
     timeout-minutes: 40
     # (the image's Android SDK hidden from configure.py, as in the Windows job)
     env:
+      # (a release's number, build-<N>: tools/ci_build.py)
+      CI_BUILD_NUMBER: ${{ needs.changes.outputs.number }}
       ANDROID_HOME: ""
       ANDROID_SDK_ROOT: ""
       ANDROID_NDK_HOME: ""
@@ -742,7 +1079,7 @@ jobs:
     steps:
       - name: Install the toolchain
         run: |
-          brew install ninja ccache
+          for i in 1 2 3; do brew install ninja ccache && break; sleep 10; done; command -v ninja && command -v ccache
           # (the disk image's window: tools/macos_app.py dmg)
           python3 -m pip install --break-system-packages dmgbuild==1.6.7
           # (Xcode 26 downloads the Metal compiler apart)
@@ -803,7 +1140,7 @@ jobs:
       # release app's Info.plist has the appcast and the key, and the app
       # updates itself: tools/setup_sparkle_key.sh sets the variable)
       - name: Release
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         env:
           SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
         run: python3 tools/ci_build.py macos release
@@ -817,7 +1154,7 @@ jobs:
       # release stays ad hoc
       - name: Sign and notarize
         id: notarize
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.release == 'true'
         env:
           CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
           CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
@@ -856,7 +1193,7 @@ jobs:
       # Without the secret, or a notarized app, the release has no appcast and
       # the apps out stay as they are
       - name: Sign the update
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.release == 'true'
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           SPARKLE_PUBLIC_KEY: ${{ vars.SPARKLE_PUBLIC_KEY }}
@@ -879,7 +1216,7 @@ jobs:
         run: ccache --show-stats
 
       - name: Trim the compile cache
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         run: |
           ccache --evict-older-than "$(( $(date +%s) - CCACHE_START + 60 ))s"
           ccache --show-stats
@@ -887,20 +1224,20 @@ jobs:
           echo "guest objects kept: $(find .cache/guest-asm -type f | wc -l)"
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .ccache
           key: ccache-macos-${{ github.sha }}
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .cache/guest-asm
           key: guest-asm-macos-${{ github.sha }}
 
       # (once for each key: a key already saved is left as it is)
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master' && steps.sdl3-restore.outputs.cache-hit != 'true'
+        if: needs.changes.outputs.save == 'true' && steps.sdl3-restore.outputs.cache-hit != 'true'
         with:
           path: build/macos/sdl3-build
           key: macos-sdl3-build-${{ steps.sdl3.outputs.tools }}-${{ hashFiles('tools/macos_build.py', 'tools/android_build.py', 'tools/build_common.py', 'port/android/patches/**') }}
@@ -912,11 +1249,29 @@ jobs:
           retention-days: 3
 
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.full == 'true'
         with:
           name: halo-macos-release
           path: dist/halo-macos-release
           retention-days: 3
+
+      # the guest image with its source lines (tools/ci_build.py's
+      # halo_guest.debug.elf), which the release publishes beside each
+      # build for tools/symbolize_crash.py; a build without one warns
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halo-macos-debug-symbols
+          path: dist/halo-macos-debug-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.full == 'true'
+        with:
+          name: halo-macos-release-symbols
+          path: dist/halo-macos-release-symbols
+          retention-days: 3
+          if-no-files-found: warn
 
   ios:
     needs: changes
@@ -927,6 +1282,8 @@ jobs:
     runs-on: macos-15
     timeout-minutes: 50
     env:
+      # (a release's number, build-<N>: tools/ci_build.py)
+      CI_BUILD_NUMBER: ${{ needs.changes.outputs.number }}
       ANDROID_HOME: ""
       ANDROID_SDK_ROOT: ""
       ANDROID_NDK_HOME: ""
@@ -935,7 +1292,7 @@ jobs:
     steps:
       - name: Install the toolchain
         run: |
-          brew install ninja ccache
+          for i in 1 2 3; do brew install ninja ccache && break; sleep 10; done; command -v ninja && command -v ccache
           xcrun -sdk iphoneos metal --version || xcodebuild -downloadComponent MetalToolchain
 
       - uses: actions/checkout@v4
@@ -979,20 +1336,20 @@ jobs:
         run: ccache --show-stats
 
       - name: Trim the compile cache
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         run: |
           ccache --evict-older-than "$(( $(date +%s) - CCACHE_START + 60 ))s"
           ccache --show-stats
           find .cache/guest-asm -type f ! -newer "$RUNNER_TEMP/build-start" -delete
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .ccache
           key: ccache-ios-${{ github.sha }}
 
       - uses: actions/cache/save@v4
-        if: github.ref == 'refs/heads/master'
+        if: needs.changes.outputs.save == 'true'
         with:
           path: .cache/guest-asm
           key: guest-asm-ios-${{ github.sha }}
@@ -1003,18 +1360,44 @@ jobs:
           path: dist/halo-ios-debug
           retention-days: 3
 
+      # the guest image with its source lines (tools/ci_build.py's
+      # halo_guest.debug.elf), which the release publishes beside each
+      # build for tools/symbolize_crash.py; a build without one warns
+      - uses: actions/upload-artifact@v4
+        with:
+          name: halo-ios-debug-symbols
+          path: dist/halo-ios-debug-symbols
+          retention-days: 3
+          if-no-files-found: warn
+
   release:
-    # The builds (and the Windows builds' PDBs) as a release, tagged
-    # build-<run number> and marked latest
+    # The builds (and each build's symbols: the guest image with its source
+    # lines, and the Windows builds' PDBs) as a release, tagged build-<N>
+    # (the pushed tag's, or the version of a run started by hand) and marked
+    # latest
     # (every file keeps its name from release to release, for the README's
     # latest/download links), with their SHA256SUMS and, when the
     # OPENH1_RELEASE_KEY secret is set, its Ed25519 signature by the release
     # key (SHA256SUMS.sig, which the self-updaters check: the public key is
     # port/assets/release-key.pub; tools/release_sign.py); then all but the
-    # newest five build-* releases go, tags and all. Only for master, and
-    # only when every platform built.
-    needs: [linux-x86_64, linux-arm64, android, windows, macos]
-    if: ${{ github.ref == 'refs/heads/master' }}
+    # newest five build-* releases go, tags and all. Only for a release run,
+    # and only when every platform built and the tests passed, except that a macOS job GitHub
+    # cancelled (no macOS runner free: "The job was not acquired by Runner")
+    # does not hold the release back: the last release's macOS disk images
+    # and appcast are carried over ("Carry the macOS build over"), and the
+    # next build with a macOS runner brings the Mac up to date. A macOS
+    # build that failed still stops the release. (A job no runner took is
+    # "cancelled" in the run's page and its API, but "abandoned" in the
+    # needs context, a result GitHub's documentation does not list: the
+    # notify job's log showed MACOS: abandoned. Both are taken)
+    needs: [changes, linux-x86_64, tests, linux-arm64, android, windows, macos]
+    if: >-
+      ${{ !cancelled() && needs.changes.outputs.release == 'true' &&
+      needs['linux-x86_64'].result == 'success' && needs.tests.result == 'success' &&
+      needs['linux-arm64'].result == 'success' &&
+      needs.android.result == 'success' && needs.windows.result == 'success' &&
+      (needs.macos.result == 'success' || needs.macos.result == 'cancelled' ||
+      needs.macos.result == 'abandoned') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -1024,6 +1407,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      NUMBER: ${{ needs.changes.outputs.number }}
     steps:
       # (the Linux builds' zips are tools/linux_package.py's, the release's
       # names tools/release_names.py's; tools/ci_build.py notes reads the
@@ -1051,7 +1435,10 @@ jobs:
       # Frame's package is a zip already, with its modes; the macOS build's
       # disk image as it is, a file a Mac opens at once; the Android app's
       # APK as it is, which a phone installs at once and which carries its
-      # licences (tools/android_build.py)
+      # licences (tools/android_build.py); each build's symbols (the guest
+      # image with its source lines, and Windows's PDBs) zipped beside it,
+      # OpenH1-<machine>[-debug]-symbols.zip, for tools/symbolize_crash.py:
+      # a symbols zip that fails warns, and the release goes on
       - name: Package
         run: |
           mkdir release
@@ -1059,6 +1446,9 @@ jobs:
             name="$(basename "$build")"
             published="$(python3 tools/release_names.py "$name")"
             case "$name" in
+              halo-*-symbols)
+                (cd "$build" && zip -qr "$GITHUB_WORKSPACE/release/$published.zip" .) ||
+                  { echo "::warning::$name could not be zipped: the release has no $published.zip"; rm -f "release/$published.zip"; } ;;
               halo-steam-frame-*) cp "$build/$name.zip" "release/$published.zip" ;;
               halo-linux-*) python3 tools/linux_package.py zip "$build" "release/$published.zip" ;;
               halo-macos-*) cp "$build/OpenH1.dmg" "release/$published.dmg" ;;
@@ -1084,7 +1474,7 @@ jobs:
             echo "::warning::the macOS disk image was not signed for Sparkle: no appcast.xml"
             exit 0
           fi
-          tag="build-$GITHUB_RUN_NUMBER"
+          tag="build-$NUMBER"
           previous="$(gh release list --limit 20 --json tagName,createdAt \
             --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[0].tagName // ""')"
           : > notes.txt
@@ -1093,13 +1483,49 @@ jobs:
               --jq '.commits[] | .commit.message | split("\n") | if (.[0] | startswith("Merge pull request")) then (map(select(length > 0)) | .[1] // empty) elif (.[0] | startswith("Merge ")) then empty else .[0] end' \
               | awk '!seen[$0]++' > notes.txt || true
           fi
-          python3 tools/macos_appcast.py --build "$GITHUB_RUN_NUMBER" \
+          python3 tools/macos_appcast.py --build "$NUMBER" \
             --url "$GITHUB_SERVER_URL/$GH_REPO/releases/download/$tag/OpenH1.dmg" \
             --signature "$signature" --notes notes.txt \
             --release-page "$GITHUB_SERVER_URL/$GH_REPO/releases/tag/$tag" --output release/appcast.xml
           cat release/appcast.xml
 
-      # SHA256SUMS of every file the release publishes, signed with the
+      # a macOS job GitHub cancelled (above): the last release's disk images
+      # and appcast.xml, so the Mac's updater (SUFeedURL, the latest
+      # release's appcast.xml) still finds its build, with the appcast's
+      # download link moved to this release (the disk image, and so its
+      # Sparkle signature, are the same file)
+      - name: Carry the macOS build over
+        if: ${{ needs.macos.result != 'success' }}
+        run: |
+          tag="build-$NUMBER"
+          previous="$(gh release list --limit 20 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[0].tagName // ""')"
+          if [ -z "$previous" ]; then
+            echo "::error::no macOS build, and no earlier release to carry one over from"
+            exit 1
+          fi
+          mkdir carried
+          gh release download "$previous" --dir carried --pattern '*.dmg' --pattern appcast.xml
+          # (and their symbols, the same builds', when that release has them)
+          gh release download "$previous" --dir carried --pattern 'OpenH1-macOS*-symbols.zip' ||
+            echo "::warning::$previous has no macOS symbols to carry over"
+          ls -l carried
+          cp carried/*.dmg release/
+          cp carried/OpenH1-macOS*-symbols.zip release/ 2> /dev/null || true
+          if [ -f carried/appcast.xml ]; then
+            sed "s#/releases/download/$previous/#/releases/download/$tag/#g" carried/appcast.xml > release/appcast.xml
+          fi
+          echo "The macOS build is $previous's: GitHub had no macOS runner free for this one." > mac-carried.txt
+          echo "::warning::macOS job cancelled: carried $previous's macOS build over"
+
+      # a warning for each build without its symbols zip, or with one that
+      # holds no guest image (tools/release_names.py): never a reason to
+      # hold the release back
+      - name: Check the symbols
+        continue-on-error: true
+        run: python3 tools/release_names.py --check-symbols release
+
+      # SHA256SUMS of every file the release publishes (the symbols zips too), signed with the
       # release key's seed (the OPENH1_RELEASE_KEY secret, 64 hex digits:
       # tools/release_sign.py keygen makes one). The signature is checked
       # against port/assets/release-key.pub before anything is published: a
@@ -1125,19 +1551,37 @@ jobs:
           MESSAGE: ${{ github.event.head_commit.message }}
           COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          PUBLISH: ${{ needs.changes.outputs.publish }}
         run: |
-          tag="build-$GITHUB_RUN_NUMBER"
-          subject="$(printf '%s' "${MESSAGE:-manual run}" | head -n 1)"
+          tag="build-$NUMBER"
+          subject="$(printf '%s' "${MESSAGE:-$(git log -1 --format=%s 2>/dev/null || echo 'manual run')}" | head -n 1)"
           # (the network versions, "Network version: <n>" and "Standard
           # network version: <n>", which a dedicated server's
           # server.auto_update reads: port/linux/src/updater.c. A new one is
           # started once the game being played is over)
           versions="$(python3 tools/ci_build.py notes)"
-          printf '%s\n\nCommit: %s\nBuild: %s\n%s\n\nThe release builds are for playing; the debug builds stop at the first failed assertion and log it.\n\nOn Windows (64-bit Windows 10 1903 or later, with a Vulkan 1.3 graphics driver), download OpenH1-Windows.zip.\n\nOn Linux and the Steam Deck, download OpenH1-Linux.zip (OpenH1-Linux-ARM64.zip on 64-bit ARM, OpenH1-Linux-VR.zip for VR): it draws with Vulkan 1.3.\n\nOn the Steam Frame, in desktop mode, download OpenH1-Steam-Frame.zip, unzip it and open install.sh in it (port/linux/frame/README.md).\n\nOn macOS (Apple silicon, macOS 14.4 or later), download OpenH1.dmg, open it and drag OpenH1 to Applications: the app is signed and notarized.\n\nOn Android (64-bit, Android 9 or later, with Vulkan 1.3), download OpenH1-Android.apk on the phone and install it. The app is signed with OpenH1'"'"'s own key now: an install signed before it must be uninstalled once first (back up its maps and save folders).\n' \
+          printf '%s\n\nCommit: %s\nBuild: %s\n%s\n\nThe release builds are for playing; the debug builds stop at the first failed assertion and log it.\n\nOn Windows (64-bit Windows 10 1903 or later, with a Vulkan 1.3 graphics driver), download OpenH1-Windows.zip.\n\nOn Linux and the Steam Deck, download OpenH1-Linux.zip (OpenH1-Linux-ARM64.zip on 64-bit ARM, OpenH1-Linux-VR.zip for VR): it draws with Vulkan 1.3.\n\nOn the Steam Frame, in desktop mode, download OpenH1-Steam-Frame.zip, unzip it and open install.sh in it (port/linux/frame/README.md).\n\nOn macOS (Apple silicon, macOS 14.4 or later), download OpenH1.dmg, open it and drag GOAT H1 to Applications: the app is signed and notarized.\n\nOn Android (64-bit, Android 9 or later, with Vulkan 1.3), download OpenH1-Android.apk on the phone and install it. The app is signed with OpenH1'"'"'s own key now: an install signed before it must be uninstalled once first (back up its maps and save folders).\n\nThe -symbols zips are not for playing: each has one build'"'"'s debugging information (OpenH1-macOS-symbols.zip is OpenH1.dmg'"'"'s, OpenH1-Linux-debug-symbols.zip OpenH1-Linux-debug.zip'"'"'s), which tools/symbolize_crash.py gives a crash report'"'"'s frames their source lines with.\n' \
             "$subject" "$COMMIT_URL" "$RUN_URL" "$versions" > notes.md
+          if [ -f mac-carried.txt ]; then printf '\n%s\n' "$(cat mac-carried.txt)" >> notes.md; fi
+          # (a dry run: what would be published, kept as an artifact, and nothing published)
+          if [ "$PUBLISH" != true ]; then
+            echo "::notice::dry run: $tag not published"
+            cat notes.md
+            ls -l release
+            exit 0
+          fi
           gh release create "$tag" release/*.zip release/*.dmg release/*.apk release/SHA256SUMS $(ls release/appcast.xml release/SHA256SUMS.sig 2> /dev/null) --target "$GITHUB_SHA" --latest \
-            --title "Build $GITHUB_RUN_NUMBER (${GITHUB_SHA:0:7})" --notes-file notes.md
+            --title "Build $NUMBER (${GITHUB_SHA:0:7})" --notes-file notes.md
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        if: needs.changes.outputs.publish != 'true'
+        with:
+          name: dry-run-release
+          path: |
+            release
+            notes.md
+          retention-days: 1
 
       # The Windows builds' executables and PDBs to Sentry, which turns the
       # crash reports of these builds (port/windows/host/host_crash_win.c) into
@@ -1150,6 +1594,7 @@ jobs:
       # for a personal token instead. A failed upload does not stop the
       # release.
       - name: Upload Windows symbols to Sentry
+        if: needs.changes.outputs.publish == 'true'
         continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -1164,13 +1609,14 @@ jobs:
           fi
           if [ -n "$ORG" ]; then export SENTRY_ORG="$ORG"; fi
           if [ -n "$URL" ]; then export SENTRY_URL="$URL"; fi
-          curl -fsSL -o sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/$SENTRY_CLI_VERSION/sentry-cli-Linux-x86_64"
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 5 -o sentry-cli "https://github.com/getsentry/sentry-cli/releases/download/$SENTRY_CLI_VERSION/sentry-cli-Linux-x86_64"
           chmod +x sentry-cli
           ./sentry-cli debug-files upload --wait \
             artifacts/halo-windows-release artifacts/halo-windows-release-symbols \
             artifacts/halo-windows-debug artifacts/halo-windows-debug-symbols
 
       - name: Keep the last five
+        if: needs.changes.outputs.publish == 'true'
         run: |
           gh release list --limit 100 --json tagName,createdAt \
             --jq '[.[] | select(.tagName | startswith("build-"))] | sort_by(.createdAt) | reverse | .[5:] | .[].tagName' |
@@ -1178,13 +1624,79 @@ jobs:
             gh release delete "$tag" --cleanup-tag --yes
           done
 
+  check:
+    # The check branch protection requires: every job the plan ran passed
+    # (a job the plan skipped counts as passed; one that failed, or was
+    # cancelled, does not).
+    needs: [changes, linux-x86_64, tests, linux-arm64, android, windows, macos, ios]
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          printf '%s' "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          ! printf '%s' "$RESULTS" | jq -e 'to_entries | any(.value.result != "success" and .value.result != "skipped")' > /dev/null
+
+  ci-broken:
+    # A main branch's full run (a push to master, or dev until it goes): a
+    # failure opens an issue labelled ci-broken naming the commit and the
+    # jobs that failed (or comments on the one open), and the next green run
+    # closes it. (Not for a push of documentation alone, which builds nothing)
+    needs: [changes, linux-x86_64, tests, linux-arm64, android, windows, macos, ios]
+    if: >-
+      ${{ !cancelled() && github.event_name == 'push' && needs.changes.outputs.save == 'true' &&
+      needs.changes.outputs.build != 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      issues: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Open, update or close the ci-broken issue
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          COMMIT_URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+        run: |
+          open="$(gh issue list --label ci-broken --state open --json number --jq '.[0].number // empty')"
+          case " $RESULTS " in
+            *" failure "*|*" cancelled "*|*" abandoned "*) failed=true ;;
+            *) failed=false ;;
+          esac
+          if [ "$failed" = false ]; then
+            echo "green: $RESULTS"
+            if [ -n "$open" ]; then
+              gh issue close "$open" --comment "Green again at $COMMIT_URL on $BRANCH ($RUN_URL)."
+            fi
+            exit 0
+          fi
+          jobs="$(gh api "repos/$GH_REPO/actions/runs/$GITHUB_RUN_ID/attempts/$GITHUB_RUN_ATTEMPT/jobs" --paginate \
+            --jq '.jobs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | "- [\(.name)](\(.html_url)): \(.conclusion)"')"
+          subject="$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA" --jq '.commit.message | split("\n")[0]')"
+          body="$(printf 'The full suite failed on %s at %s (%s).\n\nFailing jobs:\n%s\n\nRun: %s\n' \
+            "$BRANCH" "$COMMIT_URL" "$subject" "${jobs:-(see the run)}" "$RUN_URL")"
+          printf '%s\n' "$body"
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "$body"
+          else
+            gh label create ci-broken --color B60205 --description "The full suite on the main branch is failing" 2>/dev/null || true
+            gh issue create --label ci-broken --title "CI broken on $BRANCH at ${GITHUB_SHA:0:7}" --body "$body"
+          fi
+
   notify:
     # A Discord embed for the run, to the DISCORD_WEBHOOK secret (nothing
     # without it): green when every platform built, red when one did not,
-    # with each platform's result, this run's release (master only), and
+    # with each platform's result and the tests', this run's release (a release run's), and
     # links to the latest release's builds.
     # (not for a push of documentation alone, which builds nothing)
-    needs: [changes, linux-x86_64, linux-arm64, android, windows, macos, release]
+    needs: [changes, linux-x86_64, tests, linux-arm64, android, windows, macos, release]
     if: ${{ !cancelled() && needs.changes.outputs.build != 'false' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -1193,6 +1705,7 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           LINUX_X86_64: ${{ needs['linux-x86_64'].result }}
+          TESTS: ${{ needs.tests.result }}
           LINUX_ARM64: ${{ needs['linux-arm64'].result }}
           ANDROID: ${{ needs.android.result }}
           WINDOWS: ${{ needs.windows.result }}
@@ -1219,7 +1732,7 @@ jobs:
               *) echo "➖ Skipped" ;;
             esac
           }
-          if [ "$LINUX_X86_64" = success ] && [ "$LINUX_ARM64" = success ] && [ "$ANDROID" = success ] && [ "$WINDOWS" = success ] && [ "$MACOS" = success ]; then
+          if [ "$LINUX_X86_64" = success ] && [ "$TESTS" = success ] && [ "$LINUX_ARM64" = success ] && [ "$ANDROID" = success ] && [ "$WINDOWS" = success ] && { [ "$MACOS" = success ] || [ "$MACOS" = skipped ]; }; then
             title="Build succeeded"; color=5763719
           else
             title="Build failed"; color=15548997
@@ -1229,14 +1742,14 @@ jobs:
           if [ -n "$RELEASE_TAG" ]; then
             release="[$RELEASE_TAG]($SERVER/$REPOSITORY/releases/tag/$RELEASE_TAG)"
           else
-            release="None (only a successful build of master makes one)"
+            release="None (only a tag build-<N> makes one: docs/releasing.md)"
           fi
           subject="$(printf '%s' "${MESSAGE:-manual run}" | head -n 1 | cut -c1-200)"
           jq -n \
             --arg title "$title" --argjson color "$color" --arg url "$RUN_URL" \
             --arg description "[\`${SHA:0:7}\`]($COMMIT_URL) $subject — $ACTOR ($BRANCH)" \
             --arg release "$release" --arg downloads "$downloads" \
-            --arg linux_x86_64 "$(status "$LINUX_X86_64")" --arg linux_arm64 "$(status "$LINUX_ARM64")" --arg windows "$(status "$WINDOWS")" --arg macos "$(status "$MACOS")" --arg android "$(status "$ANDROID")" \
+            --arg linux_x86_64 "$(status "$LINUX_X86_64")" --arg linux_arm64 "$(status "$LINUX_ARM64")" --arg windows "$(status "$WINDOWS")" --arg macos "$(status "$MACOS")" --arg android "$(status "$ANDROID")" --arg tests "$(status "$TESTS" | sed 's/Built/Passed/')" \
             --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{embeds: [{
               title: $title, url: $url, color: $color, description: $description, timestamp: $timestamp,
@@ -1246,6 +1759,7 @@ jobs:
                 {name: "Windows", value: $windows, inline: true},
                 {name: "macOS", value: $macos, inline: true},
                 {name: "Android", value: $android, inline: true},
+                {name: "Tests", value: $tests, inline: true},
                 {name: "Release", value: $release},
                 {name: "Latest release builds", value: $downloads}
               ]

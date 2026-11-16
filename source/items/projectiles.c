@@ -145,6 +145,9 @@ symbols in this file:
 /* port: port/linux/game/overshield_effect.c */
 boolean overshield_effect_active(long object_index);
 boolean overshield_effect_hit_effect_allowed(long effect_index);
+/* port: port/linux/game/powerup_hit_effects.c */
+long powerup_hit_effect(long object_index, short material_type, struct projectile_definition const *definition,
+	struct projectile_material_response_definition const *material_response, short response, long effect_index);
 
 /* ---------- constants */
 
@@ -2126,6 +2129,16 @@ static void projectile_collision(
 
 		if (overshield_effect_hit_effect_allowed(elite_response->default_effect.index))
 			effect_definition_index = elite_response->default_effect.index;
+	}
+
+	/* port: a hit on the overshield powerup, whose force field the map's tags
+	make dirt, plays what the projectile plays on the active camouflage's
+	(an engineer force field); how the projectile responds stays the hit's
+	own (port/linux/game/powerup_hit_effects.c) */
+	if (collision->type == _collision_result_object)
+	{
+		effect_definition_index = powerup_hit_effect(collision->object_index, material_type, definition,
+			material_response, response, effect_definition_index);
 	}
 
 	if (collision->type == _collision_result_structure &&

@@ -44,9 +44,9 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from .android_build import (GUEST_ARCH_SCRIPT, GUEST_TOOLCHAIN_SCRIPT, SDL_ANDROID_MOUSE_PATCH,
                             SDL_TAG, SDL_WAYLAND_REFERENCE_PATCH, TOML_DIR, fetch_third_party, generate_guest_image, host_memory_sources)
-from .build_common import (MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUPNPC_DIR, OWN_CODE_ERRORS, SDL_RPATH_LDFLAGS,
-                           compile_launcher, download, miniupnpc_sources, sdl3_desktop_check, sdl3_rule,
-                           pgo_generate_defines, updater_defines)
+from .build_common import (MBEDTLS_DIR, MINIUPNPC_DEFINES, MINIUPNPC_DIR, OWN_CODE_ERRORS, REPLAY_DIR,
+                           SDL_RPATH_LDFLAGS, compile_launcher, download, miniupnpc_sources, replay_build_label,
+                           sdl3_desktop_check, sdl3_rule, pgo_generate_defines, updater_defines)
 from .guest_arch import ARM64_32, X32, GuestArch
 from .guest_toolchain import LLVM_VERSION, guest_toolchain
 from .ninja_syntax import Writer, escape
@@ -284,6 +284,8 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
         PORT_DIR / "host_main.c", PORT_DIR / "host_desktop.c",
         LINUX_DIR / "src" / "posix_files.c", LINUX_DIR / "src" / "posix_net.c",
         LINUX_DIR / "src" / "posix_trace_marker.c",
+        # the MCC packages' previews and sharing (posix.h's posix_mcc_*)
+        LINUX_DIR / "src" / "posix_mcc_preview.c", LINUX_DIR / "src" / "posix_mcc_share.c",
         # (where config.toml is, for the debugging settings host_main.c reads)
         LINUX_DIR / "src" / "install_layout.c",
         TOML_DIR / "tomlc17.c",
@@ -368,5 +370,43 @@ def _generate(n: Writer, sln: Any, target: LinuxGuest, config_path: Path, third_
     # ... and the relays offered when a direct connection fails (network.relays_file)
     relays = build / "relays.txt"
     n.build(outputs=relays, rule=f"{prefix}_copy", inputs=Path("port/assets/network/relays.txt"))
-    n.build(outputs=target.name, rule="phony", inputs=[output, staged_sdl, sdl_license, brokers, masters, relays])
+    # ... and the stock maps' preparations' records (port/linux/src/prepared_shipped.h)
+    records = build / "prepared.records"
+    n.build(outputs=records, rule=f"{prefix}_copy", inputs=Path("port/assets/prepared/prepared.records"))
+    # ... and the textures', fonts' and menus' bytes (port/linux/src/embedded_assets.h)
+    assets = build / "openh1.assets"
+    n.build(outputs=assets, rule=f"{prefix}_copy", inputs=guest["assets"])
+    n.build(outputs=target.name, rule="phony", inputs=[output, staged_sdl, sdl_license, brokers, masters, relays,
+                                                         records, assets])
+
+    # ---------- the command stream's replay (port/linux/vulkan/tools/halo_replay.c), with the replays' shared
+    # part (port/tools/replay): the render stream and its recording, and the Vulkan renderer, without the
+    # window (host_vulkan.c) or the guest; not the VR build's (its renderer is OpenXR's host's too)
+    if not vr:
+        _generate_replay(n, target, build, host_obj_dir, host_cc, host_cflags, host_objects, sdl_build, libsdl,
+                         staged_sdl)
     n.newline()
+
+
+def _generate_replay(n: Writer, target: LinuxGuest, build: Path, host_obj_dir: Path, host_cc: str, host_cflags: str,
+                     host_objects: List[Path], sdl_build: Path, libsdl: Path, staged_sdl: Path) -> None:
+    """build/<name>/halo_replay (ninja <name>_replay, linux_replay)"""
+    prefix, label = target.name, target.label
+    replay_cflags = f"{host_cflags} -I{REPLAY_DIR} -DHALO_REPLAY_BUILD=\\\"{replay_build_label()}\\\""
+    replay_objects: List[Path] = []
+    for source in (VULKAN_DIR / "tools" / "halo_replay.c", REPLAY_DIR / "host_render_replay.c"):
+        obj = host_obj_dir / "replay" / (source.name + ".o")
+        n.build(outputs=obj, rule=host_cc, inputs=source, order_only=[build / "host" / "shared" / "platform.h"],
+                variables={"cflags": f"-I{build / 'host' / 'shared'} -I{VULKAN_DIR} {replay_cflags}"})
+        replay_objects.append(obj)
+    replay_host = {"host_render_stream.c.o", "host_render_record.c.o", "host_screenshot.c.o"}
+    replay_objects += [obj for obj in host_objects if obj.name in replay_host]
+    replay_objects += [obj for obj in host_objects if obj.parent.name == "vulkan" and obj.name != "host_vulkan.c.o"]
+    replay = build / "halo_replay"
+    n.rule(name=f"{prefix}_replay_link",
+           command=(f"${prefix}_cc -pie -o $out $in -L{sdl_build} " + " ".join(f"-l{lib}" for lib in HOST_LIBRARIES) + " "
+                    + " ".join(SDL_RPATH_LDFLAGS) + " -Wl,--no-undefined"),
+           description=f"{label} LINK $out")
+    n.build(outputs=replay, rule=f"{prefix}_replay_link", inputs=replay_objects, implicit=[libsdl])
+    n.build(outputs=f"{target.name}_replay", rule="phony", inputs=[replay, staged_sdl])
+    n.build(outputs="linux_replay", rule="phony", inputs=[f"{target.name}_replay"])

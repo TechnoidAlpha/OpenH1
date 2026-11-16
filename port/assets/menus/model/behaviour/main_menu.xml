@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/main_menu" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="main menu intialize" label="ring_loop"/>
+		<on event="back" open="main_menu/quit_select/quit_screen"/>
+		<on event="b" open="main_menu/quit_select/quit_screen"/>
+	</behaviour>
+	<behaviour name="main_menu/main_menu_item_load_camp">
+		<on event="a" run="new game if no plyr profiles" open="main_menu/campaign/campaign_screen" branch="true" label="load_campaign"/>
+		<on event="start" run="new game if no plyr profiles" open="main_menu/campaign/campaign_screen" branch="true" label="load_campaign"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/main_menu_item_multiplayer">
+		<on event="a" run="new game if no plyr profiles" open="main_menu/multiplayer_type_select/multiplayer_type_select_screen" branch="true"/>
+		<on event="start" run="new game if no plyr profiles" open="main_menu/multiplayer_type_select/multiplayer_type_select_screen" branch="true"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/main_menu_item_quit_game">
+		<on event="start" open="main_menu/quit_select/quit_screen"/>
+		<on event="a" open="main_menu/quit_select/quit_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/main_menu_item_settings">
+		<on event="a" run="port settings begin" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen"/>
+		<on event="start" run="port settings begin" open="main_menu/settings_select/player_setup/player_profile_edit/video_settings/video_settings_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/main_menu_select_list" flags="pass_unhandled_to_focused_child up_down_tabs_items">
+		<on event="down"/>
+	</behaviour>
+	<behaviour name="main_menu/new_campaign_creating_profile" flags="pass_unhandled_to_focused_child no_history">
+		<on event="deleted" run="new campaign decision" open="main_menu/new_campaign_saving_profile"/>
+	</behaviour>
+	<behaviour name="main_menu/new_campaign_saving_profile" flags="pass_unhandled_to_focused_child no_history">
+		<on event="b" run="NULL"/>
+		<on event="back" run="NULL"/>
+		<on event="deleted" run="NULL" open="main_menu/campaign/difficulty_screen"/>
+	</behaviour>
+</model>

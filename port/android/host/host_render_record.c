@@ -67,6 +67,7 @@ static struct
 	uint32_t frame;
 	host_render_shooter shooter;
 	host_render_restorer restorer;
+	void (*played)(void);
 	char shots[1024];
 	struct shot_range ranges[SHOT_RANGES];
 	int range_count;
@@ -399,6 +400,22 @@ static void record_memory(const unsigned char *start, uint32_t type, uint32_t si
 		outside(upload->cells, upload->size);
 		break;
 	}
+	case XGPU_STREAM_DYNAMIC_LIGHTS_CHANGE:
+	{
+		const struct xgpu_stream_dynamic_lights_change *change = (const void *)start;
+
+		if (change->size)
+			outside(change->cells, change->size);
+		break;
+	}
+	case XGPU_STREAM_DYNAMIC_LIGHTS_WORLD:
+	{
+		const struct xgpu_stream_dynamic_lights_world *world = (const void *)start;
+
+		if (world->count <= 0xfffffffu)
+			outside(world->texels, world->count * 16);
+		break;
+	}
 	case XGPU_STREAM_VR_INITIALIZE:
 		outside(((const struct xgpu_stream_reply_record *)start)->reply, sizeof(struct xgpu_stream_vr_info));
 		break;
@@ -480,6 +497,11 @@ void host_render_record_set_restorer(host_render_restorer restorer)
 	active_update();
 }
 
+void host_render_record_set_played(void (*played)(void))
+{
+	recorder.played = played;
+}
+
 uint32_t host_render_record_frame(void)
 {
 	return recorder.frame;
@@ -524,6 +546,8 @@ void host_render_record_after(void)
 		event_write(HOST_RENDER_EVENT_RECORD, &recorder.position, sizeof(recorder.position), recorder.record, bytes);
 		recorder.records++;
 	}
+	if (recorder.played)
+		recorder.played();
 	if (recorder.type == XGPU_STREAM_FRAME_END)
 		recorder.frame++;
 }

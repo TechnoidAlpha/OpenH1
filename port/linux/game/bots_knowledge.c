@@ -55,6 +55,7 @@ orders from outside are not here.)
 /* port/linux/src/port_config.c */
 int config_boolean(char const *name);
 double config_real(char const *name);
+unsigned long config_changes(void);
 void platform_log(char const *format, ...);
 
 /* ---------- constants */
@@ -130,9 +131,12 @@ static struct
 	struct bots_knowledge_slot slots[BOTS_MAXIMUM];
 	/* each team's sightings, which reach its bots bots.share_delay late */
 	struct bots_knowledge_team_sighting team_seen[2][BOTS_KNOWLEDGE_TEAM_MEMORY];
-	/* bots.share_sightings and bots.share_delay (ticks), read once a tick */
+	/* bots.share_sightings and bots.share_delay (ticks), read again as the
+	settings change (config_changes was settings_read_at) */
 	boolean share;
 	long share_delay_ticks;
+	boolean settings_read;
+	unsigned long settings_read_at;
 	/* the item spawns, found once a map */
 	boolean spawns_ready;
 	short spawn_count;
@@ -639,8 +643,14 @@ void bots_knowledge_tick_begin(void)
 	struct player_datum *player;
 	long now = game_time_get(), team, index;
 
-	bots_knowledge.share = config_boolean("bots.share_sightings") != 0;
-	bots_knowledge.share_delay_ticks = bots_knowledge_share_delay_ticks();
+	/* (the settings read again only as they change: config_changes) */
+	if (!bots_knowledge.settings_read || bots_knowledge.settings_read_at != config_changes())
+	{
+		bots_knowledge.settings_read_at = config_changes();
+		bots_knowledge.settings_read = TRUE;
+		bots_knowledge.share = config_boolean("bots.share_sightings") != 0;
+		bots_knowledge.share_delay_ticks = bots_knowledge_share_delay_ticks();
+	}
 	for (team = 0; team < 2; team++)
 	{
 		for (index = 0; index < BOTS_KNOWLEDGE_TEAM_MEMORY; index++)
@@ -684,6 +694,59 @@ void bots_knowledge_reset(void)
 	for (index = 0; index < BOTS_MAXIMUM; index++)
 		bots_knowledge.slots[index].player_index = NONE;
 	bots_knowledge.items_tick = NONE;
+}
+
+short bots_knowledge_team_known(short team, struct bots_known_enemy *known, short maximum)
+{
+	short count = 0;
+	long index;
+
+	if (team < 0 || team > 1)
+		return 0;
+	for (index = 0; index < BOTS_KNOWLEDGE_TEAM_MEMORY && count < maximum; index++)
+	{
+		struct bots_knowledge_sighting const *latest = &bots_knowledge.team_seen[team][index].latest;
+
+		if (latest->tick <= 0 || latest->player_index == NONE)
+			continue;
+		known[count].player_index = latest->player_index;
+		known[count].tick = latest->tick;
+		known[count].position = latest->position;
+		known[count].heading = latest->heading;
+		known[count].own = TRUE;
+		count++;
+	}
+	return count;
+}
+
+boolean bots_knowledge_team_item(short team, long item_index, long *seen_tick, boolean *present, long *ticks_until)
+{
+	long index, seen = 0, period, now = game_time_get();
+	boolean there = FALSE;
+
+	*seen_tick = 0;
+	*present = FALSE;
+	*ticks_until = NONE;
+	if (team < 0 || team > 1 || item_index < 0 || item_index >= bots_knowledge.spawn_count)
+		return FALSE;
+	for (index = 0; index < BOTS_MAXIMUM; index++)
+	{
+		struct bots_knowledge_slot const *slot = &bots_knowledge.slots[index];
+		struct player_datum *player = slot->player_index != NONE ? player_try_and_get(slot->player_index) : NULL;
+
+		if (!player || bots_knowledge_team(player) != team || slot->item_seen_ticks[item_index] <= seen)
+			continue;
+		seen = slot->item_seen_ticks[item_index];
+		there = slot->item_seen_present[item_index];
+	}
+	if (seen <= 0)
+		return FALSE;
+	*seen_tick = seen;
+	*present = there;
+	period = bots_knowledge.spawns[item_index].period_ticks;
+	if (!there && period > 0 && now / period <= seen / period)
+		*ticks_until = (seen / period + 1) * period - now;
+	return TRUE;
 }
 
 void bots_knowledge_report(char *line, long size)

@@ -1,19 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's multiplayer screens, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/host_controls/touch/header_label" type="text" controller="1" left="40" top="128" width="164" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="-106 84" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/header_label" type="text" controller="1" left="40" top="128" width="164" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="-106 84" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/header_team" type="text" controller="1" left="208" top="128" width="48" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="-22 20" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/header_team" type="text" controller="1" left="208" top="128" width="48" height="16" font="ui\small_ui" color="#FF6F9CD0" wide="-22 20" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/header_score" type="text" controller="1" left="258" top="128" width="50" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-2 20" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/header_score" type="text" controller="1" left="258" top="128" width="50" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-2 20" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/header_ping" type="text" controller="1" left="312" top="128" width="66" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="18 20" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/header_ping" type="text" controller="1" left="312" top="128" width="66" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="18 20" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/header_value" type="text" controller="1" left="208" top="128" width="170" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-22 60" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/header_value" type="text" controller="1" left="208" top="128" width="170" height="16" font="ui\small_ui" color="#FF6F9CD0" align="right" wide="-22 60" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_empty" type="text" controller="1" left="52" top="230" width="316" height="80" font="ui\large_ui" color="#FF2896FF" align="center" wide="-106 144" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/host_empty" type="text" controller="1" left="52" top="230" width="316" height="80" font="ui\large_ui" color="#FF2896FF" align="center" wide="-106 144" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/host_controls/touch/host_panel">
+	<widget name="main_menu/host_controls/touch/host_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_children" description="main_menu/host_controls/touch/host_panel" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<data input="port host update"/>
 		<on event="created" run="port host init"/>
 		<child widget="main_menu/host_controls/touch/host_tabs" y="76"/>
@@ -28,7 +28,7 @@
 		<child widget="main_menu/host_controls/touch/host_action_3" x="412" y="350"/>
 		<child widget="main_menu/host_controls/touch/host_prompts" y="414"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_tabs" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/host_controls/touch/host_tabs" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<child widget="main_menu/host_controls/touch/tab_players" x="28"/>
 		<child widget="main_menu/host_controls/touch/tab_game" x="108"/>
 		<child widget="main_menu/host_controls/touch/tab_maps" x="166"/>
@@ -36,45 +36,45 @@
 		<child widget="main_menu/host_controls/touch/tab_bans" x="282"/>
 		<child widget="main_menu/host_controls/touch/tab_bots" x="340"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/tab_players" type="text" controller="1" width="74" height="52" wide="-106 22" bitmap="main_menu/parts/chip_74x52" text="PLAYERS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/tab_players" type="text" controller="1" width="74" height="52" wide="-106 22" bitmap="main_menu/parts/chip_74x52" text="PLAYERS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/tab_game" type="text" controller="1" width="52" height="52" wide="-84 22" bitmap="main_menu/parts/chip_52x52" text="GAME" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/tab_game" type="text" controller="1" width="52" height="52" wide="-84 22" bitmap="main_menu/parts/chip_52x52" text="GAME" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/tab_maps" type="text" controller="1" width="52" height="52" wide="-62 22" bitmap="main_menu/parts/chip_52x52" text="MAPS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/tab_maps" type="text" controller="1" width="52" height="52" wide="-62 22" bitmap="main_menu/parts/chip_52x52" text="MAPS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/tab_playlist" type="text" controller="1" width="52" height="52" wide="-40 22" bitmap="main_menu/parts/chip_52x52" text="NEXT" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/tab_playlist" type="text" controller="1" width="52" height="52" wide="-40 22" bitmap="main_menu/parts/chip_52x52" text="NEXT" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/tab_bans" type="text" controller="1" width="52" height="52" wide="-18 22" bitmap="main_menu/parts/chip_52x52" text="BANS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/tab_bans" type="text" controller="1" width="52" height="52" wide="-18 22" bitmap="main_menu/parts/chip_52x52" text="BANS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/tab_bots" type="text" controller="1" width="52" height="52" wide="4 22" bitmap="main_menu/parts/chip_52x52" text="BOTS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/tab_bots" type="text" controller="1" width="52" height="52" wide="4 22" bitmap="main_menu/parts/chip_52x52" text="BOTS" font="ui\small_ui" color="#FF2896FF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_chips">
 		<on event="a" run="port host tab"/>
 		<on event="start" run="port host tab"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_prompts" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+	<widget name="main_menu/host_controls/touch/host_prompts" type="column_list" width="640" height="52" flags="pass_unhandled_to_focused_child left_right_tabs_items" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_prompts">
 		<child widget="main_menu/host_controls/touch/prompt_back" x="502"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/prompt_back" type="text" width="110" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_110x52" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/prompt_back" type="text" width="110" height="52" wide="106 0" bitmap="main_menu/parts/touch_button_110x52" text="BACK" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_touch_prompts">
 		<on event="a" run="mouse emit back event"/>
 		<on event="start" run="mouse emit back event"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_1" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/host_controls/touch/host_item_1" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -86,8 +86,10 @@
 		<child widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
 		<child widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
 		<child widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_2" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/host_controls/touch/host_item_2" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -99,8 +101,10 @@
 		<child widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
 		<child widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
 		<child widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_3" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/host_controls/touch/host_item_3" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -112,8 +116,10 @@
 		<child widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
 		<child widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
 		<child widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_4" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/host_controls/touch/host_item_4" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -125,8 +131,10 @@
 		<child widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
 		<child widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
 		<child widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_5" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144">
+	<widget name="main_menu/host_controls/touch/host_item_5" width="364" height="52" bitmap="main_menu/parts/touch_row_364x52" wide="-106 144" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host row"/>
 		<on event="start" run="port host row"/>
 		<on event="left" run="port host left"/>
@@ -138,46 +146,48 @@
 		<child widget="main_menu/host_controls/touch/host_item_ping" x="284" y="16"/>
 		<child widget="main_menu/host_controls/touch/host_item_tag" x="12" y="31"/>
 		<child widget="main_menu/host_controls/touch/host_item_value" x="180" y="16"/>
+		<on event="stick_left" run="port host left"/>
+		<on event="stick_right" run="port host right"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_label" type="text" width="164" height="20" font="ui\large_ui" color="#FFFFFFFF" text_y="0" wide="0 84">
+	<widget name="main_menu/host_controls/touch/host_item_label" type="text" width="164" height="20" font="ui\large_ui" color="#FFFFFFFF" text_y="0" wide="0 84" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_team" type="text" width="48" height="20" font="ui\small_ui" color="#FFC9DCF7" text_y="3" text_flags="no_focus_test" wide="84 20">
+	<widget name="main_menu/host_controls/touch/host_item_team" type="text" width="48" height="20" font="ui\small_ui" color="#FFC9DCF7" text_y="3" text_flags="no_focus_test" wide="84 20" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_score" type="text" width="50" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="104 20">
+	<widget name="main_menu/host_controls/touch/host_item_score" type="text" width="50" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="104 20" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_ping" type="text" width="66" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="124 20">
+	<widget name="main_menu/host_controls/touch/host_item_ping" type="text" width="66" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="124 20" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_tag" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/host_item_tag" type="text" width="64" height="16" bitmap="main_menu/parts/pill_64" text_y="-1" font="ui\small_ui" color="#FFFFFFFF" align="center" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_item_value" type="text" width="170" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="84 60">
+	<widget name="main_menu/host_controls/touch/host_item_value" type="text" width="170" height="20" font="ui\small_ui" color="#FFC9DCF7" align="right" text_y="3" text_flags="no_focus_test" wide="84 60" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 	</widget>
-	<widget name="main_menu/host_controls/touch/panel_title" type="text" controller="1" width="188" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/panel_title" type="text" controller="1" width="188" height="22" font="ui\large_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/panel_where" type="text" controller="1" width="188" height="28" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/panel_where" type="text" controller="1" width="188" height="28" font="ui\small_ui" color="#FF2896FF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/panel_status" type="text" controller="1" width="188" height="48" font="ui\small_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test">
+	<widget name="main_menu/host_controls/touch/panel_status" type="text" controller="1" width="188" height="48" font="ui\small_ui" color="#FFFFFFFF" wide="0 68" text_flags="no_focus_test" source="tools/port_settings.py multiplayer_files/_touch_host_controls/_part_text">
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_panel" controller="1" left="400" top="76" width="212" height="334" bitmap="main_menu/parts/panel_212x334" wide="38 68">
+	<widget name="main_menu/host_controls/touch/host_panel" controller="1" left="400" top="76" width="212" height="334" bitmap="main_menu/parts/panel_212x334" wide="38 68" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<child widget="main_menu/host_controls/touch/panel_title" x="412" y="84"/>
 		<child widget="main_menu/host_controls/touch/panel_where" x="412" y="108"/>
 		<child widget="main_menu/host_controls/touch/panel_status" x="412" y="138"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_action_0" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/host_action_0" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_action_1" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/host_action_1" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_action_2" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/host_action_2" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/host_controls/touch/host_action_3" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19">
+	<widget name="main_menu/host_controls/touch/host_action_3" type="text" width="188" height="52" bitmap="main_menu/parts/touch_button_188x52" wide="38 68" font="ui\small_ui" color="#FFFFFFFF" align="center" text_y="19" source="tools/port_settings.py multiplayer_files/_touch_host_controls">
 		<on event="a" run="port host action"/>
 		<on event="start" run="port host action"/>
 		<on event="left_mouse" run="mouse emit accept event"/>

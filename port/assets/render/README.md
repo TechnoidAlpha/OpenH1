@@ -29,8 +29,18 @@ state number of the Xbox's GPU. The build does not need the maps.
 ## How it is made
 
 The front end records each new draw configuration into a file with
-`debug.render_manifest` (`HALO_RENDER_MANIFEST=<file>`). The recordings are
-merged:
+`debug.render_manifest` (`HALO_RENDER_MANIFEST=<file>`): each draw as no
+setting changes it (one sample a pixel, its colour target BGRA8, unlit by the
+shaders' lighting, no HDR tag, no alpha test by sample), with its context:
+what the settings derive the rest from (its vertex program's lighting,
+whether its targets are multisampled with multisampling and its colour
+target a screen buffer's, the ambient occlusion's pre-pass and occlusion as
+they would be with it on, the enhanced lights present and the lightmap pass,
+the HDR tag's category and kind: `xgpu_manifest_context`). The front end
+derives a draw the same way (`xgpu_draw_derive`), and a backend's build
+derives each of the manifest's draws under every setting
+(`xgpu_manifest_settings`, `xgpu_manifest_derive`), so that it makes every
+shader any setting draws with. The recordings are merged:
 
 ```sh
 python tools/render_manifest.py merge port/assets/render/manifest.txt <recording>...
@@ -38,10 +48,13 @@ python tools/render_manifest.py merge port/assets/render/manifest.txt <recording
 
 `merge --replace` makes the manifest from the recordings alone.
 
-The committed one is each stock map's first frame drawn through every shader
+The committed one is recorded by `tools/prepared_records.py` in the run
+that makes the stock maps' shipped records (`port/assets/prepared`): the
+game's first start, each stock map's first frame drawn through every shader
 its tags hold (`display.prepare_shaders`: `port/linux/game/render_enumerate.c`),
-recorded between the recording's `# enumerating` and `# prepared` notes, one
-short run a map, all 24 merged.
+the loading screens and the main menu. `tools/test_render_manifest.py`
+checks that every draw of every shipped record is one of the manifest's, as
+the records' settings derive it.
 
 The vertex shaders are not recorded: they are the game's code's, 67 programs
 each with its declaration. `python tools/render_manifest.py vertex <file>`

@@ -411,6 +411,34 @@ static uint64_t folder_trim(uint64_t keep, uint32_t *deleted)
 	return total;
 }
 
+uint64_t xgpu_astc_cache_files(const char *folder, int clear)
+{
+	DIR *directory = folder ? opendir(folder) : NULL;
+	struct dirent *found;
+	uint64_t total = 0;
+
+	if (!directory)
+		return 0;
+	while ((found = readdir(directory)) != NULL)
+	{
+		char path[PATH_BYTES];
+		struct stat status;
+		size_t length = strlen(found->d_name);
+
+		/* (the cache's own, as folder_trim takes them) */
+		if (length < 6 || (strcmp(found->d_name + length - 5, ".astc") && !strstr(found->d_name, ".astc.")))
+			continue;
+		snprintf(path, sizeof(path), "%s/%s", folder, found->d_name);
+		if (stat(path, &status) || !S_ISREG(status.st_mode))
+			continue;
+		total += (uint64_t)status.st_size;
+		if (clear)
+			unlink(path);
+	}
+	closedir(directory);
+	return total;
+}
+
 /* the folder kept under its most bytes (a quarter below it once trimmed, so
 that a trim is not due at every write after) */
 static void folder_bound(void)

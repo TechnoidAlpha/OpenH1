@@ -38,6 +38,9 @@ enum player_action_result
 	_player_action_result_evict_from_vehicle,
 	_player_action_result_touch_device,
 	_player_action_result_flip_vehicle,
+	/* port: an enemy's seat, taken by holding the action button
+	(port/linux/game/vehicle_hijack.c) */
+	_player_action_result_hijack_vehicle,
 	NUMBER_OF_PLAYER_ACTION_RESULTS,
 };
 
@@ -388,12 +391,30 @@ boolean players_coop_waiting_to_start(
 /* port: the co-op host's bringto command: everyone comes to the host */
 boolean players_coop_bring_to_host(
 	void);
+/* port: Host Controls' BRING TO ME (go_to FALSE: the player comes beside
+the host's player) and GO TO (TRUE: the host's player goes beside them), a
+network co-op host's: whether it may (another machine's living player, not
+away, the host's player in the level, and for GO TO the player in it too),
+and the move, as a BSP switch's (players.c); the moved player (and the
+one they went beside), or NONE */
+boolean players_coop_host_can_teleport(
+	long player_index,
+	boolean go_to);
+long players_coop_host_teleport(
+	long player_index,
+	boolean go_to,
+	long *beside_player_index);
 /* port: TRUE if `position` is inside a switch trigger for the BSP that is
 loaded. A player left there switches the level on the next tick. */
 boolean player_position_switches_bsp(
 	real_point3d const *position);
 void players_note_checkpoint(
 	void);
+/* port: network co-op's state above, which the ticks read, by part, for the
+demos (port/linux/game/demo.c's G records); NULL past the last */
+void *players_coop_port_demo_state(
+	short part,
+	long *size);
 void players_respawn_at_checkpoint(
 	void);
 void players_reconnect_to_structure_bsp(

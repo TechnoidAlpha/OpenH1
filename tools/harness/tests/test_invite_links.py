@@ -31,19 +31,19 @@ def test_case(case):
 FAULTS = {
     "page-hash-not-taken": ((', "&party=", "#party=" };', ', "&party=" };'), "forms"),
     "page-join-not-taken": ((', "&join=", "#join=" };', ', "&join=" };'), "forms"),
-    "address-sent-to-server": (('"Join my OpenH1 party: %s#party=%s\\n"', '"Join my OpenH1 party: %s?party=%s\\n"'),
+    "address-sent-to-server": (('"Join my GOAT H1 party: %s#party=%s\\n"', '"Join my GOAT H1 party: %s?party=%s\\n"'),
                                "party"),
-    "no-link-to-paste": (("\"Or paste this into OpenH1's Join by Link: \" P2P_PARTY_LINK_PREFIX \"%s\", "
+    "no-link-to-paste": (("\"Or paste this into GOAT H1's Join by Link: \" P2P_PARTY_LINK_PREFIX \"%s\", "
                           "P2P_JOIN_PAGE, hex, hex);",
                           "\"\", P2P_JOIN_PAGE, hex);"), "party"),
-    "game-as-party": (('"Join my OpenH1 game: %s#join=%s\\n"', '"Join my OpenH1 game: %s#party=%s\\n"'), "game"),
+    "game-as-party": (('"Join my GOAT H1 game: %s#join=%s\\n"', '"Join my GOAT H1 game: %s#party=%s\\n"'), "game"),
     "address-not-seen": ((', "openh1.com/join/#" };', " };"), "party"),
     "old-forms-dropped": (('"?join=", "&join=", "#join=" };', '"#join=" };'), "forms"),
     # (the game makes openh1:// links, takes older builds' halo:// ones, and sees either on the clipboard)
-    "makes-halo-links": (("\"Or paste this into OpenH1's Join by Link: \" P2P_JOIN_LINK_PREFIX \"%s\"",
-                          "\"Or paste this into OpenH1's Join by Link: \" P2P_OLD_JOIN_LINK_PREFIX \"%s\""), "game"),
-    "makes-halo-party-links": (("\"Or paste this into OpenH1's Join by Link: \" P2P_PARTY_LINK_PREFIX \"%s\"",
-                                "\"Or paste this into OpenH1's Join by Link: \" P2P_OLD_PARTY_LINK_PREFIX \"%s\""),
+    "makes-halo-links": (("\"Or paste this into GOAT H1's Join by Link: \" P2P_JOIN_LINK_PREFIX \"%s\"",
+                          "\"Or paste this into GOAT H1's Join by Link: \" P2P_OLD_JOIN_LINK_PREFIX \"%s\""), "game"),
+    "makes-halo-party-links": (("\"Or paste this into GOAT H1's Join by Link: \" P2P_PARTY_LINK_PREFIX \"%s\"",
+                                "\"Or paste this into GOAT H1's Join by Link: \" P2P_OLD_PARTY_LINK_PREFIX \"%s\""),
                                "party"),
     "halo-join-not-taken": (("{ P2P_JOIN_LINK_PREFIX, P2P_OLD_JOIN_LINK_PREFIX,", "{ P2P_JOIN_LINK_PREFIX,"), "forms"),
     "halo-party-not-taken": (("{ P2P_PARTY_LINK_PREFIX, P2P_OLD_PARTY_LINK_PREFIX,", "{ P2P_PARTY_LINK_PREFIX,"),

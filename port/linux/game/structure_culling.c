@@ -7,6 +7,7 @@ Six-plane rejection and conservative facing summaries for structure buckets.
 /* ---------- headers */
 
 #include "structure_culling.h"
+#include "render_enumerate.h"
 #include "far_clip.h"
 #include "custom_edition_cache.h"
 #include "cseries/cseries_windows.h"
@@ -24,6 +25,7 @@ Six-plane rejection and conservative facing summaries for structure buckets.
 #include "render/render_debug_geometry.h"
 #include "structures/structure_visibility.h"
 #include <float.h>
+#include <pthread.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -117,6 +119,7 @@ struct structure_culling_data
 	struct structure_culling_bucket *buckets;
 	struct structure_culling_pairing *pairings;
 	long material_count;
+	long cluster_count;
 	long bucket_count;
 	long pairing_count;
 	long bytes;
@@ -131,6 +134,11 @@ struct structure_culling_data
 
 struct structure_culling_workspace
 {
+	/* the buckets being built */
+	struct structure_culling_data *data;
+	/* where the bsp is read: its bytes this far from where it loads (0
+	there; a copy's, structure_bsp_cache.c, on the builder's thread) */
+	long offset;
 	short *owners;
 	long *vertex_counts;
 	long *lightmap_first;
@@ -161,12 +169,20 @@ static real structure_culling_camera_radius;
 static boolean structure_culling_debug_enabled;
 static unsigned long structure_culling_recorded[2][BIT_VECTOR_SIZE_IN_LONGS(MAXIMUM_SURFACES_PER_STRUCTURE)];
 
+/* ---------- macros */
+
+/* the bsp's bytes at address (where it loads), as the build reads them:
+in its copy for a build of one (structure_culling_jobs), else there */
+#define STRUCTURE_CULLING_READ(work, type, address) \
+	((type)(void *)((byte *)(address) + ((work) ? (work)->offset : 0)))
+
 /* ---------- prototypes */
 
 boolean tag_index_is_group(long tag_index, long group_tag);
 long config_integer(char const *name); /* port/linux/src/port_config.c */
-static void structure_culling_pairing_points(
-	struct structure_bsp *structure, struct structure_culling_pairing const *pairing, real_point3d *points);
+static void structure_culling_pairing_points(struct structure_bsp *structure,
+	struct structure_culling_material const *materials, long offset, struct structure_culling_pairing const *pairing,
+	real_point3d *points);
 
 /* ---------- private code */
 
@@ -329,18 +345,21 @@ static void structure_culling_record(long surface_index, short reason)
 	}
 }
 
-static void structure_culling_pairing_points(
-	struct structure_bsp *structure, struct structure_culling_pairing const *pairing, real_point3d *points)
+/* a pairing's triangle, of the structure (read offset bytes from where it
+loads, as STRUCTURE_CULLING_READ does) with materials' vertices */
+static void structure_culling_pairing_points(struct structure_bsp *structure,
+	struct structure_culling_material const *materials, long offset, struct structure_culling_pairing const *pairing,
+	real_point3d *points)
 {
-	struct structure_surface const *surface =
-		TAG_BLOCK_GET_ELEMENT(&structure->surfaces, pairing->surface_index, struct structure_surface);
-	struct structure_culling_material const *material = &structure_culling.materials[pairing->material_index];
+	struct structure_surface const *surface = (struct structure_surface const *)((byte const *)TAG_BLOCK_GET_ELEMENT(
+		&structure->surfaces, pairing->surface_index, struct structure_surface) + offset);
+	struct structure_culling_material const *material = &materials[pairing->material_index];
 	short i;
 
 	for (i = 0; i < 3; ++i)
 	{
-		points[i] =
-			*(real_point3d const *)(material->vertices + surface->vertex_indices[i] * COMPRESSED_STRUCTURE_VERTEX_SIZE);
+		points[i] = *(real_point3d const *)(material->vertices + offset +
+			surface->vertex_indices[i] * COMPRESSED_STRUCTURE_VERTEX_SIZE);
 	}
 }
 
@@ -366,8 +385,8 @@ static void structure_culling_build_group(struct structure_bsp *structure, struc
 	long eligible_count = 0;
 
 	count = structure_culling_gather_pairings(list, list_count, from_surface_list, group_material,
-		structure->surfaces.count, work->owners, work->vertex_counts, (word const *)structure->surfaces.address,
-		work->pairings);
+		structure->surfaces.count, work->owners, work->vertex_counts,
+		STRUCTURE_CULLING_READ(work, word const *, structure->surfaces.address), work->pairings);
 	if (!count)
 	{
 		return;
@@ -390,7 +409,7 @@ static void structure_culling_build_group(struct structure_bsp *structure, struc
 		{
 			continue;
 		}
-		structure_culling_pairing_points(structure, pairing, work->points);
+		structure_culling_pairing_points(structure, work->data->materials, work->offset, pairing, work->points);
 		for (j = 0; j < 3; ++j)
 		{
 			(&surface->centroid.x)[j] =
@@ -408,14 +427,15 @@ static void structure_culling_build_group(struct structure_bsp *structure, struc
 		{
 			memset(&surface->normal, 0, sizeof(surface->normal));
 		}
-		surface->facing_eligible = structure_culling.materials[pairing->material_index].facing_eligible;
+		surface->facing_eligible = work->data->materials[pairing->material_index].facing_eligible;
 		if (surface->facing_eligible)
 		{
 			real_vector3d mean = {0, 0, 0};
 			real_vector3d normal;
-			struct structure_surface const *triangle =
-				TAG_BLOCK_GET_ELEMENT(&structure->surfaces, pairing->surface_index, struct structure_surface);
-			byte const *vertices = structure_culling.materials[pairing->material_index].vertices;
+			struct structure_surface const *triangle = STRUCTURE_CULLING_READ(work, struct structure_surface const *,
+				TAG_BLOCK_GET_ELEMENT(&structure->surfaces, pairing->surface_index, struct structure_surface));
+			byte const *vertices =
+				STRUCTURE_CULLING_READ(work, byte const *, work->data->materials[pairing->material_index].vertices);
 
 			for (j = 0; j < 3; ++j)
 			{
@@ -427,10 +447,10 @@ static void structure_culling_build_group(struct structure_bsp *structure, struc
 				mean.j += normal.j;
 				mean.k += normal.k;
 			}
-			++structure_culling.triangle_count;
+			++work->data->triangle_count;
 			if (dot_product3d(&surface->normal, &mean) < 0.0f)
 			{
-				++structure_culling.disagree_count;
+				++work->data->disagree_count;
 			}
 		}
 	}
@@ -459,31 +479,34 @@ static void structure_culling_build_group(struct structure_bsp *structure, struc
 			bucket_count = 2;
 		}
 	}
-	structure_culling.split_count += bucket_count - 1;
+	work->data->split_count += bucket_count - 1;
 	first = 0;
 	for (i = 0; i < bucket_count; ++i)
 	{
-		struct structure_culling_bucket *bucket = &structure_culling.buckets[structure_culling.bucket_count++];
+		struct structure_culling_bucket *bucket = &work->data->buckets[work->data->bucket_count++];
 		boolean invalid = FALSE;
 		boolean have_bounds = FALSE;
 		long point_count = 0;
 
-		bucket->first_pairing = structure_culling.pairing_count;
+		bucket->first_pairing = work->data->pairing_count;
 		bucket->pairing_count = work->ends[i] - first;
 		bucket->facing_eligible = work->surfaces[first].facing_eligible;
-		bucket->source_bounds = from_surface_list ? NULL : parent_bounds;
+		/* (where the bounds are where the bsp loads) */
+		bucket->source_bounds = from_surface_list ? NULL :
+			(real_rectangle3d const *)((byte const *)parent_bounds - work->offset);
 		for (j = first; j < work->ends[i]; ++j)
 		{
 			struct structure_culling_pairing pairing = work->pairings[work->surfaces[j].surface_index];
 			short v;
 
-			structure_culling.pairings[structure_culling.pairing_count++] = pairing;
+			work->data->pairings[work->data->pairing_count++] = pairing;
 			if (!pairing.testable)
 			{
 				invalid = TRUE;
 				continue;
 			}
-			structure_culling_pairing_points(structure, &pairing, work->points + point_count);
+			structure_culling_pairing_points(structure, work->data->materials, work->offset, &pairing,
+				work->points + point_count);
 			for (v = 0; v < 3; ++v)
 			{
 				real_point3d const *point = &work->points[point_count++];
@@ -514,8 +537,8 @@ static long structure_culling_build_lists(
 	long c;
 	long s;
 	long total = 0;
-	boolean subclusters =
-		TAG_BLOCK_GET_ELEMENT(&structure->clusters, 0, struct structure_visibility_cluster)->subclusters.count != 0;
+	boolean subclusters = STRUCTURE_CULLING_READ(work, struct structure_visibility_cluster *,
+		TAG_BLOCK_GET_ELEMENT(&structure->clusters, 0, struct structure_visibility_cluster))->subclusters.count != 0;
 
 	if (maximum_group_count)
 	{
@@ -523,12 +546,12 @@ static long structure_culling_build_lists(
 	}
 	for (c = 0; c < structure->clusters.count; ++c)
 	{
-		struct structure_visibility_cluster *cluster =
-			TAG_BLOCK_GET_ELEMENT(&structure->clusters, c, struct structure_visibility_cluster);
+		struct structure_visibility_cluster *cluster = STRUCTURE_CULLING_READ(work, struct structure_visibility_cluster *,
+			TAG_BLOCK_GET_ELEMENT(&structure->clusters, c, struct structure_visibility_cluster));
 		long position = 0;
 		if (work)
 		{
-			structure_culling.clusters[c].first_bucket = structure_culling.bucket_count;
+			work->data->clusters[c].first_bucket = work->data->bucket_count;
 		}
 		for (s = 0; subclusters ? s < cluster->subclusters.count : position < cluster->surface_indices.count; ++s)
 		{
@@ -538,24 +561,26 @@ static long structure_culling_build_lists(
 			real_rectangle3d const *bounds = &structure->world_bounds;
 			if (subclusters)
 			{
-				struct structure_visibility_subcluster *subcluster =
-					TAG_BLOCK_GET_ELEMENT(&cluster->subclusters, s, struct structure_visibility_subcluster);
-				list = subcluster->surface_indices.address;
+				struct structure_visibility_subcluster *subcluster = STRUCTURE_CULLING_READ(work,
+					struct structure_visibility_subcluster *,
+					TAG_BLOCK_GET_ELEMENT(&cluster->subclusters, s, struct structure_visibility_subcluster));
+				list = STRUCTURE_CULLING_READ(work, long const *, subcluster->surface_indices.address);
 				count = subcluster->surface_indices.count;
 				bounds = &subcluster->world_bounds;
 			}
 			else
 			{
 				struct tag_block *materials;
-				long const *header = (long const *)cluster->surface_indices.address + position;
+				long const *header =
+					STRUCTURE_CULLING_READ(work, long const *, cluster->surface_indices.address) + position;
 				/* malformed headers end this cluster, just as in the original walk */
 				if (position > cluster->surface_indices.count - 3 || header[0] < 0 ||
 					header[0] >= structure->lightmaps.count)
 				{
 					break;
 				}
-				materials =
-					&TAG_BLOCK_GET_ELEMENT(&structure->lightmaps, header[0], struct structure_lightmap)->materials;
+				materials = &STRUCTURE_CULLING_READ(work, struct structure_lightmap *,
+					TAG_BLOCK_GET_ELEMENT(&structure->lightmaps, header[0], struct structure_lightmap))->materials;
 				if (header[1] < 0 || header[1] >= materials->count)
 				{
 					break;
@@ -585,12 +610,12 @@ static long structure_culling_build_lists(
 		}
 		if (work)
 		{
-			struct structure_culling_cluster *built = &structure_culling.clusters[c];
+			struct structure_culling_cluster *built = &work->data->clusters[c];
 			long b;
-			built->bucket_count = structure_culling.bucket_count - built->first_bucket;
-			for (b = built->first_bucket; b < structure_culling.bucket_count; ++b)
+			built->bucket_count = work->data->bucket_count - built->first_bucket;
+			for (b = built->first_bucket; b < work->data->bucket_count; ++b)
 			{
-				real_rectangle3d const *box = &structure_culling.buckets[b].bounds;
+				real_rectangle3d const *box = &work->data->buckets[b].bounds;
 				real_point3d low;
 				real_point3d high;
 				low.x = box->x0;
@@ -863,6 +888,7 @@ void structure_culling_dispose(void)
 {
 	short index;
 
+	structure_culling_wait();
 	/* debug_free rejects NULL, including before the first bsp load */
 	if (structure_culling.allocation)
 	{
@@ -884,6 +910,8 @@ are built again); the one loaded takes its own back, if it had them, the
 same bsp where it was: TRUE. (Not a Custom Edition
 map's: its bsps' vertices, which the buckets point into, are made again
 each time one loads: custom_edition_geometry.c) */
+static void structure_culling_job_wait(short structure_bsp_index);
+
 static boolean structure_culling_switch(struct structure_bsp *structure, short structure_bsp_index)
 {
 	struct structure_culling_data *kept;
@@ -905,6 +933,8 @@ static boolean structure_culling_switch(struct structure_bsp *structure, short s
 	{
 		return FALSE;
 	}
+	/* (its buckets built on the builder's thread, done or waited for) */
+	structure_culling_job_wait(structure_bsp_index);
 	kept = &structure_culling_kept[structure_bsp_index];
 	if (!kept->allocation)
 	{
@@ -1004,7 +1034,7 @@ void structure_culling_render_debug(void)
 				++truncated;
 				continue;
 			}
-			structure_culling_pairing_points(structure, pairing, points);
+			structure_culling_pairing_points(structure, structure_culling.materials, 0, pairing, points);
 			render_debug_triangle(TRUE, points, points + 1, points + 2, &colors[reason]);
 			++count;
 		}
@@ -1067,7 +1097,10 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 	{
 		memset(structure_culling_recorded, 0, sizeof(structure_culling_recorded));
 	}
-	if (!structure_culling_tests || !structure_culling_data_matches(structure))
+	/* (nor in a map's preparation, render_enumerate.c: its frame is the
+	game's own visibility's whatever the setting, so that its record is for
+	every setting's) */
+	if (!structure_culling_tests || render_enumerating || !structure_culling_data_matches(structure))
 	{
 		return FALSE;
 	}
@@ -1081,7 +1114,7 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 		planes[_structure_culling_frustum_plane_far].n.i * render.camera.position.x +
 		planes[_structure_culling_frustum_plane_far].n.j * render.camera.position.y +
 		planes[_structure_culling_frustum_plane_far].n.k * render.camera.position.z +
-		render_far_clip_distance();
+		render_far_clip_distance(render.local_player_index);
 	/* mirror projections are oblique: this perpendicular plane is not their GPU far clip */
 	if (render.camera.z_near == 0.0f)
 	{
@@ -1214,7 +1247,7 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 						surface->vertex_indices[2] < material->vertex_count)
 					{
 						real_point3d points[3];
-						structure_culling_pairing_points(structure, pairing, points);
+						structure_culling_pairing_points(structure, structure_culling.materials, 0, pairing, points);
 						if (box != 2 && TEST_FLAG(structure_culling_tests, _structure_culling_triangle_frustum_bit) &&
 							structure_culling_triangle_outside(planes, points, points + 1, points + 2))
 						{
@@ -1243,10 +1276,12 @@ boolean structure_culling_traverse(struct structure_bsp *structure)
 }
 
 /* the structure's buckets built, as the structure_bsp_index'th bsp's */
-static void structure_culling_build(struct structure_bsp *structure, short structure_bsp_index)
+/* a build's first part, where the bsp loads (on the game's thread, which
+alone uses the game's allocator and its tags): its allocation, its
+materials, whose owners and vertices; FALSE for a bsp with none to build */
+static boolean structure_culling_build_begin(struct structure_bsp *structure, short structure_bsp_index,
+	struct structure_culling_data *data, struct structure_culling_workspace *work, size_t *allocation_size)
 {
-	unsigned long started = system_milliseconds();
-	struct structure_culling_workspace work;
 	long l;
 	long m;
 	long i;
@@ -1258,13 +1293,14 @@ static void structure_culling_build(struct structure_bsp *structure, short struc
 	size_t unit_size;
 	size_t scratch_unit_size;
 	size_t size;
-	size_t final_size;
 	byte *cursor;
 	byte *allocation;
 
+	memset(work, 0, sizeof(*work));
+	work->data = data;
 	if (!structure || !structure_bsp_port_verify(structure))
 	{
-		return;
+		return FALSE;
 	}
 	for (l = 0; l < structure->lightmaps.count; ++l)
 	{
@@ -1272,14 +1308,14 @@ static void structure_culling_build(struct structure_bsp *structure, short struc
 		/* short material indices reserve NONE and must never wrap */
 		if (count < 0 || count > SHRT_MAX - material_count)
 		{
-			return;
+			return FALSE;
 		}
 		material_count += count;
 	}
 	capacity = structure_culling_build_lists(structure, NULL, &largest_group_count);
 	if (capacity < 0)
 	{
-		return;
+		return FALSE;
 	}
 	base_size = material_count * (sizeof(struct structure_culling_material) + sizeof(long)) +
 		structure->clusters.count * sizeof(struct structure_culling_cluster) +
@@ -1289,64 +1325,65 @@ static void structure_culling_build(struct structure_bsp *structure, short struc
 		sizeof(long) + 3 * sizeof(real_point3d);
 	if (base_size >= LONG_MAX || (size_t)capacity > (LONG_MAX - base_size) / unit_size)
 	{
-		return;
+		return FALSE;
 	}
 	size = base_size + capacity * unit_size;
 	if ((size_t)largest_group_count > (LONG_MAX - size) / scratch_unit_size)
 	{
-		return;
+		return FALSE;
 	}
 	size += largest_group_count * scratch_unit_size;
 	if (size >= STRUCTURE_CULLING_BUILD_BUDGET)
 	{
-		return;
+		return FALSE;
 	}
 	allocation = malloc(size ? size : 1);
 	if (!allocation)
 	{
-		return;
+		return FALSE;
 	}
-	structure_culling.allocation = allocation;
+	*allocation_size = size;
+	data->allocation = allocation;
 	cursor = allocation;
-	structure_culling.materials = (struct structure_culling_material *)cursor;
-	cursor += material_count * sizeof(*structure_culling.materials);
-	structure_culling.clusters = (struct structure_culling_cluster *)cursor;
-	cursor += structure->clusters.count * sizeof(*structure_culling.clusters);
-	structure_culling.buckets = (struct structure_culling_bucket *)cursor;
-	cursor += capacity * sizeof(*structure_culling.buckets);
-	structure_culling.pairings = (struct structure_culling_pairing *)cursor;
-	cursor += capacity * sizeof(*structure_culling.pairings);
-	work.vertex_counts = (long *)cursor;
+	data->materials = (struct structure_culling_material *)cursor;
+	cursor += material_count * sizeof(*data->materials);
+	data->clusters = (struct structure_culling_cluster *)cursor;
+	cursor += structure->clusters.count * sizeof(*data->clusters);
+	data->buckets = (struct structure_culling_bucket *)cursor;
+	cursor += capacity * sizeof(*data->buckets);
+	data->pairings = (struct structure_culling_pairing *)cursor;
+	cursor += capacity * sizeof(*data->pairings);
+	work->vertex_counts = (long *)cursor;
 	cursor += material_count * sizeof(long);
-	work.lightmap_first = (long *)cursor;
+	work->lightmap_first = (long *)cursor;
 	cursor += structure->lightmaps.count * sizeof(long);
-	work.owners = (short *)cursor;
+	work->owners = (short *)cursor;
 	cursor += ((structure->surfaces.count + 1) & ~1) * sizeof(short);
 	/* the same parser bounds every build_group call by the counted maximum */
-	work.surfaces = (struct structure_culling_split_surface *)cursor;
-	cursor += largest_group_count * sizeof(*work.surfaces);
-	work.pairings = (struct structure_culling_pairing *)cursor;
-	cursor += largest_group_count * sizeof(*work.pairings);
-	work.ends = (long *)cursor;
+	work->surfaces = (struct structure_culling_split_surface *)cursor;
+	cursor += largest_group_count * sizeof(*work->surfaces);
+	work->pairings = (struct structure_culling_pairing *)cursor;
+	cursor += largest_group_count * sizeof(*work->pairings);
+	work->ends = (long *)cursor;
 	cursor += largest_group_count * sizeof(long);
-	work.points = (real_point3d *)cursor;
+	work->points = (real_point3d *)cursor;
 	for (i = 0; i < structure->surfaces.count; ++i)
 	{
-		work.owners[i] = NONE;
+		work->owners[i] = NONE;
 	}
 	for (l = 0; l < structure->lightmaps.count; ++l)
 	{
 		struct tag_block *materials =
 			&TAG_BLOCK_GET_ELEMENT(&structure->lightmaps, l, struct structure_lightmap)->materials;
-		work.lightmap_first[l] = material_index;
+		work->lightmap_first[l] = material_index;
 		for (m = 0; m < materials->count; ++m, ++material_index)
 		{
 			struct structure_material *material = TAG_BLOCK_GET_ELEMENT(materials, m, struct structure_material);
-			struct structure_culling_material *built = &structure_culling.materials[material_index];
+			struct structure_culling_material *built = &data->materials[material_index];
 			built->vertices = material->compressed_vertex_data.address;
 			built->vertex_count =
 				built->vertices ? MAX(material->compressed_vertex_data.size / COMPRESSED_STRUCTURE_VERTEX_SIZE, 0) : 0;
-			work.vertex_counts[material_index] = built->vertex_count;
+			work->vertex_counts[material_index] = built->vertex_count;
 			built->facing_eligible = tag_index_is_group(material->shader.index, SHADER_DEFINITION_TAG) &&
 				shader_definition_get(material->shader.index)->base.type == _shader_type_environment;
 			for (i = MAX(material->first_surface_index, 0); i < structure->surfaces.count; ++i)
@@ -1357,56 +1394,204 @@ static void structure_culling_build(struct structure_bsp *structure, short struc
 				{
 					break;
 				}
-				if (work.owners[i] == NONE)
+				if (work->owners[i] == NONE)
 				{
-					work.owners[i] = (short)material_index;
+					work->owners[i] = (short)material_index;
 				}
 			}
 		}
 	}
-	structure_culling.material_count = material_count;
-	structure_culling_build_lists(structure, &work, NULL);
+	data->material_count = material_count;
+	data->cluster_count = structure->clusters.count;
+	data->structure = structure;
+	data->structure_bsp_index = structure_bsp_index;
+	data->surface_address = structure->surfaces.address;
+	data->surface_count = structure->surfaces.count;
+	data->from_subclusters =
+		TAG_BLOCK_GET_ELEMENT(&structure->clusters, 0, struct structure_visibility_cluster)->subclusters.count != 0;
+	return TRUE;
+}
+
+/* a build's last part, on the game's thread: only the exact tables kept */
+static void structure_culling_build_end(struct structure_culling_data *data, size_t size, unsigned long milliseconds)
+{
+	size_t final_size;
+	byte *cursor;
+	byte *allocation;
+
 	/* scratch and worst-case bucket slots share one allocation, then leave only the exact tables */
-	final_size = material_count * sizeof(*structure_culling.materials) +
-		structure->clusters.count * sizeof(*structure_culling.clusters) +
-		structure_culling.bucket_count * sizeof(*structure_culling.buckets) +
-		structure_culling.pairing_count * sizeof(*structure_culling.pairings);
-	cursor = (byte *)structure_culling.buckets + structure_culling.bucket_count * sizeof(*structure_culling.buckets);
-	memmove(cursor, structure_culling.pairings, structure_culling.pairing_count * sizeof(*structure_culling.pairings));
+	final_size = data->material_count * sizeof(*data->materials) +
+		data->cluster_count * sizeof(*data->clusters) +
+		data->bucket_count * sizeof(*data->buckets) +
+		data->pairing_count * sizeof(*data->pairings);
+	cursor = (byte *)data->buckets + data->bucket_count * sizeof(*data->buckets);
+	memmove(cursor, data->pairings, data->pairing_count * sizeof(*data->pairings));
 	/* debug_realloc invalidates the old header even on failure; keep both blocks valid */
 	allocation = malloc(final_size ? final_size : 1);
 	if (allocation)
 	{
-		memcpy(allocation, structure_culling.allocation, final_size);
-		free(structure_culling.allocation);
+		memcpy(allocation, data->allocation, final_size);
+		free(data->allocation);
 	}
 	else
 	{
-		allocation = structure_culling.allocation;
+		allocation = data->allocation;
 		final_size = size;
 	}
-	structure_culling.allocation = allocation;
-	structure_culling.materials = (struct structure_culling_material *)allocation;
-	structure_culling.clusters =
-		(struct structure_culling_cluster *)(allocation + material_count * sizeof(*structure_culling.materials));
-	structure_culling.buckets =
-		(struct structure_culling_bucket *)(structure_culling.clusters + structure->clusters.count);
-	structure_culling.pairings =
-		(struct structure_culling_pairing *)(structure_culling.buckets + structure_culling.bucket_count);
-	structure_culling.structure = structure;
-	structure_culling.structure_bsp_index = structure_bsp_index;
-	structure_culling.surface_address = structure->surfaces.address;
-	structure_culling.surface_count = structure->surfaces.count;
-	structure_culling.bytes = (long)final_size;
-	structure_culling.from_subclusters =
-		TAG_BLOCK_GET_ELEMENT(&structure->clusters, 0, struct structure_visibility_cluster)->subclusters.count != 0;
-	structure_culling.build_milliseconds = system_milliseconds() - started;
+	data->allocation = allocation;
+	data->materials = (struct structure_culling_material *)allocation;
+	data->clusters =
+		(struct structure_culling_cluster *)(allocation + data->material_count * sizeof(*data->materials));
+	data->buckets =
+		(struct structure_culling_bucket *)(data->clusters + data->cluster_count);
+	data->pairings =
+		(struct structure_culling_pairing *)(data->buckets + data->bucket_count);
+	data->bytes = (long)final_size;
+	data->build_milliseconds = milliseconds;
 	error(_error_silent,
 		"structure culling: %ld buckets (%s, %ld split) for %ld surfaces, %ld bytes, %lu ms, %ld of %ld triangles "
 		"disagree with their vertex normals",
-		structure_culling.bucket_count, structure_culling.from_subclusters ? "subclusters" : "surface lists",
-		structure_culling.split_count, structure_culling.surface_count, structure_culling.bytes,
-		structure_culling.build_milliseconds, structure_culling.disagree_count, structure_culling.triangle_count);
+		data->bucket_count, data->from_subclusters ? "subclusters" : "surface lists",
+		data->split_count, data->surface_count, data->bytes,
+		data->build_milliseconds, data->disagree_count, data->triangle_count);
+}
+
+/* ---------- the builds of a map's other bsps, on a thread of their own
+
+Each bsp of a map is read and checked as the map loads, and its buckets
+built while it is where it loads, before the next is read there
+(scenario_structure_bsps_read_ahead): 4 to 6 ms of each a10 bsp's, on the
+game's thread. Each is now built on a thread of its own from the bsp's copy
+(structure_bsp_cache.c), which holds the same bytes, its reads offset to
+the copy (STRUCTURE_CULLING_READ), while the game reads and checks the
+next: the buckets, their pointers into the bsp where it loads, are the
+same. The game's thread does what uses the game's allocator or its tags
+(structure_culling_build_begin, _end), and waits for a bsp's build before
+its buckets are used (structure_culling_switch), and for every build
+before another of its own, before the buckets or the copies are let go of
+(structure_culling_wait). */
+
+enum
+{
+	_structure_culling_job_none,
+	_structure_culling_job_queued,
+	_structure_culling_job_built
+};
+
+struct structure_culling_job
+{
+	struct structure_culling_data data;
+	struct structure_culling_workspace work;
+	struct structure_bsp *copy;
+	size_t size;
+	unsigned long milliseconds;
+	short state;
+};
+
+static struct
+{
+	boolean started, failed;
+	pthread_t thread;
+	pthread_mutex_t lock;
+	pthread_cond_t changed;
+	short queue[STRUCTURE_CULLING_KEPT_BSPS];
+	short first, count;
+	/* those queued and not yet waited for */
+	short pending;
+} structure_culling_builder;
+
+static struct structure_culling_job structure_culling_jobs[STRUCTURE_CULLING_KEPT_BSPS];
+
+static void *structure_culling_builder_main(void *unused)
+{
+	(void)unused;
+	pthread_mutex_lock(&structure_culling_builder.lock);
+	for (;;)
+	{
+		struct structure_culling_job *job;
+		unsigned long started;
+
+		while (!structure_culling_builder.count)
+		{
+			pthread_cond_wait(&structure_culling_builder.changed, &structure_culling_builder.lock);
+		}
+		job = &structure_culling_jobs[structure_culling_builder.queue[structure_culling_builder.first]];
+		structure_culling_builder.first = (structure_culling_builder.first + 1) % STRUCTURE_CULLING_KEPT_BSPS;
+		structure_culling_builder.count--;
+		pthread_mutex_unlock(&structure_culling_builder.lock);
+		started = system_milliseconds();
+		structure_culling_build_lists(job->copy, &job->work, NULL);
+		job->milliseconds = system_milliseconds() - started;
+		pthread_mutex_lock(&structure_culling_builder.lock);
+		job->state = _structure_culling_job_built;
+		pthread_cond_broadcast(&structure_culling_builder.changed);
+	}
+	return NULL;
+}
+
+static boolean structure_culling_builder_start(void)
+{
+	if (!structure_culling_builder.started && !structure_culling_builder.failed)
+	{
+		if (pthread_mutex_init(&structure_culling_builder.lock, NULL) ||
+			pthread_cond_init(&structure_culling_builder.changed, NULL) ||
+			pthread_create(&structure_culling_builder.thread, NULL, structure_culling_builder_main, NULL))
+		{
+			structure_culling_builder.failed = TRUE;
+		}
+		else
+		{
+			structure_culling_builder.started = TRUE;
+		}
+	}
+	return structure_culling_builder.started;
+}
+
+/* a bsp's build waited for, and kept as the bsp's buckets */
+static void structure_culling_job_wait(short structure_bsp_index)
+{
+	struct structure_culling_job *job = &structure_culling_jobs[structure_bsp_index];
+
+	if (job->state == _structure_culling_job_none)
+	{
+		return;
+	}
+	pthread_mutex_lock(&structure_culling_builder.lock);
+	while (job->state != _structure_culling_job_built)
+	{
+		pthread_cond_wait(&structure_culling_builder.changed, &structure_culling_builder.lock);
+	}
+	pthread_mutex_unlock(&structure_culling_builder.lock);
+	structure_culling_build_end(&job->data, job->size, job->milliseconds);
+	structure_culling_kept[structure_bsp_index] = job->data;
+	memset(job, 0, sizeof(*job));
+	structure_culling_builder.pending--;
+}
+
+void structure_culling_wait(void)
+{
+	short index;
+
+	for (index = 0; structure_culling_builder.pending && index < STRUCTURE_CULLING_KEPT_BSPS; ++index)
+	{
+		structure_culling_job_wait(index);
+	}
+}
+
+static void structure_culling_build(struct structure_bsp *structure, short structure_bsp_index)
+{
+	unsigned long started = system_milliseconds();
+	struct structure_culling_workspace work;
+	size_t size;
+
+	/* (one build at a time: structure_culling_split_axis) */
+	structure_culling_wait();
+	if (!structure_culling_build_begin(structure, structure_bsp_index, &structure_culling, &work, &size))
+	{
+		return;
+	}
+	structure_culling_build_lists(structure, &work, NULL);
+	structure_culling_build_end(&structure_culling, size, system_milliseconds() - started);
 }
 
 void structure_culling_structure_bsp_loaded(void)
@@ -1420,13 +1605,37 @@ void structure_culling_structure_bsp_loaded(void)
 	}
 }
 
-void structure_culling_structure_bsp_read(struct structure_bsp *structure, short structure_bsp_index)
+void structure_culling_structure_bsp_read(struct structure_bsp *structure, short structure_bsp_index, long copy_offset)
 {
 	struct structure_culling_data loaded = structure_culling;
+	struct structure_culling_job *job;
 
 	if ((unsigned short)structure_bsp_index >= STRUCTURE_CULLING_KEPT_BSPS ||
-		structure_culling_kept[structure_bsp_index].allocation)
+		structure_culling_kept[structure_bsp_index].allocation ||
+		structure_culling_jobs[structure_bsp_index].state != _structure_culling_job_none)
 	{
+		return;
+	}
+	/* (built from its copy on the builder's thread: above) */
+	job = &structure_culling_jobs[structure_bsp_index];
+	if (copy_offset && structure_culling_builder_start())
+	{
+		memset(job, 0, sizeof(*job));
+		if (!structure_culling_build_begin(structure, structure_bsp_index, &job->data, &job->work, &job->size))
+		{
+			memset(job, 0, sizeof(*job));
+			return;
+		}
+		job->work.offset = copy_offset;
+		job->copy = (struct structure_bsp *)((byte *)structure + copy_offset);
+		job->state = _structure_culling_job_queued;
+		structure_culling_builder.pending++;
+		pthread_mutex_lock(&structure_culling_builder.lock);
+		structure_culling_builder.queue[(structure_culling_builder.first + structure_culling_builder.count) %
+			STRUCTURE_CULLING_KEPT_BSPS] = structure_bsp_index;
+		structure_culling_builder.count++;
+		pthread_cond_broadcast(&structure_culling_builder.changed);
+		pthread_mutex_unlock(&structure_culling_builder.lock);
 		return;
 	}
 	memset(&structure_culling, 0, sizeof(structure_culling));

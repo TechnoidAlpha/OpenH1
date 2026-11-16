@@ -11,7 +11,11 @@ Vulkan backend's SPIR-V (xgpu_spirv.c, reading the pixel drawn over as an
 input attachment) and the Metal backend's MSL (xgpu_msl.c, reading it as
 [[color(0)]]). The test makes the SPIR-V Metal's with SPIRV-Cross and runs
 both on the Mac's GPU over the same pixels (harness.m): the two backends'
-blends must agree.
+blends must agree. Each tagged draw is also written interlocked
+(xgpu_spirv_options interlock: the target read and written as a storage
+image in the triangles' order; <name>-interlock, and, with the colour mask
+of red, green and blue alone, <name>-interlock-rgb for the alpha blend),
+which the harness draws over each pixel twice in one draw.
 
   shaders <out dir>
 
@@ -87,7 +91,7 @@ int main(int argc, char **argv)
 	struct xgpu_msl_options msl;
 	struct xgpu_spirv_module module;
 	char name[64], file[80], path[1024];
-	unsigned int blend, tag;
+	unsigned int blend, tag, mask;
 	FILE *index;
 	char *source;
 
@@ -141,6 +145,30 @@ int main(int argc, char **argv)
 				return 1;
 			free(source);
 			fprintf(index, "%s %u\n", name, (unsigned)program.hdr);
+			/* (interlocked, and its colour mask too: the MSL's the same) */
+			for (mask = 0; mask < (blend == 3 ? 2 : 1); mask++)
+			{
+				char interlocked[80];
+
+				snprintf(interlocked, sizeof(interlocked), "%s-interlock%s", name, mask ? "-rgb" : "");
+				spirv.interlock = XGPU_SPIRV_INTERLOCK_PIXEL;
+				spirv.interlock_mask = mask ? 7 : 15;
+				if (!xgpu_spirv_pixel_shader(&program, &spirv, &module))
+					return 1;
+				spirv.interlock = XGPU_SPIRV_INTERLOCK_NONE;
+				snprintf(file, sizeof(file), "%s.spv", interlocked);
+				if (!write_file(argv[1], file, module.words, module.count * 4))
+					return 1;
+				free(module.words);
+				source = xgpu_msl_pixel_shader(&program, &msl);
+				if (!source)
+					return 1;
+				snprintf(file, sizeof(file), "%s.metal", interlocked);
+				if (!write_file(argv[1], file, source, strlen(source)))
+					return 1;
+				free(source);
+				fprintf(index, "%s %u\n", interlocked, (unsigned)program.hdr);
+			}
 		}
 	}
 	/* a screen effect's pass (XGPU_HDR_UNCLAMPED): a combiner doubling the

@@ -557,15 +557,26 @@ int host_load_image(const void *file, size_t size)
 	other way to make code executable on iOS) */
 	return code_map_file(file, size, &layout, page);
 #else
-	/* code becomes read-only and executable */
+	/* code becomes read-only and executable, in whole host pages: never one
+a writable segment shares (guest.ld puts the data on a 64 KB boundary, the
+largest host page) */
 	for (index = 0; index < layout.segment_count; index++)
 	{
 		const struct host_image_segment *segment = &layout.segments[index];
 		uint64_t start = segment->address & ~(page - 1);
 		uint64_t end = (segment->address + segment->memory_size + page - 1) & ~(page - 1);
+		uint32_t other;
 
 		if (!(segment->flags & PF_X))
 			continue;
+		for (other = 0; other < layout.segment_count; other++)
+		{
+			const struct host_image_segment *data = &layout.segments[other];
+
+			if ((data->flags & PF_W) && data->address < end && data->address + data->memory_size > start)
+				return fail("code segment %u shares a page of %llu bytes with writable segment %u", index,
+					(unsigned long long)page, other);
+		}
 #ifdef __APPLE__
 		if (code_map_jit((void *)host_address((uint32_t)start), end - start))
 			continue;

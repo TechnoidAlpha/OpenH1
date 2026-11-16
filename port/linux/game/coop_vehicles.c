@@ -219,6 +219,21 @@ void coop_vehicles_new_game(void)
 		(short)PIN(config_integer("network.coop_enemies_multiplier"), 2, 32) : 0;
 }
 
+void *coop_vehicles_port_demo_state(short part, long *size)
+{
+	switch (part)
+	{
+	case 0: *size = sizeof(coop_vehicle_homes); return &coop_vehicle_homes;
+	case 1: *size = sizeof(saved_vehicles); return &saved_vehicles;
+	case 2: *size = sizeof(vehicles_enabled); return &vehicles_enabled;
+	case 3: *size = sizeof(saved_valid); return &saved_valid;
+	case 4: *size = sizeof(vehicles_percent); return &vehicles_percent;
+	case 5: *size = sizeof(vehicles_multiplier); return &vehicles_multiplier;
+	case 6: *size = sizeof(saved_tick); return &saved_tick;
+	}
+	return NULL;
+}
+
 void coop_vehicles_register(long index, struct scenario_object_datum const *source)
 {
 	struct vehicle_datum *vehicle;

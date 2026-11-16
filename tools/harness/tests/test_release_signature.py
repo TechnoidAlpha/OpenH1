@@ -118,14 +118,16 @@ def test_updater_checks_each_download():
     and the Frame's each after their download, and updater_install (the desktop's window and a dedicated server's)
     once after either of its own."""
     updater = read("port/linux/src/updater.c")
-    downloads = updater.count("updater_fetch(url, zip_path") + updater.count("updater_download_zip(zip_path")
+    fetch = "updater_download_asset(UPDATE_ASSET, zip_path"
+    downloads = updater.count(fetch) + updater.count("updater_download_zip(zip_path")
     assert downloads == 4, "updater.c downloads a release in another way now: check it is verified"
+    assert updater.count("updater_download_asset(UPDATE_ASSET,") == 4  # (the three, and the window's thread's)
     assert updater.count("updater_verify(zip_path") == 3
     install = updater[updater.index("static int updater_install("):]
     install = install[:install.index("\n}\n")]
-    assert install.count("updater_download_zip(zip_path") == 1 and install.count("updater_fetch(url, zip_path") == 1
+    assert install.count("updater_download_zip(zip_path") == 1 and install.count(fetch) == 1
     assert install.index("updater_verify(zip_path") > max(install.index("updater_download_zip(zip_path"),
-                                                          install.index("updater_fetch(url, zip_path"))
+                                                          install.index(fetch))
     assert install.index("updater_verify(zip_path") < install.index("updater_unpack(zip_path")
 
 

@@ -13,11 +13,15 @@ import re
 import shutil
 import socket
 import subprocess
+import sys
 import threading
 import time
 from pathlib import Path
 
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "play_log"))
+import fights  # noqa: E402
 
 RETAIL_MAPS = Path("assets/maps")
 # a Custom Edition map with every vehicle (its Banshees), and the Custom Edition's shared maps beside it
@@ -72,6 +76,10 @@ def _play(tmp_path, test, seconds, console=(), **settings):
         (tmp_path / "data" / "custom_maps").symlink_to(CUSTOM_MAPS.resolve())
     game = tmp_path / "halo"
     shutil.copy(GAME, game)
+    # (what the game reads beside itself: its assets, without which it quits, and SDL)
+    for name in ("openh1.assets", "prepared.records", "libSDL3.so.0", "brokers.txt", "masters.txt", "relays.txt"):
+        if (GAME.parent / name).is_file():
+            shutil.copy(GAME.parent / name, tmp_path / name)
     env = {**os.environ, "SDL_VIDEODRIVER": "offscreen", "SDL_AUDIODRIVER": "dummy",
            "HALO_DATA_ROOT": str(tmp_path / "data"), "HALO_SAVE_ROOT": str(tmp_path / "save"),
            "HALO_HIDDEN_WINDOW": "1", "HALO_FULLSCREEN": "0", "HALO_NO_VSYNC": "1", "HALO_NO_AUDIO": "1",
@@ -131,6 +139,49 @@ def test_bots_play_a_local_slayer_game(tmp_path, map_name, variant, count, skill
     deaths = sum(bot["deaths"] for bot in bots.values())
     assert kills >= count // 2 and deaths > 0, f"the bots killed {kills} and died {deaths} times"
     assert "bots: tick" in output, "no bots line a minute into the game"
+
+
+def test_bots_aim_as_people_do(tmp_path):
+    """the bots' aim and blows as people's (bots.c's aim's hand, measured against people's play logs by
+    tools/play_log/fights.py): an easy and a legendary game on Chill Out at once, each's play log read: the legendary
+    bots on target more often than the easy ones, but no laser close up; both trail a target crossing their view, as
+    people do; both now and then miss a blow, the easy bots more often"""
+    _game("chillout")
+    results = {}
+
+    def play(skill, address):
+        folder = tmp_path / skill
+        folder.mkdir()
+        results[skill] = _play(folder, "local:chillout:slayer", 100, HALO_BOTS=6, HALO_BOT_SKILL=skill,
+                               HALO_PLAY_LOG="play.log", HALO_NET_ADDRESS=address)
+
+    games = [threading.Thread(target=play, args=(skill, f"127.0.{100 + _worker()}.{1 + index}"))
+             for index, skill in enumerate(("easy", "legendary"))]
+    for game in games:
+        game.start()
+    for game in games:
+        game.join()
+    groups = {}
+    for skill, (status, output, debug) in results.items():
+        assert status == 0, output[-2000:]
+        assert not re.search(r"assert|exception", output + debug, re.I), "an assert or exception in the game's log"
+        groups[skill] = fights.Stats()
+        fights.analyse(fights.read(tmp_path / skill / "data" / "play.log"), {skill: groups[skill], "people": fights.Stats()},
+                       skill)
+    table = {name: values for name, values in fights.report(groups)}
+    def easy(name):
+        return table[name]["easy"]
+
+    def legendary(name):
+        return table[name]["legendary"]
+
+    assert legendary("on target %") > easy("on target %") + 15, table["on target %"]
+    # (the bots before lasered close up: 95% of the legendary's shots there on target, people's 62%)
+    assert legendary("on target % at <10") < 93, table["on target % at <10"]
+    for skill in groups:
+        assert table["trail deg 15-40 deg/s"][skill] > 0.3, table["trail deg 15-40 deg/s"]
+        assert table["blow whiff % (enemy <3)"][skill] > 10, table["blow whiff % (enemy <3)"]
+    assert easy("blow whiff % (enemy <3)") > legendary("blow whiff % (enemy <3)"), table["blow whiff % (enemy <3)"]
 
 
 # the bots' minute line of the vehicles (bots.c's bots_report)

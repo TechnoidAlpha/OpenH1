@@ -104,6 +104,10 @@ its unit), the length in seconds (0 for ever, none given) and the reason
 (its quotes off); FALSE without a name */
 boolean network_host_game_ban_parse(char const *text, char *name, long name_size, long *seconds, char *reason,
 	long reason_size);
+/* co-op's level after a won one: the one the host asked for (asked), at its
+difficulty, else the campaign's next, at the game's (difficulty NONE) */
+char const *network_host_game_cooperative_level_after(char const *campaign_next, boolean asked,
+	char const *asked_level, short asked_difficulty, short *difficulty);
 /* whether a change's entry text gives a map alone (no gametype: the game's
 own is kept, its score to win, time limit and rules too); the lobby's
 variant and options a change keeps (its gametype emptied by
@@ -126,8 +130,9 @@ void network_host_game_teams_plan(short count, long const *scores, char const *c
 /* whether this machine is a player's host of a network game, in its lobby or
 playing it (not a dedicated server, not a game of this machine alone) */
 boolean network_host_game_hosting(void);
-/* ... of a co-op game (its levels in the campaign's order: no change, no
-playlist; network_host_game_hosting is FALSE for it) */
+/* ... of a co-op game (its levels in the campaign's order, or one the host
+changes to: network_host_game_cooperative_change; no map change, no
+playlist: network_host_game_hosting is FALSE for it) */
 boolean network_host_game_cooperative(void);
 /* ... and in the lobby, the game's start not yet sent (co-op's too) */
 boolean network_host_game_in_lobby(void);
@@ -171,8 +176,24 @@ short network_host_game_maps(struct host_game_map const **maps);
 /* the maps past MAXIMUM_HOST_GAME_MAPS the list leaves out */
 long network_host_game_maps_left_out(void);
 short network_host_game_gametypes(struct host_game_gametype const **gametypes);
+/* (a co-op game's host) the campaign's levels there are (the Xbox's ten
+whose maps there are, then Custom Edition's campaign maps), read once a
+while, and their count; the game's difficulty (_game_difficulty_level_*) */
+short network_host_game_levels(struct host_game_map const **levels);
+short network_host_game_cooperative_difficulty(void);
+/* (a co-op game's host) the level (its path: levels\a30\a30,
+custom_maps\name) played at a difficulty, now or after this level
+(_host_game_*): in the lobby at once; in a level now, ended for everyone as
+a won level is, the lobby setting the new one up and starting it; after
+this level, in the campaign's next one's place. FALSE and why. The change
+asked for (FALSE: none), forgotten by network_host_game_cancel */
+boolean network_host_game_cooperative_change(char const *level, short difficulty, short when, char *reason,
+	long reason_size);
+boolean network_host_game_cooperative_next(char *level, long size, short *difficulty, boolean *now);
+/* a level and difficulty as shown ("The Silent Cartographer \x00B7 Heroic") */
+void network_host_game_cooperative_text(char const *level, short difficulty, wchar_t *text, short size);
 /* each frame (network_host_controls_update): the next game said to every
-machine as a game's scores show */
+machine as a game's scores show; a co-op level asked for now, played */
 void network_host_game_update(void);
 
 /* the lobby's players (network_host_controls_players' there), as its

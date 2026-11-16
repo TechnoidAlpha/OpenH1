@@ -515,6 +515,8 @@ void CALLBACK cache_copy_FileIOCompletionRoutine(
 /* ---------- globals */
 
 static struct decompressor_runtime_globals decompressor_globals;
+/* port: (cache_copy_written) */
+static volatile boolean cache_copy_whole;
 static struct simple_decompressor_definition *global_self = &decompressor_globals.self;
 static long performance_frequency = 1;
 /* January PDB: public, module 33 .bss+0xcc0; explicit zero avoids COMMON. */
@@ -548,6 +550,12 @@ void cache_copy_set_priority(
 		SetThreadPriority(self->copy_thread, THREAD_PRIORITY_NORMAL);
 
 	return;
+}
+
+boolean cache_copy_written(
+	void)
+{
+	return cache_copy_compressed_file_complete() && cache_copy_whole && !global_self->flags;
 }
 
 boolean cache_copy_compressed_file_complete(
@@ -618,6 +626,7 @@ void cache_copy_begin(
 			global_self->zlib_stream.zfree);
 
 		global_self->flags = 0;
+		cache_copy_whole = FALSE;
 		global_self->allocated_buffer = buffer;
 		csstrcpy(global_self->src_name, source_file_name);
 		global_self->destination_file = destination_file;
@@ -1810,10 +1819,25 @@ static unsigned long __stdcall simple_cache_copy_thread(
 					}
 				}
 
-				if (!self->write_bytes_left)
+				/* port: the header, which makes the cache file its map's, written
+				only once every other byte of it is written and on the disk, and
+				put on the disk itself: a copy whose write failed keeps no header
+				(it was written all the same, and the map played with what its
+				failed write lost), and a crash or a power cut never leaves a
+				header with pages before it unwritten (the disk takes a file's
+				pages in any order). Only then is the copy whole
+				(cache_copy_written: cache_files_precache_map_end marks the
+				slot) */
+				if (!self->write_bytes_left && !(self->flags & ALL_COPY_FAILURE_FLAGS))
 				{
 					cache_copy_wait_for_async_io(self);
-					cache_copy_issue_write_raw(self, &self->header, sizeof(self->header), 0);
+					if (!(self->flags & ALL_COPY_FAILURE_FLAGS) && FlushFileBuffers(self->destination_file))
+					{
+						cache_copy_issue_write_raw(self, &self->header, sizeof(self->header), 0);
+						cache_copy_wait_for_async_io(self);
+						cache_copy_whole = !(self->flags & ALL_COPY_FAILURE_FLAGS) &&
+							FlushFileBuffers(self->destination_file);
+					}
 				}
 			}
 

@@ -556,6 +556,11 @@ int ikcp_send(ikcpcb *kcp, const char *buffer, int len)
 static void ikcp_update_ack(ikcpcb *kcp, IINT32 rtt)
 {
 	IINT32 rto = 0;
+	/* OpenH1: rtt comes from a timestamp the peer echoes, so it can be up to
+	   2^31 ms; bounded here, before 3 * rx_rttval and 7 * rx_srtt overflow
+	   (the estimate went negative). Upstream bounds only the result. */
+	if (rtt < 0) rtt = 0;
+	if (rtt > (IINT32)IKCP_RTO_MAX) rtt = (IINT32)IKCP_RTO_MAX;
 	if (kcp->rx_srtt == 0) {
 		kcp->rx_srtt = rtt;
 		kcp->rx_rttval = rtt / 2;

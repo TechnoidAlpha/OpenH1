@@ -79,13 +79,13 @@ COMMAND_LINE = 511
 ROTATION_TEXT = 4096
 ENTRY_TEXT = 255
 NOTICE_SIZE = 128
-NETWORK_VERSION = 38
+NETWORK_VERSION = 44
 # the RCON's hello's capabilities, and the status's (server_http.c's server_http_capabilities)
 CAPABILITIES = ["events", "status", "rotation", "settings", "bans", "owner_web", "ban_address", "stop",
                 "event_addresses", "identity", "vpn", "link", "game_mode"]
 # the OpenH1 protocol version (halo_port_limits.h's HALO_PORT_STANDARD_NETWORK_VERSION), and server.game_mode's
 # words with each one's tick rate
-OPENH1_VERSION = 11
+OPENH1_VERSION = 31
 GAME_MODES = {"legacy": 30, "openh1_30": 30, "openh1_60": 60, "openh1_120": 120}
 # the VPN policy's netlist (server_netlist.c): a master's list the simulator holds, and the addresses it lists
 VPN_LISTED = ("198.51.100.0", "198.51.100.255")
@@ -236,6 +236,7 @@ SCHEMA = [
     _field("universal", "no_shields", "boolean", "Players have no shields"),
     _field("universal", "invisible", "boolean", "Players are always camouflaged"),
     _field("universal", "generic_equipment", "boolean", "Every map starts players with the same weapons"),
+    _field("universal", "vehicle_riding", "boolean", "Players standing on a vehicle are carried by it", alias="riding"),
     _field("universal", "weapon_set", "choice", "The weapons on the map", alias="weapons",
            choices=["normal", "pistols", "rifles", "plasma", "sniper", "no_sniping", "rocket_launchers", "shotguns",
                     "short_range", "human", "no_grenades", "covenant", "classic", "heavy"]),
@@ -316,12 +317,14 @@ def default_settings():
     port_config.c's order), as GET /api/settings sends them: typed values,
     and choices, min and max where they are known (null otherwise)"""
     return [
-        _setting("network.allow_opence", "boolean", True, "Hosting an OpenH1 game: let OpenCE players join it too, "
+        _setting("network.allow_opence", "boolean", False, "Hosting an OpenH1 game: let OpenCE players join it too, "
                  "at 30 ticks a second.", "HALO_NET_ALLOW_OPENCE"),
         _setting("network.shield_effects", "string", "stock", "Host: the shield effects every player of a network "
                  "game sees, whatever their own.", "HALO_NET_SHIELD_EFFECTS",
                  choices=["stock", "glow", "light_show", "overshield", "glow_overshield", "light_show_overshield",
                           "players"]),
+        _setting("network.allow_hit_sounds", "boolean", True, "Host: whether the players of your games may hear "
+                 "their hit sounds (audio.hit_sounds); false forbids them.", "HALO_NET_ALLOW_HIT_SOUNDS"),
         _setting("network.voice_lobby", "boolean", True, "Hosting: voice chat in the lobby, before and after a game.",
                  "HALO_NET_VOICE_LOBBY"),
         _setting("network.voice_mode", "string", "team_global_enemy_proximity", "Hosting: voice chat in a game.",
@@ -348,13 +351,21 @@ def default_settings():
         _setting("network.map_share", "boolean", True, "Hosting: send a player who joins without the game's Custom "
                  "Edition map the map.", "HALO_NET_MAP_SHARE"),
         _setting("network.map_share_upload", "integer", 1024, "Hosting: the most kilobytes a second the host sends "
-                 "of maps (16 to 20480).", "HALO_NET_MAP_SHARE_UPLOAD", low=16, high=20480),
+                 "of maps (16 to 256000).", "HALO_NET_MAP_SHARE_UPLOAD", low=16, high=256000),
         _setting("network.coop_friendly_fire", "string", "on", "Whether the players of an online co-op game hurt "
                  "each other.", "HALO_NET_COOP_FRIENDLY_FIRE", choices=["off", "on", "shields_only", "explosives_only"]),
         _setting("network.coop_ally_friendly_fire", "boolean", True, "Whether the players of an online co-op game "
                  "hurt their AI allies.", "HALO_NET_COOP_ALLY_FRIENDLY_FIRE"),
+        _setting("network.coop_team_wipe", "string", "auto", "When every co-op player dies: \"auto\" reverts the "
+                 "checkpoint in a private game and only respawns in a public one; \"revert\" or \"respawn\".",
+                 "HALO_NET_COOP_TEAM_WIPE", choices=["auto", "revert", "respawn"]),
         _setting("network.coop_player_collisions", "boolean", True, "Whether the players of an online co-op game bump "
                  "into each other.", "HALO_NET_COOP_PLAYER_COLLISIONS"),
+        _setting("network.vehicle_riding", "boolean", False, "Host: the base setting: players standing on a moving "
+                 "vehicle are carried by it (co-op's options in Server Setup set it). In multiplayer each gametype's "
+                 "VEHICLE RIDING rule overrides it (a gametype without the rule is off), and a dedicated server's "
+                 "co-op entry may with +riding. A map's own choice still wins. Changes count from the next map.",
+                 "HALO_NET_VEHICLE_RIDING"),
         _setting("network.public_address", "string", "", "Hosting: the internet address joiners reach this machine "
                  "at, as host[:port].", "HALO_NET_PUBLIC_ADDRESS"),
         _setting("server.name", "string", "OpenCE Server", "The game's name in the lobby and the server browser: 15 "
@@ -380,6 +391,11 @@ def default_settings():
         _setting("server.team_start", "string", "one", "A team game: \"one\" starts with one team's players, "
                  "\"both\" waits for a player on each team, \"skip\" skips team games while one player waits.",
                  "HALO_SERVER_TEAM_START", choices=["one", "both", "skip"]),
+        _setting("server.team_switch", "boolean", True, "A player in a team game may say \"!switch\" in the chat to "
+                 "change teams (not in Infection; with auto team balance, only to the smaller team).",
+                 "HALO_SERVER_TEAM_SWITCH"),
+        _setting("server.team_switch_cooldown_seconds", "integer", 30, "Seconds a player waits after a !switch "
+                 "before another.", "HALO_SERVER_TEAM_SWITCH_COOLDOWN_SECONDS", low=0, high=3600),
         _setting("server.motd", "string", "", "A notice each machine is shown as it joins (127 characters); empty "
                  "for none.", "HALO_SERVER_MOTD"),
         _setting("server.frame_rate", "integer", 60, "Frames a second (30 to 120); an OpenH1 game's at least its tick rate.",
@@ -451,6 +467,10 @@ def default_settings():
                  choices=["majority", "anyone"]),
         _setting("server.coop_bsp_switch_cooldown_seconds", "integer", 15, "The seconds after a loading zone's "
                  "switch before another may.", "HALO_SERVER_COOP_BSP_SWITCH_COOLDOWN_SECONDS", low=0, high=300),
+        _setting("server.vehicle_riding_override_gametype", "boolean", False, "True: on a dedicated server, "
+                 "turns the gametype's riding override off, so multiplayer uses network.vehicle_riding. A map's own "
+                 "choice still wins. Changes count from the next map.",
+                 "HALO_SERVER_VEHICLE_RIDING_OVERRIDE_GAMETYPE"),
         _setting("server.map_vote", "boolean", False, "The players vote for the next game in the lobby.",
                  "HALO_SERVER_MAP_VOTE"),
         _setting("server.map_vote_choices", "integer", 4, "The entries a map vote offers.",
@@ -988,7 +1008,7 @@ class Sim:
         mode = self.value("server.game_mode")
         opence = mode == "legacy" or bool(self.value("network.allow_opence"))
         mode_name = "Legacy" if mode == "legacy" else \
-            f"OpenH1 {GAME_MODES.get(mode, 30)} Tick" + (", OpenCE can join" if opence else "")
+            f"GOAT H1 {GAME_MODES.get(mode, 30)} Tick" + (", OpenCE can join" if opence else "")
         return {
             "ok": True, "time": now_ms(), "name": self.value("server.name"), "state": self.state,
             "build": BUILD, "network_version": NETWORK_VERSION, "openh1_version": OPENH1_VERSION,
@@ -2494,8 +2514,9 @@ def h_rotation_next(api, request, session, body):
 @route("POST", r"/api/rotation/play", "moderator")
 def h_rotation_play(api, request, session, body):
     map_text = body.get("map")
-    if not isinstance(map_text, str) or not map_text or " " in map_text or '"' in map_text:
-        raise CommandError("schema", "map is needed (no spaces)", field="map")
+    if not isinstance(map_text, str) or not map_text or len(map_text) > 255 or " " in map_text or '"' in map_text:
+        raise CommandError("schema", "map is needed: a map or a rotation entry, 255 characters at most, with no spaces",
+                           field="map")
     gametype = body.get("gametype") if isinstance(body.get("gametype"), str) else ""
     if " " in gametype or '"' in gametype:
         raise CommandError("schema", "a gametype holds no space", field="gametype")

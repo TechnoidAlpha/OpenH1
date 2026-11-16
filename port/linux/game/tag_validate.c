@@ -44,10 +44,14 @@ data and which the game takes as models (tag_schema_custom_edition_groups).
 #include "cseries.h"
 #include "cache/physical_memory_map.h"
 #include "tag_schema.h"
+#include "mcc_tag_validate.h" /* MCC callbacks have an independent context. */
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+
+/* NULL for Xbox/Custom Edition and in the asset-free standalone validator. */
+struct mcc_validation_dispatch const *mcc_validation_callbacks;
 
 /* ---------- constants */
 
@@ -805,6 +809,130 @@ static void validate_value(
 	return;
 }
 
+/* What a definition's elements have for each pass, found once for each
+definition: a pass with nothing to do in an element is not walked. A
+campaign bsp has hundreds of thousands of elements whose fields are all
+values (the collision bsp's nodes, planes, edges, vertices): of the
+element's three walks (extents, values, checks), two did nothing, and the
+checks walk visited the elements of blocks with no check anywhere in them.
+What is skipped would have done nothing, so every map is checked, corrected
+and refused as before; a skip also keeps the depth's refusal
+(validate_element), so it is taken only where the walk would not have gone
+too deep. */
+enum
+{
+	/* a block, data or file data in the element (its structures too):
+	the extents pass's */
+	_summary_extents_bit = 0,
+	/* a value or a block in it: the values pass's (whose blocks' elements
+	it walks) */
+	_summary_values_bit,
+	/* a check in it or in its blocks' elements, however deep */
+	_summary_checks_bit,
+
+	DEFINITION_SUMMARY_SLOTS = 2048
+};
+
+struct definition_summary
+{
+	struct tag_schema_definition const *definition;
+	short flags;
+	/* how many elements deep its blocks go, the element's own counted: 1
+	with no blocks */
+	short depth;
+};
+
+static struct definition_summary definition_summaries[DEFINITION_SUMMARY_SLOTS];
+
+static struct definition_summary const *definition_summary_get(
+	struct tag_schema_definition const *definition);
+
+/* a definition's fields and its structures' fields, into summary */
+static void definition_summary_add(
+	struct definition_summary *summary,
+	struct tag_schema_definition const *definition)
+{
+	struct tag_schema_field const *field;
+
+	for (field = definition->fields; field->type != _tag_schema_terminator; field++)
+	{
+		switch (field->type)
+		{
+		case _tag_schema_struct:
+			definition_summary_add(summary, field->definition);
+			break;
+		case _tag_schema_block:
+		{
+			struct definition_summary const *element = definition_summary_get(field->definition);
+
+			summary->flags |= FLAG(_summary_extents_bit) | FLAG(_summary_values_bit);
+			if (!element)
+			{
+				summary->flags |= FLAG(_summary_checks_bit);
+				summary->depth = MAXIMUM_VALIDATION_DEPTH + 1;
+				break;
+			}
+			summary->flags |= element->flags & FLAG(_summary_checks_bit);
+			if (element->depth + 1 > summary->depth)
+				summary->depth = element->depth + 1;
+			break;
+		}
+		case _tag_schema_data:
+		case _tag_schema_file_data:
+			summary->flags |= FLAG(_summary_extents_bit);
+			break;
+		case _tag_schema_check:
+			summary->flags |= FLAG(_summary_checks_bit);
+			break;
+		default:
+			summary->flags |= FLAG(_summary_values_bit);
+			break;
+		}
+	}
+
+	return;
+}
+
+/* a definition's summary, made the first time; NULL when the table is
+full (every pass is walked then) */
+static struct definition_summary const *definition_summary_get(
+	struct tag_schema_definition const *definition)
+{
+	unsigned long slot = ((unsigned long)definition >> 3) * 2654435761UL;
+	unsigned long probes;
+	struct definition_summary made;
+
+	for (probes = 0; probes < DEFINITION_SUMMARY_SLOTS; probes++)
+	{
+		struct definition_summary *summary = &definition_summaries[(slot + probes) % DEFINITION_SUMMARY_SLOTS];
+
+		if (summary->definition == definition)
+			return summary;
+		if (!summary->definition)
+			break;
+	}
+	if (probes >= DEFINITION_SUMMARY_SLOTS)
+		return NULL;
+	/* (made before it is stored: the schemas have no cycles, schemas_fit,
+	and its blocks' summaries take slots of their own) */
+	made.definition = definition;
+	made.flags = 0;
+	made.depth = 1;
+	definition_summary_add(&made, definition);
+	for (probes = 0; probes < DEFINITION_SUMMARY_SLOTS; probes++)
+	{
+		struct definition_summary *summary = &definition_summaries[(slot + probes) % DEFINITION_SUMMARY_SLOTS];
+
+		if (!summary->definition)
+		{
+			*summary = made;
+			return summary;
+		}
+	}
+
+	return NULL;
+}
+
 /* one pass over an element's fields (those of the structures in it too) */
 static void validate_fields(
 	struct tag_validation *validation,
@@ -839,9 +967,19 @@ static void validate_fields(
 				else
 				{
 					struct tag_block *block = (struct tag_block *)address;
+					struct definition_summary const *summary = definition_summary_get(field->definition);
 					long element_index;
 
-					/* (the elements, through every pass) */
+					/* (the elements, through every pass: not those with
+					nothing to do in it, definition_summary_get) */
+					if (summary && validation->depth + summary->depth <= MAXIMUM_VALIDATION_DEPTH &&
+						(validation->pass == _pass_checks ?
+							!TEST_FLAG(summary->flags, _summary_checks_bit) :
+							!TEST_FLAG(summary->flags, _summary_extents_bit) &&
+								!TEST_FLAG(summary->flags, _summary_values_bit)))
+					{
+						break;
+					}
 					for (element_index = 0;
 						element_index < block->count && !validation->refused;
 						element_index++)
@@ -915,9 +1053,12 @@ static void validate_element(
 	}
 	else
 	{
+		struct definition_summary const *summary = definition_summary_get(definition);
+
 		validation->pass = _pass_extents;
-		validate_fields(validation, base, definition);
-		if (!validation->refused)
+		if (!summary || TEST_FLAG(summary->flags, _summary_extents_bit))
+			validate_fields(validation, base, definition);
+		if (!validation->refused && (!summary || TEST_FLAG(summary->flags, _summary_values_bit)))
 		{
 			validation->pass = _pass_values;
 			validate_fields(validation, base, definition);
@@ -1599,6 +1740,35 @@ boolean tag_validate_tags(
 	return validate_tag_table(&validation, header->instances, header->tag_count);
 }
 
+unsigned long tag_validate_apart_size(
+	void)
+{
+	return sizeof(tag_validate_claims) + sizeof(tag_validate_globals);
+}
+
+boolean tag_validate_tags_apart(
+	void *tag_header,
+	long tag_data_size,
+	long file_length,
+	char const *name,
+	void *saved,
+	long *corrections)
+{
+	byte *saved_claims = saved;
+	byte *saved_globals = saved_claims + sizeof(tag_validate_claims);
+	boolean valid;
+
+	/* (the map's, kept in the caller's memory: the validator asks for none) */
+	memcpy(saved_claims, tag_validate_claims, sizeof(tag_validate_claims));
+	memcpy(saved_globals, &tag_validate_globals, sizeof(tag_validate_globals));
+	valid = tag_validate_tags(tag_header, tag_data_size, file_length, name);
+	*corrections = tag_validate_globals.corrections;
+	memcpy(&tag_validate_globals, saved_globals, sizeof(tag_validate_globals));
+	memcpy(tag_validate_claims, saved_claims, sizeof(tag_validate_claims));
+
+	return valid;
+}
+
 boolean tag_validate_custom_edition_tags(
 	void *tag_header,
 	long loaded_size,
@@ -1721,8 +1891,12 @@ boolean tag_validate_any_claimed(
 	void const *address,
 	unsigned long size)
 {
-	unsigned long offset = (unsigned long)address - (unsigned long)tag_validate_globals.header;
+	unsigned long offset;
 	unsigned long bit;
+
+	if (mcc_validation_callbacks)
+		return mcc_validation_callbacks->any_claimed(address, size);
+	offset = (unsigned long)address - (unsigned long)tag_validate_globals.header;
 
 	if (!tag_validate_globals.header || (unsigned long)address < (unsigned long)tag_validate_globals.header ||
 		offset > tag_validate_globals.tag_cache_size || size > tag_validate_globals.tag_cache_size - offset)
@@ -1757,6 +1931,14 @@ void tag_validate_refuse(
 {
 	va_list arguments;
 
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+	{
+		va_start(arguments, format);
+		mcc_validation_callbacks->message(validation, TRUE, format, arguments);
+		va_end(arguments);
+		return;
+	}
+
 	validation->refused = TRUE;
 	va_start(arguments, format);
 	validation_message(validation, "cannot be played", format, arguments);
@@ -1786,6 +1968,14 @@ void tag_validate_correct(
 {
 	va_list arguments;
 
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+	{
+		va_start(arguments, format);
+		mcc_validation_callbacks->message(validation, FALSE, format, arguments);
+		va_end(arguments);
+		return;
+	}
+
 	validation->corrections++;
 	if (validation->corrections <= MAXIMUM_LOGGED_CORRECTIONS)
 	{
@@ -1812,6 +2002,10 @@ boolean tag_validate_file_contains(
 {
 	short range_index;
 
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return mcc_validation_callbacks->file_contains(validation, offset, size);
+
+
 	(void)validation;
 	if (offset < 0 || size < 0)
 		return FALSE;
@@ -1832,12 +2026,16 @@ boolean tag_validate_file_contains(
 void *tag_validate_root(
 	struct tag_validation *validation)
 {
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return mcc_validation_callbacks->root(validation);
 	return validation->depth > 0 ? validation->frames[0].base : NULL;
 }
 
 boolean tag_validate_custom_edition(
 	struct tag_validation *validation)
 {
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return FALSE;
 	(void)validation;
 
 	return tag_validate_globals.custom_edition;
@@ -1848,6 +2046,8 @@ boolean tag_validate_contains(
 	void const *address,
 	unsigned long size)
 {
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return mcc_validation_callbacks->contains(validation, address, size);
 	return region_contains(validation, address, size);
 }
 
@@ -1856,8 +2056,12 @@ void *tag_validate_tag_get(
 	long tag_index,
 	unsigned long group_tag)
 {
-	struct tag_validate_instance *instance = instance_get(tag_index);
+	struct tag_validate_instance *instance;
 	unsigned long groups[2];
+
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return mcc_validation_callbacks->tag_get(validation, tag_index, group_tag);
+	instance = instance_get(tag_index);
 
 	(void)validation;
 	groups[0] = group_tag;
@@ -1888,6 +2092,8 @@ void *tag_validate_vertex_buffer_data(
 	struct tag_validation *validation,
 	void const *buffer)
 {
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return mcc_validation_callbacks->buffer_data(validation, buffer, FALSE);
 	return buffer_data(validation->vertex_buffers, validation->vertex_buffer_count, buffer);
 }
 
@@ -1895,5 +2101,7 @@ void *tag_validate_index_buffer_data(
 	struct tag_validation *validation,
 	void const *buffer)
 {
+	if (mcc_validation_callbacks && mcc_validation_callbacks->owns(validation))
+		return mcc_validation_callbacks->buffer_data(validation, buffer, TRUE);
 	return buffer_data(validation->index_buffers, validation->index_buffer_count, buffer);
 }

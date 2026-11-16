@@ -18,9 +18,15 @@ once. A present held for good fails the run by its alarm.
 #include <unistd.h>
 
 static int stream_paced, paced_calls;
-/* the fake display: present wait answers (1), or never does (0) */
+/* the fake display: present wait answers (1), or never does (0); and
+answers a present only this long after it was made (a deep queue) */
 static int answers;
-static uint64_t presents;
+static uint64_t presents, answer_delay;
+/* what present wait answers for a present shown (VK_SUCCESS; gamescope's
+layer may answer VK_SUBOPTIMAL_KHR), and for every present (an error: 0
+for none) */
+static VkResult answer_shown = VK_SUCCESS, answer_always = VK_SUCCESS;
+static uint64_t present_times[256];
 /* display timing's calls (the fake's answer: VK_INCOMPLETE always) */
 static uint32_t past_calls;
 
@@ -39,6 +45,11 @@ void host_render_stream_display_paced(int paced)
 {
 	stream_paced = paced;
 	paced_calls++;
+}
+
+void host_render_stream_frames_ahead(int frames)
+{
+	(void)frames;
 }
 
 void host_render_stream_frames_taken_reset(void)
@@ -76,8 +87,11 @@ static VKAPI_ATTR VkResult VKAPI_CALL fake_wait_for_present(VkDevice device, VkS
 {
 	(void)device;
 	(void)swapchain;
-	if (answers && id <= __atomic_load_n(&presents, __ATOMIC_ACQUIRE))
-		return VK_SUCCESS;
+	if (answer_always != VK_SUCCESS)
+		return answer_always;
+	if (answers && id <= __atomic_load_n(&presents, __ATOMIC_ACQUIRE) &&
+		now_ns() >= __atomic_load_n(&present_times[id % 256], __ATOMIC_ACQUIRE) + answer_delay)
+		return answer_shown;
 	sleep_ns(timeout < 1000000ull ? timeout : 1000000ull);
 	return VK_TIMEOUT;
 }
@@ -86,6 +100,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL fake_queue_present(VkQueue queue, const Vk
 {
 	(void)queue;
 	(void)info;
+	__atomic_store_n(&present_times[(presents + 1) % 256], now_ns(), __ATOMIC_RELEASE);
 	__atomic_add_fetch(&presents, 1, __ATOMIC_RELEASE);
 	return VK_SUCCESS;
 }
@@ -149,7 +164,7 @@ static uint64_t present(void)
 	return now_ns() - start;
 }
 
-static void start(int answering, int display_timing)
+static void start_mode(int answering, int display_timing, int mode, uint64_t period)
 {
 	struct xgpu_vulkan_pacing_device device;
 
@@ -163,10 +178,16 @@ static void start(int answering, int display_timing)
 	presents = pacing.next_id;
 	stream_paced = paced_calls = 0;
 	assert(xgpu_vulkan_pacing_start(&device));
-	/* (display.low_latency on, FIFO, 60 Hz) */
-	assert(!xgpu_vulkan_pacing_mode(1, 1, 1, 16666667ull));
+	/* (FIFO) */
+	assert(!xgpu_vulkan_pacing_mode(mode, 1, 1, period));
 	xgpu_vulkan_pacing_swapchain((VkSwapchainKHR)(uintptr_t)1);
 	assert(!stream_paced);
+}
+
+/* display.low_latency on, FIFO, 60 Hz */
+static void start(int answering, int display_timing)
+{
+	start_mode(answering, display_timing, 1, 16666667ull);
 }
 
 int main(void)
@@ -222,6 +243,63 @@ int main(void)
 	assert(__atomic_load_n(&past_calls, __ATOMIC_RELAXED) > 0);
 	assert(stream_paced);
 	xgpu_vulkan_pacing_stop();
+
+	/* display.low_latency off: bounded by the display, not paced to it */
+	start_mode(1, 0, 2, 16666667ull);
+	for (frame = 0; frame < 20 && !stream_paced; frame++)
+	{
+		sleep_ns(17000000ull);
+		assert(present() < 5000000ull);
+	}
+	assert(stream_paced == HOST_RENDER_DISPLAY_BOUNDED);
+	xgpu_vulkan_pacing_stop();
+
+	/* a display of 30 Hz that shows each present 100 ms after it was made
+	(more than FRAME_WAIT_MOST_NS, within its five refreshes): still heard,
+	and so the game paced, not given up on as silent (issue #274's deep
+	queue was taken for silence) */
+	answer_delay = 100000000ull;
+	start_mode(1, 0, 1, 33333333ull);
+	for (frame = 0; frame < 30; frame++)
+	{
+		assert(present() < 5000000ull);
+		sleep_ns(33000000ull);
+	}
+	pthread_mutex_lock(&pacing.lock);
+	assert(pacing.proven && !pacing.silent);
+	pthread_mutex_unlock(&pacing.lock);
+	assert(stream_paced == HOST_RENDER_DISPLAY_PACED);
+	xgpu_vulkan_pacing_stop();
+	answer_delay = 0;
+
+	/* present wait that answers VK_SUBOPTIMAL_KHR for the presents shown:
+	shown, and the game paced */
+	answer_shown = VK_SUBOPTIMAL_KHR;
+	start(1, 0);
+	for (frame = 0; frame < 20 && !stream_paced; frame++)
+	{
+		sleep_ns(17000000ull);
+		assert(present() < 5000000ull);
+	}
+	assert(stream_paced == HOST_RENDER_DISPLAY_PACED);
+	xgpu_vulkan_pacing_stop();
+	answer_shown = VK_SUCCESS;
+
+	/* present wait that fails for every present (it had said nothing, and
+	no warning, on the Steam Deck's FIFO): given up on as a silent display */
+	answer_always = VK_ERROR_OUT_OF_DATE_KHR;
+	start(1, 0);
+	for (frame = 0; frame < 20; frame++)
+	{
+		assert(present() < 5000000ull);
+		sleep_ns(17000000ull);
+	}
+	pthread_mutex_lock(&pacing.lock);
+	assert(pacing.silent && !pacing.proven && pacing.wait_failed >= SILENT_PRESENTS);
+	pthread_mutex_unlock(&pacing.lock);
+	assert(!stream_paced);
+	xgpu_vulkan_pacing_stop();
+	answer_always = VK_SUCCESS;
 	puts("pacing: ok");
 	return 0;
 }

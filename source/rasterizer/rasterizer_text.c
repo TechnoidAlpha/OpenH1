@@ -77,6 +77,10 @@ symbols in this file:
 #include "text/font_group.h"
 #include "text/unicode.h"
 #include "tag_files/tag_files.h"
+#include "cache/cache_files.h" /* port: tag_iterator (hires_text_fonts_ahead) */
+#include "menu_layout.h" /* port: port/linux/game/menu_layout.c */
+#include "menu_view.h" /* port: port/linux/game/menu_view.c */
+wchar_t const *menu_studio_text(wchar_t const *text); /* port: port/linux/game/menu_studio.c */
 
 /* port: the high-res text (port/linux/src/text_hires.c): the text drawn with
 fonts at the display's resolution, laid out as before. Characters are drawn
@@ -86,13 +90,16 @@ struct text_hires_glyph
 	float left, top, right, bottom;
 	float u0, v0, u1, v1;
 	float advance;
+	float ink_left, ink_right;
 };
 
 #define TEXT_HIRES_FIT_LETTERS 52
 int text_hires_enabled(void); /* port: port/linux/src/text_hires.c */
 long text_hires_font(char const *tag_name, float cap_height, short const *letter_widths, float oversample);
-int text_hires_covers(long font, unsigned long code);
+void text_hires_rasterize(long font, unsigned long code);
 int text_hires_glyph(long font, unsigned long code, struct text_hires_glyph *glyph);
+float text_hires_advance(long font, unsigned long code);
+float text_hires_kerning(long font, unsigned long first, unsigned long second);
 void text_hires_register_atlas(unsigned long const *texture, unsigned long width, unsigned long height);
 
 /* ---------- constants */
@@ -210,6 +217,8 @@ static void rasterizer_draw_character_with_dropshadow(
 static long hires_text_font_get(
 	long font_index,
 	real oversample);
+static void hires_text_fonts_ahead(
+	void);
 static void rasterizer_text_draw_scaled_character(
 	struct dynamic_screen_vertex const *vertices);
 static void rasterizer_draw_hires_character(
@@ -250,10 +259,21 @@ static struct
 	long hires_font;
 } hires_text_fonts[MAXIMUM_HIRES_TEXT_FONTS];
 static short hires_text_next_font = 0;
+/* port: the map's fonts made, and their glyphs rasterized, ahead of their
+first strings (hires_text_fonts_ahead) */
+static boolean hires_text_fonts_made = FALSE;
 /* port: the text's scale about a point (rasterizer_text_set_scale) */
 static real text_scale = 1.0f;
 static real text_scale_origin_x = 0.0f;
 static real text_scale_origin_y = 0.0f;
+/* port: the line's shift left and its cut (rasterizer_text_set_shift), the
+high-res text's; the font tags' bitmaps are drawn at whole units */
+static real text_shift = 0.0f;
+static real text_shift_left = 0.0f;
+static real text_shift_right = -1.0f;
+/* (and faded out over so many units at its left and right edges: 0 none) */
+static real text_shift_fade_left = 0.0f;
+static real text_shift_fade_right = 0.0f;
 static pixel32 global_shadow_color = 0;
 static short rasterizer_text_unused = 0;
 static short magic_number= 12;
@@ -361,6 +381,7 @@ rasterizer_text_cache_flush(
 	/* port: the next map's font tags may be at the same addresses */
 	memset(hires_text_fonts, 0, sizeof(hires_text_fonts));
 	hires_text_next_font = 0;
+	hires_text_fonts_made = FALSE;
 
 	return;
 }
@@ -473,23 +494,15 @@ rasterizer_draw_string(
 				draw_character = rasterizer_draw_character;
 			}
 
-			/* port: from the font's atlas, when it has every character */
+			/* port: from the font's atlas, its glyphs rasterized first */
+			hires_text_fonts_ahead();
 			hires_text_font = hires_text_atlas ? hires_text_font_get(draw_string_get_font(), MAX(text_scale, 1.0f)) : NONE;
 			if (hires_text_font != NONE)
 			{
 				long character_index;
 
 				for (character_index = 0; character_index < length; character_index++)
-				{
-					if (!text_hires_covers(hires_text_font, (unsigned char)string[character_index]))
-					{
-						hires_text_font = NONE;
-						break;
-					}
-				}
-			}
-			if (hires_text_font != NONE)
-			{
+					text_hires_rasterize(hires_text_font, (unsigned char)string[character_index]);
 				bitmap = hires_text_atlas;
 				draw_character = drop_shadow ?
 					rasterizer_draw_hires_character_with_dropshadow :
@@ -521,7 +534,7 @@ rasterizer_draw_string(
 				a key cap's words in a prompt: ui_widget.c's
 				draw_string_and_hack_in_icons; the carnage report) */
 				viewport_bounds.x0 = (short)(viewport_bounds.x0 -
-					MAX(ui_widget_port_anchor_extra(), (halo_screen_width() - 640) / 2));
+					MAX(ui_widget_port_anchor_extra(), menu_view_side()));
 			}
 			else
 			{
@@ -531,7 +544,7 @@ rasterizer_draw_string(
 				widgets' own clip keeps the others in the 640 */
 				set_rectangle2d(
 					&viewport_bounds,
-					FLOOR(clip->x0, -MAX(ui_widget_port_anchor_extra(), (halo_screen_width() - 640) / 2)),
+					FLOOR(clip->x0, -MAX(ui_widget_port_anchor_extra(), menu_view_side())),
 					FLOOR(clip->y0, 0),
 					MIN(render.camera.viewport_bounds.x1 - render.camera.viewport_bounds.x0, clip->x1),
 					MIN(render.camera.viewport_bounds.y1 - render.camera.viewport_bounds.y0, clip->y1));
@@ -567,6 +580,8 @@ rasterizer_draw_string(
 				height_adjust,
 				string);
 			rasterizer_text_end();
+			/* port: debug.render_marks: the text's draws (the batch's) drawn (port/linux/game/render_marks.c) */
+			render_marks_text_end();
 		}
 	}
 
@@ -583,6 +598,9 @@ rasterizer_draw_unicode_string(
 {
 	boolean drop_shadow = TRUE;
 
+	/* port: every label longer, where the menu studio asks
+	(port/linux/game/menu_studio.c) */
+	string = menu_studio_text(string);
 	if (rasterizer_debug_options.draw_dynamic_screen_geometry
 		&& global_window_parameters.rasterizer_target == _rasterizer_target_render_primary)
 	{
@@ -614,23 +632,15 @@ rasterizer_draw_unicode_string(
 				draw_character = rasterizer_draw_character;
 			}
 
-			/* port: from the font's atlas, when it has every character */
+			/* port: from the font's atlas, its glyphs rasterized first */
+			hires_text_fonts_ahead();
 			hires_text_font = hires_text_atlas ? hires_text_font_get(draw_string_get_font(), MAX(text_scale, 1.0f)) : NONE;
 			if (hires_text_font != NONE)
 			{
 				long character_index;
 
 				for (character_index = 0; character_index < length; character_index++)
-				{
-					if (!text_hires_covers(hires_text_font, (word)string[character_index]))
-					{
-						hires_text_font = NONE;
-						break;
-					}
-				}
-			}
-			if (hires_text_font != NONE)
-			{
+					text_hires_rasterize(hires_text_font, (word)string[character_index]);
 				bitmap = hires_text_atlas;
 				draw_character = drop_shadow ?
 					rasterizer_draw_hires_character_with_dropshadow :
@@ -662,7 +672,7 @@ rasterizer_draw_unicode_string(
 				a key cap's words in a prompt: ui_widget.c's
 				draw_string_and_hack_in_icons; the carnage report) */
 				viewport_bounds.x0 = (short)(viewport_bounds.x0 -
-					MAX(ui_widget_port_anchor_extra(), (halo_screen_width() - 640) / 2));
+					MAX(ui_widget_port_anchor_extra(), menu_view_side()));
 			}
 			else
 			{
@@ -672,7 +682,7 @@ rasterizer_draw_unicode_string(
 				widgets' own clip keeps the others in the 640 */
 				set_rectangle2d(
 					&viewport_bounds,
-					FLOOR(clip->x0, -MAX(ui_widget_port_anchor_extra(), (halo_screen_width() - 640) / 2)),
+					FLOOR(clip->x0, -MAX(ui_widget_port_anchor_extra(), menu_view_side())),
 					FLOOR(clip->y0, 0),
 					MIN(render.camera.viewport_bounds.x1 - render.camera.viewport_bounds.x0, clip->x1),
 					MIN(render.camera.viewport_bounds.y1 - render.camera.viewport_bounds.y0, clip->y1));
@@ -686,6 +696,24 @@ rasterizer_draw_unicode_string(
 				viewport_bounds.x1 = (short)(text_scale_origin_x + (viewport_bounds.x1 - text_scale_origin_x) / text_scale);
 				viewport_bounds.y0 = (short)(text_scale_origin_y + (viewport_bounds.y0 - text_scale_origin_y) / text_scale);
 				viewport_bounds.y1 = (short)(text_scale_origin_y + (viewport_bounds.y1 - text_scale_origin_y) / text_scale);
+			}
+			/* port: the string's bounds, clip and extent, and its extent in
+			bounds without a foot (the lines that run past the foot are not
+			drawn) and in bounds without a right edge (a line's letters past
+			it are not drawn), for the menus' layout (menu_layout.c) */
+			if (menu_layout_recording())
+			{
+				rectangle2d extent, whole, wide, unbounded, cursor;
+
+				draw_unicode_string_compute_bounds(&window_bounds, string, &extent, &cursor);
+				unbounded = window_bounds;
+				unbounded.y1 = SHORT_MAX;
+				draw_unicode_string_compute_bounds(&unbounded, string, &whole, &cursor);
+				unbounded = window_bounds;
+				unbounded.x1 = SHORT_MAX;
+				draw_unicode_string_compute_bounds(&unbounded, string, &wide, &cursor);
+				menu_layout_text(&window_bounds, &viewport_bounds, &extent, &whole, &wide, string, text_scale,
+					text_scale_origin_x, text_scale_origin_y);
 			}
 
 			memset(&parameters, 0, sizeof(parameters));
@@ -708,6 +736,8 @@ rasterizer_draw_unicode_string(
 				height_adjust,
 				string);
 			rasterizer_text_end();
+			/* port: debug.render_marks: the text's draws (the batch's) drawn (port/linux/game/render_marks.c) */
+			render_marks_text_end();
 		}
 	}
 
@@ -813,14 +843,33 @@ void rasterizer_text_get_scale(
 	return;
 }
 
-/* port: a character's quad, scaled (rasterizer_text_set_scale) */
+void rasterizer_text_set_shift(
+	real shift,
+	real left,
+	real right,
+	real fade_left,
+	real fade_right)
+{
+	text_shift = shift;
+	text_shift_left = left;
+	text_shift_right = right;
+	text_shift_fade_left = fade_left;
+	text_shift_fade_right = fade_right;
+
+	return;
+}
+
+/* port: a character's quad, scaled (rasterizer_text_set_scale), and moved
+past the whole units it is laid out at (rasterizer_screen_offset_set) */
 static void rasterizer_text_draw_scaled_character(
 	struct dynamic_screen_vertex const *vertices)
 {
 	struct dynamic_screen_vertex scaled[NUMBER_OF_VERTICES_PER_QUADRILATERAL];
+	real_vector2d offset;
 	short vertex_index;
 
-	if (text_scale == 1.0f)
+	rasterizer_screen_offset_get(&offset);
+	if (text_scale == 1.0f && offset.i == 0.0f && offset.j == 0.0f)
 	{
 		rasterizer_text_draw_character(vertices);
 		return;
@@ -828,12 +877,31 @@ static void rasterizer_text_draw_scaled_character(
 	for (vertex_index = 0; vertex_index < NUMBER_OF_VERTICES_PER_QUADRILATERAL; vertex_index++)
 	{
 		scaled[vertex_index] = vertices[vertex_index];
-		scaled[vertex_index].position.x =
+		scaled[vertex_index].position.x = offset.i +
 			text_scale_origin_x + (vertices[vertex_index].position.x - text_scale_origin_x) * text_scale;
-		scaled[vertex_index].position.y =
+		scaled[vertex_index].position.y = offset.j +
 			text_scale_origin_y + (vertices[vertex_index].position.y - text_scale_origin_y) * text_scale;
 	}
 	rasterizer_text_draw_character(scaled);
+
+	return;
+}
+
+/* port: the high-res text's fonts of every font tag of the map, made as its
+first string is drawn: their ASCII glyphs are rasterized then (text_hires.c),
+before the menus and the HUD draw with them */
+static void hires_text_fonts_ahead(
+	void)
+{
+	struct tag_iterator iterator;
+	long font_index;
+
+	if (hires_text_fonts_made || !hires_text_atlas || !text_hires_enabled())
+		return;
+	hires_text_fonts_made = TRUE;
+	tag_iterator_new(&iterator, FONT_GROUP_TAG);
+	while ((font_index = tag_iterator_next(&iterator)) != NONE)
+		hires_text_font_get(font_index, 1.0f);
 
 	return;
 }
@@ -945,13 +1013,231 @@ static boolean font_character_cut(
 	return font_character_ink(font, font_character, x0, x1, y0, y1) * 8 > all;
 }
 
+/* port: a font tag's character's ink, its left and right from the pen in
+units: its bitmap's first and last columns with ink, each counted by its
+most covered pixel (a column half covered, half a unit of ink); FALSE if it
+has none */
+static boolean font_character_ink_span(
+	struct font_header *font,
+	struct font_character const *font_character,
+	real *left,
+	real *right)
+{
+	byte const *pixels = (byte const *)font->pixels.address + font_character->pixels_offset;
+	short first = NONE;
+	short last = NONE;
+	byte first_coverage = 0;
+	byte last_coverage = 0;
+	short column;
+
+	for (column = 0; column < font_character->bitmap_width; column++)
+	{
+		byte coverage = 0;
+		short row;
+
+		for (row = 0; row < font_character->bitmap_height; row++)
+		{
+			if (pixels[row * font_character->bitmap_width + column] > coverage)
+				coverage = pixels[row * font_character->bitmap_width + column];
+		}
+		if (coverage)
+		{
+			if (first == NONE)
+			{
+				first = column;
+				first_coverage = coverage;
+			}
+			last = column;
+			last_coverage = coverage;
+		}
+	}
+	if (first == NONE)
+		return FALSE;
+	*left = first + 1.0f - first_coverage / 255.0f - font_character->bitmap_origin_x;
+	*right = last + last_coverage / 255.0f - font_character->bitmap_origin_x;
+
+	return TRUE;
+}
+
+/* port: where the high-res text draws a character's glyph: the left of its
+advance from the pen. The game lays its text out from the font tag's
+character widths, whole units at 480 lines, which are not the font's own,
+and the tag's letters sit to the left of their widths (their ink from a
+unit before the pen). Each glyph's advance centred on its character's, as
+it was drawn, gave each letter the difference as space either side (half a
+unit or more, which shows at the display's resolution as letters too close
+or too far apart: issue 744), and every word a unit or two right of where
+the tag's ink is (the space before a button's icon, and after it, a unit or
+two more: issue 754). Now a run of text (draw_string_port_run: a line's
+characters up to a tab, a button's icon or a change of style) is set with
+the font's own advances, its spaces too, every character as much closer or
+further apart as makes the run's ink as wide as the tag's, on which it is
+laid: the font's own spacing throughout (its kerning too, where it has
+any: Cyborg Interface Gothic has none), and the run where the game puts it,
+in the room it gives it. A run the font cannot draw all of (or longer
+than a run can be) is drawn with each glyph's advance centred on its
+character's, as before. */
+static struct
+{
+	long run;
+	long hires_font;
+	struct font_header *font;
+	boolean laid_out;
+	short count;
+	real offsets[256];
+} hires_text_run = { NONE, NONE, NULL, FALSE, 0 };
+
+static void hires_text_run_lay_out(
+	struct font_header *font,
+	long hires_font,
+	word const *characters,
+	short count)
+{
+	real tag_pens[256];
+	real font_pens[256];
+	real advances[256];
+	real tag_pen = 0.0f;
+	real font_pen = 0.0f;
+	real tag_left = 0.0f;
+	real tag_right = 0.0f;
+	real font_left = 0.0f;
+	real font_right = 0.0f;
+	real tracking;
+	real limit = font->ascending_height;
+	short first = NONE;
+	short last = NONE;
+	short previous = NONE;
+	short index;
+
+	hires_text_run.laid_out = FALSE;
+	if (count > NUMBEROF(hires_text_run.offsets))
+		return;
+	for (index = 0; index < count; index++)
+	{
+		struct font_character *character = font_get_character_by_ascii_code(font, characters[index]);
+		struct text_hires_glyph glyph;
+		real ink_left;
+		real ink_right;
+		real advance;
+
+		advances[index] = 0.0f;
+		/* (a character the tag has not is not drawn, and moves nothing) */
+		if (!character)
+		{
+			tag_pens[index] = tag_pen;
+			font_pens[index] = font_pen;
+			continue;
+		}
+		/* (the font's kerning, where it has it: OpenCE's, Overpass's) */
+		if (previous != NONE)
+			font_pen += text_hires_kerning(hires_font, characters[previous], characters[index]);
+		previous = index;
+		tag_pens[index] = tag_pen;
+		font_pens[index] = font_pen;
+		advance = text_hires_advance(hires_font, characters[index]);
+		if (advance < 0.0f)
+			return;
+		advances[index] = advance;
+		if (font_character_ink_span(font, character, &ink_left, &ink_right) &&
+			text_hires_glyph(hires_font, characters[index], &glyph))
+		{
+			if (first == NONE)
+			{
+				first = index;
+				tag_left = tag_pen + ink_left;
+				font_left = font_pen + glyph.ink_left;
+			}
+			last = index;
+			tag_right = tag_pen + ink_right;
+			font_right = font_pen + glyph.ink_right;
+		}
+		tag_pen += character->character_width;
+		font_pen += advance;
+	}
+	if (first == NONE)
+		return;
+	/* (the difference spread over the advances from the first ink to the
+	last; the run centred on the tag's where that is more than a tenth of
+	the ascent an advance) */
+	tracking = last > first ? ((tag_right - tag_left) - (font_right - font_left)) / (last - first) : 0.0f;
+	if (tracking > font->ascending_height * 0.1f || tracking < -font->ascending_height * 0.1f)
+		tracking = 0.0f;
+	for (index = 0; index < count; index++)
+	{
+		struct font_character *character = font_get_character_by_ascii_code(font, characters[index]);
+		real centred = character ? (character->character_width - advances[index]) * 0.5f : 0.0f;
+		real offset = font_pens[index] + (index - first) * tracking - tag_pens[index] +
+			((tag_left + tag_right) - (font_left + font_right + (last - first) * tracking)) * 0.5f;
+
+		/* (never further from its own place than the font's ascent: a run
+		the font draws much wider or narrower than the tag) */
+		if (offset > centred + limit)
+			offset = centred + limit;
+		if (offset < centred - limit)
+			offset = centred - limit;
+		hires_text_run.offsets[index] = offset;
+	}
+	hires_text_run.count = count;
+	hires_text_run.laid_out = TRUE;
+
+	return;
+}
+
+static real hires_text_glyph_offset(
+	struct parse_string_state const *state,
+	struct font_header *font,
+	struct font_character *font_character,
+	long hires_font,
+	real advance)
+{
+	word const *characters;
+	short count = 0;
+	short current = 0;
+	long run = NONE;
+
+	characters = draw_string_port_run(state, &count, &current, &run);
+	if (characters && characters[current] == font_character->character)
+	{
+		if (run != hires_text_run.run || hires_font != hires_text_run.hires_font || font != hires_text_run.font)
+		{
+			hires_text_run.run = run;
+			hires_text_run.hires_font = hires_font;
+			hires_text_run.font = font;
+			hires_text_run_lay_out(font, hires_font, characters, count);
+		}
+		if (hires_text_run.laid_out && current < hires_text_run.count)
+			return hires_text_run.offsets[current];
+	}
+
+	return (font_character->character_width - advance) * 0.5f;
+}
+
+/* port: a shifted line's colour at x (rasterizer_text_set_shift, in the
+units it is drawn at once shifted): its alpha faded out toward a cut edge
+that fades, over the fade's units */
+static unsigned long rasterizer_text_shift_faded(
+	unsigned long color,
+	real x)
+{
+	real alpha = 1.0f;
+
+	if (text_shift_fade_left > 0.0f)
+		alpha = MIN(alpha, (x - text_shift_left) / text_shift_fade_left);
+	if (text_shift_fade_right > 0.0f)
+		alpha = MIN(alpha, (text_shift_right - x) / text_shift_fade_right);
+	alpha = PIN(alpha, 0.0f, 1.0f);
+
+	return (color & 0x00FFFFFF) | ((unsigned long)((real)(color >> 24) * alpha + 0.5f) << 24);
+}
+
 /* port: a character from the high-res text's atlas: the font's glyph on the
-baseline, its advance centred on the font tag's character's, cut where
+baseline, where hires_text_glyph_offset sets it in its word, cut where
 draw_string cut a part of the font tag's character that shows (to the
 text's box). Where it cut only the character's bitmap's empty columns or
 rows, or its edge's faint pixels, the character looked whole, and so does
 the glyph. */
 static void rasterizer_draw_hires_glyph(
+	struct parse_string_state const *state,
 	struct font_header *font,
 	struct font_character *font_character,
 	unsigned long color,
@@ -977,9 +1263,8 @@ static void rasterizer_draw_hires_glyph(
 
 	if (!text_hires_glyph(hires_text_font, font_character->character, &glyph))
 		return;
-	/* (the font's advance centred on the tag's, so that its letters keep
-	their own spacing) */
-	left = pen_x + (font_character->character_width - glyph.advance) * 0.5f + glyph.left;
+	/* (in its word, with the font's own spacing) */
+	left = pen_x + hires_text_glyph_offset(state, font, font_character, hires_text_font, glyph.advance) + glyph.left;
 	right = left + (glyph.right - glyph.left);
 	if (x > 0 && !font_character_cut(font, font_character, 0, x, 0, font_character->bitmap_height))
 		clip_left = -32768.0f;
@@ -994,6 +1279,13 @@ static void rasterizer_draw_hires_glyph(
 		!font_character_cut(font, font_character, 0, font_character->bitmap_width, y + dy, font_character->bitmap_height))
 	{
 		clip_bottom = 32767.0f;
+	}
+	/* port: a line shifted left (rasterizer_text_set_shift): cut to its
+	box's edges where they are once it is shifted, then shifted */
+	if (text_shift_left <= text_shift_right)
+	{
+		clip_left = MAX(clip_left, text_shift_left + text_shift);
+		clip_right = MIN(clip_right, text_shift_right + text_shift);
 	}
 	top = baseline + glyph.top;
 	bottom = baseline + glyph.bottom;
@@ -1023,6 +1315,8 @@ static void rasterizer_draw_hires_glyph(
 	}
 	if (right <= left || bottom <= top)
 		return;
+	left -= text_shift;
+	right -= text_shift;
 
 	/* (the drop shadow first, a unit down and right, as the font tags') */
 	for (pass = shadow ? 0 : 1; pass < 2; pass++)
@@ -1033,6 +1327,12 @@ static void rasterizer_draw_hires_glyph(
 		vertices[0].color = vertices[1].color = vertices[2].color = vertices[3].color = vertex_color;
 		vertices[0].position.x = vertices[3].position.x = left + offset;
 		vertices[1].position.x = vertices[2].position.x = right + offset;
+		/* port: (a shifted line faded out at its cut edges) */
+		if (text_shift_fade_left > 0.0f || text_shift_fade_right > 0.0f)
+		{
+			vertices[0].color = vertices[3].color = rasterizer_text_shift_faded(vertex_color, left + offset);
+			vertices[1].color = vertices[2].color = rasterizer_text_shift_faded(vertex_color, right + offset);
+		}
 		vertices[0].position.y = vertices[1].position.y = top + offset;
 		vertices[2].position.y = vertices[3].position.y = bottom + offset;
 		vertices[0].texture_coordinates.x = vertices[3].texture_coordinates.x = u0;
@@ -1043,6 +1343,83 @@ static void rasterizer_draw_hires_glyph(
 	}
 
 	return;
+}
+
+/* port: a place in units to the nearest whole unit (a half up) */
+static short drawn_span_unit(
+	real units)
+{
+	short whole = (short)units;
+
+	if ((real)whole > units)
+		whole--;
+	return (short)(units - whole >= 0.5f ? whole + 1 : whole);
+}
+
+/* port: where the high-res text draws a font tag's character whose bitmap
+is drawn from x0 (from its column x), in the draw mode's font, as
+rasterizer_draw_hires_glyph places it: its ink's left and right, in
+fractions of a unit; FALSE (left and right as they were) where it is drawn
+from the tag's bitmap (the high-res text off, its font or the glyph not
+made yet) */
+boolean rasterizer_text_port_drawn_span_real(
+	struct parse_string_state const *state,
+	struct font_character const *font_character,
+	short x0,
+	short x,
+	real *left,
+	real *right)
+{
+	struct text_hires_glyph glyph;
+	long hires_font;
+	real ink_left;
+
+	if (!hires_text_atlas || !font_character)
+		return FALSE;
+	hires_font = hires_text_font_get(draw_string_get_font(), MAX(text_scale, 1.0f));
+	if (hires_font == NONE || !text_hires_glyph(hires_font, font_character->character, &glyph))
+	{
+		return FALSE;
+	}
+	ink_left = (real)(x0 - x + font_character->bitmap_origin_x) +
+		hires_text_glyph_offset(state, draw_string_port_font(state), (struct font_character *)font_character, hires_font,
+			glyph.advance) + glyph.left;
+	/* (its outline's own left and right, inside the quad's whole pixels of
+	the atlas: text_hires.c) */
+	*left = ink_left + (glyph.ink_left - glyph.left);
+	*right = ink_left + (glyph.ink_right - glyph.left);
+
+	return TRUE;
+}
+
+/* port: as rasterizer_text_port_drawn_span_real, the glyph's quad's left and
+right (its ink to whole pixels of the atlas) to the nearest whole units */
+boolean rasterizer_text_port_drawn_span(
+	struct parse_string_state const *state,
+	struct font_character const *font_character,
+	short x0,
+	short x,
+	short *left,
+	short *right)
+{
+	struct text_hires_glyph glyph;
+	long hires_font;
+	real ink_left;
+
+	if (!hires_text_atlas || !font_character)
+		return FALSE;
+	hires_font = hires_text_font_get(draw_string_get_font(), MAX(text_scale, 1.0f));
+	if (hires_font == NONE || !text_hires_glyph(hires_font, font_character->character, &glyph))
+	{
+		return FALSE;
+	}
+	ink_left = (real)(x0 - x + font_character->bitmap_origin_x) +
+		hires_text_glyph_offset(state, draw_string_port_font(state), (struct font_character *)font_character, hires_font,
+			glyph.advance) + glyph.left;
+	*left = drawn_span_unit(ink_left);
+	*right = drawn_span_unit(ink_left + (glyph.right - glyph.left));
+
+	return TRUE;
 }
 
 static void rasterizer_draw_hires_character(
@@ -1057,7 +1434,7 @@ static void rasterizer_draw_hires_character(
 	short dx,
 	short dy)
 {
-	rasterizer_draw_hires_glyph(font, font_character, color, 0, FALSE, x0, y0, x, y, dx, dy);
+	rasterizer_draw_hires_glyph(state, font, font_character, color, 0, FALSE, x0, y0, x, y, dx, dy);
 
 	return;
 }
@@ -1078,7 +1455,7 @@ static void rasterizer_draw_hires_character_with_dropshadow(
 		global_shadow_color :
 		(color & 0xFF000000);
 
-	rasterizer_draw_hires_glyph(font, font_character, color, shadow_color, TRUE, x0, y0, x, y, dx, dy);
+	rasterizer_draw_hires_glyph(state, font, font_character, color, shadow_color, TRUE, x0, y0, x, y, dx, dy);
 
 	return;
 }

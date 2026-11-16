@@ -116,6 +116,7 @@ taking those keys from the game and the menus while it is shown.
 /* the platform layer's, port_config.c's */
 unsigned long system_milliseconds(void);
 int config_boolean(const char *name);
+unsigned long config_changes(void);
 /* p2p_party.c's (port/linux/src/p2p.h) */
 int p2p_party_invite_link(char *link, int size);
 int p2p_party_join_link(const char *text);
@@ -197,6 +198,10 @@ enum
 	P2P_FRIEND_CODE_BYTES), the game's players noted for the recent players
 	this often */
 	FRIEND_FORMAT = 1,
+	/* (the lobby's: an entry's player its slot of the game's record, the
+	lobby's players having no datum yet; an older build drops it as another
+	format) */
+	FRIEND_FORMAT_LOBBY = 2,
 	FRIEND_CODE_SIZE = P2P_FRIEND_CODE_BYTES,
 	FRIEND_RECENT_MILLISECONDS = 3000,
 	/* a friends' notice shown this long */
@@ -362,6 +367,13 @@ static struct
 		boolean has;
 		byte code[FRIEND_CODE_SIZE];
 	} codes[MAXIMUM_TRACKED_PLAYERS];
+	/* ... and each of the game's record's players' (by its slot: the
+	lobby's, a player card's ADD FRIEND) */
+	struct
+	{
+		boolean has;
+		byte code[FRIEND_CODE_SIZE];
+	} slot_codes[MAXIMUM_TRACKED_PLAYERS];
 	/* the host: the friends' list as last sent; the players last noted for
 	the recent players, when */
 	struct distributed_friend_player friends_sent[MAXIMUM_TRACKED_PLAYERS];
@@ -490,12 +502,17 @@ static void party_notice(
 	wchar_t const *name)
 {
 	char text[80];
+	wchar_t logged[80];
 
 	usnprintf(party_globals.notice, NUMBEROF(party_globals.notice), format, name);
 	party_globals.notice[NUMBEROF(party_globals.notice) - 1] = 0;
 	party_globals.notice_time = system_milliseconds();
 	party_globals.notice_shown = TRUE;
-	party_name_ascii(party_globals.notice, text, sizeof(text));
+	/* (the log's without the player's name, which a report would carry:
+	port/linux/src/report.c) */
+	usnprintf(logged, NUMBEROF(logged), format, L"a player");
+	logged[NUMBEROF(logged) - 1] = 0;
+	party_name_ascii(logged, text, sizeof(text));
 	error(_error_log, "party: %s", text);
 }
 
@@ -620,13 +637,9 @@ static void party_heard(
 	csmemcpy(party_globals.prompt.token, request->token, PARTY_TOKEN_SIZE);
 	party_globals.prompt.time = now;
 	party_globals.notice_shown = FALSE;
-	{
-		char text[PARTY_NAME_SIZE + 1];
-
-		party_name_ascii(name, text, sizeof(text));
-		error(_error_log, "party: %s %s", text, request->kind == _party_request_invite ? "invites this machine" :
-			"asks to join this machine's party");
-	}
+	/* (not the player's name: a report would carry it, port/linux/src/report.c) */
+	error(_error_log, "party: a player %s", request->kind == _party_request_invite ? "invites this machine" :
+		"asks to join this machine's party");
 }
 
 /* (the host) an invite or ask sent on: to the machine of the player it is
@@ -770,7 +783,41 @@ static void party_host_friends_list(
 
 	csmemset(&message, 0, sizeof(message));
 	csmemset(party_globals.codes, 0, sizeof(party_globals.codes));
-	for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS; player_index++)
+	csmemset(party_globals.slot_codes, 0, sizeof(party_globals.slot_codes));
+	/* (the game's record's players, by their slots: the lobby's, which have
+	no datum) */
+	{
+		struct network_game_server *server = global_network_game_server_get();
+		struct network_game *game = server ? network_game_server_get_game(server) : NULL;
+		long own = network_game_client_get_local_machine_index();
+		short slot;
+
+		for (slot = 0; game && slot < HALO_PORT_MAXIMUM_NETWORK_PLAYERS && count < MAXIMUM_TRACKED_PLAYERS; slot++)
+		{
+			struct network_player const *player = &game->players[slot];
+			long machine_index = player->machine_index;
+			byte const *code = NULL;
+
+			if (!network_player_is_valid(player) || bots_machine_is_bot(machine_index))
+				continue;
+			if (machine_index == own)
+				code = party_globals.has_own_code ? party_globals.own_code : NULL;
+			else if (machine_index >= 0 && machine_index < MAXIMUM_PARTY_MACHINES && party_machine_told(machine_index) &&
+				party_globals.machines[machine_index].has_code)
+			{
+				code = party_globals.machines[machine_index].code;
+			}
+			if (!code)
+				continue;
+			party_globals.slot_codes[slot].has = TRUE;
+			csmemcpy(party_globals.slot_codes[slot].code, code, FRIEND_CODE_SIZE);
+			message.players[count].format = FRIEND_FORMAT_LOBBY;
+			message.players[count].player_index = (byte)slot;
+			csmemcpy(message.players[count].code, code, FRIEND_CODE_SIZE);
+			count++;
+		}
+	}
+	for (player_index = 0; player_index < MAXIMUM_TRACKED_PLAYERS && count < MAXIMUM_TRACKED_PLAYERS; player_index++)
 	{
 		struct player_datum *player = distributed_player(player_index);
 		byte const *code = NULL;
@@ -819,8 +866,16 @@ static void party_friends_heard(
 	short index;
 
 	csmemset(party_globals.codes, 0, sizeof(party_globals.codes));
+	csmemset(party_globals.slot_codes, 0, sizeof(party_globals.slot_codes));
 	for (index = 0; index < count; index++)
 	{
+		if (players[index].format == FRIEND_FORMAT_LOBBY && players[index].player_index < MAXIMUM_TRACKED_PLAYERS)
+		{
+			party_globals.slot_codes[players[index].player_index].has = TRUE;
+			csmemcpy(party_globals.slot_codes[players[index].player_index].code, players[index].code,
+				FRIEND_CODE_SIZE);
+			continue;
+		}
 		if (players[index].format != FRIEND_FORMAT || players[index].player_index >= MAXIMUM_TRACKED_PLAYERS)
 			continue;
 		party_globals.codes[players[index].player_index].has = TRUE;
@@ -1425,11 +1480,19 @@ game's), an OpenCE machine's said so */
 static void party_recent_update(
 	unsigned long now)
 {
+	/* (network.online, read again as the settings change: config_changes) */
+	static unsigned long online_read_at = (unsigned long)-1;
+	static boolean online;
 	short connection = game_connection();
 	short player_index;
 
+	if (online_read_at != config_changes())
+	{
+		online_read_at = config_changes();
+		online = config_boolean("network.online") != 0;
+	}
 	if ((connection != _game_connection_network_client && connection != _game_connection_network_server) ||
-		!game_in_progress() || !config_boolean("network.online"))
+		!game_in_progress() || !online)
 	{
 		party_globals.recent_time = 0;
 		return;
@@ -1518,6 +1581,31 @@ unsigned long network_party_player_actions(
 		SET_FLAG(actions, _network_party_action_add_friend, TRUE);
 	}
 	return actions;
+}
+
+int network_party_slot_friend(
+	short slot)
+{
+	if (!party_globals.active || slot < 0 || slot >= MAXIMUM_TRACKED_PLAYERS || !party_globals.slot_codes[slot].has)
+		return NONE;
+	return p2p_friends_relation(party_globals.slot_codes[slot].code);
+}
+
+boolean network_party_slot_add_friend(
+	short slot,
+	wchar_t const *name)
+{
+	char ascii[PARTY_NAME_SIZE + 1];
+	wchar_t named[PARTY_NAME_SIZE + 1];
+	short index;
+
+	if (!party_globals.has_own_code || !party_friend_addable(network_party_slot_friend(slot)))
+		return FALSE;
+	for (index = 0; index < PARTY_NAME_SIZE && name && name[index]; index++)
+		named[index] = name[index];
+	named[index] = 0;
+	party_name_ascii(named, ascii, sizeof(ascii));
+	return p2p_friends_add(party_globals.slot_codes[slot].code, ascii) == _p2p_friends_done;
 }
 
 void network_party_action_label(

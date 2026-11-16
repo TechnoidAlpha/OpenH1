@@ -92,6 +92,8 @@ symbols in this file:
 #include "models/models.h"
 #include "structure_culling.h" /* port: port/linux/game/structure_culling.c */
 #include "panini.h" /* port: port/linux/game/panini.c */
+#include "near_clip.h" /* port: port/linux/game/near_clip.c */
+#include "world_ao.h" /* port: port/linux/game/world_ao.c */
 
 #ifdef HALO_VR
 #include "../../port/linux/src/vr.h"
@@ -155,6 +157,8 @@ static boolean render_preparing_frame; /* port: enumerate a view without drawing
 
 extern short global_screenshot_count;
 
+/* port: display.ambient_occlusion "world"'s pre-pass is being drawn (render_window) */
+boolean render_world_ao_prepass = FALSE;
 boolean render_contrails_enabled = TRUE;
 boolean render_particles_enabled = TRUE;
 boolean render_particle_systems_enabled = TRUE;
@@ -203,6 +207,15 @@ void vr_cabin_dispose_from_old_map(void);
 static boolean render_vr_eye_pass;
 static boolean render_vr_scope_pass;
 #endif
+
+/* port: the HUD's Spartan link (port/linux/game/spartan_link.c): a
+teammate's feed drawn before a window's view, into an image of its own,
+from their eyes (its camera and window bounds filled), without a HUD; the
+window's HUD draws the feeds' images */
+boolean spartan_link_feed_begin(short local_player_index, struct render_camera *camera);
+void spartan_link_feed_end(void);
+void spartan_link_draw(short local_player_index);
+static boolean render_link_pass;
 
 /* ---------- public code */
 
@@ -297,6 +310,11 @@ static void render_nonplayer_frame(
 		if (!halo_vr_frame_active())
 #endif
 		interface_draw_fullscreen_overlays();
+		/* port: a split screen player's Settings (what their pause menu
+		opens) over every view, full screen (port/linux/game/menu_view.c) */
+		halo_screen_ui_offset(TRUE);
+		render_ui_widgets_over_views(&window->rasterizer_camera.viewport_bounds);
+		halo_screen_ui_offset(FALSE);
 		rasterizer_debug_draw();
 		break;
 
@@ -328,6 +346,7 @@ void render_frame_pregame(
 
 	rasterizer_frame_begin(&parameters);
 	rasterizer_windows_begin();
+	render_marks_frame_begin(); /* port: debug.render_marks */
 	profile_render_window_start(FALSE);
 
 	memset(&rasterizer_parameters, 0, sizeof(rasterizer_parameters));
@@ -396,6 +415,7 @@ static void render_window(
 {
 	struct rasterizer_window_begin_parameters parameters;
 	short rendered_cluster_index;
+	boolean world_ao_prepassed; /* port: (below) */
 
 	profile_render_window_start(TRUE);
 	render.scene_index++;
@@ -418,8 +438,12 @@ static void render_window(
 	player_effect_get_screen_flash(local_player_index, &parameters.screen_flash);
 	/* port: display.panini, the view drawn through it with this projection
 	(port/linux/game/panini.c) */
-	panini_window_begin(local_player_index, rasterizer_target, rasterizer_camera, &parameters.frustum);
+	if (!render_link_pass) /* port: (spartan_link.c) */
+		panini_window_begin(local_player_index, rasterizer_target, rasterizer_camera, &parameters.frustum);
 	rasterizer_window_begin(&parameters);
+	/* port: debug.render_marks: the window's camera, its viewport the
+	rasterizer's (port/linux/game/render_marks.c) */
+	render_marks_view(render.window_index, rasterizer_camera);
 
 	if (!bink_playback_in_progress())
 	{
@@ -444,35 +468,87 @@ static void render_window(
 #endif
 		first_person_weapon_render_update();
 		lights_preprocess_scene();
+		/* port: display.ambient_occlusion "world": the window's proxies and
+		the field's place handed to the shaders' ambient slot before the
+		opaque surfaces shade (port/linux/game/world_ao.c; the objects' draws
+		say which they are: world_ao_object_begin), taken away after the
+		lightmap pass, which the later passes never read */
+		if (!render_link_pass) /* port: (spartan_link.c) */
+			world_ao_window_begin(local_player_index, rasterizer_target, &render.camera.position.x);
+		/* port: ... found once a pixel: the opaque surfaces' inputs to it
+		drawn first, alone (the pre-pass: the same draws as below, their
+		transparent parts, widgets and fog left for below:
+		render_world_ao_prepass), the occlusion found from them at each
+		pixel, and the surfaces then drawn reading theirs (not in the VR
+		mode's eye or scope passes, nor a mirror's view) */
+		world_ao_prepassed = FALSE;
+		if (rasterizer_target == _render_target_primary && !rasterizer_camera->mirrored && !render_link_pass &&
+#ifdef HALO_VR
+			!render_vr_eye_pass && !render_vr_scope_pass &&
+#endif
+			parameters.frustum.projection_valid)
+		{
+			float pass_camera[4][4];
+			real_point2d screen_point;
+			real_vector3d view_vector, middle, step;
+			short axis;
+
+			pass_camera[0][0] = parameters.camera.position.x;
+			pass_camera[0][1] = parameters.camera.position.y;
+			pass_camera[0][2] = parameters.camera.position.z;
+			pass_camera[0][3] = parameters.frustum.z_near;
+			/* the ray at the screen's middle, one unit along the view's axis,
+			and its change a unit of the screen's x and y */
+			screen_point.x = 0.0f;
+			screen_point.y = 0.0f;
+			render_camera_screen_to_view(&parameters.camera, &parameters.frustum, &screen_point, &view_vector);
+			matrix4x3_transform_vector(&parameters.frustum.view_to_world, &view_vector, &middle);
+			pass_camera[1][0] = middle.i;
+			pass_camera[1][1] = middle.j;
+			pass_camera[1][2] = middle.k;
+			pass_camera[1][3] = parameters.frustum.z_far;
+			for (axis = 0; axis < 2; axis++)
+			{
+				screen_point.x = axis == 0 ? 1.0f : 0.0f;
+				screen_point.y = axis == 1 ? 1.0f : 0.0f;
+				render_camera_screen_to_view(&parameters.camera, &parameters.frustum, &screen_point, &view_vector);
+				matrix4x3_transform_vector(&parameters.frustum.view_to_world, &view_vector, &step);
+				pass_camera[2 + axis][0] = step.i - middle.i;
+				pass_camera[2 + axis][1] = step.j - middle.j;
+				pass_camera[2 + axis][2] = step.k - middle.k;
+				pass_camera[2 + axis][3] = 0.0f;
+			}
+			world_ao_prepassed = world_ao_prepass_begin();
+			if (world_ao_prepassed)
+			{
+				render_world_ao_prepass = TRUE;
+				render_objects();
+				render_enumerate_models();
+				structure_render_preprocess();
+				structure_render_lightmaps();
+				render_world_ao_prepass = FALSE;
+				world_ao_prepass_end(
+					parameters.camera.viewport_bounds.x0,
+					parameters.camera.viewport_bounds.y0,
+					parameters.camera.viewport_bounds.x1,
+					parameters.camera.viewport_bounds.y1,
+					(float const (*)[4])pass_camera);
+			}
+		}
 		render_objects();
 		/* port: and through every model's parts */
 		render_enumerate_models();
-		structure_render_preprocess();
-		structure_render_lightmaps();
-		/* port: display.ambient_occlusion over the opaque surfaces' light,
-		the depth now whole (not the VR mode's eye or scope passes, whose
-		targets have a layer for each eye) */
-		if (rasterizer_target == _render_target_primary
-#ifdef HALO_VR
-			&& !render_vr_eye_pass && !render_vr_scope_pass
-#endif
-			)
+		if (!world_ao_prepassed)
 		{
-			float projection[4];
-
-			projection[0] = parameters.frustum.projection_matrix[0][0];
-			projection[1] = parameters.frustum.projection_matrix[1][1];
-			projection[2] = parameters.frustum.projection_matrix[2][0];
-			projection[3] = parameters.frustum.projection_matrix[2][1];
-			halo_screen_ambient_occlusion(
-				rasterizer_camera->viewport_bounds.x0,
-				rasterizer_camera->viewport_bounds.y0,
-				rasterizer_camera->viewport_bounds.x1,
-				rasterizer_camera->viewport_bounds.y1,
-				parameters.frustum.z_near,
-				parameters.frustum.z_far,
-				projection);
+			structure_render_preprocess();
 		}
+		structure_render_lightmaps();
+		if (!render_link_pass) /* port: (spartan_link.c) */
+			world_ao_window_end();
+		/* port: nor in a feed of the Spartan link's (spartan_link.c), as the
+		VR mode's scope's below */
+		if (!render_link_pass)
+		{
 #ifdef HALO_VR
 		/* the scope's view: no lens flares (their visibility tests are the
 		eyes', counted per frame), nor the objects' shadows, which a few
@@ -487,6 +563,7 @@ static void render_window(
 #ifdef HALO_VR
 		}
 #endif
+		}
 		lights_render_diffuse();
 		/* port: and every light's */
 		render_enumerate_lights(FALSE);
@@ -540,6 +617,9 @@ static void render_window(
 		structure_render_transparent_geometry();
 		structure_render_fog();
 		game_engine_post_rasterize_objects();
+		/* port: (the weather's particles about the window's camera, not a
+		feed's: spartan_link.c) */
+		if (!render_link_pass)
 #ifdef HALO_VR
 		/* (the weather's particles about the camera: the eyes') */
 		if (!render_vr_scope_pass)
@@ -568,6 +648,17 @@ static void render_window(
 		port/linux/src/d3d8_device.c) */
 		halo_dynamic_lights_halos_draw();
 		structure_render_fog_screen();
+		/* port: a feed of the Spartan link's: its view tone mapped
+		(display.hdr), with no HUD (spartan_link.c) */
+		if (render_link_pass)
+		{
+			halo_screen_tone_map(
+				rasterizer_camera->viewport_bounds.x0,
+				rasterizer_camera->viewport_bounds.y0,
+				rasterizer_camera->viewport_bounds.x1,
+				rasterizer_camera->viewport_bounds.y1);
+		}
+		else
 #ifdef HALO_VR
 		if (render_vr_scope_pass)
 		{
@@ -625,6 +716,10 @@ static void render_window(
 			panini_window_draw();
 		}
 		interface_draw_screen();
+		/* port: the HUD's Spartan link: the teammates' feeds in its top line
+		(port/linux/game/spartan_link.c) */
+		if (rasterizer_target == _render_target_primary)
+			spartan_link_draw(local_player_index);
 		/* port: and every HUD's (port/linux/game/render_enumerate.c) */
 		render_enumerate_interface();
 		render_enumerate_screen_flashes();
@@ -650,7 +745,8 @@ static void render_window(
 	}
 	/* port: the loading transition too (port/linux/game/render_enumerate.c) */
 	render_enumerate_loading_screen();
-	panini_window_end(); /* port */
+	if (!render_link_pass) /* port: (spartan_link.c) */
+		panini_window_end(); /* port */
 	rasterizer_window_end();
 	profile_render_window_end();
 
@@ -728,6 +824,18 @@ static void render_player_frame(
 			sizeof(rectangle2d)));
 
 	render_camera_build_frustum_bounds(camera, &frustum_bounds);
+	/* port: a wide field of view's near plane brought nearer, so that its
+	corners do not cut a wall beside the player (port/linux/game/near_
+	clip.c), from the whole view's bounds (not a screenshot's tile); the
+	VR mode's eyes keep their own */
+#ifdef HALO_VR
+	if (!render_vr_eye_pass && !render_vr_scope_pass)
+#endif
+	{
+		camera->z_near = render_near_clip_distance(camera, &frustum_bounds);
+		window->rasterizer_camera.z_near =
+			render_near_clip_distance(&window->rasterizer_camera, &frustum_bounds);
+	}
 
 	if (screenshot_combined_index != NULL)
 	{
@@ -770,7 +878,7 @@ static void render_player_frame(
 	window of it (a mirror's) is drawn; through a mirror's window where the
 	frame draws one, below (not the VR mode's eyes'). The scope's mono
 	pipelines have an enumeration of their own. */
-	if (render_enumerate_begin(main_get_window_count() == 1
+	if (render_enumerate_begin(main_get_window_count() == 1 && !render_link_pass /* port: (spartan_link.c) */
 #ifdef HALO_VR
 			&& !render_vr_eye_pass && !render_vr_scope_pass, render_vr_scope_pass
 #else
@@ -800,7 +908,7 @@ static void render_player_frame(
 #endif
 		halo_loading_ready();
 
-	if (main_get_window_count() == 1
+	if (main_get_window_count() == 1 && !render_link_pass /* port: (spartan_link.c) */
 #ifdef HALO_VR
 		/* (a mirror's view would need the eyes' mirrored too; the scope's
 		has none) */
@@ -993,6 +1101,13 @@ void render_frame(
 	parameters.game_time_sec = render_interpolation_game_time_sec(game_time_get());
 	rasterizer_frame_begin(&parameters);
 	rasterizer_windows_begin();
+	/* port: debug.render_marks: the frame's map and tick
+	(port/linux/game/render_marks.c) */
+	render_marks_frame_begin();
+	/* port: display.ambient_occlusion "world": the scene's objects as drawn
+	this frame, the field's upload continued (port/linux/game/world_ao.c;
+	nothing unless it is on) */
+	world_ao_frame_begin();
 
 	for (window_index = 0; window_index < window_count; window_index++)
 	{
@@ -1021,6 +1136,23 @@ void render_frame(
 				continue;
 			}
 #endif
+			/* port: the HUD's Spartan link: a teammate's feed, at most one a
+			frame, into its own image before the window's view
+			(port/linux/game/spartan_link.c) */
+			if (screenshot_index == NULL)
+			{
+				struct render_window feed_window = *window;
+
+				if (spartan_link_feed_begin(window->local_player_index, &feed_window.render_camera))
+				{
+					feed_window.rasterizer_camera = feed_window.render_camera;
+					feed_window.local_player_index = NONE;
+					render_link_pass = TRUE;
+					render_player_frame(&feed_window, NULL);
+					render_link_pass = FALSE;
+					spartan_link_feed_end();
+				}
+			}
 			render_player_frame(
 				window,
 				screenshot_index != NULL ? &screenshot_combined_index : NULL);
@@ -1034,6 +1166,9 @@ void render_frame(
 		render_nonplayer_frame(window, window_type);
 	}
 
+	/* port: debug.render_marks: what the frame draws over its windows
+	(port/linux/game/render_marks.c) */
+	render_marks_kind(RENDER_MARK_OTHER, "frame overlays");
 	halo_screen_ui_offset(TRUE);
 	progress_bar_eachframe();
 	halo_screen_ui_offset(FALSE);

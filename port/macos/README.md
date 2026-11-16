@@ -21,7 +21,7 @@ maps and the campaign. It was tested on an Apple A18 Pro with macOS 27.
   of `configure.py` selects a different clang.
 - The guest is compiled with LLVM 22.1.8, which `configure.py` downloads
   the first time (approximately 1.5 GB) to `~/Library/Caches/openh1`. Refer
-  to "The guests' compiler" in [README.md](../../README.md#the-guests-compiler).
+  to "The guests' compiler" in [docs/building.md](../../docs/building.md#the-guests-compiler).
   With `--macos-guest-cc` (or `--macos-cc`, or `--guest-llvm=system`), the
   guest is compiled with that clang instead, and `configure.py` needs
   `ld.lld`, `llvm-ar` and `llvm-objdump` on the `PATH` or in Homebrew's
@@ -53,7 +53,7 @@ use the network tests (`HALO_NETWORK_TEST=host:bloodgulch`;
 ## The app
 
 `ninja macos` makes `build/macos/OpenH1.app` (`tools/macos_app.py`), named
-OpenH1 as the site is; its executable is `halo`, as the other desktop
+GOAT H1 (refer to "The name"); its executable is `halo`, as the other desktop
 builds' are (`halo.exe`). Its settings and saves are in Application
 Support's OpenH1 folder whatever the app is called, so an earlier
 `Halo.app` can simply be deleted:
@@ -148,6 +148,24 @@ a Mac app does, before the game starts:
   does; before the game starts, at once), and the Window menu with Toggle
   Full Screen (Cmd-Ctrl-F). The window has the native fullscreen button.
 
+### The name
+
+The app is GOAT H1: `CFBundleName` and `CFBundleDisplayName` (the menu
+bar, the About panel, Activity Monitor, the app switcher), and the disk
+image's `GOAT H1.app` (volume GOAT H1, "Drag GOAT H1 to Applications").
+The build's file stays `OpenH1.app` (no space in ninja's and CI's paths),
+and so do the release's `OpenH1.dmg`, the bundle ID, the appcast and its
+key, so updates are unaffected.
+
+Sparkle (2.10) replaces an installed app where it is, under its file name:
+an `OpenH1.app` that updates to a build named GOAT H1 is still
+`OpenH1.app`. It starts and runs as GOAT H1 (the menu bar, the app
+switcher), while Finder, Launchpad and a Dock icon kept in the Dock show
+the file's name, OpenH1. A new download dragged to Applications is
+`GOAT H1.app` and shows GOAT H1 everywhere. The app does not rename
+itself (which would break Dock icons and risk App Translocation); a player
+can rename `OpenH1.app` to `GOAT H1.app` in Finder, and updates carry on.
+
 ### Updates
 
 A release's app updates itself with Sparkle 2, as Mac apps do. The build
@@ -156,7 +174,7 @@ downloads Sparkle's release once, pinned by its SHA-256
 `build/macos/third_party/Sparkle`.
 
 - A release's `Info.plist` has `SUFeedURL`
-  (`https://github.com/OpenH1/OpenH1/releases/latest/download/appcast.xml`),
+  (`https://github.com/OpenH1/goath1/releases/latest/download/appcast.xml`),
   `SUPublicEDKey` (the `SPARKLE_PUBLIC_KEY` repository variable),
   `SUEnableAutomaticChecks`, `SUScheduledCheckInterval` (four hours) and
   `SUVerifyUpdateBeforeExtraction`. Debug and local builds have none of
@@ -252,8 +270,8 @@ signed ad hoc.
 ### The release build and the disk image
 
 `python3 configure.py --release`, then `ninja macos_dmg`:
-`build/macos/OpenH1.dmg` holds the app and a link to Applications, laid
-out in a window of its own: OpenH1's icon on the disk, the app on the left
+`build/macos/OpenH1.dmg` holds the app, as `GOAT H1.app`, and a link to
+Applications, laid out in a window of its own: the game's icon on the disk, the app on the left
 and Applications on the right over a background (`port/macos/dmg`:
 `background.html`, rendered by `render.sh` to `background.png` and
 `background@2x.png`). That is dmgbuild's
@@ -338,7 +356,10 @@ of each 4 KB page of the guest. A host page gets the union of the
 protections of its four guest pages, stays mapped while any of them is,
 and a guest page mapped into a host page in use is zeroed in place. The
 write tracking (`host_memory_watch.c`) protects host pages, so a write
-marks the whole 16 KB as written.
+marks the whole 16 KB as written; the vertex mirror's pages are the
+tracking's (`memory_watch_page_size`). Android's and Linux's memory without
+the base register (`host_memory.c`) keeps its pages so too, on kernels of
+16 KB pages.
 
 ### System calls
 
@@ -584,6 +605,14 @@ pipelines made, and those from the archive. Each hitch is logged as it
 comes, with the shaders and pipelines the render thread made since the
 frame before it (what the frame may have waited for).
 
+`HALO_METAL_HIDE_TEST="<first>,<hidden>,<every>"` takes the window as
+hidden `<first>` seconds after it opens, for `<hidden>` seconds, and again
+every `<every>` seconds (`0`: once), through the path the window's
+occlusion notification takes (`window_visibility_read`: the link's thread
+takes the frames while it is hidden). It tests the way back from a hidden
+window in a run whose window is never shown (`debug.hidden_window`); a
+real occlusion also stops the link's calls, which it does not.
+
 ### The GPU's time
 
 Apple's GPUs run as slowly as the frames allow: with the game paced by
@@ -603,6 +632,24 @@ GPU's time a frame says little about the work. To measure the work:
   span includes others'. `HALO_METAL_PASSES_SPLIT=1` makes each draw of
   those frames a pass of its own (up to 1024 a frame), logged with its shaders, blend, depth,
   viewport and textures (size, format, levels, filters and anisotropy).
+- `HALO_METAL_PASS_TIMES=<n>`: every nth frame timed so (unpaced, for the
+  work's time), each pass's time summed by what it draws, and logged as a
+  table every 20 timed frames (`metal: pass times over 20 frames`): each
+  kind's median, mean and most milliseconds a frame, its passes a frame and
+  the other kinds drawn in them. The kinds are the game's renderer's
+  categories (`rasterizer.h`'s, sent with the command stream's `CATEGORY`
+  records: the sky, the world, its transparents, water, effects, the HUD,
+  `other` outside them) and the backend's own passes (`tone map`,
+  `anti-aliasing`, `panini`), with the passes put aside
+  (`aside`: the shadows' and mip chains' small targets), the blits
+  (`copies`) and the picture's copy for the presentation (`present`). A
+  render pass's time is its fragment stage's (the GPU runs the vertex
+  stages of later passes ahead), from its start, or the end of the passes
+  that started before it, to its end: the kinds' times add up to the time
+  the GPU was busy with the frame (`busy`), whatever else the GPU did
+  between (another app's work). A pass's kind is the one its first draw had:
+  the 3D view is one pass, its transparents, water and HUD in it; `HALO_METAL_PASS_TIMES_SPLIT=1` ends the timed frames'
+  passes where the kind changes, at the cost of their stores and loads.
 - `HALO_METAL_CAPTURE=<frame>:<file>.gputrace` (with `MTL_CAPTURE_ENABLED=1`)
   writes that frame and the next, the first's presentation included, as a
   GPU trace document for Xcode (its shader profiler and counters).
@@ -624,7 +671,8 @@ GPU's time a frame says little about the work. To measure the work:
 The renderer's work can be recorded once and replayed in seconds, without
 the game: the same frames every time, no maps, no lobby, no guest.
 
-- `HALO_RENDER_RECORD=<file>` records every record the render thread plays
+- `HALO_RENDER_RECORD=<file>` (with `HALO_RENDER_MARKS=1` for the
+  inspector's marks, below) records every record the render thread plays
   (`port/android/host/host_render_record.c`, the host's, in every build),
   with the guest memory each one reads through guest addresses at the moment
   it is played: inline data too large for the ring, and what the backend
@@ -632,7 +680,10 @@ the game: the same frames every time, no maps, no lobby, no guest.
   textures' headers, palettes and texels, the images' pixels). Memory is
   stored by its content's hash, each content once; the file is written in
   blocks that a thread of its own compresses (LZ4, Apple's libcompression;
-  on other hosts the blocks are stored as they are). Its format is the
+  on other hosts the blocks are stored as they are). A recording is the
+  backend's no more than the stream is: one made on a Mac replays on Linux's
+  Vulkan (`ninja linux_replay`, `port/linux/vulkan/README.md`) and one made
+  on Linux on Metal. Its format is the
   recorder's and the tool's alone (`HOST_RENDER_RECORD_VERSION`), not the
   stream's. Record with `HALO_METAL_UNPACED=1`: a paced window the display
   does not show (behind another app, on another space) waits 100 ms a frame.
@@ -640,13 +691,53 @@ the game: the same frames every time, no maps, no lobby, no guest.
   (`600,1500`, `100-900/100`) write those frames' back buffers, as each is
   presented, to `<folder>/frame_<n>.png` (frames counted from the stream's
   start). The replay writes its shots the same way.
-- `ninja macos_replay` makes `build/macos/halo_replay`:
+- `ninja macos_replay` makes `build/macos/halo_replay` (and the shaders' library
+  beside it, `shaders.metallib`, which it plays with as the app does):
 
 ```sh
 build/macos/halo_replay <file> [--frames a-b] [--window] [--unpaced] [--shots dir]
     [--shot-frames list] [--loop N] [--cold] [--archive path] [--hitch ms] [--quiet]
+build/macos/halo_replay <file> --serve
 build/macos/halo_replay --compare <shots> <shots>
 ```
+
+  The tool is Metal's part (`port/macos/tools/halo_replay.m`: the device,
+  the window, the statistics, `--cold`) of the replay the Vulkan backend
+  has too (`port/tools/replay/host_render_replay.c`: the recording, the
+  guest's memory, the play, the report, `--compare` and `--serve`, the
+  replay service, described in `docs/replay_protocol.md` and
+  `port/linux/vulkan/README.md`). Metal's ID buffer is the backend's
+  (`xgpu_metal_set_draw_inspector`): each draw into the target the frame
+  presents is bracketed, its pass ended before and after it, by a copy of
+  the target and a compute pass that compares the two by their bits, and
+  stacks the draw's number on the pixels it changed (an alpha-tested leaf's
+  pixels, not its quad's cut-out corners). A frame asked for with its IDs
+  is played twice: once as it is, for its picture, and once bracketed.
+  The service's `cost` (each pass's and draw's GPU time) times the frame
+  played again with the passes' timestamps at their stages
+  (`xgpu_metal_timing_*`, as `HALO_METAL_PASSES`'), the only places Apple's
+  GPUs take them: a draw's time is the frame's without it subtracted from
+  the frame's whole (`docs/replay_protocol.md`, "cost").
+- `debug.render_marks` (`HALO_RENDER_MARKS=1`, beside `HALO_RENDER_RECORD`)
+  records what each draw belongs to (the stream's MARK records,
+  `port/linux/game/render_marks.c`): each window's camera, the map and the
+  tick, and each run of draws' owner (its kind, an object and its
+  definition, model and shader tags, the structure's material, an effect's
+  maker and bitmap, the HUD's part, a menu widget's tag and the generator
+  source that wrote it, text's words). `--serve` gives them with each draw
+  (`draws`, `pick`) and the frame's view; a recording of before them
+  (`HOST_RENDER_RECORD_VERSION` 1) plays as it did, without them.
+- A frame asked for is reached exactly: the frames up to it are played from
+  where the play is (or from the recording's start, for one before it),
+  those more than eight before it without the GPU's work of their draws,
+  clears, anti-aliasing, tone map and present (`HALO_REPLAY_SEEK_SKIPS=0`:
+  all of it), the pictures identical to a play of every frame. On an M1
+  Max (a 30-second Silent Cartographer recording, 5,406 frames at
+  2560x1440 in HDR, 540 MB): the recording read in 0.8 s to 4.6 s, a step
+  to the next frame 45 to 60 ms (90 to 140 ms with its PNG written), a
+  frame anywhere from the start 0.5 to 3 s (about 0.3 to 0.7 ms a frame
+  passed), the ID buffer 100 to 150 ms more for 200 to 350 draws, a pick of
+  a frame whose IDs are read under 1 ms.
 
   It reserves the guest's 4 GB as the host does, writes the records into
   the ring where they were and submits them as the encoder did, and the same
@@ -681,8 +772,12 @@ command stream's backend table. They run on one thread, the render thread.
   thread: each is made on a queue (user-initiated QoS) once its shaders
   are, during a map's loading screen for the draws it is shown first
   (`display.prepare_shaders`: the stream's PREPARE and PREPARED records).
-  A draw whose pipeline was not made so waits for it, logged and counted
-  ("made while drawing"): a draw is never skipped. The archive is written,
+  The map is prepared again in play when a setting changes its draws'
+  pipelines (`port/linux/game/render_enumerate.c`). A draw whose pipeline
+  was not made so is skipped until its pipeline is made on the queue (a
+  frame or two), logged with what tells the draw apart and counted
+  ("pipeline missed"), as Vulkan's is: waited for, a burst of them stopped
+  the frame for up to 117 ms on an M2. The archive is written,
   on a background queue, after a map's preparation and as the process
   ends (host_exit), never in play: a new archive each time, as Metal's
   archiver cannot write one that was read or written and has had pipelines
@@ -697,7 +792,13 @@ command stream's backend table. They run on one thread, the render thread.
   clears' and the presentation's functions, the NV2A combiner as one
   function whose configuration is function constants
   (`xgpu_metal_combiner.c`), and the pixel programs of the renderer's
-  manifest (`port/assets/render`) that the combiner cannot draw. A shader is
+  manifest (`port/assets/render`) that the combiner cannot draw, each of its
+  draws derived under every setting that changes a draw (multisampling's
+  samples, HDR, each pixel's lighting, the enhanced dynamic lights, the
+  ambient occlusion: `xgpu_manifest_derive`, the front end's own derivation).
+  The manifest is recorded in the run that makes the shipped records
+  (`tools/prepared_records.py`), and `tools/test_render_manifest.py` fails
+  where a record's draw is not one of its own. A shader is
   looked up there by its name (its MSL source's hash). A pixel program is
   the combiner's function specialised for its configuration
   (`newFunctionWithName:constantValues:`, on the queue: about 0.2 ms, 10 ms
@@ -908,7 +1009,14 @@ draw, and cleared.
   the data folder.
 - A crash prints the registers, the guest's base and the frame chain. The
   guest's addresses are the low 32 bits:
-  `llvm-symbolizer --obj=build/macos/halo_guest.elf 0x<address>`.
+  `llvm-symbolizer --obj=build/macos/halo_guest.debug.elf 0x<address>`
+  (the image with its source lines). `python tools/symbolize_crash.py
+  <report's zip, or crash.txt> build/macos` does it for every frame, the
+  host's too (with `atos`): refer to "Reports" in the Linux README. A
+  release's app's image with its lines is the release's
+  `OpenH1-macOS-symbols.zip` (`OpenH1-macOS-debug-symbols.zip` for
+  `OpenH1-debug.dmg`), of the release the report's Build line names:
+  `python tools/symbolize_crash.py <report's zip> OpenH1-macOS-symbols.zip`.
 - `HALO_TRACE_SYSCALLS=1` logs the guest's system calls.
 
 ## Limits

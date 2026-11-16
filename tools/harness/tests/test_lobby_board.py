@@ -23,7 +23,8 @@ MT = port_settings.MT
 ROOT_SCREEN = f"{MT}/lobby/lobby_screen"
 WIDTHS = port_settings.WIDE_SCREENS
 CASES = ["teams", "free-for-all", "overflow", "party", "tags", "controls"]
-PURE = ("lobby_board_teams", "lobby_board_tag", "lobby_board_rank", "lobby_board_lay_out", "lobby_board_controls_for")
+PURE = ("lobby_board_teams", "lobby_board_tag", "lobby_board_mark_split", "lobby_board_rank", "lobby_board_lay_out_rows", "lobby_board_lay_out",
+        "lobby_board_controls_for")
 
 # a fault in the code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -31,12 +32,16 @@ NEGATIVE_CONTROLS = {
     "one-team": ("short team = entries[order[index]].team == 1 ? 1 : 0;", "short team = 0;", "teams"),
     # (a game without teams split by team)
     "teams-always": ("\tif (!teams)\n\t{\n\t\tshown", "\tif (FALSE)\n\t{\n\t\tshown", "free-for-all"),
+    # (a machine's P2 the host too, as every player of the host's machine was)
+    "split-host": ("\t\tif (entries[index].split)\n\t\t\tentries[index].host = FALSE;\n", "", "tags"),
+    # (a machine's players all its first)
+    "no-split": ("(controllers[other] < controllers[index] ||", "(FALSE ||", "tags"),
     # (the host not first)
     "host-not-first": ("if (entry->host && !entry->bot)\n\t\treturn 0;", "if (FALSE)\n\t\treturn 0;", "party"),
     # (the party's members not together)
     "party-apart": ("if (entry->party && !entry->bot)\n\t\treturn 1;", "if (FALSE)\n\t\treturn 1;", "party"),
     # (a full column's last row a player, not how many more)
-    "no-more": ("\t\t\tlayout->rows[column][LOBBY_BOARD_ROWS - 1] = NONE;\n", "", "overflow"),
+    "no-more": ("\t\t\tlayout->rows[column][rows - 1] = NONE;\n", "", "overflow"),
     # (an OpenCE player tagged as the party's)
     "opence-as-party": ("\tif (entry->kind == _lobby_kind_opence)\n\t\treturn _lobby_tag_opence;\n\tif (entry->party)\n"
                         "\t\treturn _lobby_tag_party;",
@@ -55,7 +60,7 @@ NEGATIVE_CONTROLS = {
 def generated(fault=None):
     lobby = read(LOBBY)
     functions = read("port/linux/game/menu_functions.c")
-    config = "".join(f"#define {name} {constant(functions, name)}\n" for name in ("LOBBY_BOARD_ROWS",
+    config = "".join(f"#define {name} {constant(functions, name)}\n" for name in ("LOBBY_BOARD_ROWS", "LOBBY_LAYOUT_ROWS",
                                                                                   "LOBBY_BOARD_COLUMNS"))
     config += f"#define LOBBY_BOARD_ENTRIES {constant(read('port/linux/include/halo_port_limits.h'), 'HALO_PORT_MAXIMUM_NETWORK_PLAYERS')}\n"
     config += enum_with(read("source/game/game_engine.h"), "_game_mode_infection") + "\n"

@@ -16,7 +16,9 @@ game state (the determinism check, port/linux/README.md):
   sounds end on the same frame; and the sound cache's reads, waited for
   (xbox_sound_cache.c), so that a sound starts on the frame that asks for it;
 - the network game's countdowns (network_server_manager.c), so that a
-  network test's lobby (debug.network_test) runs as many ticks each time.
+  network test's lobby (debug.network_test) runs as many ticks each time;
+- the menus' clock (ui_widget.c), which their animations follow, so that
+  two runs draw the same screen (tools/menu_gallery.py).
 
 Without them the computer's clock times these, as it always has.
 */

@@ -32,6 +32,37 @@ void network_standard_server_created(void);
 while no other machine has joined: a game's kind holds once one has */
 void network_standard_server_mode_read(void);
 boolean network_standard_hosting(void);
+/* matchmaking's (matchmaking.c): the next server made (and while it is,
+Server Setup's reading it again) hosts an OpenH1 game at this rate (0: as
+network.game_mode and network.sim_rate say), closed to OpenCE's players,
+and, no_direct_camera, with every OpenH1 machine's views drawn as with
+display.direct_camera off (the game record's
+_network_game_no_direct_camera_bit). Set back to (0, FALSE) once its server
+is gone */
+void network_standard_set_hosting_rules(long rate, boolean no_direct_camera, boolean pro);
+/* (pro: the Pro 2v2 rules, every PRO 2V2 kind's (README, "PRO 2V2"). The
+host's own: its shield effects the stock game's (network_shield_effects.c),
+the mouse's aim assist blocked (network_aim_assist.c), weapons picked up by
+holding the action button, a joining machine with mods that replace sounds,
+bitmaps or models refused (network_distributed.c). Every OpenH1 machine's,
+by the game record's _network_game_pro_rules_bit: network_standard_pro_game.
+Whether this machine hosts so) */
+boolean network_standard_pro_hosting(void);
+/* whether the game this machine plays is a Pro 2v2 game (the host's own
+rules, or its record's word; never out of a network game), whatever its own
+settings, which stay as they are. And what that holds every OpenH1 machine
+to: display.dynamic_lights drawn "classic" (d3d8_device.c,
+render_prepared.c), and no teammates' feeds (the Spartan link's, which asks
+this before it shows one; pings and spectating on death stay). The field of
+view's cap is view_fov.c's (PRO_FIELD_OF_VIEW) */
+boolean network_standard_pro_game(void);
+boolean network_standard_enhanced_lights_allowed(void);
+boolean network_standard_teammate_feeds_allowed(void);
+/* whether this machine's views may be drawn from the newest step
+(display.direct_camera, render_interpolation.c): not in a game whose host
+says no (a 2V2 Classic game's), whatever the player's setting, which stays
+as it is; in any other game, and out of one, as the setting says */
+boolean network_standard_direct_camera_allowed(void);
 /* the game this machine hosts, as a dedicated server's status tells it: its
 OpenH1 game's rate (as last read in the lobby, then the game's), 0 for a
 Legacy game; and whether OpenCE players join it now (a Legacy game, or a
@@ -53,6 +84,52 @@ in the lobby, which the record carries to its OpenH1 clients
 (_network_game_hold_to_pick_up_bit); a Legacy game, and an OpenCE machine's
 player, OpenCE's way, walking over */
 boolean network_standard_walk_over_pickup(long player_index);
+/* whether a player (a datum index) turns with the aim in a jump and a
+grenade throw (units.c's unit_turns_with_aim) in a network game: the
+host's game.enhanced_animations, as read in the lobby, which the game
+record carries to its OpenH1 machines (_network_game_classic_turning_bit);
+a Legacy game's players, and an OpenCE machine's, always turn, as OpenCE's
+machines turn them */
+boolean network_standard_turns_with_aim(long player_index);
+/* whether the players' bipeds have the animation enhancements in this game
+(units.c's unit_animation_enhanced: a seat's reload borrowed, the hands
+off a vehicle's grips in a throw, the throw's pose), which move their nodes
+and with them where their shots go and what they are hit by: a rule of the
+game, as the host's game.enhanced_animations (the record's
+_network_game_classic_turning_bit) in an OpenH1 game, both on the host
+and its clients; this machine's setting as the map began in a game of its
+own and a Legacy game; a demo's recording's in its playback */
+boolean network_standard_enhanced_animations(void);
+/* whether the game plays OpenH1's fixes of the original's glitches that
+change the simulation (items.c's item_move_substep: an item struck where it
+already was lifted off the surface): every game but a Legacy one, whose
+machines (OpenCE's among them) all play the original's; a demo's
+recording's in its playback */
+boolean network_standard_simulation_fixes(void);
+/* whether the game's players hijack vehicles (vehicle_hijack.c): an OpenH1
+game's host's game.vehicle_hijack as read in the lobby, or Host Controls'
+VEHICLE HIJACKING since, which the record (_network_game_vehicle_hijack_bit)
+and, during a game, the host's message (network_hijack.c) carry to its
+OpenH1 clients; never in a Legacy game; this machine's setting as the map
+began in a game of its own; a demo's recording's in its playback (a host's:
+its record as each tick had it) */
+boolean network_standard_vehicle_hijack(void);
+/* the host's own word on it (Host Controls' row), and its change (the
+host's, in an OpenH1 game, its clients told; a game of this machine's own):
+FALSE if this game has no such rule to change (a Legacy game, a client's) */
+boolean network_standard_hosting_vehicle_hijack(void);
+boolean network_standard_set_vehicle_hijack(boolean on);
+/* a client: the host's word during the game (network_hijack.c) */
+void network_standard_vehicle_hijack_heard(boolean on);
+/* whether this machine's players may hear their hit sounds (hit_sounds.c):
+not in a network game whose host forbids them (network.allow_hit_sounds
+false), which an OpenH1 game's record carries to its OpenH1 clients, as read
+in the lobby (_network_game_no_hit_sounds_bit); a Legacy game's clients hear
+nothing of the host's, and may; a game of this machine's own may */
+boolean network_standard_hit_sounds_allowed(void);
+/* the rules above as the game has them, for a demo's header (demo.h's
+_demo_rule_*) */
+unsigned long network_standard_demo_rules(void);
 
 /* joining: whether the game joined is Standard (its advertisement's), set
 as the join begins, and its join token made a Standard game's */
@@ -103,6 +180,10 @@ plays on an OpenCE machine, and so at 30 (objects.c's lanes): the host's
 from its machines, a client's from its host
 (_distributed_message_opence_players) */
 boolean network_standard_player_is_opence(long player_index);
+/* ... for a demo (demo.c's G records): the players' as a host's next tick
+takes them, and in a demo's playback the recording's, which
+network_standard_player_is_opence then answers with */
+void *network_standard_port_demo_state(long *size);
 /* a new game (network_distributed.c), each tick of the host (it tells its
 OpenH1 clients which players are OpenCE's) and the message it sends them */
 void network_standard_new_game(void);

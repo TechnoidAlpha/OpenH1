@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.game_type_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_ctf_item">
+		<on event="a" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_screen"/>
+		<on event="start" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/ctf_edit/ctf_options_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_koth_item">
+		<on event="a" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_screen"/>
+		<on event="start" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/koth_edit/koth_options_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list" flags="pass_unhandled_to_focused_child up_down_tabs_items">
+		<on event="created" run="mp profile init game engine"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_oddball_item">
+		<on event="a" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen"/>
+		<on event="start" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/oddball_edit/oddball_options_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_race_item">
+		<on event="a" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_screen"/>
+		<on event="start" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/race_edit/race_options_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="mp type menu initialize"/>
+	</behaviour>
+	<behaviour name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_slayer_item">
+		<on event="a" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_screen"/>
+		<on event="start" run="mp profile set game engine" open="main_menu/settings_select/multiplayer_setup/playlist_edit/slayer_edit/slayer_options_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

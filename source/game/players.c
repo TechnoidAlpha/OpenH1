@@ -228,6 +228,7 @@ symbols in this file:
 /* ---------- headers */
 
 #include "cseries.h"
+#include "mcc_player.h" /* port: port/linux/game/mcc_player.h */
 #include "infection.h" /* port: port/linux/game/infection.c */
 #include "cseries/errors.h"
 #include "cseries/profile.h"
@@ -239,6 +240,9 @@ symbols in this file:
 #include "devices/devices.h"
 #include "network_coop.h" /* port: port/linux/game/network_coop.c */
 #include "bots.h" /* port: port/linux/game/bots.c */
+#include "demo.h" /* port: port/linux/game/demo.c */
+#include "vehicle_hijack.h" /* port: port/linux/game/vehicle_hijack.c */
+#include "server_team_switch.h" /* port: port/linux/game/server_team_switch.c */
 #include "cutscene/cinematics.h" /* port: network co-op's first spawns */
 #include "editor/editor_stubs.h"
 #include "effects/effects.h"
@@ -281,6 +285,7 @@ symbols in this file:
 #include "units/units.h"
 #include "units/vehicle_definitions.h"
 #include "units/vehicles.h"
+#include "mcc_seats.h" /* port: port/linux/game/mcc_seats.c */
 
 /* network_game_globals.c's */
 boolean network_game_distributed_client(void);
@@ -613,6 +618,10 @@ void players_initialize_for_new_map(
 		sizeof(machine_to_player_table));
 	/* port: the bots of local games (port/linux/game/bots.c) */
 	bots_initialize_for_new_map();
+	/* port: a dedicated server's !switch: no cooldown or move is kept from
+	the last map, whose player indices this map's reuse
+	(server_team_switch.c) */
+	server_team_switch_initialize_for_new_map();
 
 	return;
 }
@@ -1943,6 +1952,9 @@ static boolean player_handle_action(
 	case _player_action_result_evict_from_vehicle:
 	{
 		long nearby_unit_index;
+		/* port: MCC biped seats use host-validated interaction. */
+		if (mcc_seat_action(player_index, player->action_object_index, player->action_seat_index))
+			break;
 
 		if (unit_can_enter_seat(
 			player->unit_index,
@@ -1968,6 +1980,12 @@ static boolean player_handle_action(
 		}
 		break;
 	}
+
+	/* port: a hijack is held, not pressed: the press does nothing (and no
+	reload), its hold begins it (player_handle_weapon_swap) */
+	case _player_action_result_hijack_vehicle:
+		result = TRUE;
+		break;
 
 	case _player_action_result_flip_vehicle:
 		unit = unit_get(player->unit_index);
@@ -2533,11 +2551,11 @@ result_complete:
 
 A network game on a campaign map with no game engine is co-op. Players
 spawn on the host and respawn beside each other, as in local co-op
-(players_respawn_coop). When everyone is dead, local co-op reverts to the
-last checkpoint (game_state_revert), but every machine would have to do
-that in step. Instead the players respawn where they were at the last
-checkpoint (main_save_map_private records it), or at the map's start if
-that was on another BSP. */
+(players_respawn_coop). When everyone is dead, the host's team-wipe policy
+chooses a checkpoint revert or position-only respawn. The latter uses
+positions main_save_map_private recorded, or the map's start if that was
+on another BSP. A changed roster or missing checkpoint also uses this
+position-only path. */
 
 static boolean players_coop_room_to_spawn(
 	void);
@@ -2878,6 +2896,20 @@ static long players_coop_respawn_unit(
 the player (players_respawn_network_coop), else NONE */
 static long players_coop_spawn_beside_index = NONE;
 
+/* port: (the demos': players.h) */
+void *players_coop_port_demo_state(
+	short part,
+	long *size)
+{
+	switch (part)
+	{
+	case 0: *size = sizeof(players_coop_state); return &players_coop_state;
+	case 1: *size = sizeof(players_checkpoint); return &players_checkpoint;
+	case 2: *size = sizeof(players_coop_spawn_beside_index); return &players_coop_spawn_beside_index;
+	}
+	return NULL;
+}
+
 /* how far behind the teammate a respawn starts (world units) past what it
 rides (its bounding sphere) */
 #define COOP_SPAWN_BEHIND_DISTANCE 0.5f
@@ -3040,10 +3072,14 @@ static boolean players_coop_unit_stranded(
 
 	if (players_coop_unit_in_structure(unit_index))
 		return FALSE;
-	/* (on foot: only while falling, not standing on something the BSP
-	doesn't hold, such as an elevator in its shaft) */
+	/* (on foot: while falling, or not airborne outside it but not on an
+	elevator in its shaft, which the BSP doesn't hold: a player a BSP switch
+	left outside it can stand there, not falling, until they move) */
 	if (vehicle_index == unit_index)
-		return !players_coop_unit_grounded_anywhere(unit_index);
+	{
+		return !players_coop_unit_grounded_anywhere(unit_index) ||
+			biped_get(unit_index)->biped.elevator_object_index == NONE;
+	}
 	driver_index = object_try_and_get_and_verify_type(vehicle_index, _object_mask_unit) ?
 		unit_get(vehicle_index)->unit.driver_object_index : NONE;
 	return driver_index == NONE || unit_get(driver_index)->unit.player_index != NONE;
@@ -3064,11 +3100,32 @@ waits for every machine to have loaded it */
 the host's crossing switches the BSP */
 #define COOP_HOST_WAIT_MESSAGE_TICKS (3 * TICKS_PER_SECOND)
 
+/* port: network co-op: player_teleport where it has found no room for the
+player beside the unit, with the other players left out of the test, so the
+player may stand in them (as coop_scripts.c's teleports do; players pass
+through each other until they are apart, _biped_physics_in_pass_through_players_bit).
+Only where the alternative is a player outside the loaded structure BSP,
+where they would fall out of the world. */
+static boolean players_coop_teleport_stacked(
+	long player_index,
+	long source_unit_index,
+	real_point3d const *position)
+{
+	boolean result;
+
+	biped_fix_ignore_players(TRUE);
+	result = player_teleport(player_index, source_unit_index, position);
+	biped_fix_ignore_players(FALSE);
+
+	return result;
+}
+
 /* Co-op host, each tick: a player stranded for COOP_STRANDED_TICKS is moved
 beside a grounded teammate inside the BSP, else any teammate inside it, else
 to the last checkpoint. Skipped while scripts hold the controls, since
-cutscenes place the players themselves. A BSP switch already moves everyone
-(players_reconnect_to_structure_bsp); this catches anyone it missed. */
+cutscenes place the players themselves. A BSP switch already moves anyone
+outside the new BSP (players_reconnect_to_structure_bsp); this catches
+anyone who leaves it later, or whom it missed. */
 static void players_coop_rescue_stranded(
 	void)
 {
@@ -3100,6 +3157,12 @@ static void players_coop_rescue_stranded(
 		{
 			rescued = player_teleport(iterator.datum_index, teammate_index,
 				&object_get(teammate_index)->object.bounding_sphere_center);
+			/* (port: in them where there is no room beside them) */
+			if (!rescued)
+			{
+				rescued = players_coop_teleport_stacked(iterator.datum_index, teammate_index,
+					&object_get(teammate_index)->object.bounding_sphere_center);
+			}
 		}
 		else
 		{
@@ -3177,6 +3240,72 @@ boolean players_coop_bring_to_host(
 	console_printf(FALSE, "bringto: %d brought, %d with no room", arrived_count - 1, missed_count);
 
 	return arrived_count > 1;
+}
+
+/* port: Host Controls' BRING TO ME and GO TO (network_host_controls.c), the
+co-op host's: who moves (the player, or the host's first player in the
+level) and beside whom. Only in a network co-op game the host runs, while
+the scripts leave the players their controls (cutscenes place them), for
+another machine's living player who is not away, with the host's player
+in the loaded BSP; GO TO only to a player who is in it too, never out of
+it where the host would fall. FALSE where not */
+static boolean players_coop_host_teleport_parties(
+	long player_index,
+	boolean go_to,
+	long *moving_player_index,
+	long *beside_unit_index)
+{
+	struct player_datum *player = player_index != NONE ? player_try_and_get(player_index) : NULL;
+	long host_unit_index;
+
+	if (!network_coop_active() || game_connection() != _game_connection_network_server || !player_input_enabled() ||
+		!player || player->unit_index == NONE || player->local_player_index != NONE ||
+		network_coop_player_away(player_index))
+	{
+		return FALSE;
+	}
+	host_unit_index = players_coop_host_unit();
+	if (host_unit_index == NONE || (go_to && !players_coop_unit_in_structure(player->unit_index)))
+		return FALSE;
+	*moving_player_index = go_to ? unit_get(host_unit_index)->unit.player_index : player_index;
+	*beside_unit_index = go_to ? player->unit_index : host_unit_index;
+
+	return *moving_player_index != NONE;
+}
+
+boolean players_coop_host_can_teleport(
+	long player_index,
+	boolean go_to)
+{
+	long moving_player_index, beside_unit_index;
+
+	return players_coop_host_teleport_parties(player_index, go_to, &moving_player_index, &beside_unit_index);
+}
+
+/* port: the move itself, as a BSP switch's: out of any seat
+(player_teleport), beside the other player's unit (or the vehicle it rides)
+and facing their way (player_teleport_internal), else, with no room, in
+them (players_coop_teleport_stacked). Never onto a loading zone. The
+moved player's index (and the other's), or NONE */
+long players_coop_host_teleport(
+	long player_index,
+	boolean go_to,
+	long *beside_player_index)
+{
+	long moving_player_index, beside_unit_index;
+	real_point3d center;
+
+	if (!players_coop_host_teleport_parties(player_index, go_to, &moving_player_index, &beside_unit_index))
+		return NONE;
+	*beside_player_index = unit_get(beside_unit_index)->unit.player_index;
+	center = object_get(beside_unit_index)->object.bounding_sphere_center;
+	if (!player_teleport(moving_player_index, beside_unit_index, &center) &&
+		!players_coop_teleport_stacked(moving_player_index, beside_unit_index, &center))
+	{
+		return NONE;
+	}
+
+	return moving_player_index;
 }
 
 /* co-op, each tick: records when each player became somewhere spawnable,
@@ -3517,7 +3646,7 @@ static boolean players_coop_host_alive(
 }
 
 /* port: whether the unit's crossing switches the BSP in network co-op. Only
-the host's does, and brings the whole team to the host
+the host's does, and brings to the host whoever must move
 (players_reconnect_to_structure_bsp), so no one running ahead or doubling
 back drags the others through the level. With none of the host's players
 alive anyone's does, so the team never waits on the host's respawn. Never
@@ -3586,15 +3715,19 @@ static void player_teleport_on_bsp_switch(
 		position);
 	if (biped)
 	{
-		/* port: in network co-op a loading zone brings the whole team to
-		whoever crossed it, the host (players_coop_bsp_switch_allowed).
-		Only one BSP is ever loaded, so anyone left elsewhere would stand
-		outside it, or on a trigger that switches it straight back
-		(players_update_after_game waits for players_coop_bsp_switch_ready
-		before another switch). */
+		/* port: in network co-op a loading zone brings to whoever crossed
+		it (the host: players_coop_bsp_switch_allowed) only the players who
+		must move: those outside the new BSP (the leaf test below), where
+		they would fall, and those on one of its loading zones, which would
+		switch it straight back or on (players_update_after_game waits for
+		players_coop_bsp_switch_ready before another switch). A player
+		still inside the new BSP's space, as at the seam between two areas,
+		stays where it is; the host decides, and clients take where it
+		puts them (network_distributed.c). Any player it leaves who later
+		falls outside is rescued (players_coop_rescue_stranded). */
 		if (network_coop_active())
 		{
-			outside_switch_trigger = TRUE;
+			outside_switch_trigger = players_coop_bsp_switch_trigger(unit_index) != NONE;
 		}
 		else if (players_globals->pending_teleport_starting_location_index != NONE &&
 			!scenario_trigger_volume_test_object(
@@ -3635,6 +3768,16 @@ static void player_teleport_on_bsp_switch(
 				crosser, so the rest go beside whoever is already in */
 				if (!teleport_succeeded && network_coop_active())
 					teleport_succeeded = player_place_beside_teammate(player_index);
+				/* port: and where nobody has room, onto the crosser,
+				standing in them (players_coop_teleport_stacked): left
+				where they were, they would be outside the new BSP */
+				if (!teleport_succeeded && network_coop_active())
+				{
+					teleport_succeeded = players_coop_teleport_stacked(
+						player_index,
+						source_unit_index,
+						&object_get(source_unit_index)->object.bounding_sphere_center);
+				}
 			}
 			else
 			{
@@ -3666,10 +3809,10 @@ void players_reconnect_to_structure_bsp(
 	/* port: each player's last cluster is the old BSP's: forgotten before the
 	teleports below, as it is after them. A teleport's coop respawn effect
 	works out the players' combined pvs (player_teleport_on_bsp_switch), and
-	a player not moved yet, or not moved at all (one network co-op leaves
-	where it was), is outside the new BSP, where its unit has no cluster: the
-	pvs took the old BSP's cluster index for it, one of another cluster or
-	past the new BSP's clusters (structure_bsp_get_cluster_pvs's assertion) */
+	a player not moved yet (or one not moved at all, inside the new BSP: its
+	cluster is worked out again from where it stands) would otherwise lend
+	the pvs the old BSP's cluster index, one of another cluster or past the
+	new BSP's clusters (structure_bsp_get_cluster_pvs's assertion) */
 	data_iterator_new(&iterator, player_data);
 	while ((player = data_iterator_next(&iterator)) != NULL)
 		player->cluster_index = NONE;
@@ -3893,6 +4036,11 @@ static boolean player_handle_weapon_swap(
 	player = player_get(player_index);
 	unit = unit_get(player->unit_index);
 	result = FALSE;
+	/* port: an enemy's seat, the action button held out on it: the hijack
+	(port/linux/game/vehicle_hijack.c), where this machine decides the
+	game; a client's waits for the host's word */
+	if (player->action_result == _player_action_result_hijack_vehicle)
+		return vehicle_hijack_held(player_index, player->action_object_index, player->action_seat_index);
 	if (!players_decide_pickups())
 		return result;
 	switch (player->action_result)
@@ -4202,6 +4350,10 @@ static void player_examine_nearby_unit(
 	long player_index,
 	long unit_index)
 {
+	/* port: the legacy biped interaction remains empty outside MCC. */
+	short seat_index;
+	if (mcc_seat_nearby(player_index, unit_index, &seat_index))
+		player_set_action_result(player_index, _player_action_result_enter_vehicle, unit_index, seat_index);
 	return;
 }
 
@@ -4228,6 +4380,19 @@ static void player_examine_nearby_vehicle(
 			(_pi * 0.5f) - player_control->minimum_vehicle_flipping_angle;
 		if (vehicle_get(vehicle_index)->object.up.k > (real)cos(flipping_angle))
 		{
+			/* port: an enemy's seat in reach, taken by holding the action
+			button, whether or not the vehicle moves a little
+			(port/linux/game/vehicle_hijack.c) */
+			short hijack_seat_index = vehicle_hijack_seat_offered(player_index, vehicle_index);
+
+			if (hijack_seat_index != NONE)
+			{
+				player_set_action_result(
+					player_index,
+					_player_action_result_hijack_vehicle,
+					vehicle_index,
+					hijack_seat_index);
+			}
 			if (!unit_overcharged(player->unit_index))
 			{
 				unit = unit_get(player->unit_index);
@@ -4800,6 +4965,8 @@ void player_add_equipment(
 				starting_profile->starting_shield_modifier;
 			unit->object.body_vitality +=
 				starting_profile->starting_health_modifier;
+			/* port: MCC's expanded grenade types of the starting profile */
+			mcc_player_profile_grenades(unit_index, starting_profile, reset_equipment);
 			unit = (struct unit_datum *)unit->unit.grenade_counts;
 			starting_profile =
 				(struct scenario_starting_profile *)starting_profile->grenade_counts;
@@ -4910,16 +5077,28 @@ void players_update_before_game(
 	struct unit_control_data control_data;
 	long weapon_index;
 	short action_index;
+	boolean have_actions; /* port: (a demo's playback's too) */
 
 	profile_enter(PLAYERS_UPDATE_BEFORE_GAME_PROFILE);
 	players_coop_note_on_foot();
 	players_coop_rescue_stranded();
 	/* port: or the main menu's scene's idle players (players_idle_actions) */
-	if (update_client_dequeue(actions) || players_idle_actions(actions))
+	have_actions = update_client_dequeue(actions) || players_idle_actions(actions);
+	/* port: a demo's playback's recorded input, in place of what the queues
+	held (the machine's players give none) and of the bots
+	(port/linux/game/demo.c); else the controls of a local game's bots this
+	tick (port/linux/game/bots.c), in place of what their queues held, and
+	the tick's input recorded */
+	if (demo_playback_tick_actions(actions))
+		have_actions = TRUE;
+	else if (have_actions)
 	{
-		/* port: the controls of a local game's bots this tick
-		(port/linux/game/bots.c), in place of what their queues held */
+		demo_record_tick_actions_begin();
 		bots_update_actions(actions);
+		demo_record_tick_actions(actions);
+	}
+	if (have_actions)
+	{
 		/* port: debug.play_log (port/linux/game/play_log.c) */
 		play_log_tick(actions);
 		data_iterator_new(&iterator, player_data);
@@ -4959,6 +5138,8 @@ void players_update_before_game(
 				(NONE == action->desired_weapon_index) ||
 				((action->desired_weapon_index >= 0) &&
 				(action->desired_weapon_index <= MAXIMUM_WEAPONS_PER_UNIT)));
+			/* port: MCC's grenade types go beyond the legacy table's */
+			if (!mcc_player_choice_supported(action->desired_grenade_index))
 			match_assert(
 				"c:\\halo\\SOURCE\\game\\players.c",
 				0x261,
@@ -4969,6 +5150,10 @@ void players_update_before_game(
 				"c:\\halo\\SOURCE\\game\\players.c",
 				0x262,
 				(NONE == action->desired_zoom_level) || ((action->desired_zoom_level >= 0)));
+			/* port: a hijack's jacker in the leap and its thrown rider in the
+			air control nothing, and the jacker's action button waits to be
+			let go (port/linux/game/vehicle_hijack.c) */
+			vehicle_hijack_filter_action(iterator.datum_index, action);
 
 			if (player->unit_index == NONE && !game_in_editor())
 			{
@@ -5096,6 +5281,8 @@ void players_update_before_game(
 						(NONE == control_data.weapon_index) ||
 						((control_data.weapon_index >= 0) &&
 						(control_data.weapon_index <= MAXIMUM_WEAPONS_PER_UNIT)));
+					/* port: MCC's grenade types go beyond the legacy table's */
+					if (!mcc_player_choice_supported(control_data.grenade_index))
 					match_assert(
 						"c:\\halo\\SOURCE\\game\\players.c",
 						0x2E4,

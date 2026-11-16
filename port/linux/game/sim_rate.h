@@ -112,6 +112,9 @@ real sim_substep_tick_fraction(void);
 count; 1 outside the fast phase): where an object that stays on the tick is
 seen from it, between its poses of the tick before and this one */
 real sim_substep_end_fraction(void);
+/* whether the tick's own work before its fast phase (game.c's macro step,
+which is its first sub-step's: it ends as that sub-step does) is running */
+boolean sim_substep_in_macro_step(void);
 
 /* a quantity per 30 Hz tick as one per sub-step, each exactly its argument
 at 30:

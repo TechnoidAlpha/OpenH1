@@ -4,6 +4,8 @@ records cannot split each other. The host's logger also writes whole lines. */
 #define HALO_LOAD_TRACE_H
 
 void halo_load_trace(char const *phase, char const *detail);
+/* debug.load_trace (sdl_platform.c) */
+int halo_load_trace_enabled(void);
 
 #include <errno.h>
 #include <stdarg.h>

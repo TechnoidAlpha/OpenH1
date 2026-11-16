@@ -53,6 +53,8 @@ host tells its OpenH1 clients which players are OpenCE's
 #include "network_standard.h"
 #include "network_distributed.h"
 #include "halo_port_limits.h"
+#include "demo.h"
+#include "network_hijack.h"
 
 #include <stdlib.h>
 
@@ -60,6 +62,7 @@ host tells its OpenH1 clients which players are OpenCE's
 char const *config_string(char const *name);
 long config_integer(char const *name);
 int config_boolean(char const *name);
+unsigned long config_changes(void);
 
 /* ---------- constants */
 
@@ -96,6 +99,16 @@ static struct
 	weapon (game.auto_pickup false), as last read in the lobby, as the rate
 	is */
 	boolean hosting_hold_to_pick_up;
+	/* ... and whether its players keep the original's facing in a jump and
+	a throw (game.enhanced_animations false), read so too */
+	boolean hosting_classic_turning;
+	/* ... and whether its players hijack vehicles (game.vehicle_hijack), read
+	so too, and changed during a game by Host Controls
+	(network_standard_set_vehicle_hijack) */
+	boolean hosting_vehicle_hijack;
+	/* ... and whether it forbids its players' hit sounds (network.allow_hit_sounds
+	false: hit_sounds.c), read so too */
+	boolean hosting_no_hit_sounds;
 	/* ... OpenCE players may join it (network.allow_opence as the server
 	was made, or as Host Controls' Allow OpenCE players has it since); and
 	OpenCE players may be in it, having been let join since the server was
@@ -116,6 +129,10 @@ static struct
 	boolean opence_players[MAXIMUM_TRACKED_PLAYERS];
 	long opence_players_time;
 	boolean opence_players_heard[MAXIMUM_TRACKED_PLAYERS];
+	/* the demo's (demo.c's G records, network_standard_port_demo_state):
+	which players are OpenCE machines', a host's as its next tick takes
+	them; and a demo's playback's, the recording's */
+	boolean demo_opence_players[MAXIMUM_TRACKED_PLAYERS];
 	/* the host: the players last told, and when */
 	byte opence_players_sent[OPENCE_PLAYER_MASK_SIZE];
 	long opence_players_sent_time;
@@ -123,6 +140,30 @@ static struct
 	join): what of OpenH1's own it heard, which must be nothing */
 	long openh1_messages_heard;
 	long record_rate_heard;
+	/* a game of this machine's own (and a Legacy game's): its players'
+	animation enhancements (game.enhanced_animations) and their way of
+	picking up a second weapon (game.auto_pickup), read as its map began, as
+	a host reads its own in the lobby: rules of the game, which do not
+	change in the middle of it */
+	boolean local_enhanced_animations;
+	boolean local_auto_pickup;
+	/* ... and whether its players hijack vehicles (game.vehicle_hijack); a
+	client: the host's word on it during the game, NONE till it has one (the
+	record's then: network_hijack.c) */
+	boolean local_vehicle_hijack;
+	short vehicle_hijack_heard;
+	/* the rules a matchmaking playlist asks of the next server made
+	(network_standard_set_hosting_rules): an OpenH1 game at this rate (0:
+	the settings' kind and rate), and its players' views as with
+	display.direct_camera off; and the second as the server took it */
+	long rules_rate;
+	boolean rules_no_direct_camera;
+	boolean hosting_no_direct_camera;
+	/* ... and the Pro 2v2 rules (every 2V2 kind's): its players' dynamic
+	lights the classic ones, its shield effects the stock game's; as the
+	server took them */
+	boolean rules_pro;
+	boolean hosting_pro;
 } network_standard_globals = { FALSE, SIM_RATE_CLASSIC, FALSE, FALSE };
 
 /* ---------- private code */
@@ -147,6 +188,9 @@ sim_rate.c steps at, else 30 */
 static long network_standard_rate_setting(
 	void)
 {
+	/* (network.sim_rate, read again as the settings change: config_changes) */
+	static unsigned long read_at = (unsigned long)-1;
+	static long setting;
 	long rate;
 
 	if (halo_server_mode())
@@ -156,7 +200,14 @@ static long network_standard_rate_setting(
 		rate = network_standard_server_setting();
 		return rate ? rate : network_standard_globals.hosting_rate;
 	}
-	rate = config_integer("network.sim_rate");
+	if (read_at != config_changes())
+	{
+		read_at = config_changes();
+		setting = config_integer("network.sim_rate");
+	}
+	/* (a matchmaking playlist's own rate, whatever the setting says) */
+	rate = network_standard_globals.rules_rate && sim_rate_supported(network_standard_globals.rules_rate) ?
+		network_standard_globals.rules_rate : setting;
 	return sim_rate_supported(rate) ? rate : SIM_RATE_CLASSIC;
 }
 
@@ -170,11 +221,27 @@ void network_standard_server_created(
 	/* (anything but "legacy" is the default, OpenH1's: "openh1", and
 	"standard", its first name; a dedicated server's server.game_mode,
 	"legacy" by default) */
+	boolean rules = !halo_server_mode() && network_standard_globals.rules_rate != 0;
+
 	network_standard_globals.hosting = halo_server_mode() ? network_standard_server_setting() != 0 :
-		!(mode && !csstrcmp(mode, "legacy"));
+		rules || !(mode && !csstrcmp(mode, "legacy"));
 	network_standard_globals.hosting_rate = network_standard_rate_setting();
 	network_standard_globals.hosting_hold_to_pick_up = !config_boolean("game.auto_pickup");
-	network_standard_globals.mixed = network_standard_globals.hosting && config_boolean("network.allow_opence");
+	network_standard_globals.hosting_classic_turning = !config_boolean("game.enhanced_animations");
+	network_standard_globals.hosting_vehicle_hijack = config_boolean("game.vehicle_hijack") != 0;
+	network_standard_globals.hosting_no_hit_sounds = !config_boolean("network.allow_hit_sounds");
+	/* (a matchmaking playlist's game: OpenH1's alone, every machine playing
+	by the host's word, Classic's views included) */
+	network_standard_globals.hosting_no_direct_camera = network_standard_globals.hosting && !halo_server_mode() &&
+		network_standard_globals.rules_no_direct_camera;
+	network_standard_globals.hosting_pro = network_standard_globals.hosting && !halo_server_mode() &&
+		network_standard_globals.rules_pro;
+	/* (a Pro 2v2 game's weapons picked up by holding the action button, the
+	Xbox's way, whatever game.auto_pickup) */
+	if (network_standard_globals.hosting_pro)
+		network_standard_globals.hosting_hold_to_pick_up = TRUE;
+	network_standard_globals.mixed = network_standard_globals.hosting && !rules &&
+		config_boolean("network.allow_opence");
 	network_standard_globals.mixed_since = network_standard_globals.mixed;
 	csmemset(network_standard_globals.machine_kinds, 0, sizeof(network_standard_globals.machine_kinds));
 }
@@ -192,6 +259,70 @@ boolean network_standard_hosting(
 	void)
 {
 	return network_standard_globals.hosting;
+}
+
+void network_standard_set_hosting_rules(
+	long rate,
+	boolean no_direct_camera,
+	boolean pro)
+{
+	network_standard_globals.rules_rate = rate;
+	network_standard_globals.rules_no_direct_camera = no_direct_camera;
+	network_standard_globals.rules_pro = pro;
+}
+
+boolean network_standard_pro_hosting(
+	void)
+{
+	return network_standard_globals.hosting && network_standard_globals.hosting_pro;
+}
+
+boolean network_standard_pro_game(
+	void)
+{
+	struct network_game *game;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		return network_standard_pro_hosting();
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it; a Legacy host's none) */
+		game = network_game_get_game();
+		return network_standard_globals.joined && game &&
+			TEST_FLAG(game->standard_flags, _network_game_pro_rules_bit);
+	}
+	return FALSE;
+}
+
+boolean network_standard_enhanced_lights_allowed(
+	void)
+{
+	return !network_standard_pro_game();
+}
+
+boolean network_standard_teammate_feeds_allowed(
+	void)
+{
+	return !network_standard_pro_game();
+}
+
+boolean network_standard_direct_camera_allowed(
+	void)
+{
+	struct network_game *game;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		return !(network_standard_globals.hosting && network_standard_globals.hosting_no_direct_camera);
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it; a Legacy host's none) */
+		game = network_game_get_game();
+		return !(network_standard_globals.joined && game &&
+			TEST_FLAG(game->standard_flags, _network_game_no_direct_camera_bit));
+	}
+	return TRUE;
 }
 
 long network_standard_server_hosted(
@@ -228,7 +359,8 @@ boolean network_standard_opence_joins_open(
 void network_standard_set_opence_joins(
 	boolean allowed)
 {
-	if (!network_standard_globals.hosting)
+	/* (a matchmaking playlist's game stays OpenH1's alone) */
+	if (!network_standard_globals.hosting || (allowed && network_standard_globals.rules_rate))
 		return;
 	/* (a game OpenCE's players did not join until now is mixed from now on:
 	its machines all OpenH1's, each known by its token; one closed to them
@@ -331,17 +463,22 @@ struct network_game const *network_standard_game_for_machine(
 		return game;
 	csmemcpy(&legacy_game, game, sizeof(legacy_game));
 	legacy_game.standard_rate = 0;
-	SET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_classic_turning_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_no_direct_camera_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_pro_rules_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_no_hit_sounds_bit, FALSE);
+	SET_FLAG(legacy_game.standard_flags, _network_game_vehicle_hijack_bit, FALSE);
 	return &legacy_game;
 }
 
 /* (the host) which players are OpenCE machines', from its machines' tokens */
 static void network_standard_note_opence_players(
-	void)
+	boolean *opence_players)
 {
 	long machine_index;
 
-	csmemset(network_standard_globals.opence_players, 0, sizeof(network_standard_globals.opence_players));
+	csmemset(opence_players, 0, sizeof(network_standard_globals.opence_players));
 	for (machine_index = 0; machine_index < MAXIMUM_STANDARD_MACHINES; machine_index++)
 	{
 		long *player_list;
@@ -356,7 +493,7 @@ static void network_standard_note_opence_players(
 				DATUM_INDEX_TO_ABSOLUTE_INDEX(player_list[local_player_index]) : NONE;
 
 			if (absolute_index >= 0 && absolute_index < MAXIMUM_TRACKED_PLAYERS)
-				network_standard_globals.opence_players[absolute_index] = TRUE;
+				opence_players[absolute_index] = TRUE;
 		}
 	}
 }
@@ -378,6 +515,10 @@ boolean network_standard_player_is_opence(
 		if (!network_standard_globals.joined)
 			return FALSE;
 		break;
+	case _game_connection_local:
+		/* (a demo's playback of a mixed game: the recording's, which its
+		OpenCE players' units moved once a tick by) */
+		return demo_playing() && network_standard_globals.demo_opence_players[absolute_index];
 	default:
 		return FALSE;
 	}
@@ -385,7 +526,7 @@ boolean network_standard_player_is_opence(
 	if (network_standard_globals.opence_players_time != game_time_get())
 	{
 		if (game_connection() == _game_connection_network_server)
-			network_standard_note_opence_players();
+			network_standard_note_opence_players(network_standard_globals.opence_players);
 		else
 		{
 			csmemcpy(network_standard_globals.opence_players, network_standard_globals.opence_players_heard,
@@ -399,11 +540,33 @@ boolean network_standard_player_is_opence(
 void network_standard_new_game(
 	void)
 {
+	network_standard_globals.local_enhanced_animations = config_boolean("game.enhanced_animations") != 0;
+	network_standard_globals.local_auto_pickup = config_boolean("game.auto_pickup") != 0;
+	network_standard_globals.local_vehicle_hijack = config_boolean("game.vehicle_hijack") != 0;
+	network_standard_globals.vehicle_hijack_heard = NONE;
 	csmemset(network_standard_globals.opence_players, 0, sizeof(network_standard_globals.opence_players));
 	network_standard_globals.opence_players_time = NONE;
 	csmemset(network_standard_globals.opence_players_heard, 0, sizeof(network_standard_globals.opence_players_heard));
+	csmemset(network_standard_globals.demo_opence_players, 0, sizeof(network_standard_globals.demo_opence_players));
 	csmemset(network_standard_globals.opence_players_sent, 0, sizeof(network_standard_globals.opence_players_sent));
 	network_standard_globals.opence_players_sent_time = NONE;
+}
+
+void *network_standard_port_demo_state(
+	long *size)
+{
+	/* (a host recording: as the next tick takes them, from its machines,
+	which change outside the ticks; a playback's are the recording's, the
+	G record's written here) */
+	if (!demo_playing())
+	{
+		if (game_connection() == _game_connection_network_server && network_standard_hosting_mixed())
+			network_standard_note_opence_players(network_standard_globals.demo_opence_players);
+		else
+			csmemset(network_standard_globals.demo_opence_players, 0, sizeof(network_standard_globals.demo_opence_players));
+	}
+	*size = sizeof(network_standard_globals.demo_opence_players);
+	return network_standard_globals.demo_opence_players;
 }
 
 void network_standard_host_tick(
@@ -526,14 +689,217 @@ void network_standard_stamp_game(
 	dedicated server's switch from an OpenH1 game to a Legacy one, whose
 	record lasts, leaves no rate in it) */
 	if (game)
-		game->standard_rate = network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : 0;
+		game->standard_rate = network_standard_globals.hosting ? (byte)network_standard_server_rate(in_lobby) : 0;
 	/* (and how its players pick up a second weapon, read as the rate is) */
 	if (in_lobby)
-		network_standard_globals.hosting_hold_to_pick_up = !config_boolean("game.auto_pickup");
+	{
+		network_standard_globals.hosting_hold_to_pick_up = network_standard_pro_hosting() ||
+			!config_boolean("game.auto_pickup");
+		network_standard_globals.hosting_classic_turning = !config_boolean("game.enhanced_animations");
+		network_standard_globals.hosting_vehicle_hijack = config_boolean("game.vehicle_hijack") != 0;
+		network_standard_globals.hosting_no_hit_sounds = !config_boolean("network.allow_hit_sounds");
+	}
 	if (game)
 	{
-		SET_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit,
+		SET_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit,
+			network_standard_globals.hosting && network_standard_globals.hosting_vehicle_hijack);
+		SET_FLAG(game->standard_flags, _network_game_hold_to_pick_up_bit,
 			network_standard_globals.hosting && network_standard_globals.hosting_hold_to_pick_up);
+		SET_FLAG(game->standard_flags, _network_game_no_direct_camera_bit,
+			network_standard_globals.hosting && network_standard_globals.hosting_no_direct_camera);
+		SET_FLAG(game->standard_flags, _network_game_pro_rules_bit, network_standard_pro_hosting());
+		SET_FLAG(game->standard_flags, _network_game_classic_turning_bit,
+			network_standard_globals.hosting && network_standard_globals.hosting_classic_turning);
+		SET_FLAG(game->standard_flags, _network_game_no_hit_sounds_bit,
+			network_standard_globals.hosting && network_standard_globals.hosting_no_hit_sounds);
+	}
+}
+
+boolean network_standard_hit_sounds_allowed(
+	void)
+{
+	struct network_game *game;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		/* (an OpenH1 game's, as read in the lobby; a Legacy game's host
+		reads its own setting, for its own players) */
+		if (network_standard_globals.hosting)
+			return !network_standard_globals.hosting_no_hit_sounds;
+		return config_boolean("network.allow_hit_sounds") != 0;
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it; a Legacy host, which
+		cannot say, has no rule against them, as OpenCE has none) */
+		game = network_game_get_game();
+		if (!network_standard_globals.joined || !game)
+			return TRUE;
+		return !TEST_FLAG(game->standard_flags, _network_game_no_hit_sounds_bit);
+	default:
+		return TRUE;
+	}
+}
+
+boolean network_standard_turns_with_aim(
+	long player_index)
+{
+	struct network_game *game;
+	unsigned long rules;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		/* (a Legacy game's, and an OpenCE machine's player's, OpenCE's way:
+		every machine turns them, and hears nothing of the host's) */
+		if (!network_standard_globals.hosting || network_standard_player_is_opence(player_index))
+			return TRUE;
+		return !network_standard_globals.hosting_classic_turning;
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it; a Legacy host's
+		players all turn, OpenCE's way) */
+		game = network_game_get_game();
+		if (!network_standard_globals.joined || !game || network_standard_player_is_opence(player_index))
+			return TRUE;
+		return !TEST_FLAG(game->standard_flags, _network_game_classic_turning_bit);
+	default:
+		/* (a demo's playback: its recording's game's, demo.c) */
+		if (demo_playback_rules(&rules))
+			return TEST_FLAG(rules, _demo_rule_turns_with_aim_bit);
+		return network_standard_globals.local_enhanced_animations;
+	}
+}
+
+boolean network_standard_enhanced_animations(
+	void)
+{
+	struct network_game *game;
+	unsigned long rules;
+
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		if (network_standard_globals.hosting)
+			return !network_standard_globals.hosting_classic_turning;
+		break;
+	case _game_connection_network_client:
+		/* (the host's word, as its record brought it) */
+		game = network_game_get_game();
+		if (network_standard_globals.joined && game)
+			return !TEST_FLAG(game->standard_flags, _network_game_classic_turning_bit);
+		break;
+	default:
+		/* (a demo's playback: its recording's game's, demo.c) */
+		if (demo_playback_rules(&rules))
+			return TEST_FLAG(rules, _demo_rule_enhanced_animations_bit);
+		break;
+	}
+	return network_standard_globals.local_enhanced_animations;
+}
+
+unsigned long network_standard_demo_rules(
+	void)
+{
+	unsigned long rules = 0;
+
+	SET_FLAG(rules, _demo_rule_enhanced_animations_bit, network_standard_enhanced_animations());
+	SET_FLAG(rules, _demo_rule_turns_with_aim_bit, network_standard_turns_with_aim(NONE));
+	SET_FLAG(rules, _demo_rule_walk_over_pickup_bit, network_standard_walk_over_pickup(NONE));
+	SET_FLAG(rules, _demo_rule_simulation_fixes_bit, network_standard_simulation_fixes());
+	SET_FLAG(rules, _demo_rule_vehicle_hijack_bit, network_standard_vehicle_hijack());
+	return rules;
+}
+
+boolean network_standard_vehicle_hijack(
+	void)
+{
+	struct network_game *game;
+	unsigned long rules;
+
+	/* (a demo's playback: a host's recording's record as each tick had it,
+	a change during the game too; else its header's) */
+	if (demo_playback_rules(&rules))
+	{
+		game = demo_playback_recorded_game();
+		if (game)
+			return TEST_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit);
+		return TEST_FLAG(rules, _demo_rule_vehicle_hijack_bit);
+	}
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		/* (a Legacy game's machines, OpenCE's among them, play none) */
+		return network_standard_globals.hosting && network_standard_globals.hosting_vehicle_hijack;
+	case _game_connection_network_client:
+		/* (the host's word: since the game began, else its record's; a
+		Legacy host's, none) */
+		game = network_game_get_game();
+		if (!network_standard_globals.joined || !game)
+			return FALSE;
+		if (network_standard_globals.vehicle_hijack_heard != NONE)
+			return network_standard_globals.vehicle_hijack_heard != 0;
+		return TEST_FLAG(game->standard_flags, _network_game_vehicle_hijack_bit);
+	default:
+		return network_standard_globals.local_vehicle_hijack;
+	}
+}
+
+boolean network_standard_hosting_vehicle_hijack(
+	void)
+{
+	return network_standard_globals.hosting && network_standard_globals.hosting_vehicle_hijack;
+}
+
+boolean network_standard_set_vehicle_hijack(
+	boolean on)
+{
+	struct network_game_server *server = global_network_game_server_get();
+
+	/* (a host, in its lobby or its game) */
+	if (server)
+	{
+		if (!network_standard_globals.hosting)
+			return FALSE;
+		network_standard_globals.hosting_vehicle_hijack = on;
+		/* (the record, which a machine that joins takes, and a demo's
+		recording has each tick; the clients of a game under way told at
+		once) */
+		SET_FLAG(network_game_server_get_game(server)->standard_flags, _network_game_vehicle_hijack_bit, on);
+		network_hijack_send_rule(on);
+		return TRUE;
+	}
+	/* (a game of this machine's own) */
+	if (game_connection() == _game_connection_local && !demo_playing())
+	{
+		network_standard_globals.local_vehicle_hijack = on;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+void network_standard_vehicle_hijack_heard(
+	boolean on)
+{
+	if (game_connection() == _game_connection_network_client && network_standard_globals.joined)
+		network_standard_globals.vehicle_hijack_heard = on ? TRUE : FALSE;
+}
+
+boolean network_standard_simulation_fixes(
+	void)
+{
+	unsigned long rules;
+
+	/* (a demo's playback: its recording's game's, demo.c) */
+	if (demo_playback_rules(&rules))
+		return TEST_FLAG(rules, _demo_rule_simulation_fixes_bit);
+	switch (game_connection())
+	{
+	case _game_connection_network_server:
+		/* (a Legacy game's machines all play the original's: OpenCE's do) */
+		return network_standard_globals.hosting;
+	case _game_connection_network_client:
+		return network_standard_globals.joined;
+	default:
+		return TRUE;
 	}
 }
 
@@ -541,6 +907,7 @@ boolean network_standard_walk_over_pickup(
 	long player_index)
 {
 	struct network_game *game;
+	unsigned long rules;
 
 	switch (game_connection())
 	{
@@ -556,9 +923,11 @@ boolean network_standard_walk_over_pickup(
 		game = network_game_get_game();
 		if (!network_standard_globals.joined || !game || network_standard_player_is_opence(player_index))
 			return TRUE;
-		return !TEST_FLAG(game->cooperative_flags, _network_game_hold_to_pick_up_bit);
+		return !TEST_FLAG(game->standard_flags, _network_game_hold_to_pick_up_bit);
 	default:
-		return config_boolean("game.auto_pickup") != 0;
+		if (demo_playback_rules(&rules))
+			return TEST_FLAG(rules, _demo_rule_walk_over_pickup_bit);
+		return network_standard_globals.local_auto_pickup;
 	}
 }
 

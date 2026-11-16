@@ -322,7 +322,11 @@ static void render_model_parts(
 	long flags)
 {
 	boolean immediate = TEST_FLAG(flags, _render_model_immediate_bit);
-	short last_pass = TEST_FLAG(flags, _render_model_shadow_bit) ? _render_model_pass_solid : _render_model_pass_transparent;
+	/* port: display.ambient_occlusion "world"'s pre-pass draws the opaque
+	parts alone, the transparent ones queued by the window's own draw
+	(render_world_ao_prepass) */
+	short last_pass = TEST_FLAG(flags, _render_model_shadow_bit) ? _render_model_pass_solid :
+		render_world_ao_prepass ? _render_model_pass_decal : _render_model_pass_transparent;
 	struct render_sort_filth sort_filth[MAXIMUM_PARTS_PER_MODEL_GEOMETRY];
 	real_point3d centroid;
 	short pass;
@@ -391,6 +395,7 @@ static void render_model_parts(
 							part->shader_index,
 							struct model_shader_reference);
 						shader = shader_definition_get(shader_reference->shader.index);
+						render_marks_model_shader(shader_reference->shader.index); /* port: debug.render_marks */
 #ifdef HALO_VR
 						/* port: not the display on the back of a scope raised
 						to the eye in the VR mode (port/linux/game/vr_scope.c) */
@@ -1112,6 +1117,10 @@ void render_model(
 	profile_enter(render_model_section);
 
 	match_assert("c:\\halo\\SOURCE\\models\\models.c", 82, lighting);
+	/* port: debug.render_marks: the model's draws are the object's
+	(port/linux/game/render_marks.c) */
+	render_marks_model(model_index, unique_identifier, TEST_FLAG(flags, _render_model_first_person_bit),
+		TEST_FLAG(flags, _render_model_shadow_bit));
 
 	if (model->node_list_checksum==CORTANA_MODEL_NODE_LIST_CHECKSUM &&
 		TEST_FLAG(global_scenario_get()->flags, _scenario_cortana_hack_bit))

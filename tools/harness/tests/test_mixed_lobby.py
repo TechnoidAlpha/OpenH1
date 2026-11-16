@@ -25,11 +25,15 @@ NEGATIVE_CONTROLS = {
                                   "if (!csmemcmp(request_token, game_token"), "openh1-host"),
     "mixed-refuses-opence": (("\t\treturn _network_standard_join_opence;", "\t\treturn NONE;"), "mixed-host"),
     "record-keeps-rate": (("legacy_game.standard_rate = 0;", ";"), "record"),
-    "record-keeps-pickup": (("\tSET_FLAG(legacy_game.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
+    "record-keeps-pickup": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);\n",
                              ""), "record"),
+    "record-keeps-turning": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_classic_turning_bit, FALSE);\n",
+                              ""), "record"),
+    "record-keeps-hit-sounds": (("\tSET_FLAG(legacy_game.standard_flags, _network_game_no_hit_sounds_bit, FALSE);\n",
+                                 ""), "record"),
     "openh1-messages-to-opence": (("return type < FIRST_OPENH1_DISTRIBUTED_MESSAGE || "
                                    "!network_standard_machine_is_opence(machine_index);", "return TRUE;"), "messages"),
-    "opence-players-unknown": (("network_standard_globals.opence_players[absolute_index] = TRUE;", ";"), "players"),
+    "opence-players-unknown": (("opence_players[absolute_index] = TRUE;", ";"), "players"),
     "players-told-to-opence": (("if (network_standard_machine_is_openh1(machine_indices[index]))", "if (1)"),
                                "players"),
     "players-never-told-again": (("game_time_get() - network_standard_globals.opence_players_sent_time < "
@@ -42,8 +46,8 @@ NEGATIVE_CONTROLS = {
                                        "dedicated-server"),
     "server-legacy-setting-changes-rate": (("return rate ? rate : network_standard_globals.hosting_rate;",
                                             "return rate ? rate : SIM_RATE_CLASSIC;"), "dedicated-server"),
-    "legacy-record-keeps-old-rate": (("network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : 0",
-                                      "network_standard_globals.hosting ? (short)network_standard_server_rate(in_lobby) : "
+    "legacy-record-keeps-old-rate": (("network_standard_globals.hosting ? (byte)network_standard_server_rate(in_lobby) : 0",
+                                      "network_standard_globals.hosting ? (byte)network_standard_server_rate(in_lobby) : "
                                       "game->standard_rate"), "dedicated-server"),
 }
 
@@ -64,6 +68,7 @@ def generated(fault=None):
     config += f"#define FIRST_OPENH1_DISTRIBUTED_MESSAGE {first}\n"
     header = read("port/linux/game/network_standard.h")
     config += enum_with(header, "_network_standard_join_legacy") + "\n"
+    config += enum_with(read("port/linux/game/demo.h"), "_demo_rule_enhanced_animations_bit") + "\n"
     # (the prototypes, which the code relies on: its functions call each other in any order)
     prototypes = header[header.index("/* ---------- prototypes */"):header.rindex("#endif")]
     source = read("port/linux/game/network_standard.c")

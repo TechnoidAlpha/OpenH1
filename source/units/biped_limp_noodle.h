@@ -32,6 +32,12 @@ void validate_real_vector3d_axes3(
 boolean biped_limp_noodle_relax_nodes_onto_environment(
 	long biped_index);
 
+/* port: a dead biped's animated nodes raised onto the ground that rises
+under them (biped_limp_noodle.c) */
+void biped_limp_noodle_drape_dying(
+	long biped_index,
+	real_matrix4x3 *node_matrices);
+
 /* ---------- globals */
 
 /* ---------- public code */

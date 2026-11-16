@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.hub.touch.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_join_internet">
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
+		<on event="start" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_join_lan_item">
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
+		<on event="start" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_join_direct">
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
+		<on event="start" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_party">
+		<on event="a" open="main_menu/multiplayer_type_select/party/party_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/party/party_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_friends">
+		<on event="a" open="main_menu/multiplayer_type_select/friends/friends_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/friends/friends_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_create">
+		<on event="a" open="main_menu/multiplayer_type_select/hub/create_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/hub/create_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_coop">
+		<on event="a" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
+		<on event="start" open="main_menu/multiplayer_type_select/hub/coop_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_gametypes">
+		<on event="a" open="main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen"/>
+		<on event="start" open="main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_list" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/prompt_refresh">
+		<on event="a" run="port multiplayer refresh"/>
+		<on event="start" run="port multiplayer refresh"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/prompt_back">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/page_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_create_inter">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_create_lan_item">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_create_offline">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/create_list" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_online_coop">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/hub_split_coop">
+		<on event="a" run="port coop begin" open="main_menu/multiplayer_type_select/coop/player_2_profile_screen"/>
+		<on event="start" run="port coop begin" open="main_menu/multiplayer_type_select/coop/player_2_profile_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/hub/touch/coop_list" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+</model>

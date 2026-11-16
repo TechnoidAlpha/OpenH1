@@ -340,7 +340,7 @@ static void case_handshake(void)
 	json = last_activity();
 	CHECK(has(json, "\"pid\":4242") && has(json, "\"details\":\"In the menus\"") && !has(json, "\"state\""),
 		"the menus: %s", json);
-	CHECK(has(json, "\"large_image\":\"logo\",\"large_text\":\"OpenH1\"") && !has(json, "small_image"),
+	CHECK(has(json, "\"large_image\":\"logo\",\"large_text\":\"GOAT H1\"") && !has(json, "small_image"),
 		"the logo alone, in OpenCE's application: %s", json);
 	CHECK(has(json, "\"party\":{\"id\":\"" SPARE_ID "\",\"size\":[1,16]}") &&
 		has(json, "\"secrets\":{\"join\":\"" SPARE_LINK "\"}"), "the spare party's id, size and link: %s", json);
@@ -380,7 +380,7 @@ static void case_states(void)
 	p2p_discord_set_game(1, 0, "OpenH1 120 Tick \xC2\xB7 Slayer on Blood Gulch", NULL, 5, 16);
 	run(4000);
 	json = last_activity();
-	CHECK(has(json, "\"details\":\"Hosting OpenH1 120 Tick \xC2\xB7 Slayer on Blood Gulch\",\"state\":\"In the lobby\""),
+	CHECK(has(json, "\"details\":\"Hosting GOAT H1 120 Tick \xC2\xB7 Slayer on Blood Gulch\",\"state\":\"In the lobby\""),
 		"hosting, in the lobby: %s", json);
 	CHECK(has(json, "\"party\":{\"id\":\"0123456789abcdef0123456789abcdef\",\"size\":[5,16]}") &&
 		has(json, "\"secrets\":{\"join\":\"" CODE "\"}"), "the game's players and invite: %s", json);
@@ -392,7 +392,7 @@ static void case_states(void)
 	in_party(2);
 	run(4000);
 	json = last_activity();
-	CHECK(has(json, "\"details\":\"Hosting OpenH1") && has(json, "\"state\":\"In a party\"") &&
+	CHECK(has(json, "\"details\":\"Hosting GOAT H1") && has(json, "\"state\":\"In a party\"") &&
 		has(json, "\"secrets\":{\"join\":\"" PARTY_LINK "\"}") && !has(json, CODE),
 		"hosting in a party, the party's link: %s", json);
 	/* (a game joined: its invite, as its code) */

@@ -38,7 +38,10 @@ The core:
   attachment where it is drawn (VK_KHR_dynamic_rendering_local_read), in
   rasterization order where the device has it
   (VK_EXT_rasterization_order_attachment_access) or after a
-  framebuffer-local barrier before each such draw; and the frame is
+  framebuffer-local barrier before each such draw, their own triangles
+  over the same pixel ordered by the fragment shader interlock where the
+  device has it (VK_EXT_fragment_shader_interlock: the target read and
+  written as a storage image); and the frame is
   presented through an HDR swapchain (VK_EXT_swapchain_colorspace: scRGB
   or HDR10's PQ) where the frames are HDR and the window's display shows
   HDR, encoded by the options' encode, with VK_EXT_hdr_metadata's metadata
@@ -90,6 +93,9 @@ struct xgpu_vulkan_options
 	int interval;
 	/* display.low_latency at the start: xgpu_vulkan_window_low_latency */
 	int low_latency;
+	/* debug.vulkan_present_mode: a VkPresentModeKHR plus one, which the
+swapchain takes where the surface has it (0: the swap interval's choice) */
+	int present_mode;
 	/* The present step's turn for a surface the display turns (a phone held
 	sideways: xgpu_vulkan_post.c's): rotation_prepare makes its pipeline at
 	the start, where the surface can be turned (1 if it can); rotate draws
@@ -182,6 +188,24 @@ struct xgpu_vulkan_capabilities
 	is ordered after the ones before it by a barrier (two of its own
 	triangles over the same pixel, unordered) */
 	int color_read, raster_order;
+	/* display.hdr, where the reads are not in rasterization order: the
+	device's fragment shader interlock (VK_EXT_fragment_shader_interlock)
+	orders a draw's own triangles over the same pixel, the pixel's
+	(pixel_interlock) or each sample's (sample_interlock), each reading and
+	writing the target as a storage image (xgpu_spirv_options interlock;
+	the half floats as storage images, multisampled ones too) */
+	int pixel_interlock, sample_interlock;
+	/* pixel shaders have the subgroups' bitwise operations (Vulkan 1.1's
+	subgroup arithmetic in the fragment stage): xgpu_spirv_options
+	subgroups */
+	int subgroups;
+	/* display.ambient_occlusion "ray_traced": the device's ray queries and
+	acceleration structures (VK_KHR_ray_query, VK_KHR_acceleration_structure:
+	xgpu_vulkan_rt.c), unless HALO_VULKAN_NO_RAY_QUERIES */
+	int ray_queries;
+	/* the device, its Vulkan version and driver, in a few words (a
+	report's: port/linux/src/report.c) */
+	char device[96];
 };
 void xgpu_vulkan_capabilities(struct xgpu_vulkan_capabilities *capabilities);
 
@@ -222,6 +246,15 @@ enum
 	/* ASTC 4x4 (LDR): DXT textures transcoded on a device without BC
 	(port/linux/astc/xgpu_astc.h) */
 	XGPU_VULKAN_FORMAT_ASTC,
+	/* a signed byte (display.ambient_occlusion "world"'s distance field) */
+	XGPU_VULKAN_FORMAT_R8_SNORM,
+	/* (display.ambient_occlusion "world" found once a pixel: the tiles'
+	masks, two 32-bit unsigned integers; the occlusion and what the surfaces
+	upsample it by, four floats) */
+	XGPU_VULKAN_FORMAT_RG32_UINT,
+	XGPU_VULKAN_FORMAT_RGBA32F,
+	/* two signed bytes (its distance-field scene's cascades) */
+	XGPU_VULKAN_FORMAT_RG8_SNORM,
 	XGPU_VULKAN_FORMAT_COUNT
 };
 
@@ -305,6 +338,12 @@ enum
 enum
 {
 	XGPU_VULKAN_ADDRESS_WRAP, XGPU_VULKAN_ADDRESS_MIRROR, XGPU_VULKAN_ADDRESS_CLAMP, XGPU_VULKAN_ADDRESS_BORDER,
+	/* XGPU_ADDRESS_REGION: the shader's (xgpu_vulkan_stream.c's
+	border_axes), clamped to the edge here */
+	XGPU_VULKAN_ADDRESS_REGION = 5,
+	/* XGPU_ADDRESS_MSDF (on w): the shader's (xgpu_vulkan_stream.c's
+	border_axes), repeated here */
+	XGPU_VULKAN_ADDRESS_MSDF = 6,
 };
 
 /* zeroed before it is filled (it is compared whole) */
@@ -385,11 +424,18 @@ struct xgpu_vulkan_pipeline_description
 	itself (display.hdr: capabilities color_read): the blend's fields are
 	not the pipeline's */
 	uint8_t color_read;
+	/* and, interlocked (capabilities pixel_interlock), reads and writes it
+	as a storage image: the pipeline writes no colour */
+	uint8_t color_store;
 };
 
 /* the pipeline of a description, made the first time; VK_NULL_HANDLE if it
 cannot be */
 VkPipeline xgpu_vulkan_pipeline(const struct xgpu_vulkan_pipeline_description *description);
+/* the pipeline where it is made; else none (VK_NULL_HANDLE), and it is made
+apart from the draws, on the compilers, never waited for (display.ambient_
+occlusion "world"'s, while their stand-ins draw) */
+VkPipeline xgpu_vulkan_pipeline_ready(const struct xgpu_vulkan_pipeline_description *description);
 /* Queue preparation without requiring the handle yet. Nonzero means the
 request was accepted or already ready; PREPARED drains every accepted job. */
 int xgpu_vulkan_pipeline_prepare(const struct xgpu_vulkan_pipeline_description *description);
@@ -507,10 +553,20 @@ struct xgpu_vulkan_draw
 {
 	VkPipeline pipeline;
 	uint8_t topology, dynamic_lights, reads_depth, writes_depth;
+	/* its pixel shader reads display.ambient_occlusion "world"'s field and
+	block (XGPU_VULKAN_SET_OCCLUSION) */
+	uint8_t ambient_occlusion;
 	/* its pipeline reads the colour attachment (color_read): the
 	attachment bound as its input, the draw ordered after the pass's
 	draws before it */
 	uint8_t reads_color;
+	/* its pipeline writes it as a storage image (color_store): the draw
+	ordered after the pass's draws before it and before those after it */
+	uint8_t stores_color;
+	/* HALO_VULKAN_DRAW_TIMES (measuring): the game's draw's kind, its
+	pixel key's ambient_occlusion, its pipeline key's lighting and its
+	per_pixel_lighting, and XGPU_VULKAN_DRAW_GAME; zeros the backend's own */
+	uint8_t kind[4];
 	const struct xgpu_vulkan_dynamic_state *dynamic;
 	uint32_t bindings;
 	struct xgpu_vulkan_range vertices[XGPU_VULKAN_BINDINGS];
@@ -521,13 +577,116 @@ struct xgpu_vulkan_draw
 	int32_t vertex_offset;
 };
 
+#define XGPU_VULKAN_DRAW_GAME 0x80
 void xgpu_vulkan_draw(const struct xgpu_vulkan_draw *draw);
 
+/* display.ambient_occlusion "world" (xgpu_vulkan_world_ao.c, xgpu_stream.h's
+struct xgpu_world_ao_block), which the draws lighting by it read
+(xgpu_vulkan_draw's ambient_occlusion) in the pipeline layout's set
+XGPU_VULKAN_SET_OCCLUSION (xgpu_spirv.h's XGPU_SPIRV_SET_OCCLUSION; its
+binding 0 unused): the structure's distance
+field, its atlas of bricks (a 3D image of signed bytes, linear, clamped to
+its edge) and its table of cells (a 3D RGBA8 image, read by texel), each a
+1x1x1 far-outside stand-in where the field is not whole, and the window's
+block (a uniform buffer) */
+/* display.hdr's input set's binding of the colour target as a storage
+image, for the interlocked draws (xgpu_spirv.h's XGPU_SPIRV_BINDING_STORE;
+the input attachment is binding 0) */
+#define XGPU_VULKAN_BINDING_STORE 1
+
+#define XGPU_VULKAN_SET_OCCLUSION 3
+#define XGPU_VULKAN_BINDING_WORLD_SDF 1
+#define XGPU_VULKAN_BINDING_WORLD_AO 2
+#define XGPU_VULKAN_BINDING_WORLD_SDF_TABLE 3
+/* (and the static scenery's pages of the level's occlusion: a 2D array of
+bytes, linear, clamped, a 1x1 page of none where they have not all come) */
+#define XGPU_VULKAN_BINDING_WORLD_AO_SCENERY 4
+/* (and the vehicles' occlusion fields' atlas: a 3D image of four halves,
+linear, clamped, a texel of none where it has not all come) */
+#define XGPU_VULKAN_BINDING_WORLD_AO_OBJECTS 5
+/* (and the occlusion found once a pixel, which the draws that read it
+read: a 2D image of four floats, read by texel, a 1x1 of 1 where none is
+found) */
+#define XGPU_VULKAN_BINDING_WORLD_AO_PIXELS 6
+/* (and, where the device has ray queries, the ray-traced scene's top-level
+acceleration structure: xgpu_vulkan_rt_scene) */
+#define XGPU_VULKAN_BINDING_WORLD_AO_SCENE 8
+struct xgpu_world_ao_block;
+/* the stand-ins and the sampler made (the core's start): 0 if they cannot be */
+int xgpu_vulkan_world_ao_create(void);
+/* slices z_first to z_first + z_count - 1 of a width x height x depth part
+of the field (XGPU_STREAM_WORLD_AO_TABLE or _ATLAS), in the stream's order
+(width 0: both let go of), and the window's block from now on (NULL: none,
+zeros) */
+void xgpu_vulkan_world_ao_field(uint32_t part, uint32_t width, uint32_t height, uint32_t depth, uint32_t z_first,
+	uint32_t z_count, const void *data);
+void xgpu_vulkan_world_ao_window(const struct xgpu_world_ao_block *block);
+/* a box of the distance-field scene's cascades (xgpu_stream.h's
+WORLD_AO_CASCADES; width 0 released), and their image (a stand-in of
+nothing where there is none) */
+void xgpu_vulkan_world_ao_cascades(uint32_t x, uint32_t y, uint32_t z, uint32_t width, uint32_t height, uint32_t depth,
+	const void *data);
+struct xgpu_vulkan_image *xgpu_vulkan_world_ao_cascades_image(void);
+/* (the core's occlusion set) the field's atlas and table or the stand-ins,
+the sampler, the block's range in the ring for the submission of that
+serial (0: none), and a number that changes whenever any of them does */
+struct xgpu_vulkan_image *xgpu_vulkan_world_ao_field_image(void);
+struct xgpu_vulkan_image *xgpu_vulkan_world_ao_table_image(void);
+struct xgpu_vulkan_image *xgpu_vulkan_world_ao_scenery_image(void);
+struct xgpu_vulkan_image *xgpu_vulkan_world_ao_objects_image(void);
+VkSampler xgpu_vulkan_world_ao_sampler(void);
+/* the occlusion found once a pixel the draws read from now on (NULL: its
+stand-in, 1), and what they read */
+void xgpu_vulkan_world_ao_set_pixels(struct xgpu_vulkan_image *image);
+struct xgpu_vulkan_image *xgpu_vulkan_world_ao_pixels_image(void);
+int xgpu_vulkan_world_ao_block(uint64_t serial, VkDescriptorBufferInfo *info);
+uint64_t xgpu_vulkan_world_ao_number(void);
+/* (the number changed: what the set names did, xgpu_vulkan_rt.c's scene) */
+void xgpu_vulkan_world_ao_touch(void);
+
+/* display.ambient_occlusion "ray_traced" (xgpu_vulkan_rt.c; xgpu_stream.h's
+WORLD_AO_MESH, _INSTANCES), where the device has ray queries
+(capabilities' ray_queries; else these do nothing): a mesh (id 0: every
+mesh let go of) and the frame's instances, in the stream's order; the
+frame's scene built for the pass about to read it (its meshes not yet
+built, then its instances', in the early commands: 1 if there is one to
+trace, 0 if not, the pass then the distance-field scene's); and the scene
+the occlusion set names (the latest built, else an empty one; VK_NULL_HANDLE
+without ray queries), read by the work recorded now */
+struct xgpu_world_ao_instance;
+void xgpu_vulkan_rt_mesh(uint32_t id, uint32_t count, const float *triangles);
+void xgpu_vulkan_rt_instances(const struct xgpu_world_ao_instance *instances, uint32_t count);
+int xgpu_vulkan_rt_build(void);
+VkAccelerationStructureKHR xgpu_vulkan_rt_scene(void);
+int xgpu_vulkan_rt_ready(void);
+/* (the core's: at the device's making and end) */
+struct xgpu_vulkan_rt_device
+{
+	VkDevice device;
+	PFN_vkGetDeviceProcAddr get_device_proc_addr;
+	VkPhysicalDeviceMemoryProperties memory;
+	uint32_t scratch_alignment;
+};
+int xgpu_vulkan_rt_create(const struct xgpu_vulkan_rt_device *device);
+void xgpu_vulkan_rt_destroy(void);
+/* (the core's, for xgpu_vulkan_rt.c) the early commands, begun: before the
+draws of the submission being recorded, which are ordered after them; and
+the latest submission the GPU is done with */
+VkCommandBuffer xgpu_vulkan_early_commands(void);
+uint64_t xgpu_vulkan_completed(void);
+
 /* the enhanced dynamic lights' block (struct xgpu_dynamic_lights_block,
-size bytes) and their grid's cells (32 x 32 x 16, four uints each: xgpu.h),
-which the draw set holds (xgpu_spirv.h), in the stream's order: draws
-recorded before it read the old ones, draws after it these */
-void xgpu_vulkan_dynamic_lights_upload(const void *block, uint32_t size, const void *cells);
+size bytes) and their grid's cells (32 x 32 x 16, four uints each: xgpu.h)
+with the clusters' masks past them (a slice more), which the draw set holds
+(xgpu_spirv.h), in the stream's order: draws recorded before it read the old
+ones, draws after it these. cells is all of them, of which only the bytes
+from first to end changed since the last upload (multiples of 16; first ==
+end: none), which alone are uploaded (all of them the first time) */
+void xgpu_vulkan_dynamic_lights_upload(const void *block, uint32_t size, const void *cells, uint32_t first,
+	uint32_t end);
+/* the world (xgpu.h): count texels, into the cells' texture past the
+clusters' masks, in the stream's order as the cells are */
+void xgpu_vulkan_dynamic_lights_world(const void *texels, uint32_t count);
 
 /* ---------- visibility tests */
 
@@ -571,6 +730,9 @@ run on the renderer's thread, with end before the frame's fence. */
 void xgpu_vulkan_gpu_time_begin(void);
 void xgpu_vulkan_gpu_time_end(void);
 int xgpu_vulkan_gpu_time_read(double *milliseconds);
+/* the frames' GPU time so far (nanoseconds, a running total), and whether
+it is measured (the frames timed: not the VR mode's, which reads them) */
+uint64_t xgpu_vulkan_gpu_nanoseconds(int *measured);
 
 uint64_t xgpu_vulkan_fence(void);
 /* returns once the GPU has done the submission of that number and those
@@ -657,6 +819,9 @@ struct xgpu_vulkan_statistics
 	/* display.hdr's draws that read their colour attachment after a
 	barrier (none where the device orders the reads itself) */
 	uint32_t local_reads;
+	/* (of them, the interlocked draws': each one's writes seen after it
+	through a second barrier) */
+	uint32_t color_stores;
 	/* HALO_VULKAN_DISCARDS (xgpu_vulkan.c): aspects of attachments not
 	stored (those at frames' ends among them), multisampled images
 	resolved in the pass that drew them, and resolves of samples resolved
@@ -678,6 +843,97 @@ struct xgpu_vulkan_statistics
 	double wait_seconds;
 };
 void xgpu_vulkan_statistics(struct xgpu_vulkan_statistics *statistics);
+
+/* The replay's ID buffer (port/tools/replay/host_render_replay.h; render
+thread): begin, for a frame, each pixel's stack of depth draws; next, the
+draws handed to the backend from now on (to the next call; UINT32_MAX:
+none) are the frame's number'th, and they are looked at where they draw
+into image or multisampled (the target the frame presents); read, at the
+present, the stacks of image's pixels, rows from the top, depth numbers a
+pixel, topmost first, each a draw's number plus one (0 none), malloc'd;
+end, the frame's done with. */
+int xgpu_vulkan_inspect_begin(uint32_t depth);
+void xgpu_vulkan_inspect_next(uint32_t number, struct xgpu_vulkan_image *image, struct xgpu_vulkan_image *multisampled);
+uint32_t *xgpu_vulkan_inspect_read(struct xgpu_vulkan_image *image, uint32_t *width, uint32_t *height);
+void xgpu_vulkan_inspect_end(void);
 void xgpu_vulkan_statistics_peek(struct xgpu_vulkan_statistics *statistics);
+
+/* A frame's GPU time for a caller (the replay's cost: port/tools/replay/
+host_render_replay.h), from timestamps at the bottom of the pipeline about
+each draw and each pass (xgpu_vulkan.c, "a frame's GPU time").
+xgpu_vulkan_timing_begin: (the render thread, before the frame's first
+work) the frame is timed; 0 if the device has no timestamps.
+xgpu_vulkan_timing_draw: (the render thread) the draws recorded from now
+are the caller's index'th (UINT32_MAX: none). xgpu_vulkan_timing_wait:
+(the frame ended, the render thread idle) waits up to seconds for its
+GPU work, then gives its time (its passes', which sum to it), its passes
+(each from the timestamp before it, ms from the frame's first; kind its
+label), each draw's own time and its pass (UINT32_MAX: none), by the
+caller's numbers; they are the backend's until the next begin. 0 if it
+was not timed. */
+struct xgpu_vulkan_pass_time
+{
+	const char *kind;
+	uint32_t width, height, draws;
+	double start_ms, end_ms, ms;
+};
+struct xgpu_vulkan_timing
+{
+	double frame_ms;
+	const struct xgpu_vulkan_pass_time *passes;
+	uint32_t pass_count;
+	const uint32_t *draw_pass;
+	const double *draw_ms;
+	uint32_t draw_count;
+	const char *note;
+};
+int xgpu_vulkan_timing_begin(void);
+void xgpu_vulkan_timing_draw(uint32_t index);
+int xgpu_vulkan_timing_wait(double seconds, struct xgpu_vulkan_timing *result);
+
+/* The driver's calls a thread makes, counted and timed for a caller (the
+replay's cost: its CPU time, port/tools/replay/host_render_replay.h), by
+kind. xgpu_vulkan_calls_watch: (the thread watched, the render thread)
+from now each Vulkan call of the backend's that it makes adds its time (in
+clock's ticks, the clock read before and after it) and one to its kind's
+entry of ticks and counts, and to their last (XGPU_VULKAN_CALL_KINDS: the
+total); NULL: the watch ends (the calls go straight to the driver again). */
+enum
+{
+	XGPU_VULKAN_CALL_BIND_PIPELINE,
+	XGPU_VULKAN_CALL_BIND_DESCRIPTORS,
+	XGPU_VULKAN_CALL_UPDATE_DESCRIPTORS,
+	/* (and the pools' resets) */
+	XGPU_VULKAN_CALL_ALLOCATE_DESCRIPTORS,
+	XGPU_VULKAN_CALL_PUSH_CONSTANTS,
+	/* (the vertex and index buffers) */
+	XGPU_VULKAN_CALL_BIND_BUFFERS,
+	/* (viewport, scissor, depth bias, blend constants, stencil reference,
+	topology) */
+	XGPU_VULKAN_CALL_DYNAMIC_STATE,
+	/* (and the dispatches) */
+	XGPU_VULKAN_CALL_DRAW,
+	XGPU_VULKAN_CALL_CLEAR,
+	/* (a command buffer begun, ended: the secondary command buffers'
+	and the submissions') */
+	XGPU_VULKAN_CALL_BEGIN_COMMANDS,
+	XGPU_VULKAN_CALL_END_COMMANDS,
+	XGPU_VULKAN_CALL_EXECUTE_COMMANDS,
+	/* (vkCmdBeginRendering, vkCmdEndRendering) */
+	XGPU_VULKAN_CALL_RENDERING,
+	XGPU_VULKAN_CALL_BARRIER,
+	/* (copies, blits, resolves) */
+	XGPU_VULKAN_CALL_COPY,
+	/* (queries and timestamps) */
+	XGPU_VULKAN_CALL_QUERY,
+	XGPU_VULKAN_CALL_SUBMIT,
+	/* (the semaphores waited for and read, the device idle) */
+	XGPU_VULKAN_CALL_WAIT,
+	/* (samplers, views, images, buffers, memory, command buffers made) */
+	XGPU_VULKAN_CALL_CREATE,
+	XGPU_VULKAN_CALL_KINDS
+};
+extern const char *const xgpu_vulkan_call_kind_names[XGPU_VULKAN_CALL_KINDS];
+void xgpu_vulkan_calls_watch(uint64_t *ticks, uint64_t *counts, uint64_t (*clock)(void));
 
 #endif

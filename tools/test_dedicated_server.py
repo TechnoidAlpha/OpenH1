@@ -62,6 +62,9 @@ class Machine:
         shutil.copy(GAME, self.folder / "bin" / "halo")
         if SDL.is_file():
             shutil.copy(SDL, self.folder / "bin" / SDL.name)
+        # (the build's embedded assets beside it: the game quits without them)
+        if (GAME.parent / "openh1.assets").is_file():
+            (self.folder / "bin" / "openh1.assets").symlink_to(GAME.parent / "openh1.assets")
         if maps:
             (self.folder / "data" / "maps").symlink_to(RETAIL_MAPS)
         self.process = None
@@ -336,7 +339,7 @@ def test_rotation_moderation_and_shutdown(machines):
     # its machine's build, as the client told it (after its ready, reliably), and said once in the server's log
     _until(lambda: api.call("GET", "/api/players")[1]["players"][0].get("client"), 30, "the client's build", server)
     told = api.call("GET", "/api/players")[1]["players"][0]["client"]
-    assert told["version"].startswith("OpenH1 Linux | ") and isinstance(told["build"], int), told
+    assert told["version"].startswith("GOAT H1 Linux | ") and isinstance(told["build"], int), told
     assert told["flavor"] and re.fullmatch(r"([\w.-]+/[\w.-]+)?", told["repository"]), told
     assert told["mods"] == ["testmod 1.2"], told
     assert server.text().count("plays " + told["version"]) == 1, "the client's build not logged once"
@@ -737,8 +740,9 @@ def _play_openh1_game(machines, rate, opence_client, shoot):
     port = _free_port()
     mode = f"openh1_{rate}"
     server = machines("server")
-    # (in config.toml, not its environment variable, which would pin it: sv_set changes it below)
-    (server.folder / "bin" / "config.toml").write_text(f'[server]\ngame_mode = "{mode}"\n')
+    # (in config.toml, not its environment variable, which would pin it: sv_set changes it below; a mixed game,
+    # network.allow_opence being off by default)
+    (server.folder / "bin" / "config.toml").write_text(f'[server]\ngame_mode = "{mode}"\n\n[network]\nallow_opence = true\n')
     server.start(["--server"], **_server_settings(
         port, HALO_SERVER_ROTATION="bloodgulch:slayer+score=50", HALO_NETWORK_TEST="log",
         HALO_NETWORK_TEST_SHOOT=shoot))
@@ -867,14 +871,13 @@ def test_openh1_tick_game(machines, rate):
 
 
 def test_openh1_game_closed_to_opence(machines):
-    """an OpenH1 game that OpenCE players do not join (network.allow_opence false) is advertised with the OpenH1
+    """an OpenH1 game that OpenCE players do not join (network.allow_opence false, its default) is advertised with the OpenH1
     protocol version and its top bit (0x8000), which OpenCE takes for a newer version and does not list, and the
     status says so; sv_set network.allow_opence true opens it to them at once, advertised as a mixed game"""
     _needs_game("bloodgulch")
     port = _free_port()
     server = machines("server")
-    (server.folder / "bin" / "config.toml").write_text('[server]\ngame_mode = "openh1_60"\n\n'
-                                                       '[network]\nallow_opence = false\n')
+    (server.folder / "bin" / "config.toml").write_text('[server]\ngame_mode = "openh1_60"\n')
     # (and a player host's network.sim_rate, which the server leaves aside, saying so)
     server.start(["--server"], **_server_settings(port, HALO_SERVER_ROTATION="bloodgulch:slayer", HALO_NET_SIM_RATE=30))
     api = Api(port)
@@ -1232,7 +1235,7 @@ class FakeReleases:
                 self.wfile.write(body)
 
             def do_GET(self):
-                if self.path == "/repos/OpenH1/OpenH1/releases/latest":
+                if self.path == "/repos/OpenH1/goath1/releases/latest":
                     if not releases.build:
                         self.answer(404, b'{"message": "Not Found"}')
                         return
@@ -1242,7 +1245,7 @@ class FakeReleases:
                              f"Standard network version: {releases.standard_version}\n\nThe release builds...")
                     self.answer(200, json.dumps({"tag_name": f"build-{releases.build}", "body": notes}).encode())
                     return
-                prefix = f"/OpenH1/OpenH1/releases/download/build-{releases.build}/"
+                prefix = f"/OpenH1/goath1/releases/download/build-{releases.build}/"
                 if releases.build and self.path == prefix + "SHA256SUMS":
                     self.answer(200, releases.sums().encode(), "text/plain")
                     return
@@ -1278,6 +1281,9 @@ class FakeReleases:
 # the test's release key, which signs FakeReleases' SHA256SUMS: the server trusts it beside OpenH1's
 # (debug.update_key) while its debug.update_url is set
 UPDATE_SEED = bytes(range(96, 128))
+# the tries of each of the updater's downloads (updater.c)
+UPDATER_FETCH_TRIES = int(re.search(r"#define UPDATER_FETCH_TRIES (\d+)", (ROOT / "port/linux/src/updater.c").read_text())
+                          .group(1))
 NEW_GAME = b"#!/bin/sh\necho the new build\n"
 
 
@@ -1323,13 +1329,13 @@ def _installed(machine):
 
 
 def test_update_of_the_same_network_version_once_empty(machines):
-    """a newer release of the same network versions is found, its download refused once (the install tried again
-    at the next check), installed while the server runs, and the server, empty, stops with exit code 5 (after 10
-    minutes, on debug.update_time_scale's clock)"""
+    """a newer release of the same network versions is found, its download refused (503) as often as the updater
+    tries it (UPDATER_FETCH_TRIES: the install tried again at the next check), installed while the server runs, and
+    the server, empty, stops with exit code 5 (after 10 minutes, on debug.update_time_scale's clock)"""
     _needs_game("bloodgulch")
     releases = FakeReleases(_release_zip())
     releases.build = 7
-    releases.refusals = 1
+    releases.refusals = UPDATER_FETCH_TRIES
     try:
         port = _free_port()
         server = _tree(machines("server")).start(["--server"], **_server_settings(
@@ -1341,8 +1347,8 @@ def test_update_of_the_same_network_version_once_empty(machines):
         assert "build 7 could not be installed" in text and "server answered 503" in text, text[-3000:]
         assert text.index("could not be installed") < text.index("build 7 installed: started once the server")
         assert "stopping to be started again (empty for 10 minutes)" in text, text[-3000:]
-        assert len(releases.downloads) == 2 and all(name.startswith("OpenH1-Linux") and name.endswith(".zip")
-                                                    for name in releases.downloads), releases.downloads
+        assert len(releases.downloads) == UPDATER_FETCH_TRIES + 1, releases.downloads
+        assert all(name.startswith("OpenH1-Linux") and name.endswith(".zip") for name in releases.downloads)
         assert _installed(server), sorted(str(path) for path in server.folder.rglob("*"))
         assert "bin/halo.old" in (server.folder / "update-old.txt").read_text()
         assert not list(server.folder.glob("update.partial*")), "the update's folder was left"

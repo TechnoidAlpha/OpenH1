@@ -1,4 +1,4 @@
-# openh1.com
+# goath1.com
 
 The project's site: the landing page (`public/index.html`), the guide to
 the game data (`public/maps.html`, served at `/maps`), the landing page's
@@ -6,9 +6,12 @@ pictures and clips (`public/media/`), its fonts (`public/fonts/`), the logo
 (`public/brand/`) and the icons (`public/favicon.svg`, `favicon-16.png`,
 `favicon-32.png`, `apple-touch-icon.png`).
 
-It is a Cloudflare Worker of static assets, `openh1`, on the custom domains
-`openh1.com` and `www.openh1.com` (`cloudflare.config.ts`), in Paul's
-Cloudflare account. To publish a change, from this folder:
+It is a Cloudflare Worker of static assets, `openh1` (the name it was
+created with, kept so that deploying updates it rather than making a new
+one), on the custom domains `goath1.com` and `www.goath1.com`, and still
+`openh1.com` and `www.openh1.com`, which serve the same site
+(`cloudflare.config.ts`), in Paul's Cloudflare account. To publish a
+change, from this folder:
 
 ```sh
 npm install                                   # once: the Cloudflare CLI, Wrangler and Node 22
@@ -38,12 +41,12 @@ From the top:
 - **The headline features**: 128 players, online co-op, the Steam Frame
   build, 64-bit, Vulkan and Metal, and 3D audio, for any player.
 - **The picture sections**, each a comparison of the same moment captured
-  twice, the Original (as the game drew it) and OpenH1:
-  - 01, dynamic lights: a wipe, with callouts on the OpenH1 side;
-  - 02, anti-aliasing: a lens, OpenH1 inside it;
+  twice, the Original (as the game drew it) and GOAT H1:
+  - 01, dynamic lights: a wipe, with callouts on the GOAT H1 side;
+  - 02, anti-aliasing: a lens, GOAT H1 inside it;
   - 03, the plasma glow: two clips side by side, with a numbered legend;
   - 04, frames between ticks: two clips side by side;
-  and two of OpenH1's options, each the same frame with it off and on:
+  and two of GOAT H1's options, each the same frame with it off and on:
   - 05, ambient occlusion: a wipe of two stills, Off and On, with a
     numbered legend and where the setting is;
   - 06, a wide field of view: two stills side by side, Normal and Panini,
@@ -66,7 +69,7 @@ From the top:
   (`media/audio-head-poster.webp`, a frame of the scene) and the callouts.
 - **07, Responsive** (before the 3D audio on the page): a headline and a line in plain words, always shown,
   then the race: one click slowed 25 times on one time axis (0 to 60 ms).
-  "You click" at the left; in each lane, the Original's (grey) and OpenH1
+  "You click" at the left; in each lane, the Original's (grey) and GOAT H1
   120 Tick's (green, "Faster"), a dot travels from the click to a screen,
   the game's frame, which shows the shot when the dot arrives, at the
   lane's measured median (47.7 and 5.9 ms), over faint marks at its steps
@@ -94,7 +97,7 @@ Rules for the content:
 - Download links only for builds someone who isn't a developer can install:
   Windows, the Mac, the Steam Deck and Android for now.
 - Every claim is in this repository's READMEs. Check a new one there first.
-- Every picture or clip is a real capture of the game in OpenH1, captioned
+- Every picture or clip is a real capture of the game in GOAT H1, captioned
   with what it compares. The one drawing is the 3D audio's head, whose
   caption says its sound is the browser's, not the game's. No Microsoft or
   Halo branding, logos or art.
@@ -129,8 +132,8 @@ anywhere" in `port/linux/README.md`): chat apps such as Steam's make
 after `#` (`#party=<32 hex digits>` for a party, `#join=<64>` for a game),
 which a browser never sends to the site; the page also takes an older
 address's `?join=` and `?party=`. The page opens the `openh1://` link at once
-(OpenH1 is its handler on every system, the Mac and the iPhone too), shows
-the link to copy into JOIN BY LINK, and, when OpenH1 did not open (the page
+(the game is its handler on every system, the Mac and the iPhone too), shows
+the link to copy into JOIN BY LINK, and, when the game did not open (the page
 kept the focus) or the code is missing, the downloads, as the home page's
 (the visitor's machine first). Its style is the landing page's, its rules copied as
 `maps.html`'s are; it is named from the site's root (`/fonts/...`), as it
@@ -154,7 +157,7 @@ Preview it at `http://localhost:8000/join/#party=00112233445566778899aabbccddeef
 | `latency-pistol-idle.webp`, `latency-pistol-fire.webp` | 07 | Blood Gulch, a local SWAT game, the pistol fired once (`capture/`, "latency, 2026-10-24"): the frame before the shot and the one with the muzzle flash at its brightest, Enhanced. A 16:9 crop of the lower middle of a 1280 × 720 window (drawn at 2560 × 1440), 640 × 360, about 30 KB each |
 
 Each comparison is a pair of layers, `.layer.before` (the Original) under
-`.layer.after` (OpenH1), each holding an `<img>` or a `<video>`. A wipe of
+`.layer.after` (GOAT H1), each holding an `<img>` or a `<video>`. A wipe of
 an option off and on names its sides in `data-before` and `data-after`,
 which the slider's spoken value reads. A video
 needs `muted loop playsinline preload="none"`, a `poster`, and
@@ -162,7 +165,7 @@ needs `muted loop playsinline preload="none"`, a `poster`, and
 into view, plays the pair together and keeps the second in step with the
 first. How they are captured is in `capture/README.md`.
 
-Callouts are `<span class="co">` in the OpenH1 layer: `--x` and `--y` put
+Callouts are `<span class="co">` in the GOAT H1 layer: `--x` and `--y` put
 the pin on the spot it names (in percent of the picture), `--len` is the
 leader's length, `west` puts the label to the left of its pin and `down`
 below it. On a phone the pins become numbers, and the `<ol class="legend">`
@@ -183,10 +186,19 @@ other sites, and has no trackers or analytics.
 ## The logo
 
 The logo is "Tail Code" (round 5, concept 01, `website/brand/logo-r5` on
-the `logo-r5` branch): OPEN in light, wide caps, then H1 knocked out of a
-green plate with one clipped corner. `brand/openh1-lockup.svg` is the
-header's and the footer's wordmark, and `brand/openh1-mark.svg` the plate
-alone. `favicon.svg` is the plate on a dark tile; `favicon-16.png`,
+the `logo-r5` branch): the name in light, wide caps, then H1 knocked out of
+a green plate with one clipped corner. `brand/goath1-lockup.svg` (GOAT, then
+the plate) is the header's and the footer's wordmark, and
+`brand/openh1-mark.svg` the plate alone, which is also the app's icon.
+`brand/openh1-lockup.svg`, the OPEN lockup, stays for what outside the site
+still draws with it (the Steam artwork, `port/assets/steam/art.html`, and the
+Mac disk image's background, `port/macos/dmg/background.html`); the mark
+keeps its file name, as `tools/app_icon.py` and `AUTHORS.md` name it.
+`goath1-lockup.svg` is outlined Archivo (the site's own), GOAT at width 125
+and weight 300 tracked 0.06 em, with the plate copied unchanged from the OPEN
+lockup. `favicon.svg` is the plate on a dark tile; `favicon-16.png`,
 `favicon-32.png` and `apple-touch-icon.png` (180 px) are it drawn at those
 sizes. The link preview, `og:image`, is `media/og.jpg` (1200 × 630): the
-hero's poster with the logo and the headline. The maps guide's, `media/og-maps.jpg`, is drawn: the logo, its headline and a disc, from `og/maps.html` (`og/render.sh maps`).
+logo and the headline over a capture of Blood Gulch, from `og/home.html`
+(`og/render.sh home`). The maps guide's, `media/og-maps.jpg`, is drawn: the
+logo, its headline and a disc, from `og/maps.html` (`og/render.sh maps`).

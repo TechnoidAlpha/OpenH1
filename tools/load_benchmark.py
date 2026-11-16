@@ -28,7 +28,7 @@ from render_enumerate_sweep import STOCK_MAPS
 MARKER = re.compile(r"\b(LOAD|LOAD_IO) ")
 FIELDS = re.compile(r"(\w+)=(.*?)(?= \w+=|$)")
 PRESENT_PHASES = ("gl.swap.return", "loading.swap.return", "vulkan.present.return", "metal.presented", "loading.presented", "xr.submit.end")
-SAFE_SETTINGS = {"HALO_VR", "HALO_PREPARE_SHADERS", "HALO_RANDOM_SEED", "HALO_NO_AUDIO",
+SAFE_SETTINGS = {"HALO_VR", "HALO_PREPARE_SHADERS", "HALO_AMBIENT_OCCLUSION", "HALO_RANDOM_SEED", "HALO_NO_AUDIO",
                  "HALO_SKIP_CINEMATICS", "HALO_GPU_STATS", "HALO_VULKAN_STATS", "HALO_VULKAN_VALIDATION",
                  "HALO_NO_VSYNC", "HALO_RESOLUTION", "HALO_RESOLUTION_SCALING", "HALO_VR_TIMING",
                  "HALO_VR_GPU_TIME", "HALO_VR_FOVEATION", "HALO_VR_RESOLUTION"}
@@ -469,6 +469,10 @@ def run_game(args, scenario, work, saves, shaders, destination, cache_proof=None
         sdl = args.halo.parent / "libSDL3.so.0"
         if sdl.exists():
             shutil.copy2(sdl, run / sdl.name)
+        # (and the files the game reads beside it: its assets' file, embedded_assets.h, and the shipped records)
+        for name in ("openh1.assets", "prepared.records"):
+            if (args.halo.parent / name).exists():
+                shutil.copy2(args.halo.parent / name, run / name)
         (run / "maps").symlink_to(args.data / "maps")
         if scenario != "ui":
             (run / "init.txt").write_text(f"map_name {scenario}\n")

@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.join_game.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/join_game_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="gamespy screen init"/>
+		<on event="deleted" run="gamespy screen dispose"/>
+		<on event="b" run="gamespy back handler"/>
+		<on event="back" run="gamespy back handler"/>
+		<on event="white" run="port browser tab previous"/>
+		<on event="black" run="port browser tab next"/>
+		<on event="x" run="port browser sort"/>
+		<on event="y" run="port browser favorite"/>
+		<on event="right_trigger" run="port browser refresh"/>
+		<on event="left_trigger" run="port browser filters" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen"/>
+		<on event="right_thumb" run="port browser search next"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/join_game_items_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/browser_tabs" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/tab_all">
+		<on event="a" run="port browser tab"/>
+		<on event="start" run="port browser tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/tab_dedicated">
+		<on event="a" run="port browser tab"/>
+		<on event="start" run="port browser tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/tab_openh1">
+		<on event="a" run="port browser tab"/>
+		<on event="start" run="port browser tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/tab_legacy">
+		<on event="a" run="port browser tab"/>
+		<on event="start" run="port browser tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/tab_coop">
+		<on event="a" run="port browser tab"/>
+		<on event="start" run="port browser tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/tab_favorites">
+		<on event="a" run="port browser tab"/>
+		<on event="start" run="port browser tab"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/join_game_header" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_sort_header_server_name">
+		<on event="a" run="gamespy select header"/>
+		<on event="start" run="gamespy select header"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_sort_header_map">
+		<on event="a" run="gamespy select header"/>
+		<on event="start" run="gamespy select header"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_sort_header_type">
+		<on event="a" run="gamespy select header"/>
+		<on event="start" run="gamespy select header"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_sort_header_players">
+		<on event="a" run="gamespy select header"/>
+		<on event="start" run="gamespy select header"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_sort_header_ping">
+		<on event="a" run="gamespy select header"/>
+		<on event="start" run="gamespy select header"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_search_server_name">
+		<on event="a" run="port browser search"/>
+		<on event="start" run="port browser search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_search_field_server_name">
+		<on event="a" run="port browser search"/>
+		<on event="start" run="port browser search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_search_clear_server_name">
+		<on event="a" run="port browser search clear"/>
+		<on event="start" run="port browser search clear"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_search_map">
+		<on event="a" run="port browser search"/>
+		<on event="start" run="port browser search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_search_field_map">
+		<on event="a" run="port browser search"/>
+		<on event="start" run="port browser search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/op_search_clear_map">
+		<on event="a" run="port browser search clear"/>
+		<on event="start" run="port browser search clear"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_1">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_2">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_3">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_4">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_5">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_6">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_7">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_8">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_9">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_10">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_11">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_12">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_13">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/server_item_14">
+		<on event="a" run="gamespy select item"/>
+		<on event="start" run="gamespy select item"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="double_click" run="gamespy select item"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/browser_join_bar" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/button_join">
+		<on event="a" run="gamespy select button"/>
+		<on event="start" run="gamespy select button"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/browser_clear_bar" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/button_clear_search">
+		<on event="a" run="port browser search clear"/>
+		<on event="start" run="port browser search clear"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/join_game_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_favorite">
+		<on event="a" run="port browser favorite"/>
+		<on event="start" run="port browser favorite"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_refresh">
+		<on event="a" run="port browser refresh"/>
+		<on event="start" run="port browser refresh"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_paste">
+		<on event="a" run="port browser refresh"/>
+		<on event="start" run="port browser refresh"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_search">
+		<on event="a" run="port browser search next"/>
+		<on event="start" run="port browser search next"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_sort">
+		<on event="a" run="port browser sort"/>
+		<on event="start" run="port browser sort"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_filters">
+		<on event="a" run="port browser filters" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen"/>
+		<on event="start" run="port browser filters" open="main_menu/settings_select/player_setup/player_profile_edit/network_setup/browser_filters/browser_filters_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/prompt_back">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

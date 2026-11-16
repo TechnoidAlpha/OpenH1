@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.lobby.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/lobby_screen" flags="pass_unhandled_to_focused_child main_menu_if_no_history">
+		<on event="created" run="port lobby open"/>
+		<on event="created" run="net server accept conx"/>
+		<on event="created" run="net server allow start"/>
+		<on event="b" run="port lobby leave" back="true"/>
+		<on event="back" run="port lobby leave" back="true"/>
+		<on event="start" run="port lobby join" open="main_menu/multiplayer_type_select/lobby/player_profile_screen" branch="true"/>
+		<on event="x" run="port lobby add player"/>
+		<on event="y" run="port map vote open" open="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_screen" branch="true"/>
+		<on event="y" run="port lobby invite"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_players">
+		<on event="left" run="port lobby team red"/>
+		<on event="right" run="port lobby team blue"/>
+		<on event="a" run="port lobby team click"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<on event="stick_left" run="port lobby team red"/>
+		<on event="stick_right" run="port lobby team blue"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_bots_count" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_bots_count_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port lobby bots load"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_bots_skill" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_bots_skill_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_bots_teams" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_bots_teams_spinner" flags="pass_unhandled_to_focused_child left_right_tabs_items">
+		<on event="created" run="port setting load"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_host">
+		<on event="a" run="port host open" open="main_menu/host_controls/host_controls_screen" branch="true"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_settings">
+		<on event="a" run="port lobby settings"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_start">
+		<on event="a" run="port lobby start"/>
+		<on event="start" run="port lobby start"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_list" flags="pass_unhandled_to_focused_child up_down_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/board_prompts" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/prompt_invite">
+		<on event="a" run="port lobby invite"/>
+		<on event="start" run="port lobby invite"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/prompt_add">
+		<on event="a" run="port lobby add player"/>
+		<on event="start" run="port lobby add player"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/prompt_leave">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/prompt_team">
+		<on event="a" run="port lobby team toggle"/>
+		<on event="start" run="port lobby team toggle"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" back="true"/>
+		<on event="back" back="true"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_0">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_1">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_2">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_3">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_4">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_5">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_6">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/list_item_7">
+		<on event="a" run="port map vote choose"/>
+		<on event="start" run="port map vote choose"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/map_vote/map_vote_button_lobby">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/player_profile_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="net server defer start"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/player_profile_list" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="port lobby player list initialize"/>
+		<on event="deleted" run="player profile list dispose"/>
+		<on event="custom_activation" run="port lobby player choose" back="true" branch="true"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/preview_screen" flags="pass_unhandled_to_focused_child">
+		<on event="created" run="port lobby open"/>
+		<on event="b" run="port lobby preview leave" back="true"/>
+		<on event="back" run="port lobby preview leave" back="true"/>
+		<on event="start" run="port lobby preview add" open="main_menu/multiplayer_type_select/lobby/player_profile_screen" branch="true"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/preview_list" flags="pass_unhandled_to_focused_child up_down_tabs_children"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/preview_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/preview_button_join">
+		<on event="a" run="port lobby preview join"/>
+		<on event="start" run="port lobby preview join"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/preview_button_add">
+		<on event="a" run="port lobby add player"/>
+		<on event="start" run="port lobby add player"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/lobby/preview_button_back">
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

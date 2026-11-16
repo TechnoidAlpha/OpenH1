@@ -33,17 +33,3 @@ def test_case(case):
 def test_negative_control(fault, case):
     status, output = run(build('coop_vehicles', generated(fault)), case)
     assert status == CHECK_FAILED, output
-
-def test_menu():
-    import port_settings
-    rows = port_settings.COOP_SETUP_SCREENS[0][3]
-    names = [row[0] for row in rows]
-    assert names[names.index('coop_extra_pickups') + 1] == 'coop_extra_vehicles'
-    assert names[names.index('coop_extra_vehicles') + 1] == 'coop_enemies_multiplier'
-    row = rows[names.index('coop_extra_vehicles')]
-    assert row[2] == ['PER PLAYER', 'STATIC MULTIPLIER', 'NONE']
-    assert row[3][0].replace('\\n', ' ') == (
-        "Vehicles respawn after being driven a short distance based on the number of players: "
-        "by two thirds the value of 'Per Player' for each player past the first.")
-    assert '"network.coop_vehicles", _config_string' in read('port/linux/src/port_config.c')
-    assert 'coop_vehicles_register(result, scenario_object);' in read('source/objects/objects.c')

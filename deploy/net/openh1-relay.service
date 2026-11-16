@@ -1,0 +1,39 @@
+# /etc/systemd/system/openh1-relay.service: halo --relay on UDP 2302
+# (docs/dedicated_server.md, "Relays"), from the Linux release's tree in
+# /opt/openh1-relay/current (update-relay.sh puts it there).
+[Unit]
+Description=OpenH1 relay (halo --relay, UDP 2302)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=openh1-relay
+Group=openh1-relay
+WorkingDirectory=/var/lib/openh1-relay
+Environment=HOME=/var/lib/openh1-relay
+Environment=XDG_CONFIG_HOME=/var/lib/openh1-relay/config
+Environment=XDG_DATA_HOME=/var/lib/openh1-relay/data
+Environment=XDG_CACHE_HOME=/var/lib/openh1-relay/cache
+Environment=SDL_AUDIO_DRIVER=dummy
+Environment=SDL_VIDEO_DRIVER=dummy
+ExecStart=/opt/openh1-relay/current/bin/openh1 --relay --config /var/lib/openh1-relay/config.toml
+KillSignal=SIGTERM
+Restart=on-failure
+RestartSec=5
+# (it writes nothing but its own folder)
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/openh1-relay
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+LockPersonality=yes
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

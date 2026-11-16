@@ -1,7 +1,8 @@
 """The rules of network_chat.c's text chat: a line's text (another machine's is untrusted), the lines the host takes
 from a machine, who hears a team's line and a vehicle's, how long a line shows, whether a public game has the chat (a
 dedicated server's may), and the host's /mute: what it reads from a typed line, the player a name means, and how long a
-mute lasts."""
+mute lasts, and the channel each local player's chat opens on: the one chosen last (network.chat_channels), or the next
+that applies."""
 
 import re
 import sys
@@ -11,19 +12,21 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, enum_with, function, mutated, read, run, structure  # noqa: E402
+from harness import skip_without_32_bit_abi  # noqa: E402
 
 CASES = ["text-printable", "text-control-characters", "text-pipe", "text-bounds", "text-empty", "append", "rate-burst",
          "rate-refill", "rate-wrap", "hears", "hears-vehicle", "flags", "alpha", "command-mute", "command-unmute",
          "command-not", "command-usage", "name-match", "name-bounds", "mute-time", "mute-wrap", "mute-again",
          "mute-full", "link-found", "link-written-out", "link-spaced", "link-word-domains", "link-not", "refused", "filter", "keyboard-character",
-         "keyboard-move", "keyboard-tap"]
+         "keyboard-move", "keyboard-tap", "channel-remembered", "channel-list-set", "channel-opened"]
 FUNCTIONS = ("chat_text_clean", "chat_text_append", "chat_rate_take", "chat_hears", "chat_channel_from_flags",
              "chat_channel_flags", "chat_line_alpha", "chat_lower", "chat_command_word", "chat_command_parse",
              "chat_name_match", "chat_names_equal", "chat_mute_minutes_left", "chat_mute_find", "chat_mute_set", "chat_minutes_plural",
              "chat_alphanumeric", "chat_link_domain", "chat_text_has_link", "chat_refused",
              "chat_filter_mode", "chat_filter_level", "chat_filter_star",
              "chat_keyboard_character",
-             "chat_keyboard_move", "chat_keyboard_key_at")
+             "chat_keyboard_move", "chat_keyboard_key_at",
+             "chat_channel_remembered", "chat_channel_list_set", "chat_channel_opened")
 
 # a fault in network_chat.c, the function it is in, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -110,6 +113,18 @@ NEGATIVE_CONTROLS = {
                           "chat_keyboard_key_at", "keyboard-tap"),
     "tap-wide-not-snapped": (("*column = (short)(*column - *column % CHAT_KEYBOARD_WIDE_COLUMNS);", ";"),
                              "chat_keyboard_key_at", "keyboard-tap"),
+    "remembered-other-player": (("if (index == local_player_index)", "if (index == 0)"), "chat_channel_remembered",
+                                "channel-remembered"),
+    "remembered-prefix-word": (("(short)csstrlen(chat_channel_words[channel]) == length &&", ""),
+                               "chat_channel_remembered", "channel-remembered"),
+    "set-others-dropped": (("chat_channel_remembered(old_list, index);\n\t\ttext", "_chat_channel_everyone;\n\t\ttext"),
+                           "chat_channel_list_set", "channel-list-set"),
+    "set-overflows": (("if (length + (index ? 1 : 0) + (short)csstrlen(text) >= size)", "if (0)"),
+                      "chat_channel_list_set", "channel-list-set"),
+    "team-without-teams": (("if (remembered == _chat_channel_team && !has_teams)", "if (0)"), "chat_channel_opened",
+                           "channel-opened"),
+    "vehicle-on-foot": (("if (remembered == _chat_channel_vehicle && !in_vehicle)", "if (0)"), "chat_channel_opened",
+                        "channel-opened"),
 }
 
 
@@ -119,7 +134,7 @@ def generated(fault=None, faulty_function=None):
     for name in ("CHAT_TEXT_SIZE", "CHAT_BURST", "CHAT_REFILL_MILLISECONDS", "CHAT_LINE_MILLISECONDS",
                  "CHAT_FADE_MILLISECONDS", "CHAT_NAME_SIZE", "CHAT_MUTE_DEFAULT_MINUTES", "CHAT_MUTE_MAXIMUM_MINUTES",
                  "CHAT_MILLISECONDS_PER_MINUTE", "CHAT_KEYBOARD_COLUMNS", "CHAT_KEYBOARD_ROWS",
-                 "CHAT_KEYBOARD_WIDE_COLUMNS"):
+                 "CHAT_KEYBOARD_WIDE_COLUMNS", "CHAT_CHANNELS_TEXT_SIZE"):
         config += f"#define {name} {constant(source, name)}\n"
     config += f"#define CHAT_NAME_AMBIGUOUS ({re.search(r'CHAT_NAME_AMBIGUOUS = (-?[0-9]+)', source).group(1)})\n"
     config += structure(source, "chat_rate") + "\n"
@@ -130,6 +145,7 @@ def generated(fault=None, faulty_function=None):
     config += enum_with(source, "_chat_filter_off,") + "\n"
     config += enum_with(read("port/linux/game/text_filter.h"), "_text_filter_off,") + "\n"
     config += enum_with(read("port/linux/game/network_chat.h"), "_chat_channel_everyone,") + "\n"
+    config += re.search(r"^static char const \*const chat_channel_words\[.*?;$", source, re.M | re.S).group(0) + "\n"
     text = ""
     for name in FUNCTIONS:
         code = function(source, name)
@@ -137,6 +153,12 @@ def generated(fault=None, faulty_function=None):
             code = mutated(code, *fault)
         text += code + "\n"
     return (("config.inc", config), ("under_test.inc", text))
+
+
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT = {
+    "mute-wrap-broken": "the clock is the game's 32-bit unsigned long, which wraps where the fault shows",
+}
 
 
 @pytest.mark.parametrize("case", CASES)
@@ -148,5 +170,6 @@ def test_case(case):
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, faulty_function, case = NEGATIVE_CONTROLS[control]
+    skip_without_32_bit_abi(ABI_DEPENDENT, control, case)
     status, output = run(build("chat_logic", generated(fault, faulty_function)), case)
     assert status == CHECK_FAILED, f"network_chat.c with a fault ({control}) passed '{case}': the test cannot see it"

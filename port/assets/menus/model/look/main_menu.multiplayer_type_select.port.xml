@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/multiplayer_status" type="text" box="290 96 585 126">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_status_detail" type="text" box="290 128 585 278">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/online_now_label" type="text" box="290 84 490 102">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test" text="ONLINE NOW"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/online_games_0" box="290 102 316 138" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/online_games_1" box="316 102 342 138" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/online_games_2" box="342 102 368 138" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/online_players_0" box="436 102 462 138" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/online_players_1" box="462 102 488 138" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/online_players_2" box="488 102 514 138" picture="main_menu/multiplayer_type_select/status_digits"/>
+	<look name="main_menu/multiplayer_type_select/online_games_label" type="text" box="290 120 430 140">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/online_players_label" type="text" box="436 120 586 140">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_label" type="text" box="290 146 490 164">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test" text="BEST FOR YOU"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_0_name" type="text" box="290 164 485 184">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_0_about" type="text" box="290 182 485 200">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_0_players" type="text" box="486 170 558 190">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_0_ping" box="564 173 588 189" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/best_1_name" type="text" box="290 202 485 222">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_1_about" type="text" box="290 220 485 238">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_1_players" type="text" box="486 208 558 228">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_1_ping" box="564 211 588 227" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/best_2_name" type="text" box="290 240 485 260">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_2_about" type="text" box="290 258 485 276">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_2_players" type="text" box="486 246 558 266">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/best_2_ping" box="564 249 588 265" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/item_note" type="text" box="0 0 226 32">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/invite_note" type="text" box="0 0 226 32">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 8" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/multiplayer_button_refresh" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="REFRESH"/>
+	</look>
+</model>

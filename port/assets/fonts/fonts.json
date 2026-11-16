@@ -1,9 +1,9 @@
 {
- "comment": "Which font draws each of the maps' font tags (port/linux/src/text_hires.c).",
+ "comment": "Which font draws each of the maps' font tags (port/linux/src/text_hires.c), and the font that draws a character it has not (fallback).",
  "fonts": [
-  {"tag": "ui\\large_ui", "file": "Overpass-900.ttf"},
-  {"tag": "ui\\interstate", "file": "Overpass-900.ttf"},
-  {"tag": "ui\\small_ui", "file": "Overpass-750.ttf"},
+  {"tag": "ui\\large_ui", "file": "CyborgInterfaceGothic-Regular.ttf", "fallback": "Overpass-900.ttf"},
+  {"tag": "ui\\interstate", "file": "CyborgInterfaceGothic-Regular.ttf", "fallback": "Overpass-900.ttf"},
+  {"tag": "ui\\small_ui", "file": "CyborgInterfaceGothic-Regular.ttf", "fallback": "Overpass-750.ttf"},
   {"tag": "old tags\\internal system plain", "file": "Hack-Bold.ttf"},
   {"tag": "pc\\heading", "file": "OpenCE-Regular.ttf"}
  ]

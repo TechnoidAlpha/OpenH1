@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.vr_visor.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/vr_visor_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/header_vr_display" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/header_vr_display" box="35 11 640 70" picture="main_menu/settings_select/player_setup/player_profile_edit/vr_display/header_vr_display"/>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help" type="text" box="68 366 550 426">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/help_strings"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud" x="54" y="73"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_depth" x="54" y="97"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_wrap" x="54" y="121"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_lag" x="54" y="145"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glow" x="54" y="169"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glass" x="54" y="193"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_react" x="54" y="217"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim" x="54" y="241"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim_depth" x="54" y="265"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_frame" x="54" y="289"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_effects" x="54" y="313"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_energy" x="54" y="337"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_bar" role="buttons" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_defaults" x="0" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="VISOR|FLAT"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_depth" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_depth_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|0.5X|0.75X|1X|1.25X|1.5X|2X"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_wrap" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_wrap_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|50%|100%|150%|200%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_lag" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_lag_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|20 MS|30 MS|50 MS|80 MS|120 MS"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glow" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glow_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|25%|50%|75%|100%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_glass" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="5"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_glass_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|25%|50%|75%|100%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_hud_react" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="6"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/hud_react_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|25%|50%|75%|100%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="7"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|25%|50%|75%|100%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_helmet_rim_depth" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="8"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/helmet_rim_depth_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="6 CM|8 CM|10 CM|12 CM|15 CM|20 CM"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_frame" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="9"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_frame_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="NONE|20%|40%|60%|80%|100%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_effects" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="10"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_effects_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="ON|OFF"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/op_visor_energy" box="0 0 512 22" picture="main_menu/parts/option_row_512x22">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_label" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_spinner" x="286" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_label" type="text" box="0 0 280 22">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 0" string_list="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/labels" index="11"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/visor_energy_spinner" type="spinner" box="0 0 206 22" header="bitmaps/arrow_sm_left" header_box="-13 5 -7 17" footer="bitmaps/arrow_sm_right" footer_box="213 5 219 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 0" items="25%|50%|75%|100%|150%|200%"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_defaults" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/vr_visor/button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+</model>

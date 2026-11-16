@@ -372,6 +372,17 @@ int main(int argc, char **argv)
 		CHECK(ban_duration_allowed(_server_role_owner, 0), "the owner's ban for ever was refused");
 		return 0;
 	}
+	/* sv_set changes the settings listed, vehicle riding's two among them, and no other */
+	CASE("settable")
+	{
+		CHECK(setting_settable("network.vehicle_riding"), "network.vehicle_riding not settable");
+		CHECK(setting_settable("server.vehicle_riding_override_gametype"),
+			"server.vehicle_riding_override_gametype not settable");
+		CHECK(setting_settable("server.name"), "server.name not settable");
+		CHECK(!setting_settable("server.removed"), "an unknown setting settable");
+		CHECK(!setting_settable("network.vehicle"), "a setting's start settable");
+		return 0;
+	}
 	fprintf(stderr, "unknown case: %s\n", case_name);
 	return 2;
 }

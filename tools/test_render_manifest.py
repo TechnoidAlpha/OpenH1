@@ -2,17 +2,57 @@
 reads what tools/render_manifest.py writes, refuses a pixel key that is not
 its hash's, a merge is the same file however its recordings come, the
 game's vertex shaders are read from its code, and the check of a map's
-enumeration compares draws as a backend compiles them."""
+enumeration compares draws as a backend compiles them. The committed
+manifest holds every draw of the stock maps' shipped records
+(port/assets/prepared) as the settings derive it, so that the Mac's and
+iOS's shader libraries, made from it, are not behind the records."""
+import json
+import re
 import shutil
 import struct
 import subprocess
 import sys
+import zlib
 from pathlib import Path
 
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "port" / "linux" / "src"
+XDK = ROOT / "port" / "include" / "xdk"
+# the reader's sources, and the headers of the derivation of a draw under the
+# settings (xgpu_manifest_derive), beside the hosts' stand-in for the guest's
+# platform.h (port/macos/xgpu_metal_platform.h), as tools/macos_build.py
+# builds the Mac's shaders' tool
+STANDIN_SOURCES = ("xgpu.h", "xgpu_backend.h", "xgpu_hdr.h", "xgpu_hdr.c", "xgpu_stream.h", "xgpu_manifest.h",
+                   "xgpu_manifest.c")
+
+
+def standin(folder):
+    """the reader's sources in folder with the stand-in platform.h (and its
+    xdk_enums.h, as tools/macos_build.py makes it); the sources to compile"""
+    folder.mkdir(parents=True, exist_ok=True)
+    for name in STANDIN_SOURCES:
+        shutil.copy(SOURCE / name, folder / name)
+    shutil.copy(ROOT / "port" / "macos" / "xgpu_metal_platform.h", folder / "platform.h")
+    pdb = (XDK / "xdk_pdb.h").read_text(encoding="latin-1").splitlines()
+    start = next(i for i, line in enumerate(pdb) if line.startswith("/* ---------- enumerations"))
+    end = next(i for i, line in enumerate(pdb) if line.startswith("/* ---------- structures and unions"))
+    defines = [line for line in (XDK / "xdk_d3d8.h").read_text(encoding="latin-1").splitlines()
+               if re.match(r"#define D3D(FORMAT|SIZE|TEXTURE)_", line)]
+    (folder / "xdk_enums.h").write_text("\n".join(pdb[start:end] + defines) + "\n", encoding="latin-1")
+    return [folder / "xgpu_manifest.c", folder / "xgpu_hdr.c"]
+
+
+def compile_reader(folder, source, binary):
+    cc = shutil.which("cc") or shutil.which("clang") or shutil.which("gcc")
+    if not cc:
+        pytest.skip("no C compiler")
+    sources = standin(folder / "standin")
+    subprocess.run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", "-Wno-unused-parameter", "-Wno-unused-function",
+                    "-DXGPU_MANIFEST_READER_ONLY", f"-I{folder / 'standin'}", str(source), *map(str, sources), "-o",
+                    str(binary), "-lm"], check=True)
+    return binary
 
 READER = r"""
 #include "xgpu_manifest.h"
@@ -97,15 +137,9 @@ def manifest_text():
 
 @pytest.fixture(scope="module")
 def reader(tmp_path_factory):
-    cc = shutil.which("cc") or shutil.which("clang") or shutil.which("gcc")
-    if not cc:
-        pytest.skip("no C compiler")
     folder = tmp_path_factory.mktemp("reader")
     (folder / "reader.c").write_text(READER)
-    binary = folder / "reader"
-    subprocess.run([cc, "-std=c99", "-Wall", "-Wextra", "-Werror", "-DXGPU_MANIFEST_READER_ONLY", f"-I{SOURCE}",
-                    str(folder / "reader.c"), str(SOURCE / "xgpu_manifest.c"), "-o", str(binary)], check=True)
-    return binary
+    return compile_reader(folder, folder / "reader.c", folder / "reader")
 
 
 def merge(*arguments):
@@ -116,7 +150,7 @@ def merge(*arguments):
 def test_read(tmp_path, reader):
     pixel, program, draws = manifest_text()
     recording = tmp_path / "recording.txt"
-    recording.write_text("manifest 1\n" + "\n".join([program, pixel, *draws]) + "\n")
+    recording.write_text("manifest 2\n" + "\n".join([program, pixel, *draws]) + "\n")
     manifest = tmp_path / "manifest.txt"
     merge("--replace", manifest, recording)
     result = subprocess.run([str(reader), str(manifest)], capture_output=True, text=True)
@@ -132,7 +166,7 @@ def test_read(tmp_path, reader):
 def test_refuses_a_wrong_pixel_key(tmp_path, reader):
     pixel, program, draws = manifest_text()
     manifest = tmp_path / "manifest.txt"
-    manifest.write_text("manifest 1\n" + "\n".join([program, pixel.replace("fe=1", "fe=0"), *draws]) + "\n")
+    manifest.write_text("manifest 2\n" + "\n".join([program, pixel.replace("fe=1", "fe=0"), *draws]) + "\n")
     result = subprocess.run([str(reader), str(manifest)], capture_output=True, text=True)
     assert result.returncode == 1 and "its hash's" in result.stdout
 
@@ -140,8 +174,8 @@ def test_refuses_a_wrong_pixel_key(tmp_path, reader):
 def test_merge_is_the_same_file(tmp_path):
     pixel, program, draws = manifest_text()
     first, second = tmp_path / "first.txt", tmp_path / "second.txt"
-    first.write_text("manifest 1\n" + "\n".join([program, pixel, draws[1]]) + "\n")
-    second.write_text("manifest 1\n" + "\n".join([pixel, program, draws[0], draws[1]]) + "\n")
+    first.write_text("manifest 2\n" + "\n".join([program, pixel, draws[1]]) + "\n")
+    second.write_text("manifest 2\n" + "\n".join([pixel, program, draws[0], draws[1]]) + "\n")
     one, other = tmp_path / "one.txt", tmp_path / "other.txt"
     merge("--replace", one, first, second)
     merge("--replace", other, second)
@@ -171,7 +205,7 @@ ENUMERATED = ("d vp=0000000000000001 pa=0x0 im=0 li=0 vw=0 bl=1,4,5,0 cm=7 dt=1,
 def recording(tmp_path, *after):
     """a recording: its enumeration (ENUMERATED), then each draw after it
     marked missed"""
-    lines = ["manifest 1", "# enumerating: the map's", ENUMERATED, "# prepared: the misses"]
+    lines = ["manifest 2", "# enumerating: the map's", ENUMERATED, "# prepared: the misses"]
     for draw in after:
         lines += ["# missed: 70000010 70000020", draw]
     path = tmp_path / "recording.txt"
@@ -244,3 +278,251 @@ int main(void) {
 }
 '''
     subprocess.run([str(build(tmp_path, source))], check=True, timeout=15)
+
+
+# ---------- the committed manifest and the shipped records
+
+DERIVER = r"""
+#include "xgpu_manifest.h"
+#include <stdio.h>
+#include <string.h>
+/* each draw of a manifest as the settings the stock maps' records are made
+with derive it (tools/prepared_records.py: every setting's default, the
+game's own first start: no multisampling, no HDR, the enhanced dynamic
+lights, which light each pixel, no ambient occlusion), its hash as a
+record's (render_prepared.c's prepared_draws) */
+int main(int argc, char **argv)
+{
+	struct xgpu_manifest manifest;
+	struct xgpu_manifest_settings settings;
+	char error[256];
+	uint32_t index;
+
+	(void)argc;
+	if (!xgpu_manifest_read(argv[1], &manifest, error, sizeof(error)))
+	{
+		printf("error: %s\n", error);
+		return 1;
+	}
+	memset(&settings, 0, sizeof(settings));
+	settings.samples = 1;
+	settings.per_pixel_lighting = 1;
+	settings.enhanced_lights = 1;
+	for (index = 0; index < manifest.draw_count; index++)
+	{
+		struct xgpu_manifest_draw draw;
+
+		xgpu_manifest_derive(&manifest.draws[index], &manifest.contexts[index], &settings, 0, &draw);
+		printf("%016llx\n", (unsigned long long)xgpu_manifest_hash(&draw, sizeof(draw), XGPU_MANIFEST_HASH_START));
+	}
+	xgpu_manifest_free(&manifest);
+	return 0;
+}
+"""
+
+COMMITTED = ROOT / "port" / "assets" / "render" / "manifest.txt"
+PREPARED = ROOT / "port" / "assets" / "prepared"
+REMAKE = ("run tools/prepared_records.py again (it records the manifest in the same run as the records: see its "
+          "header) and commit port/assets/prepared and port/assets/render/manifest.txt")
+
+
+@pytest.fixture(scope="module")
+def deriver(tmp_path_factory):
+    folder = tmp_path_factory.mktemp("deriver")
+    (folder / "deriver.c").write_text(DERIVER)
+    return compile_reader(folder, folder / "deriver.c", folder / "deriver")
+
+
+def derived_hashes(deriver, manifest):
+    result = subprocess.run([str(deriver), str(manifest)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout
+    return {int(line, 16) for line in result.stdout.split()}
+
+
+def recorded_draws():
+    """each shipped record's map and its draws' hashes (render_prepared.c's
+    struct prepared_header, then the enumeration's hashes)"""
+    manifest = json.loads((PREPARED / "manifest.json").read_text())
+    pack = (PREPARED / manifest["file"]).read_bytes()
+    for record in manifest["records"]:
+        data = zlib.decompress(pack[record["offset"]:record["offset"] + record["compressed_size"]])
+        header_size, = struct.unpack_from("<I", data, 8)
+        draw_count, = struct.unpack_from("<I", data, 28)
+        yield record["map"], set(struct.unpack_from(f"<{draw_count}Q", data, header_size))
+
+
+def records_missing(hashes):
+    return {name: len(draws - hashes) for name, draws in recorded_draws() if draws - hashes}
+
+
+def test_manifest_holds_every_shipped_records_draw(deriver):
+    """every draw of every stock map's shipped record is one of the committed
+    manifest's (as the records' settings derive it): the Mac's and iOS's
+    shader libraries, made from the manifest under every setting, have each
+    shader the stock maps draw with"""
+    missing = records_missing(derived_hashes(deriver, COMMITTED))
+    assert not missing, (f"draws of the shipped records that port/assets/render/manifest.txt does not have, by map: "
+                         f"{missing}: the Mac's and iOS's shader libraries would compile them as the maps load. {REMAKE}.")
+
+
+def test_negative_a_draw_without_its_context(deriver, tmp_path):
+    """the manifest's draws as no setting changes them, their contexts lost:
+    the records' draws lit for each pixel by the enhanced lights are not
+    derived, and are seen missing"""
+    text = COMMITTED.read_text()
+    stripped = tmp_path / "manifest.txt"
+    stripped.write_text(re.sub(r" c[ltodhk]=[0-9,]+", "", text))
+    assert re.search(r" cl=[12],", text), "no draw of the committed manifest is lit by its vertex program"
+    assert records_missing(derived_hashes(deriver, stripped))
+
+
+def test_settings_have_every_multisampling():
+    """xgpu_manifest_settings' samples are display.anti_aliasing's
+    (d3d8_device.c's anti_aliasing_values), so that a draw is derived for each"""
+    device = (SOURCE / "d3d8_device.c").read_text(encoding="latin-1")
+    table = device[device.index("anti_aliasing_values[] ="):]
+    table = table[:table.index("};")]
+    samples = {int(value) for value in re.findall(r"_anti_aliasing_\w+, (\d+), [0-9.]+f \}", table)} - {0}
+    manifest = (SOURCE / "xgpu_manifest.c").read_text()
+    listed = manifest[manifest.index("static const int settings_samples[] = {"):]
+    listed = {int(value) for value in re.findall(r"\d+", listed[:listed.index("}")])}
+    assert samples and samples <= listed and 1 in listed, (samples, listed)
+
+
+WORLD_DERIVER = r"""
+#include "xgpu_manifest.h"
+#include "xgpu.h"
+#include <stdio.h>
+#include <string.h>
+
+/* the committed manifest's draws under display.ambient_occlusion "world"
+(the records' other settings): how many take the world's light, with
+their contexts and with every context's world cleared */
+int main(int argc, char **argv)
+{
+	struct xgpu_manifest manifest;
+	struct xgpu_manifest_settings settings;
+	char error[256];
+	uint32_t index, world = 0, cleared = 0;
+
+	(void)argc;
+	if (!xgpu_manifest_read(argv[1], &manifest, error, sizeof(error)))
+	{
+		printf("error: %s\n", error);
+		return 1;
+	}
+	memset(&settings, 0, sizeof(settings));
+	settings.samples = 1;
+	settings.per_pixel_lighting = 1;
+	settings.enhanced_lights = 1;
+	settings.ambient_occlusion = XGPU_MANIFEST_OCCLUSION_WORLD;
+	for (index = 0; index < manifest.draw_count; index++)
+	{
+		struct xgpu_manifest_draw draw;
+		struct xgpu_manifest_context context = manifest.contexts[index];
+
+		xgpu_manifest_derive(&manifest.draws[index], &context, &settings, 0, &draw);
+		world += (draw.key.pixel.ambient_occlusion & XGPU_AMBIENT_OCCLUSION_WORLD) != 0;
+		context.world = 0;
+		xgpu_manifest_derive(&manifest.draws[index], &context, &settings, 0, &draw);
+		cleared += (draw.key.pixel.ambient_occlusion & XGPU_AMBIENT_OCCLUSION_WORLD) != 0;
+	}
+	printf("%u %u\n", world, cleared);
+	xgpu_manifest_free(&manifest);
+	return 0;
+}
+"""
+
+
+def test_manifest_holds_the_worlds_draws(tmp_path):
+    """the committed manifest notes which draws take display.ambient_occlusion
+    "world"'s light (its window's opaque surfaces, noted whatever the setting
+    it was recorded with), so that the Mac's and iOS's libraries, made under
+    every setting, have the world's shaders; none without that context"""
+    (tmp_path / "world.c").write_text(WORLD_DERIVER)
+    binary = compile_reader(tmp_path, tmp_path / "world.c", tmp_path / "world")
+    result = subprocess.run([str(binary), str(COMMITTED)], capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout
+    world, cleared = map(int, result.stdout.split())
+    assert world > 0, f"no draw of the committed manifest takes the world's light. {REMAKE}."
+    assert cleared == 0
+
+
+WORLD_FORMS = r"""
+#include "xgpu_manifest.h"
+#include "xgpu.h"
+#include <stdio.h>
+#include <string.h>
+
+/* the committed manifest's draws under display.ambient_occlusion "world" in
+every other setting's combination, each in its World AO forms as the Mac's
+library is built (xgpu_manifest_world_ao_forms): how many read the
+occlusion from the pass, are a twin writing its pixel's inputs, and are an
+occluder's twin (of a found window's draw without the world's light: the
+first-person weapon, a surface lighting itself); with argv[2] every
+context's found cleared */
+int main(int argc, char **argv)
+{
+	struct xgpu_manifest manifest;
+	struct xgpu_manifest_settings settings;
+	char error[256];
+	uint32_t index, sampled = 0, inputs = 0, occluders = 0;
+	int combination;
+
+	if (!xgpu_manifest_read(argv[1], &manifest, error, sizeof(error)))
+	{
+		printf("error: %s\n", error);
+		return 1;
+	}
+	for (combination = 0; xgpu_manifest_settings(combination, &settings); combination++)
+	{
+		if (settings.ambient_occlusion != XGPU_MANIFEST_OCCLUSION_WORLD)
+			continue;
+		for (index = 0; index < manifest.draw_count; index++)
+		{
+			struct xgpu_manifest_draw derived, forms[XGPU_MANIFEST_WORLD_AO_FORMS];
+			struct xgpu_manifest_context context = manifest.contexts[index];
+			int form, count;
+
+			if (argc > 2)
+				context.found = 0;
+			xgpu_manifest_derive(&manifest.draws[index], &context, &settings, 0, &derived);
+			count = xgpu_manifest_world_ao_forms(&derived, &context, &settings, forms);
+			for (form = 1; form < count; form++)
+			{
+				uint8_t occlusion = forms[form].key.pixel.ambient_occlusion;
+
+				sampled += (occlusion & 0xf0u) == (XGPU_AMBIENT_OCCLUSION_WORLD | XGPU_AMBIENT_OCCLUSION_WORLD_SAMPLED);
+				inputs += (occlusion & 0xf0u) == XGPU_STREAM_WORLD_AO_INPUTS;
+				occluders += occlusion == XGPU_STREAM_WORLD_AO_OCCLUDER;
+			}
+		}
+	}
+	printf("%u %u %u\n", sampled, inputs, occluders);
+	xgpu_manifest_free(&manifest);
+	return 0;
+}
+"""
+
+
+def test_library_has_the_world_ao_forms(tmp_path):
+    """the Mac's and iOS's libraries are built with each World AO form a map's
+    preparation makes (xgpu_metal_prebuild.c, xgpu_manifest_world_ao_forms):
+    besides the inline draw, where the committed manifest notes a draw's window
+    found once a pixel (cf), the draw reading the pass, its twin writing the
+    pre-pass's inputs, and the occluders' twins (the first-person weapon's,
+    a self-illuminated surface's), so that none is compiled as a map
+    prepares. Negative control: without cf, none of those is derived"""
+    (tmp_path / "forms.c").write_text(WORLD_FORMS)
+    binary = compile_reader(tmp_path, tmp_path / "forms.c", tmp_path / "forms")
+
+    def counts(*extra):
+        result = subprocess.run([str(binary), str(COMMITTED), *extra], capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout
+        return tuple(map(int, result.stdout.split()))
+
+    sampled, inputs, occluders = counts()
+    assert sampled > 0 and inputs > 0 and occluders > 0, (
+        f"World AO forms derived from the committed manifest: {sampled} sampled, {inputs} input twins, "
+        f"{occluders} occluder twins. {REMAKE}.")
+    assert counts("without-found") == (0, 0, 0)

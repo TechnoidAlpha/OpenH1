@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.player_setup.player_profile_edit.settings_search.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/settings_search_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/settings/header_settings" x="0" y="0"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/options_menu" type="column_list">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_field" x="24" y="46"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_1" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_2" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_3" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_4" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_5" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_6" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_7" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_8" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_note" x="28" y="78"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_bar" x="0" y="448"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_field" role="search field" type="text" box="0 0 592 22" wide="-106 212" past="-143 286" place="keep_ends" picture="main_menu/settings/search_field">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="20 2" flags="no_focus_test"/>
+		<at widget="main_menu/settings/search_icon" x="2" y="3"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_1" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_2" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_3" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_4" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_5" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_6" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_7" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_8" role="search crumb" box="0 0 344 20" wide="-106 244" past="-143 193" picture="main_menu/settings/section_tall">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" x="0" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/crumb_title" type="text" box="0 0 344 20" wide="0 244" past="0 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="2 2" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/search_note" role="search note" type="text" box="0 0 344 24" wide="-106 244" past="-143 193">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="10 3" flags="no_focus_test" scale="1 1.2"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_bar" role="buttons" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_ok" x="358" y="1"/>
+		<at widget="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_back" x="488" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_ok" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/player_setup/player_profile_edit/settings_search/button_back" type="text" box="0 0 128 24" wide="106 0" past="143 0" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="BACK"/>
+	</look>
+</model>

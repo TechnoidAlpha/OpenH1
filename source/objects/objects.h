@@ -391,6 +391,8 @@ short objects_get_activating_cluster_index(void);
 the players' own), for a network co-op client following the host's
 cutscene (port/linux/game/network_coop.c) */
 void objects_port_set_activating_cluster(short cluster_index);
+/* port: a structure bsp switch lets go of the co-op host's activating cluster */
+void objects_port_structure_bsp_switched(void);
 void object_definition_predict(long definition_index);
 void object_predict(long object_index);
 void object_beautify(long object_index, boolean beautiful);
@@ -524,6 +526,9 @@ void objects_scripting_attach(long parent_object_index, char const *parent_marke
 void object_delete_immediately(long object_index);
 void objects_garbage_collection(void);
 void objects_update(void);
+/* port: an object's update count (vehicle_riding.c) */
+void object_count_update(long object_index);
+long object_update_count(long object_index);
 void objects_memory_compact(void);
 
 

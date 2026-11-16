@@ -13,7 +13,15 @@ typedef unsigned short word;
 #define csmemset memset
 #define HALO_PORT_MAXIMUM_NETWORK_PLAYERS 4
 #define INFECTION_MAXIMUM_SCORE 1000000
+#define TICKS_PER_SECOND 30
 #include "structures.inc"
+/* (the variant's name, in its 16-bit characters) */
+static void ustrncpy(unsigned short *to, wchar_t const *from, long count)
+{
+ long index;
+ for (index = 0; index < count && from[index]; index++) to[index] = (unsigned short)from[index];
+ if (index < count) to[index] = 0;
+}
 
 /* Gun Game's world: the map's weapons, the host or a client, the draw */
 static struct game_variant_options options;
@@ -234,6 +242,35 @@ int main(int argc,char **argv)
   CHECK(game_modes_kind_name(game_engine_slayer,0x7F,TRUE)==NULL,"a mode this build does not know");
   CHECK(game_modes_kind_name(game_engine_none,0x80,TRUE)==NULL,"no engine (co-op)");
   CHECK(game_modes_kind_name(99,0x80,TRUE)==NULL,"an engine this build does not know");
+ } else CASE("pro_doubles") {
+  /* competitive Halo 1 2v2's Team Slayer ("2v2 Rules Halo 1 Original") */
+  struct game_variant variant;
+  static unsigned short const name[] = { 'P','r','o',' ','D','o','u','b','l','e','s',0 };
+  memset(&variant,0xAA,sizeof(variant));
+  memset(&options,0xAA,sizeof(options));
+  game_modes_pro_doubles(&variant,&options);
+  CHECK(variant.game_engine_index==game_engine_slayer&&variant.universal_variant.teams,"Team Slayer");
+  CHECK(variant.universal_variant.score_to_win==50,"to 50 kills");
+  CHECK(variant.universal_variant.respawn_time==5*30&&variant.universal_variant.suicide_penalty==5*30,
+   "a respawn and a suicide penalty of 5 seconds");
+  CHECK(variant.universal_variant.lives==0&&variant.universal_variant.health==1.0f&&
+   !variant.universal_variant.odd_man_out&&variant.universal_variant.respawn_time_growth==0,
+   "infinite lives, 100%% health, no odd man out, no respawn growth");
+  CHECK(variant.universal_variant.weapon_set==_game_engine_weapons_normal,"the normal weapons");
+  CHECK(!TEST_FLAG(variant.universal_variant.flags,_game_variant_no_shields_bit),"shields on");
+  CHECK(TEST_FLAG(variant.universal_variant.flags,_game_variant_generic_starting_equipment_bit),
+   "generic starting equipment");
+  CHECK(!TEST_FLAG(variant.universal_variant.flags,_game_variant_draw_object_in_motion_sensor_bit)&&
+   options.radar_players==_radar_players_none,"other players not on the radar");
+  CHECK(variant.universal_variant.goal_radar==_radar_none,"no objective indicator");
+  CHECK(TEST_FLAG(variant.universal_variant.flags,_game_variant_allow_friendly_navpoints_bit),
+   "friends' indicators on");
+  CHECK(variant.game_engine_variant.slayer.no_death_bonus&&variant.game_engine_variant.slayer.no_kill_penalty&&
+   !variant.game_engine_variant.slayer.kill_in_order,"no death bonus, kill penalty or kill in order");
+  CHECK(options.friendly_fire==_friendly_fire_on&&options.time_limit==0,"Team Slayer's friendly fire, no time limit");
+  CHECK(options.mode==_game_mode_none&&!options.hardcore&&options.loadout==_loadout_category&&
+   !options.no_map_weapons,"no OpenCE mode, the weapon set's own loadout, the map's weapons");
+  CHECK(!memcmp(variant.human_readable_game_description,name,sizeof(name)),"named Pro Doubles");
  } else return 2;
  return 0;
 }

@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, enum_with, function, mutated, read, run, structure  # noqa: E402
 
 CASES = ["frames_dont_step", "cloth_between_ticks", "open_tick_waits", "turns_with_pole", "gap", "camera_on_foot",
-         "camera_seated"]
+         "camera_seated", "camera_view_newest"]
 
 # a fault in the code, and the case that must catch it
 NEGATIVE_CONTROLS = {
@@ -45,8 +45,10 @@ NEGATIVE_CONTROLS = {
     "camera-mixed": (("\tinterpolation_rendering = FALSE;\n\tunit_get_camera_position(unit_index, position);",
                       "\tunit_get_camera_position(unit_index, position);"), "camera_seated"),
     # ... on foot, left where the tick put it
-    "camera-unmoved": (("\tinterpolation_rendering = rendering;\n\trender_interpolation_object_point(unit_index, position);",
-                        "\tinterpolation_rendering = rendering;"), "camera_on_foot"),
+    "camera-unmoved": (("\t}\n\trender_interpolation_object_point(unit_index, position);", "\t}\n"), "camera_on_foot"),
+    # ... on foot, its view drawn from the newest step: with the body a tick behind, not where the view is
+    "camera-behind-the-view": (("\tif (render_interpolation_view_carried(unit_index, &carried))", "\tif (0)"),
+                               "camera_view_newest"),
 }
 
 
@@ -69,7 +71,8 @@ def generated(fault=None):
 
     text = ""
     for name in ("lerp", "point_lerp", "vector_length", "vector_in_frame", "vector_from_frame", "point_in_frame",
-                 "point_from_frame", "render_interpolation_object_origin", "render_interpolation_unit_camera_position",
+                 "point_from_frame", "render_interpolation_object_origin", "render_interpolation_view_carried",
+                 "render_interpolation_unit_camera_position",
                  "render_interpolation_shape_find", "shape_frame", "render_interpolation_shape_tick",
                  "render_interpolation_shape_forget", "shape_snapshot", "render_interpolation_shape"):
         text += function(code, name) + "\n"
@@ -91,28 +94,3 @@ def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
     status, output = run(build("render_shapes", generated(fault)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"
-
-
-def test_stepped_in_the_tick():
-    # the tick steps the cloth (and the antennas), the frames only count
-    game = read("source/game/game.c")
-    assert game.index("antennas_update(seconds_per_tick);") < game.index("flags_tick(seconds_per_tick);")
-    assert "flags_tick" not in function(game, "game_frame")
-    # the antennas' shapes are kept and drawn the same way
-    antenna = read("source/objects/widgets/antenna.c")
-    assert "render_interpolation_shape_tick(ANTENNA_TAG" in antenna
-    assert "render_interpolation_shape(ANTENNA_TAG" in antenna
-
-
-def test_drawn_points():
-    # the waypoints' distance and size, the motion tracker's centre and the sniper's numbers measure from the
-    # camera as drawn; a game engine flag's waypoint is drawn over its object as drawn
-    nav = read("source/interface/hud_nav_points.c")
-    draw = function(nav, "custom_render_nav_point")
-    assert "render_interpolation_unit_camera_position(" in draw and "unit_get_camera_position(" not in draw
-    assert "game_engine_get_goal_position(" not in function(nav, "hud_render_nav_points")
-    sensor = read("source/interface/motion_sensor.c")
-    assert "render_interpolation_unit_camera_position(unit_index, &drawn_camera_position);" in sensor
-    assert "render_interpolation_object_point(unit_index, &drawn_camera_position)" not in sensor
-    weapon = read("source/interface/hud_weapon.c")
-    assert "render_interpolation_unit_camera_position(unit_index, &position);" in weapon

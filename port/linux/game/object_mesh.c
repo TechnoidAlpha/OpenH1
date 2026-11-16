@@ -314,30 +314,15 @@ static boolean object_mesh_build(
 	return mesh->triangle_count > 0;
 }
 
-/* ---------- public code */
-
-void object_mesh_reset(
-	void)
+/* the mesh of a model in the permutations given, kept (built only when
+another was kept); NULL when it has none */
+static struct object_mesh const *object_mesh_kept_get(
+	long model_index,
+	byte const *permutations)
 {
-	object_mesh_kept.key = NONE;
-}
-
-struct object_mesh const *object_mesh_get(
-	long object_index)
-{
-	struct object_datum *object = object_try_and_get(object_index);
-	struct object_definition *definition;
 	struct object_mesh *mesh = &object_mesh_kept;
-	long model_index;
-	long key;
+	long key = object_mesh_key(model_index, permutations);
 
-	if (!object)
-		return NULL;
-	definition = object_definition_get(object->definition_index);
-	model_index = definition ? definition->object.model.index : NONE;
-	if (model_index == NONE)
-		return NULL;
-	key = object_mesh_key(model_index, object->object.region_permutations);
 	if (mesh->key == key && mesh->model_index == model_index)
 		return mesh->triangle_count > 0 ? mesh : NULL;
 	if (!mesh->vertices)
@@ -355,7 +340,42 @@ struct object_mesh const *object_mesh_get(
 	}
 	mesh->key = key;
 	/* (remembered when it has none, too) */
-	if (!object_mesh_build(mesh, model_index, object->object.region_permutations))
+	if (!object_mesh_build(mesh, model_index, permutations))
 		mesh->triangle_count = 0;
 	return mesh->triangle_count > 0 ? mesh : NULL;
+}
+
+/* ---------- public code */
+
+void object_mesh_reset(
+	void)
+{
+	object_mesh_kept.key = NONE;
+}
+
+struct object_mesh const *object_mesh_get(
+	long object_index)
+{
+	struct object_datum *object = object_try_and_get(object_index);
+	struct object_definition *definition;
+	long model_index;
+
+	if (!object)
+		return NULL;
+	definition = object_definition_get(object->definition_index);
+	model_index = definition ? definition->object.model.index : NONE;
+	if (model_index == NONE)
+		return NULL;
+	return object_mesh_kept_get(model_index, object->object.region_permutations);
+}
+
+struct object_mesh const *object_mesh_get_model(
+	long model_index)
+{
+	byte permutations[MAXIMUM_REGIONS_PER_OBJECT];
+
+	if (model_index == NONE)
+		return NULL;
+	memset(permutations, 0, sizeof(permutations));
+	return object_mesh_kept_get(model_index, permutations);
 }

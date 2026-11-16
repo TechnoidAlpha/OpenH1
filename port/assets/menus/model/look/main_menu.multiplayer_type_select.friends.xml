@@ -1,0 +1,265 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.friends.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/friends/friends_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/multiplayer_type_select/header_multiplayer" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/section_friends" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/friends/friends_count" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/section_friends" x="28" y="80"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/friends_count" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/friends_panel" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/friends_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/friends_panel" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/touch/friends_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/section_friends" type="text" box="0 0 280 20" wide="-106 80" picture="main_menu/parts/section_280">
+		<text font="ui\small_ui" color="#FF6F9CD0" at="4 0" text="FRIENDS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/friends_count" type="text" box="28 82 304 98" wide="-106 80">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/friends_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_0" x="28" y="102"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_1" x="28" y="130"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_2" x="28" y="158"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_3" x="28" y="186"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_4" x="28" y="214"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_5" x="28" y="242"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_6" x="28" y="270"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_7" x="28" y="298"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_8" x="28" y="326"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_row_9" x="28" y="354"/>
+		<at widget="main_menu/multiplayer_type_select/friends/friends_prompts" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_0" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_0" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_0" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_0" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_0" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_1" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_1" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_1" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_1" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_1" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_2" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_2" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_2" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_2" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_2" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_3" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_3" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_3" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_3" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_3" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_4" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_4" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_4" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_4" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_4" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_5" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_5" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_5" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_5" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_5" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_6" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_6" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_6" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_6" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_6" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_7" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_7" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_7" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_7" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_7" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_8" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_8" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_8" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_8" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_8" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_row_9" type="text" box="0 0 280 26" wide="-106 80" picture="main_menu/parts/item_280x26">
+		<text font="ui\large_ui" color="#FF2896FF" at="10 2"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_note_9" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/fr_live_9" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_note_9" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF7FB2FF" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/fr_live_9" type="text" box="0 0 264 26" wide="0 80">
+		<text font="ui\small_ui" color="#FF5ED38C" align="right" at="0 4" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_kind" type="text" box="330 92 598 108" wide="0 132">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_title" type="text" box="330 108 598 132" wide="0 132">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_status" type="text" box="330 136 598 180" wide="0 132">
+		<text font="ui\large_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_detail" type="text" box="330 184 598 268" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_code_label" type="text" box="330 304 598 320" wide="0 132">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test" text="YOUR FRIEND CODE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_code" type="text" box="330 320 598 344" wide="0 132">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/panel_help" type="text" box="330 346 598 390" wide="0 132">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/friends_panel" box="316 80 612 400" wide="-26 132" picture="main_menu/parts/panel_296x320">
+		<at widget="main_menu/multiplayer_type_select/friends/panel_kind" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/panel_title" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/panel_status" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/panel_detail" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/panel_code_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/panel_code" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/panel_help" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/friends_prompts" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_copy" x="28" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_join" x="28" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_accept" x="28" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_add" x="28" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_unblock" x="28" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_code" x="176" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_invite" x="176" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_ignore" x="176" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_cancel" x="176" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_remove" x="324" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_block" x="324" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_hide" x="324" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_show" x="324" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/friends/prompt_back" x="516" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_copy" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button COPY CODE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_join" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button JOIN"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_accept" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button ACCEPT"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_add" type="text" box="0 0 147 24" wide="-106 0" picture="main_menu/parts/item_147x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button ADD FRIEND"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_unblock" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button UNBLOCK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_code" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%x-button ADD BY CODE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_invite" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%x-button INVITE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_ignore" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%x-button IGNORE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_cancel" type="text" box="0 0 144 24" wide="-106 0" picture="main_menu/parts/item_144x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%x-button CANCEL"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_remove" type="text" box="0 0 164 24" wide="106 0" picture="main_menu/parts/item_164x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%y-button REMOVE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_block" type="text" box="0 0 164 24" wide="106 0" picture="main_menu/parts/item_164x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%y-button BLOCK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_hide" type="text" box="0 0 164 24" wide="106 0" picture="main_menu/parts/item_164x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%y-button APPEAR OFFLINE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_show" type="text" box="0 0 164 24" wide="106 0" picture="main_menu/parts/item_164x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%y-button APPEAR ONLINE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/prompt_back" type="text" box="0 0 96 24" wide="106 0" picture="main_menu/parts/item_96x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%b-button BACK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/add_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/multiplayer_type_select/friends/add/header_add_friend" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/add/options_menu" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/header_add_friend" box="35 11 640 70" picture="main_menu/multiplayer_type_select/header_multiplayer"/>
+	<look name="main_menu/multiplayer_type_select/friends/add/help" type="text" box="68 120 550 180">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="main_menu/multiplayer_type_select/friends/add/help_strings"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/options_menu" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/friends/add/op_code" x="54" y="73"/>
+		<at widget="main_menu/multiplayer_type_select/friends/add/button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/button_bar" type="column_list" box="0 0 640 28">
+		<at widget="main_menu/multiplayer_type_select/friends/add/button_ok" x="380" y="1"/>
+		<at widget="common_button_cancel" x="510" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/op_code" box="0 0 512 26" picture="main_menu/parts/option_row_512x26">
+		<text color="#FF2896FF"/>
+		<at widget="main_menu/multiplayer_type_select/friends/add/code_label" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/friends/add/code_value" x="286" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/code_label" type="text" box="0 0 280 26">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 2" string_list="main_menu/multiplayer_type_select/friends/add/labels"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/code_value" type="text" box="0 0 206 26">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 2" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/button_defaults" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" string_list="strings/common_button_captions" index="3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/friends/add/button_ok" type="text" box="0 0 128 24" picture="bitmaps/text_button_background">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 2" text="SEND REQUEST"/>
+	</look>
+</model>

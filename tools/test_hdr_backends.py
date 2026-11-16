@@ -87,7 +87,7 @@ def _vertex(fragment_source):
             "vertex hdr_test_out hdr_test_vertex(uint vertex_id [[vertex_id]], constant float4 *colors [[buffer(0)]],\n"
             "\tconstant float &width [[buffer(1)]])\n{\n"
             "\thdr_test_out out = {};\n"
-            "\tout.position = float4((float(vertex_id) + 0.5) / width * 2.0 - 1.0, 0.0, 0.0, 1.0);\n"
+            "\tout.position = float4((float(vertex_id % uint(width)) + 0.5) / width * 2.0 - 1.0, 0.0, 0.0, 1.0);\n"
             "\tout.point_size = 1.0;\n"
             "\tout.xD0 = colors[vertex_id];\n"
             "\treturn out;\n}\n")
@@ -143,10 +143,16 @@ def test_draws_agree_on_the_gpu(harness):
     out = folder / "draws"
     subprocess.run([str(tool), str(out)], check=True)
     names = [line.split()[0] for line in (out / "index.txt").read_text().splitlines()[1:]]
-    assert len(names) == 69
+    assert len(names) == 141
+    validator = shutil.which("spirv-val")
     for name in names:
+        # (the interlocked draws: valid for Vulkan 1.3, their target a storage image under a raster order group)
+        if validator and "-interlock" in name:
+            subprocess.run([validator, "--target-env", "vulkan1.3", str(out / f"{name}.spv")], check=True)
         _cross(out / f"{name}.spv", out / f"{name}.vk.metal", "frag", "xgpu_vk_fragment", fetch=True)
+        if "-interlock" in name:
+            assert "raster_order_group(0)" in (out / f"{name}.vk.metal").read_text(), name
         for stem in (f"{name}.vk", name):
             (out / f"{stem}.vertex.metal").write_text(_vertex((out / f"{stem}.metal").read_text()))
     output = _run(binary, "draws", str(out))
-    assert "draws: 69 draws, 141312 values compared" in output, output
+    assert "draws: 141 draws (72 interlocked), 288768 values compared" in output, output

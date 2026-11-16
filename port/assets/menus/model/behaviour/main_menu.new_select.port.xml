@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.new_select.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/new_select/list_item_0_map_kind" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/new_select/list_item_0_map_kind_spinner" flags="left_right_tabs_items">
+		<on event="left_mouse" run="mouse spinner 1wide click"/>
+	</behaviour>
+</model>

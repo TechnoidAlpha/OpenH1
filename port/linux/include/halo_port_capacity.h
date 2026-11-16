@@ -106,6 +106,20 @@ go of a sound, and its size is the same for every map. */
 #define HALO_PORT_SOUND_CACHE_SIZE 0x1000000 /* (0x400000) */
 #endif
 
+/* ---------- the cache files of decompressed maps
+
+The Xbox copied a map from the disc to one of six cache files on its hard
+disk, fixed in size and kind (two campaign levels, the main menu, three
+multiplayer maps), before it played it. The native builds keep up to 32
+(z:\cacheNNN.map: cache_files_windows.c), any map in any of them, each the
+size of its map, within a budget of the disk's space (game.map_cache_megabytes:
+port/linux/src/map_cache.c), the least recently played given up first; the
+maps likely to be played next are copied into them ahead, in the background
+(port/linux/game/map_cache_prefill.c), so that a load does not wait for one to
+be decompressed. 32 hold the 24 stock maps and some of the player's own. */
+
+#define HALO_PORT_CACHED_MAP_FILES 32 /* (6) */
+
 /* ---------- particles and lights a frame draws
 
 What one view draws in a frame, past which the rest is not drawn: the runs

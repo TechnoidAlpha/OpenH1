@@ -177,6 +177,60 @@ static int windows_supported(void)
 	return 1;
 }
 
+/* Windows 11 throttles a process whose windows are minimised or hidden
+behind others: EcoQoS (a slower, efficient core and clock) and, from
+Windows 11, its timer resolution requests ignored, so that the 1 ms of
+timeBeginPeriod (below) becomes 15.6 ms. The game keeps simulating and
+sending (a network game, a dedicated server, a client alt-tabbed out), so
+it opts out of both, at the cost of a little power in the background.
+SetProcessInformation's ProcessPowerThrottling is Windows 10 1709's, its
+IGNORE_TIMER_RESOLUTION Windows 11's: an older Windows refuses the flag
+(asked again without it) or the call (said once, and the game runs on). */
+
+#define POWER_THROTTLING_INFORMATION_CLASS 4 /* ProcessPowerThrottling */
+#define POWER_THROTTLING_VERSION 1
+#define POWER_THROTTLING_EXECUTION_SPEED 0x1
+#define POWER_THROTTLING_IGNORE_TIMER_RESOLUTION 0x4
+
+struct power_throttling_state
+{
+	ULONG version;
+	ULONG control_mask;
+	ULONG state_mask;
+};
+
+static void power_throttling_opt_out(void)
+{
+	typedef BOOL (WINAPI *set_information_function)(HANDLE, int, void *, DWORD);
+	set_information_function set_information = (set_information_function)(void *)GetProcAddress(
+		GetModuleHandleW(L"kernel32.dll"), "SetProcessInformation");
+	struct power_throttling_state state;
+	DWORD error;
+
+	if (!set_information)
+	{
+		host_logf(HOST_LOG_INFO, "power throttling: not this Windows's (no SetProcessInformation)");
+		return;
+	}
+	memset(&state, 0, sizeof(state));
+	state.version = POWER_THROTTLING_VERSION;
+	state.control_mask = POWER_THROTTLING_EXECUTION_SPEED | POWER_THROTTLING_IGNORE_TIMER_RESOLUTION;
+	if (set_information(GetCurrentProcess(), POWER_THROTTLING_INFORMATION_CLASS, &state, sizeof(state)))
+	{
+		host_logf(HOST_LOG_INFO, "power throttling: off (EcoQoS and the timer resolution kept in the background)");
+		return;
+	}
+	error = GetLastError();
+	state.control_mask = POWER_THROTTLING_EXECUTION_SPEED;
+	if (set_information(GetCurrentProcess(), POWER_THROTTLING_INFORMATION_CLASS, &state, sizeof(state)))
+	{
+		host_logf(HOST_LOG_INFO, "power throttling: EcoQoS off; the timer resolution's opt-out is not this "
+			"Windows's (error %lu)", (unsigned long)error);
+		return;
+	}
+	host_logf(HOST_LOG_INFO, "power throttling: left to Windows (error %lu)", (unsigned long)GetLastError());
+}
+
 /* ---------- the launcher */
 
 /* this process's environment with HOST_LAUNCHED_VARIABLE set to this
@@ -371,6 +425,7 @@ int main(void)
 	/* Sleep and the timers wait in 1 ms steps rather than 15.6 ms ones: the
 	game's frame pacing sleeps for short intervals */
 	timeBeginPeriod(1);
+	power_throttling_opt_out();
 	/* (the guest's text, and the log's, is UTF-8) */
 	SetConsoleOutputCP(CP_UTF8);
 	_setmode(0, _O_BINARY);

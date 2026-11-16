@@ -9,6 +9,8 @@ alone. The Matchmaking screen (matchmaking_menu.inc) shows it.
 #ifndef __HALO_PORT_MATCHMAKING_H
 #define __HALO_PORT_MATCHMAKING_H
 
+struct p2p_listing;
+
 /* ---------- constants */
 
 enum
@@ -51,8 +53,20 @@ enum
 	_matchmaking_problem_hosting,
 	/* cancelled */
 	_matchmaking_problem_cancelled,
+	/* none of the playlist's maps in the maps folder */
+	_matchmaking_problem_no_maps,
 	/* (ended well) in the game found or hosted */
 	_matchmaking_problem_joined,
+};
+
+/* the 2V2 screen's kinds (matchmaking_doubles_playlist), both OpenH1 120
+Tick: Classic, with Instant Aim off for everyone, and Crispy, with each
+player's own */
+enum
+{
+	_matchmaking_doubles_classic,
+	_matchmaking_doubles_crispy,
+	NUMBER_OF_MATCHMAKING_DOUBLES_KINDS
 };
 
 /* ---------- structures */
@@ -87,6 +101,10 @@ void matchmaking_update(void);
 /* the playlists: how many, and each one's name and what it is */
 short matchmaking_playlist_count(void);
 void matchmaking_playlist_text(short playlist, wchar_t *name, short name_size, wchar_t *about, short about_size);
+/* the playlist of a 2V2 kind (_matchmaking_doubles_*), NONE for none; a
+playlist's tick rate (0: the host's own settings') */
+short matchmaking_doubles_playlist(short kind);
+short matchmaking_playlist_rate(short playlist);
 /* whether this machine may search the playlist (a party's leader, or in no
 party; online), and why not (_matchmaking_problem_*) */
 short matchmaking_can_search(short playlist);
@@ -94,6 +112,14 @@ short matchmaking_can_search(short playlist);
 why in the status, if it cannot be */
 boolean matchmaking_search(short playlist, short controller);
 void matchmaking_cancel(void);
+/* the 2V2 browser's (matchmaking_menu.inc): the public games of a playlist (0
+up) kept of games (count of them), the others taken out, as its search
+takes them (an OpenH1 game listed for it, at its tick rate); returns how many
+are left. And its game hosted at once, as a search that finds none hosts it
+(its rate, gametype and maps, listed for it, bots after the wait): FALSE,
+and why in the status, if it cannot be */
+short matchmaking_playlist_games(struct p2p_listing *games, short count, short playlist);
+boolean matchmaking_host_playlist(short playlist, short controller);
 void matchmaking_status(struct matchmaking_status *status);
 
 #endif

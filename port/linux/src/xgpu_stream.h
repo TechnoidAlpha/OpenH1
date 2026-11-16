@@ -38,7 +38,7 @@ port/linux/README.md.
 #include <stdint.h>
 
 #define XGPU_STREAM_MAGIC 0x53504758u /* "XGPS" */
-#define XGPU_STREAM_VERSION 15
+#define XGPU_STREAM_VERSION 23
 #define XGPU_STREAM_LOADING_ART_BYTES (640u * 480u * 4u)
 
 /* ---------- the ring
@@ -116,6 +116,18 @@ struct xgpu_stream_ring
 	that the next frame will (a load zone's switch in it): the host starts
 	that frame so much earlier (display_wait) */
 	uint32_t frame_extra_microseconds;
+	/* the host's, running counts of microseconds modulo 2^32 (read by the
+	guest with acquire loads at each frame presented: a report's,
+	port/linux/src/report.c): the GPU's time on the frames, at each frame's
+	end (host_render_stream_gpu_time: Metal's, the time the GPU was busy;
+	Vulkan's, from each frame's first work to its last), and nonzero once
+	the backend measures it; the render thread's time playing records (the
+	backend's calls included); the guest's waits for the display's pacing
+	(display_wait, a part of wait_nanoseconds) */
+	uint32_t gpu_microseconds;
+	uint32_t gpu_measured;
+	uint32_t render_microseconds;
+	uint32_t paced_microseconds;
 };
 
 enum
@@ -251,13 +263,43 @@ enum
 	window sits in it (value: 0 centered, n + 1 n pixels from the top, no
 	lower than the bottom) */
 	XGPU_STREAM_PICTURE_POSITION,
-	/* display.ambient_occlusion (xgpu_backend_ambient_occlusion) */
-	XGPU_STREAM_AMBIENT_OCCLUSION,
 	/* display.gamma: an SDR frame's curve as it is presented (value: the
 	setting, a float's bits; 1 none) */
 	XGPU_STREAM_GAMMA,
 	/* display.panini (xgpu_backend_panini) */
 	XGPU_STREAM_PANINI,
+	/* display.ambient_occlusion "world" (xgpu_backend_world_ao_window,
+	_field; docs/world-ao.md) */
+	XGPU_STREAM_WORLD_AO_WINDOW,
+	XGPU_STREAM_WORLD_AO_FIELD,
+	/* the pipeline bound's stand-in (xgpu_backend_pipeline_stand_in) */
+	XGPU_STREAM_PIPELINE_STAND_IN,
+	/* the game's renderer's category of the draws from now on, for the
+	backends' timing alone (xgpu_backend_category; value: XGPU_STREAM_CATEGORY_*) */
+	XGPU_STREAM_CATEGORY,
+	/* the enhanced dynamic lights' world (xgpu_backend_dynamic_lights_world) */
+	XGPU_STREAM_DYNAMIC_LIGHTS_WORLD,
+	/* display.ambient_occlusion "world" found once a pixel
+	(xgpu_backend_world_ao_prepass) */
+	XGPU_STREAM_WORLD_AO_PREPASS,
+	/* display.ambient_occlusion "world"'s distance-field scene: a box of
+	its cascades (xgpu_backend_world_ao_cascades) */
+	XGPU_STREAM_WORLD_AO_CASCADES,
+	/* display.ambient_occlusion "ray_traced": a mesh of the scene the GPU's
+	ray queries trace, and the frame's instances of the meshes
+	(xgpu_backend_world_ao_mesh, _instances) */
+	XGPU_STREAM_WORLD_AO_MESH,
+	XGPU_STREAM_WORLD_AO_INSTANCES,
+	/* debug.render_marks: what the draws from now on belong to, for the
+	inspector's replay (port/macos/tools/halo_replay.m); the backends play
+	nothing for them (xgpu_stream_mark_*) */
+	XGPU_STREAM_MARK_STRING,
+	XGPU_STREAM_MARK_VIEW,
+	XGPU_STREAM_MARK_OWNER,
+	/* the enhanced dynamic lights' cells that changed
+	(xgpu_backend_dynamic_lights_upload; DYNAMIC_LIGHTS_UPLOAD's records,
+	of the whole, are the stream's version 22's) */
+	XGPU_STREAM_DYNAMIC_LIGHTS_CHANGE,
 	XGPU_STREAM_RECORD_TYPES,
 };
 
@@ -287,6 +329,85 @@ struct xgpu_stream_value
 	uint32_t value;
 };
 
+/* CATEGORY's value: the category (rasterizer.h's _rasterizer_profile_*,
+XGPU_STREAM_CATEGORY_NONE outside them) */
+#define XGPU_STREAM_CATEGORY_NONE 255u
+
+/* ---------- debug.render_marks (port/linux/game/render_marks.c)
+
+Written only with the setting on. A string a mark names is a number: the
+first mark that names it is preceded by MARK_STRING, its number and its
+bytes (inline, NUL-terminated); 0 names none. Numbers count from 1 since
+the stream began and are never given again. A VIEW mark says where the
+camera of the window drawn from now on is; an OWNER mark says what the
+draws from now on, until the next OWNER mark, belong to. */
+
+/* an owner's kind (the replay's names: halo_replay.m's mark_kind_names) */
+enum
+{
+	XGPU_STREAM_MARK_OTHER,
+	XGPU_STREAM_MARK_WORLD_OBJECT,
+	XGPU_STREAM_MARK_FIRST_PERSON,
+	XGPU_STREAM_MARK_BSP,
+	XGPU_STREAM_MARK_SKY,
+	XGPU_STREAM_MARK_DECAL,
+	XGPU_STREAM_MARK_EFFECT,
+	XGPU_STREAM_MARK_PARTICLE,
+	XGPU_STREAM_MARK_CONTRAIL,
+	XGPU_STREAM_MARK_LIGHTNING,
+	XGPU_STREAM_MARK_WEATHER,
+	XGPU_STREAM_MARK_WATER,
+	XGPU_STREAM_MARK_HUD,
+	XGPU_STREAM_MARK_TEXT,
+	XGPU_STREAM_MARK_MENU_WIDGET,
+	XGPU_STREAM_MARK_CINEMATIC_LETTERBOX,
+	XGPU_STREAM_MARK_DEBUG,
+	XGPU_STREAM_MARK_DETAIL_OBJECT,
+	XGPU_STREAM_MARK_LENS_FLARE,
+	XGPU_STREAM_MARK_FOG,
+	XGPU_STREAM_MARK_SCREEN_EFFECT,
+	XGPU_STREAM_MARK_LIGHT_VOLUME,
+	XGPU_STREAM_MARK_SHADOW,
+	XGPU_STREAM_MARK_CLEAR,
+	XGPU_STREAM_MARK_KINDS,
+};
+
+#define XGPU_STREAM_MARK_NONE 0xffffffffu
+
+/* MARK_STRING: then length bytes and a NUL (inline: at data) */
+struct xgpu_stream_mark_string
+{
+	uint32_t header;
+	uint32_t number, length, data;
+};
+
+/* MARK_VIEW: the map, the game's tick, the window (XGPU_STREAM_MARK_NONE:
+the frame's start, no camera) and its camera: position, forward and up
+(the world's units), the horizontal field of view (radians) and the
+viewport in the back buffer's pixels (x, y, width, height) */
+struct xgpu_stream_mark_view
+{
+	uint32_t header;
+	uint32_t map, tick, window;
+	float position[3], forward[3], up[3];
+	float field_of_view;
+	int32_t viewport[4];
+};
+
+/* MARK_OWNER: the kind (XGPU_STREAM_MARK_*), an id (an object's or a
+widget's handle, a tag's index; XGPU_STREAM_MARK_NONE), and strings: a
+label, the tags that matter (the object's definition, its model, the
+shader, a bitmap), a menu widget's tag and the generator source that wrote
+it (tools/menu_sources.py's) */
+struct xgpu_stream_mark_owner
+{
+	uint32_t header;
+	uint32_t kind, id;
+	uint32_t label;
+	uint32_t object, model, shader, bitmap;
+	uint32_t widget, source;
+};
+
 /* ---------- the backend's life */
 
 /* INITIALIZE's answer: xgpu_backend_capabilities, and the backend's own
@@ -298,6 +419,13 @@ struct xgpu_stream_capabilities
 	int32_t most_anisotropy;
 	uint8_t sample_counting, bgra_vertex_colors, base_vertex, sample_mask;
 	uint8_t mixed_constant_blend, dynamic_lights, dynamic_lights_preparable, hdr;
+	/* display.ambient_occlusion "ray_traced": the backend traces the
+	occlusion's rays by the GPU's ray queries (xgpu_backend_world_ao_mesh,
+	_instances: Vulkan's VK_KHR_ray_query) */
+	uint8_t ray_queries, pad[3];
+	/* the GPU, its API and driver, in a few words (a report's:
+	port/linux/src/report.c), NUL terminated */
+	char device[96];
 };
 
 struct xgpu_stream_reply_record
@@ -345,30 +473,196 @@ struct xgpu_stream_tone_map
 	int32_t corners[4];
 };
 
-/* AMBIENT_OCCLUSION: display.ambient_occlusion over a window's 3D view
-(xgpu_backend_ambient_occlusion): its target (drawn with the stream's depth
-target), its corners, XGPU_AMBIENT_OCCLUSION_* and the camera: its near and
-far planes and its projection's x and y scales and offsets */
-struct xgpu_stream_ambient_occlusion
+/* ---------- display.ambient_occlusion "world" (docs/world-ao.md, #578)
+
+As the GPU sees it, alike in the guest's front end and the hosts' backends.
+
+- The field: one 3D texture of the current structure BSP's signed distance
+  (world_sdf.h), R8 signed normalized (VK_FORMAT_R8_SNORM,
+  MTLPixelFormatR8Snorm), linear filtering, clamped to its edge; a texel's
+  value times the block's range is the distance in world units at the
+  voxel's centre.
+- The block: the field's place and the window's proxies (world_proxies.h's
+  struct world_proxy), a uniform buffer (std140: vec4s only).
+
+Bindings (the shaders: workstream D; the backends' descriptors: B):
+- SPIR-V: XGPU_SPIRV_SET_OCCLUSION (a set of its own, so that a draw
+  still binds at most four sets), bindings XGPU_SPIRV_BINDING_WORLD_SDF and
+  XGPU_SPIRV_BINDING_WORLD_AO (xgpu_spirv.h);
+- MSL: [[texture(XGPU_MSL_TEXTURE_WORLD_SDF)]] with a constexpr sampler in
+  the shader, [[buffer(XGPU_MSL_BUFFER_WORLD_AO)]] (xgpu_msl.h).
+*/
+
+#define XGPU_WORLD_AO_PROXIES_MAXIMUM 64
+/* a proxy's kind (its [0].w) */
+#define XGPU_WORLD_AO_PROXY_SPHERE 1
+#define XGPU_WORLD_AO_PROXY_CAPSULE 2
+#define XGPU_WORLD_AO_PROXY_BOX 3
+/* (a vehicle's occlusion field, over this proxy and the next two: [0]
+the reach's centre, kind; [1] row 0 of the world to its voxels' place,
+owner; [2] the three rows' translations, its reach (world units); then [0]
+row 1, 0; [1] row 2, owner; [2] its last voxel's place (its sides less
+one), 0; then [0] its place in the objects' atlas plus a half texel, 0;
+[1] one over the atlas's size, owner; [2] its geometry's box's half
+extents (voxels, about the grid's middle), 0: the box's bound
+(world_proxy_box_fade's U) bounds the field's occlusion) */
+#define XGPU_WORLD_AO_PROXY_FIELD 4
+
+/* the uniform block: [0] the field's origin (its first voxel's centre) and
+one over the voxel's size; [1] its width, height, depth (in voxels) and
+range (world units); [2] the strength on objects, the strength on the level,
+the field's fade (0 none yet: the proxies alone), the proxies' count; [3]
+the reference's weight (how much of the occlusion at the object's lighting
+point its ambient sample already holds) and three spare; then the
+proxies, three vec4s each (world_proxies.h's struct world_proxy); then
+their grid about the camera (world_ao.h's world_ao_grid): [0] the camera,
+[1] each axis's scale and one over the cell, and the cells' 64-bit masks of
+the proxies that can reach them, two cells a uvec4 */
+#define XGPU_WORLD_AO_GRID_CELLS_MAXIMUM (16 * 16 * 8)
+struct xgpu_world_ao_block
 {
-	uint32_t header;
-	uint32_t target;
-	uint32_t quality;
-	int32_t corners[4];
-	float camera[6];
+	float field[2][4];
+	float parameters[2][4];
+	float proxies[XGPU_WORLD_AO_PROXIES_MAXIMUM][3][4];
+	float grid[2][4];
+	uint32_t cells[XGPU_WORLD_AO_GRID_CELLS_MAXIMUM / 2][4];
 };
 
-/* its quality; the stencil's bits of the pixels the occlusion leaves (the
-first-person weapon's, the game's own, and a surface's lighting itself);
-and an object's pixels' bit (the front end's: d3d8_device.c) */
+/* WORLD_AO_WINDOW: display.ambient_occlusion "world"'s block for the
+window's opaque surfaces from here on (xgpu_backend_world_ao_window):
+active 0 none (the block's contents unused) */
+struct xgpu_stream_world_ao_window
+{
+	uint32_t header;
+	uint32_t active;
+	uint32_t pad[2];
+	struct xgpu_world_ao_block block;
+};
+
+/* ---------- display.ambient_occlusion "world" found once a pixel
+
+The window's opaque surfaces are drawn twice (source/render/render.c): first
+their inputs to the occlusion alone (the pre-pass: each draw with the
+world's light, XGPU_AMBIENT_OCCLUSION_WORLD_SAMPLED, drawn by the backend
+with its twin, the same pipeline but for its pixel key's
+XGPU_AMBIENT_OCCLUSION_WORLD_INPUTS and its target: xgpu_world_ao_twin),
+into a target of the inputs (XGPU_FORMAT_WORLD_AO_INPUTS: four 32-bit
+words a pixel, xgpu.h's) and a depth target of its own; then the
+occlusion found once from them, at each 2x2 block's nearest pixel (a
+quarter of the pixels: the pass's camera[3].w 2; 1 each pixel's), into a
+texture of four floats a texel (the occlusion, the pixel's distance from
+the eye, its normal octahedral); then the surfaces drawn, each reading its
+pixel's (XGPU_AMBIENT_OCCLUSION_WORLD_SAMPLED), upsampled by distance and
+normal. Nothing else is drawn in the pre-pass: the draws without the
+world's light are skipped, its clears too.
+
+WORLD_AO_PREPASS: phase XGPU_WORLD_AO_PREPASS_BEGIN (the draws from here
+on are the pre-pass's, into targets of target's size), _END (the pre-pass
+done: the occlusion found over the window's corners (left, top, right,
+bottom, in target's pixels) as the camera saw it (struct
+xgpu_world_ao_pass)), or _NONE (the occlusion found no more: the surfaces
+read 1 from here on). While a map is prepared (the others then ignored):
+_TWINS (the draws from here on would be drawn in the pre-pass in play:
+each one's twin made with it, xgpu_stream_world_ao_twin) and _NONE (no
+more) */
 enum
 {
-	XGPU_AMBIENT_OCCLUSION_SUBTLE = 1,
-	XGPU_AMBIENT_OCCLUSION_STRONG = 2,
-	XGPU_AMBIENT_OCCLUSION_SHOW = 3,
-	XGPU_AMBIENT_OCCLUSION_KEEP = 0x81,
-	XGPU_AMBIENT_OCCLUSION_SELF_ILLUMINATED = 0x80,
-	XGPU_AMBIENT_OCCLUSION_OBJECT = 0x40
+	XGPU_WORLD_AO_PREPASS_NONE,
+	XGPU_WORLD_AO_PREPASS_BEGIN,
+	XGPU_WORLD_AO_PREPASS_END,
+	XGPU_WORLD_AO_PREPASS_TWINS,
+};
+/* the camera, as the occlusion's pass finds a pixel's world position
+(world_ao.h's world_ao_pass_position): [0] its position and its near
+plane; [1] the direction (one unit along the view's axis) at the screen's
+middle, and its far plane; [2] and [3] the direction's change a unit of
+the screen's x (-1 its left edge, 1 its right) and y (-1 its top, 1 its
+bottom), [2].w 0, [3].w the pixels a side of the blocks the occlusion is
+found once for (1 or 2); the window's corners in its target's pixels
+(left, top, right, bottom). A pixel's position: the eye (the block's
+grid[0]) + its distance (from the pre-pass) along normalize([1] + x [2] +
+y [3]). Then the distance-field scene's cascades, which the dynamic
+objects' rays step through (world_cascades.h: each the first voxel's
+centre and the voxel, 0 not ready); the window's previous frame's camera
+and corners as these, where its occlusion is reprojected from; and history:
+[0] 1 where the previous frame's occlusion is this window's (one window a
+frame, its corners alike: the backend's previous texture of it), else 0;
+[1] the frame's number (the rays' turn); [2] the share of the new frame's
+occlusion blended into what is reprojected (1: none of the history); [3] 1
+where the dynamic objects' occlusion is traced, 0 where their shapes are
+walked instead (HALO_WORLD_AO_NO_TRACE, for measuring against), 2 where
+it is traced by the GPU's ray queries ("ray_traced": WORLD_AO_MESH, below;
+a backend without them, or before its scene is built, traces it as 1) */
+struct xgpu_world_ao_pass
+{
+	float camera[4][4];
+	int32_t corners[4];
+	float cascades[4][4];
+	float previous[4][4];
+	int32_t previous_corners[4];
+	float history[4];
+};
+struct xgpu_stream_world_ao_prepass
+{
+	uint32_t header;
+	uint32_t phase;
+	uint32_t target;
+	uint32_t pad;
+	struct xgpu_world_ao_pass pass;
+};
+
+/* PIPELINE_STAND_IN: pipeline id (one with the world's light) has a stand-in
+(an id, 0 none), the pipeline the draw would have without the world: the
+backend may draw with it until id's is made, and never makes id's while a
+map is prepared (xgpu_backend_pipeline_stand_in) */
+struct xgpu_stream_pipeline_stand_in
+{
+	uint32_t header;
+	uint32_t id, stand_in;
+};
+
+/* WORLD_AO_FIELD: slices z_first to z_first + z_count - 1 of a part of
+the field (a width * height * depth volume, x fastest:
+xgpu_backend_world_ao_field): its table of cells (part 0, four bytes a
+texel: an atlas brick's x, y, z and the cell's kind, read as RGBA8) or its
+atlas of bricks (part 1, signed bytes: R8 snorm), or the static
+scenery's pages of the level's occlusion (part 2, bytes, R8 unorm: a 2D
+array, depth its layers, sent before the table), or the vehicles'
+occlusion fields' atlas (part 3, four half floats a texel: RGBA16F, a 3D
+volume, sent before the table), its bytes at data (size:
+width * height * z_count * the texel's); width 0 releases the field, every
+part */
+#define XGPU_STREAM_WORLD_AO_TABLE 0
+#define XGPU_STREAM_WORLD_AO_ATLAS 1
+#define XGPU_STREAM_WORLD_AO_SCENERY 2
+#define XGPU_STREAM_WORLD_AO_OBJECTS 3
+#define XGPU_STREAM_WORLD_AO_TEXEL(part) ((part) == XGPU_STREAM_WORLD_AO_TABLE ? 4u : \
+	(part) == XGPU_STREAM_WORLD_AO_OBJECTS ? 8u : 1u)
+struct xgpu_stream_world_ao_field
+{
+	uint32_t header;
+	uint32_t part;
+	uint32_t width, height, depth;
+	uint32_t z_first, z_count;
+	uint32_t data, size;
+	uint32_t pad;
+};
+
+/* WORLD_AO_CASCADES: a box of the distance-field scene's cascades'
+texture (xgpu.h's XGPU_WORLD_CASCADE*: XGPU_WORLD_CASCADE_SPAN texels
+square, XGPU_WORLD_CASCADE_SPAN * XGPU_WORLD_CASCADES deep, two signed bytes
+a texel, RG8 snorm; xgpu_backend_world_ao_cascades): its first texel x, y,
+z and its size, its bytes at data (size: width * height * depth * 2, x
+fastest); width 0 releases the texture */
+#define XGPU_STREAM_WORLD_AO_CASCADES_SIDE 65u
+#define XGPU_STREAM_WORLD_AO_CASCADES_DEPTH (65u * 4u)
+struct xgpu_stream_world_ao_cascades
+{
+	uint32_t header;
+	uint32_t x, y, z;
+	uint32_t width, height, depth;
+	uint32_t data, size;
+	uint32_t pad;
 };
 
 /* ---------- render targets */
@@ -480,8 +774,8 @@ masks and meters: xbox_textures.c).
 
 A stage may instead draw an image (XGPU_STREAM_SOURCE_IMAGE: a high-res
 replacement for the Xbox texture, xgpu_images.h): resource is its number,
-resource_format its pixels' kind (XGPU_IMAGE_*: RGBA, 4 bytes each, or a
-byte of a white pixel's coverage each), resource_size a serial that
+resource_format its pixels' kind (XGPU_IMAGE_*: RGBA, 4 bytes each),
+resource_size a serial that
 changes with its pixels (no two images have the same), data its first
 level's pixels, width by height, rows from the first; the host makes its
 levels (levels of them) from the first. */
@@ -565,7 +859,7 @@ struct xgpu_stream_pixel_key
 	uint32_t alpha_test_function;
 	uint8_t fog_enable, fog_table_mode, count_samples, coverage_alpha;
 	uint8_t point_threshold, per_pixel_lighting, alpha_test_samples, multiview;
-	uint8_t source_blend, dynamic_lights, vr_effect, pad;
+	uint8_t source_blend, dynamic_lights, vr_effect, ambient_occlusion;
 	/* display.hdr's tag (xgpu_hdr.h) */
 	uint16_t hdr;
 };
@@ -605,7 +899,7 @@ struct xgpu_stream_pixel_program
 	uint8_t alpha_test_samples;
 	uint8_t count_samples, coverage_alpha, point_threshold, per_pixel_lighting, dynamic_lights, multiview;
 	uint8_t source_blend;
-	uint8_t pad;
+	uint8_t ambient_occlusion;
 	/* display.hdr's tag (xgpu_hdr.h) */
 	uint16_t hdr;
 };
@@ -621,6 +915,64 @@ struct xgpu_stream_pipeline_define
 	struct xgpu_stream_pipeline_key key;
 	struct xgpu_stream_pixel_program pixel_program;
 };
+
+/* a pipeline's twin in the pre-pass, made of its definition in place
+(nonzero; 0 none, the draw not drawn in the pre-pass):
+- of one with the world's light read from its pixel
+  (XGPU_AMBIENT_OCCLUSION_WORLD_SAMPLED), its pixel key's occlusion
+  XGPU_AMBIENT_OCCLUSION_WORLD_INPUTS (its light kept): it writes its
+  pixel's inputs;
+- of another opaque one that writes the depth where it is nearer or as
+  near (an occluder: the first-person weapon, a surface lighting itself),
+  _INPUTS alone, its test made strictly nearer (so that it never takes the
+  pixel of a surface it draws over at its own depth): it writes none, so
+  that no surface it hides has its occlusion found;
+into the inputs' target (xgpu_backend.h's XGPU_FORMAT_WORLD_AO_INPUTS:
+RGBA32Uint), one sample, nothing blended, every channel written, no HDR tag,
+no enhanced dynamic lights, no samples counted; its depth, stencil, raster,
+vertex program and alpha test as they are. The backends, and the Mac's
+library's build, make it alike */
+#define XGPU_STREAM_WORLD_AO_SAMPLED 0x50u
+#define XGPU_STREAM_WORLD_AO_INPUTS 0x90u
+#define XGPU_STREAM_WORLD_AO_OCCLUDER 0x80u
+#define XGPU_STREAM_FORMAT_WORLD_AO_INPUTS 4u
+/* (xgpu_backend.h's XGPU_COMPARE_LESS and _LESS_EQUAL) */
+#define XGPU_STREAM_COMPARE_LESS 1u
+#define XGPU_STREAM_COMPARE_LESS_EQUAL 3u
+static inline int xgpu_stream_world_ao_twin(struct xgpu_stream_pipeline_define *definition)
+{
+	uint8_t occlusion = definition->pixel_program.ambient_occlusion;
+
+	if (occlusion & 0x80u)
+		return 0;
+	if ((occlusion & XGPU_STREAM_WORLD_AO_SAMPLED) == XGPU_STREAM_WORLD_AO_SAMPLED)
+	{
+		occlusion = (uint8_t)((occlusion & 0x0fu) | XGPU_STREAM_WORLD_AO_INPUTS);
+	}
+	else
+	{
+		if (occlusion || !definition->key.depth_test || !definition->key.depth_write || definition->key.blend ||
+			!definition->key.color_mask || definition->key.pixel.source_blend ||
+			(definition->key.depth_function != XGPU_STREAM_COMPARE_LESS &&
+			definition->key.depth_function != XGPU_STREAM_COMPARE_LESS_EQUAL))
+			return 0;
+		occlusion = (uint8_t)XGPU_STREAM_WORLD_AO_OCCLUDER;
+		definition->key.depth_function = (uint8_t)XGPU_STREAM_COMPARE_LESS;
+	}
+	definition->key.pixel.ambient_occlusion = definition->pixel_program.ambient_occlusion = occlusion;
+	definition->key.blend = definition->key.blend_source = definition->key.blend_destination = 0;
+	definition->key.blend_operation = 0;
+	definition->key.color_mask = 0x0f;
+	definition->key.color_format = (uint8_t)XGPU_STREAM_FORMAT_WORLD_AO_INPUTS;
+	definition->key.samples = 0;
+	definition->key.pixel.alpha_test_samples = definition->pixel_program.alpha_test_samples = 0;
+	definition->key.pixel.hdr = definition->pixel_program.hdr = 0;
+	definition->key.pixel.source_blend = definition->pixel_program.source_blend = 0;
+	definition->key.pixel.count_samples = definition->pixel_program.count_samples = 0;
+	definition->key.pixel.dynamic_lights = definition->pixel_program.dynamic_lights = 0;
+	return 1;
+}
+
 
 /* xgpu_backend.h's struct xgpu_dynamic_state */
 struct xgpu_stream_dynamic_state
@@ -671,12 +1023,13 @@ struct xgpu_stream_draw_uniforms
 	float texture_scale[4][4];
 	float screen_offset;
 	float texture_lod_bias[4];
+	float world_ao[4];
 };
 
 /* xgpu_backend_draw_state: what changed since the last follows, the
 dynamic state (XGPU_STREAM_DRAW_DYNAMIC), then the uniforms' pieces that
 changed (XGPU_STREAM_DRAW_UNIFORMS: the uniforms as 16-byte pieces, the
-last of 12, those whose bits are set in pieces, low word first, in order);
+last of 4, those whose bits are set in pieces, low word first, in order);
 a call that changes neither sends nothing */
 enum
 {
@@ -831,6 +1184,35 @@ struct xgpu_stream_dynamic_lights_upload
 	uint32_t count;
 	uint32_t cells, size;
 	struct xgpu_stream_dynamic_lights_block block;
+};
+
+/* the frame's lights: the block (its lights past count zero), and the
+cells' bytes from offset that changed since the stream's last change (size
+bytes, inline at cells; none: 0), the others as they were. The offset and
+size are multiples of 16, inside XGPU_STREAM_DYNAMIC_LIGHTS_CELLS_BYTES;
+the stream's first change is of all of them. */
+struct xgpu_stream_dynamic_lights_change
+{
+	uint32_t header;
+	uint32_t count;
+	uint32_t cells, offset, size;
+	struct xgpu_stream_dynamic_lights_block block;
+};
+
+/* the world's count texels (inline) at texels, count * 16 bytes; count
+at most xgpu.h's XGPU_DYNAMIC_LIGHTS_WORLD_TEXELS */
+#define XGPU_STREAM_DYNAMIC_LIGHTS_WORLD_TEXELS (240u * 1024u)
+/* the cells' texture's slices of 32 x 32 texels (xgpu.h): the cells and the
+clusters' masks, uploaded each frame, then the world's */
+#define XGPU_STREAM_DYNAMIC_LIGHTS_CELL_SLICES 17u
+/* their bytes (xgpu.h's XGPU_DYNAMIC_LIGHTS_CELLS_BYTES) */
+#define XGPU_STREAM_DYNAMIC_LIGHTS_CELLS_BYTES (32u * 32u * XGPU_STREAM_DYNAMIC_LIGHTS_CELL_SLICES * 16u)
+#define XGPU_STREAM_DYNAMIC_LIGHTS_WORLD_SLICES 240u
+struct xgpu_stream_dynamic_lights_world
+{
+	uint32_t header;
+	uint32_t count;
+	uint32_t texels;
 };
 
 /* xgpu_backend.h's struct xgpu_dynamic_lights_halos but its halos, which
@@ -1044,18 +1426,78 @@ struct xgpu_stream_vr_screen_corrections
 	float viewport[2];
 };
 
+/* ---------- display.ambient_occlusion "ray_traced" (docs/world-ao.md,
+"Hardware ray queries")
+
+The scene the occlusion's pass traces its rays through with the GPU's ray
+queries, where the backend has them (xgpu_stream_capabilities' ray_queries):
+the dynamic objects' occlusion is then found by the hardware's rays against
+their collision meshes, the structure's collision mesh stopping them, in
+place of the distance-field scene's step (the pass's history[3] 2).
+
+WORLD_AO_MESH: a mesh (a bottom-level acceleration structure, built once):
+its id (1 to XGPU_STREAM_WORLD_AO_MESHES - 1) and count triangles, nine
+floats each (each corner's x, y, z in the mesh's own space, the front faces
+counterclockwise seen from outside), at data (size: count * 36); id 0 lets
+go of every mesh (a map's end). An id is given once a map */
+#define XGPU_STREAM_WORLD_AO_MESHES 4096u
+#define XGPU_STREAM_WORLD_AO_MESH_TRIANGLES (1u << 20)
+struct xgpu_stream_world_ao_mesh
+{
+	uint32_t header;
+	uint32_t id, count;
+	uint32_t data, size;
+	uint32_t pad[3];
+};
+
+/* WORLD_AO_INSTANCES: the frame's instances of the meshes (a top-level
+acceleration structure of them, built before the next pass), count of
+them at data (size: count * sizeof(struct xgpu_world_ao_instance)): each
+its transform (a row-major 3x4, its mesh's space into the world), its
+mesh's id, its owner (its object's datum index plus one, the instance's
+custom index: a pixel of that object's own leaves it out; 0 the structure,
+which stops a ray and occludes nothing: the lightmaps and the field hold
+its occlusion) and its kind (XGPU_WORLD_AO_INSTANCE_*, the instance's mask:
+the structure's facing either way, an object's front faces alone) */
+#define XGPU_STREAM_WORLD_AO_INSTANCES_MAXIMUM 4096u
+#define XGPU_WORLD_AO_INSTANCE_STRUCTURE 1u
+#define XGPU_WORLD_AO_INSTANCE_OBJECT 2u
+#define XGPU_WORLD_AO_INSTANCE_OWNERS (1u << 24)
+struct xgpu_world_ao_instance
+{
+	float transform[3][4];
+	uint32_t mesh, owner, kind, pad;
+};
+struct xgpu_stream_world_ao_instances
+{
+	uint32_t header;
+	uint32_t count;
+	uint32_t data, size;
+};
+
 /* ---------- the layouts' sizes, alike on both sides */
 
 #define XGPU_STREAM_ASSERT_SIZE(type, size) _Static_assert(sizeof(type) == (size), #type "'s size")
 
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ring, 104);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ring, 120);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_frame_end, 12);
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_capabilities, 20);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_capabilities, 120);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_hdr, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_tone_map, 24);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_panini, 56);
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_ambient_occlusion, 52);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_world_ao_window, 16 + 32 + 32 + XGPU_WORLD_AO_PROXIES_MAXIMUM * 48 + 32 +
+	XGPU_WORLD_AO_GRID_CELLS_MAXIMUM * 8);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_world_ao_field, 40);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_world_ao_prepass, 96 + 64 + 64 + 16 + 16);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_world_ao_cascades, 40);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_world_ao_mesh, 32);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_world_ao_instance, 64);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_world_ao_instances, 16);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_pipeline_stand_in, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_set_targets, 16);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_mark_string, 16);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_mark_view, 72);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_mark_owner, 40);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_clear, 36);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_read_target, 28);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_screenshot, 32);
@@ -1066,7 +1508,7 @@ XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_pipeline_key, 308);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_pixel_program, 436);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_pipeline_define, 752);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_dynamic_state, 68);
-XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_draw_uniforms, 572);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_draw_uniforms, 588);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_vertex_element, 6);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_layout_define, 20);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_vertex_stream, 20);
@@ -1074,6 +1516,7 @@ XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_vertices, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_draw_immediate, 28);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_dynamic_lights_block, 6192);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_dynamic_lights_halos, 192);
+XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_dynamic_lights_world, 12);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_vr_info, 108);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_vr_eyes, 36 + 4 * 52);
 XGPU_STREAM_ASSERT_SIZE(struct xgpu_stream_vr_eye_transforms, 8 + 4 * 64);

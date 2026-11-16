@@ -1,0 +1,12 @@
+# /etc/logrotate.d/mosquitto: the broker's log, daily, a week kept
+/var/log/mosquitto/mosquitto.log {
+	daily
+	rotate 7
+	compress
+	delaycompress
+	missingok
+	notifempty
+	postrotate
+		/usr/bin/systemctl kill --signal=HUP mosquitto.service > /dev/null 2>&1 || true
+	endscript
+}

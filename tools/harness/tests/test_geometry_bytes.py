@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, function, mutated, read, run  # noqa: E402
+from harness import skip_without_32_bit_abi  # noqa: E402
 
 CASES = ["counts-real-parts", "refuses-before-wrapping", "refuses-huge-counts", "takes-exactly-the-most"]
 
@@ -28,6 +29,12 @@ def generated(fault=None):
     return (("config.inc", config), ("under_test.inc", code + "\n"))
 
 
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT = {
+    "no-count-check": "the huge count overflows the game's 32-bit sizes, not 64-bit ones",
+}
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_case(case):
     status, output = run(build("geometry_bytes", generated()), case)
@@ -37,5 +44,6 @@ def test_case(case):
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
+    skip_without_32_bit_abi(ABI_DEPENDENT, control, case)
     status, output = run(build("geometry_bytes", generated(fault)), case)
     assert status == CHECK_FAILED, f"geometry_bytes_add with a fault ({control}) passed '{case}': the test cannot see it"

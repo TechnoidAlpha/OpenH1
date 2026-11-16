@@ -53,9 +53,18 @@ preserve their pixels. By default every pass stores its attachments: later
 scope, cockpit and runtime-depth passes can read the depth.
 `HALO_VULKAN_STATS` includes attachment loads and clears.
 
-Discards (on by default since they were measured on the Steam Frame,
-#335; `HALO_VULKAN_DISCARDS=0`: off) store less from a tiler's tile memory, as the Metal backend
-does (#131). Each pass's draws go into a secondary command buffer, and the
+Discards (on by default on a tiler since they were measured on the Steam
+Frame, #335; `HALO_VULKAN_DISCARDS=0`: off) store less from a tiler's tile memory, as the Metal backend
+does (#131). A tiler is a GPU of ARM, Qualcomm, Imagination, Apple or
+Broadcom, or any with lazily allocated memory. An immediate GPU (NVIDIA's,
+AMD's, Intel's: a desktop's, a laptop's, the Steam Deck's) has no tile
+memory for them to save, and there they are off unless
+`HALO_VULKAN_DISCARDS=1`: the segments below cost the render thread a
+secondary command buffer begun, ended and executed for each pass and each
+piece of work between passes, and the draws' state bound again in each (on
+an RTX 3090, 22 secondary command buffers and 92 pipeline binds a frame of
+250 draws), so the passes are recorded into the main command buffer as they
+are drawn, the state bound in it kept from pass to pass. Each pass's draws go into a secondary command buffer, and the
 pass's `vkCmdBeginRendering` is made at the submission, when what the
 later work does with its attachments is known (`xgpu_vulkan.c`, "the main
 command buffer in segments"):
@@ -149,12 +158,21 @@ four multiview views and fragment storage-buffer atomics.
 | `HALO_VULKAN_PIPELINE_CACHE=<file>` | The pipeline cache's file (by default `$XDG_CACHE_HOME/openh1/vulkan_pipelines.bin`); empty: none |
 | `HALO_VULKAN_SHADERS=<dir>` | Each shader module written there as it is made (`.spv`); as `debug.gpu_dump_shaders`, over which it wins |
 | `HALO_VULKAN_STATS=1` | Every 600 frames, submissions, passes, attachment loads/clears, clears drawn, draws, pipeline creation count/time, upload ring bytes, stores discarded, resolves in passes, passes continued and put aside and buffers renamed (`HALO_VULKAN_DISCARDS`), textures made, and the frames' GPU time (from each frame's first work to its last) and time between frames (not in the VR mode, which times its own); as `debug.gpu_stats` |
-| `HALO_VULKAN_DISCARDS=0` | Every attachment stored, passes recorded in the main command buffer as drawn: discards off (they are on by default: attachments stored only where something later reads them, multisampled targets resolved in their pass and, with lazily allocated memory, transient, passes put aside; above) |
+| `HALO_VULKAN_DRAW_TIMES=<n>` | Every `n`th frame, a timestamp after each draw; the times between them, sorted, each the draw's that ended it, summed by the draws' `display.ambient_occlusion` kind (their pixel key's `ambient_occlusion`, in hex: `ao11` a model lit for each pixel with the world's, `ao13` the lightmap pass with it, `ao00` none) and logged every 20 timed frames (`vulkan: draw times a frame`), the rest of the frame after its last draw as `other`. A timestamp after every draw serializes the draws, so each time is the draw's own. For measuring only |
+| `HALO_VULKAN_DRAW_TIMES_FILE=<file>` | With `HALO_VULKAN_DRAW_TIMES`: each timed frame's draws written there, a line each (`<draw> <microseconds> <ambient occlusion> <lighting> <per-pixel lighting> <flags> <vertices>`), to compare two runs of a fixed-step game draw for draw |
+| `HALO_VULKAN_NO_INTERLOCK=1` | The device made without the fragment shader interlock, as one that has none: `display.hdr`'s draws that blend in the shader read their target as an input attachment, their own triangles over the same pixel unordered ("HDR", below) |
+| `HALO_VULKAN_HDR_SERIAL=1` | Without the interlock: each triangle of a triangle list that blends in the shader drawn after a barrier of its own, the ordered picture to compare a draw's overlapping triangles with ("HDR", below). For checking only |
+| `HALO_VULKAN_NO_RAY_QUERIES=1` | The device made without ray queries, as one that has none: `display.ambient_occlusion` `"ray_traced"` draws as `"world"` (`docs/world-ao.md`, "Hardware ray queries") |
+| `HALO_VULKAN_RT_FLIP=1` | `"ray_traced"`'s objects' triangles' facing turned (`VK_GEOMETRY_INSTANCE_TRIANGLE_FLIP_FACING_BIT_KHR`), to check which way they face. For checking only |
+| `HALO_VULKAN_NO_SUBGROUPS=1` | Shaders made as for a device without the subgroups' bitwise operations in pixel shaders (`display.ambient_occlusion` `"world"`'s proxies walked a pixel at a time: `docs/world-ao.md`, "Where the time goes") |
+| `HALO_VULKAN_DISCARDS=0`, `=1` | Every attachment stored, passes recorded in the main command buffer as drawn: discards off (they are on by default on a tiler, off on an immediate GPU: attachments stored only where something later reads them, multisampled targets resolved in their pass and, with lazily allocated memory, transient, passes put aside; above); `=1`: on, whatever the GPU |
 | `HALO_VULKAN_ASIDE=0` | With `HALO_VULKAN_DISCARDS`: no passes put aside, no buffers renamed (above) |
 | `HALO_VULKAN_TRANSIENT=0`, `=force` | With `HALO_VULKAN_DISCARDS`: no transient multisampled targets, or transient ones in ordinary memory where the device has no lazily allocated memory |
 | `HALO_NO_VSYNC=1` | `display.vsync = false`: presented without waiting for the display (mailbox where the surface has it, else immediate) instead of FIFO |
 | `HALO_VULKAN_FRAME_LOG=<file>` | A line for each frame, paced or not (`xgpu_vulkan_pacing.c`): `frame <input> <queued> <finished> <shown> <refreshes> <paced> <earliest> <present_margin> <returned>`, nanoseconds of `CLOCK_MONOTONIC`: the frame's input read, its present's return, its work done on the GPU, its time on screen (display timing's, else present wait's return), the refreshes since the frame before reached the screen (more than one: a refresh showed a frame again), whether the game was paced, display timing's earliest time and margin, and present wait's return (0: not known). `tools/latency_summary.py --frames` joins it to `debug.latency_log` |
 | `HALO_VULKAN_NO_PRESENT_WAIT=1`, `HALO_VULKAN_NO_DISPLAY_TIMING=1`, `HALO_VULKAN_DISPLAY_TIMING=1` | `display.low_latency` without `VK_KHR_present_wait` (as on Android: display timing asked each millisecond), or without `VK_GOOGLE_display_timing` (the frames' times present wait's returns). Where the device has present wait, display timing is not used unless `HALO_VULKAN_DISPLAY_TIMING=1` asks for both: gamescope's layer on the Steam Deck answered its past times `VK_INCOMPLETE` without end (the game showed no frame) and crashed as a swapchain was made from one whose times had been asked for |
+| `HALO_VULKAN_NO_CUSTOM_BORDER_COLORS=1` | As a device without `VK_EXT_custom_border_color` (Android's, some): the shaders draw the stages' border colours, as Metal's do, a part of the pipeline whatever the colour (`xgpu_vulkan_stream.c`'s `border_axes`) |
+| `HALO_VULKAN_UNHEEDED_PRESENTS=1` | The presents waited for and logged (`HALO_VULKAN_FRAME_LOG`), but the game never paced or bounded by them, as by a display that says nothing: the GPU's bound alone, measured by the display's times |
 | `HALO_FRAME_PACING_MARGIN_MS=<ms>` | `display.low_latency`'s margin fixed (not learned), to find a display's lead: the frames miss their refresh when it is too small |
 
 The game's settings for finding problems in the graphics (`port/linux/README.md`)
@@ -168,6 +186,101 @@ numbered in the order the textures are read; `xgpu_vulkan_textures.c`).
 `debug.gpu_debug_expression` (an expression put into each pixel shader,
 which the SPIR-V written directly has no place for) is Metal's alone, and
 does nothing here.
+
+## Recording the stream, and replaying it (`halo_replay`)
+
+The renderer's work can be recorded and replayed without the game, as on
+macOS (`port/macos/README.md`, "Recording the stream"): `HALO_RENDER_RECORD=<file>`
+records it (the textures' cache, `xgpu_vulkan_textures.c`, names the guest
+memory it reads in place), `HALO_RENDER_SHOTS` and `HALO_RENDER_SHOT_FRAMES`
+write the frames' back buffers as PNG files (`xgpu_vulkan_stream_shot`),
+and `ninja linux_replay` (`linux_x86_64_replay`, `linux_arm64_replay`; not
+in the VR build) makes `build/<name>/halo_replay`
+(`port/linux/vulkan/tools/halo_replay.c`), the Vulkan part of the replay
+Metal's shares (`port/tools/replay/host_render_replay.h`):
+
+```sh
+build/linux_x86_64/halo_replay <file> [--frames a-b] [--shots dir] [--shot-frames list] [--loop N]
+    [--hitch ms] [--quiet] [--verbose]
+build/linux_x86_64/halo_replay <file> --serve
+build/linux_x86_64/halo_replay --compare <shots> <shots>
+```
+
+It plays offscreen (no window, no surface: the frames are drawn and read
+back). The guest's memory is the low 4 GB of the tool's process, as the
+host without the base register has the guest's. The pipeline cache is
+`<file>.vkpipelines` (`HALO_VULKAN_PIPELINE_CACHE` names another, or none);
+`HALO_VULKAN_VALIDATION=1` turns on the validation layers. A recording made
+on a Mac (its blocks LZ4's, Apple's framing of it, decoded here) plays as
+one made here does, and one made here plays on the Mac's.
+
+`--serve` is the replay service (`docs/replay_protocol.md`), a JSON request a line on
+standard input and a JSON answer a line on standard output (the log on
+standard error), over ssh as well (`"inline": true` answers with the
+files' bytes in base64 instead of writing them; `"compress": true` deflates
+them, the PNG and the ID buffer, which then comes as `ids_zlib_base64`: a
+1440p frame's reply with its ID buffer 11 MB instead of 34, for some 90 ms
+of the CPU; `"image": "qoi"` gives the picture as a QOI file instead of a
+PNG, `qoi_base64` inline, written to the request's `qoi` (or `png`) path,
+`thumb_<n>.qoi` for thumbnails. QOI was measured against PNG on three 1440p
+frames of a Mac recording (a menu, two of play), the bytes and the encoding
+on the 5900x: stored PNG 11.1 MB in 48 ms; PNG through the replay's deflate
+6.0 to 8.4 MB in 125 to 225 ms whichever filter (none, sub, up, Paeth);
+zlib's own at level 1, sub, 5.6 to 7.9 MB in 32 to 48 ms (level 6: 3.7 to
+5.5 MB, 170 to 190 ms); QOI 4.0 to 6.4 MB in 27 to 29 ms, the smallest
+short of zlib's slow levels and the quickest. A step on with a QOI reply
+is 51 ms through the pipes at 1440p, against 89 ms of the plain PNG):
+
+| Request | Answer |
+| --- | --- |
+| `{"cmd":"info"}` | the frames, the back buffer's size, `"backend":"vulkan"`, the commit configure.py ran at |
+| `{"cmd":"frame","n":N,"png":path,"ids":path}` | frame N played exactly; its back buffer as a PNG, its ID buffer: a little-endian `uint32` a pixel, rows from the top, the topmost draw that changed the pixel, its number in the frame plus one (0 none) |
+| `{"cmd":"draws","n":N}` | the frame's draws, numbered as the ID buffer numbers them, with what each was drawn with (its record, primitive and count, pipeline, targets, textures) |
+| `{"cmd":"pick","n":N,"x":X,"y":Y}` | the pixel's draws, topmost first, the 8 last that changed it |
+| `{"cmd":"thumbs","every":E,"width":W,"dir":path}` | thumbnails for the timeline (`"frames":[...]` for chosen ones) |
+
+A draw is a DRAW, DRAW_INDICES, DRAW_INDEXED or DRAW_IMMEDIATE record of the
+frame, counted from its first. The ID buffer is the backend's
+(`xgpu_vulkan_inspect_*` in `xgpu_vulkan.c`): each draw into the target the
+frame presents is drawn in a pass of its own, the target copied before it
+(a multisampled one resolved, and resolved again after), and a compute pass
+(`xgpu_vulkan_inspect_shader.c`, from `tools/vulkan_inspect_shader.py`'s
+GLSL) compares the two by their bits, pushing the draw's number onto the
+stacks of the pixels it changed (an R32_UINT layer each): an alpha-tested
+leaf counts where it drew, not over its cut-out corners, and a draw that
+wrote what was there already does not count. Post passes (anti-aliasing,
+the gamma curve, Panini) are not draws.
+
+A frame is played from the one played last, and from the recording's
+start again (the ring's positions going on) for one before it; the
+pictures of the 16 frames before the one asked for are kept on the way, so
+that a step back is not a play again; and the last 8 frames asked for with
+their ID buffers keep them (as many as fit in 512 MB), so that a step back
+to one of those is not either (83 ms at 1440p through the pipes, against
+780 ms played again). The frames passed on the way are not given ID
+buffers: each costs its frame a pass of copies and comparisons for every
+draw (118 ms of a 1440p frame on the 4090) and 118 MB of stacks. Measured on the RTX 4090 (a 2,022
+frame, 1280x720 Blood Gulch recording; each a request's wall time through
+the pipes): a step on with its PNG 17 ms (2 ms of it the frame), with its
+ID buffer 39 ms, a step back to a picture kept 14 ms, a step back with an
+ID buffer (played again from the start) 344 ms, the last frame from the
+first 561 ms, a frame's first ID buffer mid-recording 396 ms; `pick` on a
+frame with its ID buffer 0.1 ms, `draws` 3 ms; 34 thumbnails 692 ms. The
+measuring play runs the recording at about 900 frames a second
+(`tools/test_render_replay.py` tests the service with a CPU backend of its
+own; no GPU, no game).
+
+The service's `cost` (each pass's and draw's GPU time,
+`docs/replay_protocol.md`) times the frame played again with timestamps
+(`xgpu_vulkan_timing_*`): one at the bottom of the pipeline before and
+after each draw, in its segment's commands, and one after each pass and
+each piece of work outside passes as `segments_play` plays them, masked to
+the queue's `timestampValidBits`. A pass's time runs from the timestamp
+before it, so the passes add up to the frame's; a draw belongs to the pass
+whose span holds its end. Its method is `timestamps` (a draw's own time);
+the service's `subtract` works here too. `HALO_VULKAN_TIMING_DRAWS=0` times
+the passes alone; `HALO_PASS_TIMES` sets `debug.pass_times` in the replay,
+as the game reads it, to compare against.
 
 ## The window
 
@@ -197,7 +310,15 @@ refresh it is for, and the swapchain has three images (the least the
 surface allows, if more). A swapchain made again lets go of its presents
 first: those not yet shown count as shown, and the thread no longer waits
 for them. A frame that presents nothing (the window hidden, the app in the
-background, a held frame) is taken at once.
+background, a held frame) is taken at once. Bounded (`display.low_latency`
+off), the game starts a frame as soon as at most one
+waits for the display, without the start time. And with FIFO, whatever the
+display says, the game starts a frame only while at most one of its
+frames' work is unfinished on the GPU (`host_render_stream_frames_ahead`),
+and, while the display has said nothing of its presents, the swapchain has
+the least images the surface allows (two at least), so that a driver that
+queues presents ahead of the display without a word holds at most a frame
+or two of the game's (issue #274: NVIDIA's on Windows queued five).
 
 The surface is made again when the driver reports it lost
 (`VK_ERROR_SURFACE_LOST_KHR`, from the acquire, the present or the
@@ -410,53 +531,30 @@ rectangle copied, then each pixel drawn from where the flat view saw what
 the projection puts there (`PANINI_SOURCE`, the inverse of
 `port/linux/include/panini_projection.h`), sampled over the pixels it covers
 (a bilinear tap for each two of them each way, up to 4, from the
-coordinate's derivatives), all
-four channels (the game's values in alpha move with their pixels). The
-ambient occlusion and the lens flares are drawn before it, in the flat
+coordinate's derivatives), all four channels (the game's values in alpha
+move with their pixels). The lens flares are drawn before it, in the flat
 view, and carried with it. Its pipeline is requested with the map's
 preparation, or made at its first use. Metal draws the same GLSL.
 
 ## Ambient occlusion
 
-`display.ambient_occlusion` (`"off"`, `"subtle"`, `"strong"`: Enhanced's)
-shades each window's 3D view once its opaque surfaces have drawn their
-light, only where the game's lighting does not hold the occlusion: the game
-calls `halo_screen_ambient_occlusion` after the structure's lightmap pass
-(`source/render/render.c`), before the diffuse textures, the decals, the
-dynamic lights, the specular light, the transparent surfaces and the
-effects. As they draw, objects (models) mark their pixels in the stencil's
-bit 6 and self-illuminated surfaces in bit 7 (`ambient_occlusion_mark`),
-and every other draw that writes the depth clears both where it does, so
-that the marks are always the shown surface's: the objects draw before the
-level, and a wall over an object behind it must not keep the object's mark
-(`tools/test_ambient_occlusion_marks.py`). The first-person weapon's is the
-game's bit 0. The record
-(`XGPU_STREAM_AMBIENT_OCCLUSION`) carries the camera, and the passes
-(`xgpu_vulkan_post.c`, their GLSL in `tools/vulkan_post_shaders.py`) are:
-
-- the depth target (its first sample's, resolved where it has more) made
-  the distances along the view, each a half float and what it leaves;
-- the mask: the stencil's bits made a texture by draws tested against them
-  (red an object's pixel, green one left as it is);
-- GTAO (XeGTAO's horizon integral) at half the resolution: in two
-  directions a pixel, turned by a 4x4 Bayer matrix, the highest horizon
-  each side within 0.5 world units (each sample's rise above the pixel's
-  tangent plane, its normal from the depth), as a share of what the same
-  directions see unoccluded, so that a flat surface is exactly 1. An
-  object's pixel (one ambient sample lights it) counts every sample; the
-  level's (its radiosity lightmap holds its own occlusion) only objects',
-  so that no corner is darkened twice;
-- a blur along x and then y, nine taps weighted by their distances'
-  nearness, none across an object's edge;
-- a draw over the target multiplying its colour (not its alpha), filtered
-  up by the nearest four weighted by their distances, none over the pixels
-  the mask leaves.
-
-The target's pass ends for them and begins again, loading what it drew.
-`debug.ambient_occlusion_view` draws the occlusion alone in the view's place
-before the HUD. Metal draws the same passes (`port/macos/xgpu_metal_post.c`,
-their MSL written from this GLSL by `tools/metal_post_shaders.py`), but not
-over a multisampled target.
+`display.ambient_occlusion` (`"off"`, `"world"` or `"ray_traced"`: `docs/world-ao.md`)
+darkens the ambient light of each window's opaque surfaces where the world
+about them hides the sky, and not what a light adds (the flashlight, the
+dynamic lights): it multiplies that light alone, in the shaders that light
+the surfaces (`src/xgpu.h`'s `XGPU_AMBIENT_OCCLUSION_LIGHT_*` with
+`XGPU_AMBIENT_OCCLUSION_WORLD`). Each pixel finds its occlusion from its own
+world position and normal, in the structure's distance field and the
+window's proxies (spheres, capsules, boxes and the vehicles' fields), so
+there is no pass over the screen, and it holds in the VR mode's eyes and
+with multisampling. The field, its table of cells, the static scenery's
+pages and the vehicles' fields' atlas are images of the backend's
+(`xgpu_vulkan_world_ao.c`), and the window's block a uniform range of the
+ring: all in the draws' fourth descriptor set (`XGPU_SPIRV_SET_OCCLUSION`,
+bindings 1 to 5), which the draws that light by it bind. The occlusion
+multiplies the light before the lights add theirs
+(`tools/test_world_ao_light.py`). `debug.world_ao_view` draws the surfaces
+it shades as their occlusion alone, in grey.
 
 ## HDR
 
@@ -475,11 +573,44 @@ is then RGBA16F, an input attachment too.
   that input and orders the draw after the pass's draws before it with a
   framebuffer-local barrier (by region), or, where the device orders
   attachment reads in rasterization order
-  (`VK_EXT_rasterization_order_attachment_access`), with none, its own
-  overlapping triangles in order too. Without that extension, two
-  triangles of one tagged draw over the same pixel read it unordered (the
-  tagged draws are surfaces, HUD bitmaps and glows, which seldom overlap
-  themselves).
+  (`VK_EXT_rasterization_order_attachment_access`: tilers'), with none,
+  its own overlapping triangles in order too.
+- Where it does not but has the fragment shader interlock
+  (`VK_EXT_fragment_shader_interlock`: NVIDIA's and RADV's desktop GPUs),
+  a tagged draw's own triangles over the same pixel are put in order by it:
+  the draw reads and writes its target as a storage image (binding 1 of the
+  same set, `XGPU_VULKAN_BINDING_STORE`) between
+  `OpBeginInvocationInterlockEXT` and `OpEndInvocationInterlockEXT`,
+  pixel-ordered (sample-ordered under sample shading), its colour mask
+  applied in the shader, its pipeline writing no colour, its depth and
+  stencil tests before the shader (`interlocked` in
+  `xgpu_vulkan_stream.c`: a draw that writes depth or stencil, or replaces
+  its depth, is not interlocked). The interlock orders only what the shader
+  does between the two: a colour attachment's write lands after the shader,
+  outside it, so reading the input attachment inside it was not enough (the
+  4090 still lost the plasma rifle's scorch marks where two were batched).
+  A run of interlocked draws has a barrier before its first draw (the
+  pass's draws before it seen) and one after its last (its writes seen as
+  the colour attachment's by what follows: `color_stores_seen`), none
+  between them: the interlock's primitive order runs on from one draw to
+  the next in a pass, and their coherent storage reads and writes see each
+  other's (a barrier between each two cost the 4090 0.28 ms a frame of the
+  benchmark's 0.44, and the frames drawn without them are the same, byte
+  for byte, on the 4090 and RADV). The targets it writes are made uncompressed where the device can say
+  so (`VK_EXT_image_compression_control`): RADV's DCC left specks of
+  other colours over every interlocked pixel on an RDNA 3.5 GPU (Mesa
+  26.2); a device with neither that nor NVIDIA's driver is not
+  interlocked. Its cost, `tools/bench.py` at 2560x1440 with HDR on
+  (`HALO_VULKAN_NO_INTERLOCK=1` against): an RTX 4090's GPU time 0.98 to
+  1.15 ms a frame (the view's pass 0.28 to 0.40 ms); a Radeon 8060S's
+  2.45 to 2.31 ms, less than the barrier before each tagged draw costs
+  without the interlock.
+- Elsewhere (neither), two triangles of one tagged draw over the same
+  pixel read it unordered (decals that overlap are never one draw, on any
+  device: `rasterizer_decal_batch_overlaps`).
+  `HALO_VULKAN_HDR_SERIAL=1` draws each triangle of such a draw (a
+  triangle list's) after a barrier of its own, the ordered picture to
+  compare with, for checking only.
 - The tone map is the shared GLSL (`xgpu_hdr.c`) compiled to SPIR-V by
   `tools/vulkan_post_shaders.py` (the same source `tools/metal_post_shaders.py`
   makes Metal's from), drawn as a triangle in the pass that drew the view,

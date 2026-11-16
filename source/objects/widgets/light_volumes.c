@@ -276,6 +276,7 @@ void light_volume_render(
 				/* port: (display.hdr: a light's volume is light, as a plasma
 				bolt's: port/linux/src/xgpu_hdr.h) */
 				halo_hdr_draw_kind(HALO_HDR_KIND_LIGHT);
+				render_marks_kind(RENDER_MARK_LIGHT_VOLUME, "light volume"); /* port: debug.render_marks */
 				rasterizer_widget_begin(
 					_widget_type_internal_sprite,
 					FLAG(_rasterizer_widget_z_enable_bit));

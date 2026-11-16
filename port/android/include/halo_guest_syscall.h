@@ -88,6 +88,9 @@ This header is included by both halves.
 #define GUEST_SYS_clock_gettime 113
 #define GUEST_SYS_clock_getres 114
 #define GUEST_SYS_clock_nanosleep 115
+/* (the processors the thread may run on: musl's sysconf(_SC_NPROCESSORS_ONLN)
+counts them; each host answers with all of its own, halo_guest_affinity) */
+#define GUEST_SYS_sched_getaffinity 123
 #define GUEST_SYS_sched_yield 124
 #define GUEST_SYS_kill 129
 #define GUEST_SYS_tkill 130
@@ -96,6 +99,7 @@ This header is included by both halves.
 #define GUEST_SYS_rt_sigaction 134
 #define GUEST_SYS_rt_sigprocmask 135
 #define GUEST_SYS_rt_sigtimedwait 137
+#define GUEST_SYS_setpriority 140
 #define GUEST_SYS_times 153
 #define GUEST_SYS_uname 160
 #define GUEST_SYS_getrlimit 163
@@ -361,5 +365,23 @@ a host whose headers disagree. */
 #define GUEST_EOVERFLOW 75
 #define GUEST_EOPNOTSUPP 95
 #define GUEST_ETIMEDOUT 110
+
+/* sched_getaffinity's answer for a host of cpus processors: each of them in
+the guest's mask (size bytes, at most 128: musl's), the bytes written, as
+the kernel's */
+static inline long halo_guest_affinity(unsigned char *mask, unsigned long size, long cpus)
+{
+	unsigned long bytes = size < 128 ? size : 128, bit;
+
+	if (!mask || !bytes)
+		return -22; /* EINVAL */
+	if (cpus < 1)
+		cpus = 1;
+	for (bit = 0; bit < bytes; bit++)
+		mask[bit] = 0;
+	for (bit = 0; bit < (unsigned long)cpus && bit < bytes * 8; bit++)
+		mask[bit / 8] |= (unsigned char)(1u << (bit % 8));
+	return (long)bytes;
+}
 
 #endif

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.new_select.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/new_select/list_item_0_map_kind" box="0 0 256 28" picture="bitmaps/option_bkds_sm">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 3"/>
+		<at widget="main_menu/new_select/list_item_0_map_kind_spinner" x="9" y="3"/>
+	</look>
+	<look name="main_menu/new_select/list_item_0_map_kind_spinner" type="spinner" box="0 0 238 22" list="items_from_strings" header="bitmaps/arrow_sm_left" header_box="-1 5 5 17" footer="bitmaps/arrow_sm_right" footer_box="233 5 239 17">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" at="0 1" string_list="main_menu/new_select/var_map_kinds"/>
+	</look>
+</model>

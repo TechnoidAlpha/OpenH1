@@ -345,6 +345,16 @@ void wind_initialize_for_new_map(
 	return;
 }
 
+/* port: the wind's state, which the game keeps outside the game state and
+the ticks read (an antenna's or a flag's points blown by it), for the demos
+(port/linux/game/demo.c) */
+void *wind_port_demo_state(
+	long *size)
+{
+	*size = (long)sizeof(wind_globals);
+	return &wind_globals;
+}
+
 boolean scenario_get_current(
 	struct location const *location,
 	real_point3d const *position,

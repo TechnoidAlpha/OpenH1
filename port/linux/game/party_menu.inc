@@ -567,9 +567,9 @@ static wchar_t const *party_result_text(int result)
 	case _p2p_party_follow_full:
 		return L"the game is full";
 	case _p2p_party_follow_version:
-		return L"a different version of OpenH1";
+		return L"a different version of GOAT H1";
 	case _p2p_party_follow_legacy:
-		return L"an older Halo game OpenH1 can't join";
+		return L"an older Halo game GOAT H1 can't join";
 	case _p2p_party_follow_local:
 		return L"a local network game";
 	case _p2p_party_follow_busy:
@@ -634,7 +634,7 @@ static void party_notice_text(struct p2p_party_notice const *notice, wchar_t *te
 		usnprintf(text, size - 1, L"Couldn't reach that party.\r\nIt may have ended: ask for\r\na new party link.");
 		break;
 	case _p2p_party_notice_version:
-		usnprintf(text, size - 1, L"%s is on a different\r\nversion of OpenH1. Update\r\nboth to play together.", name);
+		usnprintf(text, size - 1, L"%s is on a different\r\nversion of GOAT H1. Update\r\nboth to play together.", name);
 		break;
 	case _p2p_party_notice_follow_failed:
 		usnprintf(text, size - 1, L"%s couldn't join:\r\n%s.", name, party_result_text(notice->result));
@@ -825,7 +825,7 @@ static __declspec(noinline) void party_screen_update(struct widget_instance *lis
 	menu_text_box_wrap(named(panel, "panel_notice", 0), text, 3);
 	menu_text_box_wrap(named(panel, "panel_about", 0), !in_party ? L"Got a party link? Copy it, then PASTE LINK." :
 		party_menu.copied_time && system_milliseconds() - party_menu.copied_time < PARTY_NOTICE_TIME ?
-		L"Invite copied: paste it in a chat to your friends. Its link opens OpenH1, or shows how to get it." :
+		L"Invite copied: paste it in a chat to your friends. Its link opens GOAT H1, or shows how to get it." :
 		L"When your leader hosts or joins a game, the party joins it too. Anyone who can't is told why, and stays.",
 		4);
 	/* (PASTE LINK while a party's link is on the clipboard, read again

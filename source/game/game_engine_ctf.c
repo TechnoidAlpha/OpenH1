@@ -1734,3 +1734,18 @@ boolean game_engine_ctf_read_network_state(
 	}
 	return TRUE;
 }
+
+/* port: the game type's state kept outside the game state, part by part
+(NULL past the last), for a demo (port/linux/game/demo.c) */
+void *game_engine_ctf_port_demo_state(
+	short part,
+	long *size)
+{
+	switch (part)
+	{
+	case 0:
+		*size = (long)sizeof(ctf_globals);
+		return &ctf_globals;
+	}
+	return NULL;
+}

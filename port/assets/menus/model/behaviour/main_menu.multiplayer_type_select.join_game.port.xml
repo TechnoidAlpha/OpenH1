@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.join_game.port.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/password/password_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" run="port password back"/>
+		<on event="back" run="port password back"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/password/options_menu" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="port password init"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/password/button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/password/op_password" flags="pass_unhandled_to_focused_child">
+		<on event="a" run="port password edit"/>
+		<on event="start" run="port password edit"/>
+		<on event="b"/>
+		<on event="back"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/password/button_defaults">
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/password/button_ok">
+		<on event="a" run="port password join"/>
+		<on event="start" run="port password join"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/connect/connect_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="port connect back"/>
+		<on event="back" run="port connect back"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/connect/button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/connect/button_retry">
+		<on event="a" run="port connect retry"/>
+		<on event="start" run="port connect retry"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/join_game/connect/button_back">
+		<on event="a" run="port connect back"/>
+		<on event="start" run="port connect back"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+</model>

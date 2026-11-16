@@ -58,6 +58,11 @@ static const char *pixel_format_name(MTLPixelFormat format)
 	{
 	case MTLPixelFormatInvalid: return "Invalid";
 	case MTLPixelFormatBGRA8Unorm: return "BGRA8Unorm";
+	/* (display.hdr's targets) */
+	case MTLPixelFormatRGBA16Float: return "RGBA16Float";
+	/* (display.ambient_occlusion "world"'s pre-pass's inputs, and its pass's) */
+	case MTLPixelFormatRGBA32Uint: return "RGBA32Uint";
+	case MTLPixelFormatRGBA32Float: return "RGBA32Float";
 	case MTLPixelFormatDepth32Float_Stencil8: return "Depth32Float_Stencil8";
 	case MTLPixelFormatDepth16Unorm: return "Depth16Unorm";
 	default: return NULL;

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/error.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="error/confirm_delete_gametype_button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="error/confirm_delete_gametype_button_cancel">
+		<on event="left_mouse" run="mouse emit back event"/>
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_gametype_button_ok">
+		<on event="a" run="final del playlist profile" close="current" sound="sound\sfx\ui\forward"/>
+		<on event="start" run="final del playlist profile" close="current" sound="sound\sfx\ui\forward"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_gametype_modal_fullscreen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="cancel profile delete" close="current" sound="sound\sfx\ui\back"/>
+		<on event="back" run="cancel profile delete" close="current" sound="sound\sfx\ui\back"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_profile_button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="error/confirm_delete_profile_button_cancel">
+		<on event="left_mouse" run="mouse emit back event"/>
+		<on event="a" run="mouse emit back event"/>
+		<on event="start" run="mouse emit back event"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_profile_button_ok">
+		<on event="a" run="final del player profile" close="current" sound="sound\sfx\ui\forward"/>
+		<on event="start" run="final del player profile" close="current" sound="sound\sfx\ui\forward"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_profile_modal_fullscreen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="cancel profile delete" close="current" sound="sound\sfx\ui\back"/>
+		<on event="back" run="cancel profile delete" close="current" sound="sound\sfx\ui\back"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_savegame_button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="error/confirm_delete_savegame_button_ok">
+		<on event="a" run="load game menu delete finish" close="current" sound="sound\sfx\ui\forward"/>
+		<on event="start" run="load game menu delete finish" close="current" sound="sound\sfx\ui\forward"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="error/confirm_delete_savegame_modal_fullscreen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="cancel profile delete" close="current" sound="sound\sfx\ui\back"/>
+		<on event="back" run="cancel profile delete" close="current" sound="sound\sfx\ui\back"/>
+	</behaviour>
+	<behaviour name="error/error_modal" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="error/error_modal_button_bar" flags="pass_unhandled_to_focused_child up_down_tabs_items left_right_tabs_items"/>
+	<behaviour name="error/error_modal_button_ok">
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="error/warning_creating_player_profile_screen" flags="pass_unhandled_to_focused_child">
+		<on event="b" run="NULL"/>
+		<on event="back" run="NULL"/>
+	</behaviour>
+	<behaviour name="error/warning_saving_file_screen" flags="pass_unhandled_to_focused_child pause_game">
+		<on event="b" run="NULL"/>
+		<on event="back" run="NULL"/>
+	</behaviour>
+</model>

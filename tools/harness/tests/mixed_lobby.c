@@ -54,7 +54,9 @@ struct distributed_message_header
 
 /* the record, as far as the host changes it: everything else is copied */
 /* the record's pickup bit (network_game_manager.h) */
-enum { _network_game_hold_to_pick_up_bit = 3 };
+enum { _network_game_hold_to_pick_up_bit = 0, _network_game_classic_turning_bit = 1,
+	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4,
+	_network_game_vehicle_hijack_bit = 5 };
 #define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
 
 struct network_game
@@ -62,7 +64,8 @@ struct network_game
 	wchar_t name[16];
 	short machine_count;
 	byte machines[64];
-	short standard_rate;
+	byte standard_rate;
+	byte standard_flags;
 	/* (the host's way of picking up a second weapon: network_standard.c's
 	_network_game_hold_to_pick_up_bit) */
 	byte cooperative_flags;
@@ -109,6 +112,27 @@ of network.game_mode and network.sim_rate */
 static int server_mode;
 static char server_game_mode[16] = "legacy";
 
+/* (no demo plays: demo.c's) */
+static boolean demo_playback_rules(unsigned long *rules)
+{
+	return FALSE;
+}
+
+static boolean demo_playing(void)
+{
+	return FALSE;
+}
+
+static struct network_game *demo_playback_recorded_game(void)
+{
+	return NULL;
+}
+
+/* (the hijacks' rule told the clients: network_hijack.c's, test_vehicle_hijack.py's) */
+static void network_hijack_send_rule(boolean on)
+{
+}
+
 static int halo_server_mode(void)
 {
 	return server_mode;
@@ -129,6 +153,19 @@ static long config_integer(char const *name)
 static int config_boolean(char const *name)
 {
 	return !strcmp(name, "network.allow_opence") && allow_opence;
+}
+
+/* (moves as the settings change, as config.toml's count does) */
+static unsigned long config_changes(void)
+{
+	unsigned long changes = (unsigned long)sim_rate_setting * 2 + (allow_opence ? 1 : 0);
+	char const *text;
+
+	for (text = game_mode; *text; text++)
+		changes = changes * 31 + (unsigned char)*text;
+	for (text = server_game_mode; *text; text++)
+		changes = changes * 31 + (unsigned char)*text;
+	return changes;
 }
 
 static short game_connection(void)
@@ -365,9 +402,17 @@ int main(int argc, char **argv)
 		memcpy(&legacy, &server.game, sizeof(legacy));
 		legacy.standard_rate = 0;
 		/* (and no word of how the host's players pick up a second weapon) */
-		CHECK(TEST_FLAG(server.game.cooperative_flags, _network_game_hold_to_pick_up_bit),
+		CHECK(TEST_FLAG(server.game.standard_flags, _network_game_hold_to_pick_up_bit),
 			"the record does not say hold to pick up");
-		SET_FLAG(legacy.cooperative_flags, _network_game_hold_to_pick_up_bit, FALSE);
+		SET_FLAG(legacy.standard_flags, _network_game_hold_to_pick_up_bit, FALSE);
+		/* (nor of the turn in the air: game.enhanced_animations, off here) */
+		CHECK(TEST_FLAG(server.game.standard_flags, _network_game_classic_turning_bit),
+			"the record does not say the players keep the original's facing");
+		SET_FLAG(legacy.standard_flags, _network_game_classic_turning_bit, FALSE);
+		/* (nor whether it forbids hit sounds: network.allow_hit_sounds, off here) */
+		CHECK(TEST_FLAG(server.game.standard_flags, _network_game_no_hit_sounds_bit),
+			"the record does not say the host forbids hit sounds");
+		SET_FLAG(legacy.standard_flags, _network_game_no_hit_sounds_bit, FALSE);
 		CHECK(!memcmp(record, &legacy, sizeof(legacy)), "an OpenCE machine's record is not a Legacy host's");
 		CHECK(server.game.standard_rate == 60, "the game's own record changed");
 		return 0;

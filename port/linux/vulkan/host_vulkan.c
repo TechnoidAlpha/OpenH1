@@ -54,6 +54,19 @@ for SDL's (HDR on, that headroom, BT.2408's 203-nit SDR white);
 HALO_VULKAN_HDR_OUTPUT ("scrgb", "pq") chooses the swapchain's encoding
 where the surface has both. Not on Android, nor in the VR mode.
 
+display.vrr (sdl_platform.c's platform_vrr): with VRR on, the guest gives
+the window vsync and VRR_ON, and the frames are bounded by the display, not
+started just in time for a refresh that a variable display does not have
+(xgpu_vulkan_pacing.c's HOST_RENDER_DISPLAY_BOUNDED). Its auto asks
+host_vulkan_vrr whether the system says VRR is active: gamescope's
+properties on its X server's root window (GAMESCOPE_VRR_FEEDBACK, set while
+it shows a frame by VRR; or GAMESCOPE_VRR_CAPABLE and GAMESCOPE_VRR_ENABLED
+both, the display able and VRR asked for), through libX11 where it loads;
+else a Linux display's DRM, a CRTC with its VRR_ENABLED set and not off
+(the compositor's VRR on: KWin's, GNOME's, Sway's), read without the
+master's rights. KWin's "Automatic" sets it while a window is fullscreen:
+auto, asked every 2 s, finds it once the game's window is. Windows and Android say nothing reliable of it: none there.
+
 HALO_VULKAN_VALIDATION=1 turns on the validation layers and logs their
 messages (the layers must be installed, or found through VK_ADD_LAYER_PATH).
 The pipeline cache is $XDG_CACHE_HOME/openh1/vulkan_pipelines.bin (or
@@ -62,6 +75,7 @@ names another file, or none (empty).
 */
 
 #include "host.h"
+#include "host_render_record.h"
 #include "host_render_stream.h"
 #include "xgpu_vulkan.h"
 #include "xgpu_vulkan_loading.h"
@@ -72,10 +86,19 @@ names another file, or none (empty).
 #ifdef HALO_VR
 #include "host_vr_vulkan.h"
 #endif
+#ifdef HALO_ASTC
+#include "xgpu_astc.h"
+#endif
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 #include <errno.h>
+#if defined(__linux__) && !defined(__ANDROID__)
+#include <dlfcn.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -238,6 +261,105 @@ static const char *cache_path(char *path, size_t size)
 	return path;
 }
 
+/* ---------- the caches the player clears (host_caches, guest_host.h)
+
+The pipeline cache and the ASTC textures' files (HALO_ASTC) are made again as
+the game plays. Settings' CLEAR CACHES asks for them to go at the next start
+(CACHES_REQUEST, a file in the caches' folder), and they go as the window
+opens, before the renderer reads them (caches_clear_requested). */
+
+#define CACHES_REQUEST "clear_caches"
+
+/* the ASTC textures' folder: HALO_ASTC_CACHE, or the caches' folder's astc;
+NULL for none */
+static const char *astc_folder(char *folder, size_t size)
+{
+	const char *chosen = getenv("HALO_ASTC_CACHE");
+
+	if (chosen)
+		return chosen;
+	if (!cache_folder(folder, size))
+		return NULL;
+	strncat(folder, "/astc", size - strlen(folder) - 1);
+	return folder;
+}
+
+/* the caches' bytes, each file deleted with clear */
+static unsigned long long caches_bytes(int clear)
+{
+	char path[1024], folder[1024];
+	unsigned long long total = 0;
+	struct stat status;
+	const char *file = cache_path(path, sizeof(path));
+
+	if (file && !stat(file, &status))
+	{
+		total += (unsigned long long)status.st_size;
+		if (clear)
+			remove(file);
+	}
+#ifdef HALO_ASTC
+	{
+		const char *astc = astc_folder(folder, sizeof(folder));
+
+		total += xgpu_astc_cache_files(astc && *astc ? astc : NULL, clear);
+	}
+#else
+	(void)folder;
+#endif
+	return total;
+}
+
+/* the request's file, into path; NULL if there is no caches' folder */
+static const char *caches_request_path(char *path, size_t size)
+{
+	char folder[1024];
+
+	if (!cache_folder(folder, sizeof(folder)))
+		return NULL;
+	snprintf(path, size, "%s/" CACHES_REQUEST, folder);
+	return path;
+}
+
+/* the caches cleared, if the player asked for it at the last run */
+static void caches_clear_requested(void)
+{
+	char path[1100];
+	struct stat status;
+
+	if (!caches_request_path(path, sizeof(path)) || stat(path, &status))
+		return;
+	host_logf(HOST_LOG_INFO, "vulkan: the caches cleared, as Settings asked: %llu KB",
+		caches_bytes(1) / 1024ULL);
+	remove(path);
+}
+
+/* (a host import: menu_functions.c's CLEAR CACHES, by game_caches.c) the
+caches' kilobytes; with what 1 their clearing asked for at the next start,
+2 that asked for no longer */
+unsigned int host_caches(int what)
+{
+	char path[1100];
+	unsigned long long kilobytes;
+
+	if ((what == 1 || what == 2) && caches_request_path(path, sizeof(path)))
+	{
+		if (what == 1)
+		{
+			FILE *file = fopen(path, "wb");
+
+			if (file)
+				fclose(file);
+		}
+		else
+		{
+			remove(path);
+		}
+	}
+	kilobytes = caches_bytes(0) / 1024ULL;
+	return kilobytes > 0xFFFFFFFFULL ? 0xFFFFFFFFu : (unsigned int)kilobytes;
+}
+
 static void vulkan_shutdown(void)
 {
 	static int stopped;
@@ -265,9 +387,214 @@ static void vulkan_exiting(void *context)
 debug.gpu_validation (or debug.gl_debug) */
 #define DEBUG_STATISTICS 1
 #define DEBUG_VALIDATION 2
-/* and display.low_latency's: on, off (neither: auto) */
+/* and display.low_latency's: on, off (neither: auto); display.vrr's VRR on */
 #define LOW_LATENCY_ON 4
 #define LOW_LATENCY_OFF 8
+#define VRR_ON 16
+/* and debug.vulkan_present_mode's: 1 immediate, 2 mailbox, 3 fifo, 4
+fifo_relaxed (0: the swap interval's choice) */
+#define PRESENT_MODE_SHIFT 5
+#define PRESENT_MODE_MASK 7u
+
+/* ---------- whether the system says VRR is active (host_vulkan_vrr) */
+
+#define VRR_NONE 0
+#define VRR_GAMESCOPE 1
+#define VRR_DRM 2
+#define VRR_GAMESCOPE_OFF 3
+#define VRR_DRM_OFF 4
+
+#if defined(__linux__) && !defined(__ANDROID__)
+/* gamescope's VRR on its X server's root window: 1 (in use, or able and
+asked for), 0 (not), -1 (no gamescope there, or no libX11) */
+static int vrr_gamescope(void)
+{
+	typedef void *(*open_display_t)(const char *);
+	typedef unsigned long (*intern_atom_t)(void *, const char *, int);
+	typedef unsigned long (*root_window_t)(void *);
+	typedef int (*get_property_t)(void *, unsigned long, unsigned long, long, long, int, unsigned long,
+		unsigned long *, int *, unsigned long *, unsigned long *, unsigned char **);
+	typedef int (*free_t)(void *);
+	static int tried;
+	static void *display;
+	static intern_atom_t intern_atom;
+	static root_window_t root_window;
+	static get_property_t get_property;
+	static free_t free_data;
+	static const char *const names[] = { "GAMESCOPE_VRR_FEEDBACK", "GAMESCOPE_VRR_CAPABLE", "GAMESCOPE_VRR_ENABLED" };
+	long values[3];
+	int index, found = 0;
+
+	if (!tried)
+	{
+		void *library;
+		open_display_t open_display;
+
+		tried = 1;
+		if (!getenv("DISPLAY") || !(library = dlopen("libX11.so.6", RTLD_NOW | RTLD_LOCAL)))
+			return -1;
+		open_display = (open_display_t)dlsym(library, "XOpenDisplay");
+		intern_atom = (intern_atom_t)dlsym(library, "XInternAtom");
+		root_window = (root_window_t)dlsym(library, "XDefaultRootWindow");
+		get_property = (get_property_t)dlsym(library, "XGetWindowProperty");
+		free_data = (free_t)dlsym(library, "XFree");
+		if (open_display && intern_atom && root_window && get_property && free_data)
+			display = open_display(NULL);
+	}
+	if (!display)
+		return -1;
+	for (index = 0; index < 3; index++)
+	{
+		/* (only_if_exists: an X server that never had the atom is not
+		gamescope's) */
+		unsigned long atom = intern_atom(display, names[index], 1), type = 0, count = 0, after = 0;
+		unsigned char *data = NULL;
+		int format = 0;
+
+		values[index] = -1;
+		if (atom && get_property(display, root_window(display), atom, 0, 1, 0, 6 /* XA_CARDINAL */, &type,
+			&format, &count, &after, &data) == 0 && data)
+		{
+			if (format == 32 && count >= 1)
+			{
+				values[index] = *(long *)data;
+				found = 1;
+			}
+			free_data(data);
+		}
+	}
+	if (!found)
+		return -1;
+	return values[0] == 1 || (values[1] == 1 && values[2] == 1);
+}
+
+/* (drm_mode.h's, as the kernel has them) */
+struct vrr_card_resources
+{
+	uint64_t framebuffers, crtcs, connectors, encoders;
+	uint32_t framebuffer_count, crtc_count, connector_count, encoder_count;
+	uint32_t width_least, width_most, height_least, height_most;
+};
+struct vrr_object_properties
+{
+	uint64_t properties, values;
+	uint32_t count, object, type;
+};
+struct vrr_property
+{
+	uint64_t values, enum_blobs;
+	uint32_t property, flags;
+	char name[32];
+	uint32_t value_count, enum_blob_count;
+};
+#define VRR_GET_RESOURCES _IOWR('d', 0xA0, struct vrr_card_resources)
+#define VRR_GET_PROPERTY _IOWR('d', 0xAA, struct vrr_property)
+#define VRR_GET_OBJECT_PROPERTIES _IOWR('d', 0xB9, struct vrr_object_properties)
+#define VRR_OBJECT_CRTC 0xccccccccu
+
+/* a DRM card's CRTC on with VRR_ENABLED: 1, none 0, -1 not readable */
+static int vrr_drm_card(int file)
+{
+	struct vrr_card_resources resources;
+	uint32_t crtcs[16], crtc;
+	int readable = 0;
+
+	memset(&resources, 0, sizeof(resources));
+	if (ioctl(file, VRR_GET_RESOURCES, &resources) || !resources.crtc_count)
+		return -1;
+	if (resources.crtc_count > 16)
+		resources.crtc_count = 16;
+	{
+		uint32_t count = resources.crtc_count;
+
+		memset(&resources, 0, sizeof(resources));
+		resources.crtc_count = count;
+		resources.crtcs = (uint64_t)(uintptr_t)crtcs;
+		if (ioctl(file, VRR_GET_RESOURCES, &resources))
+			return -1;
+		if (resources.crtc_count > count)
+			resources.crtc_count = count;
+	}
+	for (crtc = 0; crtc < resources.crtc_count; crtc++)
+	{
+		struct vrr_object_properties object;
+		uint32_t properties[64], index;
+		uint64_t values[64];
+		/* (ACTIVE is an atomic property, which a client that has not asked
+		for atomic's is not shown (nvidia-drm's under KWin): not known, -1,
+		VRR_ENABLED alone then says it) */
+		int active = -1, enabled = 0;
+
+		memset(&object, 0, sizeof(object));
+		object.object = crtcs[crtc];
+		object.type = VRR_OBJECT_CRTC;
+		object.count = 64;
+		object.properties = (uint64_t)(uintptr_t)properties;
+		object.values = (uint64_t)(uintptr_t)values;
+		if (ioctl(file, VRR_GET_OBJECT_PROPERTIES, &object))
+			continue;
+		for (index = 0; index < object.count && index < 64; index++)
+		{
+			struct vrr_property property;
+
+			memset(&property, 0, sizeof(property));
+			property.property = properties[index];
+			if (ioctl(file, VRR_GET_PROPERTY, &property))
+				continue;
+			property.name[sizeof(property.name) - 1] = 0;
+			if (!strcmp(property.name, "ACTIVE"))
+				active = values[index] != 0;
+			else if (!strcmp(property.name, "VRR_ENABLED"))
+			{
+				readable = 1;
+				enabled = values[index] != 0;
+			}
+		}
+		if (active != 0 && enabled)
+			return 1;
+	}
+	return readable ? 0 : -1;
+}
+
+/* any DRM card's: 1, 0, -1 (none readable) */
+static int vrr_drm(void)
+{
+	int card, found = -1;
+
+	for (card = 0; card < 8; card++)
+	{
+		char path[32];
+		int file, result;
+
+		snprintf(path, sizeof(path), "/dev/dri/card%d", card);
+		file = open(path, O_RDONLY | O_CLOEXEC | O_NOCTTY);
+		if (file < 0)
+			continue;
+		result = vrr_drm_card(file);
+		close(file);
+		if (result > 0)
+			return 1;
+		if (result == 0)
+			found = 0;
+	}
+	return found;
+}
+#endif
+
+int host_vulkan_vrr(void)
+{
+#if defined(__linux__) && !defined(__ANDROID__)
+	int gamescope = vrr_gamescope(), drm;
+
+	if (gamescope >= 0)
+		return gamescope ? VRR_GAMESCOPE : VRR_GAMESCOPE_OFF;
+	/* (under gamescope its word is the one: its DRM is its own) */
+	drm = vrr_drm();
+	if (drm >= 0)
+		return drm ? VRR_DRM : VRR_DRM_OFF;
+#endif
+	return VRR_NONE;
+}
 
 /* a folder the guest names (its address), or the environment variable's
 (set, it wins: NULL, none), copied; NULL for none */
@@ -316,7 +643,7 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 		if (object != vulkan_window)
 			return 0;
 		xgpu_vulkan_window_interval(interval);
-		xgpu_vulkan_window_low_latency(debug & LOW_LATENCY_ON ? 1 : debug & LOW_LATENCY_OFF ? 2 : 0);
+		xgpu_vulkan_window_low_latency(debug & VRR_ON ? 2 : debug & LOW_LATENCY_ON ? 1 : debug & LOW_LATENCY_OFF ? 2 : 0);
 		return 1;
 	}
 	if (getenv("HALO_VULKAN_STATS"))
@@ -326,18 +653,14 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 	xgpu_vulkan_stream_debug((debug & DEBUG_STATISTICS) != 0,
 		debug_folder(shader_folder, "HALO_VULKAN_SHADERS", shaders, sizeof(shaders)));
 	xgpu_vulkan_textures_dump(debug_folder(texture_folder, NULL, textures, sizeof(textures)));
+	/* (the caches gone first, if the player asked for it) */
+	caches_clear_requested();
 	{
 		/* (the DXT textures' ASTC blocks encoded, where they are ASTC:
 		HALO_ASTC_CACHE, or the caches' folder's astc) */
 		char folder[1024];
-		const char *chosen = getenv("HALO_ASTC_CACHE");
 
-		if (!chosen && cache_folder(folder, sizeof(folder)))
-		{
-			strncat(folder, "/astc", sizeof(folder) - strlen(folder) - 1);
-			chosen = folder;
-		}
-		xgpu_vulkan_textures_astc_folder(chosen);
+		xgpu_vulkan_textures_astc_folder(astc_folder(folder, sizeof(folder)));
 	}
 	vulkan_window = object;
 	/* (which of SDL's window systems the window is in: on a Linux desktop
@@ -377,7 +700,21 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 		host_logf(HOST_LOG_INFO, "vulkan: the window is not one SDL draws with Vulkan: its frames are not shown");
 	}
 	options.interval = interval;
-	options.low_latency = debug & LOW_LATENCY_ON ? 1 : debug & LOW_LATENCY_OFF ? 2 : 0;
+	options.low_latency = debug & VRR_ON ? 2 : debug & LOW_LATENCY_ON ? 1 : debug & LOW_LATENCY_OFF ? 2 : 0;
+	{
+		static const VkPresentModeKHR modes[] = { VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_MAILBOX_KHR,
+			VK_PRESENT_MODE_FIFO_KHR, VK_PRESENT_MODE_FIFO_RELAXED_KHR };
+		uint32_t asked = (debug >> PRESENT_MODE_SHIFT) & PRESENT_MODE_MASK;
+		SDL_WindowFlags flags = SDL_GetWindowFlags(object);
+
+		if (asked >= 1 && asked <= 4)
+			options.present_mode = (int)modes[asked - 1] + 1;
+		/* (the window's mode, beside the present mode, for a tester's log:
+		SDL's fullscreen with a display mode of its own is exclusive, without
+		one borderless, the desktop's) */
+		host_logf(HOST_LOG_INFO, "vulkan: the window is %s", !(flags & SDL_WINDOW_FULLSCREEN) ? "windowed" :
+			SDL_GetWindowFullscreenMode(object) ? "fullscreen (exclusive)" : "fullscreen (borderless)");
+	}
 #ifdef HALO_VR
 	if (host_vr_vulkan_requested() && host_vr_vulkan_prepare())
 	{
@@ -440,6 +777,8 @@ int host_vulkan_window_open(uint32_t window, uint32_t debug, uint32_t shader_fol
 	backend.exiting = vulkan_exiting;
 	host_render_stream_set_backend(&backend);
 	host_render_stream_set_screenshot_writer(host_screenshot_write);
+	/* (HALO_RENDER_SHOTS' pictures: host_render_record.h) */
+	host_render_record_set_shooter(xgpu_vulkan_stream_shot);
 	atexit(vulkan_shutdown);
 	opened = 1;
 	return 1;

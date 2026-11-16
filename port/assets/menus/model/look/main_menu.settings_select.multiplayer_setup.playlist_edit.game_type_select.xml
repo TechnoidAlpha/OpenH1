@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.settings_select.multiplayer_setup.playlist_edit.game_type_select.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_button_bar" type="column_list" box="0 0 640 28">
+		<at widget="common_button_back" x="510" y="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_ctf_item" type="text" box="51 78 283 110" picture="bitmaps/list_item_bkd_top">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_options"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_koth_item" type="text" box="51 111 283 143" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_options" index="1"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list" type="column_list">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_ctf_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_koth_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_slayer_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_oddball_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_race_item" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_button_bar" x="0" y="414"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_ext_desc" box="275 78 595 400" picture="bitmaps/list_field">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_list_ext_desc_text" x="0" y="-22"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_list_ext_desc_pic" x="20" y="0"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_oddball_item" type="text" box="51 177 283 209" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_options" index="3"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_race_item" type="text" box="51 210 283 242" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_options" index="4"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_screen" picture="bitmaps/gradient">
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list" x="0" y="0"/>
+		<at widget="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_label" x="296" y="362"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_slayer_item" type="text" box="51 144 283 176" picture="bitmaps/list_item_bkd">
+		<text font="ui\large_ui" color="#FF2896FF" at="13 5" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_options" index="2"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/header_rules" box="35 11 640 70" picture="main_menu/settings_select/multiplayer_setup/playlist_edit/header_set_options"/>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_label" type="text" box="0 0 275 22">
+		<text font="ui\large_ui" color="#FFFFFFFF" string_list="multiplayer_game_text"/>
+	</look>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_list_ext_desc_pic" box="285 95 541 345" picture="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_options"/>
+	<look name="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/rules_list_ext_desc_text" type="text" box="295 298 595 400">
+		<text font="ui\large_ui" color="#FF2896FF" string_list="main_menu/settings_select/multiplayer_setup/playlist_edit/game_type_select/gametype_select_list_extended_dsc_text"/>
+	</look>
+</model>

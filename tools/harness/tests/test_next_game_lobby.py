@@ -50,6 +50,7 @@ STANDARD_FUNCTIONS = (
     "network_standard_machine_is_opence", "network_standard_machine_is_openh1", "network_standard_game_for_machine",
     "network_standard_note_opence_players", "network_standard_player_is_opence", "network_standard_new_game",
     "network_standard_handle_message", "network_standard_server_rate", "network_standard_stamp_game",
+    "network_standard_pro_hosting",
     "network_standard_join_token", "network_standard_client_joining", "network_standard_agreed_rate",
 )
 
@@ -86,6 +87,8 @@ def generated(fault=None):
     clock = read("source/game/game_time.c")
     code += "\n" + structure(clock, "game_time_globals_struct")
     code += "\nstatic struct game_time_globals_struct *game_time_globals;\n"
+    # (a reliable host update's time, which the map's start and end forget)
+    code += "static long game_time_distributed_target = NONE;\n"
     end = clock.index("} game_time_substeps;") + len("} game_time_substeps;")
     code += clock[clock.rindex("static struct", 0, end):end] + "\n"
     for name in ("game_time_port_drop_substeps", "game_time_initialize_for_new_map", "game_time_dispose_from_old_map",

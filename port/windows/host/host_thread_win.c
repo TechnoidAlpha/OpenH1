@@ -185,3 +185,67 @@ int host_signal_stack_install(void)
 void host_signal_stack_remove(void)
 {
 }
+
+/* ---------- the mix thread's scheduling (host_sdl.c's audio_thread)
+
+The Multimedia Class Scheduler (MMCSS) runs a thread of its "Pro Audio"
+task in the real-time priority band for as long as the task holds it, as
+Windows's own audio engine runs: above THREAD_PRIORITY_TIME_CRITICAL in a
+normal process, and not starved by a busy computer. avrt.dll is loaded when
+it is first asked for. The task's handle (NULL: none, the thread keeps the
+priority it has) */
+
+typedef HANDLE (WINAPI *mmcss_begin_function)(const wchar_t *task, DWORD *index);
+typedef BOOL (WINAPI *mmcss_end_function)(HANDLE task);
+static mmcss_begin_function mmcss_begin;
+static mmcss_end_function mmcss_end;
+static INIT_ONCE mmcss_once = INIT_ONCE_STATIC_INIT;
+
+static BOOL CALLBACK mmcss_load(INIT_ONCE *once, void *parameter, void **context)
+{
+	HMODULE library = LoadLibraryExW(L"avrt.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+
+	(void)once;
+	(void)parameter;
+	(void)context;
+	if (library)
+	{
+		mmcss_begin = (mmcss_begin_function)(void *)GetProcAddress(library, "AvSetMmThreadCharacteristicsW");
+		mmcss_end = (mmcss_end_function)(void *)GetProcAddress(library, "AvRevertMmThreadCharacteristics");
+	}
+	return TRUE;
+}
+
+void *host_thread_pro_audio_begin(void)
+{
+	static LONG logged;
+	DWORD index = 0;
+	HANDLE task = NULL;
+	DWORD error = 0;
+
+	InitOnceExecuteOnce(&mmcss_once, mmcss_load, NULL, NULL);
+	if (mmcss_begin && mmcss_end)
+	{
+		task = mmcss_begin(L"Pro Audio", &index);
+		if (!task)
+			error = GetLastError();
+	}
+	if (!InterlockedExchange(&logged, 1))
+	{
+		if (task)
+			host_logf(HOST_LOG_INFO, "sound: the mix thread is MMCSS's \"Pro Audio\" task (index %lu)",
+				(unsigned long)index);
+		else if (mmcss_begin && mmcss_end)
+			host_logf(HOST_LOG_INFO, "sound: no MMCSS task for the mix thread (error %lu): it keeps its priority",
+				(unsigned long)error);
+		else
+			host_logf(HOST_LOG_INFO, "sound: no MMCSS (avrt.dll) for the mix thread: it keeps its priority");
+	}
+	return task;
+}
+
+void host_thread_pro_audio_end(void *task)
+{
+	if (task && mmcss_end)
+		mmcss_end(task);
+}

@@ -257,8 +257,8 @@ public class HaloActivity extends SDLActivity {
     }
 
     /**
-     * What the game's sound plays on, for audio.spatial "auto" (the world's
-     * sounds through the HRTF on headphones, panned on the speaker): 1
+     * What the game's sound plays on, for the sound's log (audio.spatial
+     * "auto" is the HRTF on either, as the Xbox's stereo): 1
      * headphones (wired headphones or a headset, Bluetooth, a USB headset,
      * a hearing aid), 0 the speaker or another, -1 not known. From Android
      * 13 the devices a game's sound is routed to; before, any headphones

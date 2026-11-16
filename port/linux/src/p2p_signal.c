@@ -1772,7 +1772,7 @@ static void broker_readable(struct broker *broker)
 /* port/assets/network/brokers.txt's brokers, for a game with no such file
 beside its config.toml (one run from somewhere the builds did not put it).
 Keep it the same as that file (test_linux_port.py checks) */
-#define DEFAULT_BROKERS "opence.milenko.org:1883,broker.emqx.io:1883,broker.hivemq.com:1883,test.mosquitto.org:1883"
+#define DEFAULT_BROKERS "net.goath1.com:1883,opence.milenko.org:1883,broker.hivemq.com:1883"
 
 /* the brokers in network.brokers_file (beside config.toml, else the one the
 release brings, unless a full path: port/assets/network/brokers.txt, which

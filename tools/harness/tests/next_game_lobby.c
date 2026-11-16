@@ -45,13 +45,16 @@ typedef word message_header;
 /* ---------- the fake world */
 
 /* the record's pickup bit (network_game_manager.h) */
-enum { _network_game_hold_to_pick_up_bit = 3 };
+enum { _network_game_hold_to_pick_up_bit = 0, _network_game_classic_turning_bit = 1,
+	_network_game_no_direct_camera_bit = 2, _network_game_pro_rules_bit = 3, _network_game_no_hit_sounds_bit = 4,
+	_network_game_vehicle_hijack_bit = 5 };
 #define SET_FLAG(f, b, v) ((v) ? ((f) |= (unsigned)FLAG(b)) : ((f) &= (unsigned)~FLAG(b)))
 
 struct network_game
 {
 	short machine_count;
-	short standard_rate;
+	byte standard_rate;
+	byte standard_flags;
 	/* (the host's way of picking up a second weapon: network_standard.c's
 	_network_game_hold_to_pick_up_bit) */
 	byte cooperative_flags;
@@ -76,6 +79,7 @@ static struct
 {
 	boolean main_menu_scenario_loaded;
 	boolean load_last_solo_level;
+	boolean want_to_be_at_main_menu;
 	boolean reset_map, defer_map_change, revert_map, skip_cinematic, saving_map, won_map, lost_map, respawn;
 	boolean save_core, load_core, load_core_at_startup, allow_persistent_storage;
 	short switch_to_structure_bsp_index;
@@ -145,6 +149,16 @@ static long *machine_get_player_list(long machine_index)
 }
 
 long network_standard_agreed_rate(void);
+/* (port/linux/game/demo.c: no demo plays) */
+static long demo_playback_sim_rate(void)
+{
+	return 0;
+}
+
+static boolean demo_playing(void)
+{
+	return FALSE;
+}
 void network_standard_new_game(void);
 
 static long config_integer(char const *name)
@@ -160,9 +174,15 @@ static int config_boolean(char const *name)
 	return !strcmp(name, "network.allow_opence") && allow_opence;
 }
 
+/* (moves as the settings change, as config.toml's count does) */
 static unsigned long config_changes(void)
 {
-	return 1;
+	unsigned long changes = (unsigned long)network_rate * 2 + (allow_opence ? 1 : 0);
+	char const *text;
+
+	for (text = game_mode ? game_mode : ""; *text; text++)
+		changes = changes * 31 + (unsigned char)*text;
+	return changes;
 }
 
 static char const *config_string(char const *name)
@@ -200,6 +220,8 @@ static void game_initial_pulse(void) {}
 static void game_state_try_and_load_from_persistent_storage(void) {}
 static void ui_widgets_disable_pause_game(short ticks) {}
 #define game_precache_new_map(map_name, blocking) ((void)0)
+/* (no MCC map: a failed load is not one to take back to the menus, mcc_main.c) */
+#define mcc_main_load_failed(map_name) FALSE
 /* (game.c's: the loading screen begins, the old map's clock goes) */
 static void game_dispose_from_old_map(void)
 {
@@ -214,7 +236,10 @@ static void director_script_camera(boolean on) {}
 static void scripted_camera_set(short a, short b, long c) {}
 static void main_menu_active(boolean active) {}
 static void main_menu_precache_resources(void) { ui_loads++; }
-enum { _error_immediate = 1 };
+enum { _error_immediate = 1, _error_silent = 2 };
+/* (main.c's: a map that does not load refused, which game_load's stub never
+does) */
+static void main_map_change_failed(char const *map_name) {}
 
 #include "under_test.inc"
 

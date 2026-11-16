@@ -90,6 +90,10 @@ Called on one thread, the renderer's, but for the statistics. */
 blocks are not kept) and the most bytes it keeps, its least recently used
 files deleted past it; the workers start with the first job */
 void xgpu_astc_cache_initialize(const char *folder, uint64_t most_bytes);
+/* the bytes of the cache's files in folder (another than the cache's own
+too, before it is initialized), each deleted with clear: the caches the
+player clears (host_caches) */
+uint64_t xgpu_astc_cache_files(const char *folder, int clear);
 
 struct xgpu_astc_job;
 

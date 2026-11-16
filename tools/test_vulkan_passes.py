@@ -120,8 +120,8 @@ int main(void)
 
 def test_post_shaders(tmp_path):
     # The anti-aliasing passes' generated file (tools/vulkan_post_shaders.py),
-    # with display.hdr's tone map and encoding and display.ambient_occlusion's
-    # passes: SMAA's lookup textures are
+    # with display.hdr's tone map and encoding, display.gamma's curve and
+    # display.panini's projection: SMAA's lookup textures are
     # port/third_party/smaa's, inflated, and each module is valid for Vulkan
     # 1.1 where spirv-val is installed.
     text = (ROOT / "port/linux/vulkan/xgpu_vulkan_post_shaders.c").read_text()
@@ -134,7 +134,6 @@ def test_post_shaders(tmp_path):
         assert struct.pack(f"<{len(words)}I", *words)[:size] == texels
     modules = sorted(name for name in arrays if name.endswith(("_vert", "_frag")))
     assert modules == ["clear_frag", "fxaa_frag", "gamma_frag", "hdr_encode_frag", "hdr_tone_map_frag", "hdr_tone_map_ms_frag",
-                       "occlusion_apply_frag", "occlusion_blur_frag", "occlusion_depth_frag", "occlusion_frag",
                        "panini_frag", "post_vert", "rotate_frag", "smaa_blend_frag", "smaa_edges_frag",
                        "smaa_weights_frag"]
     validator = shutil.which("spirv-val")
@@ -218,15 +217,19 @@ int main(void)
 def test_only_the_texture_stages_that_changed_are_looked_up_again(tmp_path):
     # The guest sends the four stages when any changes; each stage's image and
     # sampler depend on that stage alone, so only the changed ones are looked
-    # up again. A watched page written, a sampled target drawn into, the
-    # targets set and each frame's end look at them all again, and a
-    # palettized texture's stage whenever the stages are set (its palette is
-    # read as it is looked up, and is not watched).
+    # up again, and a stage keeps its sampler while its sampler is the same. A
+    # watched page written, a sampled target drawn into and each frame's end
+    # look at them all again; the targets set (before most draws), the stages
+    # of targets and images alone; and a palettized texture's stage whenever
+    # the stages are set (its palette is read as it is looked up, and is not
+    # watched).
     text = (ROOT / "port/linux/vulkan/xgpu_vulkan_stream.c").read_text()
     set_textures = text[text.index("static int stage_palettized("):
                         text.index("/* a copy of a target the draw draws into")]
     bind = text[text.index("/* the stages' images and samplers for a draw */"):
                 text.index("/* ---------- pipelines */")]
+    set_targets = text[text.index("static void stream_set_targets("):
+                       text.index("static void stream_clear(")]
     source = tmp_path / "textures_bind.c"
     source.write_text(r"""
 #include <assert.h>
@@ -256,8 +259,12 @@ static struct
     uint8_t border[4];
     unsigned int textures_dirty;
     int feedback_bound, uniforms_dirty;
-    uint32_t textures_serial, color;
+    uint32_t textures_serial, color, depth, samples, views, base;
+    int hud_group, preparing;
     struct xgpu_vulkan_texture textures[4];
+    struct xgpu_stream_sampler sampler_from[4];
+    uint8_t sampler_axes[4], sampler_valid[4];
+    VkSampler sampler_made[4];
 } stream;
 static struct xgpu_vulkan_image images[4];
 static unsigned looked_up[4], samplers, binds;
@@ -280,7 +287,11 @@ static struct xgpu_vulkan_image *xgpu_vulkan_textures_get(const struct xgpu_stre
 static const struct xgpu_vulkan_image_description *xgpu_vulkan_image_description(const struct xgpu_vulkan_image *image)
 { return &image->description; }
 static void targets_bind(void) { binds++; }
-""" + set_textures + bind + r"""
+static void prepass_prepare(void) { }
+#define XGPU_VULKAN_CLEAR_COLOR 1
+#define XGPU_VULKAN_CLEAR_ALPHA 2
+static int xgpu_vulkan_clear_prepare(int parts) { (void)parts; return 1; }
+""" + set_textures + bind + set_targets + r"""
 static void set(struct host_render_texture_stage stages[4])
 {
     memset(looked_up, 0, sizeof(looked_up));
@@ -308,16 +319,25 @@ int main(void)
     stages[2].stage.sampler.minify = 2;
     set(stages);
     assert(!looked_up[0] && !looked_up[1] && looked_up[2] == 1 && !looked_up[3]);
-    assert(stream.textures[2].sampler == 3 && stream.textures[0].image == &images[0]);
+    assert(stream.textures[2].sampler == 3 && stream.textures[0].image == &images[0] && samplers == 5);
+    /* its texture changed, its sampler not: the sampler kept */
+    stages[2].stage.resource = 4;
+    set(stages);
+    assert(looked_up[3] == 1 && stream.textures[2].image == &images[3] && stream.textures[2].sampler == 3);
+    assert(samplers == 5);
+    stages[2].stage.resource = 3;
+    set(stages);
+    assert(looked_up[2] == 1 && samplers == 5);
     /* the same stages again (another stage's levels written, say): none */
     binds = 0;
     set(stages);
     assert(!looked_up[0] && !looked_up[1] && !looked_up[2] && !looked_up[3] && !binds);
-    /* a watched page written: all of them */
+    /* a watched page written: all of them, their samplers kept */
     serial++;
     set(stages);
     for (index = 0; index < 4; index++)
         assert(looked_up[index] == 1);
+    assert(samplers == 5);
     /* a palettized stage with a palette: whenever the stages are set */
     stages[1].stage.resource_format = 0x0b00;
     stages[1].stage.palette = 0x1000;
@@ -325,7 +345,22 @@ int main(void)
     assert(looked_up[1] == 1 && !looked_up[0]);
     set(stages);
     assert(looked_up[1] == 1 && !looked_up[0] && !looked_up[2] && !looked_up[3]);
-    /* the targets set, or a frame's end: all of them */
+    /* the targets set: the stages of textures not (a target's would be) */
+    {
+        struct xgpu_stream_set_targets targets;
+
+        memset(&targets, 0, sizeof(targets));
+        targets.color = 7;
+        stream_set_targets(NULL, &targets);
+        assert(stream.color == 7 && !stream.textures_dirty);
+        stages[3].stage.source = _source_target;
+        set(stages);
+        stream_set_targets(NULL, &targets);
+        assert(stream.textures_dirty == 8u);
+        stages[3].stage.source = _source_texture;
+        set(stages);
+    }
+    /* a frame's end: all of them */
     stream.textures_dirty = TEXTURES_ALL;
     memset(looked_up, 0, sizeof(looked_up));
     textures_bind();

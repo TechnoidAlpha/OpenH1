@@ -58,6 +58,7 @@ _llseek's pointer.
 #include <linux/futex.h>
 #include <poll.h>
 #include <pthread.h>
+#include <sched.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,6 +75,11 @@ _llseek's pointer.
 
 #ifdef __ANDROID__
 #include <android/log.h>
+#endif
+
+/* (Linux's, which glibc's sched.h gives only to _GNU_SOURCE) */
+#ifndef SCHED_IDLE
+#define SCHED_IDLE 5
 #endif
 
 /* ---------- the values passed unchanged (halo_guest_syscall.h) */
@@ -669,6 +675,8 @@ static long passthrough_number(long long number)
 	case GUEST_SYS_getgid: return SYS_getgid;
 	case GUEST_SYS_getegid: return SYS_getegid;
 	case GUEST_SYS_sched_yield: return SYS_sched_yield;
+	/* (the calling thread's priority: who 0, as Linux sets it) */
+	case GUEST_SYS_setpriority: return SYS_setpriority;
 	case GUEST_SYS_getrandom: return SYS_getrandom;
 	case GUEST_SYS_kill: return SYS_kill;
 	case GUEST_SYS_tkill: return SYS_tkill;
@@ -838,6 +846,29 @@ long long host_syscall(long long number, long long a, long long b, long long c,
 	case GUEST_SYS_exit:
 	case GUEST_SYS_exit_group:
 		host_exit((int)a);
+
+	case GUEST_SYS_setpriority:
+	{
+		/* the calling thread's priority (who 0: Linux sets a thread's); the
+		lowest, 19, also idle scheduling, which runs it only on a processor
+		nothing else wants (world_sdf.c's bake: not even another niced
+		process's work waits for it). Lowering one's own is always allowed */
+		long result = result_of(syscall(SYS_setpriority, (int)a, (int)b, (int)c));
+
+		if (result == 0 && a == PRIO_PROCESS && b == 0 && (int)c >= 19)
+		{
+			struct sched_param parameter;
+
+			memset(&parameter, 0, sizeof(parameter));
+			sched_setscheduler(0, SCHED_IDLE, &parameter);
+		}
+		return result;
+	}
+
+	case GUEST_SYS_sched_getaffinity:
+		/* (the host's processors, all of them: musl's processor count) */
+		return halo_guest_affinity(GUEST(unsigned char *, c), (unsigned long)(uint32_t)b,
+			sysconf(_SC_NPROCESSORS_ONLN));
 
 	case GUEST_SYS_sysinfo:
 	{

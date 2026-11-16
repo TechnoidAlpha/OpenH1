@@ -9,11 +9,12 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, constant, function, mutated, read, run, structure  # noqa: E402
+from harness import skip_without_32_bit_abi  # noqa: E402
 
-CASES = ["keys", "bounds", "formats", "long-formats"]
+CASES = ["keys", "bounds", "formats", "long-formats", "channel-order"]
 
 SOURCES = {
-    "port/linux/src/port_mods.c": ["lower", "key_hash", "key_make", "names_equal"],
+    "port/linux/src/port_mods.c": ["lower", "key_hash", "key_make", "names_equal", "channel_order_xbox"],
     "port/linux/game/mods.c": ["mods_in_file"],
     "port/linux/game/mod_strings.c": ["character_get", "character_in", "format_conversions", "formats_match"],
 }
@@ -29,6 +30,8 @@ NEGATIVE_CONTROLS = {
                           "formats_match", "formats"),
     "counts-percent-signs": (("if (character_get(string, size, index, unicode) == '%')\n\t\t{",
                               "if (0)\n\t\t{"), "format_conversions", "formats"),
+    "channel-order-swapped": (("if (names_equal(text, \"xbox\"))\n\t\treturn 1;", "if (names_equal(text, \"xbox\"))\n\t\treturn 0;"),
+                              "channel_order_xbox", "channel-order"),
     "reads-low-bytes": (("return character && character < 0x80 &&", "return character &&"), "character_in",
                         "long-formats"),
 }
@@ -49,6 +52,12 @@ def generated(fault=None, faulty_function=None):
     return (("config.inc", config), ("under_test.inc", text))
 
 
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT = {
+    "adds-offset-and-size": "an offset and a size that overflow the game's 32-bit unsigned long, not a 64-bit one",
+}
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_case(case):
     status, output = run(build("mod_files", generated()), case)
@@ -58,5 +67,6 @@ def test_case(case):
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, faulty_function, case = NEGATIVE_CONTROLS[control]
+    skip_without_32_bit_abi(ABI_DEPENDENT, control, case)
     status, output = run(build("mod_files", generated(fault, faulty_function)), case)
     assert status == CHECK_FAILED, f"the code with a fault ({control}) passed '{case}': the test cannot see it"

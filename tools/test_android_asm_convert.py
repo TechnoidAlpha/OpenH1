@@ -153,3 +153,27 @@ def test_compiled_conversions_are_replaced(tmp_path):
     assert not SCALAR_FROM_SIMD.search(text)
     assert re.search(r"fcvtzs v\d+\.2s, v\d+\.2s", text)
     subprocess.run([clang, "--target=aarch64-linux-gnu", "-c", str(converted), "-o", str(obj)], check=True)
+
+
+def test_line_tables_are_kept():
+    """A compile with line tables keeps its .file and .loc lines, loses
+    Darwin's DWARF sections (their offsets would not be relocated in an ELF
+    link) and gets a compile unit of the code's range and the line table
+    (tools/symbolize_crash.py's source lines)"""
+    out = convert("\t.section\t__TEXT,__text,regular,pure_instructions",
+                  '\t.file\t1 "." "source/main/main.c"',
+                  "_main_crash:",
+                  "\t.loc\t1 1801 17 prologue_end ; source/main/main.c:1801:17",
+                  "\tret",
+                  "\t.section\t__DWARF,__debug_info,regular,debug",
+                  "Lsection_info:",
+                  "\t.long\t101 ; DW_AT_name")
+    assert out[:6] == ["\t.text", ".Lguest_text_begin:", '\t.file 1 "." "source/main/main.c"', "main_crash:",
+                       "\t.loc 1 1801 17 prologue_end", "\tret"]
+    assert "\t.long 101" not in out and ".Lsection_info:" not in out
+    assert out[6:8] == ["\t.text", ".Lguest_text_end:"]
+    assert '\t.asciz "source/main/main.c"' in out and '\t.asciz "."' in out
+    assert "\t.word .Lline_table_start0" in out
+    # (none without line tables)
+    assert not any("debug" in line for line in convert("\t.section\t__TEXT,__text,regular,pure_instructions",
+                                                       "_f:", "\tret"))

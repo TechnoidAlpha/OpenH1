@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>OpenH1: welcome back, soldier</title>
-<meta name="description" content="OpenH1 is an unofficial fan port of Halo: Combat Evolved, compiled natively from its decompiled Xbox source: 128-player multiplayer, online co-op, a native VR build for the Steam Frame, and new Vulkan and Metal renderers.">
+<title>GOAT H1: welcome back, soldier</title>
+<meta name="description" content="GOAT H1 is an unofficial fan port of Halo: Combat Evolved, compiled natively from its decompiled Xbox source: 128-player multiplayer, online co-op, a native VR build for the Steam Frame, and new Vulkan and Metal renderers.">
 <meta name="theme-color" content="#040504">
-<meta property="og:title" content="OpenH1: welcome back, soldier">
+<meta property="og:title" content="GOAT H1: welcome back, soldier">
 <meta property="og:description" content="The 2001 original, compiled natively from its decompiled Xbox source. 128 players, online co-op, VR on the Steam Frame, Vulkan and Metal.">
-<meta property="og:image" content="https://openh1.com/media/og.jpg">
-<meta property="og:url" content="https://openh1.com/">
+<meta property="og:image" content="https://goath1.com/media/og.jpg">
+<meta property="og:url" content="https://goath1.com/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
@@ -317,7 +317,7 @@ h2 { margin: 0; font: 900 clamp(40px, 6vw, 92px)/0.92 var(--display); font-stret
 .legend li { counter-increment: c; position: relative; padding: 6px 0 6px 34px; color: var(--soft); font-size: 15px; }
 .legend li::before { content: counter(c); position: absolute; left: 0; top: 6px; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--green); color: var(--green); display: grid; place-items: center; font: 700 10px/1 var(--mono); }
 
-/* comparisons: two layers of the same moment, Original under OpenH1.
+/* comparisons: two layers of the same moment, Original under GOAT H1.
    Each side's label sits in its own half and clips with it; neither glows,
    the larger side gets a quiet outline. */
 .pair { position: relative; aspect-ratio: 16 / 9; }
@@ -341,7 +341,7 @@ h2 { margin: 0; font: 900 clamp(40px, 6vw, 92px)/0.92 var(--display); font-stret
 .wipe .hint { position: absolute; z-index: 5; top: calc(50% + 38px); left: var(--pos, 50%); transform: translateX(-50%); padding: 6px 10px; border-radius: 999px; background: rgba(4, 5, 4, 0.72); color: var(--soft); font: 600 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
 .wipe:focus-visible .knob { outline: 2px solid var(--text); outline-offset: 3px; }
 
-/* the lens: OpenH1 inside the circle, the Original around it */
+/* the lens: GOAT H1 inside the circle, the Original around it */
 .lensbox { cursor: none; touch-action: none; --r: clamp(70px, 12vw, 150px); }
 .lensbox .after { clip-path: circle(var(--r) at var(--x, 50%) var(--y, 50%)); }
 .lensbox.all .after { clip-path: none; }
@@ -511,20 +511,52 @@ footer .legal + .legal { margin-top: 12px; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .co, .hero-media video { transition: none; }
 }
+
+/* ---------- renamed: a bar above the header for visitors sent here from openh1.com */
+.renamed { position: fixed; inset: 0 0 auto; z-index: 21; height: 44px; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 52px; box-sizing: border-box; background: var(--green); color: #060806; font: 500 15px/1.3 var(--body); text-align: center; }
+.renamed[hidden] { display: none; }
+.renamed b { font-weight: 700; }
+.renamed button { position: absolute; right: 8px; top: 4px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: transparent; color: #060806; font: 22px/1 var(--body); cursor: pointer; }
+.renamed button:hover, .renamed button:focus-visible { background: rgba(6, 8, 6, 0.12); }
+html.renamed-on .top { top: 44px; }
+@media (max-width: 560px) { .renamed { font-size: 14px; padding: 0 48px 0 16px; } }
 </style>
 </head>
 <body>
+<div class="renamed" id="renamed" role="status" hidden>
+  <span><b>OpenH1</b> is now <b>GOAT H1</b>. Same game, new name.</span>
+  <button type="button" id="renamed-close" aria-label="Close">×</button>
+</div>
+<script>
+// renamed: openh1.com sends its pages here with ?renamed; say so once, then
+// take it off the address so a reload or a shared link doesn't show it again
+(() => {
+  const params = new URLSearchParams(location.search);
+  if (!params.has('renamed')) return;
+  params.delete('renamed');
+  const q = params.toString();
+  history.replaceState(history.state, '', location.pathname + (q ? '?' + q : '') + location.hash);
+  const note = document.getElementById('renamed');
+  note.hidden = false;
+  document.documentElement.classList.add('renamed-on');
+  document.getElementById('renamed-close').addEventListener('click', () => {
+    note.hidden = true;
+    document.documentElement.classList.remove('renamed-on');
+  });
+})();
+</script>
 <a class="skip" href="#main">Skip to content</a>
 
 <header class="top" id="top">
   <div class="wrap">
-    <a class="wordmark" href="#main" aria-label="OpenH1, top of page"><img src="brand/openh1-lockup.svg" alt="OpenH1" width="129" height="22"></a>
+    <a class="wordmark" href="#main" aria-label="GOAT H1, top of page"><img src="brand/goath1-lockup.svg" alt="GOAT H1" width="127" height="22"></a>
     <nav aria-label="Sections">
       <a class="opt" href="#features">Features</a>
       <a class="opt" href="#lights">Picture</a>
       <a class="opt" href="#vr">VR</a>
       <a class="opt" href="#hood">Under the hood</a>
-      <a class="gh" href="https://github.com/OpenH1/OpenH1">GitHub</a>
+      <a class="opt" href="https://github.com/OpenH1/goath1">GitHub</a>
+      <a class="gh" href="#get">Download</a>
     </nav>
   </div>
 </header>
@@ -544,8 +576,8 @@ footer .legal + .legal { margin-top: 12px; }
       <p class="recompiled reveal d2"><span class="sr">The original, recompiled for Mac, Windows, Linux, Android, VR, 4K and 128 players.</span><span aria-hidden="true">The original, recompiled for <span class="spin" id="spin"><b class="on">Mac.</b><b>Windows.</b><b>Linux.</b><b>Android.</b><b>VR.</b><b>4K.</b><b>128 players.</b><b class="still">every screen.</b></span></span></p>
       <p class="lede reveal d2">The 2001 game, compiled natively from its decompiled source. It plays exactly as it shipped, and new Vulkan and Metal renderers make it look the way you remember.</p>
       <div class="actions reveal d3">
-        <a class="btn" href="https://github.com/OpenH1/OpenH1"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .6l2.3 4.6 5.1.8-3.7 3.6.9 5.1L8 12.3l-4.6 2.4.9-5.1L.6 6l5.1-.8z"/></svg>Star on GitHub</a>
-        <a class="btn ghost" href="#get"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M7 1h2v8.2l2.8-2.8 1.4 1.4L8 13 2.8 7.8l1.4-1.4L7 9.2zM2 14h12v1.5H2z"/></svg>Download</a>
+        <a class="btn" href="#get"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M7 1h2v8.2l2.8-2.8 1.4 1.4L8 13 2.8 7.8l1.4-1.4L7 9.2zM2 14h12v1.5H2z"/></svg>Download</a>
+        <a class="btn ghost" href="https://github.com/OpenH1/goath1"><svg viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .6l2.3 4.6 5.1.8-3.7 3.6.9 5.1L8 12.3l-4.6 2.4.9-5.1L.6 6l5.1-.8z"/></svg>Star on GitHub</a>
       </div>
     </div>
     <button class="pause" id="hero-pause" type="button" hidden aria-pressed="false"><svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M2 1h3v10H2zM7 1h3v10H7z"/></svg><span>Pause</span></button>
@@ -578,27 +610,27 @@ footer .legal + .legal { margin-top: 12px; }
           <p class="kicker mono">01 · Dynamic lights</p>
           <h2 id="lights-title">The glow lights <span class="lit">the room.</span></h2>
         </div>
-        <p class="reveal d1">The original lit a whole wall at once. OpenH1 lights every pixel by how far it is from the blast, so light pools near the fire and fades into the dark. Drag across the shot.</p>
+        <p class="reveal d1">The original lit a whole wall at once. GOAT H1 lights every pixel by how far it is from the blast, so light pools near the fire and fades into the dark. Drag across the shot.</p>
       </div>
-      <div class="shot pair wipe reveal" id="wipe" data-pair tabindex="0" role="slider" aria-label="Compare the Original and OpenH1" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-valuetext="Half Original, half OpenH1" style="aspect-ratio:4/3;width:min(100%,82vh*4/3);margin-inline:auto">
+      <div class="shot pair wipe reveal" id="wipe" data-pair tabindex="0" role="slider" aria-label="Compare the Original and GOAT H1" aria-valuemin="0" aria-valuemax="100" aria-valuenow="50" aria-valuetext="Half Original, half GOAT H1" style="aspect-ratio:4/3;width:min(100%,82vh*4/3);margin-inline:auto">
         <div class="layer before">
           <video muted loop playsinline preload="none" poster="media/lights-original-poster.webp" data-webm="media/lights-original.webm" data-mp4="media/lights-original.mp4" aria-label="A grenade going off in a room, as the game originally drew it: the whole room, its far walls and its ceiling turn yellow at once"></video>
         </div>
         <div class="layer after">
-          <video muted loop playsinline preload="none" poster="media/lights-openh1-poster.webp" data-webm="media/lights-openh1.webm" data-mp4="media/lights-openh1.mp4" aria-label="The same moment in OpenH1: the light pools around the blast and the rest of the room stays dark"></video>
-          <span class="side r">OpenH1</span>
+          <video muted loop playsinline preload="none" poster="media/lights-openh1-poster.webp" data-webm="media/lights-openh1.webm" data-mp4="media/lights-openh1.mp4" aria-label="The same moment in GOAT H1: the light pools around the blast and the rest of the room stays dark"></video>
+          <span class="side r">GOAT H1</span>
         </div>
         <div class="lclip"><span class="side l">Original</span></div>
         <span class="bar" aria-hidden="true"></span>
         <span class="knob" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg></span>
-        <span class="hint" aria-hidden="true">◀ Original · OpenH1 ▶</span>
+        <span class="hint" aria-hidden="true">◀ Original · GOAT H1 ▶</span>
       </div>
-      <ol class="legend always" aria-label="What OpenH1 changes in this shot">
+      <ol class="legend always" aria-label="What GOAT H1 changes in this shot">
         <li>The light pools around the blast and fades with distance.</li>
         <li>The far walls and the ceiling stay in shadow.</li>
         <li>Each surface keeps its own colour instead of turning yellow.</li>
       </ol>
-      <p class="caption mono">Real capture, the same run twice · Rat Race, a frag grenade · Original: the Classic preset at the Xbox's 640 × 480, a frame a tick · OpenH1: Enhanced, frames between ticks</p>
+      <p class="caption mono">Real capture, the same run twice · Rat Race, a frag grenade · Original: the Classic preset at the Xbox's 640 × 480, a frame a tick · GOAT H1: Enhanced, frames between ticks</p>
     </div>
   </section>
 
@@ -610,7 +642,7 @@ footer .legal + .legal { margin-top: 12px; }
           <p class="kicker mono">02 · Anti-aliasing</p>
           <h2 id="edges-title">No more <span class="lit">stairs.</span></h2>
         </div>
-        <p class="reveal d1">The original drew every edge in jagged steps. OpenH1 smooths them with SMAA, and draws the HUD after, pin-sharp. Move the lens along the cliffs.</p>
+        <p class="reveal d1">The original drew every edge in jagged steps. GOAT H1 smooths them with SMAA, and draws the HUD after, pin-sharp. Move the lens along the cliffs.</p>
       </div>
       <div class="shot pair lensbox reveal" id="lensbox" data-pair data-lx="0.29" data-ly="0.52" data-tx="0.62" data-ty="0.46">
         <div class="layer before pix">
@@ -619,14 +651,14 @@ footer .legal + .legal { margin-top: 12px; }
         <div class="layer after pix">
           <video muted loop playsinline preload="none" poster="media/edges-openh1-poster.webp" data-webm="media/edges-openh1.webm" data-mp4="media/edges-openh1.mp4" aria-hidden="true"></video>
         </div>
-        <span class="ring" aria-hidden="true"><span>OpenH1</span></span>
+        <span class="ring" aria-hidden="true"><span>GOAT H1</span></span>
         <span class="side l">Original</span>
       </div>
       <div class="under">
-        <span class="key mono"><span><i></i>Around the lens: Original</span><span><i class="g"></i>Inside the lens: OpenH1, SMAA</span></span>
-        <button class="toggle" id="lens-all" type="button" aria-pressed="false" aria-controls="lensbox">Show OpenH1 everywhere</button>
+        <span class="key mono"><span><i></i>Around the lens: Original</span><span><i class="g"></i>Inside the lens: GOAT H1, SMAA</span></span>
+        <button class="toggle" id="lens-all" type="button" aria-pressed="false" aria-controls="lensbox">Show GOAT H1 everywhere</button>
       </div>
-      <p class="caption mono">Real capture, the same run twice, enlarged 4× so the pixels show · Blood Gulch, a slow strafe · Original: the Classic preset at the Xbox's 640 × 480 · OpenH1: Enhanced, SMAA</p>
+      <p class="caption mono">Real capture, the same run twice, enlarged 4× so the pixels show · Blood Gulch, a slow strafe · Original: the Classic preset at the Xbox's 640 × 480 · GOAT H1: Enhanced, SMAA</p>
     </div>
   </section>
 
@@ -638,7 +670,7 @@ footer .legal + .legal { margin-top: 12px; }
           <p class="kicker mono">03 · The plasma glow</p>
           <h2 id="glow-title">Plasma that <span class="lit">glows.</span></h2>
         </div>
-        <p class="reveal d1">The original drew a plasma bolt as a flat flare. OpenH1 gives every bolt in flight a soft glow, and lets it light the walls, the floor and the gun in your hands.</p>
+        <p class="reveal d1">The original drew a plasma bolt as a flat flare. GOAT H1 gives every bolt in flight a soft glow, and lets it light the walls, the floor and the gun in your hands.</p>
       </div>
       <div class="clips" id="glow-clips">
         <div class="shot pair reveal" style="aspect-ratio:4/3">
@@ -646,16 +678,16 @@ footer .legal + .legal { margin-top: 12px; }
           <span class="side l">Original</span>
         </div>
         <div class="shot pair reveal d1" style="aspect-ratio:4/3">
-          <video muted loop playsinline preload="none" poster="media/glow-openh1-poster.webp" data-webm="media/glow-openh1.webm" data-mp4="media/glow-openh1.mp4" aria-label="The same shots in OpenH1: each bolt glows and lights the floor and the walls as it flies"></video>
-          <span class="side l">OpenH1</span>
+          <video muted loop playsinline preload="none" poster="media/glow-openh1-poster.webp" data-webm="media/glow-openh1.webm" data-mp4="media/glow-openh1.mp4" aria-label="The same shots in GOAT H1: each bolt glows and lights the floor and the walls as it flies"></video>
+          <span class="side l">GOAT H1</span>
         </div>
       </div>
-      <ol class="legend always" aria-label="What OpenH1 changes in this shot">
+      <ol class="legend always" aria-label="What GOAT H1 changes in this shot">
         <li>The bolt glows as it flies.</li>
         <li>It lights the floor and the walls on its way.</li>
         <li>Your weapon catches the light.</li>
       </ol>
-      <p class="caption mono">Real capture, the same run twice · Rat Race, the plasma rifle · Original: the Classic preset at the Xbox's 640 × 480, a frame a tick · OpenH1: Enhanced, frames between ticks</p>
+      <p class="caption mono">Real capture, the same run twice · Rat Race, the plasma rifle · Original: the Classic preset at the Xbox's 640 × 480, a frame a tick · GOAT H1: Enhanced, frames between ticks</p>
     </div>
   </section>
 
@@ -667,7 +699,7 @@ footer .legal + .legal { margin-top: 12px; }
           <p class="kicker mono">04 · Smooth at any refresh rate</p>
           <h2 id="smooth-title">Same game. <span class="lit">Every frame.</span></h2>
         </div>
-        <p class="reveal d1">The world still runs at 30 ticks a second, exactly as it shipped. OpenH1 draws every frame in between at your display's rate: the camera, every object, every light, the motion tracker.</p>
+        <p class="reveal d1">The world still runs at 30 ticks a second, exactly as it shipped. GOAT H1 draws every frame in between at your display's rate: the camera, every object, every light, the motion tracker.</p>
       </div>
       <div class="clips" id="clips">
         <div class="shot pair reveal" style="aspect-ratio:16/9">
@@ -675,15 +707,15 @@ footer .legal + .legal { margin-top: 12px; }
           <span class="side l">Original <small>30 fps</small></span>
         </div>
         <div class="shot pair reveal d1" style="aspect-ratio:16/9">
-          <video muted loop playsinline preload="none" poster="media/strafe-openh1-poster.webp" data-webm="media/strafe-openh1.webm" data-mp4="media/strafe-openh1.mp4" aria-label="OpenH1, 60 frames a second drawn between the ticks: the view moves smoothly"></video>
-          <span class="side l">OpenH1 <small>60 fps</small></span>
+          <video muted loop playsinline preload="none" poster="media/strafe-openh1-poster.webp" data-webm="media/strafe-openh1.webm" data-mp4="media/strafe-openh1.mp4" aria-label="GOAT H1, 60 frames a second drawn between the ticks: the view moves smoothly"></video>
+          <span class="side l">GOAT H1 <small>60 fps</small></span>
         </div>
       </div>
       <div class="under">
         <div class="key mono"><span>Same <b style="color:var(--text)">30 Hz</b> game</span><span>Same input</span><span>Shown at 60 fps</span></div>
         <button class="toggle" id="clips-play" type="button" aria-pressed="false">Play both</button>
       </div>
-      <p class="caption mono">Real capture, the same run twice, Rat Race: Original, one frame a tick · OpenH1, frames between ticks · 120 and 240 Hz displays get a frame for every refresh</p>
+      <p class="caption mono">Real capture, the same run twice, Rat Race: Original, one frame a tick · GOAT H1, frames between ticks · 120 and 240 Hz displays get a frame for every refresh</p>
     </div>
   </section>
 
@@ -730,7 +762,7 @@ footer .legal + .legal { margin-top: 12px; }
           <p class="kicker mono">06 · Wide field of view</p>
           <h2 id="wide-title">See more, <span class="lit">without the stretch.</span></h2>
         </div>
-        <p class="reveal d1">Turn your field of view up to see more around you, and a normal view smears everything at the sides like a funhouse mirror. OpenH1 can keep it in shape: upright edges stay straight, players at the sides keep their real shape, and your aim stays dead center. Few shooters offer it. (It's called Panini projection, after Giovanni Paolo Panini, who painted wide views of buildings.)</p>
+        <p class="reveal d1">Turn your field of view up to see more around you, and a normal view smears everything at the sides like a funhouse mirror. GOAT H1 can keep it in shape: upright edges stay straight, players at the sides keep their real shape, and your aim stays dead center. Few shooters offer it. (It's called Panini projection, after Giovanni Paolo Panini, who painted wide views of buildings.)</p>
       </div>
       <div class="clips" id="wide-shots">
         <div class="shot pair reveal">
@@ -762,11 +794,11 @@ footer .legal + .legal { margin-top: 12px; }
           <p class="kicker mono">07 · Responsive</p>
           <h2 id="fast-title">Built for <span class="lit">the fight.</span></h2>
         </div>
-        <p class="reveal d1">The time from your click to the shot on screen, measured in the game. The view turns the frame you move the mouse, your gun is drawn from the newest moment, and on OpenH1's own servers your input lands on a step up to 120 times a second instead of 30. Here is one click, slowed down.</p>
+        <p class="reveal d1">The time from your click to the shot on screen, measured in the game. The view turns the frame you move the mouse, your gun is drawn from the newest moment, and on GOAT H1's own servers your input lands on a step up to 120 times a second instead of 30. Here is one click, slowed down.</p>
       </div>
       <div class="race-head reveal">
         <h3 class="race-big">8× more responsive <span class="lit">than the original.</span></h3>
-        <p class="race-sub">OpenH1 fires <strong>6 ms</strong> after you click. The original took <strong>48 ms</strong>. In a close fight, that's who shoots first. And on OpenH1's own servers, your input reaches everyone 120 times a second.</p>
+        <p class="race-sub">GOAT H1 fires <strong>6 ms</strong> after you click. The original took <strong>48 ms</strong>. In a close fight, that's who shoots first. And on GOAT H1's own servers, your input reaches everyone 120 times a second.</p>
       </div>
       <figure class="race reveal" id="race" aria-describedby="race-desc">
         <div class="race-top" aria-hidden="true">
@@ -775,15 +807,15 @@ footer .legal + .legal { margin-top: 12px; }
         </div>
         <div class="race-grid" aria-hidden="true">
           <span class="lane-name old">Original<small>30 ticks a second</small></span>
-          <span class="lane-name new">OpenH1 120 Tick<small>120 steps a second</small></span>
+          <span class="lane-name new">GOAT H1 120 Tick<small>120 steps a second</small></span>
           <div class="track">
             <div class="lane old" data-name="Original"><span class="path"></span><span class="dot"></span><div class="bracket"><b>42 ms you'd be waiting</b></div><span class="wait mono">still waiting…</span><span class="scr"><img src="media/latency-pistol-idle.webp" alt="" width="640" height="360" loading="lazy" decoding="async"><img src="media/latency-pistol-fire.webp" alt="" width="640" height="360" loading="lazy" decoding="async"></span><span class="arr"><b>48 ms</b>Your shot shows on screen</span></div>
-            <div class="lane new" data-name="OpenH1 120 Tick"><span class="path"></span><span class="dot"></span><span class="scr"><img src="media/latency-pistol-idle.webp" alt="" width="640" height="360" loading="lazy" decoding="async"><img src="media/latency-pistol-fire.webp" alt="" width="640" height="360" loading="lazy" decoding="async"></span><span class="arr"><b>6 ms</b>Your shot shows on screen</span><b class="win">✓ Faster</b></div>
+            <div class="lane new" data-name="GOAT H1 120 Tick"><span class="path"></span><span class="dot"></span><span class="scr"><img src="media/latency-pistol-idle.webp" alt="" width="640" height="360" loading="lazy" decoding="async"><img src="media/latency-pistol-fire.webp" alt="" width="640" height="360" loading="lazy" decoding="async"></span><span class="arr"><b>6 ms</b>Your shot shows on screen</span><b class="win">✓ Faster</b></div>
             <div class="click"><i></i><svg viewBox="0 0 24 30"><path d="M2 2v22l6-6 4 10 4-2-4-9h8z" fill="#eef4ea" stroke="#040504" stroke-width="1.5" stroke-linejoin="round"/></svg><b class="mono">You click</b></div>
           </div>
           <div class="axis"><span style="left:0">0</span><span style="left:33.333%">20</span><span style="left:66.667%">40</span><span style="left:100%">60 ms</span></div>
         </div>
-        <p class="sr-only" id="race-desc">A slowed-down race from one click to the shot on screen: OpenH1 120 Tick shows the shot 5.9 milliseconds after the click, the original 47.7 milliseconds after it. OpenH1 fired 8 times sooner: 42 milliseconds you would otherwise be waiting. Faint marks behind each lane are its steps: every 33.3 milliseconds for the original, every 8.3 for OpenH1.</p>
+        <p class="sr-only" id="race-desc">A slowed-down race from one click to the shot on screen: GOAT H1 120 Tick shows the shot 5.9 milliseconds after the click, the original 47.7 milliseconds after it. GOAT H1 fired 8 times sooner: 42 milliseconds you would otherwise be waiting. Faint marks behind each lane are its steps: every 33.3 milliseconds for the original, every 8.3 for GOAT H1.</p>
         <ol class="steps mono" aria-hidden="true"><li><b>1</b>You click</li><li><b>2</b>The game reads it</li><li><b>3</b>Your shot appears</li></ol>
         <div class="race-foot">
           <button type="button" class="chip mono" id="race-pause" aria-pressed="false">Pause</button>
@@ -800,12 +832,12 @@ footer .legal + .legal { margin-top: 12px; }
             <span class="ms"><b>0 ms</b><span class="mono">median 47.7 ms</span></span>
           </span>
           <span class="pane new" data-ms="5.9">
-            <span class="tagl l mono">OpenH1 120 Tick</span>
+            <span class="tagl l mono">GOAT H1 120 Tick</span>
             <span class="fl"></span>
             <svg viewBox="-60 -60 120 120" aria-hidden="true" focusable="false"><circle class="xh" r="22"/><path class="xh" d="M0 -40v12M0 40v-12M-40 0h12M40 0h-12"/><path class="hm" d="M-17 -17l-12 -12M17 -17l12 -12M-17 17l-12 12M17 17l12 12"/></svg>
             <span class="ms"><b>0 ms</b><span class="mono">median 5.9 ms</span></span>
           </span>
-        <span class="sr-only" id="feel-label">Fire: both panels respond, the original after 48 milliseconds, OpenH1 120 Tick after 6</span>
+        <span class="sr-only" id="feel-label">Fire: both panels respond, the original after 48 milliseconds, GOAT H1 120 Tick after 6</span>
       </button>
       <p class="feel-hint mono" id="feel-hint"><span><strong>Click, tap</strong> or press <strong>Space</strong> to fire</span><span>Timed from our measurements</span></p>
       <p class="sr-only" id="feel-out" aria-live="polite"></p>
@@ -813,18 +845,18 @@ footer .legal + .legal { margin-top: 12px; }
 
       <div class="where reveal">
         <h3>Where the time goes</h3>
-        <p>Pressing fire, stage by stage. The original drew one frame a tick and queued it behind the display; OpenH1 acts on your press at the next step and shows it in the next frame.</p>
+        <p>Pressing fire, stage by stage. The original drew one frame a tick and queued it behind the display; GOAT H1 acts on your press at the next step and shows it in the next frame.</p>
         <ul class="stack" aria-label="Milliseconds from pressing fire to the frame that shows it, by stage, median">
           <li><span class="who">Original timing<small>one frame a tick, recreated</small></span><span class="track" role="img" aria-label="Original timing: 47.7 ms in all; reading the press 14.3 ms, waiting for the tick 0.5 ms, the tick to its frame 0.9 ms, drawing 2.1 ms, handing the frame on 29.4 ms"><i class="s-read" style="--v:14.3"></i><i class="s-tick" style="--v:0.5"></i><i class="s-frame" style="--v:0.9"></i><i class="s-draw" style="--v:2.1"></i><i class="s-hand" style="--v:29.4"></i></span><b class="tot">47.7 ms</b></li>
           <li><span class="who">Legacy 30<small>plays with OpenCE</small></span><span class="track" role="img" aria-label="Legacy 30: 19.7 ms in all; reading the press 1.0 ms, waiting for the tick 17.1 ms, the tick to its frame 0.4 ms, drawing 0.9 ms, handing the frame on 0.1 ms"><i class="s-read" style="--v:1.0"></i><i class="s-tick" style="--v:17.1"></i><i class="s-frame" style="--v:0.4"></i><i class="s-draw" style="--v:0.9"></i><i class="s-hand" style="--v:0.1"></i></span><b class="tot">19.7 ms</b></li>
-          <li><span class="who">OpenH1 60 Tick<small>OpenH1's own servers</small></span><span class="track" role="img" aria-label="OpenH1 60 Tick: 11.1 ms in all; reading the press 1.1 ms, waiting for the tick 9.1 ms, the tick to its frame 0.2 ms, drawing 0.9 ms, handing the frame on 0.6 ms"><i class="s-read" style="--v:1.1"></i><i class="s-tick" style="--v:9.1"></i><i class="s-frame" style="--v:0.2"></i><i class="s-draw" style="--v:0.9"></i><i class="s-hand" style="--v:0.6"></i></span><b class="tot">11.1 ms</b></li>
-          <li><span class="who">OpenH1 120 Tick<small>OpenH1's own servers</small></span><span class="track" role="img" aria-label="OpenH1 120 Tick: 5.9 ms in all; reading the press 1.1 ms, waiting for the tick 2.4 ms, the tick to its frame 0.3 ms, drawing 0.7 ms, handing the frame on 1.0 ms"><i class="s-read" style="--v:1.1"></i><i class="s-tick" style="--v:2.4"></i><i class="s-frame" style="--v:0.3"></i><i class="s-draw" style="--v:0.7"></i><i class="s-hand" style="--v:1.0"></i></span><b class="tot">5.9 ms</b></li>
+          <li><span class="who">GOAT H1 60 Tick<small>GOAT H1's own servers</small></span><span class="track" role="img" aria-label="GOAT H1 60 Tick: 11.1 ms in all; reading the press 1.1 ms, waiting for the tick 9.1 ms, the tick to its frame 0.2 ms, drawing 0.9 ms, handing the frame on 0.6 ms"><i class="s-read" style="--v:1.1"></i><i class="s-tick" style="--v:9.1"></i><i class="s-frame" style="--v:0.2"></i><i class="s-draw" style="--v:0.9"></i><i class="s-hand" style="--v:0.6"></i></span><b class="tot">11.1 ms</b></li>
+          <li><span class="who">GOAT H1 120 Tick<small>GOAT H1's own servers</small></span><span class="track" role="img" aria-label="GOAT H1 120 Tick: 5.9 ms in all; reading the press 1.1 ms, waiting for the tick 2.4 ms, the tick to its frame 0.3 ms, drawing 0.7 ms, handing the frame on 1.0 ms"><i class="s-read" style="--v:1.1"></i><i class="s-tick" style="--v:2.4"></i><i class="s-frame" style="--v:0.3"></i><i class="s-draw" style="--v:0.7"></i><i class="s-hand" style="--v:1.0"></i></span><b class="tot">5.9 ms</b></li>
         </ul>
         <ul class="keys" aria-hidden="true">
           <li class="s-read">Reading the press</li><li class="s-tick">Waiting for the tick</li><li class="s-frame">Tick to its frame</li><li class="s-draw">Drawing</li><li class="s-hand">Handing the frame on (the original's queue)</li>
         </ul>
       </div>
-      <p class="caption mono">Measured with the game's own log (debug.latency_log): pressing fire to the frame handed to the screen, median of 21 presses (50 for the original), on a Mac, in a local game with bots. Your display adds its own few milliseconds to both. The original's timing is recreated in OpenH1 with its improvements switched off: 30 ticks, one frame a tick, no frames between ticks, the view drawn from the last tick. Each stage is its own median. This is a local game: on the Xbox's system link, which ran in lockstep, your own moves also waited a round trip to the other machines.</p>
+      <p class="caption mono">Measured with the game's own log (debug.latency_log): pressing fire to the frame handed to the screen, median of 21 presses (50 for the original), on a Mac, in a local game with bots. Your display adds its own few milliseconds to both. The original's timing is recreated in GOAT H1 with its improvements switched off: 30 ticks, one frame a tick, no frames between ticks, the view drawn from the last tick. Each stage is its own median. This is a local game: on the Xbox's system link, which ran in lockstep, your own moves also waited a round trip to the other machines.</p>
     </div>
   </section>
 
@@ -860,7 +892,7 @@ footer .legal + .legal { margin-top: 12px; }
           <span class="hp mono">5.1 surround on surround systems · in VR, your real head</span>
         </div>
       </div>
-      <p class="caption mono">The sound here is your browser's own: Stereo pans it left and right, 3D is the browser's head model, a hint of the idea. In the game it's OpenH1's own mixer: a model of a head on headphones, the levels' obstruction, occlusion and reverb, Doppler · 5.1 surround on surround systems · in VR, your real head</p>
+      <p class="caption mono">The sound here is your browser's own: Stereo pans it left and right, 3D is the browser's head model, a hint of the idea. In the game it's GOAT H1's own mixer: a model of a head on headphones, the levels' obstruction, occlusion and reverb, Doppler · 5.1 surround on surround systems · in VR, your real head</p>
 
     </div>
   </section>
@@ -921,7 +953,7 @@ footer .legal + .legal { margin-top: 12px; }
         <dl>
           <div><dt>Code</dt><dd>The Xbox game's decompiled C, compiled natively, with few and marked changes<small>Not emulation. Xbox build 2342.</small></dd></div>
           <div><dt>Simulation</dt><dd>30 ticks a second, as shipped<small>The same calculations on every machine. The scorecard holds every change bit-identical at 30 Hz, tick by tick.</small></dd></div>
-          <div><dt>60 / 120 Hz</dt><dd>Sub-steps for what you feel in your hands, offline and on OpenH1 60 and 120 Tick servers<small>Every rate plays exactly as 30 does</small></dd></div>
+          <div><dt>60 / 120 Hz</dt><dd>Sub-steps for what you feel in your hands, offline and on GOAT H1 60 and 120 Tick servers<small>Every rate plays exactly as 30 does</small></dd></div>
           <div><dt>Frames</dt><dd>One per refresh of your display<small>Each frame drawn between the last two ticks; nothing the game calculates changes</small></dd></div>
           <div><dt>Architecture</dt><dd>A 64-bit program, with the game compiled as a 32-bit-pointer guest inside it<small>ILP32: arm64_32 on ARM, x32 on x86-64</small></dd></div>
           <div><dt>Renderers</dt><dd>Vulkan 1.3 on Windows, Linux, Android and in VR; Metal on the Mac<small>One command stream into both</small></dd></div>
@@ -930,7 +962,7 @@ footer .legal + .legal { margin-top: 12px; }
           <div><dt>Picture</dt><dd>SMAA or FXAA, anisotropic filtering, sharper shadows, per-pixel lighting<small>One switch: Video Setup › Graphics › Preset, Classic or Enhanced</small></dd></div>
           <div><dt>Lights</dt><dd>Per-pixel, inverse-square, in linear light, with a glow on every bolt<small>Placed where their objects are drawn, between ticks</small></dd></div>
           <div><dt>Display</dt><dd>Any resolution from 640 × 480, a field of view up to 150°, a HUD redrawn at 8×</dd></div>
-          <div><dt>Network</dt><dd>Legacy games play online with OpenCE players; OpenH1 60 and 120 Tick games send every sub-step of your input<small>Internet play needs no servers to set up</small></dd></div>
+          <div><dt>Network</dt><dd>Legacy games play online with OpenCE players; GOAT H1 60 and 120 Tick games send every sub-step of your input<small>Internet play needs no servers to set up</small></dd></div>
           <div><dt>Mods</dt><dd>Texture, sound, text and model packs from the game's Mods menu; Custom Edition maps that share themselves</dd></div>
           <div><dt>Licence</dt><dd>Free software, AGPL-3.0-or-later<small>No game data included</small></dd></div>
         </dl>
@@ -945,7 +977,7 @@ footer .legal + .legal { margin-top: 12px; }
         <div>
           <p class="kicker mono">12 · Your copy</p>
           <h2 id="start-title">Bring your <span class="lit">own game.</span></h2>
-          <p style="color:var(--soft);max-width:460px">OpenH1 contains none of the game's data. You need your own Xbox disc image of the game. Any version works.</p>
+          <p style="color:var(--soft);max-width:460px">GOAT H1 contains none of the game's data. You need your own Xbox disc image of the game. Any version works.</p>
         </div>
         <ol>
           <li>Download the game for your machine, <a href="#get">below</a>.</li>
@@ -971,7 +1003,7 @@ footer .legal + .legal { margin-top: 12px; }
         <article data-os="windows">
           <h3>Windows</h3>
           <p>For any Windows PC.</p>
-          <a class="btn" href="https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1-Windows.zip">Download for Windows</a>
+          <a class="btn" href="https://github.com/OpenH1/goath1/releases/latest/download/OpenH1-Windows.zip">Download for Windows</a>
           <ol>
             <li>Unzip it anywhere, and open <code>halo.exe</code>.</li>
             <li>Windows may say it protected your PC. It says that of any app that isn't signed: choose <em>More info</em>, then <em>Run anyway</em>.</li>
@@ -986,43 +1018,43 @@ footer .legal + .legal { margin-top: 12px; }
         <article data-os="linux">
           <h3>Steam Deck</h3>
           <p>And any 64-bit Linux PC with Vulkan.</p>
-          <a class="btn" href="https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1-Linux.zip">Download for Steam Deck</a>
+          <a class="btn" href="https://github.com/OpenH1/goath1/releases/latest/download/OpenH1-Linux.zip">Download for Steam Deck</a>
           <ol>
             <li>In Desktop Mode, download it and unzip it.</li>
             <li>Open <code>install.sh</code> in that folder, and choose your game's disc image or maps folder when it asks. Or skip that: put the disc image in Downloads or on your SD card.</li>
-            <li>Play OpenH1 from Game Mode. It finds the image.</li>
+            <li>Play it from Game Mode. It finds the image.</li>
           </ol>
           <a class="maps" href="/maps#give">Need your maps?</a>
         </article>
         <article data-os="mac">
           <h3>Mac</h3>
           <p>Apple silicon, macOS 14.4 or later.</p>
-          <a class="btn" href="https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1.dmg">Download for Mac</a>
+          <a class="btn" href="https://github.com/OpenH1/goath1/releases/latest/download/OpenH1.dmg">Download for Mac</a>
           <ol>
             <li>Open the downloaded <code>.dmg</code>.</li>
-            <li>Drag OpenH1 to Applications, and open it from there.</li>
+            <li>Drag the app to Applications, and open it from there.</li>
           </ol>
           <a class="maps" href="/maps#give">Need your maps?</a>
         </article>
         <article data-os="android">
           <h3>Android</h3>
           <p>64-bit Android 9 or later, with Vulkan 1.3.</p>
-          <a class="btn" href="https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1-Android.apk">Download for Android</a>
+          <a class="btn" href="https://github.com/OpenH1/goath1/releases/latest/download/OpenH1-Android.apk">Download for Android</a>
           <ol>
             <li>Download it on your phone, and open it.</li>
             <li>When Android asks, allow your browser to install apps, then choose <em>Install</em>.</li>
-            <li>Copy your disc image to the phone, open OpenH1 and choose it. It copies out its maps once.</li>
+            <li>Copy your disc image to the phone, open the app and choose it. It copies out its maps once.</li>
           </ol>
           <a class="maps" href="/maps#give">Need your maps?</a>
         </article>
         <article>
           <h3>Steam Frame</h3>
           <p>The VR build, for the headset.</p>
-          <a class="btn" href="https://github.com/OpenH1/OpenH1/releases/latest/download/OpenH1-Steam-Frame.zip">Download for Steam Frame</a>
+          <a class="btn" href="https://github.com/OpenH1/goath1/releases/latest/download/OpenH1-Steam-Frame.zip">Download for Steam Frame</a>
           <ol>
             <li>On the Frame, in Desktop Mode, download it and unzip it.</li>
             <li>Open <code>install.sh</code> in that folder, and choose your game's maps folder when it asks.</li>
-            <li>Start SteamVR, then OpenH1 VR from your Library.</li>
+            <li>Start SteamVR, then play it from your Library.</li>
           </ol>
           <a class="maps" href="/maps#give">Need your maps?</a>
         </article>
@@ -1034,16 +1066,16 @@ footer .legal + .legal { margin-top: 12px; }
 <footer>
   <div class="wrap">
     <div class="row">
-      <a class="wordmark" href="#main" aria-label="OpenH1, top of page"><img src="brand/openh1-lockup.svg" alt="OpenH1" width="105" height="18"></a>
+      <a class="wordmark" href="#main" aria-label="GOAT H1, top of page"><img src="brand/goath1-lockup.svg" alt="GOAT H1" width="104" height="18"></a>
       <nav aria-label="Footer">
-        <a href="https://github.com/OpenH1/OpenH1">Source</a>
-        <a href="https://github.com/OpenH1/OpenH1/issues">Report a problem</a>
-        <a href="https://github.com/OpenH1/OpenH1/blob/master/LICENSE">Licence</a>
+        <a href="https://github.com/OpenH1/goath1">Source</a>
+        <a href="https://github.com/OpenH1/goath1/issues">Report a problem</a>
+        <a href="https://github.com/OpenH1/goath1/blob/master/LICENSE">Licence</a>
         <a href="fonts/LICENSES.txt">Font licences</a>
       </nav>
     </div>
     <p class="legal">Free software under the AGPL-3.0-or-later. Built on <a href="https://github.com/OpenCommunityEdition/OpenCE">OpenCE</a>.
-      OpenH1 is an unofficial fan project, not endorsed by or affiliated with Microsoft, Xbox Game Studios, Halo Studios or Bungie.
+      GOAT H1 is an unofficial fan project, not endorsed by or affiliated with Microsoft, Xbox Game Studios, Halo Studios or Bungie.
       Halo is a trademark of Microsoft Corporation. No game data is included: you need your own copy of the game.</p>
   </div>
 </footer>
@@ -1158,7 +1190,7 @@ footer .legal + .legal { margin-top: 12px; }
     const fire = (t0) => {
       last = performance.now();
       for (const pane of panes) { const s = { pane, t0 }; pane.latest = s; shots.push(s); }
-      out.textContent = "Original 48 milliseconds, OpenH1 120 Tick 6 milliseconds";
+      out.textContent = "Original 48 milliseconds, GOAT H1 120 Tick 6 milliseconds";
       if (!running) { running = true; requestAnimationFrame(frame); }
     };
     feel.addEventListener("pointerdown", (e) => { if (e.button === 0) fire(e.timeStamp || performance.now()); });
@@ -1247,12 +1279,12 @@ footer .legal + .legal { margin-top: 12px; }
   }).observe(hero);
 
   // the wipes: callouts on the right-hand side show as it is revealed; each
-  // names its sides in data-before and data-after (the Original and OpenH1
+  // names its sides in data-before and data-after (the Original and GOAT H1
   // when it does not)
   document.querySelectorAll(".wipe").forEach((wipe) => {
     const wipeCos = [...wipe.querySelectorAll(".co")];
     const sideL = wipe.querySelector(".side.l"), sideR = wipe.querySelector(".side.r");
-    const before = wipe.dataset.before || "Original", after = wipe.dataset.after || "OpenH1";
+    const before = wipe.dataset.before || "Original", after = wipe.dataset.after || "GOAT H1";
     function setWipe(p) {
       p = Math.max(0, Math.min(100, p));
       wipe.style.setProperty("--pos", p + "%");
@@ -1298,7 +1330,7 @@ footer .legal + .legal { margin-top: 12px; }
   all.addEventListener("click", () => {
     const on = all.getAttribute("aria-pressed") !== "true";
     all.setAttribute("aria-pressed", String(on)); box.classList.toggle("all", on);
-    all.textContent = on ? "Back to the lens" : "Show OpenH1 everywhere";
+    all.textContent = on ? "Back to the lens" : "Show GOAT H1 everywhere";
   });
   group([...box.querySelectorAll("video")], box);
 

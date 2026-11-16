@@ -171,7 +171,7 @@ int main(int argc, char **argv)
 	}
 	CASE("rejection")
 	{
-		CHECK(contains(network_game_client_rejection_text(_rejection_code_version_too_old), L"Update OpenH1"),
+		CHECK(contains(network_game_client_rejection_text(_rejection_code_version_too_old), L"Update GOAT H1"),
 			"a newer host's: %ls", network_game_client_rejection_text(_rejection_code_version_too_old));
 		CHECK(contains(network_game_client_rejection_text(_rejection_code_version_too_new), L"Ask the host to update"),
 			"an older host's: %ls", network_game_client_rejection_text(_rejection_code_version_too_new));

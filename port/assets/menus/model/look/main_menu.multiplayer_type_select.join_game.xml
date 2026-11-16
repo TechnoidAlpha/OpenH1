@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The look of ce/main_menu.multiplayer_type_select.join_game.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_look.py) -->
+<model>
+	<look name="main_menu/multiplayer_type_select/join_game/join_game_screen" picture="main_menu/parts/background_tall">
+		<at widget="main_menu/multiplayer_type_select/join_game/header_join_game" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/browser_counts" x="0" y="0"/>
+		<at widget="main_menu/settings/tab_prompt_previous" x="24" y="46"/>
+		<at widget="main_menu/settings/tab_prompt_next" x="586" y="46"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/browser_columns_line" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/browser_empty" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/join_game_items_list" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/touch/browser_empty" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/touch/browser_counts" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/touch/join_game_items_list" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/header_join_game" box="0 0 640 40">
+		<at widget="main_menu/multiplayer_type_select/join_game/header_server_browser" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_lan" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_direct_link" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/header_lan" type="text" box="24 0 616 40" wide="-106 0" past="-143 0">
+		<text font="heading" color="#FF2995FD" at="0 9" string_list="main_menu/multiplayer_type_select/join_game/tall_titles" scale="1.4 1.4"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_counts" type="text" box="372 11 612 29" wide="106 0" past="143 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_columns_line" box="28 88 432 92" wide="-106 144" past="-143 194" picture="main_menu/parts/line_404"/>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_empty" type="text" box="52 220 408 300" wide="-106 144" past="-143 194">
+		<text font="ui\large_ui" color="#FF2896FF" align="center" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/join_game_items_list" type="column_list">
+		<at widget="main_menu/multiplayer_type_select/join_game/browser_tabs" x="0" y="46"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/join_game_header" x="0" y="74"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_1" x="28" y="92"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_2" x="28" y="116"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_3" x="28" y="140"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_4" x="28" y="164"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_5" x="28" y="188"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_6" x="28" y="212"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_7" x="28" y="236"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_8" x="28" y="260"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_9" x="28" y="284"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_10" x="28" y="308"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_11" x="28" y="332"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_12" x="28" y="356"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_13" x="28" y="380"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_14" x="28" y="404"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/browser_join_bar" x="0" y="402"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/browser_clear_bar" x="0" y="308"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/join_game_button_bar" x="0" y="448"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_tabs" type="column_list" box="0 0 640 22">
+		<at widget="main_menu/multiplayer_type_select/join_game/tab_all" x="56" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/tab_dedicated" x="144" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/tab_openh1" x="232" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/tab_legacy" x="320" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/tab_coop" x="408" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/tab_favorites" x="496" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/tab_all" type="text" box="0 0 86 22" wide="-106 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="ALL"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/tab_dedicated" type="text" box="0 0 86 22" wide="-64 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="DEDICATED"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/tab_openh1" type="text" box="0 0 86 22" wide="-21 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="GOAT H1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/tab_legacy" type="text" box="0 0 86 22" wide="21 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="LEGACY"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/tab_coop" type="text" box="0 0 86 22" wide="64 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="CO-OP"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/tab_favorites" type="text" box="0 0 86 22" wide="106 0" place="keep_ends" picture="main_menu/parts/tab">
+		<text font="ui\small_ui" color="#FF2896FF" align="center" at="0 2" text="FAVORITES"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/join_game_header" type="column_list" box="0 0 640 16">
+		<at widget="main_menu/multiplayer_type_select/join_game/op_sort_header_server_name" x="54" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_search_server_name" x="130" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_search_field_server_name" x="54" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_search_clear_server_name" x="148" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_sort_header_map" x="168" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_search_map" x="218" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_search_field_map" x="168" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_search_clear_map" x="230" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_sort_header_type" x="250" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_sort_header_players" x="298" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/op_sort_header_ping" x="372" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_sort_header_server_name" type="text" box="0 0 76 16" wide="-106 0" past="-143 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" text="SERVER"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_sort_header_map" type="text" box="0 0 50 16" wide="-42 0" past="-57 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" text="MAP"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_sort_header_type" type="text" box="0 0 40 16" wide="2 36" past="3 49">
+		<text font="ui\small_ui" color="#FF6F9CD0" text="MODE"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_sort_header_players" type="text" box="0 0 70 16" wide="38 0" past="51 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" text="PLAYERS"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_sort_header_ping" type="text" box="0 0 54 16" wide="38 0" past="51 0">
+		<text font="ui\small_ui" color="#FF6F9CD0" align="right" text="PING"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_arrows" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_search_server_name" box="0 0 16 16" wide="-106 0" past="-143 0" picture="main_menu/multiplayer_type_select/join_game/search_icon"/>
+	<look name="main_menu/multiplayer_type_select/join_game/op_search_field_server_name" type="text" box="0 0 92 16" wide="-106 64" past="-143 86" picture="main_menu/parts/outline_92x16">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="4 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_search_clear_server_name" box="0 0 16 16" wide="-42 0" past="-57 0" picture="main_menu/multiplayer_type_select/join_game/search_clear"/>
+	<look name="main_menu/multiplayer_type_select/join_game/op_search_map" box="0 0 16 16" wide="-42 0" past="-57 0" picture="main_menu/multiplayer_type_select/join_game/search_icon"/>
+	<look name="main_menu/multiplayer_type_select/join_game/op_search_field_map" type="text" box="0 0 60 16" wide="-42 44" past="-57 59" picture="main_menu/parts/outline_60x16">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="4 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/op_search_clear_map" box="0 0 16 16" wide="2 0" past="3 0" picture="main_menu/multiplayer_type_select/join_game/search_clear"/>
+	<look name="main_menu/multiplayer_type_select/join_game/header_sort_arrows" box="0 0 16 16">
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" x="0" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/header_sort_down_arrow" x="0" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/header_sort_up_arrow" box="0 0 16 16" picture="bitmaps/arrow_sm_up"/>
+	<look name="main_menu/multiplayer_type_select/join_game/header_sort_down_arrow" box="0 0 16 16" picture="bitmaps/arrow_sm_down"/>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_1" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_2" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_3" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_4" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_5" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_6" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_7" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_8" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_9" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_10" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_11" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_12" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_13" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_14" box="0 0 404 24" wide="-106 144" past="-143 194" picture="main_menu/parts/row_404x24">
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_favorite" x="6" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_server_name" x="26" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_map" x="140" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_type" x="222" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_players" x="284" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_tick" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_locked" x="0" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping" x="344" y="4"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" x="344" y="0"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/server_item_heading" x="26" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_heading" type="text" box="0 0 372 24" wide="0 144" past="0 194">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 3" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_server_name" type="text" box="0 0 110 24" wide="0 64" past="0 86">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="0 3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_map" type="text" box="0 0 78 24" wide="64 44" past="86 59">
+		<text font="ui\small_ui" color="#FFC9DCF7" at="0 3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_type" type="text" box="0 0 60 24" wide="108 36" past="146 49">
+		<text font="ui\small_ui" color="#FFC9DCF7" at="0 3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_players" type="text" box="0 0 56 24" wide="144 0" past="194 0">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 3"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_tick" type="text" box="0 0 30 16" picture="main_menu/parts/pill_30">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_locked" box="0 0 16 16" picture="main_menu/multiplayer_type_select/join_game/locked_icon"/>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_ping" box="0 0 24 16" wide="144 0" past="194 0" picture="main_menu/multiplayer_type_select/ping_bars"/>
+	<look name="main_menu/multiplayer_type_select/join_game/server_item_ping_ms" type="text" box="0 0 54 24" wide="144 0" past="194 0">
+		<text font="ui\small_ui" color="#FFC9DCF7" align="right" at="0 3" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_title" type="text" box="0 0 148 48" wide="0 68" past="0 92">
+		<text font="ui\large_ui" color="#FFFFFFFF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_where" type="text" box="0 0 148 44" wide="0 68" past="0 92">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_players_label" type="text" box="0 0 70 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_players" type="text" box="0 0 148 24" wide="0 68" past="0 92">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_ping_label" type="text" box="0 0 70 20">
+		<text font="ui\small_ui" color="#FF6F9CD0" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_ping" type="text" box="0 0 148 24" wide="0 68" past="0 92">
+		<text font="ui\large_ui" color="#FFFFFFFF" align="right" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_status" type="text" box="0 0 148 60" wide="0 68" past="0 92">
+		<text font="ui\small_ui" color="#FF2896FF" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_kind" type="text" box="0 0 64 16" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_tick" type="text" box="0 0 64 16" picture="main_menu/parts/pill_64">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/panel_opence" type="text" box="0 0 132 16" picture="main_menu/parts/pill_132">
+		<text font="ui\small_ui" color="#FFFFFFFF" align="center" at="0 -1" flags="no_focus_test"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_panel" box="440 74 612 436" wide="38 68" past="51 92" place="above_foot" picture="main_menu/parts/panel_172x362">
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_title" x="452" y="86"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_where" x="452" y="134"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_players_label" x="452" y="228"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_players" x="452" y="225"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_ping_label" x="452" y="250"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_ping" x="452" y="247"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_status" x="452" y="276"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_kind" x="452" y="182"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_tick" x="520" y="182"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/panel_opence" x="452" y="202"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_join_bar" type="column_list" box="0 0 640 24">
+		<at widget="main_menu/multiplayer_type_select/join_game/button_join" x="452" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/button_join" type="text" box="0 0 148 24" wide="38 68" past="51 92" picture="main_menu/parts/button_148x24">
+		<text font="ui\small_ui" color="#FFFFFFFF" at="12 3" text="%a-button JOIN GAME"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/browser_clear_bar" type="column_list" box="0 0 640 24">
+		<at widget="main_menu/multiplayer_type_select/join_game/button_clear_search" x="148" y="0"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/button_clear_search" type="text" box="0 0 164 24" wide="-34 0" past="-46 0" picture="main_menu/parts/item_164x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="8 3" text="%a-button CLEAR SEARCH"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/join_game_button_bar" type="column_list" box="0 0 640 28" place="foot">
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_favorite" x="24" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_refresh" x="134" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_paste" x="134" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_search" x="238" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_sort" x="337" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_filters" x="429" y="1"/>
+		<at widget="main_menu/multiplayer_type_select/join_game/prompt_back" x="528" y="1"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_favorite" type="text" box="0 0 108 24" wide="-106 0" picture="main_menu/parts/item_108x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%y-button FAVORITE"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_refresh" type="text" box="0 0 102 24" wide="-106 70" picture="main_menu/parts/item_102x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%right-trigger REFRESH"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_paste" type="text" box="0 0 124 24" wide="-106 63" picture="main_menu/parts/item_124x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%right-trigger PASTE LINK"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_search" type="text" box="0 0 97 24" wide="-21 62" picture="main_menu/parts/item_97x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%right-thumb SEARCH"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_sort" type="text" box="0 0 90 24" wide="51 0" picture="main_menu/parts/item_90x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%x-button SORT"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_filters" type="text" box="0 0 97 24" wide="51 55" picture="main_menu/parts/item_97x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%left-trigger FILTERS"/>
+	</look>
+	<look name="main_menu/multiplayer_type_select/join_game/prompt_back" type="text" box="0 0 88 24" wide="106 0" picture="main_menu/parts/item_88x24">
+		<text font="ui\small_ui" color="#FFCFE3FF" at="5 3" text="%b-button BACK"/>
+	</look>
+</model>

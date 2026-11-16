@@ -33,6 +33,7 @@ back until mods_enable true, or until the map changes.
 #include "cache/texture_cache.h"
 #include "main/console.h"
 #include "mods.h"
+#include "mcc_cache.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -255,6 +256,17 @@ long mods_bitmap_count(
 	return mods_globals.bitmap_count;
 }
 
+boolean mods_played_on_map(
+	long counts[4])
+{
+	counts[0] = mods_globals.string_count;
+	counts[1] = mods_globals.bitmap_count;
+	counts[2] = mods_globals.sound_count;
+	counts[3] = mods_globals.model_count;
+
+	return mods_globals.map_loaded && mods_globals.enabled;
+}
+
 /* (scenario_tags_load, once a map's tags are loaded) */
 void mods_tags_loaded(
 	char const *map_name)
@@ -264,6 +276,10 @@ void mods_tags_loaded(
 	goes, and nothing of it is written over the new map's tags) */
 	if (mods_globals.map_loaded)
 		mods_let_go(FALSE);
+	/* MCC owns its converted tags. Leave mods inactive, including console
+	and menu reapplication, until an Xbox or Custom Edition map loads. */
+	if (mcc_level_name(map_name))
+		return;
 	mods_globals.map_loaded = TRUE;
 	/* (none on the maps of the menus' pictures, drawn as they shipped:
 	a mod changes a map's tags, not its file's checksum, so a picture drawn

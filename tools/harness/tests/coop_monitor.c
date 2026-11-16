@@ -4,9 +4,6 @@
 #define PIN(v,l,h) ((v)<(l)?(l):((v)>(h)?(h):(v)))
 #define MAX(a,b) ((a)>(b)?(a):(b))
 #define VALID_INDEX(i,n) ((i)>=0&&(i)<(n))
-#define COOP_ENEMIES_SPREAD_SPOTS 90
-#define BIT_VECTOR_SIZE_IN_LONGS(n) (((n)+31)/32)
-#define SET_FLAG(v,n,b) ((b)?((v)|=1UL<<(n)):((v)&=~(1UL<<(n))))
 #define csmemset memset
 #define TAG_BLOCK_GET_ELEMENT(b,i,t) (&((t *)(b)->address)[i])
 enum {_game_difficulty_level_easy,_game_difficulty_level_normal,_game_difficulty_level_hard,_game_difficulty_level_impossible};
@@ -40,8 +37,7 @@ static struct actor_variant_definition *actor_variant_definition_get(long i){CHE
 static struct actor_definition *actor_definition_get(long i){CHECK(VALID_INDEX(i,4),"actor index");return &definitions[i];}
 static short encounter_get_actor_starting_location(long e,short s,int spawning){(void)e;(void)s;(void)spawning;return 0;}
 static int game_time_get(void){return 1;}
-static int coop_enemies_spread_position(real_point3d const *p,short n,long *taken,real_point3d *out){(void)n;(void)taken;*out=*p;out->x+=1;return 1;}
-static int coop_enemies_fallback_position(real_point3d const *p,short n,real_point3d *out){(void)n;*out=*p;return 1;}
+static int coop_enemies_extra_location(long e,short s,short l,short n,struct actor_starting_location *out){(void)e;(void)n;*out=*TAG_BLOCK_GET_ELEMENT(&squads[s].starting_locations,l,struct actor_starting_location);out->position.x+=1;return 1;}
 static void ai_get_major_upgrade_chance(short choice,int *upgrade,int *random,float *chance){(void)choice;*upgrade=upgrade_choice;*random=0;*chance=0;}
 static int ai_consider_major_upgrade(long e,short s,float c){(void)e;(void)s;(void)c;return 0;}
 static long actor_place(long v,long e,long s,struct actor_starting_location *p,int upgrade,short initial){(void)e;(void)s;(void)initial;if(upgrade)v=variants[v].major_upgrade_reference.index;placed[v]++;last_position=p->position;return 1;}

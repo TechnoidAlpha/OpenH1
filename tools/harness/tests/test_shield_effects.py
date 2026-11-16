@@ -21,6 +21,7 @@ def generated(fault=None):
                       re.S).group(0)
     state = re.search(r'static short client_effects = .*?;\nstatic short sent_effects = .*?;', source, re.S).group(0)
     code = '\n'.join([names, state, structure(source, 'shield_effects_message'), function(source, 'host_effects'),
+                      function(source, 'network_shield_effects_hosted'),
                       function(source, 'network_shield_effects_reset'), function(source, 'network_shield_effects'),
                       function(source, 'network_shield_effects_handle_message')])
     if fault:

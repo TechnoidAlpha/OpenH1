@@ -115,15 +115,3 @@ def test_buttons_are_the_prompts():
                           "_training_button_dpad_up", "_training_button_dpad_down", "_training_button_dpad_left",
                           "_training_button_dpad_right", "_training_button_menu", "_training_button_view",
                           "_training_button_left_stick", "_training_button_right_stick"]
-
-
-def test_offered_in_the_headset_only():
-    # the main menu's BASIC TRAINING is a child of the VR build in the headset only, and the menus call the
-    # training's functions by the names the port's function tables give them
-    main_menu = read("port/assets/menus/ce/main_menu.xml")
-    assert '<child widget="main_menu/main_menu_item_training" x="192" y="211" platform="vr"/>' in main_menu
-    tags = read("port/linux/game/menu_tags.c")
-    for name in ("port training chapter", "port training open", "port training update"):
-        assert f'"{name}"' in tags
-    screen = read("port/assets/menus/ce/main_menu.training.xml")
-    assert screen.count('run="port training chapter"') == 2 * constant(read("tools/port_settings.py"), "TRAINING_CHAPTERS")

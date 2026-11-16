@@ -512,6 +512,8 @@ void render_debug(
 {
 	short entry_index;
 
+	/* port: debug.render_marks (port/linux/game/render_marks.c) */
+	render_marks_kind(RENDER_MARK_DEBUG, "debug");
 	ai_debug_render();
 	ai_profile_render();
 	render_debug_object_damage();

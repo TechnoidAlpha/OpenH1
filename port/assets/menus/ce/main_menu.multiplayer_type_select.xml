@@ -1,55 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The PC version's menus: ui\shell\main_menu\multiplayer_type_select (tools/ce_menus.py) -->
 <menus>
-	<widget name="main_menu/multiplayer_type_select/header_multiplayer" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/header_multiplayer" flags="anchor_left" wide="-106 0">
+	<widget name="main_menu/multiplayer_type_select/header_multiplayer" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/multiplayer_type_select/header_multiplayer" flags="anchor_left" wide="-106 0" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\header_multiplayer + port_settings.WIDGET_PATCHES">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_options_pic" controller="1" left="288" top="82" width="307" height="244" bitmap="main_menu/multiplayer_type_select/mp_options">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_options_pic" controller="1" left="288" top="82" width="307" height="244" bitmap="main_menu/multiplayer_type_select/mp_options" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_options_pic">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_options_txt" type="text" controller="1" left="290" top="285" width="290" height="105" string_list="main_menu/multiplayer_type_select/multiplayer_option_descriptions" font="ui\large_ui" color="#FF2896FF">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_options_txt" type="text" controller="1" left="290" top="285" width="290" height="105" string_list="main_menu/multiplayer_type_select/multiplayer_option_descriptions" font="ui\large_ui" color="#FF2896FF" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_options_txt">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items anchor_right">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_button_bar" type="column_list" width="640" height="28" flags="pass_unhandled_to_focused_child left_right_tabs_items anchor_right" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_button_bar + port_settings.WIDGET_PATCHES">
 		<data input="common button bar update"/>
 		<child widget="main_menu/multiplayer_type_select/multiplayer_button_party" x="250" y="1"/>
 		<child widget="main_menu/multiplayer_type_select/multiplayer_button_refresh" x="380" y="1"/>
 		<child widget="common_button_back" x="510" y="1"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_create_internet_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_create_internet_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="2" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_create_internet_item + port_settings.WIDGET_PATCHES">
 		<on event="a" run="join controller to mp game"/>
 		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_create_item" type="text" left="51" width="232" height="32" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" flags="anchor_left">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_create_item" type="text" left="51" width="232" height="32" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="1" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" flags="anchor_left" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_create_item + port_settings.WIDGET_PATCHES">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_create_lan_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_create_lan_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_create_lan_item">
 		<on event="a" run="join controller to mp game"/>
 		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_gametypes_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_gametypes_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="5" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_gametypes_item">
 		<on event="a" open="main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen"/>
 		<on event="start" open="main_menu/settings_select/multiplayer_setup/playlist_select/gametype_select_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_direct_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_direct_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="4" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_join_direct_item + port_settings.WIDGET_PATCHES">
 		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
 		<on event="start" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/invite_note"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_internet_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" string_index="6">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_internet_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="6" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_join_internet_item + port_settings.WIDGET_PATCHES">
 		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
 		<on event="start" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_item" type="text" left="51" width="232" height="32" string_list="main_menu/multiplayer_type_select/multiplayer_options" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" flags="anchor_left">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_item" type="text" left="51" width="232" height="32" string_list="main_menu/multiplayer_type_select/multiplayer_options" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" flags="anchor_left" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_join_item + port_settings.WIDGET_PATCHES">
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_lan_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_join_lan_item" type="text" left="51" width="232" height="32" bitmap="bitmaps/list_item_bkd" string_list="main_menu/multiplayer_type_select/multiplayer_options" string_index="3" font="ui\large_ui" color="#FF2896FF" text_x="13" text_y="5" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_join_lan_item + port_settings.WIDGET_PATCHES">
 		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
 		<on event="start" run="mp type set mode" open="main_menu/multiplayer_type_select/join_game/join_game_screen"/>
 		<on event="left_mouse" run="mouse emit accept event"/>
 		<child widget="main_menu/multiplayer_type_select/item_note"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_list_ext_desc" controller="1" left="275" top="78" width="320" height="322" bitmap="bitmaps/list_field" color="#FF0080FF">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_list_ext_desc" controller="1" left="275" top="78" width="320" height="322" bitmap="bitmaps/list_field" color="#FF0080FF" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_list_ext_desc + port_settings.WIDGET_PATCHES">
 		<child widget="main_menu/multiplayer_type_select/multiplayer_options_pic"/>
 		<child widget="main_menu/multiplayer_type_select/multiplayer_options_txt" y="37"/>
 		<child widget="main_menu/current_profile_name"/>
@@ -78,7 +78,7 @@
 		<child widget="main_menu/multiplayer_type_select/best_2_players"/>
 		<child widget="main_menu/multiplayer_type_select/best_2_ping"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_select_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" description="main_menu/multiplayer_type_select/multiplayer_type_list_ext_desc">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_select_list" type="column_list" width="640" height="480" flags="pass_unhandled_to_focused_child up_down_tabs_items" description="main_menu/multiplayer_type_select/multiplayer_type_list_ext_desc" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_select_list + port_settings.WIDGET_PATCHES">
 		<data input="multiplayer type menu update desc"/>
 		<data input="port multiplayer status"/>
 		<child widget="main_menu/multiplayer_type_select/multiplayer_type_join_item" x="-32" y="78"/>
@@ -94,7 +94,7 @@
 		<child widget="main_menu/multiplayer_type_select/multiplayer_type_gametypes_item" y="370"/>
 		<child widget="main_menu/multiplayer_type_select/multiplayer_type_button_bar" y="414"/>
 	</widget>
-	<widget name="main_menu/multiplayer_type_select/multiplayer_type_select_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient">
+	<widget name="main_menu/multiplayer_type_select/multiplayer_type_select_screen" width="640" height="480" flags="pass_unhandled_to_focused_child" bitmap="bitmaps/gradient" source="tools/ce_menus.py widget_xml ui\shell\main_menu\multiplayer_type_select\multiplayer_type_select_screen + port_settings.WIDGET_PATCHES">
 		<on event="created" run="mp type menu initialize"/>
 		<on event="deleted" run="port multiplayer status end"/>
 		<on event="right_trigger" run="port multiplayer refresh"/>

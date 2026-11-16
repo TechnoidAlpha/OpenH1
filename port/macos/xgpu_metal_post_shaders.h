@@ -32,13 +32,6 @@ enum
 	encoding, which samples the frame (texture 0) over the viewport */
 	XGPU_METAL_POST_HDR_TONE_MAP,
 	XGPU_METAL_POST_HDR_ENCODE,
-	/* display.ambient_occlusion's (Vulkan's: xgpu_vulkan_post.c), and a
-	fill of the uniforms' metrics */
-	XGPU_METAL_POST_OCCLUSION_DEPTH,
-	XGPU_METAL_POST_OCCLUSION,
-	XGPU_METAL_POST_OCCLUSION_BLUR,
-	XGPU_METAL_POST_OCCLUSION_APPLY,
-	XGPU_METAL_POST_OCCLUSION_FILL,
 	/* display.gamma's curve (the Vulkan backend's), which the presentation
 	draws into an SDR drawable, sampling the frame (texture 0) over the
 	viewport */
@@ -62,10 +55,6 @@ struct xgpu_metal_post_uniforms
 	white, peak and output (xgpu_hdr.h; its metrics are the viewport's x, y,
 	1 / width, 1 / height) */
 	float hdr[4];
-	/* display.ambient_occlusion's: as the Vulkan backend's */
-	float camera[4];
-	float occlusion[4];
-	float sampling[4];
 	/* display.panini's: as the Vulkan backend's (the 3D view's corners in
 	the target's pixels, the projection's d, s and magnification, and the
 	rectilinear view's tangents at the view's left, right, top and bottom) */

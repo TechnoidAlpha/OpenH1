@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The behaviour of ce/main_menu.multiplayer_type_select.coop.xml's widgets, for the menu engine (docs/menu_engine.md; tools/menu_behaviour.py) -->
+<model>
+	<behaviour name="main_menu/multiplayer_type_select/multiplayer_type_coop_item">
+		<on event="a" run="port coop begin" open="main_menu/multiplayer_type_select/coop/player_2_profile_screen"/>
+		<on event="start" run="port coop begin" open="main_menu/multiplayer_type_select/coop/player_2_profile_screen"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/multiplayer_type_online_coop_item">
+		<on event="a" run="join controller to mp game"/>
+		<on event="a" run="mp type set mode" open="main_menu/multiplayer_type_select/connected/connected_map_select_wrapper"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/player_2_profile_screen" flags="pass_unhandled_to_focused_child"/>
+	<behaviour name="main_menu/multiplayer_type_select/coop/player_2_profile_list" flags="pass_unhandled_to_focused_child up_down_tabs_children">
+		<on event="created" run="port coop player 2 list initialize"/>
+		<on event="deleted" run="player profile list dispose"/>
+		<on event="custom_activation" run="port coop player 2" open="main_menu/campaign/mission_screen" branch="true"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_0">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_1">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_2">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_3">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_4">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_5">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_6">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_7">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_8">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_9">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/list_item_10">
+		<on event="a" run="single prev cl item activated"/>
+		<on event="start" run="single prev cl item activated"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+	</behaviour>
+	<behaviour name="main_menu/multiplayer_type_select/coop/player_2_button_bar" flags="pass_unhandled_to_focused_child left_right_tabs_items"/>
+</model>

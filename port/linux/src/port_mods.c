@@ -103,6 +103,9 @@ struct port_mod
 	struct mod_names load_after;
 	struct mod_names load_before;
 	struct mod_names incompatible;
+	/* its bitmaps' multipurpose maps and HUD meters keep their channels
+	where the Xbox does (channel_order = "xbox"), not where Halo PC does */
+	int xbox_channels;
 	/* turned off in the Mods menu */
 	int disabled;
 	/* its place in the load order */
@@ -336,12 +339,24 @@ static const char *toml_text(toml_datum_t table, const char *key, const char *pa
 	return value.u.s;
 }
 
+/* channel_order's value: 1 for "xbox", 0 for "pc", -1 for anything else
+(not case-sensitive) */
+static int channel_order_xbox(const char *text)
+{
+	if (names_equal(text, "xbox"))
+		return 1;
+	if (names_equal(text, "pc"))
+		return 0;
+	return -1;
+}
+
 /* reads the mod.toml of the mod in `folder`; 0 when there is none */
 static int mod_read(struct port_mod *mod, const char *root, const char *folder)
 {
 	static const char *const keys[] =
 	{
 		"name", "id", "version", "authors", "description", "maps", "load_after", "load_before", "incompatible", "format",
+		"channel_order",
 	};
 	char path[MAXIMUM_PATH_LENGTH];
 	size_t size = 0;
@@ -432,6 +447,16 @@ static int mod_read(struct port_mod *mod, const char *root, const char *folder)
 	else if (value.type != TOML_UNKNOWN && value.type != TOML_ARRAY)
 	{
 		platform_log("mods: %s line %d: maps is not a list of maps", path, value.lineno);
+	}
+	value = toml_get(result.toptab, "channel_order");
+	if (value.type == TOML_STRING && channel_order_xbox(value.u.s) >= 0)
+	{
+		mod->xbox_channels = channel_order_xbox(value.u.s);
+	}
+	else if (value.type != TOML_UNKNOWN)
+	{
+		platform_log("mods: %s line %d: channel_order is not \"pc\" or \"xbox\": its bitmaps are taken as Halo PC's",
+			path, value.lineno);
 	}
 	value = toml_get(result.toptab, "format");
 	if (value.type == TOML_INT64 && value.u.int64 > MODS_FORMAT)
@@ -1068,6 +1093,11 @@ const char *port_mods_file_mod(long file)
 	return file >= 0 && file < port_mods.file_count ? port_mods.mods[port_mods.files[file].mod].folder : "";
 }
 
+int port_mods_file_xbox_channels(long file)
+{
+	return file >= 0 && file < port_mods.file_count && port_mods.mods[port_mods.files[file].mod].xbox_channels;
+}
+
 const char *port_mods_file_path(long file)
 {
 	return file >= 0 && file < port_mods.file_count ? port_mods.files[file].path : "";
@@ -1099,11 +1129,55 @@ int port_mods_describe(long index, char *text, unsigned long size, const char *m
 	return 1;
 }
 
+/* what a mod's files replace (their tags' kinds, by their files' ends:
+docs/mods.md), as words: "sounds bitmaps models text", those it has */
+static void mod_replaces(long index, char *words, size_t size)
+{
+	static const struct
+	{
+		const char *word;
+		const char *const ends[4];
+	} kinds[] =
+	{
+		{ "sounds", { ".sound", NULL } },
+		{ "bitmaps", { ".bitmap", NULL } },
+		{ "models", { ".gbxmodel", ".model", NULL } },
+		{ "text", { ".unicode_string_list", ".string_list", ".hud_message_text", NULL } },
+	};
+	size_t kind;
+
+	words[0] = 0;
+	for (kind = 0; kind < sizeof(kinds) / sizeof(kinds[0]); kind++)
+	{
+		long file;
+		int found = 0;
+
+		for (file = 0; file < port_mods.file_count && !found; file++)
+		{
+			const char *key = port_mods.files[file].key;
+			size_t key_length = key ? strlen(key) : 0;
+			int end;
+
+			if (port_mods.files[file].mod != index)
+				continue;
+			for (end = 0; kinds[kind].ends[end] && !found; end++)
+			{
+				size_t end_length = strlen(kinds[kind].ends[end]);
+
+				found = key_length > end_length && !strcmp(key + key_length - end_length, kinds[kind].ends[end]);
+			}
+		}
+		if (found)
+			snprintf(words + strlen(words), size - strlen(words), "%s%s", words[0] ? " " : "", kinds[kind].word);
+	}
+}
+
 int port_mods_list(char *text, unsigned long size)
 {
 	long position;
 	int count = 0;
 	size_t length = 0;
+	int unlisted = 0;
 
 	if (!size)
 		return 0;
@@ -1119,16 +1193,85 @@ int port_mods_list(char *text, unsigned long size)
 		mod = &port_mods.mods[index];
 		if (!mod_on(mod))
 			continue;
-		written = snprintf(text + length, size - length, "%s%s%s%s", count ? "\n" : "", mod->folder,
-			mod->version[0] ? " " : "", mod->version);
-		/* (a line that does not fit is left out whole) */
+		{
+			char replaces[64];
+
+			mod_replaces(index, replaces, sizeof(replaces));
+			written = snprintf(text + length, size - length, "%s%s%s%s [%s]", count ? "\n" : "", mod->folder,
+				mod->version[0] ? " " : "", mod->version, replaces);
+		}
+		/* (a line that does not fit is left out whole, and said to be: its
+		host cannot tell what the mods left out replace) */
 		if (written < 0 || (size_t)written >= size - length)
 		{
 			text[length] = 0;
+			unlisted = 1;
 			break;
 		}
 		length += (size_t)written;
 		count++;
+	}
+	/* (the mods left out: a line of its own, if it fits where theirs did
+	not; else the last line given up for it) */
+	while (unlisted)
+	{
+		int written = snprintf(text + length, size - length, "%s... [unlisted]", count ? "\n" : "");
+
+		if ((written >= 0 && (size_t)written < size - length) || !length)
+			break;
+		{
+			char *last = strrchr(text, '\n');
+
+			length = last ? (size_t)(last - text) : 0;
+			text[length] = 0;
+			count -= count > 0;
+		}
+	}
+	return count;
+}
+
+int port_mods_report(char *text, unsigned long size, const char *map_name, int most)
+{
+	long position;
+	int count = 0, shown = 0;
+	size_t length = 0;
+
+	if (size)
+		text[0] = 0;
+	for (position = 0; position < port_mods.mod_count; position++)
+	{
+		long index = port_mods.ordered[position];
+		const struct port_mod *mod;
+		int written;
+
+		if (index < 0 || index >= port_mods.mod_count || port_mods.mods[index].order < 0)
+			continue;
+		mod = &port_mods.mods[index];
+		count++;
+		if (shown >= most || !size)
+			continue;
+		written = snprintf(text + length, size - length, "  - %s%s%s%s\n", mod->name, mod->version[0] ? " " : "",
+			mod->version, !map_name || mod_for_map(mod, map_name) ? "" : " (not for this map)");
+		/* (a mod.toml's name or version is one line of report.md) */
+		if (written > 0 && (size_t)written < size - length)
+		{
+			char *at;
+
+			for (at = text + length; at < text + length + written - 1; at++)
+			{
+				if ((unsigned char)*at < 0x20 || *at == 0x7F)
+					*at = ' ';
+			}
+		}
+		/* (a line that does not fit is left out whole) */
+		if (written < 0 || (size_t)written >= size - length)
+		{
+			text[length] = 0;
+			shown = most;
+			continue;
+		}
+		length += (size_t)written;
+		shown++;
 	}
 	return count;
 }

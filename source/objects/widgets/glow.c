@@ -549,6 +549,7 @@ void glow_render(
 
 	glow = glow_get(glow_index);
 	definition = glow_definition_get(glow->definition_index);
+	render_marks_next(RENDER_MARK_EFFECT, definition->texture.index); /* port: debug.render_marks */
 	build_sprites_begin(
 		&sprite_data,
 		glow->number_of_particles,

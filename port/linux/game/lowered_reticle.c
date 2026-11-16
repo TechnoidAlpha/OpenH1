@@ -15,8 +15,9 @@ place that says where), and the first-person weapon is posed along the aim
 
 The view turns for the player's own aim, on foot and in a seat, first or
 third person (the views display.fov widens: view_fov.c's render_fov_unit);
-not dead, in a cinematic, a scripted camera or a view the director holds,
-nor in the VR mode, whose view is the head's. A scope's zoom brings the
+not dead, a scripted camera or a view the director holds (a cinematic
+seen from the player's eyes turns it too, as play will: #784), nor in the
+VR mode, whose view is the head's. A scope's zoom brings the
 reticle back to the middle along the zoom's own transition, as Halo 2 and 3
 do, for the scope's picture is drawn about the middle.
 */
@@ -35,12 +36,10 @@ do, for the scope's picture is drawn about the middle.
 #include "units/units.h"
 
 #include "panini_projection.h"
+#include "player_settings.h"
 
 #include <math.h>
 
-double config_real(const char *name);
-int config_boolean(const char *name);
-unsigned long config_changes(void);
 #ifdef HALO_VR
 /* port/linux/src/vr.c */
 int halo_vr_running(void);
@@ -57,29 +56,34 @@ static struct render_camera aim_cameras[MAXIMUM_LOCAL_PLAYERS];
 
 /* ---------- the angles */
 
-/* display.lowered_reticle's fraction of the view's height below its middle:
-0 off */
-static real lowered_reticle_fraction(void)
+/* the local player's display.lowered_reticle's fraction of the view's
+height below its middle (their profile's: player_settings.c): 0 off */
+static real lowered_reticle_fraction(short local_player_index)
 {
-	static boolean initialized;
-	static unsigned long read_at;
-	static real fraction;
+	static struct
+	{
+		boolean initialized;
+		unsigned long read_at;
+		real fraction;
+	} players[PLAYER_SETTINGS_SLOTS];
+	short slot = PLAYER_SETTINGS_SLOT(local_player_index);
 	unsigned long changes = config_changes();
 
-	if (!initialized || read_at != changes)
+	if (!players[slot].initialized || players[slot].read_at != changes)
 	{
-		double percent = config_real("display.lowered_reticle_amount");
+		double percent = config_player_real(local_player_index, "display.lowered_reticle_amount");
 
 		/* (beyond the range, its end; not a number, none) */
 		if (percent > LOWERED_RETICLE_MAXIMUM_PERCENT)
 			percent = LOWERED_RETICLE_MAXIMUM_PERCENT;
 		else if (!(percent > 0.0))
 			percent = 0.0;
-		fraction = config_boolean("display.lowered_reticle") ? (real)(percent / 100.0) : 0.0f;
-		initialized = TRUE;
-		read_at = changes;
+		players[slot].fraction = config_player_boolean(local_player_index, "display.lowered_reticle") ?
+			(real)(percent / 100.0) : 0.0f;
+		players[slot].initialized = TRUE;
+		players[slot].read_at = changes;
 	}
-	return fraction;
+	return players[slot].fraction;
 }
 
 /* the angle above the aim a view looks for the aim to land that fraction of
@@ -92,7 +96,7 @@ that edge's tangent times twice the fraction; drawn as it is (rectilinear)
 the aim's tangent below the middle, tan(lift), is the same. Drawn through
 display.panini's projection (panini.c), the direction the screen shows
 there is the projection's inverse of it */
-static real lowered_reticle_lift_angle(real fraction, struct render_camera const *camera)
+static real lowered_reticle_lift_angle(short local_player_index, real fraction, struct render_camera const *camera)
 {
 	real vertical_field_of_view = camera->vertical_field_of_view;
 	real viewport_width = (real)(camera->viewport_bounds.x1 - camera->viewport_bounds.x0);
@@ -111,7 +115,7 @@ static real lowered_reticle_lift_angle(real fraction, struct render_camera const
 	tangent_x = tangent_y * viewport_width / viewport_height;
 	screen_tangent = 2.0f * fraction * tangent_y;
 	aim_tangent = screen_tangent;
-	if (panini_projection_of_view(tangent_x, tangent_y, &projection))
+	if (panini_projection_of_view(local_player_index, tangent_x, tangent_y, &projection))
 	{
 		real aim_across;
 
@@ -184,15 +188,15 @@ void lowered_reticle_view(short local_player_index, real game_field_of_view, str
 
 	if (local_player_index < 0 || local_player_index >= MAXIMUM_LOCAL_PLAYERS)
 		return;
-	fraction = lowered_reticle_fraction();
+	fraction = lowered_reticle_fraction(local_player_index);
 #ifdef HALO_VR
 	if (halo_vr_running())
 		fraction = 0.0f;
 #endif
 	if (fraction > 0.0f && (unit = render_fov_unit(local_player_index, &unit_index)) != NULL)
 	{
-		angle = lowered_reticle_lift_angle(fraction * lowered_reticle_zoom(unit, unit_index, game_field_of_view),
-			camera);
+		angle = lowered_reticle_lift_angle(local_player_index,
+			fraction * lowered_reticle_zoom(unit, unit_index, game_field_of_view), camera);
 		if (angle != 0.0f)
 			lowered_reticle_turn(&camera->forward, &camera->up, angle);
 	}

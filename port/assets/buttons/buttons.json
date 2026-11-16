@@ -209,6 +209,38 @@
    ]
   },
   {
+   "name": "mcc_black_butn__0",
+   "tag": "mcc\\buttons\\black",
+   "bitmap": 0,
+   "width": 32,
+   "height": 32,
+   "format": "dxt3",
+   "scale": 8,
+   "crc": 0,
+   "svg": "black_butn.svg",
+   "place": [
+    1,
+    0,
+    0
+   ]
+  },
+  {
+   "name": "mcc_white_butn__0",
+   "tag": "mcc\\buttons\\white",
+   "bitmap": 0,
+   "width": 32,
+   "height": 32,
+   "format": "dxt3",
+   "scale": 8,
+   "crc": 0,
+   "svg": "white_butn.svg",
+   "place": [
+    1,
+    0,
+    0
+   ]
+  },
+  {
    "name": "black_butn__0",
    "tag": "ui\\shell\\bitmaps\\black_butn",
    "bitmap": 0,
@@ -256,6 +288,12 @@
     0
    ],
    "classic": "#40eb40",
+   "restored": [
+    284,
+    80,
+    348,
+    160
+   ],
    "letter": [
     0.1685,
     0.1119
@@ -277,6 +315,12 @@
     0
    ],
    "classic": "#fa5946",
+   "restored": [
+    0,
+    0,
+    64,
+    80
+   ],
    "letter": [
     0.696,
     0.1204
@@ -298,6 +342,12 @@
     0
    ],
    "classic": "#3998fa",
+   "restored": [
+    64,
+    0,
+    128,
+    80
+   ],
    "letter": [
     0.3363,
     2.4589
@@ -319,6 +369,12 @@
     0
    ],
    "classic": "#f9e928",
+   "restored": [
+    128,
+    0,
+    192,
+    80
+   ],
    "letter": [
     -0.4376,
     2.2898
@@ -339,7 +395,13 @@
     0,
     0
    ],
-   "classic": "#000000"
+   "classic": "#000000",
+   "restored": [
+    348,
+    80,
+    400,
+    140
+   ]
   },
   {
    "name": "classic_white__0",
@@ -356,7 +418,13 @@
     0,
     0
    ],
-   "classic": "#ffffff"
+   "classic": "#ffffff",
+   "restored": [
+    348,
+    80,
+    400,
+    140
+   ]
   },
   {
    "name": "gem_a__0",
@@ -520,6 +588,22 @@
    "control_cell": [
     36,
     40
+   ]
+  },
+  {
+   "name": "menu_bkds__1",
+   "tag": "ui\\shell\\bitmaps\\menu_bkds",
+   "bitmap": 1,
+   "width": 256,
+   "height": 32,
+   "format": "dxt3",
+   "scale": 8,
+   "crc": 93885396,
+   "svg": "menu_bkds__1.svg",
+   "place": [
+    1,
+    0,
+    0
    ]
   }
  ]

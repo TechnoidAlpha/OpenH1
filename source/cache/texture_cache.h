@@ -38,6 +38,10 @@ void texture_cache_idle(
 	void);
 /* port: bounded preparation batches keep currently bound textures live. */
 void texture_cache_preparation_begin(void);
+/* port: a cached bitmap's texture as a map's preparation's journal keeps it
+(its tag and index) and its texture again, loaded */
+int texture_cache_port_identify(void const *texture, unsigned long *tag_index, unsigned long *bitmap_index);
+void *texture_cache_port_load(unsigned long tag_index, unsigned long bitmap_index);
 void texture_cache_return_memory(
 	void);
 void texture_cache_flush(

@@ -1,92 +1,107 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- The port's settings screen, in the PC version's style (tools/port_settings.py) -->
 <menus>
-	<widget name="main_menu/settings/header_settings" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings/header_settings" wide="-106 0">
+	<widget name="main_menu/settings/header_settings" controller="1" left="35" top="11" width="605" height="59" bitmap="main_menu/settings/header_settings" wide="-106 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/tab_panel" controller="1" left="388" top="104" width="224" height="296" bitmap="main_menu/settings/tab_panel" wide="14 92">
-		<child widget="main_menu/settings/panel_name" x="402" y="116"/>
-		<child widget="main_menu/settings/panel_value" x="402" y="130"/>
-		<child widget="main_menu/settings/panel_classic" x="400" y="156"/>
-		<child widget="main_menu/settings/panel_classic_frame" x="400" y="156"/>
-		<child widget="main_menu/settings/panel_classic_caption" x="400" y="218"/>
-		<child widget="main_menu/settings/panel_enhanced" x="504" y="156"/>
-		<child widget="main_menu/settings/panel_enhanced_frame" x="504" y="156"/>
-		<child widget="main_menu/settings/panel_enhanced_caption" x="504" y="218"/>
+	<widget name="main_menu/settings/profile" type="text" controller="1" left="372" top="11" width="240" height="18" color="#FF6F9CD0" align="right" text_flags="no_focus_test" wide="106 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+		<data input="port settings profile"/>
+	</widget>
+	<widget name="main_menu/settings/tab_panel" controller="1" left="388" top="104" width="224" height="296" flags="keep_ends" bitmap="main_menu/settings/tab_panel" wide="138 -32" source="tools/port_settings.py settings_files/_settings_shared">
+		<child widget="main_menu/settings/panel_name" x="400" y="116"/>
+		<child widget="main_menu/settings/panel_value" x="400" y="130"/>
+		<child widget="main_menu/settings/panel_classic" x="409" y="156"/>
+		<child widget="main_menu/settings/panel_classic_frame" x="409" y="156"/>
+		<child widget="main_menu/settings/panel_classic_caption" x="409" y="213"/>
+		<child widget="main_menu/settings/panel_enhanced" x="503" y="156"/>
+		<child widget="main_menu/settings/panel_enhanced_frame" x="503" y="156"/>
+		<child widget="main_menu/settings/panel_enhanced_caption" x="503" y="213"/>
 		<child widget="main_menu/settings/panel_picture_fov" x="420" y="156"/>
 		<child widget="main_menu/settings/panel_picture_anti_aliasing" x="420" y="156"/>
 		<child widget="main_menu/settings/panel_picture_anti_aliasing_android" x="420" y="156"/>
-		<child widget="main_menu/settings/panel_picture_resolution_scaling" x="420" y="156"/>
+		<child widget="main_menu/settings/panel_picture_render_resolution" x="420" y="156"/>
 		<child widget="main_menu/settings/panel_picture_high_res_hud" x="420" y="156"/>
 		<child widget="main_menu/settings/panel_picture_hud_button_style" x="420" y="156"/>
 		<child widget="main_menu/settings/panel_picture_hdr_mode" x="420" y="156"/>
-		<child widget="main_menu/settings/panel_text" x="402" y="156"/>
-		<child widget="main_menu/settings/panel_note" x="402" y="360"/>
+		<child widget="main_menu/settings/panel_text" x="400" y="156"/>
+		<child widget="main_menu/settings/panel_note" x="400" y="360"/>
+		<child widget="main_menu/settings/panel_facts" x="400" y="360"/>
+		<child widget="main_menu/settings/panel_facts_values" x="400" y="360"/>
 	</widget>
-	<widget name="main_menu/settings/page_panel" controller="1" left="388" top="80" width="224" height="320" bitmap="main_menu/settings/page_panel" wide="14 92">
-		<child widget="main_menu/settings/panel_name" x="402" y="92"/>
-		<child widget="main_menu/settings/panel_value" x="402" y="106"/>
-		<child widget="main_menu/settings/panel_classic" x="400" y="132"/>
-		<child widget="main_menu/settings/panel_classic_frame" x="400" y="132"/>
-		<child widget="main_menu/settings/panel_classic_caption" x="400" y="194"/>
-		<child widget="main_menu/settings/panel_enhanced" x="504" y="132"/>
-		<child widget="main_menu/settings/panel_enhanced_frame" x="504" y="132"/>
-		<child widget="main_menu/settings/panel_enhanced_caption" x="504" y="194"/>
+	<widget name="main_menu/settings/page_panel" controller="1" left="388" top="80" width="224" height="320" flags="keep_ends" bitmap="main_menu/settings/page_panel" wide="138 -32" source="tools/port_settings.py settings_files/_settings_shared">
+		<child widget="main_menu/settings/panel_name" x="400" y="92"/>
+		<child widget="main_menu/settings/panel_value" x="400" y="106"/>
+		<child widget="main_menu/settings/panel_classic" x="409" y="132"/>
+		<child widget="main_menu/settings/panel_classic_frame" x="409" y="132"/>
+		<child widget="main_menu/settings/panel_classic_caption" x="409" y="189"/>
+		<child widget="main_menu/settings/panel_enhanced" x="503" y="132"/>
+		<child widget="main_menu/settings/panel_enhanced_frame" x="503" y="132"/>
+		<child widget="main_menu/settings/panel_enhanced_caption" x="503" y="189"/>
 		<child widget="main_menu/settings/panel_picture_fov" x="420" y="132"/>
 		<child widget="main_menu/settings/panel_picture_anti_aliasing" x="420" y="132"/>
 		<child widget="main_menu/settings/panel_picture_anti_aliasing_android" x="420" y="132"/>
-		<child widget="main_menu/settings/panel_picture_resolution_scaling" x="420" y="132"/>
+		<child widget="main_menu/settings/panel_picture_render_resolution" x="420" y="132"/>
 		<child widget="main_menu/settings/panel_picture_high_res_hud" x="420" y="132"/>
 		<child widget="main_menu/settings/panel_picture_hud_button_style" x="420" y="132"/>
 		<child widget="main_menu/settings/panel_picture_hdr_mode" x="420" y="132"/>
-		<child widget="main_menu/settings/panel_text" x="402" y="132"/>
-		<child widget="main_menu/settings/panel_note" x="402" y="360"/>
+		<child widget="main_menu/settings/panel_text" x="400" y="132"/>
+		<child widget="main_menu/settings/panel_note" x="400" y="360"/>
+		<child widget="main_menu/settings/panel_facts" x="400" y="360"/>
+		<child widget="main_menu/settings/panel_facts_values" x="400" y="360"/>
 	</widget>
-	<widget name="main_menu/settings/panel_name" type="text" controller="1" width="196" height="18" color="#FF6F9CD0" wide="0 92" font="ui\small_ui">
+	<widget name="main_menu/settings/panel_name" type="text" controller="1" width="200" height="38" color="#FF6F9CD0" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_value" type="text" controller="1" width="196" height="24" font="ui\large_ui" color="#FFFFFFFF" wide="0 92">
+	<widget name="main_menu/settings/panel_value" type="text" controller="1" width="200" height="180" font="ui\large_ui" color="#FFFFFFFF" wide="0 -32" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_text" type="text" controller="1" width="196" height="220" color="#FF2896FF" wide="0 92" font="ui\small_ui">
+	<widget name="main_menu/settings/panel_text" type="text" controller="1" width="200" height="220" color="#FF2896FF" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_note" type="text" controller="1" width="196" height="40" color="#FF6F9CD0" wide="0 92" font="ui\small_ui">
+	<widget name="main_menu/settings/panel_note" type="text" controller="1" width="200" height="40" color="#FF6F9CD0" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_classic" controller="1" width="96" height="60" bitmap="main_menu/settings/graphics_classic" wide="46 0">
+	<widget name="main_menu/settings/panel_facts" type="text" controller="1" width="200" height="40" color="#FF6F9CD0" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_classic_frame" controller="1" width="96" height="60" bitmap="main_menu/settings/still_frame" wide="46 0">
+	<widget name="main_menu/settings/panel_facts_values" type="text" controller="1" width="200" height="40" color="#FFFFFFFF" align="right" wide="0 -32" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_classic_caption" type="text" controller="1" width="96" height="18" string_list="main_menu/settings/still_captions" color="#FF2896FF" align="center" wide="46 0" font="ui\small_ui">
+	<widget name="main_menu/settings/panel_classic" controller="1" width="88" height="55" bitmap="main_menu/settings/graphics_classic" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_enhanced" controller="1" width="96" height="60" bitmap="main_menu/settings/graphics_enhanced" wide="46 0">
+	<widget name="main_menu/settings/panel_classic_frame" controller="1" width="88" height="55" bitmap="main_menu/settings/still_frame" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_enhanced_frame" controller="1" width="96" height="60" bitmap="main_menu/settings/still_frame" wide="46 0">
+	<widget name="main_menu/settings/panel_classic_caption" type="text" controller="1" width="88" height="18" string_list="main_menu/settings/still_captions" color="#FF2896FF" align="center" wide="-16 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_enhanced_caption" type="text" controller="1" width="96" height="18" string_list="main_menu/settings/still_captions" string_index="1" color="#FF2896FF" align="center" wide="46 0" font="ui\small_ui">
+	<widget name="main_menu/settings/panel_enhanced" controller="1" width="88" height="55" bitmap="main_menu/settings/graphics_enhanced" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_fov" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_fov" wide="46 0">
+	<widget name="main_menu/settings/panel_enhanced_frame" controller="1" width="88" height="55" bitmap="main_menu/settings/still_frame" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_anti_aliasing" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_anti_aliasing" wide="46 0">
+	<widget name="main_menu/settings/panel_enhanced_caption" type="text" controller="1" width="88" height="18" string_list="main_menu/settings/still_captions" string_index="1" color="#FF2896FF" align="center" wide="-16 0" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_anti_aliasing_android" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_anti_aliasing_android" wide="46 0">
+	<widget name="main_menu/settings/panel_picture_fov" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_fov" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_resolution_scaling" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_resolution_scaling" wide="46 0">
+	<widget name="main_menu/settings/panel_picture_anti_aliasing" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_anti_aliasing" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_high_res_hud" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_high_res_hud" wide="46 0">
+	<widget name="main_menu/settings/panel_picture_anti_aliasing_android" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_anti_aliasing_android" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_hud_button_style" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_hud_button_style" wide="46 0">
+	<widget name="main_menu/settings/panel_picture_render_resolution" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_render_resolution" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/panel_picture_hdr_mode" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_hdr_mode" wide="46 0">
+	<widget name="main_menu/settings/panel_picture_high_res_hud" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_high_res_hud" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
-	<widget name="main_menu/settings/settings_creating_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1">
+	<widget name="main_menu/settings/panel_picture_hud_button_style" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_hud_button_style" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
+	</widget>
+	<widget name="main_menu/settings/panel_picture_hdr_mode" controller="1" width="160" height="100" bitmap="main_menu/settings/pictures_hdr_mode" wide="-16 0" source="tools/port_settings.py settings_files/_settings_shared">
+	</widget>
+	<widget name="main_menu/settings/settings_creating_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1" source="tools/port_settings.py settings_files/_settings_shared">
 		<on event="deleted" run="new campaign decision" open="main_menu/settings/settings_saving_profile"/>
 	</widget>
-	<widget name="main_menu/settings/settings_saving_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1000" auto_close_fade="500">
+	<widget name="main_menu/settings/settings_saving_profile" width="640" height="480" flags="pass_unhandled_to_focused_child no_history" auto_close="1000" auto_close_fade="500" source="tools/port_settings.py settings_files/_settings_shared">
 		<on event="b" run="NULL"/>
 		<on event="back" run="NULL"/>
 		<on event="deleted" run="NULL" back="true"/>
 		<child widget="error/warning_creating_player_profile_screen"/>
 	</widget>
-	<widget name="main_menu/settings/tab_prompt_previous" type="text" controller="1" width="30" height="22" wide="-106 0" text="%white-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings/tab_prompt_previous" type="text" controller="1" width="30" height="22" wide="-106 0" text="%white-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
-	<widget name="main_menu/settings/tab_prompt_next" type="text" controller="1" width="30" height="22" wide="106 0" text="%black-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui">
+	<widget name="main_menu/settings/tab_prompt_next" type="text" controller="1" width="30" height="22" wide="106 0" text="%black-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+	</widget>
+	<widget name="main_menu/settings/tabs/tab_prompt_previous" type="text" controller="1" width="30" height="22" wide="-106 0" text="%white-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+	</widget>
+	<widget name="main_menu/settings/tabs/tab_prompt_next" type="text" controller="1" width="30" height="22" wide="106 0" text="%black-button" color="#FF2896FF" text_x="2" text_y="2" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
 	</widget>
 	<strings name="main_menu/settings/tab_names">
 		<string text="VIDEO"/>
@@ -95,6 +110,7 @@
 		<string text="ONLINE"/>
 		<string text="INTERFACE"/>
 		<string text="PROFILES"/>
+		<string text="MODS"/>
 	</strings>
 	<strings name="main_menu/settings/tab_about">
 		<string text="The window, the frame rate and the graphics."/>
@@ -102,7 +118,8 @@
 		<string text="The mouse, the controller and the keys."/>
 		<string text="Internet play, sharing maps and updates."/>
 		<string text="The HUD, the players' names, the scoreboard and the chat."/>
-		<string text="Your player profiles, your name and color, and the mods."/>
+		<string text="Your player profiles, your name and color, and the disk space the maps and caches take."/>
+		<string text="Texture, sound, text and model packs from the mods folder."/>
 	</strings>
 	<strings name="main_menu/settings/button_help">
 		<string text="Puts this tab's settings back to their defaults. Nothing changes until OK."/>
@@ -116,8 +133,43 @@
 		<string text="CLASSIC"/>
 		<string text="ENHANCED"/>
 	</strings>
-	<widget name="main_menu/settings/stepped_left" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_left" wide="120 0">
+	<widget name="main_menu/settings/search_field" controller="1" width="20" height="22" flags="keep_ends" bitmap="main_menu/settings/search_field" wide="-106 110" source="tools/port_settings.py settings_files/_settings_shared">
+		<on event="a" run="port settings search"/>
+		<on event="start" run="port settings search"/>
+		<on event="left_mouse" run="mouse emit accept event"/>
+		<child widget="main_menu/settings/search_icon" x="2" y="3"/>
+		<child widget="main_menu/settings/search_prompt"/>
+		<child widget="main_menu/settings/search_word"/>
 	</widget>
-	<widget name="main_menu/settings/stepped_right" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_right" wide="120 0">
+	<widget name="main_menu/settings/search_icon" controller="1" width="16" height="16" bitmap="main_menu/multiplayer_type_select/join_game/search_icon" source="tools/port_settings.py settings_files/_settings_shared">
+	</widget>
+	<widget name="main_menu/settings/search_prompt" type="text" controller="1" width="20" height="22" text="%y-button" color="#FF2896FF" text_x="3" text_y="2" text_flags="no_focus_test" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+	</widget>
+	<widget name="main_menu/settings/search_word" type="text" controller="1" width="20" height="22" text="SEARCH" color="#FF2896FF" text_x="20" text_y="2" text_flags="no_focus_test" wide="0 110" font="ui\small_ui" source="tools/port_settings.py settings_files/_settings_shared/_settings_text">
+	</widget>
+	<strings name="main_menu/settings/tall_titles">
+		<string text="SETTINGS"/>
+		<string text="VOICE CHAT"/>
+		<string text="ADVANCED GRAPHICS"/>
+		<string text="BRIGHTNESS"/>
+		<string text="FRAME RATE &amp; SYNC"/>
+		<string text="FIRST PERSON"/>
+		<string text="WEAPON POSITION"/>
+		<string text="WEAPON &amp; BODY"/>
+		<string text="CONTROLLER"/>
+		<string text="BUTTON REMAPPING"/>
+		<string text="KEY BINDINGS"/>
+		<string text="GYRO &amp; FLICK STICK"/>
+		<string text="STICK DEAD ZONES"/>
+		<string text="SCREEN LAYOUT"/>
+		<string text="STREAMER MODE"/>
+		<string text="FILTERS"/>
+		<string text="CONTROLLER BUTTONS"/>
+		<string text="MCC PACKAGES"/>
+		<string text="DISCORD ACCOUNT"/>
+	</strings>
+	<widget name="main_menu/settings/stepped_left" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_left" wide="20 0" source="tools/port_settings.py settings_files/_settings_shared">
+	</widget>
+	<widget name="main_menu/settings/stepped_right" controller="1" width="16" height="16" bitmap="bitmaps/arrow_sm_right" wide="140 0" source="tools/port_settings.py settings_files/_settings_shared">
 	</widget>
 </menus>

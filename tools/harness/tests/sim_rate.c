@@ -36,6 +36,12 @@ long network_standard_agreed_rate(void)
 	return agreed;
 }
 
+/* (port/linux/game/demo.c: no demo plays) */
+long demo_playback_sim_rate(void)
+{
+	return 0;
+}
+
 long config_integer(char const *name)
 {
 	return strcmp(name, "game.sim_rate") ? 0 : setting;

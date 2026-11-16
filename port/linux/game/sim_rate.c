@@ -51,7 +51,18 @@ sub-step a frame.
 #include "math/real_math.h"
 #include "game/game.h"
 #include "sim_rate.h"
+#include "demo.h"
 #include "network_standard.h"
+
+/* the slots' order that their work needs: a shot made at a sub-step takes its head start there, a VR throw goes
+from the sub-step's eye and launches its own head start, and the poses are kept after everything that moves */
+_Static_assert(_sim_substep_weapons < _sim_substep_projectiles, "the projectiles' slot runs after the weapons'");
+_Static_assert(_sim_substep_bipeds < _sim_substep_vr && _sim_substep_projectiles < _sim_substep_vr,
+	"the VR slot runs after the bipeds' and the projectiles'");
+_Static_assert(_sim_substep_vehicles < _sim_substep_render_interpolation &&
+	_sim_substep_bipeds < _sim_substep_render_interpolation && _sim_substep_items < _sim_substep_render_interpolation &&
+	_sim_substep_projectiles < _sim_substep_render_interpolation && _sim_substep_vr < _sim_substep_render_interpolation,
+	"the poses are kept after every slot that moves anything");
 
 /* port/linux/src/port_config.c */
 long config_integer(char const *name);
@@ -78,6 +89,9 @@ static struct
 	boolean frame_fresh;
 	boolean first_of_frame;
 	sim_substep_procedure procedures[NUMBER_OF_SIM_SUBSTEP_SLOTS];
+	/* the tick's own work before its fast phase is running (its first
+	sub-step's, sim_substep_in_macro_step) */
+	boolean macro_step;
 } sim_rate_globals = { 0, SIM_RATE_CLASSIC, FALSE, SIM_RATE_CLASSIC, 1, NONE, 0, TRUE, FALSE };
 
 /* ---------- private code */
@@ -142,6 +156,9 @@ boolean sim_rate_follows_setting(
 static long sim_rate_for_connection(
 	void)
 {
+	/* (a demo's playback, the recording's: demo.c) */
+	if (demo_playback_sim_rate())
+		return demo_playback_sim_rate();
 	if (sim_rate_follows_setting())
 		return sim_rate_setting();
 	switch (game_connection())
@@ -314,6 +331,7 @@ void sim_rate_frame_begin(
 void sim_rate_tick_drop(
 	void)
 {
+	sim_rate_globals.macro_step = FALSE;
 	sim_rate_globals.substep_index = NONE;
 	sim_rate_globals.substep_next = 0;
 }
@@ -327,6 +345,13 @@ void sim_rate_tick_begin(
 	sim_rate_globals.substep_count = (short)(rate / SIM_RATE_CLASSIC);
 	sim_rate_globals.substep_index = NONE;
 	sim_rate_globals.substep_next = 0;
+	sim_rate_globals.macro_step = TRUE;
+}
+
+boolean sim_substep_in_macro_step(
+	void)
+{
+	return sim_rate_globals.macro_step;
 }
 
 void sim_substep_run(
@@ -336,6 +361,7 @@ void sim_substep_run(
 	short count = sim_rate_globals.substep_count;
 	short slot;
 
+	sim_rate_globals.macro_step = FALSE;
 	sim_rate_globals.first_of_frame = sim_rate_globals.frame_fresh;
 	sim_rate_globals.frame_fresh = FALSE;
 	sim_rate_globals.substep_index = substep_index;

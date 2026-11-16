@@ -37,7 +37,8 @@ int master_list_read_file(const char *setting, char (*urls)[MASTER_LIST_URL_SIZE
 /* the relays of a relays.txt (network.relays_file, server.relays_file: found
 as masters.txt is; p2p.c's relays, p2p_relay.c): each one's host name or
 address and its port (2302 if the line names none), up to maximum; how
-many (none: no file, or one that names none). Nothing is looked up */
+many (none: a file that names none; the project's relays if there is no
+file). Nothing is looked up */
 enum { MASTER_LIST_RELAY_HOST_SIZE = 128 };
 int master_list_read_relays(const char *setting, char (*hosts)[MASTER_LIST_RELAY_HOST_SIZE], unsigned short *ports,
 	int maximum);
@@ -64,6 +65,12 @@ int master_list_client_masters(char (*urls)[MASTER_LIST_URL_SIZE], unsigned char
 answer came, with its status and its body (malloc'd, NUL terminated after
 its size: the caller frees it; 1 MB at most). Any thread; it may block */
 int master_list_get(const char *url, int *status, char **body, unsigned long *size);
+
+/* whether a list's entry is a server of the project's own (which the server
+browser lists first among the dedicated servers): the list signed with the project's own
+master's key (built in; masters.txt pins it), and the entry's publisher
+id one of the project's (built in). Pure: the harness tests it */
+int master_list_project_server(const unsigned char *master_key, const char *publisher_id);
 
 /* the server browser open (asked every 30 seconds) or closed */
 void master_list_browse(int on);

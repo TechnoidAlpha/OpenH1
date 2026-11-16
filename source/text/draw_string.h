@@ -95,6 +95,22 @@ void draw_unicode_string_compute_bounds(
 	wchar_t const *string,
 	rectangle2d *text_bounds,
 	rectangle2d *cursor_bounds);
+/* port: as draw_unicode_string_compute_bounds, the letters' bounds those of
+their ink where it is drawn (the high-res text's glyphs, where it draws
+them) */
+void draw_unicode_string_compute_drawn_bounds(
+	rectangle2d const *bounds,
+	wchar_t const *string,
+	rectangle2d *text_bounds,
+	rectangle2d *cursor_bounds);
+/* port: the letters' ink as draw_unicode_string_compute_drawn_bounds last
+measured it, in fractions of a unit; FALSE for none */
+boolean draw_unicode_string_drawn_span(
+	real *left,
+	real *right);
+/* port: how many rows the draw mode's font's capitals are tall */
+short draw_string_capital_height(
+	void);
 /* port: the middle of the string's capitals as it is drawn in the bounds,
 in the draw mode's font (draw_string_set_draw_mode) */
 short draw_unicode_string_capital_middle(
@@ -109,6 +125,25 @@ void bitmap_draw_string(
 	rectangle2d const *bounds,
 	rectangle2d const *clip,
 	char const *string);
+/* port: the run (the characters with no tab, line's end or code of a
+style between them) of the line being drawn that holds the character the
+state has just parsed, which the high-res text lays out as one
+(rasterizer_text.c): its characters (count of them), that character's place
+among them, and which run it is (the same for each of its characters, while
+it is drawn); NULL if there is none, or it is longer than a run can be */
+struct parse_string_state;
+word const *draw_string_port_run(
+	struct parse_string_state const *state,
+	short *count,
+	short *current,
+	long *run);
+/* port: the font the state draws its characters in (its style's) */
+struct font_header *draw_string_port_font(
+	struct parse_string_state const *state);
+
+/* port: readback for scoped adornment drawing. */
+void draw_string_get_format(short *style, short *justification, unsigned long *flags);
+void draw_string_get_indents(short *initial, short *paragraph);
 
 /* ---------- globals */
 

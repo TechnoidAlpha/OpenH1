@@ -603,7 +603,13 @@ struct network_game *network_game_server_get_game(struct network_game_server *se
 #include "units/bipeds.h"
 #include "units/units.h"
 #include "custom_edition_cache.h" /* port: port/linux/game/custom_edition_cache.c */
+#include "mcc_cache.h" /* port: port/linux/game/mcc_cache.h */
+#include "mcc_objects.h" /* port: port/linux/game/mcc_objects.h */
+#include "mcc_player.h" /* port: port/linux/game/mcc_player.h */
+#include "mcc_ui_teams.h" /* port: port/linux/game/mcc_ui_teams.c */
+#include "server_team_switch.h" /* port: port/linux/game/server_team_switch.c */
 #include "latency_meter.h" /* port: port/linux/game/latency_meter.c */
+#include "touch_postgame.h" /* port: port/linux/game/touch_postgame.c */
 
 /* network_game_globals.c's */
 boolean network_game_distributed_client(void);
@@ -2012,12 +2018,12 @@ static pixel32 scoreboard_faded(
 (halo_scoreboard_pointer_update: a right click frees it), and with the
 controller and keyboard (scoreboard_pad_update): a player's name
 picked opens a menu of what may be done to them, the players' vote to kick
-them (network_votekick.c), muting their voice and text chat on this
-machine (network_voice.c, network_chat.c); for an OpenH1 player, their
-party: Invite to party, Join their party, and their invite accepted
-(network_party.c), and Add friend (port/linux/src/p2p_friends.c); then the
-host's, those Host Controls offers for the
-player (network_host_controls.c: none for the host's own players but Move,
+them (network_votekick.c), muting their voice, text chat and pings on this
+machine (network_voice.c, network_chat.c, network_markers.c); for an OpenH1
+player, their party: Invite to party, Join their party, and their invite
+accepted (network_party.c), and Add friend (port/linux/src/p2p_friends.c);
+then the host's, those Host Controls offers for the player
+(network_host_controls.c: none for the host's own players but Move,
 no Ban or Mute for a bot): Mute for everyone (network_chat.c), Kick, Ban
 (picked twice), Move to the other team, and Host controls..., which opens
 Host Controls with the player chosen */
@@ -2093,7 +2099,8 @@ static void scoreboard_menu_items(
 	{
 		usprintf(labels[_scoreboard_item_vote], L"Start a vote to kick");
 	}
-	/* (its machine's voice and text chat lines: this machine's own choice) */
+	/* (its machine's voice, text chat lines and pings: this machine's own
+	choice) */
 	{
 		struct player_datum *player = player_try_and_get(scoreboard_menu->player_index);
 
@@ -2101,8 +2108,8 @@ static void scoreboard_menu_items(
 		{
 			offered[_scoreboard_item_mute] = TRUE;
 			usprintf(labels[_scoreboard_item_mute],
-				network_voice_machine_muted(player->network_player_data.machine_index) ? L"Unmute voice and chat" :
-					L"Mute voice and chat");
+				network_voice_machine_muted(player->network_player_data.machine_index) ? L"Unmute voice, chat and pings" :
+					L"Mute voice, chat and pings");
 		}
 	}
 	/* (their party: network_party.c) */
@@ -2121,13 +2128,15 @@ static void scoreboard_menu_items(
 	}
 	/* (the host's, as Host Controls has them for the player:
 	network_host_controls.c) */
-	/* port: and a dedicated server's admin's (network_admin.c) */
-	if (network_host_controls_available() || network_admin_remote())
+	/* port: and a dedicated server's admin's (network_admin.c), their
+	machine's first local player's alone (a split screen's player 1) */
+	if ((network_host_controls_available() || network_admin_remote()) &&
+		network_host_controls_local_player((short)(scoreboard_menu - scoreboard_views)))
 	{
 		unsigned long actions = network_host_controls_player_actions(scoreboard_menu->player_index);
 		struct player_datum *player = player_try_and_get(scoreboard_menu->player_index);
 
-		/* (the host's mute of their voice and lines, for every machine:
+		/* (the host's mute of their voice, lines and pings, for every machine:
 		network_chat.c) */
 		offered[_scoreboard_item_host_mute] = TEST_FLAG(actions, _host_controls_mute);
 		usprintf(labels[_scoreboard_item_host_mute],
@@ -6601,6 +6610,12 @@ void game_engine_player_killed(
 	if (!game_engine)
 		return;
 
+	/* port: the death of an MCC team change is no one's kill (mcc_ui_teams.c) */
+	mcc_ui_team_respawn_death(&killing_player_index, &killing_object_index, dead_player_index, &friendly_fire);
+	/* port: and a dedicated server's !switch's (server_team_switch.c) */
+	server_team_switch_player_killed(&killing_player_index, &killing_object_index, dead_player_index,
+		&friendly_fire);
+
 	/* the distributed netcode: a client's copy of a death has the host's
 	killer (port/linux/game/network_distributed.c) */
 	network_distributed_player_killed(&killing_player_index, &killing_object_index, dead_player_index,
@@ -6655,6 +6670,11 @@ void game_engine_player_killed(
 
 	if (!player_kill)
 		dead_player->respawn_timer += global_variant.universal_variant.suicide_penalty;
+
+	/* port: a dedicated server's !switch moves the dead here, as the auto
+	team balance below does, once their unit has dropped what it carried
+	(server_team_switch.c) */
+	server_team_switch_player_dead(dead_player_index);
 
 	/* port: the gametype's auto team balance (game_variant_options): the host
 	moves the dead to the other team when his is two or more bigger (his
@@ -6847,13 +6867,17 @@ void game_engine_update_non_deterministic(
 			if (game_engine_globals.postgame_progress > 1.0f)
 				game_engine_globals.postgame_progress = 1.0f;
 
-			if (test_any_gamepad_button(0) || test_any_gamepad_button(12))
+			/* port: or the touchscreen's buttons for A and B
+			(port/linux/game/touch_postgame.c) */
+			if (test_any_gamepad_button(0) || test_any_gamepad_button(12) ||
+				touch_postgame_pressed(_gamepad_analog_button_a))
 			{
 				if (global_network_game_server_get())
 				network_game_server_reset_to_pregame(
 					global_network_game_server_get());
 			}
-			else if (test_any_gamepad_button(1) || test_any_gamepad_button(13))
+			else if (test_any_gamepad_button(1) || test_any_gamepad_button(13) ||
+				touch_postgame_pressed(_gamepad_analog_button_b))
 			{
 				network_game_abort();
 			}
@@ -9523,6 +9547,9 @@ long game_engine_remap_vehicle(
 {
 	long result = vehicle_definition_index;
 
+	if (mcc_vehicle_placement_rules())
+		return result;
+
 	/* port: a Halo Custom Edition map's vehicles are chosen by their
 	placements, and its scripts may create any
 	(port/linux/game/custom_edition_objects.c) */
@@ -9877,8 +9904,10 @@ static void game_engine_update_weapons(
 			match_assert(
 				"c:\\halo\\SOURCE\\game\\game_engine.c",
 				0x83E,
-				(item->object.scale >= 0.5f) &&
-					(item->object.scale <= 3.f));
+				((item->object.scale >= 0.5f) &&
+					(item->object.scale <= 3.f)) ||
+				/* port: MCC-authored miniature items retain their tag scale. */
+				mcc_item_small_scale(item->object.scale));
 		}
 
 		/*
@@ -10695,6 +10724,8 @@ static void game_engine_update_item_spawn(
 					definition_index,
 					NONE);
 				placement_data.position = equipment->position;
+				if (mcc_cache_tags_loaded())
+					vector3d_from_angle(&placement_data.forward, equipment->facing);
 				/* port: Halo PC faces a Custom Edition map's items the way
 				their placements do, where the Xbox copied only the position */
 				if (custom_edition_cache_tags_loaded())
@@ -10979,6 +11010,10 @@ void game_engine_postspawn_player_update(
 			unit->unit.grenade_counts[
 				_unit_grenade_covenant_plasma] =
 				(char)starting_plasma_grenade_count;
+			/* port: and MCC's expanded grenade types (mcc_player.c) */
+			mcc_player_postspawn_grenades(unit_index,
+				global_variant.universal_variant.weapon_set == _game_engine_weapons_no_grenades &&
+				!game_engine_infinite_grenades_internal());
 		}
 	}
 	/* port: an OpenCE gametype's mode's equipment (Gun Game's weapon,
@@ -10994,9 +11029,9 @@ void game_engine_postspawn_player_update(
 
 
 
-/* port: port/linux/game/hud_key_prompts.c's: a button's word in a message
-as its icon's name, which the HUD draws as the prompts draw the button */
-void hud_key_prompt_button_word(wchar_t *text, long length, wchar_t const *word, wchar_t const *icon);
+/* port: port/linux/game/hud_key_prompts.c's: the score hint's BACK as the
+Back button's icon where the HUD draws something for it */
+void hud_key_prompt_score_hint(short local_player_index, wchar_t *text, long length);
 
 boolean game_engine_get_state_message(
 	long player_index,
@@ -11059,10 +11094,12 @@ boolean game_engine_get_state_message(
 				message_character_count);
 			/* port: its BACK the Back button's icon, which the HUD draws as
 			the prompts draw a button: the scoreboard's key while the
-			keyboard and mouse play, else the controller's Back (the string
-			is the map's, which names the button in words) */
+			keyboard and mouse play; with a controller the word stays where
+			the map's message icons have no picture of Back, as the Xbox's
+			have not (the string is the map's, which names the button in
+			words) */
 			if (result)
-				hud_key_prompt_button_word(message, message_character_count, L"BACK", L"%back-button");
+				hud_key_prompt_score_hint(player->local_player_index, message, message_character_count);
 		}
 		else if (player->state_message != NONE)
 		{
@@ -11423,4 +11460,51 @@ void game_engine_read_network_state(
 	shows it) */
 	if (postgame_state != 0 && game_engine_globals.postgame_state == 0)
 		game_engine_end_game();
+}
+
+/* port: what the game engine keeps outside the game state that the ticks
+read (its flags, the goals, the vehicles' homes, the friendly fire
+penalties, then each game type's), part by part (NULL past the last), for a
+demo (port/linux/game/demo.c): its playback has the recording's */
+void *game_engine_ctf_port_demo_state(short part, long *size);
+void *game_engine_oddball_port_demo_state(short part, long *size);
+void *game_engine_king_port_demo_state(short part, long *size);
+void *game_engine_race_port_demo_state(short part, long *size);
+void *game_engine_slayer_port_demo_state(short part, long *size);
+
+void *game_engine_port_demo_state(
+	short part,
+	long *size)
+{
+	static void *(*const types[])(short part, long *size) = {
+		game_engine_ctf_port_demo_state, game_engine_oddball_port_demo_state, game_engine_king_port_demo_state,
+		game_engine_race_port_demo_state, game_engine_slayer_port_demo_state,
+	};
+	short type_index;
+
+	switch (part)
+	{
+	case 0: *size = (long)sizeof(game_engine_globals); return &game_engine_globals;
+	case 1: *size = (long)sizeof(global_goal); return global_goal;
+	case 2: *size = (long)sizeof(game_engine_vehicle_homes); return game_engine_vehicle_homes;
+	case 3: *size = (long)sizeof(game_engine_vehicle_home_count); return &game_engine_vehicle_home_count;
+	case 4: *size = (long)sizeof(game_engine_vehicle_homes_waiting); return game_engine_vehicle_homes_waiting;
+	case 5: *size = (long)sizeof(game_engine_vehicles_leaving); return game_engine_vehicles_leaving;
+	case 6: *size = (long)sizeof(game_engine_vehicles_leaving_count); return &game_engine_vehicles_leaving_count;
+	case 7: *size = (long)sizeof(game_engine_betrayal_penalty); return game_engine_betrayal_penalty;
+	case 8: *size = (long)sizeof(game_engine_vehicles_placed); return game_engine_vehicles_placed;
+	}
+	part -= 9;
+	for (type_index = 0; type_index < (short)NUMBEROF(types); type_index++)
+	{
+		short count = 0;
+		long part_size;
+
+		while (types[type_index](count, &part_size))
+			count++;
+		if (part < count)
+			return types[type_index](part, size);
+		part -= count;
+	}
+	return NULL;
 }

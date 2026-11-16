@@ -31,6 +31,8 @@ NEGATIVE_CONTROLS = {
     "substep-far": (("period <= 2 && player_machine", "period <= 3 && player_machine"), "substep-due"),
     # riding players' states at the sub-steps
     "substep-riding": (("TEST_FLAG(state->flags, _distributed_unit_placed_bit) &&\n", ""), "substep-due"),
+    # a rider on a vehicle's deck's (it moves in its tick: vehicle_riding_bipeds.c)
+    "substep-deck": (("!state->deck_present &&\n", ""), "substep-due"),
     # an OpenCE player's (the host runs no sub-steps of theirs as they come)
     "substep-opence": (("(player_machine == NONE || distributed_prediction_at_tick_start(player_index))", "TRUE"),
                        "substep-due"),
@@ -47,8 +49,9 @@ def generated(fault=None):
     for name in ("NEAR_PLAYER_DISTANCE", "MIDDLE_PLAYER_DISTANCE", "FAR_PLAYER_DISTANCE", "AIMED_AT_COSINE",
                  "SCOPED_AT_COSINE"):
         config += f"#define {name} " + re.search(rf"^#define {name}\s+(\S+)", source, re.M)[1] + "\n"
-    for member in ("HIDDEN_PLAYER_PERIOD_TICKS", "_distributed_unit_alive_bit", "_distributed_send_state_bit"):
+    for member in ("HIDDEN_PLAYER_PERIOD_TICKS", "_distributed_send_state_bit"):
         config += enum_with(source, member) + "\n"
+    config += enum_with(read("port/linux/game/network_legacy.h"), "_distributed_unit_alive_bit") + "\n"
     config += re.search(r"static (struct distributed_viewer\s*\{.*?\n\} distributed_viewers\[.*?\];)", source,
                         re.S)[1] + "\n"
     return (("config.inc", config), ("under_test.inc", code))

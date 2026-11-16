@@ -36,14 +36,20 @@ are not those it was drawn for), the sprite is drawn from its bitmap.
 #include "rasterizer/rasterizer.h"
 #include "text/draw_string.h"
 #include "hud_button_layout.h"
+#include "controller_glyphs.h"
 #include "scenario/scenario_definitions.h"
 #include "cache/texture_cache.h"
+#include "render/render.h"
+#include "player_settings.h"
+
+static boolean hud_hires_bitmap_resident(struct bitmap_data const *bitmap)
+{
+	return bitmap->cache_block_index != NONE;
+}
 
 /* the platform layer's (port/linux/src) */
 void platform_log(char const *format, ...);
-unsigned long config_changes(void);
 int config_boolean(char const *name);
-char const *config_string(char const *name);
 int hud_hires_enabled(void);
 long hud_hires_asset_count(void);
 char const *hud_hires_asset_tag(long asset);
@@ -81,6 +87,12 @@ enum
 	MAXIMUM_HIRES_SPRITE_BITMAPS = 8,
 	/* a bitmap's pixels in rows, not swizzled (bitmaps.c: _bitmap_linear_bit) */
 	BITMAP_LINEAR_BIT = 4,
+	/* the message icons' A, B, X and Y sprites (the Xbox maps' and Custom
+	Edition's hud_msg_icons): 24 units wide, the button's face from their
+	third column; and an icon's flag (hud_messaging.c's hud_icon_flags) */
+	HUD_BUTTON_SPRITE_WIDTH = 24,
+	HUD_BUTTON_FACE_LEFT = 2,
+	HUD_ICON_ABSOLUTE_WIDTH_BIT = 2,
 };
 
 /* ---------- globals */
@@ -121,28 +133,58 @@ static struct
 } hires_sprite_bitmaps[MAXIMUM_HIRES_SPRITE_BITMAPS];
 static long hires_sprite_bitmap_count = 0;
 
-/* Original Xbox controller faces, shared with the menu redraws. */
-static struct
+/* Original Xbox controller faces, shared with the menu redraws: the face
+buttons' (slots 0 to 5) of each style (display.hud_button_style's: each
+split screen player's view draws its own player's), the controls' (6 on)
+of one */
+#define HUD_BUTTON_STYLES 3
+static struct hud_button_cache
 {
 	struct bitmap_data *bitmap;
 	long asset;
 	boolean attempted;
-} hud_buttons[14];
-static short hud_buttons_style;
+} hud_buttons[HUD_BUTTON_STYLES][14];
 
 static void hud_buttons_forget(void)
 {
-	long index;
+	long style, index;
 	ce_hud_buttons_forget();
-	for (index = 0; index < 14; index++)
+	for (style = 0; style < HUD_BUTTON_STYLES; style++)
 	{
-		if (hud_buttons[index].bitmap)
+		for (index = 0; index < 14; index++)
 		{
-			hud_hires_register_placeholder(hud_buttons[index].asset, NULL);
-			bitmap_delete(hud_buttons[index].bitmap);
+			if (hud_buttons[style][index].bitmap)
+			{
+				hud_hires_register_placeholder(hud_buttons[style][index].asset, NULL);
+				bitmap_delete(hud_buttons[style][index].bitmap);
+			}
 		}
 	}
 	csmemset(hud_buttons, 0, sizeof(hud_buttons));
+}
+
+/* the local player's display.hud_button_style (their profile's:
+player_settings.c): 0 classic, 1 gems, 2 menu_gems */
+static short hud_button_style(short local_player_index)
+{
+	static struct
+	{
+		boolean read;
+		unsigned long read_at;
+		short style;
+	} players[PLAYER_SETTINGS_SLOTS];
+	short slot = PLAYER_SETTINGS_SLOT(local_player_index);
+
+	if (!players[slot].read || players[slot].read_at != config_changes())
+	{
+		char const *value = config_player_string(local_player_index, "display.hud_button_style");
+
+		players[slot].read = TRUE;
+		players[slot].read_at = config_changes();
+		players[slot].style = (short)(!strcmp(value, "dark_gems") || !strcmp(value, "menu_gems") ? 2 :
+			!strcmp(value, "gems"));
+	}
+	return players[slot].style;
 }
 
 /* ---------- private code */
@@ -162,6 +204,7 @@ static void hud_hires_sprite_bitmaps_forget(
 	}
 	hires_sprite_bitmap_count = 0;
 	hud_buttons_forget();
+	controller_glyphs_dispose(); /* port: MCC maps' controller art (mcc_hud_draw.c) */
 
 	return;
 }
@@ -317,7 +360,7 @@ struct bitmap_data const *hud_hires_sprite_bitmap(
 			continue;
 		}
 		/* (checked on its pixels in the texture cache, once they are loaded) */
-		if (sprite_bitmap->cache_block_index == NONE || !sprite_bitmap->base_address)
+		if (!hud_hires_bitmap_resident(sprite_bitmap) || !sprite_bitmap->base_address)
 			break;
 		if (hires_sprite_bitmaps[index].checked_address != sprite_bitmap->base_address ||
 			hires_sprite_bitmaps[index].checked_at != config_changes())
@@ -386,7 +429,7 @@ long hud_hires_asset_stock_custom_edition(
 	{
 		struct bitmap_data *bitmap = hires_bitmaps[index].bitmap;
 
-		if (hires_bitmaps[index].asset == asset && bitmap->cache_block_index != NONE &&
+		if (hires_bitmaps[index].asset == asset && hud_hires_bitmap_resident(bitmap) &&
 			(unsigned long)bitmap->base_address == address && bitmap->width == width && bitmap->height == height)
 		{
 			return hires_bitmaps[index].stock_custom_edition;
@@ -407,7 +450,7 @@ long hud_hires_asset_at(
 	{
 		struct bitmap_data *bitmap = hires_bitmaps[index].bitmap;
 
-		if (bitmap->cache_block_index != NONE &&
+		if (hud_hires_bitmap_resident(bitmap) &&
 			(unsigned long)bitmap->base_address == address &&
 			bitmap->width == width &&
 			bitmap->height == height)
@@ -429,7 +472,7 @@ long hud_hires_upscale_at(unsigned long address, long width, long height)
 	for (index = 0; index < ce_stock_bitmap_count; index++)
 	{
 		struct bitmap_data const *bitmap = ce_stock_bitmaps[index].bitmap;
-		if (bitmap->cache_block_index != NONE && (unsigned long)bitmap->base_address == address &&
+		if (hud_hires_bitmap_resident(bitmap) && (unsigned long)bitmap->base_address == address &&
 			bitmap->width == width && bitmap->height == height &&
 			hud_hires_ce_stock_matches(ce_stock_bitmaps[index].signature, address, width, height,
 				(unsigned long)bitmap_mipmap_get_pixel_data_size((struct bitmap_data *)bitmap, 0)))
@@ -440,7 +483,7 @@ long hud_hires_upscale_at(unsigned long address, long width, long height)
 	{
 		struct bitmap_data const *bitmap = upscale_bitmaps[index].bitmap;
 
-		if (bitmap->cache_block_index != NONE && (unsigned long)bitmap->base_address == address &&
+		if (hud_hires_bitmap_resident(bitmap) && (unsigned long)bitmap->base_address == address &&
 			bitmap->width == width && bitmap->height == height)
 			return upscale_bitmaps[index].kind;
 	}
@@ -504,6 +547,8 @@ boolean hud_hires_button_draw(struct icon_hud_element_definition const *icon,
 	long index, asset;
 	short i;
 	short style, slot;
+	/* (its picture, the style's) */
+	struct hud_button_cache *cache;
 
 	if (!hud_globals || (!hud_hires_enabled() &&
 		(!custom_edition_cache_tags_loaded() ||
@@ -518,23 +563,32 @@ boolean hud_hires_button_draw(struct icon_hud_element_definition const *icon,
 	if (!ce_hud_buttons_stock(icon, index)) return FALSE;
 	if (!hud_hires_enabled())
 		return ce_hud_button_draw(icon, cursor, color);
+	/* (the view drawn now's player's, player 1's outside a view (the menus,
+	one for the screen); the controls' pictures are every style's) */
+	style = hud_button_style(render.local_player_index >= 0 && render.local_player_index < MAXIMUM_LOCAL_PLAYERS ?
+		render.local_player_index : 0);
+	/* port: the controller's own family's pictures (Xbox modern, PlayStation,
+	Switch: controller_glyphs.c), as the view's controller is detected
+	(input.auto_button_detection, display.hud_button_style_xbox, _ps and
+	_switch), and the modern LB and RB (display.hud_bumper_style) with the
+	classic styles; else the Xbox's faces below, in the profile's style */
+	{
+		short glyph_style = controller_glyph_style();
+
+		if (controller_glyph_draw(glyph_style >= 3 ? glyph_style : style, (short)index, icon, cursor, color))
+			return TRUE;
+	}
 	slot = index < 6 ? (short)index : hud_button_control_slot((short)index,
 		icon->frame_rate > 0 ? game_time_get() / icon->frame_rate : 0);
 	if (slot < 0) return FALSE;
-	style = (!strcmp(config_string("display.hud_button_style"), "dark_gems") || !strcmp(config_string("display.hud_button_style"), "menu_gems")) ? 2 :
-		!strcmp(config_string("display.hud_button_style"), "gems");
-	if (style != hud_buttons_style)
+	cache = &hud_buttons[slot >= 6 ? 0 : style][slot];
+	if (!cache->attempted)
 	{
-		hud_buttons_forget();
-		hud_buttons_style = style;
-	}
-	if (!hud_buttons[slot].attempted)
-	{
-		hud_buttons[slot].attempted = TRUE;
+		cache->attempted = TRUE;
 		for (asset = 0; asset < hud_hires_asset_count(); asset++)
 		{
-			if (strcmp(hud_hires_asset_tag(asset), slot >= 6 ? hud_button_control_name(slot) : style == 0 ? classic_names[index] :
-				style == 1 ? gem_names[index] : names[index])) continue;
+			if (strcmp(hud_hires_asset_tag(asset), slot >= 6 ? hud_button_control_name(slot) : style == 0 ? classic_names[slot] :
+				style == 1 ? gem_names[slot] : names[slot])) continue;
 			bitmap = bitmap_2d_new(slot >= 6 ? 64 : 32, slot >= 6 ? 64 : 32, 0, 11);
 			if (!bitmap) break;
 			if (!rasterizer_bitmap_new(bitmap))
@@ -543,12 +597,12 @@ boolean hud_hires_button_draw(struct icon_hud_element_definition const *icon,
 				break;
 			}
 			hud_hires_register_placeholder(asset, bitmap->hardware_format);
-			hud_buttons[slot].asset = asset;
-			hud_buttons[slot].bitmap = bitmap;
+			cache->asset = asset;
+			cache->bitmap = bitmap;
 			break;
 		}
 	}
-	bitmap = hud_buttons[slot].bitmap;
+	bitmap = cache->bitmap;
 	if (!bitmap) return FALSE;
 	viewport = local_player_count() > 1 ? 0.75f : 1.0f;
 	scale = viewport;
@@ -558,6 +612,21 @@ boolean hud_hires_button_draw(struct icon_hud_element_definition const *icon,
 	width = 21.0f * scale;
 	height = 26.0f * scale;
 	advance = (short)(cursor->x0 + (index < 4 ? 22.0f : 20.0f) * viewport);
+	/* A, B, X and Y where the Xbox draws them (hud_messaging.c's
+	render_state_bitmap): the message icons' sprite of the button, 24 units
+	wide, at the icon's offset, its face (21 units at half alpha) from its
+	third column, and the text on past the sprite less the icon's width
+	offset. Their places from the cursor alone (a face 6 units on and the
+	text 6 more) put a space and more either side of the button (issue 754). */
+	if (index < 4)
+	{
+		short sprite_x = (short)(icon->offset.x * viewport + cursor->x0);
+
+		x = sprite_x + HUD_BUTTON_FACE_LEFT * viewport;
+		advance = (icon->flags & FLAG(HUD_ICON_ABSOLUTE_WIDTH_BIT)) ?
+			(short)(icon->width_offset * viewport + sprite_x) :
+			(short)((HUD_BUTTON_SPRITE_WIDTH + icon->width_offset) * viewport + sprite_x);
+	}
 	y -= height;
 	hud_button_face_bounds(style, (short)index, &x, &y, &width, &height);
 	u = 21.0f / 32.0f;

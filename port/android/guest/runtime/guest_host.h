@@ -25,6 +25,14 @@ long long host_syscall(long long number, long long a, long long b, long long c,
 
 /* Android log priorities (android/log.h) */
 void host_log(int priority, const char *text);
+/* the host's last lines, whole ones, into buffer (ended by a 0); returns
+their length (Save Report's host.log: port/linux/src/report.c) */
+unsigned int host_log_recent(char *buffer, unsigned int size);
+/* the file the host writes a crash to, with the log kept in memory after it
+(report.c's ring of log_size bytes, *log_written written in all):
+port/android/host/host_common.c */
+void host_crash_record(const char *path, const char *log, unsigned int log_size,
+	const unsigned long long *log_written);
 void host_abort(const char *reason) __attribute__((noreturn));
 void host_exit(int code) __attribute__((noreturn));
 /* the host's errno on this thread, after a call to a host function */
@@ -47,6 +55,7 @@ void host_memory_watch_initialize(void);
 void host_memory_watch_protect(unsigned int address, unsigned int size);
 unsigned int host_memory_watch_generation(unsigned int address, unsigned int size);
 unsigned int host_memory_watch_serial(void);
+unsigned int host_memory_watch_page_size(void);
 void host_memory_watch_prepare_write(unsigned int address, unsigned int size);
 void host_memory_watch_forget(unsigned int address, unsigned int size);
 /* memory_watch_begin_frame (port/linux/src/platform.h) */
@@ -67,12 +76,20 @@ unsigned int host_sdl_create_window(const char *title, int width, int height, lo
 void host_sdl_window_size_in_pixels(unsigned int window, int *width, int *height);
 int host_sdl_set_relative_mouse(unsigned int window, int enabled);
 int host_sdl_poll_event(void *event);
+/* the keys SDL holds now (keys[scancode]: bit 0; bit 1, the system has
+had it up a while though SDL holds it), and its mouse buttons (low 16 bits,
+SDL_BUTTON_MASK; high 16, the system has had them up a while): host_sdl.c */
+unsigned int host_sdl_input_held(unsigned char *keys, int count);
 int host_sdl_set_clipboard_text(const char *text);
 void host_sdl_get_clipboard_text(char *buffer, unsigned int size);
 int host_sdl_open_url(const char *url);
 /* the keyboard's keys by name (the controls' bindings, xinput_sdl.c) */
 void host_sdl_scancode_name(int scancode, char *buffer, unsigned int size);
 int host_sdl_scancode_from_name(const char *name);
+/* SDL_GetKeyFromScancode: the key the keyboard's layout gives a scancode
+with the modifiers (Shift, Caps Lock, AltGr), or a key event's (key_event:
+none applied) */
+int host_sdl_key_from_scancode(int scancode, int modifiers, int key_event);
 int host_sdl_show_toast(const char *message, int duration, int gravity, int x, int y);
 /* SDL_GetPowerInfo: the SDL_PowerState, and the seconds and percent of
 battery left (-1 unknown) */
@@ -91,6 +108,11 @@ int host_sdl_gamepad_button(unsigned int gamepad, int button);
 int host_sdl_gamepad_type(unsigned int gamepad);
 int host_sdl_rumble_gamepad(unsigned int gamepad, unsigned int low, unsigned int high, unsigned int milliseconds);
 void host_sdl_close_gamepad(unsigned int gamepad);
+/* the gamepad's sensor (SDL_SensorType) there, and turned on or off; and
+whether the gamepad is Steam Input's virtual one (gyro aiming) */
+int host_sdl_gamepad_has_sensor(unsigned int gamepad, int type);
+int host_sdl_set_gamepad_sensor_enabled(unsigned int gamepad, int type, int enabled);
+int host_sdl_gamepad_steam(unsigned int gamepad);
 /* callback: void (*)(void *userdata, unsigned int stream, int additional, int total),
 called on the audio thread */
 unsigned int host_sdl_open_audio_stream(unsigned int device, const void *spec, unsigned int callback, unsigned int userdata);
@@ -109,10 +131,19 @@ int host_sdl_audio_stream_timing(unsigned int stream, char *driver, int driver_s
 
 /* ---------- the sound's output (host_audio_route.c)
 
-What the system's sound plays on, for audio.spatial (dsound_sdl.c): 1
+What the system's sound plays on, for the sound's log (dsound_sdl.c): 1
 headphones, 0 speakers, -1 not known; kept current by a thread of the
 host's, so asking costs nothing */
 int host_audio_headphones(void);
+
+/* ---------- the renderer's caches (port/linux/vulkan/host_vulkan.c,
+port/macos/host_metal.m)
+
+The host's caches that Settings' CLEAR CACHES clears (game_caches.c): the
+GPU's pipelines and the ASTC textures. Their kilobytes; what 1 asks for them
+to be cleared at the next start, before the renderer reads them, 2 no
+longer */
+unsigned int host_caches(int what);
 
 /* ---------- the renderer's command stream (port/linux/src/xgpu_stream.h,
 port/android/host/host_render_stream.h): the ring at the guest address
@@ -126,6 +157,11 @@ void host_render_stream_close(void);
 
 /* ---------- Android (android_imports.list) */
 
+/* MCC tag address space (host_mcc_memory.c), independent of the guest pools.
+Reserve returns the address or negative errno; release returns zero or negative errno. */
+long long host_mcc_memory_reserve(unsigned int address, unsigned int size);
+int host_mcc_memory_release(unsigned int address, unsigned int size);
+
 /* the storage directories the port uses, copied into buffer */
 void host_android_path(int which, char *buffer, unsigned int size);
 
@@ -135,6 +171,11 @@ void host_gesture_insets(int *insets);
 /* display.orientation: asks the activity for the way up, 0 landscape, 1
 portrait (either way up), 2 whichever way the device is held */
 void host_orientation(int which);
+/* the system's keyboard for a menu's text field: brought up (one line, a
+password's hidden) or put away; whether it is up (closed by its own key, it
+is not) */
+void host_android_text_input(int show, int password);
+int host_android_text_input_active(void);
 
 /* ---------- the on-screen touch controls (host_touch.c, android_imports.list) */
 
@@ -154,6 +195,9 @@ int host_touch_picture_top(void);
 /* the game control on each of the 16 controller buttons (touch_game.c),
 for the overlay's labels */
 void host_touch_bindings(const int *controls);
+/* the overlay's devices: 1, a touchscreen; 2, a game controller; 0 until it
+has looked */
+int host_touch_devices(void);
 
 /* ---------- HTTPS (host_https.c): the server browser's master servers, a
 dedicated server's publishing to them */

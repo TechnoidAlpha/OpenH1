@@ -83,9 +83,23 @@ static void text_set(struct widget_instance *widget, wchar_t const *text)
 	wcsncpy(shown_text, text, 255);
 }
 
+/* the text box whose caret ui_widget.c draws (ui_widget_port_caret_show), lit */
+static struct widget_instance *caret_box;
+static void ui_widget_port_caret_show(struct widget_instance *box, boolean shown)
+{
+	if (shown)
+		caret_box = box;
+	else if (box == caret_box)
+		caret_box = NULL;
+}
+
 #define platform_text_field(typing, masked) ((void)0)
 #define platform_clipboard_get(text, size) (FALSE)
-#define system_milliseconds() (0UL)
+/* (the clock, which the caret blinks by) */
+static unsigned long now;
+#define system_milliseconds() (now)
+/* (the frames' time, not fixed here: frames_clock.c) */
+#define frames_clock(milliseconds) (0)
 #define text_filter_exempt(text) ((void)0)
 #define _stricmp strcasecmp
 #include <strings.h>
@@ -99,17 +113,19 @@ BOOL text_typing_keyboard;
 
 #include "under_test.inc"
 
-static short slider_named(char const *row)
+/* a slider made from its row of the model (test_model: the model's rows,
+port/assets/menus/model) */
+static struct settings_slider const *slider_named(char const *row)
 {
-	short index;
+	long index;
 
-	for (index = 0; index < (short)NUMBEROF(settings_sliders); index++)
+	for (index = 0; index < test_model.row_count; index++)
 	{
-		if (!strcmp(settings_sliders[index].row, row))
-			return index;
+		if (!strcmp(test_model.rows[index].key, row + 3))
+			return settings_slider_made(&test_model.rows[index]);
 	}
 	CHECK(FALSE, "no slider %s", row);
-	return NONE;
+	return NULL;
 }
 
 static void typed_done(char const *text)
@@ -140,8 +156,8 @@ int main(int argc, char **argv)
 	if (!strcmp(test, "word-empty"))
 	{
 		/* a stop shown as a word: nothing to edit; a number: its number */
-		short fov = slider_named("op_fov"), fps = slider_named("op_max_fps"), panini = slider_named("op_panini");
-		short vehicle = slider_named("op_vehicle_fov");
+		struct settings_slider const *fov = slider_named("op_fov"), *fps = slider_named("op_max_fps");
+		struct settings_slider const *panini = slider_named("op_panini"), *vehicle = slider_named("op_vehicle_fov");
 
 		settings_slider_field_text(fov, 0.0, text, sizeof(text));
 		CHECK(!strcmp(text, ""), "FoV's DEFAULT starts as \"%s\"", text);
@@ -243,6 +259,27 @@ int main(int argc, char **argv)
 		memset(&pad, 0, sizeof(pad));
 		typing_gamepad(&input, &pad);
 		CHECK(pad.wButtons & XINPUT_GAMEPAD_START, "the on-screen keyboard's Enter is not its Done");
+		return 0;
+	}
+	if (!strcmp(test, "caret"))
+	{
+		/* the caret is the text box's to draw (a bar on the capitals'
+		middle, issue 682), never a character of the text (an underscore,
+		under the baseline): lit half the time, unlit once typing ends */
+		keys_reset();
+		text_field_begin(&row, "gulch", 31, typed_done);
+		for (now = 0; now < 2000; now += 250)
+		{
+			frame();
+			CHECK(!wcscmp(shown_text, L"gulch"), "at %lu ms the field shows \"%ls\"", now, shown_text);
+			CHECK((caret_box == &value) == ((now / 500) % 2 == 1), "at %lu ms the caret is %s", now,
+				caret_box ? "lit" : "unlit");
+		}
+		now = 500;
+		frame();
+		CHECK(caret_box == &value, "no caret while typing");
+		text_field_show(&value, "gulch", FALSE);
+		CHECK(caret_box == NULL && !wcscmp(shown_text, L"gulch"), "a caret after typing ended");
 		return 0;
 	}
 	fprintf(stderr, "no case %s\n", test);

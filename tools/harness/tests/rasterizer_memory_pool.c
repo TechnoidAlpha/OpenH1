@@ -53,7 +53,8 @@ int main(int argc, char **argv)
 {
 	const char *case_name = argc > 1 ? argv[1] : "";
 	byte pattern[256];
-	byte zeros[256];
+	/* (as large as the pool: the cases copy up to all of it from here) */
+	static byte zeros[RASTERIZER_MEMORY_POOL_SIZE];
 	long index;
 
 	for (index = 0; index < (long)sizeof(pattern); index++)

@@ -13,6 +13,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from harness import CHECK_FAILED, build, function, mutated, read, run  # noqa: E402
+from harness import skip_without_32_bit_abi  # noqa: E402
 
 CASES = [
     "pairing", "return-routability", "token-per-relay", "verified-address", "offers", "path", "demoted", "buckets",
@@ -119,8 +120,15 @@ def generated(fault=None):
     return files + STUB_HEADERS + (("under_test.inc", crypto() + relay),)
 
 
+# what only the game's 32-bit ABI shows (harness.NATIVE_64_BIT)
+ABI_DEPENDENT = {
+    "offers": "a relay's address is the game's 32-bit unsigned long, read back from 4 bytes",
+}
+
+
 @pytest.mark.parametrize("case", CASES)
 def test_case(case):
+    skip_without_32_bit_abi(ABI_DEPENDENT, case)
     status, output = run(build("p2p_relay", generated()), case)
     assert status == 0, output
 
@@ -128,5 +136,6 @@ def test_case(case):
 @pytest.mark.parametrize("control", NEGATIVE_CONTROLS)
 def test_negative_control(control):
     fault, case = NEGATIVE_CONTROLS[control]
+    skip_without_32_bit_abi(ABI_DEPENDENT, control, case)
     status, output = run(build("p2p_relay", generated(fault)), case)
     assert status == CHECK_FAILED, f"p2p_relay.c with a fault ({control}) passed '{case}': the test cannot see it"

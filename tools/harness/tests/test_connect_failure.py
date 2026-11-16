@@ -58,9 +58,13 @@ def test_negative_control(control):
 
 
 def text_width(words, font):
-    """as test_touch_screens.py's: the menus' units, Overpass as the game draws it, with 7% to spare"""
+    """as test_touch_screens.py's: the menus' units, the tag's font (fonts.json) as the game draws it, with 7% to
+    spare"""
     from PIL import ImageFont
-    face, capitals = ("Overpass-900.ttf", 13) if "large" in font else ("Overpass-750.ttf", 10)
+    import json
+    tag, capitals = ("ui\\large_ui", 13) if "large" in font else ("ui\\small_ui", 10)
+    fonts = json.loads((ROOT / "port/assets/fonts/fonts.json").read_text())["fonts"]
+    face = next(entry["file"] for entry in fonts if entry["tag"] == tag)
     probe = ImageFont.truetype(str(ROOT / "port/assets/fonts" / face), 1000)
     _, top, _, bottom = probe.getbbox("H")
     return probe.getlength(words) * capitals / (bottom - top) * 0.98 * 1.07

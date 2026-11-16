@@ -49,6 +49,7 @@ long port_mods_count(void);
 long port_mods_at(long position);
 char const *port_mods_folder(long index);
 int port_mods_describe(long index, char *text, unsigned long size, char const *map_name);
+int port_mods_report(char *text, unsigned long size, char const *map_name, int most);
 
 /* ---------- prototypes/MODS.C */
 
@@ -96,6 +97,11 @@ char const *mods_map_name(void);
 boolean mods_map_loaded(void);
 /* how many of the map's bitmaps the mods play (xbox_texture_cache.c) */
 long mods_bitmap_count(void);
+/* whether the mods are played on the map loaded (not given back by
+mods_enable false, nor left off its menu pictures), and how many of its
+string lists, bitmaps, sounds and models are theirs (a Save Report's:
+report_game.c) */
+boolean mods_played_on_map(long counts[4]);
 
 /* ---------- prototypes/MOD_SOUNDS.C */
 

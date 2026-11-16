@@ -25,9 +25,13 @@ wchar_t const *game_modes_gametype_name(short index);
 /* its variant and options */
 void game_modes_gametype(short index, struct game_variant *variant, struct game_variant_options *options);
 /* the one of that name (debug.network_test's: "swat", "infection",
-"gun_game", "hardcore", "hardcore_ctf" ...), FALSE if none is */
+"gun_game", "hardcore", "hardcore_ctf" ..., and "pro_doubles"), FALSE if
+none is */
 boolean game_modes_gametype_by_name(char const *name, struct game_variant *variant,
 	struct game_variant_options *options);
+/* Pro Doubles (debug.network_test's "pro_doubles"): matchmaking's 2V2,
+Team Slayer as competitive Halo 1 2v2 played it, found by its name alone */
+void game_modes_pro_doubles(struct game_variant *variant, struct game_variant_options *options);
 
 /* ---- a gametype's options */
 

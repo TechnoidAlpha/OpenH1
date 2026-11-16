@@ -68,7 +68,8 @@ struct hud_hires_embedded
 	int ce_only;
 	/* Stock CE first mip after hardware conversion; resource maps may be modified. */
 	unsigned int ce_width, ce_height, ce_size, ce_crc;
-	const unsigned int *png;
+	/* (its PNG's bytes: an offset in the assets' file, embedded_assets.h) */
+	unsigned int png_offset;
 	unsigned int png_size;
 };
 
@@ -113,6 +114,10 @@ unsigned int hud_hires_png_texture(const void *png, unsigned long size, unsigned
 /* such a PNG's texels (RGBA, rows from the top; malloc's, the caller's to
 free) and size; NULL if it could not be */
 unsigned char *hud_hires_png_pixels(const void *png, unsigned long size, unsigned long *width, unsigned long *height);
+/* an image of such texels (which it takes, and frees if it cannot make it),
+with all its mip levels, and their number; 0 if it could not be */
+unsigned int hud_hires_pixels_texture(unsigned char *pixels, unsigned long width, unsigned long height,
+	unsigned long *levels);
 /* the HUD's textures for a map's bitmaps (port/linux/game/hud_hires_tags.c),
 decoded from their PNGs as it loads, on a thread of their own, so that they
 are only uploaded when first drawn; and, as it is unloaded, that stopped and
@@ -136,5 +141,12 @@ int hud_hires_override_point_threshold(long asset);
 long hud_hires_upscale_at(unsigned long address, long width, long height);
 unsigned int hud_hires_upscale_texture(const unsigned char *bgra, unsigned long width,
 	unsigned long height, long kind, unsigned long *levels);
+/* ...in two parts: its texels upscaled (4 times wider and higher, RGBA;
+malloc's, NULL if they cannot be), which touches nothing of the game's and
+may run on any thread; and the image made of them (which it takes) */
+unsigned char *hud_hires_upscale_kind_pixels(const unsigned char *bgra, unsigned long width,
+	unsigned long height, long kind);
+unsigned int hud_hires_upscaled_texture(unsigned char *pixels, unsigned long width, unsigned long height,
+	unsigned long *levels);
 
 #endif
