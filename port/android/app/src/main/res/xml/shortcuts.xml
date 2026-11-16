@@ -19,7 +19,7 @@
         android:shortcutShortLabel="@string/mcc_import_label">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="com.openh1.openh1"
+            android:targetPackage="com.openh1.openh1.fixtest"
             android:targetClass="com.halo.decomp.MccImportActivity" />
     </shortcut>
 </shortcuts>
